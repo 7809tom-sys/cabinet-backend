@@ -1,42 +1,104 @@
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
-import ErrorBoundary from "./components/ErrorBoundary";
-import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { TopNav } from "@/components/TopNav";
+import Home from "@/pages/Home";
+import NotFound from "@/pages/NotFound";
+import { lazy, Suspense } from "react";
+import { Spinner } from "@/components/ui/spinner";
 
-function Router() {
-  // make sure to consider if you need authentication for certain routes
+// Lazy-loaded pages
+const Catalog = lazy(() => import("@/pages/Catalog"));
+const CabinetDetail = lazy(() => import("@/pages/CabinetDetail"));
+const DoorStyles = lazy(() => import("@/pages/DoorStyles"));
+
+function PageLoader() {
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <Spinner className="h-8 w-8 text-primary" />
+    </div>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
-function App() {
+function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+    <div className="min-h-screen flex flex-col">
+      <TopNav />
+      <main className="flex-1">
+        {children}
+      </main>
+    </div>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+      <ThemeProvider defaultTheme="light">
+      <Switch>
+        {/* Home has its own footer, no AppLayout wrapper needed */}
+        <Route path="/" component={Home} />
+
+        {/* All other pages use AppLayout with TopNav */}
+        <Route path="/catalog">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Catalog />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/catalog/:masterCode">
+          {(params) => (
+            <AppLayout>
+              <Suspense fallback={<PageLoader />}>
+                <CabinetDetail masterCode={params.masterCode} />
+              </Suspense>
+            </AppLayout>
+          )}
+        </Route>
+
+        <Route path="/styles">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <DoorStyles />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/design">
+          <AppLayout>
+            <div className="container py-16 text-center">
+              <h1 className="font-serif text-3xl font-bold mb-4">2D Kitchen Design Tool</h1>
+              <p className="text-muted-foreground">Coming soon — draw your room, place cabinets, export your order.</p>
+            </div>
+          </AppLayout>
+        </Route>
+
+        <Route path="/bulk-order">
+          <AppLayout>
+            <div className="container py-16 text-center">
+              <h1 className="font-serif text-3xl font-bold mb-4">Bulk Order</h1>
+              <p className="text-muted-foreground">Coming soon — upload a CSV or scan barcodes to place a full kitchen order.</p>
+            </div>
+          </AppLayout>
+        </Route>
+
+        <Route path="/cart">
+          <AppLayout>
+            <div className="container py-16 text-center">
+              <h1 className="font-serif text-3xl font-bold mb-4">Cart</h1>
+              <p className="text-muted-foreground">Your cart is empty.</p>
+            </div>
+          </AppLayout>
+        </Route>
+
+        <Route>
+          <AppLayout>
+            <NotFound />
+          </AppLayout>
+        </Route>
+      </Switch>
+      <Toaster />
+    </ThemeProvider>
+  );
+}

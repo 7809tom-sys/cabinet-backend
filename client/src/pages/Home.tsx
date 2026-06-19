@@ -1,31 +1,413 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+import { Link } from "wouter";
+import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Home as HomeIcon, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
-import { Streamdown } from 'streamdown';
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
-export default function Home() {
-  // The userAuth hooks provides authentication state
-  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+// ─── Hero Section ─────────────────────────────────────────────────────────────
 
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+function Hero() {
+  return (
+    <section className="relative overflow-hidden bg-[var(--color-navy)] text-white">
+      {/* Background texture */}
+      <div className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage: `repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 40px,
+            rgba(255,255,255,0.03) 40px,
+            rgba(255,255,255,0.03) 80px
+          )`
+        }}
+      />
+      <div className="relative container py-20 md:py-28">
+        <div className="max-w-3xl">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium mb-6">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
+            Co-op Cabinet Platform for Trade Professionals
+          </div>
+
+          <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+            One Platform.
+            <br />
+            <span className="text-[var(--color-gold)]">Three Distributors.</span>
+            <br />
+            Thousands of Styles.
+          </h1>
+
+          <p className="text-lg md:text-xl text-white/75 mb-8 max-w-2xl leading-relaxed">
+            Browse 60+ door styles across US Cabinet Depot, Clark & Son, and Skyline.
+            Compare pricing instantly, design your kitchen in 2D, and order with one click.
+          </p>
+
+          {/* Audience CTAs */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link href="/catalog">
+              <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
+                Browse Catalog
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/styles">
+              <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                Explore Door Styles
+              </Button>
+            </Link>
+            <a href={getLoginUrl()}>
+              <Button size="lg" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10 gap-2">
+                Sign In to Order
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </a>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/15 pt-10">
+          {[
+            { value: "390+", label: "Cabinet Items" },
+            { value: "61", label: "Door Styles" },
+            { value: "3", label: "Distributors" },
+            { value: "10K+", label: "Platform SKUs" },
+          ].map((stat) => (
+            <div key={stat.label}>
+              <div className="text-3xl font-bold text-[var(--color-gold)]">{stat.value}</div>
+              <div className="text-sm text-white/60 mt-1">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Audience Cards ───────────────────────────────────────────────────────────
+
+function AudienceCards() {
+  const cards = [
+    {
+      icon: Building2,
+      title: "Distributors",
+      description: "Subscribe to use the platform privately for your own operations, or publish your catalog to all platform customers.",
+      cta: "Distributor Portal",
+      href: "/portal/distributor",
+      color: "bg-blue-50 dark:bg-blue-950/30",
+      iconColor: "text-blue-600 dark:text-blue-400",
+    },
+    {
+      icon: Grid3X3,
+      title: "Dealers & Contractors",
+      description: "Access Wholesale and Contractor pricing. Build kitchen designs, place bulk orders, and manage your clients.",
+      cta: "Dealer Portal",
+      href: "/portal/dealer",
+      color: "bg-amber-50 dark:bg-amber-950/30",
+      iconColor: "text-amber-600 dark:text-amber-400",
+    },
+    {
+      icon: HomeIcon,
+      title: "Homeowners",
+      description: "Browse styles, design your dream kitchen, compare prices across distributors, and order directly.",
+      cta: "Start Browsing",
+      href: "/catalog",
+      color: "bg-green-50 dark:bg-green-950/30",
+      iconColor: "text-green-600 dark:text-green-400",
+    },
+  ];
 
   return (
+    <section className="py-16 md:py-20 bg-muted/30">
+      <div className="container">
+        <div className="text-center mb-12">
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
+            Built for Everyone in the Cabinet Trade
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Whether you're a distributor, dealer, or homeowner — Cabinet Dealz has a workflow designed for you.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {cards.map((card) => (
+            <div key={card.title} className={`rounded-xl p-6 ${card.color} border border-border cabinet-card`}>
+              <div className={`inline-flex p-2.5 rounded-lg bg-white dark:bg-card mb-4 ${card.iconColor}`}>
+                <card.icon className="h-6 w-6" />
+              </div>
+              <h3 className="font-serif text-xl font-bold text-foreground mb-2">{card.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed mb-5">{card.description}</p>
+              <Link href={card.href}>
+                <Button variant="outline" size="sm" className="gap-1.5 bg-white dark:bg-card">
+                  {card.cta}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Platform Features ────────────────────────────────────────────────────────
+
+function PlatformFeatures() {
+  const features = [
+    {
+      icon: Palette,
+      title: "One-Click Style Switcher",
+      description: "Select a kitchen configuration, then instantly swap the door style or distributor to see updated pricing across all items.",
+    },
+    {
+      icon: Ruler,
+      title: "2D Kitchen Design Tool",
+      description: "Draw your room walls, place cabinets from the catalog, and export a full bill of materials — all in the browser.",
+    },
+    {
+      icon: FileSpreadsheet,
+      title: "CSV & Bulk Ordering",
+      description: "Upload a spreadsheet or scan barcodes to place a full kitchen order in seconds. Perfect for contractors.",
+    },
+    {
+      icon: Grid3X3,
+      title: "Photo-to-Cart OCR",
+      description: "Upload a floor plan photo from Home Depot or a contractor. AI reads the cabinet codes and auto-populates your cart.",
+    },
+  ];
+
+  return (
+    <section className="py-16 md:py-20">
+      <div className="container">
+        <div className="grid md:grid-cols-2 gap-12 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-4">
+              <span className="h-px w-8 bg-[var(--color-wood)]" />
+              Platform Features
+            </div>
+            <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-4">
+              Everything You Need to Sell Cabinets Faster
+            </h2>
+            <p className="text-muted-foreground leading-relaxed mb-8">
+              Cabinet Dealz is a co-op SaaS platform where distributors subscribe to share backend technology — keeping costs low and capabilities high for everyone in the supply chain.
+            </p>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              {features.map((f) => (
+                <div key={f.title} className="flex gap-3">
+                  <div className="shrink-0 mt-0.5 p-1.5 rounded-md bg-primary/10 text-primary">
+                    <f.icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm text-foreground mb-0.5">{f.title}</div>
+                    <div className="text-xs text-muted-foreground leading-relaxed">{f.description}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Visual mockup placeholder */}
+          <div className="relative">
+            <div className="rounded-2xl bg-[var(--color-navy)] p-6 text-white">
+              <div className="text-xs text-white/50 mb-3 font-mono">LIVE PRICING COMPARISON</div>
+              <div className="space-y-3">
+                {[
+                  { name: "Nova Blanc (Shaker White)", dist: "US Cabinet Depot", price: "$194.50" },
+                  { name: "Lumina White (Raised Panel)", dist: "Clark & Son", price: "$249.94" },
+                  { name: "Frost White (Shaker)", dist: "Skyline", price: "$218.40" },
+                ].map((item, i) => (
+                  <div key={i} className={`flex items-center justify-between rounded-lg p-3 ${i === 0 ? "bg-[var(--color-gold)]/20 border border-[var(--color-gold)]/30" : "bg-white/5"}`}>
+                    <div>
+                      <div className="text-sm font-medium">{item.name}</div>
+                      <div className="text-xs text-white/50">{item.dist}</div>
+                    </div>
+                    <div className={`text-lg font-bold ${i === 0 ? "text-[var(--color-gold)]" : "text-white/70"}`}>
+                      {item.price}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 text-xs text-white/40 text-center">B24 — 24" Single Door Base Cabinet · Wholesale Tier</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Distributors Strip ───────────────────────────────────────────────────────
+
+function DistributorsStrip() {
+  const { data: distributors } = trpc.distributors.list.useQuery();
+
+  return (
+    <section className="py-10 border-y border-border bg-muted/20">
+      <div className="container">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <p className="text-sm font-medium text-muted-foreground shrink-0">
+            Powered by 3 top distributors:
+          </p>
+          <div className="flex flex-wrap justify-center md:justify-end gap-6">
+            {distributors?.map((d) => (
+              <div key={d.id} className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground text-xs font-bold">
+                  {d.initials}
+                </span>
+                {d.name}
+              </div>
+            ))}
+            {!distributors && (
+              <>
+                {["US Cabinet Depot", "Clark & Son", "Skyline"].map((name) => (
+                  <div key={name} className="h-5 w-36 rounded bg-muted animate-pulse" />
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Category Quick Links ─────────────────────────────────────────────────────
+
+function CategoryLinks() {
+  const categories = [
+    { name: "Base", description: "Standard base cabinets, sink bases, drawer bases", href: "/catalog?category=Base" },
+    { name: "Wall", description: "Upper wall cabinets in all widths and heights", href: "/catalog?category=Wall" },
+    { name: "Tall", description: "Pantry, utility, and full-height cabinets", href: "/catalog?category=Tall" },
+    { name: "ADA", description: "Accessible design, ADA-compliant cabinets", href: "/catalog?category=ADA" },
+    { name: "Vanity", description: "Bathroom vanity bases and wall cabinets", href: "/catalog?category=Vanity" },
+    { name: "Accessory", description: "Fillers, trim, molding, and specialty items", href: "/catalog?category=Accessory" },
+  ];
+
+  return (
+    <section className="py-16 md:py-20">
+      <div className="container">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
+            Shop by Category
+          </h2>
+          <Link href="/catalog">
+            <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
+              View all
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {categories.map((cat) => (
+            <Link key={cat.name} href={cat.href}>
+              <div className="group rounded-xl border border-border bg-card p-4 text-center hover:border-primary/40 hover:shadow-md transition-all duration-200 cursor-pointer h-full">
+                <div className="font-serif text-lg font-bold text-foreground group-hover:text-primary transition-colors mb-1">
+                  {cat.name}
+                </div>
+                <div className="text-xs text-muted-foreground leading-snug hidden md:block">
+                  {cat.description}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
+
+function Footer() {
+  return (
+    <footer className="bg-[var(--color-navy)] text-white/70">
+      <div className="container py-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+          <div className="col-span-2 md:col-span-1">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex h-7 w-7 items-center justify-center rounded bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-xs">
+                CD
+              </div>
+              <span className="font-serif text-lg font-bold text-white">
+                Cabinet<span className="text-[var(--color-gold)]">Dealz</span>
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed">
+              Co-op cabinet platform for distributors, dealers, and homeowners.
+            </p>
+          </div>
+
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">Catalog</div>
+            <ul className="space-y-2 text-sm">
+              {["Base Cabinets", "Wall Cabinets", "Tall Cabinets", "ADA Cabinets", "Vanity", "Accessories"].map((item) => (
+                <li key={item}>
+                  <Link href={`/catalog?category=${item.split(" ")[0]}`} className="hover:text-white transition-colors">
+                    {item}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">Tools</div>
+            <ul className="space-y-2 text-sm">
+              {[
+                { label: "Door Style Selector", href: "/styles" },
+                { label: "2D Design Tool", href: "/design" },
+                { label: "Bulk Order", href: "/bulk-order" },
+                { label: "Photo-to-Cart", href: "/ocr" },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link href={item.href} className="hover:text-white transition-colors">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">Portals</div>
+            <ul className="space-y-2 text-sm">
+              {[
+                { label: "Distributor Portal", href: "/portal/distributor" },
+                { label: "Dealer Portal", href: "/portal/dealer" },
+                { label: "Admin Dashboard", href: "/admin" },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link href={item.href} className="hover:text-white transition-colors">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/40">
+          <span>© {new Date().getFullYear()} Cabinet Dealz. All rights reserved.</span>
+          <span>Platform SKU format: [ItemCode]-[StyleCode]-[DistInitials]</span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+// ─── Main Home Page ───────────────────────────────────────────────────────────
+
+export default function Home() {
+  return (
     <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
+      <Hero />
+      <DistributorsStrip />
+      <AudienceCards />
+      <PlatformFeatures />
+      <CategoryLinks />
+      <Footer />
     </div>
   );
 }

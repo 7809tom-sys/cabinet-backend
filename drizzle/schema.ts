@@ -1,22 +1,24 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import {
+  int,
+  mysqlEnum,
+  mysqlTable,
+  text,
+  timestamp,
+  varchar,
+  decimal,
+  boolean,
+  json,
+} from "drizzle-orm/mysql-core";
 
-/**
- * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
- */
+// ─── Users ───────────────────────────────────────────────────────────────────
+
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "admin", "distributor", "dealer"]).default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -25,4 +27,215 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+// ─── Distributors ─────────────────────────────────────────────────────────────
+
+export const distributors = mysqlTable("distributors", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 16 }).notNull().unique(), // UCD, CS, SK
+  name: varchar("name", { length: 128 }).notNull(), // US Cabinet Depot, Clark & Son, Skyline
+  initials: varchar("initials", { length: 8 }).notNull(), // UCD, CS, SK
+  costMultiplier: decimal("costMultiplier", { precision: 5, scale: 4 }).notNull(), // 0.30, 0.38, 0.35
+  tariffRate: decimal("tariffRate", { precision: 5, scale: 4 }).default("0").notNull(),
+  shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }).default("0").notNull(),
+  warehouseZips: json("warehouseZips").$type<string[]>(),
+  leadTimeDays: int("leadTimeDays").default(7),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Distributor = typeof distributors.$inferSelect;
+
+// ─── Door Styles ──────────────────────────────────────────────────────────────
+
+export const doorStyles = mysqlTable("door_styles", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  styleCode: varchar("styleCode", { length: 32 }).notNull(), // ASP, SW, GR
+  ourName: varchar("ourName", { length: 128 }).notNull(), // Lumina White (white-label brand name)
+  distributorName: varchar("distributorName", { length: 128 }).notNull(), // Aspen White
+  doorStyle: varchar("doorStyle", { length: 64 }), // Raised Panel, Shaker, Slab
+  woodSpecies: varchar("woodSpecies", { length: 64 }),
+  finish: varchar("finish", { length: 128 }),
+  color: varchar("color", { length: 64 }),
+  boxConstruction: varchar("boxConstruction", { length: 128 }),
+  drawerConstruction: varchar("drawerConstruction", { length: 128 }),
+  hardware: varchar("hardware", { length: 128 }),
+  frameSize: varchar("frameSize", { length: 32 }),
+  overlayType: varchar("overlayType", { length: 64 }),
+  doorPanelType: varchar("doorPanelType", { length: 64 }),
+  warehouseZip: varchar("warehouseZip", { length: 16 }),
+  shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }),
+  doorSampleImageUrl: varchar("doorSampleImageUrl", { length: 512 }),
+  roomSceneImageUrl: varchar("roomSceneImageUrl", { length: 512 }),
+  thumbnailImageUrl: varchar("thumbnailImageUrl", { length: 512 }),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DoorStyle = typeof doorStyles.$inferSelect;
+
+// ─── Cabinet Items (GENERIC_INFO) ─────────────────────────────────────────────
+
+export const cabinets = mysqlTable("cabinets", {
+  id: int("id").autoincrement().primaryKey(),
+  masterCode: varchar("masterCode", { length: 64 }).notNull().unique(), // DB-24-3, B-24, etc.
+  description: text("description").notNull(),
+  descriptionSource: varchar("descriptionSource", { length: 64 }), // US Cabinet Depot, Clark & Son, Research
+  category: varchar("category", { length: 64 }).notNull(), // Base, Wall, Tall, ADA, Vanity, Accessory
+  subCategory: varchar("subCategory", { length: 128 }), // Drawer Base, Sink Base, etc.
+  width: decimal("width", { precision: 6, scale: 2 }),
+  height: decimal("height", { precision: 6, scale: 2 }),
+  depth: decimal("depth", { precision: 6, scale: 2 }),
+  physicalWidth: decimal("physicalWidth", { precision: 6, scale: 2 }),
+  weight: decimal("weight", { precision: 8, scale: 2 }),
+  // 2D/3D Design fields
+  placementType: varchar("placementType", { length: 32 }), // base, wall, tall, island
+  numberOfDoors: int("numberOfDoors").default(0),
+  numberOfDrawers: int("numberOfDrawers").default(0),
+  hingeSide: varchar("hingeSide", { length: 16 }), // left, right, both, none
+  doorSwingClearance: decimal("doorSwingClearance", { precision: 5, scale: 2 }),
+  toeKickHeight: decimal("toeKickHeight", { precision: 5, scale: 2 }),
+  stackingAllowed: boolean("stackingAllowed").default(false),
+  isCornerCabinet: boolean("isCornerCabinet").default(false),
+  cornerSide: varchar("cornerSide", { length: 16 }), // left, right
+  fillerRequired: boolean("fillerRequired").default(false),
+  // Blind corner specific
+  openingWidth: decimal("openingWidth", { precision: 5, scale: 2 }),
+  minPull: decimal("minPull", { precision: 5, scale: 2 }),
+  maxPull: decimal("maxPull", { precision: 5, scale: 2 }),
+  // 2D graphic
+  graphicType: varchar("graphicType", { length: 64 }), // base_1door, wall_2door, etc.
+  // Packaging
+  pkgLength: decimal("pkgLength", { precision: 6, scale: 2 }),
+  pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
+  pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Cabinet = typeof cabinets.$inferSelect;
+
+// ─── Distributor SKU Mapping ───────────────────────────────────────────────────
+
+export const distributorSkus = mysqlTable("distributor_skus", {
+  id: int("id").autoincrement().primaryKey(),
+  cabinetId: int("cabinetId").notNull(),
+  distributorId: int("distributorId").notNull(),
+  styleId: int("styleId").notNull(),
+  platformSku: varchar("platformSku", { length: 128 }).notNull().unique(), // DB24-SW-UCD
+  distributorSku: varchar("distributorSku", { length: 128 }).notNull(), // 3DB24
+  listPrice: decimal("listPrice", { precision: 10, scale: 2 }),
+  yourCost: decimal("yourCost", { precision: 10, scale: 2 }),
+  adjustedListPrice: decimal("adjustedListPrice", { precision: 10, scale: 2 }),
+  wholesalePrice: decimal("wholesalePrice", { precision: 10, scale: 2 }),
+  contractorPrice: decimal("contractorPrice", { precision: 10, scale: 2 }),
+  homeownerPrice: decimal("homeownerPrice", { precision: 10, scale: 2 }),
+  isAvailable: boolean("isAvailable").default(true).notNull(),
+  isPublished: boolean("isPublished").default(true).notNull(), // distributor visibility toggle
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DistributorSku = typeof distributorSkus.$inferSelect;
+
+// ─── Pantry Bundles ───────────────────────────────────────────────────────────
+
+export const pantryBundles = mysqlTable("pantry_bundles", {
+  id: int("id").autoincrement().primaryKey(),
+  platformSku: varchar("platformSku", { length: 128 }).notNull().unique(),
+  distributorId: int("distributorId").notNull(),
+  styleId: int("styleId").notNull(),
+  width: int("width").notNull(),
+  totalHeight: int("totalHeight").notNull(),
+  bottomSku: varchar("bottomSku", { length: 64 }).notNull(),
+  topSku: varchar("topSku", { length: 64 }).notNull(),
+  bottomListPrice: decimal("bottomListPrice", { precision: 10, scale: 2 }),
+  topListPrice: decimal("topListPrice", { precision: 10, scale: 2 }),
+  combinedListPrice: decimal("combinedListPrice", { precision: 10, scale: 2 }),
+  adjustedListPrice: decimal("adjustedListPrice", { precision: 10, scale: 2 }),
+  wholesalePrice: decimal("wholesalePrice", { precision: 10, scale: 2 }),
+  contractorPrice: decimal("contractorPrice", { precision: 10, scale: 2 }),
+  homeownerPrice: decimal("homeownerPrice", { precision: 10, scale: 2 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// ─── Cart & Orders ────────────────────────────────────────────────────────────
+
+export const carts = mysqlTable("carts", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  sessionId: varchar("sessionId", { length: 128 }),
+  selectedStyleId: int("selectedStyleId"),
+  selectedDistributorId: int("selectedDistributorId"),
+  pricingTier: mysqlEnum("pricingTier", ["Wholesale", "Contractor", "Homeowner"]).default("Homeowner").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const cartItems = mysqlTable("cart_items", {
+  id: int("id").autoincrement().primaryKey(),
+  cartId: int("cartId").notNull(),
+  cabinetId: int("cabinetId").notNull(),
+  platformSku: varchar("platformSku", { length: 128 }),
+  quantity: int("quantity").default(1).notNull(),
+  unitPrice: decimal("unitPrice", { precision: 10, scale: 2 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const orders = mysqlTable("orders", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  orderNumber: varchar("orderNumber", { length: 64 }).notNull().unique(),
+  distributorId: int("distributorId"),
+  styleId: int("styleId"),
+  pricingTier: mysqlEnum("pricingTier", ["Wholesale", "Contractor", "Homeowner"]).notNull(),
+  status: mysqlEnum("status", ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]).default("pending").notNull(),
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }),
+  shippingCost: decimal("shippingCost", { precision: 10, scale: 2 }),
+  total: decimal("total", { precision: 12, scale: 2 }),
+  notes: text("notes"),
+  sourceType: mysqlEnum("sourceType", ["manual", "csv_upload", "ocr_upload", "design_tool"]).default("manual"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const orderItems = mysqlTable("order_items", {
+  id: int("id").autoincrement().primaryKey(),
+  orderId: int("orderId").notNull(),
+  cabinetId: int("cabinetId"),
+  platformSku: varchar("platformSku", { length: 128 }),
+  distributorSku: varchar("distributorSku", { length: 128 }),
+  description: text("description"),
+  quantity: int("quantity").default(1).notNull(),
+  unitPrice: decimal("unitPrice", { precision: 10, scale: 2 }),
+  lineTotal: decimal("lineTotal", { precision: 10, scale: 2 }),
+});
+
+// ─── Kitchen Designs ──────────────────────────────────────────────────────────
+
+export const kitchenDesigns = mysqlTable("kitchen_designs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  name: varchar("name", { length: 256 }).notNull(),
+  roomData: json("roomData").$type<object>(), // walls, dimensions
+  placedCabinets: json("placedCabinets").$type<object[]>(), // [{cabinetId, x, y, rotation, styleId}]
+  selectedStyleId: int("selectedStyleId"),
+  selectedDistributorId: int("selectedDistributorId"),
+  thumbnailUrl: varchar("thumbnailUrl", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// ─── Subscribers / Dealer Storefronts ─────────────────────────────────────────
+
+export const subscribers = mysqlTable("subscribers", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  businessName: varchar("businessName", { length: 256 }).notNull(),
+  subdomain: varchar("subdomain", { length: 64 }).unique(),
+  logoUrl: varchar("logoUrl", { length: 512 }),
+  primaryColor: varchar("primaryColor", { length: 16 }),
+  subscriptionTier: mysqlEnum("subscriptionTier", ["basic", "professional", "enterprise"]).default("basic").notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
