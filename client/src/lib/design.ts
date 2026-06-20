@@ -378,6 +378,21 @@ const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: str
 const DEFAULT_FINISH: FinishColors = { face: "#c79a63", edge: "#a07a45", label: "#3a2410" };
 export const DEFAULT_FINISH_COLORS = DEFAULT_FINISH;
 
+// Door-panel treatment derived from the door-style family name. Used to render
+// the correct front detail (recessed Shaker frame, raised center, flat slab,
+// beaded boards, stacked double-shaker) on door swatches AND on placed cabinets
+// in the elevation view, so picking a style visibly changes the door look.
+export type DoorPanelKind = "shaker" | "raised" | "slab" | "beaded" | "inset" | "double-shaker";
+export function doorPanelKind(doorStyle?: string | null): DoorPanelKind {
+  const s = (doorStyle ?? "").toLowerCase();
+  if (/double/.test(s)) return "double-shaker";
+  if (/raised|cathedral|arch/.test(s)) return "raised";
+  if (/slab|flat|contemporary|euro|modern/.test(s)) return "slab";
+  if (/bead/.test(s)) return "beaded";
+  if (/inset/.test(s)) return "inset";
+  return "shaker";
+}
+
 export function finishColors(styleCodeOrName?: string | null): FinishColors {
   const s = (styleCodeOrName || "").toLowerCase();
   for (const f of FINISH_BY_KEYWORD) {

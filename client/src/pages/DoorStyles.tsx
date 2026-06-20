@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 import { Palette } from "lucide-react";
-// useState still used by the page (selectedType); Palette used in empty state.
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import { RoomScenePreview } from "@/components/RoomScenePreview";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 
 // ─── Style card ───────────────────────────────────────────────────────────────
 // Presents purely by door-style attributes. No supplier/line identity is shown.
@@ -23,38 +26,80 @@ interface DoorStyle {
 
 function StyleCard({ style }: { style: DoorStyle }) {
   return (
-    <div className="cabinet-card group rounded-xl border border-border bg-card overflow-hidden">
-      {/* Door sample rendered to the style's real color + panel treatment */}
-      <div className="h-40 bg-gradient-to-b from-muted/30 to-muted/60 flex items-center justify-center border-b border-border overflow-hidden relative p-4">
-        <DoorStyleSwatch
-          style={style}
-          className="h-full w-auto drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
-        />
-      </div>
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="cabinet-card group rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          {/* Door sample rendered to the style's real color + panel treatment */}
+          <div className="h-40 bg-gradient-to-b from-muted/30 to-muted/60 flex items-center justify-center border-b border-border overflow-hidden relative p-4">
+            <DoorStyleSwatch
+              style={style}
+              className="h-full w-auto drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
+            />
+            <span className="absolute bottom-2 right-2 text-[10px] font-medium text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+              View in kitchen
+            </span>
+          </div>
 
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <p className="font-semibold text-sm text-foreground leading-snug">
+          <div className="p-4">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <p className="font-semibold text-sm text-foreground leading-snug">
+                {style.ourName || style.styleCode}
+              </p>
+              {style.doorStyle && (
+                <Badge variant="outline" className="text-xs shrink-0">{style.doorStyle}</Badge>
+              )}
+            </div>
+
+            <div className="mt-1 space-y-0.5">
+              {style.woodSpecies && (
+                <p className="text-xs text-muted-foreground">Wood: {style.woodSpecies}</p>
+              )}
+              {style.finish && (
+                <p className="text-xs text-muted-foreground">Finish: {style.finish}</p>
+              )}
+              {style.color && (
+                <p className="text-xs text-muted-foreground">Color: {style.color}</p>
+              )}
+            </div>
+          </div>
+        </button>
+      </DialogTrigger>
+
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
             {style.ourName || style.styleCode}
-          </p>
-          {style.doorStyle && (
-            <Badge variant="outline" className="text-xs shrink-0">{style.doorStyle}</Badge>
-          )}
+            {style.doorStyle && (
+              <Badge variant="outline" className="text-xs">{style.doorStyle}</Badge>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Generated room scene in this style's color + panel treatment */}
+        <div className="rounded-lg overflow-hidden border border-border">
+          <RoomScenePreview style={style} className="w-full h-auto block" />
         </div>
 
-        <div className="mt-1 space-y-0.5">
-          {style.woodSpecies && (
-            <p className="text-xs text-muted-foreground">Wood: {style.woodSpecies}</p>
-          )}
-          {style.finish && (
-            <p className="text-xs text-muted-foreground">Finish: {style.finish}</p>
-          )}
-          {style.color && (
-            <p className="text-xs text-muted-foreground">Color: {style.color}</p>
-          )}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+          <div className="flex items-center gap-2">
+            <DoorStyleSwatch style={style} className="h-12 w-auto" />
+            <div className="text-xs text-muted-foreground">Door sample</div>
+          </div>
+          <div className="space-y-0.5">
+            {style.doorStyle && <p className="text-xs"><span className="text-muted-foreground">Style:</span> {style.doorStyle}</p>}
+            {style.woodSpecies && <p className="text-xs"><span className="text-muted-foreground">Wood:</span> {style.woodSpecies}</p>}
+            {style.finish && <p className="text-xs"><span className="text-muted-foreground">Finish:</span> {style.finish}</p>}
+            {style.color && <p className="text-xs"><span className="text-muted-foreground">Color:</span> {style.color}</p>}
+          </div>
         </div>
-      </div>
-    </div>
+        <p className="text-[11px] text-muted-foreground">
+          Scene is a rendered illustration of this finish across upper and base cabinets. Open any cabinet to compare trade pricing in this style.
+        </p>
+      </DialogContent>
+    </Dialog>
   );
 }
 

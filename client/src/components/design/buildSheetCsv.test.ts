@@ -1,0 +1,66 @@
+import { describe, it, expect } from "vitest";
+import { buildSheetCsv, type BuildSheetArgs } from "./DesignActions";
+
+const base: BuildSheetArgs = {
+  room: { width: 120, depth: 96 },
+  styleName: "Shaker White",
+  tier: "Contractor",
+  total: 1234.5,
+  buildRows: [
+    { code: "DB-24-3", description: "24\" Drawer Base", widthIn: 24, placement: "base", qty: 2, unitPrice: 199.99 },
+    { code: "W3030", description: "30\" Wall", widthIn: 30, placement: "wall", qty: 1, unitPrice: 120 },
+  ],
+  extraLines: [{ label: "BASE CORNER FILLER", detail: "1 x 3in (required for blind corner)" }],
+};
+
+describe("buildSheetCsv", () => {
+  it("returns null when there are no cabinet rows", () => {
+    expect(buildSheetCsv({ ...base, buildRows: [] })).toBeNull();
+  });
+
+  it("includes door style, tier, and room metadata", () => {
+    const csv = buildSheetCsv(base)!;
+    expect(csv).toContain("Door Style:,Shaker White");
+    expect(csv).toContain("Pricing Tier:,Contractor");
+    expect(csv).toContain("Room:,120in x 96in");
+  });
+
+  it("computes line totals as unitPrice * qty", () => {
+    const csv = buildSheetCsv(base)!;
+    // 199.99 * 2 = 399.98
+    expect(csv).toContain("DB-24-3");
+    expect(csv).toContain("399.98");
+    // single wall cabinet line total = 120.00
+    expect(csv).toContain("120.00");
+  });
+
+  it("renders extra (non-cabinet) lines as 'incl.'", () => {
+    const csv = buildSheetCsv(base)!;
+    expect(csv).toContain("BASE CORNER FILLER");
+    expect(csv).toContain("incl.");
+  });
+
+  it("falls back to '(not selected)' when no style chosen and blanks unpriced lines", () => {
+    const csv = buildSheetCsv({
+      ...base,
+      styleName: null,
+      buildRows: [{ code: "B12", description: "12\" Base", widthIn: 12, placement: "base", qty: 1, unitPrice: null }],
+    })!;
+    expect(csv).toContain("Door Style:,(not selected)");
+    // unpriced row: unit price + line total columns are empty
+    expect(csv).toContain('B12,"12"" Base",12,base,1,,');
+  });
+
+  it("escapes values containing commas/quotes", () => {
+    const csv = buildSheetCsv({
+      ...base,
+      buildRows: [{ code: "X1", description: 'Lazy Susan, 33"', widthIn: 33, placement: "base", qty: 1, unitPrice: 50 }],
+    })!;
+    expect(csv).toContain('"Lazy Susan, 33"""');
+  });
+
+  it("ends with the estimated total", () => {
+    const csv = buildSheetCsv(base)!;
+    expect(csv.trimEnd().endsWith("1234.50")).toBe(true);
+  });
+});

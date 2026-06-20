@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { doorPanelKind, type DoorPanelKind } from "@/lib/design";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DoorStyleSwatch
@@ -15,6 +16,7 @@ import { useMemo } from "react";
 export interface DoorStyleLike {
   styleCode?: string | null;
   ourName?: string | null;
+  name?: string | null;
   doorStyle?: string | null;
   color?: string | null;
   finish?: string | null;
@@ -40,16 +42,16 @@ const COLOR_BY_KEYWORD: { match: RegExp; hex: string }[] = [
   { match: /creamy|antique white|natural choice|shoji|ivory|biscuit|almond|manila/, hex: "#ece2cf" },
   { match: /repose gray|agreeable gray|accessible beige|mindful gray|greige|mushroom/, hex: "#cabfae" },
   { match: /mineral|dorian gray|gauntlet|dovetail|pewter|repose|fog/, hex: "#a7a39a" },
-  { match: /grizzle|peppercorn|gris|iron ore|urbane bronze|graphite|charcoal|slate/, hex: "#5b5b58" },
-  { match: /tricorn black|black magic|caviar|onyx|carbon|tricorn|cracked pepper/, hex: "#2a2a2c" },
+  { match: /grizzle|peppercorn|iron ore|urbane bronze|graphite|charcoal|slate|gris/, hex: "#5b5b58" },
+  { match: /tricorn black|black magic|caviar|onyx|carbon|tricorn|cracked pepper|noir/, hex: "#2a2a2c" },
   { match: /naval|indigo|sea serpent|navy|cobalt|blue/, hex: "#36465c" },
   { match: /evergreen|pewter green|rosemary|sage|forest|hunter|green/, hex: "#56685b" },
   { match: /cherry|mahogany|chestnut|cinnamon|brick|spice/, hex: "#7a4a32" },
   { match: /walnut|mocha|coffee|java|espresso|chocolate|brown/, hex: "#6b4a32" },
   { match: /white oak|natural|honey|maple|wheat|amber|toffee|oak/, hex: "#c79a63" },
   { match: /gray|grey|stone/, hex: "#9aa0a6" },
-  { match: /white|snow|arctic|pearl|dove|frost/, hex: "#f3f1ec" },
-  { match: /cream|linen|sand|beige|tan/, hex: "#e6dcc6" },
+  { match: /white|snow|arctic|pearl|dove|frost|blanc/, hex: "#f3f1ec" },
+  { match: /cream|linen|sand|beige|tan|creme|ivoire/, hex: "#e6dcc6" },
 ];
 
 const DEFAULT_HEX = "#c79a63"; // warm wood fallback
@@ -74,7 +76,7 @@ function luminance(hex: string): number {
 }
 
 export function resolveSwatch(style: DoorStyleLike): Swatch {
-  const haystack = `${style.color ?? ""} ${style.ourName ?? ""} ${style.finish ?? ""} ${style.woodSpecies ?? ""}`.toLowerCase();
+  const haystack = `${style.color ?? ""} ${style.ourName ?? ""} ${style.name ?? ""} ${style.finish ?? ""} ${style.woodSpecies ?? ""}`.toLowerCase();
   let face = DEFAULT_HEX;
   for (const c of COLOR_BY_KEYWORD) {
     if (c.match.test(haystack)) {
@@ -91,21 +93,11 @@ export function resolveSwatch(style: DoorStyleLike): Swatch {
   };
 }
 
-type PanelKind = "shaker" | "raised" | "slab" | "beaded" | "inset" | "double-shaker";
-
-function panelKind(doorStyle?: string | null): PanelKind {
-  const s = (doorStyle ?? "").toLowerCase();
-  if (/double/.test(s)) return "double-shaker";
-  if (/raised|cathedral|arch/.test(s)) return "raised";
-  if (/slab|flat|contemporary|euro|modern/.test(s)) return "slab";
-  if (/bead/.test(s)) return "beaded";
-  if (/inset/.test(s)) return "inset";
-  return "shaker"; // default + explicit shaker
-}
+type PanelKind = DoorPanelKind;
 
 export function DoorStyleSwatch({ style, className }: DoorStyleSwatchProps) {
   const sw = useMemo(() => resolveSwatch(style), [style]);
-  const kind = useMemo(() => panelKind(style.doorStyle), [style.doorStyle]);
+  const kind = useMemo(() => doorPanelKind(style.doorStyle), [style.doorStyle]);
 
   // viewBox: a portrait door, 100 wide x 130 tall
   const W = 100;
@@ -118,7 +110,7 @@ export function DoorStyleSwatch({ style, className }: DoorStyleSwatchProps) {
       className={className}
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label={`${style.ourName || style.styleCode || "Door"} — ${style.doorStyle || "door"} sample`}
+      aria-label={`${style.ourName || style.name || style.styleCode || "Door"} — ${style.doorStyle || "door"} sample`}
     >
       {/* outer door slab */}
       <rect x="2" y="2" width={W - 4} height={H - 4} rx="3" fill={sw.face} stroke={sw.edge} strokeWidth="2" />

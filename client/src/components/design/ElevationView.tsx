@@ -1,6 +1,7 @@
 import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN,
+  type DoorPanelKind,
 } from "@/lib/design";
 import { useRef, useEffect, useState } from "react";
 
@@ -14,11 +15,13 @@ interface Props {
   finish?: FinishColors;
   crown?: boolean;
   toeKick?: boolean;
+  panelKind?: DoorPanelKind;
 }
 
 export function ElevationView({
   room, cabinets, selectedUid, onSelect, wall, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false,
+  panelKind = "shaker",
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [ppi, setPpi] = useState(4);
@@ -115,7 +118,10 @@ export function ElevationView({
               title={`${p.masterCode} — ${p.description}`}
             >
               <div className="w-full h-full relative">
-                <div className="absolute inset-[3px] border rounded-[1px]" style={{ borderColor: `${edgeColor}66` }} />
+                {/* Door-style-specific front treatment (skipped for appliances) */}
+                {!isAppliance && (
+                  <DoorFront kind={panelKind} edge={edgeColor} face={finish.face} />
+                )}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : finish.label }}>
                     {p.masterCode}
@@ -235,4 +241,72 @@ export function ElevationView({
       )}
     </div>
   );
+}
+
+// Lightweight door-front detail overlay that reflects the active door style so a
+// placed cabinet visibly changes appearance when the user switches styles.
+function DoorFront({ kind, edge, face }: { kind: DoorPanelKind; edge: string; face: string }) {
+  const stroke = `${edge}99`;
+  const frame = (
+    <div className="absolute inset-[3px] border rounded-[1px]" style={{ borderColor: stroke }} />
+  );
+  switch (kind) {
+    case "slab":
+      // Flat slab: a single thin reveal, no inner panel.
+      return <div className="absolute inset-[2px] rounded-[1px]" style={{ border: `1px solid ${edge}55` }} />;
+    case "double-shaker":
+      // Two stacked recessed panels.
+      return (
+        <>
+          {frame}
+          <div className="absolute left-[7px] right-[7px] top-[7px] bottom-[51%] rounded-[1px]" style={{ border: `1px solid ${stroke}` }} />
+          <div className="absolute left-[7px] right-[7px] top-[51%] bottom-[7px] rounded-[1px]" style={{ border: `1px solid ${stroke}` }} />
+        </>
+      );
+    case "raised": {
+      // Beveled raised center panel.
+      return (
+        <>
+          {frame}
+          <div
+            className="absolute inset-[7px] rounded-[1px]"
+            style={{
+              border: `1px solid ${stroke}`,
+              boxShadow: `inset 0 0 0 1px ${face}, inset 1px 1px 2px ${edge}55`,
+            }}
+          />
+        </>
+      );
+    }
+    case "beaded":
+      // Vertical bead board lines inside the frame.
+      return (
+        <>
+          {frame}
+          <div
+            className="absolute inset-[5px]"
+            style={{
+              backgroundImage: `repeating-linear-gradient(90deg, transparent 0, transparent 3px, ${edge}44 3px, ${edge}44 4px)`,
+            }}
+          />
+        </>
+      );
+    case "inset":
+      // Thin inset reveal + recessed panel.
+      return (
+        <>
+          <div className="absolute inset-[2px] rounded-[1px]" style={{ border: `1px solid ${edge}55` }} />
+          <div className="absolute inset-[6px] rounded-[1px]" style={{ border: `1px solid ${stroke}` }} />
+        </>
+      );
+    case "shaker":
+    default:
+      // Single recessed Shaker panel.
+      return (
+        <>
+          {frame}
+          <div className="absolute inset-[7px] rounded-[1px]" style={{ border: `1px solid ${stroke}` }} />
+        </>
+      );
+  }
 }

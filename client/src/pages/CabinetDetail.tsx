@@ -157,6 +157,34 @@ export default function CabinetDetail({ masterCode }: Props) {
             <div className="mb-6" />
           )}
 
+          {/* Blind corner details */}
+          {(cabinet.openingWidth || cabinet.minPull || cabinet.maxPull) && (
+            <div className="rounded-xl border border-amber-300/60 bg-amber-50/50 p-5 mb-6">
+              <h3 className="font-semibold text-sm text-foreground mb-1 flex items-center gap-2">
+                <Info className="h-4 w-4 text-amber-600" />
+                Blind Corner Details
+              </h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                A blind corner cabinet hides part of its run behind the adjacent cabinets. Pull it away from the
+                corner within the range below so the neighboring run&apos;s doors and drawers clear, then add a corner filler.
+              </p>
+              <dl className="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                {[
+                  { label: "Opening Width", value: cabinet.openingWidth ? `${parseFloat(cabinet.openingWidth)}\"` : null },
+                  { label: "Min Pull", value: cabinet.minPull ? `${parseFloat(cabinet.minPull)}\"` : null },
+                  { label: "Max Pull", value: cabinet.maxPull ? `${parseFloat(cabinet.maxPull)}\"` : null },
+                ]
+                  .filter((item) => item.value)
+                  .map((item) => (
+                    <div key={item.label}>
+                      <dt className="text-muted-foreground">{item.label}</dt>
+                      <dd className="font-semibold text-foreground">{item.value}</dd>
+                    </div>
+                  ))}
+              </dl>
+            </div>
+          )}
+
           {/* Specs */}
           <div className="rounded-xl border border-border p-5">
             <h3 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">

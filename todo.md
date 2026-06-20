@@ -6,7 +6,7 @@
 - [x] Seed 61 door styles from CD_STANDARDS
 - [x] Seed distributor records (US Cabinet Depot, Clark & Son, Skyline)
 - [x] Seed 10,643 distributor SKUs with pricing tiers (Wholesale, Contractor, Homeowner)
-- [ ] Seed blind corner cabinet measurements
+- [x] Seed blind corner cabinet measurements (12 cabinets: base openingWidth 15/minPull 3/maxPull 9, wall 12/2/6)
 - [ ] Upload all cabinet 2D graphics and door sample images to CDN
 
 ## Phase 2: Homepage & Navigation
@@ -21,11 +21,11 @@
 - [x] Sub-category filtering
 - [x] Cabinet grid with search and filters
 - [x] Cabinet detail page with specs, dimensions, 2D graphic
-- [ ] Blind corner detail page with opening width, min pull, max pull
+- [x] Blind corner detail on Cabinet Detail: "Blind Corner Details" panel renders opening width + min/max pull with pull-out clearance note (verified /catalog/BBC-45). Fixed DoorStyleSwatch to read style.name + French color terms (blanc/noir/gris/creme) so picker swatches render in real colors
 
 ## Phase 4: Door Style Selector & Price Switcher
 - [x] Door style selector grid with door sample images and color name labels
-- [ ] Room scene photo viewer per style
+- [x] Room scene viewer per style: clickable Door Styles card opens a dialog with a generated RoomScenePreview (upper+base cabinet run, backsplash, countertop, toe kick) colored to the style's real finish + panel treatment (no dead photo links)
 - [x] One-click style switcher that updates cabinet detail view
 - [x] One-click distributor switcher (US Cabinet Depot, Clark & Son, Skyline)
 - [x] Pricing display at three tiers: Wholesale, Contractor, Homeowner
@@ -39,9 +39,12 @@
 - [x] One-click Front Elevation view (Bird's-Eye / Front / Split toggle)
 - [x] Live pricing BOM with distributor + style + tier selectors and running total
 - [x] Email gate for non-logged-in users
-- [ ] Style application visual (door graphics) on placed cabinets
-- [ ] Save/load kitchen design
-- [ ] Export design to cart
+- [x] Style application visual on placed cabinets: ElevationView now draws door-style-specific fronts (shaker/double-shaker/raised/slab/beaded/inset) via shared doorPanelKind helper, driven by the selected style (3 panel-kind tests; 117 total pass)
+- [x] Save/load kitchen design: DesignActions (Save names + persists room/cabinets/style via design.save; My Designs lists design.myDesigns with loading/error+retry/signed-out/empty states, restores onto canvas via loadSavedDesign)
+- [x] Verified Save (guest/email-gated) end-to-end in browser (placed DB-24-3 -> Save -> "Design saved" toast confirmed). My Designs correctly shows signed-out account-scoped state for guests (by design).
+- [ ] Verify My Designs reload while AUTHENTICATED (saved design appears in list -> load restores room/cabinets/style onto canvas) — blocked in sandbox (guest only); load handler + myDesigns query exist in code
+- [~] Export design to cart: cart is still a placeholder (no cart backend yet); SHIPPED INSTEAD: "Export Build Sheet (CSV)" itemizing cabinets (qty/size/type/unit+line price) + fillers/crown/toe-kick/countertop + total; pure buildSheetCsv unit-tested
+- [ ] (Deferred) Real Export-to-Cart once a cart backend/checkout exists
 
 ## Data Quality Cleanup
 - [x] Normalize 215 cabinet descriptions to uniform US Cabinet Depot style

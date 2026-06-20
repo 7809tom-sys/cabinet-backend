@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearch } from "wouter";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
-  Maximize2, DollarSign, PanelTop, Columns3, Ruler, Square,
+  DollarSign, PanelTop, Columns3, Ruler, Square, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,11 +22,12 @@ import {
   trimPiecesNeeded, countertopArea,
   blindCornerFillers, snapToWall,
   nextFreeSpotOnWall, clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
-  resizeRoomByWall, WALL_LABELS,
+  resizeRoomByWall, WALL_LABELS, doorPanelKind,
 } from "@/lib/design";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
 import { EmailGate } from "@/components/design/EmailGate";
+import { DesignActions, exportBuildSheet, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl } from "@/components/design/RoomSizeControl";
 import { WallPicker } from "@/components/design/WallPicker";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -181,6 +182,43 @@ export default function DesignTool() {
   );
   const activeFinish = useMemo(() => finishColors(activeStyleName), [activeStyleName]);
 
+  // Restore a saved design (room + placed cabinets + style) onto the canvas.
+  const loadSavedDesign = useCallback(
+    (d: { room: RoomData; placed: PlacedCabinet[]; styleId: number | null }) => {
+      setRoom(d.room ?? DEFAULT_ROOM);
+      setPlaced(Array.isArray(d.placed) ? d.placed : []);
+      setStyleId(d.styleId ?? null);
+      setSelectedUid(null);
+    },
+    []
+  );
+
+  // Itemized lines for the exported build sheet (cabinets aggregated by code).
+  const buildRows = useMemo<BuildSheetRow[]>(() => {
+    const map = new Map<string, BuildSheetRow>();
+    for (const p of placed) {
+      const key = `${p.masterCode}|${Math.round(p.width)}`;
+      const unit = priceMap.get(p.cabinetId) ?? null;
+      const existing = map.get(key);
+      if (existing) existing.qty += 1;
+      else
+        map.set(key, {
+          code: p.masterCode,
+          description: p.description,
+          widthIn: p.width,
+          placement: p.placement,
+          qty: 1,
+          unitPrice: styleId ? unit : null,
+        });
+    }
+    return Array.from(map.values());
+  }, [placed, priceMap, styleId]);
+  // Panel treatment for the placed cabinets' door fronts in the elevation view.
+  const activePanelKind = useMemo(() => {
+    const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
+    return doorPanelKind(s?.doorStyle ?? activeStyleName);
+  }, [doorStyles, styleId, activeStyleName]);
+
   // Crown molding & toe kick for the BOM. Crown is grouped per wall with a 3"
   // miter allowance; both are ordered in whole standard sticks (96").
   const crownOrder = useMemo(
@@ -200,6 +238,24 @@ export default function DesignTool() {
   // Blind corner cabinets must auto-include a corner filler. One filler per
   // blind corner, split into base vs wall lines for the BOM.
   const fillers = useMemo(() => blindCornerFillers(placed), [placed]);
+
+  // Non-cabinet build-sheet lines (fillers, crown, toe kick, countertop note).
+  const extraLines = useMemo(() => {
+    const out: { label: string; detail: string }[] = [];
+    for (const f of fillers) {
+      out.push({
+        label: `${f.kind === "wall" ? "WALL" : "BASE"} CORNER FILLER`,
+        detail: `${f.count} x ${f.width}in (required for blind corner)`,
+      });
+    }
+    if (crown && crownOrder && crownOrder.pieces > 0)
+      out.push({ label: "CROWN MOLDING", detail: `${crownOrder.pieces} pc @ ${crownOrder.stickFeet}ft` });
+    if (toeKick && toeKickOrder && toeKickOrder.pieces > 0)
+      out.push({ label: "TOE KICK", detail: `${toeKickOrder.pieces} pc @ ${toeKickOrder.stickFeet}ft` });
+    if (countertop && counter && counter.squareFeet > 0)
+      out.push({ label: "COUNTERTOP (quote)", detail: `~${counter.squareFeet} sq ft / ${counter.linearFeet} lin ft` });
+    return out;
+  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, countertop, counter]);
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -522,6 +578,18 @@ export default function DesignTool() {
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </Button>
           <div className="h-5 w-px bg-border" />
+          <DesignActions
+            room={room}
+            placed={placed}
+            styleId={styleId}
+            styleName={activeStyleName}
+            tier={tier}
+            total={total}
+            extraLines={extraLines}
+            buildRows={buildRows}
+            onLoad={loadSavedDesign}
+          />
+          <div className="h-5 w-px bg-border" />
           <DesignHelp />
         </div>
       </div>
@@ -673,6 +741,7 @@ export default function DesignTool() {
               finish={activeFinish}
               crown={crown}
               toeKick={toeKick}
+              panelKind={activePanelKind}
             />
           )}
           {viewMode === "split" && (
@@ -714,6 +783,7 @@ export default function DesignTool() {
                   finish={activeFinish}
                   crown={crown}
                   toeKick={toeKick}
+                  panelKind={activePanelKind}
                 />
               </div>
             </div>
@@ -854,9 +924,9 @@ export default function DesignTool() {
             <Button
               className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90 gap-2"
               disabled={placed.length === 0}
-              onClick={() => toast.success("Design added to cart", { description: `${placed.length} cabinets · $${total.toFixed(2)}` })}
+              onClick={() => exportBuildSheet({ room, styleName: activeStyleName, tier, total, buildRows, extraLines })}
             >
-              <Maximize2 className="h-4 w-4" /> Add Design to Cart
+              <Download className="h-4 w-4" /> Export Build Sheet (CSV)
             </Button>
             {countertop && counter && counter.squareFeet > 0 && (
               <Button

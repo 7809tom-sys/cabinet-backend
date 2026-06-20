@@ -10,6 +10,7 @@ import {
   crownLinearInches, toeKickLinearInches, trimPiecesNeeded,
   miteredTrimInches, cabinetWall, countertopArea,
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
+  doorPanelKind,
   type PlacedCabinet, type RoomData,
 } from "./design";
 
@@ -543,5 +544,31 @@ describe("countertopArea", () => {
 
   it("COUNTERTOP_DEPTH_IN is 25.5", () => {
     expect(COUNTERTOP_DEPTH_IN).toBe(25.5);
+  });
+});
+
+
+describe("doorPanelKind", () => {
+  it("maps door-style families to the correct panel treatment", () => {
+    expect(doorPanelKind("Shaker")).toBe("shaker");
+    expect(doorPanelKind("Slim Shaker")).toBe("shaker");
+    expect(doorPanelKind("Double Shaker")).toBe("double-shaker");
+    expect(doorPanelKind("Raised Panel")).toBe("raised");
+    expect(doorPanelKind("Cathedral Arch")).toBe("raised");
+    expect(doorPanelKind("Slab")).toBe("slab");
+    expect(doorPanelKind("Contemporary")).toBe("slab");
+    expect(doorPanelKind("Euro Flat")).toBe("slab");
+    expect(doorPanelKind("Beaded")).toBe("beaded");
+    expect(doorPanelKind("Inset")).toBe("inset");
+  });
+
+  it("defaults to shaker for unknown or empty styles", () => {
+    expect(doorPanelKind(null)).toBe("shaker");
+    expect(doorPanelKind(undefined)).toBe("shaker");
+    expect(doorPanelKind("Mystery Style")).toBe("shaker");
+  });
+
+  it("prioritizes 'double' over plain shaker", () => {
+    expect(doorPanelKind("Double Slim Shaker")).toBe("double-shaker");
   });
 });
