@@ -70,3 +70,47 @@
 - [ ] Loading states, empty states, error handling
 - [ ] Vitest unit tests
 - [ ] Final checkpoint and delivery
+
+
+## White-Label & Trade-Only Conversion
+- [x] Map distributor IDs to neutral labels (Line A / Line B / Line C) at the DB source
+- [ ] Remove distributor brand names from Home.tsx (hero copy, featured styles, distributor strip, footer)
+- [ ] Remove distributor brand names from Door Styles, Catalog, Cabinet Detail, Design Tool
+- [ ] Remove Homeowner pricing tier (keep Wholesale + Contractor trade tiers)
+- [ ] Remove consumer buy path: "Sign In to Order", "Add to Cart", cart icon, homeowner audience card/CTA
+- [ ] Update homepage messaging to trade/wholesale audience (no homeowner selling)
+- [ ] Verify no brand names or consumer-selling elements remain in UI
+
+## Per-Distributor White-Label Model (revised direction)
+- [x] Home page white-labeled + Cabinet Dealz self-branding (hero, audience, supply strip, footer)
+- [ ] Add `whiteLabel` boolean column to distributors table (default true = hidden)
+- [ ] API returns real brand name only when whiteLabel = false, else neutral label
+- [ ] All three current distributors set to white-labeled (hidden)
+- [ ] Door Styles / Catalog / Cabinet Detail / Design Tool respect whiteLabel flag
+- [ ] Cabinet Dealz brand strong across all customer-facing pages
+- [ ] Product image watermarks never show distributor/dealer names
+- [ ] Keep trade ordering path (buy/design); homeowner retail moves to future affiliate site
+
+
+## Homeowner Pricing — Competitive Comparison (future affiliate site)
+- [ ] When recommending a homeowner sell price, compare against rtastore.com on random cabinets
+- [ ] Build a price-comparison reference (our homeowner price vs RTA Store) to validate positioning
+
+
+## Kitchen Floor-Plan Bundles ("Kitchen Packages")
+- [x] Research competitor 10×10 package builds (they spec cheapest blind-corner budget RTA configs)
+- [x] Define standard bundle layouts: L-Shape 10×10, U-Shape 10×12, Galley/One-Wall 10×10
+- [x] Compute bundle BOMs + landed cost (lowest line + $30/cab assembly + ~8% regional freight)
+- [x] Build bundle vs competitor comparison spreadsheet (assembled benchmark, suggested affiliate retail ~3% under avg)
+- [x] Add kitchen_packages data (shared/packages.ts: BOM + placed-cabinet layout)
+- [x] tRPC packages router: list, bySlug (priced BOM), layout (for design tool)
+- [x] Kitchen Packages browse page (cards: layout, cabinet count, our price vs competitor avg, savings badge)
+- [x] Package detail page: BOM table, pricing, comparison, affiliate economics, "Customize in Design Tool" button
+- [x] Load a package layout straight into the 2D design tool canvas (?package=slug)
+- [x] Reframe messaging: packages available assembled OR flat-pack (RTA), per partner feedback
+- [x] Vitest spec for packages router (pricing math + BOM completeness + layout resolution)
+- [x] Add error/empty states to packages browse page (failed/empty list with retry)
+- [x] Distinguish network-error vs not-found on package detail page (retry + back)
+- [x] Package preload error/invalid-slug feedback in Design Tool
+- [ ] Finish white-label wiring through catalog/design routers + pages
+- [ ] Verify in browser + save checkpoint

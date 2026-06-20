@@ -6,6 +6,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 
 const NAV_LINKS = [
+  { label: "Kitchen Packages", href: "/packages" },
   { label: "Catalog", href: "/catalog" },
   { label: "Door Styles", href: "/styles" },
   { label: "Design Tool", href: "/design" },

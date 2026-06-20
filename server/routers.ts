@@ -9,6 +9,7 @@ import {
   pricingRouter,
 } from "./routers/catalog";
 import { designRouter } from "./routers/design";
+import { packagesRouter } from "./routers/packages";
 
 export const appRouter = router({
   system: systemRouter,
@@ -28,6 +29,7 @@ export const appRouter = router({
   doorStyles: doorStylesRouter,
   pricing: pricingRouter,
   design: designRouter,
+  packages: packagesRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -15,6 +15,13 @@
       "when": 1781875360570,
       "tag": "0001_equal_stick",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1781976425216,
+      "tag": "0002_lumpy_monster_badoon",
+      "breakpoints": true
     }
   ]
 }

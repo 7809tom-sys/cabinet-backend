@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useSearch } from "wouter";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   Maximize2, DollarSign, Box, PanelTop, Columns3,
@@ -37,6 +38,16 @@ function priceOf(row: { wholesalePrice: string | null; contractorPrice: string |
 export default function DesignTool() {
   // Email gate
   const [verified, setVerified] = useState(false);
+
+  // Optional package to preload (?package=slug), e.g. from a Kitchen Package page.
+  const search = useSearch();
+  const packageSlug = useMemo(() => new URLSearchParams(search).get("package"), [search]);
+  const loadedPackageRef = useRef<string | null>(null);
+  const { data: packageLayout, isError: packageError } = trpc.packages.layout.useQuery(
+    { slug: packageSlug ?? "" },
+    { enabled: !!packageSlug && verified, retry: 1 }
+  );
+  const packageErrorRef = useRef(false);
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
@@ -157,6 +168,53 @@ export default function DesignTool() {
   };
 
   const dragDataRef = useState<{ current: DesignCabinet | null }>(() => ({ current: null }))[0];
+
+  // Preload a kitchen package layout onto the canvas (once per slug).
+  useEffect(() => {
+    if (!packageLayout || loadedPackageRef.current === packageLayout.slug) return;
+    loadedPackageRef.current = packageLayout.slug;
+    setRoom({ width: packageLayout.room.width, depth: packageLayout.room.depth });
+    const items = (packageLayout.items as Array<{
+      cabinetId: number; masterCode: string; description: string;
+      placement: "base" | "wall" | "tall"; x: number; y: number; rotation: number;
+      width: number | null; depth: number | null;
+    }>).map((it) => ({
+      uid: makeUid(),
+      cabinetId: it.cabinetId,
+      masterCode: it.masterCode,
+      description: it.description,
+      placement: it.placement,
+      x: it.x,
+      y: it.y,
+      width: it.width && it.width > 0 ? it.width : 24,
+      depth:
+        it.depth && it.depth > 0
+          ? it.depth
+          : it.placement === "wall"
+          ? STD.WALL_DEPTH
+          : it.placement === "tall"
+          ? STD.TALL_DEPTH
+          : STD.BASE_DEPTH,
+      rotation: it.rotation,
+    }));
+    setPlaced(items);
+    setSelectedUid(null);
+    toast.success(`Loaded "${packageLayout.name}" — edit, swap styles, and re-price.`);
+  }, [packageLayout]);
+
+  // Surface a failed package preload (network error or invalid slug).
+  useEffect(() => {
+    if (!packageSlug || !verified) return;
+    if (packageError && !packageErrorRef.current) {
+      packageErrorRef.current = true;
+      toast.error("Couldn't load that kitchen package. Start from the package page and try again.");
+    }
+    // packageLayout resolves to null for an unknown slug (no throw).
+    if (packageLayout === null && !packageErrorRef.current) {
+      packageErrorRef.current = true;
+      toast.error("That kitchen package wasn't found — starting with a blank canvas.");
+    }
+  }, [packageError, packageLayout, packageSlug, verified]);
 
   const selectedCab = placed.find((p) => p.uid === selectedUid);
 

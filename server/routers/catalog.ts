@@ -8,6 +8,7 @@ import {
   doorStyles,
   distributorSkus,
 } from "../../drizzle/schema";
+import { resolvePresentation, applyMarkup } from "../lib/presentation";
 
 // ─── Distributors ─────────────────────────────────────────────────────────────
 
@@ -15,7 +16,24 @@ export const distributorsRouter = router({
   list: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    return db.select().from(distributors).where(eq(distributors.isActive, true));
+    const rows = await db
+      .select()
+      .from(distributors)
+      .where(eq(distributors.isActive, true));
+    // Resolve the customer-facing label per line; never leak hidden supplier names.
+    return rows.map((d) => {
+      const p = resolvePresentation(d);
+      return {
+        id: d.id,
+        code: d.code,
+        name: p.displayName,
+        initials: p.displayInitials,
+        displayMode: p.displayMode,
+        seriesName: d.seriesName,
+        leadTimeDays: d.leadTimeDays,
+        isActive: d.isActive,
+      };
+    });
   }),
 });
 

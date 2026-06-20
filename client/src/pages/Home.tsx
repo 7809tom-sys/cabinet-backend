@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Home as HomeIcon, ChevronRight } from "lucide-react";
+import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Users, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
@@ -26,23 +26,23 @@ function Hero() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium mb-6">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
-            Co-op Cabinet Platform for Trade Professionals
+            The Trade Platform for Cabinet Professionals
           </div>
 
           <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
             One Platform.
             <br />
-            <span className="text-[var(--color-gold)]">Three Distributors.</span>
+            <span className="text-[var(--color-gold)]">Every Line.</span>
             <br />
-            Thousands of Styles.
+            Endless Styles.
           </h1>
 
           <p className="text-lg md:text-xl text-white/75 mb-8 max-w-2xl leading-relaxed">
-            Browse 60+ door styles across US Cabinet Depot, Clark & Son, and Skyline.
-            Compare pricing instantly, design your kitchen in 2D, and order with one click.
+            Browse a unified catalog of door styles across our supply network. Compare trade
+            pricing instantly, design kitchens in 2D, and submit orders — all in one membership.
           </p>
 
-          {/* Audience CTAs */}
+          {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-3">
             <Link href="/catalog">
               <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
@@ -57,20 +57,20 @@ function Hero() {
             </Link>
             <a href={getLoginUrl()}>
               <Button size="lg" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10 gap-2">
-                Sign In to Order
+                Member Sign In
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </a>
           </div>
         </div>
 
-        {/* Stats row */}
+        {/* Value props row */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/15 pt-10">
           {[
-            { value: "390+", label: "Cabinet Items" },
-            { value: "61", label: "Door Styles" },
-            { value: "3", label: "Distributors" },
-            { value: "10K+", label: "Platform SKUs" },
+            { value: "One", label: "Unified Catalog" },
+            { value: "Trade", label: "Member Pricing" },
+            { value: "2D", label: "Kitchen Designer" },
+            { value: "1-Click", label: "Order Submission" },
           ].map((stat) => (
             <div key={stat.label}>
               <div className="text-3xl font-bold text-[var(--color-gold)]">{stat.value}</div>
@@ -89,9 +89,9 @@ function AudienceCards() {
   const cards = [
     {
       icon: Building2,
-      title: "Distributors",
-      description: "Subscribe to use the platform privately for your own operations, or publish your catalog to all platform customers.",
-      cta: "Distributor Portal",
+      title: "Suppliers",
+      description: "Join the supply network to put your lines in front of every member dealer, with private or published catalog control.",
+      cta: "Supplier Portal",
       href: "/portal/distributor",
       color: "bg-blue-50 dark:bg-blue-950/30",
       iconColor: "text-blue-600 dark:text-blue-400",
@@ -99,18 +99,18 @@ function AudienceCards() {
     {
       icon: Grid3X3,
       title: "Dealers & Contractors",
-      description: "Access Wholesale and Contractor pricing. Build kitchen designs, place bulk orders, and manage your clients.",
+      description: "Access member trade pricing, build kitchen designs, place bulk orders, and manage your projects in one place.",
       cta: "Dealer Portal",
       href: "/portal/dealer",
       color: "bg-amber-50 dark:bg-amber-950/30",
       iconColor: "text-amber-600 dark:text-amber-400",
     },
     {
-      icon: HomeIcon,
-      title: "Homeowners",
-      description: "Browse styles, design your dream kitchen, compare prices across distributors, and order directly.",
-      cta: "Start Browsing",
-      href: "/catalog",
+      icon: Users,
+      title: "Affiliates",
+      description: "Run your own branded storefront on top of the platform catalog and earn on every order you bring in.",
+      cta: "Affiliate Program",
+      href: "/portal/dealer",
       color: "bg-green-50 dark:bg-green-950/30",
       iconColor: "text-green-600 dark:text-green-400",
     },
@@ -121,10 +121,10 @@ function AudienceCards() {
       <div className="container">
         <div className="text-center mb-12">
           <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
-            Built for Everyone in the Cabinet Trade
+            Built for the Cabinet Trade
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Whether you're a distributor, dealer, or homeowner — Cabinet Dealz has a workflow designed for you.
+            Whether you supply, sell, or refer — there's a membership workflow designed for you.
           </p>
         </div>
 
@@ -157,7 +157,7 @@ function PlatformFeatures() {
     {
       icon: Palette,
       title: "One-Click Style Switcher",
-      description: "Select a kitchen configuration, then instantly swap the door style or distributor to see updated pricing across all items.",
+      description: "Select a kitchen configuration, then instantly swap the door style or line to see updated pricing across all items.",
     },
     {
       icon: Ruler,
@@ -167,12 +167,12 @@ function PlatformFeatures() {
     {
       icon: FileSpreadsheet,
       title: "CSV & Bulk Ordering",
-      description: "Upload a spreadsheet or scan barcodes to place a full kitchen order in seconds. Perfect for contractors.",
+      description: "Upload a spreadsheet or scan barcodes to build a full kitchen order in seconds. Perfect for contractors.",
     },
     {
       icon: Grid3X3,
       title: "Photo-to-Cart OCR",
-      description: "Upload a floor plan photo from Home Depot or a contractor. AI reads the cabinet codes and auto-populates your cart.",
+      description: "Upload a floor plan or quote. Our system reads the cabinet codes and auto-populates the order for review.",
     },
   ];
 
@@ -186,10 +186,11 @@ function PlatformFeatures() {
               Platform Features
             </div>
             <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Everything You Need to Sell Cabinets Faster
+              Everything You Need to Move Cabinets Faster
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-8">
-              Cabinet Dealz is a co-op SaaS platform where distributors subscribe to share backend technology — keeping costs low and capabilities high for everyone in the supply chain.
+              A shared trade platform where the supply network and member dealers run on the same
+              backend technology — keeping costs low and capabilities high across the supply chain.
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -207,15 +208,15 @@ function PlatformFeatures() {
             </div>
           </div>
 
-          {/* Visual mockup placeholder */}
+          {/* Visual mockup */}
           <div className="relative">
             <div className="rounded-2xl bg-[var(--color-navy)] p-6 text-white">
               <div className="text-xs text-white/50 mb-3 font-mono">LIVE PRICING COMPARISON</div>
               <div className="space-y-3">
                 {[
-                  { name: "Nova Blanc (Shaker White)", dist: "US Cabinet Depot", price: "$194.50" },
-                  { name: "Lumina White (Raised Panel)", dist: "Clark & Son", price: "$249.94" },
-                  { name: "Frost White (Shaker)", dist: "Skyline", price: "$218.40" },
+                  { name: "Nova Blanc (Shaker White)", dist: "Line A", price: "$194.50" },
+                  { name: "Lumina White (Raised Panel)", dist: "Line B", price: "$249.94" },
+                  { name: "Frost White (Shaker)", dist: "Line C", price: "$218.40" },
                 ].map((item, i) => (
                   <div key={i} className={`flex items-center justify-between rounded-lg p-3 ${i === 0 ? "bg-[var(--color-gold)]/20 border border-[var(--color-gold)]/30" : "bg-white/5"}`}>
                     <div>
@@ -228,7 +229,7 @@ function PlatformFeatures() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 text-xs text-white/40 text-center">B24 — 24" Single Door Base Cabinet · Wholesale Tier</div>
+              <div className="mt-4 text-xs text-white/40 text-center">B24 — 24" Double Door Base Cabinet · Member Pricing</div>
             </div>
           </div>
         </div>
@@ -237,7 +238,7 @@ function PlatformFeatures() {
   );
 }
 
-// ─── Distributors Strip ───────────────────────────────────────────────────────
+// ─── Supply Network Strip ─────────────────────────────────────────────────────
 
 function DistributorsStrip() {
   const { data: distributors } = trpc.distributors.list.useQuery();
@@ -247,7 +248,7 @@ function DistributorsStrip() {
       <div className="container">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <p className="text-sm font-medium text-muted-foreground shrink-0">
-            Powered by 3 top distributors:
+            Backed by a vetted supply network:
           </p>
           <div className="flex flex-wrap justify-center md:justify-end gap-6">
             {distributors?.map((d) => (
@@ -260,8 +261,8 @@ function DistributorsStrip() {
             ))}
             {!distributors && (
               <>
-                {["US Cabinet Depot", "Clark & Son", "Skyline"].map((name) => (
-                  <div key={name} className="h-5 w-36 rounded bg-muted animate-pulse" />
+                {["Line A", "Line B", "Line C"].map((name) => (
+                  <div key={name} className="h-5 w-28 rounded bg-muted animate-pulse" />
                 ))}
               </>
             )}
@@ -335,7 +336,7 @@ function Footer() {
               </span>
             </div>
             <p className="text-sm leading-relaxed">
-              Co-op cabinet platform for distributors, dealers, and homeowners.
+              The trade platform connecting the cabinet supply network with member dealers and affiliates.
             </p>
           </div>
 
@@ -374,7 +375,7 @@ function Footer() {
             <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">Portals</div>
             <ul className="space-y-2 text-sm">
               {[
-                { label: "Distributor Portal", href: "/portal/distributor" },
+                { label: "Supplier Portal", href: "/portal/distributor" },
                 { label: "Dealer Portal", href: "/portal/dealer" },
                 { label: "Admin Dashboard", href: "/admin" },
               ].map((item) => (
@@ -390,7 +391,7 @@ function Footer() {
 
         <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/40">
           <span>© {new Date().getFullYear()} Cabinet Dealz. All rights reserved.</span>
-          <span>Platform SKU format: [ItemCode]-[StyleCode]-[DistInitials]</span>
+          <span>A members-only trade platform.</span>
         </div>
       </div>
     </footer>

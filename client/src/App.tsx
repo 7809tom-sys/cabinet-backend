@@ -12,6 +12,8 @@ const Catalog = lazy(() => import("@/pages/Catalog"));
 const CabinetDetail = lazy(() => import("@/pages/CabinetDetail"));
 const DoorStyles = lazy(() => import("@/pages/DoorStyles"));
 const DesignTool = lazy(() => import("@/pages/DesignTool"));
+const Packages = lazy(() => import("@/pages/Packages"));
+const PackageDetail = lazy(() => import("@/pages/PackageDetail"));
 
 function PageLoader() {
   return (
@@ -53,6 +55,24 @@ export default function App() {
             <AppLayout>
               <Suspense fallback={<PageLoader />}>
                 <CabinetDetail masterCode={params.masterCode} />
+              </Suspense>
+            </AppLayout>
+          )}
+        </Route>
+
+        <Route path="/packages">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Packages />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/packages/:slug">
+          {(params) => (
+            <AppLayout>
+              <Suspense fallback={<PageLoader />}>
+                <PackageDetail slug={params.slug} />
               </Suspense>
             </AppLayout>
           )}

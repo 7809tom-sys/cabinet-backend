@@ -32,8 +32,15 @@ export type InsertUser = typeof users.$inferInsert;
 export const distributors = mysqlTable("distributors", {
   id: int("id").autoincrement().primaryKey(),
   code: varchar("code", { length: 16 }).notNull().unique(), // UCD, CS, SK
-  name: varchar("name", { length: 128 }).notNull(), // US Cabinet Depot, Clark & Son, Skyline
-  initials: varchar("initials", { length: 8 }).notNull(), // UCD, CS, SK
+  name: varchar("name", { length: 128 }).notNull(), // neutral label shown when white-labeled (e.g. Line A)
+  initials: varchar("initials", { length: 8 }).notNull(), // neutral initials shown when white-labeled (e.g. A)
+  brandName: varchar("brandName", { length: 128 }), // real supplier brand, only shown when whiteLabel = false
+  brandInitials: varchar("brandInitials", { length: 8 }), // real supplier initials, only shown when whiteLabel = false
+  whiteLabel: boolean("whiteLabel").default(true).notNull(), // true = hide supplier identity behind neutral label
+  // Presentation model: how this line is shown to members
+  displayMode: mysqlEnum("displayMode", ["neutral", "branded", "series"]).default("neutral").notNull(),
+  seriesName: varchar("seriesName", { length: 128 }), // e.g. "Cabinet Dealz Elegant Series" when displayMode = series
+  markupPercent: decimal("markupPercent", { precision: 6, scale: 4 }).default("0").notNull(), // price uplift applied for premium series, e.g. 0.15 = +15%
   costMultiplier: decimal("costMultiplier", { precision: 5, scale: 4 }).notNull(), // 0.30, 0.38, 0.35
   tariffRate: decimal("tariffRate", { precision: 5, scale: 4 }).default("0").notNull(),
   shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }).default("0").notNull(),
