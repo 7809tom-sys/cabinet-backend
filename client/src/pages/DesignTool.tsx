@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearch } from "wouter";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
-  Maximize2, DollarSign, Box, PanelTop, Columns3, Ruler, Square,
+  Maximize2, DollarSign, PanelTop, Columns3, Ruler, Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ import { RoomSizeControl } from "@/components/design/RoomSizeControl";
 import { WallPicker } from "@/components/design/WallPicker";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
+import { CabinetDrawing } from "@/components/CabinetDrawing";
 
 type ViewMode = "plan" | "elevation" | "split";
 type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
@@ -44,6 +45,10 @@ export default function DesignTool() {
   // Email gate
   const [verified, setVerified] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState("");
+  const handleVerified = useCallback((email: string) => {
+    setVerifiedEmail(email);
+    setVerified(true);
+  }, []);
 
   // Optional package to preload (?package=slug), e.g. from a Kitchen Package page.
   const search = useSearch();
@@ -372,12 +377,7 @@ export default function DesignTool() {
 
   if (!verified) {
     return (
-      <EmailGate
-        onVerified={(email) => {
-          setVerifiedEmail(email);
-          setVerified(true);
-        }}
-      />
+      <EmailGate onVerified={handleVerified} />
     );
   }
 
@@ -600,8 +600,8 @@ export default function DesignTool() {
                   onClick={() => addCabinet(c)}
                   className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                 >
-                  <div className="h-9 w-9 rounded bg-[#cdb38b]/40 border border-[#a07d4a]/40 flex items-center justify-center shrink-0">
-                    <Box className="h-4 w-4 text-[#8a6d3b]" />
+                  <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                    <CabinetDrawing cabinet={c} className="h-full w-auto max-w-full" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>

@@ -202,9 +202,55 @@
 - [x] Typecheck + vitest pass; browser verify trim + countertop quote flow (83 tests pass)
 
 
-## Installer network (LATER - after design tool)
-- [ ] Installer signup form ("Become an Installer": company, service ZIPs, trades, license/insurance, contact)
-- [ ] installer_applications table with pending/approved status (admin approval)
-- [ ] Admin review/approve installers
-- [ ] Installation request from a design; 15% management fee applied
-- [ ] Decide fee model (on top vs. carved out) - confirm with user
+## Pro Network (installers + countertop fabricators) — platform-wide, shared by ALL affiliate stores
+- [x] Fixed earlier: EmailGate setState-during-render moved to useEffect + stable useCallback
+- [ ] DB: pro_applications table (company, contact, trades[], service ZIPs/radius, materials, lead time, license/insurance, status pending/approved/rejected)
+- [ ] Migration generated + applied
+- [ ] tRPC: pros.apply (public signup) with validation
+- [ ] tRPC: pros.adminList / pros.adminSetStatus (admin-gated approve/reject)
+- [ ] tRPC: pros.matchByArea (find approved pros covering a ZIP, by trade)
+- [ ] Owner notification on new pro application
+- [ ] Public "Join Our Pro Network" signup page + nav/footer entry
+- [ ] Admin review UI (approve/reject) in admin area
+- [ ] Route countertop quote requests to matching approved pros by service area
+- [ ] Track 15% management fee on routed jobs
+- [ ] Tests: pros.apply, admin gating, matchByArea
+- [ ] Typecheck + vitest pass; browser verify signup + admin review
+
+
+## Cabinet imagery: to-scale 2D drawings per model (user request — ~380 models, image must match model + size)
+- [ ] Build CabinetDrawing SVG component: proportions from real width/height (12" narrow vs 30" wide)
+- [ ] Front detail by type: standard doors, drawer base (stacked drawers), sink base (false tilt-out top + sink cutout, NOT straight edge), appliance garage (tambour roll-up slats), blind corner (L-shape), vanity, ADA, accessory/molding (thin strip)
+- [ ] Derive drawing type from category/subCategory/masterCode + numberOfDoors/numberOfDrawers
+- [ ] Replace generic Package icon on Catalog cards with CabinetDrawing
+- [ ] Replace generic Package icon on Cabinet Detail with CabinetDrawing
+- [ ] Use CabinetDrawing in Design Tool palette/canvas where helpful (consistency)
+- [ ] Unit tests for drawing-type selection + proportion (aspect ratio from w/h)
+- [ ] Typecheck + vitest pass
+- [ ] Browser verify: 12" vs 30" drawer base look different, sink base tilt-out+cutout, appliance garage tambour
+- [ ] Checkpoint
+
+
+## Cabinet imagery: to-scale 2D drawings per model (~380 models; image must match model + size)
+- [x] Build CabinetDrawing SVG component: proportions from real width/height (12" narrow vs 30" wide)
+- [x] Front detail by type: standard doors, drawer base (stacked drawers), sink base (false tilt-out top + sink cutout, NOT straight edge), appliance garage (tambour roll-up slats), blind corner (L-shape), vanity, ADA, accessory/molding (thin strip)
+- [x] Derive drawing type from category/subCategory/masterCode + numberOfDoors/numberOfDrawers
+- [x] SEO: descriptive alt text per model (e.g., "Drawer Base 12\" (DB12) — 3-drawer base cabinet")
+- [x] SEO: image slug/key from description + masterCode (e.g., drawer-base-12-db12)
+- [x] Replace generic Package icon on Catalog cards with CabinetDrawing + alt
+- [x] Replace generic Package icon on Cabinet Detail with CabinetDrawing + alt
+- [x] Use CabinetDrawing in Design Tool palette items (consistency)
+- [x] Unit tests for drawing-type selection + proportion + slug/alt builder
+- [x] Typecheck + vitest pass (99 tests green)
+- [x] Browser verify: 12" vs 30" drawer base differ, sink base tilt-out+cutout, appliance garage tambour
+- [ ] (Optional later) Export PNGs named by slug for Google Images / listings
+- [x] Checkpoint (verified FSB-30 sink base false-front + DB-12-3 vs DB-27-3 proportions differ)
+
+
+## Catalog: category-first layout with room scenes (user request)
+- [x] Source kitchen room-scene images (license-free) for category tiles + hero
+- [x] Catalog landing: hero room scene + clickable category tiles (Base, Wall, Tall, ADA, Vanity, Accessory)
+- [x] Clicking a category drills into that category's to-scale cabinet drawings
+- [x] Keep search + back navigation from the drill-in view
+- [x] Design Tool keeps quick Base/Wall/Tall tabs (with new to-scale drawings on items)
+- [x] Browser verify category-first flow

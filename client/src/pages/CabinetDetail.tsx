@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { CabinetDrawing } from "@/components/CabinetDrawing";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
 
@@ -162,18 +163,25 @@ export default function CabinetDetail({ masterCode }: Props) {
       <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
         {/* Left: Image + specs */}
         <div>
-          {/* Cabinet image */}
-          <div className="rounded-xl border border-border bg-muted/30 h-64 flex items-center justify-center mb-6 overflow-hidden">
-            {selectedRow?.doorSampleImageUrl ? (
+          {/* Cabinet drawing (to-scale) + door finish sample */}
+          <div className="rounded-xl border border-border bg-gradient-to-b from-muted/20 to-muted/40 h-64 flex items-center justify-center mb-2 overflow-hidden p-6">
+            <CabinetDrawing cabinet={cabinet} className="h-full w-auto max-w-full" />
+          </div>
+          {selectedRow?.doorSampleImageUrl && (
+            <div className="flex items-center gap-3 mb-6 rounded-lg border border-border p-2.5">
               <img
                 src={selectedRow.doorSampleImageUrl}
-                alt={selectedRow.ourName}
-                className="w-full h-full object-cover"
+                alt={`${selectedRow.ourName} door finish sample`}
+                className="h-12 w-12 rounded object-cover shrink-0"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
-            ) : (
-              <Package className="h-24 w-24 text-muted-foreground/20" />
-            )}
-          </div>
+              <div className="text-xs text-muted-foreground leading-tight">
+                <div className="font-medium text-foreground">{selectedRow.ourName}</div>
+                <div>Selected door finish · drawing shown to scale</div>
+              </div>
+            </div>
+          )}
+          {!selectedRow?.doorSampleImageUrl && <div className="mb-6" />}
 
           {/* Specs */}
           <div className="rounded-xl border border-border p-5">

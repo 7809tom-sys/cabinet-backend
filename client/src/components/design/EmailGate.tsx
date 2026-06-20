@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Ruler, Mail, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,14 @@ export function EmailGate({ onVerified }: Props) {
   const [email, setEmail] = useState("");
   const [touched, setTouched] = useState(false);
 
-  // Logged-in users bypass the gate.
+  // Logged-in users bypass the gate. Run as an effect (never during render)
+  // to avoid "setState during render" warnings in the parent.
+  useEffect(() => {
+    if (user?.email) onVerified(user.email);
+  }, [user?.email, onVerified]);
+
+  // While we have a logged-in user, render nothing (the effect will verify).
   if (user?.email) {
-    onVerified(user.email);
     return null;
   }
 
