@@ -1,4 +1,7 @@
-import { PlacedCabinet, RoomData, STD, elevationBox, rotatedSize } from "@/lib/design";
+import {
+  PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
+  FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN,
+} from "@/lib/design";
 import { useRef, useEffect, useState } from "react";
 
 interface Props {
@@ -7,9 +10,16 @@ interface Props {
   selectedUid: string | null;
   onSelect: (uid: string | null) => void;
   wall: "front" | "back" | "left" | "right";
+  openings?: WallOpening[];
+  finish?: FinishColors;
+  crown?: boolean;
+  toeKick?: boolean;
 }
 
-export function ElevationView({ room, cabinets, selectedUid, onSelect, wall }: Props) {
+export function ElevationView({
+  room, cabinets, selectedUid, onSelect, wall, openings = [],
+  finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [ppi, setPpi] = useState(4);
   const PADDING = 40;
@@ -37,9 +47,13 @@ export function ElevationView({ room, cabinets, selectedUid, onSelect, wall }: P
   const wallPxH = WALL_TOTAL_HEIGHT * ppi;
 
   const sorted = [...cabinets].sort((a, b) => {
-    const order = { tall: 0, base: 1, wall: 2 };
-    return order[a.placement] - order[b.placement];
+    const order: Record<string, number> = { tall: 0, base: 1, appliance: 1, wall: 2 };
+    return (order[a.placement] ?? 1) - (order[b.placement] ?? 1);
   });
+
+  // Front elevation shows the "front" (bottom) wall; map its openings by offset along width.
+  const wallSideForView = wall === "front" ? "bottom" : wall === "back" ? "top" : wall;
+  const viewOpenings = openings.filter((o) => o.side === wallSideForView);
 
   return (
     <div
@@ -72,7 +86,12 @@ export function ElevationView({ room, cabinets, selectedUid, onSelect, wall }: P
           const posAlong = horizontal ? p.x : p.y;
           const { bottom, height } = elevationBox(p);
           const isWall = p.placement === "wall";
+          const isAppliance = p.placement === "appliance";
           const isSelected = p.uid === selectedUid;
+          const faceFill = isAppliance
+            ? "linear-gradient(to bottom, #d9dee6 0%, #c2c9d4 100%)"
+            : finish.face;
+          const edgeColor = isAppliance ? "#6b7280" : finish.edge;
 
           return (
             <div
@@ -87,16 +106,18 @@ export function ElevationView({ room, cabinets, selectedUid, onSelect, wall }: P
                 width: sizeAlong * ppi,
                 bottom: bottom * ppi,
                 height: height * ppi,
-                background: isWall ? "#d8c39c" : "#cdb38b",
-                border: isSelected ? "2px solid #1a2744" : "1.5px solid #a07d4a",
+                background: faceFill,
+                border: isSelected
+                  ? "2px solid #1a2744"
+                  : `1.5px solid ${edgeColor}`,
                 boxShadow: isSelected ? "0 0 0 3px rgba(212,167,90,0.5)" : undefined,
               }}
               title={`${p.masterCode} — ${p.description}`}
             >
               <div className="w-full h-full relative">
-                <div className="absolute inset-[3px] border border-[#8a6d3b]/40 rounded-[1px]" />
+                <div className="absolute inset-[3px] border rounded-[1px]" style={{ borderColor: `${edgeColor}66` }} />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[8px] font-bold text-[#1a2744] truncate px-0.5">
+                  <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : finish.label }}>
                     {p.masterCode}
                   </span>
                 </div>
@@ -106,7 +127,7 @@ export function ElevationView({ room, cabinets, selectedUid, onSelect, wall }: P
         })}
 
         {sorted
-          .filter((p) => p.placement === "base")
+          .filter((p) => p.placement === "base" && p.cabinetId !== 0)
           .map((p) => {
             const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
             const posAlong = horizontal ? p.x : p.y;
@@ -123,13 +144,91 @@ export function ElevationView({ room, cabinets, selectedUid, onSelect, wall }: P
               />
             );
           })}
+
+        {/* Crown molding: band across the top of each wall cabinet */}
+        {crown && sorted.filter((p) => p.placement === "wall").map((p) => {
+          const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+          const posAlong = horizontal ? p.x : p.y;
+          const { bottom, height } = elevationBox(p);
+          return (
+            <div
+              key={`crown-${p.uid}`}
+              className="absolute"
+              style={{
+                left: posAlong * ppi - 2,
+                width: sizeAlong * ppi + 4,
+                bottom: (bottom + height) * ppi,
+                height: Math.max(3, CROWN_HEIGHT_IN * ppi),
+                background: finish.edge,
+                borderTop: `1.5px solid ${finish.label === "#f8fafc" || finish.label === "#f5f5f5" ? finish.edge : "#1a2744"}`,
+                borderRadius: "2px 2px 0 0",
+                zIndex: 3,
+              }}
+              title="Crown molding"
+            />
+          );
+        })}
+
+        {/* Toe kick: recessed dark strip under base & tall cabinets */}
+        {toeKick && sorted.filter((p) => (p.placement === "base" || p.placement === "tall") && p.cabinetId !== 0).map((p) => {
+          const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+          const posAlong = horizontal ? p.x : p.y;
+          return (
+            <div
+              key={`toe-${p.uid}`}
+              className="absolute bg-[#2a2a2a]"
+              style={{
+                left: posAlong * ppi + 3,
+                width: sizeAlong * ppi - 6,
+                bottom: 0,
+                height: Math.max(2, TOE_KICK_HEIGHT_IN * ppi),
+                zIndex: 4,
+              }}
+              title="Toe kick"
+            />
+          );
+        })}
+
+        {/* Doors & windows on this wall, drawn at their sill height */}
+        {viewOpenings.map((o) => {
+          const isDoor = o.kind === "door";
+          return (
+            <div
+              key={`ev-${o.uid}`}
+              className="absolute flex items-center justify-center overflow-hidden"
+              style={{
+                left: o.offset * ppi,
+                width: o.width * ppi,
+                bottom: o.sill * ppi,
+                height: o.height * ppi,
+                background: isDoor
+                  ? "linear-gradient(to bottom, #b07f4d 0%, #8a5f33 100%)"
+                  : "linear-gradient(to bottom, rgba(160,205,235,0.85) 0%, rgba(126,180,214,0.85) 100%)",
+                border: "2px solid #1a2744",
+                borderRadius: 2,
+                zIndex: 5,
+              }}
+              title={`${o.label} (${Math.round(o.width)}" × ${Math.round(o.height)}")`}
+            >
+              {!isDoor && (
+                <div className="absolute inset-1 border border-[#1a2744]/40">
+                  <div className="absolute left-1/2 top-0 bottom-0 w-px bg-[#1a2744]/40" />
+                  <div className="absolute top-1/2 left-0 right-0 h-px bg-[#1a2744]/40" />
+                </div>
+              )}
+              <span className="relative text-[8px] font-bold text-white drop-shadow">
+                {isDoor ? "DOOR" : "WINDOW"}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       <div className="absolute top-3 left-1/2 -translate-x-1/2 text-xs font-medium text-[#1a2744] bg-white/80 px-3 py-1 rounded-full">
         Front Elevation
       </div>
 
-      {cabinets.length === 0 && (
+      {cabinets.length === 0 && openings.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
           Place cabinets in the plan view to see them here
         </div>

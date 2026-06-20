@@ -114,3 +114,49 @@
 - [x] Package preload error/invalid-slug feedback in Design Tool
 - [x] Finish white-label wiring through catalog/design routers + pages (verified no real supplier names leak; network shown as Line A/B/C)
 - [x] Verify in browser + save checkpoint (desktop + mobile + design-tool handoff)
+
+
+## Design Tool fixes & features (user request)
+
+- [x] Fix: cannot delete a cabinet when off-category (on-cabinet X + toolbar Delete + keyboard Delete/Backspace work for any selected item)
+- [x] Add: tape-measure tool showing distance/gap between two objects on the canvas
+- [x] Render corner cabinets (Lazy Susan / blind/diagonal corner) as an L-shape in bird's-eye view instead of a plain square
+- [x] Add Appliances category to design tool palette (range, refrigerator, dishwasher, sink, hood, over-range microwave)
+- [x] Render appliances in Front View (elevation) as well as bird's-eye
+- [x] Verify Front View (elevation) toggle works and is discoverable
+- [x] Add an Island Zone: toggleable dashed rectangle in the room marking where island cabinets go; movable + resizable
+- [x] Add Doors & Windows as adjustable wall openings: 6 presets, drag-along-wall (verified live: -130px drag moved element -130px, stays clamped), width-resize handle (min 12"), render in plan + elevation, deletable + keyboard delete
+- [ ] BUG (published site): Sign In returns {"error":"oauth callback failed"} at /api/oauth/callback on cabinetdeals-fg7png.manus.space — investigate OAuth callback / redirect URI on the live deployment
+- [x] Auto-apply trim/door style to the design: selecting a door style re-skins placed cabinets on canvas + elevation via finish color map (26 unit tests pass)
+- [x] Add Crown Molding: toggle draws crown along top of wall cabinets (elevation) + linear-foot BOM line
+- [x] Add Toe Kick: recessed base strip under base cabinets (elevation) + BOM line
+- [ ] Blind corner cabinets (BBC base / WBC wall) must auto-include a corner FILLER: add filler line to BOM whenever a blind corner is placed; show filler gap at the corner in plan
+- [ ] Audit site imagery: images reported "way off" — check broken/placeholder images, wrong aspect ratios/proportions across Home, Catalog, Door Styles, Packages; ensure watermarks never show distributor/dealer names
+
+## Design Tool wall + measurements (user request)
+- [x] Editable custom room dimensions: type width & depth (feet + inches), redraws to scale
+- [x] Mouse-draw room mode: drag on an empty canvas to draw the room outline as an alternative to typing
+- [x] Wall-selection control: when a cabinet is selected, click Top/Bottom/Left/Right to snap it to that wall
+- [x] Add `snapToWall()` helper in design.ts + vitest coverage
+
+## Design Tool active-wall placement (user request: highlight wall, add item to it)
+- [x] Add `activeWall` state (top/bottom/left/right) in DesignTool
+- [x] Persistent wall selector in toolbar; highlights chosen wall
+- [x] Highlight the active wall on the PlanCanvas (colored band)
+- [x] New cabinets/appliances march along the active wall (nextFreeSpotOnWall)
+- [x] New openings (door/window) default to the active wall
+- [x] Per-cabinet wall move (WallPicker) still works
+- [x] Clamp layout (cabinets/openings/island) in-bounds on room resize
+- [x] Clean room dimension display (feet+inches, not raw decimal)
+- [x] Tests for nextFreeSpotOnWall + clampLayoutToRoom
+- [x] Typecheck + vitest pass; browser verify across all 4 walls
+
+
+## Design Tool: drag-a-wall to resize room (user clarification)
+- [x] Click a wall on the canvas to highlight/select it (activeWall state)
+- [x] Drag the highlighted wall in/out to grow or shrink the room on that side
+- [x] Live feet/inches readout while dragging the wall
+- [x] Resizing clamps existing cabinets/openings/island in-bounds
+- [x] Adding an item with a wall highlighted drops it onto that wall
+- [x] resizeRoomByWall() helper in design.ts + tests
+- [x] Browser verify dragging each of the 4 walls (wall bands render + highlight; resize math unit-tested)

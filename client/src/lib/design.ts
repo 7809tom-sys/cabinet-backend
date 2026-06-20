@@ -15,7 +15,53 @@ export const STD = {
   SNAP_THRESHOLD: 6,
 };
 
-export type Placement = "base" | "wall" | "tall";
+export type Placement = "base" | "wall" | "tall" | "appliance";
+
+// Synthetic appliance catalog. Appliances are not cabinets (no DB row / price),
+// so they carry id = 0 and are skipped by the pricing engine. Dimensions are in
+// inches; `elevHeight` and `elevBottom` describe how they sit on the wall in the
+// front elevation view.
+export interface ApplianceDef {
+  key: string;
+  masterCode: string;
+  description: string;
+  width: number;
+  depth: number;
+  elevBottom: number; // inches from floor
+  elevHeight: number; // visible height in elevation
+}
+
+export const APPLIANCES: ApplianceDef[] = [
+  { key: "range", masterCode: "RANGE-30", description: 'Range / Stove 30"', width: 30, depth: 25, elevBottom: 0, elevHeight: 36 },
+  { key: "fridge", masterCode: "FRIDGE-36", description: 'Refrigerator 36"', width: 36, depth: 30, elevBottom: 0, elevHeight: 70 },
+  { key: "dishwasher", masterCode: "DW-24", description: 'Dishwasher 24"', width: 24, depth: 24, elevBottom: 0, elevHeight: 34.5 },
+  { key: "sink", masterCode: "SINK-33", description: 'Sink 33"', width: 33, depth: 22, elevBottom: 30, elevHeight: 6 },
+  { key: "hood", masterCode: "HOOD-30", description: 'Range Hood 30"', width: 30, depth: 18, elevBottom: 66, elevHeight: 18 },
+  { key: "microwave", masterCode: "MW-30", description: 'Over-Range Microwave 30"', width: 30, depth: 15, elevBottom: 54, elevHeight: 17 },
+];
+
+export function isApplianceCode(masterCode: string): boolean {
+  return /^(RANGE|FRIDGE|DW|SINK|HOOD|MW)-/.test((masterCode || "").toUpperCase());
+}
+
+// Convert an appliance definition into a DesignCabinet-like object so it flows
+// through the same add/drag/drop placement pipeline as cabinets.
+export function applianceAsDesignCabinet(a: ApplianceDef): DesignCabinet {
+  return {
+    id: 0,
+    masterCode: a.masterCode,
+    description: a.description,
+    category: "Appliance",
+    subCategory: null,
+    width: String(a.width),
+    height: String(a.elevHeight),
+    depth: String(a.depth),
+    placement: "appliance",
+    numberOfDoors: null,
+    numberOfDrawers: null,
+    isCornerCabinet: false,
+  };
+}
 
 export interface DesignCabinet {
   id: number;
@@ -61,6 +107,7 @@ export function dim(value: string | null | undefined, fallback: number): number 
 export function footprintDepth(c: DesignCabinet): number {
   if (c.placement === "wall") return dim(c.depth, STD.WALL_DEPTH);
   if (c.placement === "tall") return dim(c.depth, STD.TALL_DEPTH);
+  if (c.placement === "appliance") return dim(c.depth, STD.BASE_DEPTH);
   return dim(c.depth, STD.BASE_DEPTH);
 }
 
@@ -129,6 +176,11 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
 }
 
 export function elevationBox(p: PlacedCabinet): { bottom: number; height: number } {
+  if (p.placement === "appliance") {
+    const def = APPLIANCES.find((a) => a.masterCode === p.masterCode);
+    if (def) return { bottom: def.elevBottom, height: def.elevHeight };
+    return { bottom: 0, height: STD.COUNTERTOP_HEIGHT };
+  }
   if (p.placement === "wall") {
     return { bottom: STD.WALL_MOUNT_BOTTOM, height: STD.WALL_HEIGHT };
   }
@@ -175,8 +227,424 @@ function height_safe(roomDepth: number, _placement: Placement): number {
   return Math.min(roomDepth, 24);
 }
 
+// ─── Corner cabinet detection & L-shape rendering ───────────────────────────
+// Corner cabinets (Lazy Susan, blind corner, diagonal corner, easy-reach corner)
+// occupy an L-shaped footprint in plan view, not a plain square. We detect them
+// by masterCode prefix so both placed packages and palette drops render correctly.
+export function isCornerCabinet(masterCode: string, description?: string): boolean {
+  const code = (masterCode || "").toUpperCase();
+  if (/^(BBC|WBC|BLB|LSB|BEC|CSB|WLS|DCW|DCB|ER)/.test(code)) return true;
+  if (/-CNR|CORNER/.test(code)) return true;
+  const desc = (description || "").toLowerCase();
+  return /corner|lazy susan|easy reach|blind/.test(desc);
+}
+
+// Returns a CSS clip-path polygon describing an L-shape inscribed in the
+// cabinet's bounding box. The "notch" is cut from the corner pointing toward
+// the room interior, chosen from the cabinet's rotation so the two legs hug the
+// two adjacent walls. `legRatio` is the fraction of each side kept as a leg.
+export function cornerClipPath(rotation: number, legRatio = 0.55): string {
+  const r = ((rotation % 360) + 360) % 360;
+  const k = Math.round(legRatio * 100); // leg length as %
+  // Default (rot 0): legs along top + left, notch cut from bottom-right (interior).
+  switch (r) {
+    case 90: // notch bottom-left
+      return `polygon(0 0, 100% 0, 100% 100%, ${k}% 100%, ${k}% ${k}%, 0 ${k}%)`;
+    case 180: // notch top-left
+      return `polygon(${100 - k}% 0, 100% 0, 100% 100%, 0 100%, 0 ${k}%, ${100 - k}% ${k}%)`;
+    case 270: // notch top-right
+      return `polygon(0 0, ${k}% 0, ${k}% ${k}%, 100% ${k}%, 100% 100%, 0 100%)`;
+    default: // 0 — notch bottom-right
+      return `polygon(0 0, 100% 0, 100% ${k}%, ${k}% ${k}%, ${k}% 100%, 0 100%)`;
+  }
+}
+
+// Center-to-center distance between two placed cabinets, in inches.
+export function centerDistance(a: PlacedCabinet, b: PlacedCabinet): number {
+  const sa = rotatedSize(a);
+  const sb = rotatedSize(b);
+  const ax = a.x + sa.w / 2;
+  const ay = a.y + sa.d / 2;
+  const bx = b.x + sb.w / 2;
+  const by = b.y + sb.d / 2;
+  return Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2);
+}
+
+// Format an inch value as feet'inches" for readable callouts.
+export function formatInches(inches: number): string {
+  const rounded = Math.round(inches);
+  const ft = Math.floor(rounded / 12);
+  const inch = rounded % 12;
+  if (ft <= 0) return `${rounded}"`;
+  return inch === 0 ? `${ft}'` : `${ft}' ${inch}"`;
+}
+
+// ─── Doors & Windows (wall openings) ────────────────────────────────────────
+// A wall opening is anchored to one of the four room walls and positioned by an
+// offset (inches from the wall's start corner). Width is along the wall; for
+// elevation, sillHeight is inches from floor to the bottom of the opening and
+// height is the vertical size. Doors typically sit on the floor (sill 0).
+export type WallSide = "top" | "bottom" | "left" | "right";
+export type OpeningKind = "door" | "window";
+
+export interface OpeningDef {
+  key: string;
+  kind: OpeningKind;
+  label: string;
+  width: number; // along the wall
+  height: number; // vertical (elevation)
+  sill: number; // inches from floor to bottom of opening
+}
+
+export const OPENINGS: OpeningDef[] = [
+  { key: "entry-door", kind: "door", label: 'Entry Door 36"', width: 36, height: 80, sill: 0 },
+  { key: "interior-door", kind: "door", label: 'Interior Door 30"', width: 30, height: 80, sill: 0 },
+  { key: "patio-door", kind: "door", label: 'Patio / Sliding 72"', width: 72, height: 80, sill: 0 },
+  { key: "window-std", kind: "window", label: 'Window 36"', width: 36, height: 36, sill: 42 },
+  { key: "window-wide", kind: "window", label: 'Window 60"', width: 60, height: 36, sill: 42 },
+  { key: "window-over-sink", kind: "window", label: 'Over-Sink Window 30"', width: 30, height: 30, sill: 44 },
+];
+
+export interface WallOpening {
+  uid: string;
+  kind: OpeningKind;
+  label: string;
+  side: WallSide;
+  offset: number; // inches from the wall start (left for top/bottom, top for left/right)
+  width: number;
+  height: number;
+  sill: number;
+}
+
+export function wallLength(side: WallSide, room: RoomData): number {
+  return side === "top" || side === "bottom" ? room.width : room.depth;
+}
+
+// Clamp an opening's offset so it stays within its wall.
+export function clampOpening(o: WallOpening, room: RoomData): WallOpening {
+  const len = wallLength(o.side, room);
+  const width = Math.max(6, Math.min(o.width, len));
+  const offset = Math.max(0, Math.min(o.offset, len - width));
+  return { ...o, width, offset };
+}
+
+export function makeOpening(def: OpeningDef, side: WallSide, room: RoomData): WallOpening {
+  const len = wallLength(side, room);
+  const offset = Math.max(0, (len - def.width) / 2);
+  return clampOpening(
+    {
+      uid: makeUid(),
+      kind: def.kind,
+      label: def.label,
+      side,
+      offset,
+      width: def.width,
+      height: def.height,
+      sill: def.sill,
+    },
+    room
+  );
+}
+
 let uidCounter = 0;
 export function makeUid(): string {
   uidCounter += 1;
   return `c${Date.now().toString(36)}_${uidCounter}`;
+}
+
+// ─── Finish / trim color mapping ────────────────────────────────────────────
+// When a user picks a door style ("trim"), placed cabinets re-skin to that
+// finish on the canvas + elevation. We derive a representative fill color from
+// the style code/name so the design updates instantly without per-style image
+// assets. Falls back to a warm wood tone.
+export interface FinishColors {
+  face: string; // cabinet door/face fill
+  edge: string; // darker edge/shadow line
+  label: string; // text color that stays legible on the face
+}
+
+const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: string }[] = [
+  { match: /white|snow|arctic|alpine|pearl|dove/, face: "#f3f1ec", edge: "#cfc9bf", label: "#3a3a3a" },
+  { match: /grey|gray|stone|pewter|graphite|slate|fog/, face: "#9aa0a6", edge: "#6f747a", label: "#1f2937" },
+  { match: /navy|blue|indigo|ocean/, face: "#3b4d63", edge: "#26354a", label: "#f8fafc" },
+  { match: /green|sage|forest|hunter/, face: "#566f5a", edge: "#3c4f40", label: "#f8fafc" },
+  { match: /black|onyx|carbon|espresso|java/, face: "#2b2b2e", edge: "#161618", label: "#f5f5f5" },
+  { match: /cherry|mahogany|chestnut|cinnamon|spice/, face: "#7a4a32", edge: "#5a3422", label: "#fbeee6" },
+  { match: /honey|oak|natural|maple|wheat|amber|toffee/, face: "#c08a4e", edge: "#9a6a36", label: "#3a2410" },
+  { match: /walnut|mocha|coffee|chocolate|brown/, face: "#6b4a32", edge: "#4c3422", label: "#fbeee6" },
+  { match: /cream|almond|biscuit|linen|sand|beige|tan/, face: "#e6dcc6", edge: "#c7b79a", label: "#3a3526" },
+];
+
+const DEFAULT_FINISH: FinishColors = { face: "#c79a63", edge: "#a07a45", label: "#3a2410" };
+export const DEFAULT_FINISH_COLORS = DEFAULT_FINISH;
+
+export function finishColors(styleCodeOrName?: string | null): FinishColors {
+  const s = (styleCodeOrName || "").toLowerCase();
+  for (const f of FINISH_BY_KEYWORD) {
+    if (f.match.test(s)) return { face: f.face, edge: f.edge, label: f.label };
+  }
+  return DEFAULT_FINISH;
+}
+
+// ─── Crown molding & toe kick (design trim, rendered in elevation) ──────────
+// These are toggleable trim layers in the Design Tool. Crown runs along the top
+// of every wall cabinet; toe kick is the recessed strip under base/tall cabinets.
+// Linear footage for the BOM is derived from the combined widths of the relevant
+// cabinets (wall widths for crown, base+tall widths for toe kick).
+export const CROWN_HEIGHT_IN = 3;     // visual crown band height in elevation
+export const TOE_KICK_HEIGHT_IN = STD.TOE_KICK; // 4.5"
+
+export function crownLinearInches(placed: PlacedCabinet[]): number {
+  return placed
+    .filter((p) => p.placement === "wall")
+    .reduce((sum, p) => sum + rotatedSize(p).w, 0);
+}
+
+export function toeKickLinearInches(placed: PlacedCabinet[]): number {
+  return placed
+    .filter((p) => p.placement === "base" || p.placement === "tall")
+    .reduce((sum, p) => sum + rotatedSize(p).w, 0);
+}
+
+export function inchesToLinearFeet(inches: number): number {
+  return Math.ceil((inches / 12) * 10) / 10; // 1 decimal, rounded up
+}
+
+// ─── Blind corner fillers ───────────────────────────────────────────────────
+// Every BLIND corner cabinet (base BBC / wall WBC) must ship with a corner
+// filler strip so the adjacent door/drawer has clearance to open past the blind
+// section. We detect blind corners specifically (a subset of corner cabinets)
+// and auto-add one filler per blind corner to the BOM. Standard blind-corner
+// filler is 3" wide.
+export const BLIND_CORNER_FILLER_WIDTH_IN = 3;
+
+export function isBlindCorner(masterCode: string, description?: string): boolean {
+  const code = (masterCode || "").toUpperCase();
+  if (/^(BBC|WBC|BBL|BBR|WBL|WBR)/.test(code)) return true;
+  if (/-BLIND|BLIND/.test(code)) return true;
+  const desc = (description || "").toLowerCase();
+  return /blind\s*corner/.test(desc);
+}
+
+export interface FillerLine {
+  kind: "base" | "wall";
+  count: number;
+  width: number; // inches each
+}
+
+// Count blind corners in a layout and return the required filler lines, split
+// by base vs wall so the BOM can label them correctly. One filler per blind
+// corner cabinet.
+export function blindCornerFillers(placed: PlacedCabinet[]): FillerLine[] {
+  let base = 0;
+  let wall = 0;
+  for (const p of placed) {
+    if (!isBlindCorner(p.masterCode, p.description)) continue;
+    if (p.placement === "wall") wall += 1;
+    else base += 1;
+  }
+  const out: FillerLine[] = [];
+  if (base > 0) out.push({ kind: "base", count: base, width: BLIND_CORNER_FILLER_WIDTH_IN });
+  if (wall > 0) out.push({ kind: "wall", count: wall, width: BLIND_CORNER_FILLER_WIDTH_IN });
+  return out;
+}
+
+// ─── Explicit wall placement ────────────────────────────────────────────────
+// Snap a placed cabinet flush to a chosen wall, keeping it inside the room and
+// preserving its position along that wall (clamped). Used by the wall-selector
+// UI so a user can place a cabinet on the wall they actually want instead of
+// relying on drag-proximity guessing.
+export function snapToWall(p: PlacedCabinet, side: WallSide, room: RoomData): { x: number; y: number } {
+  const { w, d } = rotatedSize(p);
+  // Keep the position along the wall but clamp it inside the room.
+  let x = Math.max(0, Math.min(p.x, Math.max(0, room.width - w)));
+  let y = Math.max(0, Math.min(p.y, Math.max(0, room.depth - d)));
+  switch (side) {
+    case "top":
+      y = 0;
+      break;
+    case "bottom":
+      y = Math.max(0, room.depth - d);
+      break;
+    case "left":
+      x = 0;
+      break;
+    case "right":
+      x = Math.max(0, room.width - w);
+      break;
+  }
+  return { x, y };
+}
+
+// ─── Room dimension parsing / formatting ────────────────────────────────────
+// Room dimensions are stored in inches. The editable UI lets users type feet +
+// inches, so we convert between the two. Clamp to a sane kitchen range.
+export const ROOM_MIN_IN = 36;   // 3 ft
+export const ROOM_MAX_IN = 480;  // 40 ft
+
+export function feetInchesToInches(feet: number, inches: number): number {
+  const total = (Number.isFinite(feet) ? feet : 0) * 12 + (Number.isFinite(inches) ? inches : 0);
+  return clampRoomInches(total);
+}
+
+export function inchesToFeetInches(totalInches: number): { feet: number; inches: number } {
+  const t = Math.round(totalInches);
+  return { feet: Math.floor(t / 12), inches: t % 12 };
+}
+
+export function clampRoomInches(inches: number): number {
+  if (!Number.isFinite(inches)) return ROOM_MIN_IN;
+  return Math.max(ROOM_MIN_IN, Math.min(ROOM_MAX_IN, Math.round(inches)));
+}
+
+
+// ─── Active-wall placement ──────────────────────────────────────────────────
+// The Design Tool has a persistent "active wall" the user selects. Newly added
+// cabinets/appliances are placed flush against that wall and march along it,
+// packing next to the existing items already on that wall. This makes adding a
+// run of cabinets to a specific wall predictable instead of guessing.
+
+export const WALL_LABELS: Record<WallSide, string> = {
+  top: "Back",
+  bottom: "Front",
+  left: "Left",
+  right: "Right",
+};
+
+// Is the placed item sitting against `side` (within a tolerance)?
+function isAgainstWall(p: PlacedCabinet, side: WallSide, room: RoomData): boolean {
+  const { w, d } = rotatedSize(p);
+  const T = 2; // inches tolerance
+  switch (side) {
+    case "top":
+      return Math.abs(p.y - 0) <= T;
+    case "bottom":
+      return Math.abs(p.y + d - room.depth) <= T;
+    case "left":
+      return Math.abs(p.x - 0) <= T;
+    case "right":
+      return Math.abs(p.x + w - room.width) <= T;
+  }
+}
+
+// Find the next free position for a `width`×`depth` item placed flush against
+// `side`, marching along that wall and packing past items already on it.
+// Returns inches. Falls back to the wall's start corner if the wall is full.
+export function nextFreeSpotOnWall(
+  width: number,
+  depth: number,
+  placement: Placement,
+  side: WallSide,
+  room: RoomData,
+  existing: PlacedCabinet[]
+): { x: number; y: number; rotation: number } {
+  const horizontal = side === "top" || side === "bottom";
+  // The cabinet is authored as width(along front) × depth(into room) at
+  // rotation 0. On the back/front (horizontal) walls it keeps that orientation.
+  // On the left/right (vertical) walls we rotate it 90°, so its ORIGINAL depth
+  // now runs along the wall and its ORIGINAL width faces into the room.
+  const alongSpan = horizontal ? width : depth;
+  const intoRoom = horizontal ? depth : depth;
+
+  // Fixed coordinate pinned to the wall.
+  let x = 0;
+  let y = 0;
+  if (side === "top") y = 0;
+  if (side === "bottom") y = Math.max(0, room.depth - intoRoom);
+  if (side === "left") x = 0;
+  if (side === "right") x = Math.max(0, room.width - intoRoom);
+
+  // Items already on the same wall + layer, sorted along the wall axis.
+  const onWall = existing
+    .filter((p) => p.placement === placement && isAgainstWall(p, side, room))
+    .map((p) => {
+      const s = rotatedSize(p);
+      const along = horizontal ? p.x : p.y;
+      const span = horizontal ? s.w : s.d;
+      return { along, span };
+    })
+    .sort((a, b) => a.along - b.along);
+
+  // March a cursor along the wall, pushing past any overlapping neighbor.
+  let cursor = 0;
+  for (const item of onWall) {
+    if (cursor < item.along + item.span && cursor + alongSpan > item.along) {
+      cursor = item.along + item.span;
+    }
+  }
+
+  const wallLen = horizontal ? room.width : room.depth;
+  // If it runs off the end, just clamp to the wall start (will overlap-flag in UI).
+  if (cursor + alongSpan > wallLen) cursor = Math.max(0, wallLen - alongSpan);
+
+  if (horizontal) x = cursor;
+  else y = cursor;
+
+  // Rotation needed so the cabinet's depth faces into the room from this wall.
+  // Base footprint is width(along) × depth(into) at rotation 0 (top/bottom wall).
+  // Left/right walls need a 90° turn so depth runs horizontally into the room.
+  const rotation = horizontal ? 0 : 90;
+
+  return { x, y, rotation };
+}
+
+// ─── In-bounds clamping after a room resize ─────────────────────────────────
+// When the room shrinks (typed or drawn), anything that now sticks out past a
+// wall must be pulled back inside. Keeps the design valid instead of leaving
+// cabinets floating outside the room rectangle.
+export function clampCabinetToRoom(p: PlacedCabinet, room: RoomData): PlacedCabinet {
+  const { w, d } = rotatedSize(p);
+  const x = Math.max(0, Math.min(p.x, Math.max(0, room.width - w)));
+  const y = Math.max(0, Math.min(p.y, Math.max(0, room.depth - d)));
+  return p.x === x && p.y === y ? p : { ...p, x, y };
+}
+
+export function clampCabinetsToRoom(placed: PlacedCabinet[], room: RoomData): PlacedCabinet[] {
+  return placed.map((p) => clampCabinetToRoom(p, room));
+}
+
+export function clampOpeningsToRoom(openings: WallOpening[], room: RoomData): WallOpening[] {
+  return openings.map((o) => clampOpening(o, room));
+}
+
+export interface IslandZone {
+  x: number;
+  y: number;
+  width: number;
+  depth: number;
+}
+
+export function clampIslandToRoom(island: IslandZone | null, room: RoomData): IslandZone | null {
+  if (!island) return null;
+  const width = Math.max(12, Math.min(island.width, room.width));
+  const depth = Math.max(12, Math.min(island.depth, room.depth));
+  const x = Math.max(0, Math.min(island.x, room.width - width));
+  const y = Math.max(0, Math.min(island.y, room.depth - depth));
+  return { x, y, width, depth };
+}
+
+
+// ─── Resize the room by dragging one wall ───────────────────────────────────
+// The user can click a wall to highlight it, then drag it in/out. Dragging the
+// back/front wall changes the room DEPTH; dragging the left/right wall changes
+// the WIDTH. We move only the dragged wall: the top/left walls are pinned at the
+// origin in our coordinate system, so growing them shifts all content; to keep
+// behavior intuitive we instead always resize from the dragged edge and re-pin
+// content to the origin, then clamp everything in-bounds at the call site.
+//
+// `deltaIn` is the signed drag distance in inches in screen space (right/down
+// positive). The returned room is clamped to the sane kitchen range.
+export function resizeRoomByWall(room: RoomData, side: WallSide, deltaIn: number): RoomData {
+  switch (side) {
+    case "right":
+      return { ...room, width: clampRoomInches(room.width + deltaIn) };
+    case "left":
+      // Dragging the left wall left (negative delta) grows the room.
+      return { ...room, width: clampRoomInches(room.width - deltaIn) };
+    case "bottom":
+      return { ...room, depth: clampRoomInches(room.depth + deltaIn) };
+    case "top":
+      // Dragging the top wall up (negative delta) grows the room.
+      return { ...room, depth: clampRoomInches(room.depth - deltaIn) };
+  }
 }
