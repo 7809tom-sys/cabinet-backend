@@ -34,10 +34,10 @@ import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 
 type ViewMode = "plan" | "elevation" | "split";
-type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
+type PricingTier = "Wholesale" | "Contractor";
 
-function priceOf(row: { wholesalePrice: string | null; contractorPrice: string | null; homeownerPrice: string | null }, tier: PricingTier): number {
-  const v = tier === "Wholesale" ? row.wholesalePrice : tier === "Contractor" ? row.contractorPrice : row.homeownerPrice;
+function priceOf(row: { wholesalePrice: string | null; contractorPrice: string | null }, tier: PricingTier): number {
+  const v = tier === "Wholesale" ? row.wholesalePrice : row.contractorPrice;
   return v ? parseFloat(v) : 0;
 }
 
@@ -90,21 +90,26 @@ export default function DesignTool() {
   const [paletteType, setPaletteType] = useState<"base" | "wall" | "tall" | "appliance" | "opening">("base");
 
   // Pricing selectors
-  const [distributorId, setDistributorId] = useState<number | null>(null);
   const [styleId, setStyleId] = useState<number | null>(null);
-  const [tier, setTier] = useState<PricingTier>("Homeowner");
+  const [tier, setTier] = useState<PricingTier>("Contractor");
 
-  // Data
-  const { data: distributors } = trpc.distributors.list.useQuery();
-  const { data: doorStyles } = trpc.doorStyles.list.useQuery(
-    distributorId ? { distributorId } : undefined
-  );
+  // Data — door-style-first: members pick a door style; the supply line behind
+  // it is resolved server-side and never shown.
+  const { data: doorStyles } = trpc.doorStyles.list.useQuery();
+  // De-duplicate by display name so the same style isn't listed once per line.
+  const uniqueDoorStyles = useMemo(() => {
+    const map = new Map<string, { id: number; ourName: string | null }>();
+    for (const s of (doorStyles ?? []) as Array<{ id: number; ourName: string | null }>) {
+      const key = (s.ourName || String(s.id)).toLowerCase();
+      if (!map.has(key)) map.set(key, s);
+    }
+    return Array.from(map.values()).sort((a, b) => (a.ourName || "").localeCompare(b.ourName || ""));
+  }, [doorStyles]);
   const { data: paletteCabinets, isLoading: paletteLoadingRaw } =
     trpc.design.placeableCabinets.useQuery(
       {
         placement: paletteType === "appliance" || paletteType === "opening" ? "base" : paletteType,
         // Narrow to the chosen line + style so only purchasable cabinets show.
-        distributorId: distributorId ?? undefined,
         styleId: styleId ?? undefined,
       },
       { enabled: paletteType !== "appliance" && paletteType !== "opening" }
@@ -152,10 +157,9 @@ export default function DesignTool() {
   const { data: priceRows } = trpc.design.priceForCabinets.useQuery(
     {
       cabinetIds: placedCabinetIds,
-      distributorId: distributorId ?? 0,
       styleId: styleId ?? 0,
     },
-    { enabled: placedCabinetIds.length > 0 && !!distributorId && !!styleId }
+    { enabled: placedCabinetIds.length > 0 && !!styleId }
   );
 
   const priceMap = useMemo(() => {
@@ -616,8 +620,8 @@ export default function DesignTool() {
               <p className="text-xs text-muted-foreground text-center py-8">
                 {paletteSearch
                   ? "No cabinets match your search."
-                  : distributorId && styleId
-                  ? "No cabinets available for this line and door style."
+                  : styleId
+                  ? "No cabinets available for this door style."
                   : "No cabinets available in this category."}
               </p>
             )}
@@ -732,17 +736,10 @@ export default function DesignTool() {
           <div className="p-3 border-b border-border space-y-2">
             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pricing</div>
 
-            <Select value={distributorId ? String(distributorId) : ""} onValueChange={(v) => { setDistributorId(Number(v)); setStyleId(null); }}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select distributor" /></SelectTrigger>
-              <SelectContent>
-                {distributors?.map((d) => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-
-            <Select value={styleId ? String(styleId) : ""} onValueChange={(v) => setStyleId(Number(v))} disabled={!distributorId}>
+            <Select value={styleId ? String(styleId) : ""} onValueChange={(v) => setStyleId(Number(v))}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select door style" /></SelectTrigger>
               <SelectContent>
-                {doorStyles?.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>)}
+                {uniqueDoorStyles.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>)}
               </SelectContent>
             </Select>
 
@@ -751,7 +748,6 @@ export default function DesignTool() {
               <SelectContent>
                 <SelectItem value="Wholesale">Wholesale</SelectItem>
                 <SelectItem value="Contractor">Contractor</SelectItem>
-                <SelectItem value="Homeowner">Homeowner</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -779,7 +775,7 @@ export default function DesignTool() {
                       <div className="text-[10px] text-muted-foreground truncate">{Math.round(p.width)}"W · {p.placement}</div>
                     </div>
                     <span className="font-semibold shrink-0">
-                      {distributorId && styleId ? (price != null ? `$${price.toFixed(2)}` : "N/A") : "—"}
+                      {styleId ? (price != null ? `$${price.toFixed(2)}` : "N/A") : "—"}
                     </span>
                   </button>
                 );
@@ -839,8 +835,8 @@ export default function DesignTool() {
 
           {/* Total */}
           <div className="p-3 border-t border-border">
-            {(!distributorId || !styleId) && placed.length > 0 && (
-              <p className="text-[10px] text-amber-600 mb-2">Select a distributor and door style to see pricing.</p>
+            {!styleId && placed.length > 0 && (
+              <p className="text-[10px] text-amber-600 mb-2">Select a door style to see pricing.</p>
             )}
             {styleId && activeStyleName && (
               <div className="flex items-center gap-2 mb-2 text-[11px] text-muted-foreground">

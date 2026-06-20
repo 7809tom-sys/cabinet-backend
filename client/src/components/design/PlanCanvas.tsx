@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, snapPosition, hasCollision,
-  isCornerCabinet, cornerClipPath, formatInches,
+  isCornerCabinet, cornerClipPath, formatInches, isBlindCorner,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide, WALL_LABELS,
 } from "@/lib/design";
@@ -547,6 +547,7 @@ export function PlanCanvas({
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const isCorner = isCornerCabinet(p.masterCode, p.description);
+            const isBlind = isBlindCorner(p.masterCode, p.description);
             const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
             const faceFill = isAppliance ? "#b9bdc4" : finish.face;
@@ -603,6 +604,20 @@ export function PlanCanvas({
                   <div
                     className="absolute bottom-0 left-0 right-0 border-b-2 border-[#8a6d3b]/40"
                     style={{ height: 2 }}
+                  />
+                )}
+                {/* Blind corners need a corner filler strip for door clearance — show
+                    a hatched gap marker on the inside edge so the layout reads correctly. */}
+                {isBlind && (
+                  <div
+                    className="absolute top-0 bottom-0 right-0 z-10"
+                    style={{
+                      width: Math.max(3, 3 * ppi),
+                      background:
+                        "repeating-linear-gradient(45deg, #d4a75a 0, #d4a75a 2px, transparent 2px, transparent 5px)",
+                      borderLeft: "1px dashed #8a6d3b",
+                    }}
+                    title={`Corner filler (3") — included for door clearance`}
                   />
                 )}
                 {/* Always-available delete control on the selected cabinet. */}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import {
-  ChevronLeft, Package, Building2, Palette, DollarSign,
+  ChevronLeft, Package, Palette, DollarSign,
   ShoppingCart, Info, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,13 @@ import { toast } from "sonner";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
+// Trade-only platform: pricing is shown by trade tier. No homeowner/retail tier.
 
-type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
+type PricingTier = "Wholesale" | "Contractor";
 
 const TIERS: { key: PricingTier; label: string; description: string }[] = [
-  { key: "Wholesale", label: "Wholesale", description: "For licensed dealers & contractors" },
-  { key: "Contractor", label: "Contractor", description: "For general contractors" },
-  { key: "Homeowner", label: "Homeowner", description: "Retail pricing for homeowners" },
+  { key: "Wholesale", label: "Wholesale", description: "For licensed dealers & high-volume trade accounts" },
+  { key: "Contractor", label: "Contractor", description: "For general contractors & remodelers" },
 ];
 
 function fmt(val: string | null | undefined): string {
@@ -28,33 +28,29 @@ function fmt(val: string | null | undefined): string {
   return isNaN(n) ? "—" : `$${n.toFixed(2)}`;
 }
 
-// ─── Distributor + Style Selector ─────────────────────────────────────────────
+// ─── Door-style pricing row (distributor identity never exposed) ───────────────
 
-interface PricingRow {
-  id: number;
-  platformSku: string;
-  distributorSku: string;
-  distributorId: number;
+interface StyleRow {
   styleId: number;
+  styleCode: string;
+  name: string;
+  doorStyle: string | null;
+  finish: string | null;
+  color: string | null;
+  doorSampleImageUrl: string | null;
+  roomSceneImageUrl: string | null;
+  thumbnailImageUrl: string | null;
   listPrice: string | null;
-  yourCost: string | null;
   adjustedListPrice: string | null;
   wholesalePrice: string | null;
   contractorPrice: string | null;
-  homeownerPrice: string | null;
-  distributorName: string;
-  distributorCode: string;
-  styleCode: string;
-  ourName: string;
-  distributorStyleName: string;
-  thumbnailImageUrl: string | null;
-  doorSampleImageUrl: string | null;
+  platformSku: string;
+  leadTimeDays: number | null;
 }
 
-function PriceForTier(row: PricingRow, tier: PricingTier): string {
+function priceForTier(row: StyleRow, tier: PricingTier): string {
   if (tier === "Wholesale") return fmt(row.wholesalePrice);
-  if (tier === "Contractor") return fmt(row.contractorPrice);
-  return fmt(row.homeownerPrice);
+  return fmt(row.contractorPrice);
 }
 
 // ─── Main Detail Page ─────────────────────────────────────────────────────────
@@ -64,50 +60,29 @@ interface Props {
 }
 
 export default function CabinetDetail({ masterCode }: Props) {
-  const [selectedDistId, setSelectedDistId] = useState<number | null>(null);
   const [selectedStyleId, setSelectedStyleId] = useState<number | null>(null);
-  const [tier, setTier] = useState<PricingTier>("Homeowner");
+  const [tier, setTier] = useState<PricingTier>("Contractor");
   const [qty, setQty] = useState(1);
 
   const { data: cabinet, isLoading: cabinetLoading } = trpc.cabinets.byCode.useQuery({
     masterCode,
   });
 
-  const { data: allPricing, isLoading: pricingLoading } = trpc.pricing.forCabinet.useQuery(
+  const { data: styles, isLoading: pricingLoading } = trpc.pricing.stylesForCabinet.useQuery(
     { cabinetId: cabinet?.id ?? 0 },
     { enabled: !!cabinet?.id }
   );
 
-  // Derive unique distributors from pricing
-  const distributors = allPricing
-    ? Array.from(
-        new Map(
-          allPricing.map((p) => [p.distributorId, { id: p.distributorId, name: p.distributorName, code: p.distributorCode }])
-        ).values()
-      )
-    : [];
-
-  // Auto-select first distributor
-  const activeDist = selectedDistId ?? distributors[0]?.id ?? null;
-
-  // Styles for the selected distributor
-  const stylesForDist = allPricing?.filter((p) => p.distributorId === activeDist) ?? [];
-  const uniqueStyles = Array.from(
-    new Map(stylesForDist.map((p) => [p.styleId, p])).values()
-  );
+  const styleRows = (styles ?? []) as StyleRow[];
 
   // Auto-select first style
-  const activeStyle = selectedStyleId ?? uniqueStyles[0]?.styleId ?? null;
-
-  // The selected pricing row
-  const selectedRow = allPricing?.find(
-    (p) => p.distributorId === activeDist && p.styleId === activeStyle
-  ) ?? null;
+  const activeStyle = selectedStyleId ?? styleRows[0]?.styleId ?? null;
+  const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
 
   const handleAddToCart = () => {
     if (!selectedRow) return;
     toast.success(`Added ${qty}× ${masterCode} to cart`, {
-      description: `${selectedRow.ourName} · ${selectedRow.distributorName}`,
+      description: `${selectedRow.name} · ${tier} pricing`,
     });
   };
 
@@ -171,12 +146,12 @@ export default function CabinetDetail({ masterCode }: Props) {
             <div className="flex items-center gap-3 mb-6 rounded-lg border border-border p-2.5">
               <img
                 src={selectedRow.doorSampleImageUrl}
-                alt={`${selectedRow.ourName} door finish sample`}
+                alt={`${selectedRow.name} door finish sample`}
                 className="h-12 w-12 rounded object-cover shrink-0"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
               <div className="text-xs text-muted-foreground leading-tight">
-                <div className="font-medium text-foreground">{selectedRow.ourName}</div>
+                <div className="font-medium text-foreground">{selectedRow.name}</div>
                 <div>Selected door finish · drawing shown to scale</div>
               </div>
             </div>
@@ -225,54 +200,28 @@ export default function CabinetDetail({ masterCode }: Props) {
             {cabinet.description}
           </h1>
 
-          {/* Distributor selector */}
+          {/* Door style selector (price follows the chosen style) */}
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-3">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-semibold text-foreground">Select Distributor</span>
+              <Palette className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">Select Door Style</span>
+              {styleRows.length > 0 && (
+                <span className="text-xs text-muted-foreground">({styleRows.length} available)</span>
+              )}
             </div>
             {pricingLoading ? (
-              <div className="flex gap-2">
-                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-9 w-32 rounded-lg" />)}
-              </div>
-            ) : distributors.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No distributors carry this item.</p>
-            ) : (
               <div className="flex flex-wrap gap-2">
-                {distributors.map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => {
-                      setSelectedDistId(d.id);
-                      setSelectedStyleId(null); // reset style on dist change
-                    }}
-                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all duration-150 ${
-                      activeDist === d.id
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-card text-foreground/70 hover:border-primary/50 hover:text-foreground"
-                    }`}
-                  >
-                    {d.name}
-                  </button>
-                ))}
+                {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-9 w-28 rounded-lg" />)}
               </div>
-            )}
-          </div>
-
-          {/* Style selector */}
-          {uniqueStyles.length > 0 && (
-            <div className="mt-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Palette className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">Select Door Style</span>
-                <span className="text-xs text-muted-foreground">({uniqueStyles.length} available)</span>
-              </div>
-              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1">
-                {uniqueStyles.map((s) => (
+            ) : styleRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No door styles available for this item yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1">
+                {styleRows.map((s) => (
                   <button
                     key={s.styleId}
                     onClick={() => setSelectedStyleId(s.styleId)}
-                    title={`${s.ourName} (${s.styleCode})`}
+                    title={`${s.name}${s.doorStyle ? ` · ${s.doorStyle}` : ""}`}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150 ${
                       activeStyle === s.styleId
                         ? "border-primary bg-primary/10 text-primary"
@@ -282,25 +231,25 @@ export default function CabinetDetail({ masterCode }: Props) {
                     {s.thumbnailImageUrl && (
                       <img
                         src={s.thumbnailImageUrl}
-                        alt={s.ourName}
+                        alt={s.name}
                         className="h-4 w-4 rounded object-cover"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
                     )}
-                    {s.ourName}
+                    {s.name}
                     {activeStyle === s.styleId && <Check className="h-3 w-3 ml-0.5" />}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Pricing tier tabs + price display */}
           {selectedRow && (
             <div className="mt-6">
               <div className="flex items-center gap-2 mb-3">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">Pricing Tier</span>
+                <span className="text-sm font-semibold text-foreground">Trade Pricing</span>
               </div>
 
               <Tabs value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
@@ -318,20 +267,26 @@ export default function CabinetDetail({ masterCode }: Props) {
                       <div className="flex items-baseline justify-between">
                         <div>
                           <div className="text-3xl font-bold text-foreground">
-                            {PriceForTier(selectedRow, t.key)}
+                            {priceForTier(selectedRow, t.key)}
                           </div>
                           <div className="text-xs text-muted-foreground mt-0.5">{t.description}</div>
                         </div>
                         <div className="text-right text-xs text-muted-foreground">
-                          <div>List: {fmt(selectedRow.listPrice)}</div>
-                          <div>Your Cost: {fmt(selectedRow.yourCost)}</div>
+                          <div>MSRP: {fmt(selectedRow.listPrice)}</div>
+                          {selectedRow.leadTimeDays != null && (
+                            <div>Lead time: ~{selectedRow.leadTimeDays} days</div>
+                          )}
                         </div>
                       </div>
 
                       <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-                        <span className="font-mono">{selectedRow.platformSku}</span>
-                        <span className="mx-2">·</span>
-                        <span>Dist SKU: {selectedRow.distributorSku}</span>
+                        <span>{selectedRow.name}</span>
+                        {selectedRow.doorStyle && (
+                          <>
+                            <span className="mx-2">·</span>
+                            <span>{selectedRow.doorStyle}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </TabsContent>
@@ -370,7 +325,7 @@ export default function CabinetDetail({ masterCode }: Props) {
           )}
 
           {/* No pricing available */}
-          {!pricingLoading && allPricing?.length === 0 && (
+          {!pricingLoading && styleRows.length === 0 && (
             <div className="mt-6 rounded-xl border border-dashed border-border p-6 text-center text-muted-foreground">
               <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No pricing available for this item.</p>

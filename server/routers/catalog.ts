@@ -10,6 +10,21 @@ import {
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 
+// ─── Supplier-identity scrubbing ───────────────────────────────────────────────
+// Cabinet Dealz never exposes the underlying supplier. These helpers strip any
+// supplier-identifying columns from rows before they leave a public procedure,
+// so the door-style-first UI can present purely by style.
+function scrubCabinet<T extends Record<string, unknown>>(row: T): Omit<T, "descriptionSource"> {
+  if (!row) return row;
+  const { descriptionSource: _drop, ...rest } = row as T & { descriptionSource?: unknown };
+  return rest;
+}
+function scrubDoorStyle<T extends Record<string, unknown>>(row: T): Omit<T, "distributorName"> {
+  if (!row) return row;
+  const { distributorName: _drop, ...rest } = row as T & { distributorName?: unknown };
+  return rest;
+}
+
 // ─── Distributors ─────────────────────────────────────────────────────────────
 
 export const distributorsRouter = router({
@@ -46,7 +61,7 @@ export const doorStylesRouter = router({
       const db = await getDb();
       if (!db) return [];
       if (input?.distributorId) {
-        return db
+        const rows = await db
           .select()
           .from(doorStyles)
           .where(
@@ -55,8 +70,10 @@ export const doorStylesRouter = router({
               eq(doorStyles.isActive, true)
             )
           );
+        return rows.map(scrubDoorStyle);
       }
-      return db.select().from(doorStyles).where(eq(doorStyles.isActive, true));
+      const rows = await db.select().from(doorStyles).where(eq(doorStyles.isActive, true));
+      return rows.map(scrubDoorStyle);
     }),
 
   byId: publicProcedure
@@ -69,7 +86,7 @@ export const doorStylesRouter = router({
         .from(doorStyles)
         .where(eq(doorStyles.id, input.id))
         .limit(1);
-      return rows[0] ?? null;
+      return rows[0] ? scrubDoorStyle(rows[0]) : null;
     }),
 });
 
@@ -120,7 +137,7 @@ export const cabinetsRouter = router({
       ]);
 
       return {
-        items,
+        items: items.map(scrubCabinet),
         total: Number(countResult[0]?.count ?? 0),
       };
     }),
@@ -163,7 +180,7 @@ export const cabinetsRouter = router({
         .from(cabinets)
         .where(eq(cabinets.id, input.id))
         .limit(1);
-      return rows[0] ?? null;
+      return rows[0] ? scrubCabinet(rows[0]) : null;
     }),
 
   byCode: publicProcedure
@@ -176,132 +193,87 @@ export const cabinetsRouter = router({
         .from(cabinets)
         .where(eq(cabinets.masterCode, input.masterCode))
         .limit(1);
-      return rows[0] ?? null;
+      return rows[0] ? scrubCabinet(rows[0]) : null;
     }),
 });
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
 
 export const pricingRouter = router({
-  // Get all SKUs for a specific cabinet (across all distributors & styles)
-  forCabinet: publicProcedure
-    .input(
-      z.object({
-        cabinetId: z.number(),
-        distributorId: z.number().optional(),
-        styleId: z.number().optional(),
-      })
-    )
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) return [];
-
-      const conditions = [
-        eq(distributorSkus.cabinetId, input.cabinetId),
-        eq(distributorSkus.isAvailable, true),
-        eq(distributorSkus.isPublished, true),
-      ];
-      if (input.distributorId) {
-        conditions.push(eq(distributorSkus.distributorId, input.distributorId));
-      }
-      if (input.styleId) {
-        conditions.push(eq(distributorSkus.styleId, input.styleId));
-      }
-
-      return db
-        .select({
-          id: distributorSkus.id,
-          platformSku: distributorSkus.platformSku,
-          distributorSku: distributorSkus.distributorSku,
-          distributorId: distributorSkus.distributorId,
-          styleId: distributorSkus.styleId,
-          listPrice: distributorSkus.listPrice,
-          yourCost: distributorSkus.yourCost,
-          adjustedListPrice: distributorSkus.adjustedListPrice,
-          wholesalePrice: distributorSkus.wholesalePrice,
-          contractorPrice: distributorSkus.contractorPrice,
-          homeownerPrice: distributorSkus.homeownerPrice,
-          // Join distributor name
-          distributorName: distributors.name,
-          distributorCode: distributors.code,
-          // Join style info
-          styleCode: doorStyles.styleCode,
-          ourName: doorStyles.ourName,
-          distributorStyleName: doorStyles.distributorName,
-          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
-          thumbnailImageUrl: doorStyles.thumbnailImageUrl,
-        })
-        .from(distributorSkus)
-        .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
-        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
-        .where(and(...conditions));
-    }),
-
-  // Get pricing for a specific platform SKU
-  bySku: publicProcedure
-    .input(z.object({ platformSku: z.string() }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) return null;
-      const rows = await db
-        .select()
-        .from(distributorSkus)
-        .where(eq(distributorSkus.platformSku, input.platformSku))
-        .limit(1);
-      return rows[0] ?? null;
-    }),
-
-  // Get available distributors for a cabinet (which distributors carry it)
-  availableDistributors: publicProcedure
+  // ── Door-style-first pricing ──────────────────────────────────────────────
+  // Returns ONE priced row per unique door style for a cabinet. Internally we
+  // pick the best (lowest contractor price) available + published SKU per style
+  // and surface ONLY style metadata + prices. No distributor name/SKU ever
+  // leaves the server, so the UI can present purely by door style.
+  stylesForCabinet: publicProcedure
     .input(z.object({ cabinetId: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
       const rows = await db
-        .selectDistinct({
-          distributorId: distributorSkus.distributorId,
-          distributorName: distributors.name,
-          distributorCode: distributors.code,
+        .select({
+          styleId: distributorSkus.styleId,
+          styleCode: doorStyles.styleCode,
+          ourName: doorStyles.ourName,
+          doorStyle: doorStyles.doorStyle,
+          finish: doorStyles.finish,
+          color: doorStyles.color,
+          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+          roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+          thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+          listPrice: distributorSkus.listPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          platformSku: distributorSkus.platformSku,
+          leadTimeDays: distributors.leadTimeDays,
         })
         .from(distributorSkus)
+        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
         .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
         .where(
           and(
             eq(distributorSkus.cabinetId, input.cabinetId),
-            eq(distributorSkus.isAvailable, true)
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true),
+            eq(doorStyles.isActive, true),
+            eq(distributors.isActive, true)
           )
         );
-      return rows;
-    }),
 
-  // Get available styles for a cabinet+distributor combo
-  availableStyles: publicProcedure
-    .input(
-      z.object({
-        cabinetId: z.number(),
-        distributorId: z.number(),
-      })
-    )
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) return [];
-      return db
-        .selectDistinct({
-          styleId: distributorSkus.styleId,
-          styleCode: doorStyles.styleCode,
-          ourName: doorStyles.ourName,
-          distributorStyleName: doorStyles.distributorName,
-          thumbnailImageUrl: doorStyles.thumbnailImageUrl,
-          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
-        })
-        .from(distributorSkus)
-        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
-        .where(
-          and(
-            eq(distributorSkus.cabinetId, input.cabinetId),
-            eq(distributorSkus.distributorId, input.distributorId),
-            eq(distributorSkus.isAvailable, true)
-          )
-        );
+      // Collapse to one row per style code (some styles exist across multiple
+      // supply lines). Prefer the lowest contractor price as the sourced option.
+      const byStyle = new Map<string, (typeof rows)[number]>();
+      for (const r of rows) {
+        const key = (r.styleCode || r.ourName || String(r.styleId)).toUpperCase();
+        const existing = byStyle.get(key);
+        if (!existing) {
+          byStyle.set(key, r);
+          continue;
+        }
+        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+        const b = Number(existing.contractorPrice ?? existing.wholesalePrice ?? Infinity);
+        if (a < b) byStyle.set(key, r);
+      }
+
+      return Array.from(byStyle.values())
+        .map((r) => ({
+          styleId: r.styleId,
+          styleCode: r.styleCode,
+          name: r.ourName,
+          doorStyle: r.doorStyle,
+          finish: r.finish,
+          color: r.color,
+          doorSampleImageUrl: r.doorSampleImageUrl,
+          roomSceneImageUrl: r.roomSceneImageUrl,
+          thumbnailImageUrl: r.thumbnailImageUrl,
+          listPrice: r.listPrice,
+          adjustedListPrice: r.adjustedListPrice,
+          wholesalePrice: r.wholesalePrice,
+          contractorPrice: r.contractorPrice,
+          platformSku: r.platformSku,
+          leadTimeDays: r.leadTimeDays,
+        }))
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }),
 });

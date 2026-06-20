@@ -130,7 +130,7 @@
 - [x] Auto-apply trim/door style to the design: selecting a door style re-skins placed cabinets on canvas + elevation via finish color map (26 unit tests pass)
 - [x] Add Crown Molding: toggle draws crown along top of wall cabinets (elevation) + linear-foot BOM line
 - [x] Add Toe Kick: recessed base strip under base cabinets (elevation) + BOM line
-- [ ] Blind corner cabinets (BBC base / WBC wall) must auto-include a corner FILLER: add filler line to BOM whenever a blind corner is placed; show filler gap at the corner in plan
+- [x] Blind corner cabinets (BBC base / WBC wall) must auto-include a corner FILLER: BOM filler line (base/wall) via blindCornerFillers + hatched filler-gap marker in plan view (tests pass)
 - [ ] Audit site imagery: images reported "way off" — check broken/placeholder images, wrong aspect ratios/proportions across Home, Catalog, Door Styles, Packages; ensure watermarks never show distributor/dealer names
 
 ## Design Tool wall + measurements (user request)
@@ -255,3 +255,23 @@
 - [x] Keep search + back navigation from the drill-in view
 - [x] Design Tool keeps quick Base/Wall/Tall tabs (with new to-scale drawings on items)
 - [x] Browser verify category-first flow
+
+
+## User fix: BA-24 naming + no distributor names anywhere (user request)
+- [x] Rename BA-24 to "24\" Angle Base Cabinet" (was "24\" Base End Angle Cabinet"; verified via tRPC)
+- [x] Verified BA-24 angle base is NOT treated as blind corner (isBlindCorner/isCornerCabinet don't match BA prefix or its description) — no auto-filler
+- [x] Full sweep: no real distributor names anywhere user-facing — scrubbed descriptionSource (cabinets) + distributorName (door styles) from public API; only code comment retains the mapping
+- [x] Grep DB cabinet/description rows + seed files + client code for brand names (only a server comment referenced them)
+- [x] Browser verify BA-24 detail + catalog + design tool show neutral labels only
+
+
+## Door-style-driven model: NO distributor/line names anywhere (user request)
+- [x] Remove "Line A/B/C" neutral labels too — distributors.list no longer consumed by any client page (labels never reach UI)
+- [x] Cabinet Detail: door-style-first selection (stylesForCabinet); price follows chosen style; trade-only tiers
+- [x] Door Styles page: presents purely by style (dedup by name, filter by Shaker/Raised Panel/Slab); no distributor grouping/counts
+- [x] Design Tool pricing: door-style selector only; styleId-based placeableCabinets + priceForCabinets resolve SKU server-side
+- [x] Home page: featured styles + supply strip reframed to door-style/quality; pricing widget compares by door style
+- [x] Hide "Dist SKU" / "Dist:" lines from user-facing detail
+- [x] Keep distributor data internal only (sourcing/fulfillment), never shown to users
+- [x] SEO: no SKU/distributor counts shown
+- [x] Typecheck (0 errors) + vitest pass (107); leak-check CLEAN on cabinets/doorStyles/pricing

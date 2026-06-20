@@ -1,7 +1,6 @@
 import { Link } from "wouter";
 import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Users, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
@@ -32,14 +31,15 @@ function Hero() {
           <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
             One Platform.
             <br />
-            <span className="text-[var(--color-gold)]">Every Line.</span>
+            <span className="text-[var(--color-gold)]">Every Door Style.</span>
             <br />
-            Endless Styles.
+            One Trade Price.
           </h1>
 
           <p className="text-lg md:text-xl text-white/75 mb-8 max-w-2xl leading-relaxed">
-            Browse a unified catalog of door styles across our supply network. Compare trade
-            pricing instantly, design kitchens in 2D, and submit orders — all in one membership.
+            Browse one unified cabinet catalog, choose from dozens of door styles, and
+            compare trade pricing instantly. Design kitchens in 2D and submit orders — all
+            in one membership.
           </p>
 
           {/* CTAs */}
@@ -90,7 +90,7 @@ function AudienceCards() {
     {
       icon: Building2,
       title: "Suppliers",
-      description: "Join the supply network to put your lines in front of every member dealer, with private or published catalog control.",
+      description: "Join the supply network to put your catalog in front of every member dealer, with private or published listing control.",
       cta: "Supplier Portal",
       href: "/portal/distributor",
       color: "bg-blue-50 dark:bg-blue-950/30",
@@ -211,17 +211,17 @@ function PlatformFeatures() {
           {/* Visual mockup */}
           <div className="relative">
             <div className="rounded-2xl bg-[var(--color-navy)] p-6 text-white">
-              <div className="text-xs text-white/50 mb-3 font-mono">LIVE PRICING COMPARISON</div>
+              <div className="text-xs text-white/50 mb-3 font-mono">PRICE BY DOOR STYLE</div>
               <div className="space-y-3">
                 {[
-                  { name: "Nova Blanc (Shaker White)", dist: "Line A", price: "$194.50" },
-                  { name: "Lumina White (Raised Panel)", dist: "Line B", price: "$249.94" },
-                  { name: "Frost White (Shaker)", dist: "Line C", price: "$218.40" },
+                  { name: "Shaker White", style: "Shaker", price: "$194.50" },
+                  { name: "Frost White", style: "Raised Panel", price: "$218.40" },
+                  { name: "Graphite", style: "Contemporary Slab", price: "$249.94" },
                 ].map((item, i) => (
                   <div key={i} className={`flex items-center justify-between rounded-lg p-3 ${i === 0 ? "bg-[var(--color-gold)]/20 border border-[var(--color-gold)]/30" : "bg-white/5"}`}>
                     <div>
                       <div className="text-sm font-medium">{item.name}</div>
-                      <div className="text-xs text-white/50">{item.dist}</div>
+                      <div className="text-xs text-white/50">{item.style}</div>
                     </div>
                     <div className={`text-lg font-bold ${i === 0 ? "text-[var(--color-gold)]" : "text-white/70"}`}>
                       {item.price}
@@ -241,31 +241,24 @@ function PlatformFeatures() {
 // ─── Supply Network Strip ─────────────────────────────────────────────────────
 
 function DistributorsStrip() {
-  const { data: distributors } = trpc.distributors.list.useQuery();
-
+  // Door-style-first: we promote the breadth of finishes, never supplier names.
+  const styles = ["Shaker", "Raised Panel", "Contemporary Slab", "Inset", "Beaded"];
   return (
     <section className="py-10 border-y border-border bg-muted/20">
       <div className="container">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <p className="text-sm font-medium text-muted-foreground shrink-0">
-            Backed by a vetted supply network:
+            Every cabinet, in the door style you want:
           </p>
-          <div className="flex flex-wrap justify-center md:justify-end gap-6">
-            {distributors?.map((d) => (
-              <div key={d.id} className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground text-xs font-bold">
-                  {d.initials}
-                </span>
-                {d.name}
-              </div>
+          <div className="flex flex-wrap justify-center md:justify-end gap-3">
+            {styles.map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-foreground"
+              >
+                {name}
+              </span>
             ))}
-            {!distributors && (
-              <>
-                {["Line A", "Line B", "Line C"].map((name) => (
-                  <div key={name} className="h-5 w-28 rounded bg-muted animate-pulse" />
-                ))}
-              </>
-            )}
           </div>
         </div>
       </div>

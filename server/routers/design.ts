@@ -50,6 +50,8 @@ export const designRouter = router({
       if (input?.distributorId) {
         skuConditions.push(eq(distributorSkus.distributorId, input.distributorId));
       }
+      // Door-style-first: a styleId alone is enough to gate the palette. The
+      // supply line behind the style is resolved server-side and never exposed.
       if (input?.styleId) {
         skuConditions.push(eq(distributorSkus.styleId, input.styleId));
       }
@@ -91,7 +93,7 @@ export const designRouter = router({
     .input(
       z.object({
         cabinetIds: z.array(z.number()),
-        distributorId: z.number(),
+        distributorId: z.number().optional(),
         styleId: z.number(),
       })
     )
@@ -99,25 +101,39 @@ export const designRouter = router({
       const db = await getDb();
       if (!db || input.cabinetIds.length === 0) return [];
 
-      return db
+      const conditions = [
+        inArray(distributorSkus.cabinetId, input.cabinetIds),
+        eq(distributorSkus.styleId, input.styleId),
+        eq(distributorSkus.isAvailable, true),
+      ];
+      // distributorId is optional now — door-style-first pricing resolves the
+      // supply line internally. When omitted we take the cheapest contractor
+      // price per cabinet across whichever lines carry the chosen style.
+      if (input.distributorId) {
+        conditions.push(eq(distributorSkus.distributorId, input.distributorId));
+      }
+
+      const rows = await db
         .select({
           cabinetId: distributorSkus.cabinetId,
           platformSku: distributorSkus.platformSku,
-          distributorSku: distributorSkus.distributorSku,
           listPrice: distributorSkus.listPrice,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
-          homeownerPrice: distributorSkus.homeownerPrice,
         })
         .from(distributorSkus)
-        .where(
-          and(
-            inArray(distributorSkus.cabinetId, input.cabinetIds),
-            eq(distributorSkus.distributorId, input.distributorId),
-            eq(distributorSkus.styleId, input.styleId),
-            eq(distributorSkus.isAvailable, true)
-          )
-        );
+        .where(and(...conditions));
+
+      // Collapse to one priced row per cabinet (cheapest contractor price).
+      const best = new Map<number, (typeof rows)[number]>();
+      for (const r of rows) {
+        const cur = best.get(r.cabinetId);
+        if (!cur) { best.set(r.cabinetId, r); continue; }
+        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+        const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
+        if (a < b) best.set(r.cabinetId, r);
+      }
+      return Array.from(best.values());
     }),
 
   save: publicProcedure

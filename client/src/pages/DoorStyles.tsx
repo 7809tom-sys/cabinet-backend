@@ -1,25 +1,25 @@
-import { useState } from "react";
-import { Palette, ChevronDown } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Palette } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 
 // ─── Style card ───────────────────────────────────────────────────────────────
+// Presents purely by door-style attributes. No supplier/line identity is shown.
 
 interface DoorStyle {
   id: number;
-  distributorId: number;
   styleCode: string;
   ourName: string | null;
-  distributorName: string | null;
   doorStyle: string | null;
   woodSpecies: string | null;
   color: string | null;
+  finish: string | null;
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
 }
 
-function StyleCard({ style, distName }: { style: DoorStyle; distName: string }) {
+function StyleCard({ style }: { style: DoorStyle }) {
   const [imgError, setImgError] = useState(false);
 
   return (
@@ -43,27 +43,20 @@ function StyleCard({ style, distName }: { style: DoorStyle; distName: string }) 
 
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
-            {style.styleCode}
-          </span>
-          <Badge variant="outline" className="text-xs shrink-0">{distName}</Badge>
+          <p className="font-semibold text-sm text-foreground leading-snug">
+            {style.ourName || style.styleCode}
+          </p>
+          {style.doorStyle && (
+            <Badge variant="outline" className="text-xs shrink-0">{style.doorStyle}</Badge>
+          )}
         </div>
 
-        <p className="font-semibold text-sm text-foreground leading-snug">
-          {style.ourName || style.distributorName || style.styleCode}
-        </p>
-        {style.distributorName && style.ourName && style.distributorName !== style.ourName && (
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Dist: {style.distributorName}
-          </p>
-        )}
-
-        <div className="mt-2 space-y-0.5">
-          {style.doorStyle && (
-            <p className="text-xs text-muted-foreground">Style: {style.doorStyle}</p>
-          )}
+        <div className="mt-1 space-y-0.5">
           {style.woodSpecies && (
             <p className="text-xs text-muted-foreground">Wood: {style.woodSpecies}</p>
+          )}
+          {style.finish && (
+            <p className="text-xs text-muted-foreground">Finish: {style.finish}</p>
           )}
           {style.color && (
             <p className="text-xs text-muted-foreground">Color: {style.color}</p>
@@ -77,24 +70,33 @@ function StyleCard({ style, distName }: { style: DoorStyle; distName: string }) 
 // ─── Main Door Styles page ────────────────────────────────────────────────────
 
 export default function DoorStyles() {
-  const [selectedDist, setSelectedDist] = useState<number | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
 
-  const { data: distributors } = trpc.distributors.list.useQuery();
-  const { data: styles, isLoading } = trpc.doorStyles.list.useQuery(
-    selectedDist ? { distributorId: selectedDist } : undefined
-  );
+  const { data: styles, isLoading } = trpc.doorStyles.list.useQuery();
 
-  // Group styles by distributor
-  const grouped = styles?.reduce<Record<number, DoorStyle[]>>((acc, s) => {
-    if (!acc[s.distributorId]) acc[s.distributorId] = [];
-    acc[s.distributorId].push(s as DoorStyle);
-    return acc;
-  }, {}) ?? {};
+  // De-duplicate styles by display name (the same style can be carried by more
+  // than one supply line internally; members should only ever see it once).
+  const uniqueStyles = useMemo(() => {
+    const map = new Map<string, DoorStyle>();
+    for (const s of (styles ?? []) as DoorStyle[]) {
+      const key = (s.ourName || s.styleCode || String(s.id)).toLowerCase();
+      if (!map.has(key)) map.set(key, s);
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      (a.ourName || "").localeCompare(b.ourName || "")
+    );
+  }, [styles]);
 
-  const distMap = distributors?.reduce<Record<number, string>>((acc, d) => {
-    acc[d.id] = d.name;
-    return acc;
-  }, {}) ?? {};
+  // Door-style type facets (Shaker, Raised Panel, Slab, ...) derived from data.
+  const types = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of uniqueStyles) if (s.doorStyle) set.add(s.doorStyle);
+    return Array.from(set).sort();
+  }, [uniqueStyles]);
+
+  const visible = selectedType
+    ? uniqueStyles.filter((s) => s.doorStyle === selectedType)
+    : uniqueStyles;
 
   return (
     <div className="container py-8">
@@ -104,37 +106,39 @@ export default function DoorStyles() {
           Door Styles
         </h1>
         <p className="text-muted-foreground">
-          {styles?.length ?? 0} styles available across {distributors?.length ?? 0} distributors.
-          Each style has its own pricing — select a cabinet to compare.
+          {uniqueStyles.length} finishes available. Each style carries its own pricing —
+          open any cabinet to compare styles and trade pricing.
         </p>
       </div>
 
-      {/* Distributor filter tabs */}
-      <div className="flex flex-wrap gap-2 mb-8">
-        <button
-          onClick={() => setSelectedDist(null)}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-            selectedDist === null
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          All Distributors
-        </button>
-        {distributors?.map((d) => (
+      {/* Door-style type filter */}
+      {types.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-8">
           <button
-            key={d.id}
-            onClick={() => setSelectedDist(d.id)}
+            onClick={() => setSelectedType(null)}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              selectedDist === d.id
+              selectedType === null
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:text-foreground"
             }`}
           >
-            {d.name}
+            All Styles
           </button>
-        ))}
-      </div>
+          {types.map((t) => (
+            <button
+              key={t}
+              onClick={() => setSelectedType(t)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                selectedType === t
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -149,24 +153,16 @@ export default function DoorStyles() {
             </div>
           ))}
         </div>
+      ) : visible.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">
+          <Palette className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">No door styles match this filter.</p>
+        </div>
       ) : (
-        <div className="space-y-10">
-          {Object.entries(grouped).map(([distId, distStyles]) => {
-            const dName = distMap[Number(distId)] || `Distributor ${distId}`;
-            return (
-              <section key={distId}>
-                <div className="flex items-center gap-3 mb-4">
-                  <h2 className="font-serif text-xl font-bold text-foreground">{dName}</h2>
-                  <Badge variant="secondary">{distStyles.length} styles</Badge>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {distStyles.map((style) => (
-                    <StyleCard key={style.id} style={style} distName={dName} />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {visible.map((style) => (
+            <StyleCard key={style.id} style={style} />
+          ))}
         </div>
       )}
     </div>
