@@ -14,6 +14,8 @@ const DoorStyles = lazy(() => import("@/pages/DoorStyles"));
 const DesignTool = lazy(() => import("@/pages/DesignTool"));
 const Packages = lazy(() => import("@/pages/Packages"));
 const PackageDetail = lazy(() => import("@/pages/PackageDetail"));
+const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
+const Admin = lazy(() => import("@/pages/Admin"));
 
 function PageLoader() {
   return (
@@ -90,6 +92,22 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <DesignTool />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/pro-network">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <ProNetwork />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/admin">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Admin />
             </Suspense>
           </AppLayout>
         </Route>

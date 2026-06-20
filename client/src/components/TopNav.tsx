@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { label: "Door Styles", href: "/styles" },
   { label: "Design Tool", href: "/design" },
   { label: "Bulk Order", href: "/bulk-order" },
+  { label: "Pro Network", href: "/pro-network" },
 ];
 
 const PORTAL_LINKS = [

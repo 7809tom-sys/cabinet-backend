@@ -204,18 +204,19 @@
 
 ## Pro Network (installers + countertop fabricators) — platform-wide, shared by ALL affiliate stores
 - [x] Fixed earlier: EmailGate setState-during-render moved to useEffect + stable useCallback
-- [ ] DB: pro_applications table (company, contact, trades[], service ZIPs/radius, materials, lead time, license/insurance, status pending/approved/rejected)
-- [ ] Migration generated + applied
-- [ ] tRPC: pros.apply (public signup) with validation
-- [ ] tRPC: pros.adminList / pros.adminSetStatus (admin-gated approve/reject)
-- [ ] tRPC: pros.matchByArea (find approved pros covering a ZIP, by trade)
-- [ ] Owner notification on new pro application
-- [ ] Public "Join Our Pro Network" signup page + nav/footer entry
-- [ ] Admin review UI (approve/reject) in admin area
-- [ ] Route countertop quote requests to matching approved pros by service area
-- [ ] Track 15% management fee on routed jobs
-- [ ] Tests: pros.apply, admin gating, matchByArea
-- [ ] Typecheck + vitest pass; browser verify signup + admin review
+- [x] DB: pro_applications table (company, contact, trades[], service ZIPs/radius, materials, lead time, license/insurance, status pending/approved/rejected)
+- [x] Migration generated + applied
+- [x] tRPC: pros.submitApplication (public signup) with validation (apply is reserved)
+- [x] tRPC: pros.adminList / pros.adminSetStatus (admin-gated approve/reject)
+- [x] tRPC: pros.matchByArea (find approved pros covering a ZIP, by trade)
+- [x] Owner notification on new pro application
+- [x] Public "Join Our Pro Network" signup page + nav/footer entry
+- [x] Admin review UI (approve/reject) in admin area (new Admin page, tabs for pros + quotes)
+- [x] Admin queries have explicit error+retry states (not misleading empty states)
+- [x] Route countertop quote requests to matching approved pros by service area (admin "Find Pros" by ZIP on each quote)
+- [x] Track 15% management fee on routed jobs (fee estimate shown on quoted jobs)
+- [x] Tests: proCoversZip (explicit ZIP, prefix, trade filter), management fee math
+- [x] Typecheck + vitest pass (107 tests green); browser verify signup + admin review
 
 
 ## Cabinet imagery: to-scale 2D drawings per model (user request — ~380 models, image must match model + size)

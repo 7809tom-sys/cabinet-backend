@@ -361,6 +361,7 @@ function Footer() {
                 { label: "2D Design Tool", href: "/design" },
                 { label: "Bulk Order", href: "/bulk-order" },
                 { label: "Photo-to-Cart", href: "/ocr" },
+                { label: "Join Our Pro Network", href: "/pro-network" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-white transition-colors">

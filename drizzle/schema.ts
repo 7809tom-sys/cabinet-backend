@@ -273,3 +273,43 @@ export const countertopQuotes = mysqlTable("countertop_quotes", {
 
 export type CountertopQuote = typeof countertopQuotes.$inferSelect;
 export type InsertCountertopQuote = typeof countertopQuotes.$inferInsert;
+
+// ─── Pro Network (installers + countertop fabricators) ─────────────────────────
+// Platform-wide network shared by ALL affiliate stores. Pros apply publicly,
+// the platform admin approves/rejects, and approved pros are matched to leads
+// (e.g. countertop quote requests) by trade + service area. The platform tracks
+// a management fee on routed jobs.
+
+export const proApplications = mysqlTable("pro_applications", {
+  id: int("id").autoincrement().primaryKey(),
+  // Company / contact
+  companyName: varchar("companyName", { length: 256 }).notNull(),
+  contactName: varchar("contactName", { length: 256 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  phone: varchar("phone", { length: 32 }),
+  website: varchar("website", { length: 512 }),
+  // Trades offered: e.g. ["installation", "countertop_fabrication"]
+  trades: json("trades").$type<string[]>().notNull(),
+  // Materials handled (mostly for fabricators): ["Quartz","Granite","Laminate",...]
+  materials: json("materials").$type<string[]>(),
+  // Service area
+  serviceZips: json("serviceZips").$type<string[]>(), // explicit ZIPs covered
+  baseZip: varchar("baseZip", { length: 16 }), // home base ZIP
+  serviceRadiusMiles: int("serviceRadiusMiles").default(50),
+  // Credentials
+  licenseNumber: varchar("licenseNumber", { length: 128 }),
+  insured: boolean("insured").default(false).notNull(),
+  yearsInBusiness: int("yearsInBusiness"),
+  leadTimeDays: int("leadTimeDays"),
+  notes: text("notes"),
+  // Review workflow
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  reviewedBy: int("reviewedBy"), // user id of admin reviewer
+  reviewedAt: timestamp("reviewedAt"),
+  reviewNotes: text("reviewNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ProApplication = typeof proApplications.$inferSelect;
+export type InsertProApplication = typeof proApplications.$inferInsert;
