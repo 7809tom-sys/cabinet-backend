@@ -112,5 +112,5 @@
 - [x] Add error/empty states to packages browse page (failed/empty list with retry)
 - [x] Distinguish network-error vs not-found on package detail page (retry + back)
 - [x] Package preload error/invalid-slug feedback in Design Tool
-- [ ] Finish white-label wiring through catalog/design routers + pages
-- [ ] Verify in browser + save checkpoint
+- [x] Finish white-label wiring through catalog/design routers + pages (verified no real supplier names leak; network shown as Line A/B/C)
+- [x] Verify in browser + save checkpoint (desktop + mobile + design-tool handoff)
