@@ -206,6 +206,18 @@ function PlatformFeatures() {
                 </div>
               ))}
             </div>
+
+            <div className="mt-8">
+              <Link href="/order/new">
+                <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2">
+                  Build an Order
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <p className="text-xs text-muted-foreground mt-2">
+                Scan a quote, import a CSV, or type your codes — priced and ready in seconds.
+              </p>
+            </div>
           </div>
 
           {/* Visual mockup */}

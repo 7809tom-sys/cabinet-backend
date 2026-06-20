@@ -15,6 +15,7 @@ const DesignTool = lazy(() => import("@/pages/DesignTool"));
 const Packages = lazy(() => import("@/pages/Packages"));
 const PackageDetail = lazy(() => import("@/pages/PackageDetail"));
 const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
+const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
 const Admin = lazy(() => import("@/pages/Admin"));
 
 function PageLoader() {
@@ -112,12 +113,19 @@ export default function App() {
           </AppLayout>
         </Route>
 
+        <Route path="/order/new">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <OrderBuilder />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
         <Route path="/bulk-order">
           <AppLayout>
-            <div className="container py-16 text-center">
-              <h1 className="font-serif text-3xl font-bold mb-4">Bulk Order</h1>
-              <p className="text-muted-foreground">Coming soon — upload a CSV or scan barcodes to place a full kitchen order.</p>
-            </div>
+            <Suspense fallback={<PageLoader />}>
+              <OrderBuilder />
+            </Suspense>
           </AppLayout>
         </Route>
 

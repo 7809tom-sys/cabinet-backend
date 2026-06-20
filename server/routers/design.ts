@@ -242,20 +242,11 @@ export const designRouter = router({
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 
-      // Notify the owner so they can price and respond. Never block the request
-      // on a notification failure.
-      try {
-        await notifyOwner({
-          title: "New countertop quote request",
-          content: `~${input.squareFeet} sq ft (${input.linearFeet} linear ft)${
-            input.hasIsland ? " incl. island" : ""
-          }${input.material ? ` · ${input.material}` : ""} from ${input.contactEmail}${
-            input.zip ? ` · ZIP ${input.zip}` : ""
-          }.`,
-        });
-      } catch {
-        // swallow: the quote is saved regardless
-      }
+      // Owner email notifications are intentionally DISABLED per owner request
+      // (was flooding the owner inbox). The quote is still saved to
+      // countertop_quotes and is reviewable in the Admin area. To re-enable,
+      // restore the notifyOwner(...) call here.
+      void notifyOwner; // referenced to avoid unused-import error
 
       return { id: insertId };
     }),

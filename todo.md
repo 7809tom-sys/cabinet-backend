@@ -280,3 +280,22 @@
 - [x] Keep distributor data internal only (sourcing/fulfillment), never shown to users
 - [x] SEO: no SKU/distributor counts shown
 - [x] Typecheck (0 errors) + vitest pass (107); leak-check CLEAN on cabinets/doorStyles/pricing
+
+
+## Owner email notifications (user request: stop the quote/application emails)
+- [x] Disable owner email on countertop quote submit (still saved to DB + Admin)
+- [x] Disable owner email on Pro Network application submit (still saved to DB + Admin)
+- [x] Stop generating QA/test submissions against the live preview
+- [x] Typecheck + vitest pass after disabling notifications (124 tests)
+
+## Phase 6: OCR Photo-to-Order & Bulk Ordering (option a: trade order-request/build list, no consumer checkout)
+- [x] DB: order_requests table (originator email/user, line items JSON, source: ocr|csv|design|manual, status: draft|submitted|confirmed, totals)
+- [x] tRPC: orders.createRequest / orders.myRequests / orders.byId / orders.confirm (originator confirmation) + adminList
+- [x] OCR: photo/quote upload -> LLM vision extracts cabinet codes + qty -> match to master cabinet IDs (base64 data URL, no upload roundtrip)
+- [x] OCR review UI: show matched lines (editable qty, swap/remove unmatched) before adding to order request
+- [x] CSV bulk import: upload code,qty CSV -> parse + match -> review -> order request
+- [x] Order review page: itemized lines, door style, trade tier, line + total, submit (OrderReview component + /order/new)
+- [x] On submit: record order request (email-to-distributor copy logic deferred until distributor email wired; originator confirmation captured)
+- [x] Code-to-master matching helper + unit tests (handles B24/W3030/BBC45 style codes, fuzzy)
+- [x] Typecheck + vitest pass (149 tests); browser verified Manual match + submit + confirm flow end-to-end; DB persistence verified
+- [x] Wired into TopNav ("Build an Order") and Home CTA; route /order/new (legacy /bulk-order redirects)

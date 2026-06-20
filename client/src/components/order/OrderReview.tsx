@@ -1,0 +1,546 @@
+import { useEffect, useMemo, useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Tabs, TabsList, TabsTrigger, TabsContent,
+} from "@/components/ui/tabs";
+import {
+  CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil,
+} from "lucide-react";
+
+// A single working line in the review table. Derived from the matcher output
+// but locally editable (qty, swap an unmatched code, remove).
+export type ReviewLine = {
+  rawCode: string;
+  normalized: string;
+  qty: number;
+  cabinetId: number | null;
+  masterCode: string | null;
+  description: string | null;
+  matched: boolean;
+  confidence: "exact" | "normalized" | "fuzzy" | "none";
+};
+
+type StyleOption = {
+  styleId: number;
+  name: string;
+  doorStyle: string | null;
+  finish: string | null;
+  color: string | null;
+  coversAll: boolean;
+  coverage: number;
+};
+
+type Tier = "Wholesale" | "Contractor";
+
+interface Props {
+  lines: ReviewLine[];
+  source: "ocr" | "csv" | "design" | "manual";
+  onLinesChange: (next: ReviewLine[]) => void;
+  onReset: () => void;
+}
+
+// ─── Inline cabinet search for fixing an unmatched line ─────────────────────────
+function CabinetSearchPicker({
+  onPick,
+}: {
+  onPick: (c: { id: number; masterCode: string; description: string }) => void;
+}) {
+  const [term, setTerm] = useState("");
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(term), 250);
+    return () => clearTimeout(t);
+  }, [term]);
+
+  const { data, isLoading } = trpc.cabinets.list.useQuery(
+    { search: debounced || undefined, limit: 8, offset: 0 },
+    { enabled: debounced.length >= 1 }
+  );
+  const items = data?.items ?? [];
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          autoFocus
+          placeholder="Search by code or description…"
+          className="pl-8 h-9"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+        />
+      </div>
+      {isLoading && debounced ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
+        </div>
+      ) : items.length > 0 ? (
+        <div className="max-h-56 overflow-auto rounded-md border border-border divide-y divide-border">
+          {items.map((c) => {
+            const cab = c as { id: number; masterCode: string; description?: string | null };
+            return (
+              <button
+                key={cab.id}
+                onClick={() =>
+                  onPick({
+                    id: cab.id,
+                    masterCode: cab.masterCode,
+                    description: cab.description ?? cab.masterCode,
+                  })
+                }
+                className="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+              >
+                <span className="font-mono text-sm font-semibold">{cab.masterCode}</span>
+                <span className="block text-xs text-muted-foreground truncate">
+                  {cab.description ?? "—"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : debounced ? (
+        <p className="text-sm text-muted-foreground py-2">No cabinets found for "{debounced}".</p>
+      ) : (
+        <p className="text-sm text-muted-foreground py-2">Type to search the catalog.</p>
+      )}
+    </div>
+  );
+}
+
+function confidenceBadge(line: ReviewLine) {
+  if (!line.matched) {
+    return (
+      <Badge variant="outline" className="gap-1 border-amber-400/60 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
+        <AlertTriangle className="h-3 w-3" /> Needs review
+      </Badge>
+    );
+  }
+  if (line.confidence === "exact" || line.confidence === "normalized") {
+    return (
+      <Badge variant="outline" className="gap-1 border-emerald-400/60 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30">
+        <CheckCircle2 className="h-3 w-3" /> Matched
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="gap-1 border-blue-400/60 text-blue-600 bg-blue-50 dark:bg-blue-950/30">
+      <CheckCircle2 className="h-3 w-3" /> Best guess
+    </Badge>
+  );
+}
+
+export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
+  const { user, isAuthenticated } = useAuth();
+  const [tier, setTier] = useState<Tier>("Contractor");
+  const [styleId, setStyleId] = useState<number | null>(null);
+  const [fixingIndex, setFixingIndex] = useState<number | null>(null);
+
+  // Contact + submit state
+  const [name, setName] = useState(user?.name ?? "");
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [phone, setPhone] = useState("");
+  const [zip, setZip] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submittedId, setSubmittedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (user?.email && !email) setEmail(user.email);
+    if (user?.name && !name) setName(user.name);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const matchedCabinetIds = useMemo(
+    () => lines.filter((l) => l.matched && l.cabinetId != null).map((l) => l.cabinetId as number),
+    [lines]
+  );
+  const stableCabinetIds = useMemo(
+    () => Array.from(new Set(matchedCabinetIds)).sort((a, b) => a - b),
+    [matchedCabinetIds]
+  );
+
+  // Door styles that can fulfill the matched cabinets.
+  const stylesQuery = trpc.orders.stylesForCabinets.useQuery(
+    { cabinetIds: stableCabinetIds },
+    { enabled: stableCabinetIds.length > 0, retry: false }
+  );
+  const styleOptions = (stylesQuery.data ?? []) as StyleOption[];
+
+  // Auto-select the first style that covers everything once styles load.
+  useEffect(() => {
+    if (styleId == null && styleOptions.length > 0) {
+      const best = styleOptions.find((s) => s.coversAll) ?? styleOptions[0];
+      setStyleId(best.styleId);
+    }
+  }, [styleOptions, styleId]);
+
+  const selectedStyle = styleOptions.find((s) => s.styleId === styleId) ?? null;
+
+  // Live pricing for the matched cabinets under the chosen style + tier.
+  const priceQuery = trpc.orders.priceLines.useQuery(
+    { cabinetIds: stableCabinetIds, styleId: styleId ?? 0, tier },
+    { enabled: stableCabinetIds.length > 0 && styleId != null, retry: false }
+  );
+  const priceMap = useMemo(() => {
+    const m = new Map<number, number | null>();
+    (priceQuery.data?.prices ?? []).forEach((p) => m.set(p.cabinetId, p.unitPrice));
+    return m;
+  }, [priceQuery.data]);
+
+  const pricedLines = useMemo(() => {
+    return lines.map((l) => {
+      const unit =
+        l.matched && l.cabinetId != null ? priceMap.get(l.cabinetId) ?? null : null;
+      const linePrice = unit != null ? Number((unit * l.qty).toFixed(2)) : null;
+      return { ...l, unitPrice: unit, linePrice };
+    });
+  }, [lines, priceMap]);
+
+  const total = pricedLines.reduce((sum, l) => sum + (l.linePrice ?? 0), 0);
+  const itemCount = lines.reduce((sum, l) => sum + l.qty, 0);
+  const matchedCount = lines.filter((l) => l.matched).length;
+  const unmatchedCount = lines.length - matchedCount;
+  const pricedCount = pricedLines.filter((l) => l.unitPrice != null).length;
+
+  // ─── Line mutations (local) ───────────────────────────────────────────────
+  function updateLine(idx: number, patch: Partial<ReviewLine>) {
+    onLinesChange(lines.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+  function removeLine(idx: number) {
+    onLinesChange(lines.filter((_, i) => i !== idx));
+  }
+  function setQty(idx: number, qty: number) {
+    updateLine(idx, { qty: Math.max(1, Math.min(999, Math.round(qty || 1))) });
+  }
+
+  // ─── Submit ───────────────────────────────────────────────────────────────
+  const utils = trpc.useUtils();
+  const createReq = trpc.orders.createRequest.useMutation({
+    onSuccess: (res) => {
+      setSubmittedId(res.id);
+      if (isAuthenticated) utils.orders.myRequests.invalidate();
+      toast.success("Order request submitted", {
+        description: "Our team will review and send it to the supply line.",
+      });
+    },
+    onError: (e) => toast.error("Could not submit", { description: e.message }),
+  });
+
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  function handleSubmit() {
+    if (lines.length === 0) {
+      toast.error("Add at least one cabinet before submitting.");
+      return;
+    }
+    if (!emailValid) {
+      toast.error("Enter a valid email so we can confirm your order.");
+      return;
+    }
+    createReq.mutate({
+      originatorName: name || undefined,
+      originatorEmail: email,
+      originatorPhone: phone || undefined,
+      zip: zip || undefined,
+      source,
+      styleId: selectedStyle?.styleId ?? null,
+      styleName: selectedStyle?.name ?? null,
+      tier,
+      notes: notes || undefined,
+      submit: true,
+      lineItems: pricedLines.map((l) => ({
+        cabinetId: l.cabinetId,
+        masterCode: l.masterCode ?? (l.normalized || l.rawCode),
+        rawCode: l.rawCode,
+        description: l.description ?? l.masterCode ?? l.rawCode,
+        qty: l.qty,
+        unitPrice: l.unitPrice,
+        linePrice: l.linePrice,
+        styleId: selectedStyle?.styleId ?? null,
+        doorStyle: selectedStyle?.name ?? null,
+        tier,
+        matched: l.matched,
+      })),
+    });
+  }
+
+  // ─── Confirmation screen ──────────────────────────────────────────────────
+  const confirmReq = trpc.orders.confirm.useMutation();
+  if (submittedId != null) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-8 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40">
+          <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+        </div>
+        <h3 className="font-serif text-2xl font-bold mb-2">Order request received</h3>
+        <p className="text-muted-foreground max-w-md mx-auto mb-6">
+          We've logged your {itemCount}-piece order. Our team reviews every request and routes it to
+          the supply line for fulfillment. You'll get a confirmation at{" "}
+          <span className="font-medium text-foreground">{email}</span>.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button
+            onClick={() => {
+              confirmReq.mutate(
+                { id: submittedId },
+                {
+                  onSuccess: () => toast.success("Thanks — your order is confirmed."),
+                  onError: (e) => toast.error(e.message),
+                }
+              );
+            }}
+            disabled={confirmReq.isPending || confirmReq.isSuccess}
+            className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
+          >
+            {confirmReq.isSuccess ? "Confirmed" : confirmReq.isPending ? "Confirming…" : "Confirm this order"}
+          </Button>
+          <Button variant="outline" onClick={onReset}>
+            Start another order
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (lines.length === 0) return null;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary strip */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
+        <Badge variant="secondary" className="gap-1">{lines.length} lines</Badge>
+        <Badge variant="secondary" className="gap-1">{itemCount} pieces</Badge>
+        <Badge variant="outline" className="gap-1 border-emerald-400/60 text-emerald-600">
+          {matchedCount} matched
+        </Badge>
+        {unmatchedCount > 0 && (
+          <Badge variant="outline" className="gap-1 border-amber-400/60 text-amber-600">
+            {unmatchedCount} need review
+          </Badge>
+        )}
+        <div className="ml-auto">
+          <Button variant="ghost" size="sm" onClick={onReset}>Clear & start over</Button>
+        </div>
+      </div>
+
+      {/* Style + tier controls */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label>Door style</Label>
+          {stableCabinetIds.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Match at least one cabinet to pick a style.</p>
+          ) : stylesQuery.isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground h-9">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading styles…
+            </div>
+          ) : styleOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No published styles cover these cabinets yet.</p>
+          ) : (
+            <Select value={styleId ? String(styleId) : undefined} onValueChange={(v) => setStyleId(Number(v))}>
+              <SelectTrigger><SelectValue placeholder="Choose a door style" /></SelectTrigger>
+              <SelectContent>
+                {styleOptions.map((s) => (
+                  <SelectItem key={s.styleId} value={String(s.styleId)}>
+                    {s.name}
+                    {!s.coversAll ? " (partial coverage)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label>Pricing tier</Label>
+          <Select value={tier} onValueChange={(v) => setTier(v as Tier)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Contractor">Contractor</SelectItem>
+              <SelectItem value="Wholesale">Wholesale</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Line item table */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="w-[120px]">Code</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead className="w-[140px]">Status</TableHead>
+              <TableHead className="w-[120px]">Qty</TableHead>
+              <TableHead className="w-[100px] text-right">Unit</TableHead>
+              <TableHead className="w-[110px] text-right">Line</TableHead>
+              <TableHead className="w-[44px]" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pricedLines.map((l, idx) => (
+              <TableRow key={`${l.rawCode}-${idx}`} className={!l.matched ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}>
+                <TableCell className="font-mono text-sm font-semibold">
+                  {l.masterCode ?? l.rawCode}
+                  {l.matched && l.masterCode && l.rawCode && l.masterCode.toUpperCase() !== l.rawCode.toUpperCase() && (
+                    <span className="block text-[10px] font-normal text-muted-foreground">from "{l.rawCode}"</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {l.description ?? <span className="text-muted-foreground italic">Unrecognized code</span>}
+                </TableCell>
+                <TableCell>
+                  {fixingIndex === idx ? null : confidenceBadge(l)}
+                  {!l.matched && fixingIndex !== idx && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs"
+                      onClick={() => setFixingIndex(idx)}
+                    >
+                      <Pencil className="h-3 w-3 mr-1" /> Fix
+                    </Button>
+                  )}
+                  {l.matched && fixingIndex !== idx && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs text-muted-foreground ml-2"
+                      onClick={() => setFixingIndex(idx)}
+                    >
+                      swap
+                    </Button>
+                  )}
+                  {fixingIndex === idx && (
+                    <div className="mt-1">
+                      <CabinetSearchPicker
+                        onPick={(c) => {
+                          updateLine(idx, {
+                            cabinetId: c.id,
+                            masterCode: c.masterCode,
+                            description: c.description,
+                            matched: true,
+                            confidence: "normalized",
+                            normalized: c.masterCode,
+                          });
+                          setFixingIndex(null);
+                        }}
+                      />
+                      <Button variant="ghost" size="sm" className="mt-1 h-7 text-xs" onClick={() => setFixingIndex(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setQty(idx, l.qty - 1)}>
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      value={l.qty}
+                      onChange={(e) => setQty(idx, Number(e.target.value))}
+                      className="h-7 w-12 text-center px-1"
+                    />
+                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setQty(idx, l.qty + 1)}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right text-sm tabular-nums">
+                  {l.unitPrice != null ? `$${l.unitPrice.toFixed(2)}` : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell className="text-right text-sm font-medium tabular-nums">
+                  {l.linePrice != null ? `$${l.linePrice.toFixed(2)}` : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeLine(idx)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Total */}
+      <div className="flex items-center justify-between rounded-lg border border-border bg-card px-5 py-4">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Estimated total{" "}
+            {pricedCount < matchedCount && (
+              <span className="text-amber-600">(some lines not yet priced)</span>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {selectedStyle ? `${selectedStyle.name} · ${tier}` : "Select a door style to price"}
+          </p>
+        </div>
+        <p className="font-serif text-2xl font-bold tabular-nums">
+          {total > 0 ? `$${total.toFixed(2)}` : "—"}
+        </p>
+      </div>
+
+      {/* Contact + submit */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <h3 className="font-serif text-lg font-semibold">Submit this order</h3>
+        <p className="text-sm text-muted-foreground -mt-2">
+          We'll review your request and route it to the supply line. All orders are confirmed with the originator before fulfillment.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="ord-name">Name</Label>
+            <Input id="ord-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ord-email">Email <span className="text-destructive">*</span></Label>
+            <Input id="ord-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ord-phone">Phone</Label>
+            <Input id="ord-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(optional)" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ord-zip">Delivery ZIP</Label>
+            <Input id="ord-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="(optional)" />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ord-notes">Notes</Label>
+          <Textarea id="ord-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything the team should know — finishes, hardware, deadlines…" rows={3} />
+        </div>
+        {unmatchedCount > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              {unmatchedCount} line{unmatchedCount > 1 ? "s" : ""} couldn't be matched automatically. You can still submit — our team will help identify them — or use "Fix" to map them now.
+            </span>
+          </div>
+        )}
+        <Button
+          onClick={handleSubmit}
+          disabled={createReq.isPending}
+          size="lg"
+          className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
+        >
+          {createReq.isPending ? "Submitting…" : `Submit order request${total > 0 ? ` · $${total.toFixed(2)}` : ""}`}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Re-export Tabs primitives so the page can compose them alongside this component
+// without re-importing in multiple places.
+export { Tabs, TabsList, TabsTrigger, TabsContent };

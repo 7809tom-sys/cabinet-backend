@@ -10,7 +10,7 @@ const NAV_LINKS = [
   { label: "Catalog", href: "/catalog" },
   { label: "Door Styles", href: "/styles" },
   { label: "Design Tool", href: "/design" },
-  { label: "Bulk Order", href: "/bulk-order" },
+  { label: "Build an Order", href: "/order/new" },
   { label: "Pro Network", href: "/pro-network" },
 ];
 

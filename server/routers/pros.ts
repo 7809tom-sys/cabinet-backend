@@ -75,17 +75,11 @@ export const prosRouter = router({
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 
-      // Notify the owner. Never block the application on notification failure.
-      try {
-        await notifyOwner({
-          title: "New Pro Network application",
-          content: `${input.companyName} (${input.contactName}) applied as ${input.trades.join(
-            ", "
-          )}${input.baseZip ? ` · base ZIP ${input.baseZip}` : ""} — ${input.email}.`,
-        });
-      } catch {
-        // swallow
-      }
+      // Owner email notifications are intentionally DISABLED per owner request
+      // (was flooding the owner inbox). Applications are still saved to
+      // pro_applications and reviewable in the Admin area. To re-enable,
+      // restore the notifyOwner(...) call here.
+      void notifyOwner; // referenced to avoid unused-import error
 
       return { id: insertId };
     }),

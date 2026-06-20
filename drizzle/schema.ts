@@ -313,3 +313,49 @@ export const proApplications = mysqlTable("pro_applications", {
 
 export type ProApplication = typeof proApplications.$inferSelect;
 export type InsertProApplication = typeof proApplications.$inferInsert;
+
+// ─── Trade Order Requests ──────────────────────────────────────────────────────
+// Trade-only order requests (NOT a consumer checkout). Built from OCR photo
+// extraction, CSV bulk import, the design tool export, or manual entry. The
+// originator reviews + submits; the confirmed request is recorded here. Email-
+// to-distributor (with affiliate copies) is deferred until distributor email is
+// wired — for now we just persist the confirmed request.
+
+export type OrderLineItem = {
+  cabinetId: number | null; // null = unmatched/free-text line
+  masterCode: string; // matched master code or the raw extracted code
+  rawCode?: string; // original code as extracted/imported (pre-normalization)
+  description: string;
+  qty: number;
+  unitPrice: number | null; // null when not priced (unmatched / no style)
+  linePrice: number | null;
+  doorStyle?: string | null; // chosen door-style name for this line
+  styleId?: number | null;
+  tier?: "Wholesale" | "Contractor" | null;
+  matched: boolean;
+};
+
+export const orderRequests = mysqlTable("order_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"), // null for guest/email-only originators
+  requestNumber: varchar("requestNumber", { length: 64 }).notNull().unique(),
+  originatorName: varchar("originatorName", { length: 256 }),
+  originatorEmail: varchar("originatorEmail", { length: 320 }),
+  originatorPhone: varchar("originatorPhone", { length: 32 }),
+  zip: varchar("zip", { length: 16 }), // for future location-based availability
+  source: mysqlEnum("source", ["ocr", "csv", "design", "manual"]).default("manual").notNull(),
+  status: mysqlEnum("status", ["draft", "submitted", "confirmed", "cancelled"]).default("draft").notNull(),
+  styleId: int("styleId"), // default door style applied across lines
+  styleName: varchar("styleName", { length: 128 }),
+  tier: mysqlEnum("tier", ["Wholesale", "Contractor"]).default("Contractor").notNull(),
+  lineItems: json("lineItems").$type<OrderLineItem[]>().notNull(),
+  itemCount: int("itemCount").default(0).notNull(),
+  totalAmount: decimal("totalAmount", { precision: 12, scale: 2 }),
+  notes: text("notes"),
+  confirmedAt: timestamp("confirmedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type OrderRequest = typeof orderRequests.$inferSelect;
+export type InsertOrderRequest = typeof orderRequests.$inferInsert;
