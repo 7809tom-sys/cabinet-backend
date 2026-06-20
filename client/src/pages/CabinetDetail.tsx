@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
+import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
 // Trade-only platform: pricing is shown by trade tier. No homeowner/retail tier.
@@ -142,21 +143,19 @@ export default function CabinetDetail({ masterCode }: Props) {
           <div className="rounded-xl border border-border bg-gradient-to-b from-muted/20 to-muted/40 h-64 flex items-center justify-center mb-2 overflow-hidden p-6">
             <CabinetDrawing cabinet={cabinet} className="h-full w-auto max-w-full" />
           </div>
-          {selectedRow?.doorSampleImageUrl && (
+          {selectedRow ? (
             <div className="flex items-center gap-3 mb-6 rounded-lg border border-border p-2.5">
-              <img
-                src={selectedRow.doorSampleImageUrl}
-                alt={`${selectedRow.name} door finish sample`}
-                className="h-12 w-12 rounded object-cover shrink-0"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
+              <div className="h-12 w-12 rounded bg-muted/40 shrink-0 flex items-center justify-center p-1 overflow-hidden">
+                <DoorStyleSwatch style={selectedRow} className="h-full w-auto" />
+              </div>
               <div className="text-xs text-muted-foreground leading-tight">
                 <div className="font-medium text-foreground">{selectedRow.name}</div>
-                <div>Selected door finish · drawing shown to scale</div>
+                <div>Selected door style · drawing shown to scale</div>
               </div>
             </div>
+          ) : (
+            <div className="mb-6" />
           )}
-          {!selectedRow?.doorSampleImageUrl && <div className="mb-6" />}
 
           {/* Specs */}
           <div className="rounded-xl border border-border p-5">
@@ -228,14 +227,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                         : "border-border bg-card text-foreground/70 hover:border-primary/50 hover:text-foreground"
                     }`}
                   >
-                    {s.thumbnailImageUrl && (
-                      <img
-                        src={s.thumbnailImageUrl}
-                        alt={s.name}
-                        className="h-4 w-4 rounded object-cover"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    )}
+                    <DoorStyleSwatch style={s} className="h-4 w-4 rounded shrink-0" />
                     {s.name}
                     {activeStyle === s.styleId && <Check className="h-3 w-3 ml-0.5" />}
                   </button>

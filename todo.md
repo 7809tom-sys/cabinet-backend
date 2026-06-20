@@ -131,7 +131,9 @@
 - [x] Add Crown Molding: toggle draws crown along top of wall cabinets (elevation) + linear-foot BOM line
 - [x] Add Toe Kick: recessed base strip under base cabinets (elevation) + BOM line
 - [x] Blind corner cabinets (BBC base / WBC wall) must auto-include a corner FILLER: BOM filler line (base/wall) via blindCornerFillers + hatched filler-gap marker in plan view (tests pass)
-- [ ] Audit site imagery: images reported "way off" — check broken/placeholder images, wrong aspect ratios/proportions across Home, Catalog, Door Styles, Packages; ensure watermarks never show distributor/dealer names
+- [x] Audit site imagery: door-style photo fields (/door-samples, /thumbnails, /room-scenes) were all dead links -> replaced with accurate color-correct DoorStyleSwatch SVGs (Door Styles + Cabinet Detail picker/sample). Catalog hero+6 category tiles verified serving real JPEGs (200). No distributor/dealer names on any visual. 7 swatch tests added (114 total pass).
+  - [x] Home page audited (full-page screenshot): no photos — typographic hero + icon cards + SVG price widget + text category tiles; no broken/placeholder images, no supplier/dealer names
+  - [x] Kitchen Packages audited (full-page screenshot): SVG layout glyphs (L/U/galley), priced cards + badges; no broken images, no supplier names
 
 ## Design Tool wall + measurements (user request)
 - [x] Editable custom room dimensions: type width & depth (feet + inches), redraws to scale

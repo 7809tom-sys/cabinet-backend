@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { Palette } from "lucide-react";
+// useState still used by the page (selectedType); Palette used in empty state.
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 
 // ─── Style card ───────────────────────────────────────────────────────────────
 // Presents purely by door-style attributes. No supplier/line identity is shown.
@@ -20,25 +22,14 @@ interface DoorStyle {
 }
 
 function StyleCard({ style }: { style: DoorStyle }) {
-  const [imgError, setImgError] = useState(false);
-
   return (
     <div className="cabinet-card group rounded-xl border border-border bg-card overflow-hidden">
-      {/* Door sample image */}
-      <div className="h-40 bg-muted/40 flex items-center justify-center border-b border-border overflow-hidden relative">
-        {style.thumbnailImageUrl && !imgError ? (
-          <img
-            src={style.thumbnailImageUrl}
-            alt={style.ourName || style.styleCode}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-muted-foreground/40">
-            <Palette className="h-10 w-10" />
-            <span className="text-xs font-mono">{style.styleCode}</span>
-          </div>
-        )}
+      {/* Door sample rendered to the style's real color + panel treatment */}
+      <div className="h-40 bg-gradient-to-b from-muted/30 to-muted/60 flex items-center justify-center border-b border-border overflow-hidden relative p-4">
+        <DoorStyleSwatch
+          style={style}
+          className="h-full w-auto drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
+        />
       </div>
 
       <div className="p-4">
