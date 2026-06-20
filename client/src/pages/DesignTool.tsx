@@ -19,6 +19,7 @@ import {
   APPLIANCES, applianceAsDesignCabinet,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
+  trimPiecesNeeded, countertopArea,
   blindCornerFillers, snapToWall,
   nextFreeSpotOnWall, clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS,
@@ -29,6 +30,7 @@ import { EmailGate } from "@/components/design/EmailGate";
 import { RoomSizeControl } from "@/components/design/RoomSizeControl";
 import { WallPicker } from "@/components/design/WallPicker";
 import { DesignHelp } from "@/components/design/DesignHelp";
+import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 
 type ViewMode = "plan" | "elevation" | "split";
 type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
@@ -41,6 +43,7 @@ function priceOf(row: { wholesalePrice: string | null; contractorPrice: string |
 export default function DesignTool() {
   // Email gate
   const [verified, setVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
 
   // Optional package to preload (?package=slug), e.g. from a Kitchen Package page.
   const search = useSearch();
@@ -68,6 +71,9 @@ export default function DesignTool() {
   // Trim toggles rendered in elevation + added to the BOM.
   const [crown, setCrown] = useState(false);
   const [toeKick, setToeKick] = useState(false);
+  // Countertop tool: measures base + island runs; not auto-priced (quote request).
+  const [countertop, setCountertop] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
   // Mouse-draw room mode: drag on an empty canvas to draw the room outline.
   const [drawMode, setDrawMode] = useState(false);
   // Active wall: the wall the user has highlighted. New items drop onto it, and
@@ -166,14 +172,20 @@ export default function DesignTool() {
   );
   const activeFinish = useMemo(() => finishColors(activeStyleName), [activeStyleName]);
 
-  // Crown molding & toe kick linear footage for the BOM (derived from widths).
-  const crownFt = useMemo(
-    () => (crown ? inchesToLinearFeet(crownLinearInches(placed)) : 0),
-    [crown, placed]
+  // Crown molding & toe kick for the BOM. Crown is grouped per wall with a 3"
+  // miter allowance; both are ordered in whole standard sticks (96").
+  const crownOrder = useMemo(
+    () => (crown ? trimPiecesNeeded(crownLinearInches(placed, room)) : null),
+    [crown, placed, room]
   );
-  const toeKickFt = useMemo(
-    () => (toeKick ? inchesToLinearFeet(toeKickLinearInches(placed)) : 0),
+  const toeKickOrder = useMemo(
+    () => (toeKick ? trimPiecesNeeded(toeKickLinearInches(placed)) : null),
     [toeKick, placed]
+  );
+  // Countertop measurement (base run + island), shown as a quote request.
+  const counter = useMemo(
+    () => (countertop ? countertopArea(placed, island) : null),
+    [countertop, placed, island]
   );
 
   // Blind corner cabinets must auto-include a corner filler. One filler per
@@ -359,7 +371,14 @@ export default function DesignTool() {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   if (!verified) {
-    return <EmailGate onVerified={() => setVerified(true)} />;
+    return (
+      <EmailGate
+        onVerified={(email) => {
+          setVerifiedEmail(email);
+          setVerified(true);
+        }}
+      />
+    );
   }
 
   return (
@@ -482,6 +501,15 @@ export default function DesignTool() {
             className={`h-8 gap-1.5 ${toeKick ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
             <Columns3 className="h-3.5 w-3.5" /> Toe Kick
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCountertop((c) => !c)}
+            title="Countertop (measured for a quote request)"
+            className={`h-8 gap-1.5 ${countertop ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600" : ""}`}
+          >
+            <Square className="h-3.5 w-3.5" /> Countertop
           </Button>
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-8 gap-1.5">
             <RotateCw className="h-3.5 w-3.5" /> Rotate
@@ -770,24 +798,39 @@ export default function DesignTool() {
                 ))}
               </div>
             )}
-            {(crown || toeKick) && placed.length > 0 && (
+            {(crown || toeKick || countertop) && placed.length > 0 && (
               <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
-                {crown && (
+                {crown && crownOrder && crownOrder.pieces > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">CROWN MOLDING</div>
-                      <div className="text-[10px] text-muted-foreground">{crownFt.toFixed(1)} linear ft · trim</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {crownOrder.pieces} pc{crownOrder.pieces > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft run (incl. 3&quot; miter/wall)
+                      </div>
                     </div>
                     <span className="font-semibold shrink-0 text-muted-foreground">incl.</span>
                   </div>
                 )}
-                {toeKick && (
+                {toeKick && toeKickOrder && toeKickOrder.pieces > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">TOE KICK</div>
-                      <div className="text-[10px] text-muted-foreground">{toeKickFt.toFixed(1)} linear ft · trim</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {toeKickOrder.pieces} pc{toeKickOrder.pieces > 1 ? "s" : ""} @ {toeKickOrder.stickFeet}&apos; · {toeKickOrder.measuredFeet} ft run
+                      </div>
                     </div>
                     <span className="font-semibold shrink-0 text-muted-foreground">incl.</span>
+                  </div>
+                )}
+                {countertop && counter && counter.squareFeet > 0 && (
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30">
+                    <div className="min-w-0">
+                      <div className="font-mono font-semibold truncate">COUNTERTOP</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        ~{counter.squareFeet} sq ft · {counter.linearFeet} linear ft{counter.hasIsland ? " (incl. island)" : ""}
+                      </div>
+                    </div>
+                    <span className="font-semibold shrink-0 text-amber-600">Quote</span>
                   </div>
                 )}
               </div>
@@ -819,9 +862,31 @@ export default function DesignTool() {
             >
               <Maximize2 className="h-4 w-4" /> Add Design to Cart
             </Button>
+            {countertop && counter && counter.squareFeet > 0 && (
+              <Button
+                variant="outline"
+                className="w-full mt-2 gap-2 border-amber-500 text-amber-700 hover:bg-amber-50"
+                onClick={() => setQuoteOpen(true)}
+              >
+                <Square className="h-4 w-4" /> Request Countertop Quote
+              </Button>
+            )}
           </div>
         </div>
       </div>
+
+      {counter && (
+        <CountertopQuoteDialog
+          open={quoteOpen}
+          onOpenChange={setQuoteOpen}
+          squareFeet={counter.squareFeet}
+          linearFeet={counter.linearFeet}
+          hasIsland={counter.hasIsland}
+          defaultEmail={verifiedEmail}
+          roomData={room}
+          placedCabinets={placed}
+        />
+      )}
     </div>
   );
 }

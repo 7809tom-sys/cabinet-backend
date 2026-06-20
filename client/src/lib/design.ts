@@ -393,11 +393,58 @@ export function finishColors(styleCodeOrName?: string | null): FinishColors {
 // cabinets (wall widths for crown, base+tall widths for toe kick).
 export const CROWN_HEIGHT_IN = 3;     // visual crown band height in elevation
 export const TOE_KICK_HEIGHT_IN = STD.TOE_KICK; // 4.5"
+// Any mitered trim (crown, light rail, decorative molding) loses length at the
+// 45° corner cuts, so each continuous wall run needs extra material. Trade rule
+// of thumb: add 3" to each wall's run (e.g. a 12" wall needs a 15" cut). The
+// allowance is applied once per WALL the trim runs along — not per cabinet —
+// because trim runs continuously and is only mitered where walls meet.
+export const MITER_ALLOWANCE_IN = 3;
+// Back-compat alias.
+export const CROWN_MITER_ALLOWANCE_IN = MITER_ALLOWANCE_IN;
 
-export function crownLinearInches(placed: PlacedCabinet[]): number {
-  return placed
-    .filter((p) => p.placement === "wall")
-    .reduce((sum, p) => sum + rotatedSize(p).w, 0);
+// Which of the four walls is this cabinet sitting against? Falls back to the
+// nearest wall by orientation when it's not flush within tolerance.
+export function cabinetWall(p: PlacedCabinet, room: RoomData): WallSide {
+  const sides: WallSide[] = ["top", "bottom", "left", "right"];
+  for (const s of sides) {
+    if (isAgainstWall(p, s, room)) return s;
+  }
+  // Not flush: pick by rotation orientation, then nearest edge.
+  const horizontal = ((Math.round(p.rotation) % 180) + 180) % 180 === 0;
+  const { w, d } = rotatedSize(p);
+  if (horizontal) {
+    return p.y + d / 2 < room.depth / 2 ? "top" : "bottom";
+  }
+  return p.x + w / 2 < room.width / 2 ? "left" : "right";
+}
+
+// Sum a mitered trim run grouped by wall, adding the miter allowance once per
+// wall that actually has trim on it. `cabs` are the cabinets the trim runs over.
+export function miteredTrimInches(cabs: PlacedCabinet[], room: RoomData): number {
+  if (cabs.length === 0) return 0;
+  const perWall: Record<WallSide, number> = { top: 0, bottom: 0, left: 0, right: 0 };
+  for (const p of cabs) {
+    perWall[cabinetWall(p, room)] += rotatedSize(p).w;
+  }
+  let total = 0;
+  (Object.keys(perWall) as WallSide[]).forEach((side) => {
+    if (perWall[side] > 0) total += perWall[side] + MITER_ALLOWANCE_IN;
+  });
+  return total;
+}
+
+// Crown runs along the top of wall cabinets, grouped per wall with miter
+// allowance. Requires the room to know which wall each cabinet is on.
+export function crownLinearInches(placed: PlacedCabinet[], room?: RoomData): number {
+  // Crown caps the top of upper (wall) cabinets and tall pantry/oven cabinets.
+  const wallCabs = placed.filter((p) => p.placement === "wall" || p.placement === "tall");
+  if (wallCabs.length === 0) return 0;
+  if (!room) {
+    // No room context: fall back to a single continuous run + one allowance.
+    const run = wallCabs.reduce((s, p) => s + rotatedSize(p).w, 0);
+    return run + MITER_ALLOWANCE_IN;
+  }
+  return miteredTrimInches(wallCabs, room);
 }
 
 export function toeKickLinearInches(placed: PlacedCabinet[]): number {
@@ -408,6 +455,81 @@ export function toeKickLinearInches(placed: PlacedCabinet[]): number {
 
 export function inchesToLinearFeet(inches: number): number {
   return Math.ceil((inches / 12) * 10) / 10; // 1 decimal, rounded up
+}
+
+// Trim (crown molding, toe kick) is sold in fixed stick lengths, not arbitrary
+// fractional runs. Real ordering: measure the run, add a cut/waste allowance,
+// then round UP to a whole number of standard sticks. Default stick = 96" (8 ft),
+// default waste = 10%.
+export const TRIM_STICK_INCHES = 96; // standard 8 ft trim stick
+export const TRIM_WASTE = 0.1;       // 10% cut/waste allowance
+
+export interface TrimOrder {
+  pieces: number;      // whole sticks to order
+  stickFeet: number;   // length of each stick, in feet (e.g. 8)
+  orderedFeet: number; // total feet ordered (pieces * stickFeet)
+  measuredFeet: number; // the raw measured run, in feet (1 decimal)
+}
+
+/**
+ * Convert a measured trim run (in inches) into a sensible order: whole sticks
+ * of `stickInches` length, including a `waste` allowance, rounded up.
+ */
+export function trimPiecesNeeded(
+  runInches: number,
+  stickInches: number = TRIM_STICK_INCHES,
+  waste: number = TRIM_WASTE
+): TrimOrder {
+  const stickFeet = stickInches / 12;
+  if (runInches <= 0) {
+    return { pieces: 0, stickFeet, orderedFeet: 0, measuredFeet: 0 };
+  }
+  const withWaste = runInches * (1 + waste);
+  const pieces = Math.max(1, Math.ceil(withWaste / stickInches));
+  return {
+    pieces,
+    stickFeet,
+    orderedFeet: pieces * stickFeet,
+    measuredFeet: Math.round((runInches / 12) * 10) / 10,
+  };
+}
+
+// ─── Countertops ────────────────────────────────────────────────────────────
+// Countertops aren't auto-priced (material/edge/fabrication is supplier-quoted),
+// so the design tool measures the run and the contractor requests a quote.
+// Standard countertop depth is 25.5" (24" base box + ~1.5" front overhang).
+// Island tops use the island footprint directly.
+export const COUNTERTOP_DEPTH_IN = 25.5;
+
+export interface CountertopMeasurement {
+  linearFeet: number; // total run of base cabinets that take a top, in feet
+  squareFeet: number; // run x countertop depth (+ island), in sq ft
+  runInches: number;  // raw base run, inches
+  hasIsland: boolean;
+}
+
+/**
+ * Measure the countertop needed for a layout: base-cabinet run x standard depth,
+ * plus the island footprint if present. Wall/tall cabinets don't take a top.
+ */
+export function countertopArea(
+  placed: PlacedCabinet[],
+  island?: { width: number; depth: number } | null
+): CountertopMeasurement {
+  const runInches = placed
+    .filter((p) => p.placement === "base")
+    .reduce((sum, p) => sum + rotatedSize(p).w, 0);
+  let squareIn = runInches * COUNTERTOP_DEPTH_IN;
+  const hasIsland = !!(island && island.width > 0 && island.depth > 0);
+  if (hasIsland && island) {
+    squareIn += island.width * island.depth;
+  }
+  return {
+    runInches,
+    linearFeet: Math.round((runInches / 12) * 10) / 10,
+    squareFeet: Math.ceil((squareIn / 144) * 10) / 10, // round up to 0.1 sq ft
+    hasIsland,
+  };
 }
 
 // ─── Blind corner fillers ───────────────────────────────────────────────────

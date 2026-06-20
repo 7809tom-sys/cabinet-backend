@@ -246,3 +246,30 @@ export const subscribers = mysqlTable("subscribers", {
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+// ─── Countertop Quote Requests ─────────────────────────────────────────────────
+// Countertops aren't auto-priced; a contractor submits the design + measurements
+// and the team (or a supplier) quotes it back. Stored here with a status.
+
+export const countertopQuotes = mysqlTable("countertop_quotes", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"), // null for anonymous/email-only requests
+  contactName: varchar("contactName", { length: 256 }),
+  contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
+  contactPhone: varchar("contactPhone", { length: 32 }),
+  zip: varchar("zip", { length: 16 }),
+  material: varchar("material", { length: 128 }), // requested material, e.g. Quartz, Granite, Laminate
+  squareFeet: decimal("squareFeet", { precision: 8, scale: 2 }).notNull(),
+  linearFeet: decimal("linearFeet", { precision: 8, scale: 2 }).notNull(),
+  hasIsland: boolean("hasIsland").default(false).notNull(),
+  roomData: json("roomData").$type<object>(), // room dimensions snapshot
+  placedCabinets: json("placedCabinets").$type<object[]>(), // layout snapshot
+  notes: text("notes"),
+  status: mysqlEnum("status", ["new", "quoted", "won", "lost"]).default("new").notNull(),
+  quotedPrice: decimal("quotedPrice", { precision: 10, scale: 2 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CountertopQuote = typeof countertopQuotes.$inferSelect;
+export type InsertCountertopQuote = typeof countertopQuotes.$inferInsert;

@@ -175,3 +175,36 @@
 - [x] Help (?) button opens a guide dialog covering: pick a wall, add items to the active wall, drag a wall to resize, draw the room, type exact measurements, snap a placed cabinet to a wall
 - [x] Dismissable hint that remembers via localStorage
 - [x] Browser verify hints render
+
+
+## Design Tool: sensible trim rounding (user request)
+- [x] Trim ordered in standard stick lengths (96") with cut/waste allowance, rounded up to whole sticks
+- [x] trimPiecesNeeded() helper + keep linear feet for reference
+- [x] BOM shows sticks to order (e.g., "2 pcs @ 8 ft = 16 ft") for crown + toe kick
+- [x] Tests for trim rounding
+- [x] Typecheck + vitest pass; browser verify
+
+
+## Design Tool: trim rounding finish (user request)
+- [x] Crown adds +3" miter allowance per wall run (12" wall -> 15" cut); applies to any mitered trim
+- [x] miteredTrimInches + cabinetWall helpers; toe kick stays continuous (no miter allowance)
+- [x] Pass room into crownLinearInches at the call site
+- [x] Round trim to whole standard sticks (96") with waste; BOM shows pcs + measured run
+- [x] Tests for trim rounding + miter allowance (74 design tests pass)
+
+## Design Tool: countertop quote tool (user request)
+- [x] Countertop toggle measures base + island runs -> sq ft and linear ft
+- [x] countertopArea() helper (25.5" depth incl. overhang) + tests
+- [x] BOM shows countertop with sq ft + linear ft and a Quote tag (not auto-priced)
+- [x] countertop_quotes DB table (design snapshot, measurements, contractor contact, status)
+- [x] tRPC procedure to submit a countertop quote request + owner notification
+- [x] "Request Countertop Quote" button in the design tool wired to submit
+- [x] Typecheck + vitest pass; browser verify trim + countertop quote flow (83 tests pass)
+
+
+## Installer network (LATER - after design tool)
+- [ ] Installer signup form ("Become an Installer": company, service ZIPs, trades, license/insurance, contact)
+- [ ] installer_applications table with pending/approved status (admin approval)
+- [ ] Admin review/approve installers
+- [ ] Installation request from a design; 15% management fee applied
+- [ ] Decide fee model (on top vs. carved out) - confirm with user

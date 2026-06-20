@@ -1,8 +1,10 @@
 import { z } from "zod";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, desc } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors } from "../../drizzle/schema";
+import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes } from "../../drizzle/schema";
+import { notifyOwner } from "../_core/notification";
 
 export const designRouter = router({
   placeableCabinets: publicProcedure
@@ -158,7 +160,8 @@ export const designRouter = router({
         selectedStyleId: input.selectedStyleId,
         selectedDistributorId: input.selectedDistributorId,
       });
-      const insertId = (result as unknown as { insertId: number }).insertId;
+      // mysql2 returns a tuple: [ResultSetHeader, ...]; insertId lives on the header.
+      const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
       return { id: insertId };
     }),
 
@@ -182,5 +185,90 @@ export const designRouter = router({
         .where(eq(kitchenDesigns.id, input.id))
         .limit(1);
       return rows[0] ?? null;
+    }),
+
+  // ─── Countertop quote requests ───────────────────────────────────────────
+  // Countertops are not auto-priced. The contractor submits the design plus
+  // measured square/linear footage and we (or a supplier) quote it back.
+  requestCountertopQuote: publicProcedure
+    .input(
+      z.object({
+        contactName: z.string().max(256).optional(),
+        contactEmail: z.string().email(),
+        contactPhone: z.string().max(32).optional(),
+        zip: z.string().max(16).optional(),
+        material: z.string().max(128).optional(),
+        squareFeet: z.number().nonnegative(),
+        linearFeet: z.number().nonnegative(),
+        hasIsland: z.boolean().default(false),
+        roomData: z.any().optional(),
+        placedCabinets: z.any().optional(),
+        notes: z.string().max(2000).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const result = await db.insert(countertopQuotes).values({
+        userId: ctx.user?.id ?? null,
+        contactName: input.contactName ?? null,
+        contactEmail: input.contactEmail,
+        contactPhone: input.contactPhone ?? null,
+        zip: input.zip ?? null,
+        material: input.material ?? null,
+        squareFeet: String(input.squareFeet),
+        linearFeet: String(input.linearFeet),
+        hasIsland: input.hasIsland,
+        roomData: input.roomData ?? null,
+        placedCabinets: input.placedCabinets ?? null,
+        notes: input.notes ?? null,
+      });
+      const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+
+      // Notify the owner so they can price and respond. Never block the request
+      // on a notification failure.
+      try {
+        await notifyOwner({
+          title: "New countertop quote request",
+          content: `~${input.squareFeet} sq ft (${input.linearFeet} linear ft)${
+            input.hasIsland ? " incl. island" : ""
+          }${input.material ? ` · ${input.material}` : ""} from ${input.contactEmail}${
+            input.zip ? ` · ZIP ${input.zip}` : ""
+          }.`,
+        });
+      } catch {
+        // swallow: the quote is saved regardless
+      }
+
+      return { id: insertId };
+    }),
+
+  listCountertopQuotes: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    const db = await getDb();
+    if (!db) return [];
+    return db.select().from(countertopQuotes).orderBy(desc(countertopQuotes.createdAt));
+  }),
+
+  updateCountertopQuote: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        status: z.enum(["new", "quoted", "won", "lost"]).optional(),
+        quotedPrice: z.number().nonnegative().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const patch: Record<string, unknown> = {};
+      if (input.status) patch.status = input.status;
+      if (input.quotedPrice !== undefined) patch.quotedPrice = String(input.quotedPrice);
+      if (Object.keys(patch).length > 0) {
+        await db.update(countertopQuotes).set(patch).where(eq(countertopQuotes.id, input.id));
+      }
+      return { id: input.id };
     }),
 });

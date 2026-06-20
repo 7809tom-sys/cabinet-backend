@@ -7,8 +7,13 @@ import {
   ROOM_MIN_IN, ROOM_MAX_IN,
   nextFreeSpotOnWall, clampCabinetToRoom, clampCabinetsToRoom,
   clampIslandToRoom, WALL_LABELS, resizeRoomByWall,
-  type PlacedCabinet,
+  crownLinearInches, toeKickLinearInches, trimPiecesNeeded,
+  miteredTrimInches, cabinetWall, countertopArea,
+  MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
+  type PlacedCabinet, type RoomData,
 } from "./design";
+
+const ROOM_12x10: RoomData = { width: 144, depth: 120 };
 
 function cab(partial: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -191,7 +196,8 @@ describe("trim linear footage", () => {
       cab({ placement: "base", width: 36 }),
       cab({ placement: "appliance", width: 30, cabinetId: 0 }),
     ];
-    expect(crownLinearInches(placed)).toBe(54);
+    // 30 + 24 = 54 run, + 3in miter allowance = 57.
+    expect(crownLinearInches(placed)).toBe(57);
   });
   it("toe kick sums base and tall widths, not wall or appliance", () => {
     const placed = [
@@ -207,7 +213,8 @@ describe("trim linear footage", () => {
   });
   it("respects rotated width for crown", () => {
     const placed = [cab({ placement: "wall", width: 30, depth: 12, rotation: 90 })];
-    expect(crownLinearInches(placed)).toBe(12);
+    // rotated width 12 + 3in miter allowance = 15.
+    expect(crownLinearInches(placed)).toBe(15);
   });
 });
 
@@ -436,5 +443,105 @@ describe("resize room by dragging a wall", () => {
   it("clamps to the sane room range", () => {
     expect(resizeRoomByWall(room, "right", 9999).width).toBe(ROOM_MAX_IN);
     expect(resizeRoomByWall(room, "right", -9999).width).toBe(ROOM_MIN_IN);
+  });
+});
+
+
+describe("trim: crown miter allowance per wall", () => {
+  it("adds the 3in miter allowance once per wall run", () => {
+    // Two wall cabinets on the back wall (top): 30 + 30 = 60, +3 = 63.
+    const a = cab({ placement: "wall", width: 30, depth: 12, x: 0, y: 0, rotation: 0 });
+    const b = cab({ placement: "wall", width: 30, depth: 12, x: 30, y: 0, rotation: 0 });
+    expect(crownLinearInches([a, b], ROOM_12x10)).toBe(63);
+  });
+
+  it("a 12in wall run needs a 15in cut", () => {
+    const a = cab({ placement: "wall", width: 12, depth: 12, x: 0, y: 0, rotation: 0 });
+    expect(crownLinearInches([a], ROOM_12x10)).toBe(15);
+  });
+
+  it("adds the allowance separately for cabinets on different walls", () => {
+    // back wall: 30 along the wall (+3) = 33.
+    // right wall: cabinet rotated 90, so its 12in depth runs ALONG the wall
+    // (12 +3) = 15. Total = 48.
+    const back = cab({ placement: "wall", width: 30, depth: 12, x: 0, y: 0, rotation: 0 });
+    const right = cab({ placement: "wall", width: 30, depth: 12, x: 144 - 12, y: 40, rotation: 90 });
+    expect(crownLinearInches([back, right], ROOM_12x10)).toBe(48);
+  });
+
+  it("returns 0 with no wall cabinets", () => {
+    const base = cab({ placement: "base", width: 24, depth: 24 });
+    expect(crownLinearInches([base], ROOM_12x10)).toBe(0);
+  });
+
+  it("MITER_ALLOWANCE_IN is 3", () => {
+    expect(MITER_ALLOWANCE_IN).toBe(3);
+  });
+});
+
+describe("trim: toe kick is continuous (no miter allowance)", () => {
+  it("sums base + tall widths with no extra", () => {
+    const a = cab({ placement: "base", width: 24, depth: 24 });
+    const b = cab({ placement: "tall", width: 24, depth: 24 });
+    expect(toeKickLinearInches([a, b])).toBe(48);
+  });
+});
+
+describe("cabinetWall inference", () => {
+  it("detects the wall a flush cabinet sits on", () => {
+    const top = cab({ placement: "wall", width: 30, depth: 12, x: 10, y: 0, rotation: 0 });
+    expect(cabinetWall(top, ROOM_12x10)).toBe("top");
+    const right = cab({ placement: "wall", width: 30, depth: 12, x: 144 - 12, y: 40, rotation: 90 });
+    expect(cabinetWall(right, ROOM_12x10)).toBe("right");
+  });
+});
+
+describe("trimPiecesNeeded (stick rounding)", () => {
+  it("rounds a 63in run up to one 8ft stick", () => {
+    const t = trimPiecesNeeded(63);
+    expect(t.pieces).toBe(1);
+    expect(t.orderedFeet).toBe(8);
+  });
+
+  it("rounds just over one stick (with waste) up to two sticks", () => {
+    // 90in * 1.1 = 99in > 96 -> 2 sticks
+    const t = trimPiecesNeeded(90);
+    expect(t.pieces).toBe(2);
+    expect(t.orderedFeet).toBe(16);
+  });
+
+  it("returns 0 pieces for an empty run", () => {
+    expect(trimPiecesNeeded(0).pieces).toBe(0);
+  });
+});
+
+describe("countertopArea", () => {
+  it("measures base run x standard depth", () => {
+    const a = cab({ placement: "base", width: 36, depth: 24 });
+    const b = cab({ placement: "base", width: 36, depth: 24 });
+    const m = countertopArea([a, b]);
+    expect(m.runInches).toBe(72);
+    expect(m.linearFeet).toBe(6);
+    // 72 * 25.5 / 144 = 12.75 -> ceil to 0.1 = 12.8
+    expect(m.squareFeet).toBeCloseTo(12.8, 1);
+    expect(m.hasIsland).toBe(false);
+  });
+
+  it("ignores wall and tall cabinets", () => {
+    const wall = cab({ placement: "wall", width: 30, depth: 12 });
+    const tall = cab({ placement: "tall", width: 24, depth: 24 });
+    expect(countertopArea([wall, tall]).runInches).toBe(0);
+  });
+
+  it("adds the island footprint", () => {
+    const base = cab({ placement: "base", width: 36, depth: 24 });
+    const m = countertopArea([base], { width: 48, depth: 24 });
+    expect(m.hasIsland).toBe(true);
+    // base 36*25.5=918 + island 48*24=1152 = 2070 /144 = 14.375 -> 14.4
+    expect(m.squareFeet).toBeCloseTo(14.4, 1);
+  });
+
+  it("COUNTERTOP_DEPTH_IN is 25.5", () => {
+    expect(COUNTERTOP_DEPTH_IN).toBe(25.5);
   });
 });
