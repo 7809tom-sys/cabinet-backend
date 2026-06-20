@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/spinner";
 const Catalog = lazy(() => import("@/pages/Catalog"));
 const CabinetDetail = lazy(() => import("@/pages/CabinetDetail"));
 const DoorStyles = lazy(() => import("@/pages/DoorStyles"));
+const DesignTool = lazy(() => import("@/pages/DesignTool"));
 
 function PageLoader() {
   return (
@@ -67,10 +68,9 @@ export default function App() {
 
         <Route path="/design">
           <AppLayout>
-            <div className="container py-16 text-center">
-              <h1 className="font-serif text-3xl font-bold mb-4">2D Kitchen Design Tool</h1>
-              <p className="text-muted-foreground">Coming soon — draw your room, place cabinets, export your order.</p>
-            </div>
+            <Suspense fallback={<PageLoader />}>
+              <DesignTool />
+            </Suspense>
           </AppLayout>
         </Route>
 

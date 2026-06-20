@@ -32,12 +32,23 @@
 - [x] Adjusted List Price calculation and display
 
 ## Phase 5: 2D Kitchen Design Tool
-- [ ] Canvas room builder (draw walls with tape-measure tool)
-- [ ] Cabinet placement from catalog onto canvas
-- [ ] Style application to placed cabinets
-- [ ] Cabinet front-elevation graphics rendering per style
+- [x] Bird's-eye canvas room builder with foot rulers and room presets
+- [x] Cabinet placement from palette onto canvas (Base / Wall / Tall tabs)
+- [x] Wall-magnet snapping (flush to walls + edge-to-edge alignment)
+- [x] Correct heights (base on floor, wall cabinets at standard mounting height)
+- [x] One-click Front Elevation view (Bird's-Eye / Front / Split toggle)
+- [x] Live pricing BOM with distributor + style + tier selectors and running total
+- [x] Email gate for non-logged-in users
+- [ ] Style application visual (door graphics) on placed cabinets
 - [ ] Save/load kitchen design
 - [ ] Export design to cart
+
+## Data Quality Cleanup
+- [x] Normalize 215 cabinet descriptions to uniform US Cabinet Depot style
+- [x] Fix door/drawer counts derived from description text
+- [x] Rebuild orphaned distributor_skus cabinetId/styleId links (10,643 SKUs, 0 orphans)
+- [x] Dedupe duplicate door styles (122 -> 61)
+- [x] Fix 12 mismatched cabinet specs (BFH full-height, widths, panels tagged as accessory)
 
 ## Phase 6: OCR Photo-to-Cart & Bulk Ordering
 - [ ] Photo upload UI for floor plan images
