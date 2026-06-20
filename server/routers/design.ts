@@ -10,6 +10,10 @@ export const designRouter = router({
       z.object({
         placement: z.enum(["base", "wall", "tall"]).optional(),
         search: z.string().optional(),
+        // When the user has chosen a line + door style, narrow the palette to
+        // only the cabinets that are actually purchasable for THAT combination.
+        distributorId: z.number().optional(),
+        styleId: z.number().optional(),
       }).optional()
     )
     .query(async ({ input }) => {
@@ -34,7 +38,27 @@ export const designRouter = router({
         .from(cabinets)
         .where(eq(cabinets.isActive, true));
 
-      const withPlacement = rows.map((r) => {
+      // Availability gate: a cabinet is only offered in the designer if it has
+      // at least one published + available distributor SKU. If a specific
+      // line/style is selected, the SKU must match that exact combination.
+      const skuConditions = [
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+      ];
+      if (input?.distributorId) {
+        skuConditions.push(eq(distributorSkus.distributorId, input.distributorId));
+      }
+      if (input?.styleId) {
+        skuConditions.push(eq(distributorSkus.styleId, input.styleId));
+      }
+      const availableSkuRows = await db
+        .select({ cabinetId: distributorSkus.cabinetId })
+        .from(distributorSkus)
+        .where(and(...skuConditions));
+      const availableCabinetIds = new Set(availableSkuRows.map((r) => r.cabinetId));
+      const availableRows = rows.filter((r) => availableCabinetIds.has(r.id));
+
+      const withPlacement = availableRows.map((r) => {
         let placement = r.placementType;
         if (!placement) {
           const cat = (r.category || "").toLowerCase();

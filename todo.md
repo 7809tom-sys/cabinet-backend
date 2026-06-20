@@ -160,3 +160,18 @@
 - [x] Adding an item with a wall highlighted drops it onto that wall
 - [x] resizeRoomByWall() helper in design.ts + tests
 - [x] Browser verify dragging each of the 4 walls (wall bands render + highlight; resize math unit-tested)
+
+
+## Design Tool: only offer available cabinets (user request)
+- [x] placeableCabinets only returns cabinets with a published+available distributor SKU
+- [x] When a distributor+style is selected, palette is filtered to that combination's available SKUs
+- [x] Empty-state copy when no cabinets are available for the current filter
+- [x] Tests for the available-only filter logic
+- [x] Typecheck + vitest pass; browser verify palette filtering
+
+
+## Design Tool: helpful on-page hints (user request)
+- [x] Tip bar near the toolbar with a short rotating "how to" hint
+- [x] Help (?) button opens a guide dialog covering: pick a wall, add items to the active wall, drag a wall to resize, draw the room, type exact measurements, snap a placed cabinet to a wall
+- [x] Dismissable hint that remembers via localStorage
+- [x] Browser verify hints render

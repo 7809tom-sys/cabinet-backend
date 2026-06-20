@@ -28,6 +28,7 @@ import { ElevationView } from "@/components/design/ElevationView";
 import { EmailGate } from "@/components/design/EmailGate";
 import { RoomSizeControl } from "@/components/design/RoomSizeControl";
 import { WallPicker } from "@/components/design/WallPicker";
+import { DesignHelp } from "@/components/design/DesignHelp";
 
 type ViewMode = "plan" | "elevation" | "split";
 type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
@@ -89,7 +90,12 @@ export default function DesignTool() {
   );
   const { data: paletteCabinets, isLoading: paletteLoadingRaw } =
     trpc.design.placeableCabinets.useQuery(
-      { placement: paletteType === "appliance" || paletteType === "opening" ? "base" : paletteType },
+      {
+        placement: paletteType === "appliance" || paletteType === "opening" ? "base" : paletteType,
+        // Narrow to the chosen line + style so only purchasable cabinets show.
+        distributorId: distributorId ?? undefined,
+        styleId: styleId ?? undefined,
+      },
       { enabled: paletteType !== "appliance" && paletteType !== "opening" }
     );
   const paletteLoading = paletteType === "appliance" || paletteType === "opening" ? false : paletteLoadingRaw;
@@ -483,6 +489,8 @@ export default function DesignTool() {
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </Button>
+          <div className="h-5 w-px bg-border" />
+          <DesignHelp />
         </div>
       </div>
 
@@ -577,7 +585,13 @@ export default function DesignTool() {
               ))
             )}
             {paletteType !== "opening" && !paletteLoading && filteredPalette.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-8">No cabinets found</p>
+              <p className="text-xs text-muted-foreground text-center py-8">
+                {paletteSearch
+                  ? "No cabinets match your search."
+                  : distributorId && styleId
+                  ? "No cabinets available for this line and door style."
+                  : "No cabinets available in this category."}
+              </p>
             )}
             {paletteType === "opening" && (
               <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">Click to add, then drag along any wall and use the handle to resize the width.</p>
