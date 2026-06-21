@@ -383,3 +383,58 @@
 - [ ] Known issue to verify: DWR-3 labeled "3\" Drawer Front" but user says it is a Dishwasher Return Panel (RTA)
 - [ ] User physically reviews spreadsheet, marks corrections (real category + correct image/graphic name)
 - [ ] Apply user-confirmed corrections back to DB (description/category/subCategory/graphicType)
+
+
+## Phase 10 (revised): Catalog data-integrity audit & fix ("one product = one row")
+- [x] Export full current DB catalog dump (code, description, category, subCategory, dims, doors/drawers, graphicType, lines_with_sku)
+- [ ] Detect duplicate/conflicting rows: same item stored under >1 code with differing descriptions (lost July "known same as" cross-refs, e.g. BDEP vs DWR-3)
+- [ ] Build conflict report grouped by likely-same product (shared graphicType / dims / cross-ref) for user review
+- [ ] Obtain July master spreadsheet (authoritative nomenclature + cross "known same as" marks) from user
+- [ ] Re-apply correct single name per physical product; collapse crossed duplicates into ONE canonical record, keep alternate code as alias so old SKUs/orders still resolve
+- [ ] Verify storefront shows exactly one correct record per product (no duplicate/conflicting items)
+- [ ] Tests + checkpoint
+
+
+## Phase 11: Uniform canonical descriptions across July master
+- [x] Clean Clark & Sons tab (strip color prefix, SKU tails, newlines, #REF!) -> column C
+- [x] Extract US Cabinet Depot canonical description map (326 rows, 273 codes, clean)
+- [ ] Pull verified cabinet-detail descriptions from live DB as top-priority golden source
+- [ ] Build merged canonical map: cabinet-detail > US Cabinet Depot > Clark/Aspen, keyed by normalized code
+- [ ] Apply uniform canonical description across ALL distributor tabs (Clark & Sons, Skyline, US Cabinet Depot, etc.)
+- [ ] Report rows unified + list codes with no golden source (gaps) for user to fill
+- [ ] Package corrected July master workbook and deliver
+
+
+## Phase 12: Design Tool molding/trim expansion (NEW REQUEST)
+- [ ] Catalog: ensure full molding/trim family exists as Accessory items (crown, decorative/dentil crown, rope molding, inset crown, scribe, light rail, batten/angle/shoe, fillers)
+- [ ] Design Tool currently only offers toe kick + crown molding -> add the rest of the molding/trim options
+- [ ] Allow STACKING/LAYERING of multiple trim pieces (e.g., crown + dentil strip on top + rope accent + light rail underneath)
+- [ ] Crown molding length rule: add extra inches for cuts (e.g., +3" for a 12" sidewall -> cut 15")
+
+
+## Phase 13: Decorative End Panel family DB fixes (confirmed by user + research)
+- [x] DWR-3 (id122): "3" Drawer Front" -> "3" Dishwasher End Panel"; category Accessory; subCategory Decorative End Panel; 0 doors/0 drawers; flat-panel graphic
+- [x] BDEP (id78): -> "Base Decorative End Panel"; Accessory; Decorative End Panel; flat-panel graphic
+- [x] BEP-3 (id377): -> "3" Base Decorative End Panel" (same-as Dishwasher Panel); Accessory; flat-panel graphic; dims 3x34.5x24
+- [x] TDEP-24-84/90/96: Accessory; Decorative End Panel; flat-panel graphic; TDEP-24-96 height typo fixed -> 96
+- [x] WDEP-30/36/42: Wall Decorative End Panel; Accessory; flat-panel graphic
+- [x] VDEP: Vanity Decorative End Panel; Accessory; flat-panel graphic
+- [x] REPV-24/27-96: "24/27" Refrigerator Decorative End Panel"; Accessory; flat-panel graphic
+- [x] Verify flat-panel graphicType value exists in cabinetGraphics; use correct token (e.g. accessory/panel) instead of door-1/door-2
+- [ ] Note: Base End Panel = Dishwasher End Panel = same item (decorative panel for exposed sides/islands)
+
+
+## Phase 14: Remaining catalog data fixes (pending user confirms)
+- [ ] Tall Decorative End Panel = 2-panel kit: 54" bottom + (30/36/42) top -> 84/90/96 total. Confirm: does 1 unit = ONE side (2 stacked panels) or BOTH sides? Update TDEP descriptions to "...Kit (54" + X")" once confirmed
+- [x] Skin/Island panels (BSV, FPV-42-96, S-24-96, USV-24-96, WSV-24/30/36/42): thickness 0.25"; subCategory "Skin Panel"; graphic accessory-strip; fixed dims; "cut to fit" wording. NOTE: island panels are large stock sheets (commonly 48x96 x 1/4") cut down on site
+- [x] DECISION: decorative end panels and skin panels are DIFFERENT products - keep separate subcategories, do NOT group as same-as. Skin panel = 1/4" finished veneer to match cabinet color on unfinished/exposed side; cut to fit
+- [x] Scribe molding (SM-8) -> "3/4" x 96" Scribe Molding"; best-seller in area, surface prominently in Accessory + Design Tool
+- [x] DECISION: no same-as/equivalent grouping added (user declined). Families stay separate by subCategory
+- [ ] FINISH-MATCH RULE: skins & decorative end panels are style/species-specific - must match the cabinet's door style (e.g., Hickory cabinet exposed side needs a Hickory skin). Ensure skins/end panels carry the selected door-style finish through to quote/order
+- [ ] TDEP tall end panel: ONE unit = ONE finished side (only outward face decorative; back is flat, brad-nailed to cabinet). Kit = 54" bottom + 30/36/42 top. Wording PENDING user check of model number
+
+
+## Phase 15: Design Tool AI scope + accessory recommendations
+- [ ] Constrain Design Tool AI strictly to kitchen/cabinet DESIGN topics (system prompt + guardrails); decline/redirect off-topic queries back to design
+- [ ] AI proactively recommends complementary accessories based on placed items: roll-out trays (base cabinets), decorative end panels (exposed sides/islands), fillers (tight runs), crown/scribe molding (finishing tops), toe kick
+- [ ] Keep recommendations within the customer's selected/locked line where applicable
