@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import {
   Camera, FileSpreadsheet, Keyboard, Loader2, Upload, ImageIcon, X,
 } from "lucide-react";
 import { OrderReview, type ReviewLine } from "@/components/order/OrderReview";
+import { CART_PREFILL_KEY } from "@/pages/Cart";
 
 type Source = "ocr" | "csv" | "manual";
 
@@ -26,6 +27,46 @@ function fileToDataUrl(file: File): Promise<string> {
 export default function OrderBuilder() {
   const [lines, setLines] = useState<ReviewLine[]>([]);
   const [source, setSource] = useState<Source>("ocr");
+  const matchCodes = trpc.orders.matchCodes.useMutation();
+  const prefillConsumed = useRef(false);
+
+  // If the user arrived from the cart ("Request this order"), pick up the
+  // prefilled {code, qty} pairs, match them, and drop straight into review.
+  useEffect(() => {
+    if (prefillConsumed.current) return;
+    prefillConsumed.current = true;
+    let raw: string | null = null;
+    try {
+      raw = sessionStorage.getItem(CART_PREFILL_KEY);
+      if (raw) sessionStorage.removeItem(CART_PREFILL_KEY);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+    let parsed: { code: string; qty: number }[] = [];
+    try {
+      parsed = JSON.parse(raw) as { code: string; qty: number }[];
+    } catch {
+      return;
+    }
+    const items = parsed.filter((p) => p.code && p.qty > 0);
+    if (items.length === 0) return;
+    matchCodes.mutate(
+      { items },
+      {
+        onSuccess: (result) => {
+          setSource("manual");
+          setLines(result.lines);
+          toast.success(`Loaded ${result.lines.length} item${result.lines.length > 1 ? "s" : ""} from your cart`, {
+            description: `${result.matchedCount} matched · ${result.unmatchedCount} need review`,
+          });
+          setTimeout(() => document.getElementById("order-review")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+        },
+        onError: () => toast.error("Could not load cart items. Please try again."),
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function ingest(result: { lines: ReviewLine[]; matchedCount: number; unmatchedCount: number }, src: Source) {
     if (result.lines.length === 0) {

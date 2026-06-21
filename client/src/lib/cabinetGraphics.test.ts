@@ -165,3 +165,45 @@ describe("cabinetAltText", () => {
     expect(cabinetAltText(cab)).toContain("sink base cabinet");
   });
 });
+
+describe("cabinetDrawingType — real cabinet families never become accessory strips", () => {
+  it("does not classify a Base cabinet described with 'Adjustable Shelf' as accessory", () => {
+    const cab: CabinetLike = {
+      masterCode: "B-24",
+      description: '24" Double Door Single Drawer Base Cabinet with Adjustable Shelf',
+      category: "Base",
+      subCategory: "Single Door Base",
+      width: "24",
+      numberOfDoors: 2,
+      numberOfDrawers: 1,
+    };
+    expect(cabinetDrawingType(cab)).toBe("standard-door");
+    expect(cabinetAltText(cab)).not.toContain("accessory / trim");
+  });
+
+  it("does not classify a Wall cabinet mentioning 'panel' as accessory", () => {
+    const cab: CabinetLike = {
+      masterCode: "W-30-30",
+      description: '30" Double Door Wall Cabinet with Raised Panel Doors',
+      category: "Wall",
+      subCategory: "Double Door Wall",
+      width: "30",
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+    };
+    expect(cabinetDrawingType(cab)).toBe("standard-door");
+  });
+
+  it("still classifies a true Accessory filler as accessory-strip", () => {
+    const cab: CabinetLike = {
+      masterCode: "BF-3",
+      description: '3" Base Filler',
+      category: "Accessory",
+      subCategory: "Trim & Molding",
+      width: "3",
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+    expect(cabinetDrawingType(cab)).toBe("accessory-strip");
+  });
+});

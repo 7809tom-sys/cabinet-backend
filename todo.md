@@ -291,7 +291,7 @@
 ## Phase 6: OCR Photo-to-Order & Bulk Ordering (option a: trade order-request/build list, no consumer checkout)
 - [x] DB: order_requests table (originator email/user, line items JSON, source: ocr|csv|design|manual, status: draft|submitted|confirmed, totals)
 - [x] tRPC: orders.createRequest / orders.myRequests / orders.byId / orders.confirm (originator confirmation) + adminList
-- [x] OCR: photo/quote upload -> LLM vision extracts cabinet codes + qty -> match to master cabinet IDs (base64 data URL, no upload roundtrip)
+- [x] OCR: photo/quote upload -> LLM vision extracts cabinet codes + qty -> match to master cabinet IDs (base64 data URL, no upload roundtrip) [RE-VERIFIED 2026-06-21: generated realistic 9-line quote sheet -> 8/9 auto-matched incl. B24/SB36/DB24-3/W3030/W1530/BBC45/OE-6-30 w/ correct qty; only an out-of-catalog pantry variant fell to the unmatched review lane as designed]
 - [x] OCR review UI: show matched lines (editable qty, swap/remove unmatched) before adding to order request
 - [x] CSV bulk import: upload code,qty CSV -> parse + match -> review -> order request
 - [x] Order review page: itemized lines, door style, trade tier, line + total, submit (OrderReview component + /order/new)
@@ -468,3 +468,12 @@
 - [x] Design Tool "don't forget" strip: touch-up kit always + roll-out trays when base cabinets placed (one-click add to build sheet)
 - [x] CHECKOUT: auto-suggest touch-up kit (Accessory) in order review with one-click "Add TUK"; prices from selected style/tier ($48 @ Aura Blanc/Contractor), rolls into total, prompt hides once added (browser-verified)
 - [x] Tests for glassDoorUpsell + addOnRecommendations + checkout touchUpKit (resolves + real price); typecheck clean; 188 tests pass; browser verified
+
+
+## Session: prioritized features (#3 visuals, #4 CRM, #1 OCR, #2 cart) — 2026-06-21
+- [x] #3 Visuals: 5 photorealistic door-family hero photos (shaker/raised/slab/beaded/inset) on CDN + color-accurate DoorStyleSwatch chip; wired into Door Styles grid+dialog and Cabinet Detail; cabinet 2D drawings remain code-rendered SVGs (intentional). doorFamilyPhotos.ts + tests
+- [x] #4 CRM: crm_deals + crm_activities tables; role-aware crm router (admin=house, partner=own affiliate); reusable CrmBoard (Kanban New->Contacted->Qualified->Quoted + Won/Lost, deal drawer w/ activity timeline, stat chips, Import Leads from pro apps + order requests, New Deal); Sales CRM tab in Admin + My CRM tab in Affiliate dashboard; bilingual EN/ES + per-deal customer-language flag; insertId fixed to result[0].insertId; crm.test.ts
+- [x] #1 OCR photo-to-cart: confirmed already fully built (Scan a Photo -> orders.extractFromImage vision LLM -> match -> editable review). RE-VERIFIED end-to-end with a generated 9-line quote sheet: 8/9 auto-matched w/ correct qty; out-of-catalog variant fell to unmatched review lane as designed
+- [x] #2 Cart + checkout w/ location availability: localStorage CartContext (cabinet+style+tier+distributorId+qty+price), TopNav live badge, working Add to Cart on Cabinet Detail, real /cart page (qty stepper, remove, subtotal, touch-up-kit-at-checkout note), Delivery ZIP availability check (shared/availability.ts haversine + ZIP centroids; location router resolves customer ZIP via Google geocode w/ offline fallback; per-item in-range/nearest-miles/lead-time badge), "Request this order" hands cart -> OrderBuilder review via sessionStorage + matchCodes. Browser-verified (Dallas 75201 -> all available ~0mi ~7-day; handoff loaded 1 matched). shared/availability.test.ts + server/location.test.ts
+- [x] Bugfix: B-24 (and other real Base/Wall/Tall/Vanity/ADA cabinets) no longer mislabeled "accessory / trim" — cabinetDrawingType now treats real cabinet families as non-accessory even when description mentions shelf/panel; keyword heuristic is fallback-only. cabinetGraphics regression tests added
+- [x] 209 tests pass; typecheck clean

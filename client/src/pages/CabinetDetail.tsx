@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
+import { useCart } from "@/contexts/CartContext";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
 // Trade-only platform: pricing is shown by trade tier. No homeowner/retail tier.
@@ -48,6 +49,7 @@ interface StyleRow {
   contractorPrice: string | null;
   platformSku: string;
   leadTimeDays: number | null;
+  distributorId: number | null;
 }
 
 function priceForTier(row: StyleRow, tier: PricingTier): string {
@@ -81,10 +83,24 @@ export default function CabinetDetail({ masterCode }: Props) {
   const activeStyle = selectedStyleId ?? styleRows[0]?.styleId ?? null;
   const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
 
+  const { addItem } = useCart();
+
   const handleAddToCart = () => {
     if (!selectedRow) return;
-    toast.success(`Added ${qty}× ${masterCode} to cart`, {
-      description: `${selectedRow.name} · ${tier} pricing`,
+    const priceStr = tier === "Wholesale" ? selectedRow.wholesalePrice : selectedRow.contractorPrice;
+    const unitPrice = priceStr ? parseFloat(priceStr) : null;
+    addItem({
+      masterCode,
+      name: cabinet?.description ?? selectedRow.name,
+      styleId: selectedRow.styleId,
+      styleLabel: selectedRow.name,
+      distributorId: selectedRow.distributorId ?? null,
+      tier,
+      unitPrice: unitPrice != null && !isNaN(unitPrice) ? unitPrice : null,
+      qty,
+    });
+    toast.success(`Added ${qty}\u00d7 ${masterCode} to cart`, {
+      description: `${selectedRow.name} \u00b7 ${tier} pricing`,
     });
   };
 

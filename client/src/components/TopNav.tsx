@@ -4,6 +4,7 @@ import { Menu, X, ShoppingCart, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
+import { useCart } from "@/contexts/CartContext";
 
 const NAV_LINKS = [
   { label: "Kitchen Packages", href: "/packages" },
@@ -26,6 +27,7 @@ export function TopNav() {
   const [portalsOpen, setPortalsOpen] = useState(false);
   const [location] = useLocation();
   const { user } = useAuth();
+  const { count: cartCount } = useCart();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
@@ -87,9 +89,14 @@ export function TopNav() {
 
         {/* Right side actions */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" size="icon" asChild className="relative">
             <Link href="/cart" aria-label="Shopping cart">
               <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </Link>
           </Button>
 

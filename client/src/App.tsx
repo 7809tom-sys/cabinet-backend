@@ -19,6 +19,7 @@ const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const Storefront = lazy(() => import("@/pages/Storefront"));
 const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
+const Cart = lazy(() => import("@/pages/Cart"));
 
 function PageLoader() {
   return (
@@ -150,10 +151,9 @@ export default function App() {
 
         <Route path="/cart">
           <AppLayout>
-            <div className="container py-16 text-center">
-              <h1 className="font-serif text-3xl font-bold mb-4">Cart</h1>
-              <p className="text-muted-foreground">Your cart is empty.</p>
-            </div>
+            <Suspense fallback={<PageLoader />}>
+              <Cart />
+            </Suspense>
           </AppLayout>
         </Route>
 

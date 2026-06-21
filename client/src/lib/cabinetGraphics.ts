@@ -48,12 +48,19 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const desc = lc(cab.description);
   const hay = `${sub} ${desc} ${code}`;
 
-  // Accessories: moldings, fillers, end panels, shelves, light/base rail, toe kick
+  // Real cabinet families are never accessory strips, even if their description
+  // mentions words like "shelf" or "panel" (e.g. "...Base Cabinet with Adjustable Shelf").
+  const isRealCabinetFamily = ["base", "wall", "tall", "vanity", "ada"].includes(cat);
+
+  // Accessories: moldings, fillers, end panels, shelves, light/base rail, toe kick.
+  // The keyword heuristic only applies as a fallback for items NOT already in a
+  // real cabinet category; explicit category==="accessory" always wins.
   if (
     cat === "accessory" ||
-    /molding|filler|end panel|\bpanel\b|shelf|light rail|base rail|toe kick|scribe|valance/.test(
-      hay,
-    )
+    (!isRealCabinetFamily &&
+      /molding|filler|end panel|\bpanel\b|shelf|light rail|base rail|toe kick|scribe|valance/.test(
+        hay,
+      ))
   ) {
     return "accessory-strip";
   }

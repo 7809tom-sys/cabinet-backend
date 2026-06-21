@@ -227,6 +227,7 @@ export const pricingRouter = router({
           contractorPrice: distributorSkus.contractorPrice,
           platformSku: distributorSkus.platformSku,
           leadTimeDays: distributors.leadTimeDays,
+          distributorId: distributorSkus.distributorId,
         })
         .from(distributorSkus)
         .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
@@ -273,6 +274,7 @@ export const pricingRouter = router({
           contractorPrice: r.contractorPrice,
           platformSku: r.platformSku,
           leadTimeDays: r.leadTimeDays,
+          distributorId: r.distributorId,
         }))
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }),
