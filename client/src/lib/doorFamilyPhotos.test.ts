@@ -23,3 +23,34 @@ describe("doorFamilyPhoto", () => {
     expect(doorFamilyPhoto({ doorStyle: "Mystery" })).toBeTruthy();
   });
 });
+
+import { kitchenSceneFor, KITCHEN_SCENES } from "./doorFamilyPhotos";
+
+describe("kitchenSceneFor", () => {
+  it("always returns a known kitchen scene URL (never null)", () => {
+    const scenes = new Set(Object.values(KITCHEN_SCENES));
+    for (const ds of ["Shaker White", "Raised Panel", "Slab", "Mystery", "", null]) {
+      const url = kitchenSceneFor({ doorStyle: ds });
+      expect(url, String(ds)).toBeTruthy();
+      expect(scenes.has(url), String(ds)).toBe(true);
+    }
+  });
+
+  it("resolves slab/contemporary styles to the natural slab scene", () => {
+    expect(kitchenSceneFor({ doorStyle: "Contemporary Slab" })).toBe(
+      KITCHEN_SCENES["slab-natural"]
+    );
+  });
+
+  it("matches finish keywords to the right scene", () => {
+    expect(kitchenSceneFor({ doorStyle: "Snow White Shaker" })).toBe(KITCHEN_SCENES["shaker-white"]);
+    expect(kitchenSceneFor({ doorStyle: "Stone Gray Shaker" })).toBe(KITCHEN_SCENES["shaker-gray"]);
+    expect(kitchenSceneFor({ doorStyle: "Espresso Shaker" })).toBe(KITCHEN_SCENES["shaker-espresso"]);
+    expect(kitchenSceneFor({ doorStyle: "Cherry Raised Panel" })).toBe(KITCHEN_SCENES["raised-cherry"]);
+  });
+
+  it("keeps white/gray raised-panel styles in the bright shaker rooms", () => {
+    expect(kitchenSceneFor({ doorStyle: "Pearl White Raised Panel" })).toBe(KITCHEN_SCENES["shaker-white"]);
+    expect(kitchenSceneFor({ doorStyle: "Slate Gray Raised Panel" })).toBe(KITCHEN_SCENES["shaker-gray"]);
+  });
+});

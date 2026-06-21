@@ -7,7 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { useFamilyLock, type LockedFamily } from "@/hooks/useFamilyLock";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
-import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
+import { doorFamilyPhoto, kitchenSceneFor } from "@/lib/doorFamilyPhotos";
 import {
   STOREFRONT_STRINGS,
   type Lang,
@@ -140,66 +140,83 @@ function FamilyPicker({
         ) : !data || data.length === 0 ? (
           <p className="text-center text-muted-foreground py-12">—</p>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {data.map((f) => {
-              // Prefer the real, uploaded CDN family photo (same as Door Styles page);
-              // the DB *ImageUrl fields point at files that were never uploaded.
-              const img = doorFamilyPhoto({ doorStyle: f.doorStyle }) || f.roomSceneImageUrl || f.thumbnailImageUrl || f.doorSampleImageUrl;
+              // We sell the dream kitchen, not a door: lead with a full-room
+              // lifestyle scene (RTA-retailer style). The color-accurate door
+              // swatch is demoted to a small detail chip overlaid on the scene.
+              const scene = kitchenSceneFor({ doorStyle: f.doorStyle });
               return (
-                <div
+                <button
                   key={f.styleId}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:shadow-md"
+                  type="button"
+                  onClick={() =>
+                    onPick({
+                      styleId: f.styleId,
+                      distributorId: f.distributorId,
+                      name: f.name,
+                      doorStyle: f.doorStyle,
+                      finish: f.finish,
+                      color: f.color,
+                      thumbnailImageUrl: f.thumbnailImageUrl,
+                      roomSceneImageUrl: f.roomSceneImageUrl,
+                    })
+                  }
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+                  style={{ ['--tw-ring-color' as string]: brand.accent }}
                 >
+                  {/* Full kitchen scene hero */}
                   <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                    <FamilyCardImage
-                      src={img}
-                      alt={f.name}
-                      style={{
-                        styleCode: f.styleCode,
-                        ourName: f.name,
-                        name: f.name,
-                        doorStyle: f.doorStyle,
-                        color: f.color,
-                        finish: f.finish,
-                        woodSpecies: f.woodSpecies,
-                      }}
-                      imgClassName="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      swatchClassName="h-full w-full transition-transform duration-500 group-hover:scale-105"
+                    <img
+                      src={scene}
+                      alt={`${f.name} kitchen`}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
+                    {/* gradient for legibility */}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0" />
                     {f.doorStyle && (
                       <Badge
-                        className="absolute left-3 top-3 border-0 text-white"
+                        className="absolute left-3 top-3 border-0 text-white shadow-sm"
                         style={{ backgroundColor: brand.primary }}
                       >
                         {f.doorStyle}
                       </Badge>
                     )}
+                    {/* Door-style detail swatch chip */}
+                    <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                      <div className="h-12 w-12 overflow-hidden rounded-lg border-2 border-white/90 shadow-md">
+                        <DoorStyleSwatch
+                          style={{
+                            styleCode: f.styleCode,
+                            ourName: f.name,
+                            name: f.name,
+                            doorStyle: f.doorStyle,
+                            color: f.color,
+                            finish: f.finish,
+                            woodSpecies: f.woodSpecies,
+                          }}
+                          className="h-full w-full"
+                        />
+                      </div>
+                      <span className="rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-foreground shadow-sm">
+                        {t(lang, "family_door_detail")}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex flex-1 flex-col p-5">
                     <h3 className="font-serif text-lg font-bold leading-tight">{f.name}</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {[f.finish, f.color].filter(Boolean).join(" · ") || "\u00A0"}
                     </p>
-                    <Button
-                      className="mt-4 w-full gap-2 font-semibold text-white"
+                    <span
+                      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 font-semibold text-white transition-transform group-active:scale-[0.98]"
                       style={{ backgroundColor: brand.accent }}
-                      onClick={() =>
-                        onPick({
-                          styleId: f.styleId,
-                          distributorId: f.distributorId,
-                          name: f.name,
-                          doorStyle: f.doorStyle,
-                          finish: f.finish,
-                          color: f.color,
-                          thumbnailImageUrl: f.thumbnailImageUrl,
-                          roomSceneImageUrl: f.roomSceneImageUrl,
-                        })
-                      }
                     >
                       {t(lang, "family_shop_this")} <ArrowRight className="h-4 w-4" />
-                    </Button>
+                    </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -262,6 +279,29 @@ function LockedCatalog({
   return (
     <section id="shop" className="py-12 md:py-16">
       <div className="container">
+        {/* Dream-kitchen scene banner for the locked line */}
+        <div className="relative mb-4 overflow-hidden rounded-2xl">
+          <img
+            src={kitchenSceneFor({ doorStyle: family.doorStyle })}
+            alt={`${family.name} kitchen`}
+            className="h-44 w-full object-cover sm:h-56"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          <div className="absolute bottom-4 left-5 right-5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-white/85">
+              <Lock className="h-3 w-3" /> {t(lang, "family_locked_label")}
+            </div>
+            <h2 className="font-serif text-2xl font-bold text-white drop-shadow sm:text-3xl">
+              {family.name}
+            </h2>
+            {[family.finish, family.color].filter(Boolean).length > 0 && (
+              <p className="text-sm text-white/85">
+                {[family.finish, family.color].filter(Boolean).join(" · ")}
+              </p>
+            )}
+          </div>
+        </div>
+
         {/* Lock banner */}
         <div
           className="mb-6 flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"

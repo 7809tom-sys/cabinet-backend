@@ -517,3 +517,15 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Tawk.to integration (client/src/lib/tawk.ts): config-driven via VITE_TAWK_PROPERTY_ID / VITE_TAWK_WIDGET_ID; graceful no-op + friendly toast until configured
 - [ ] User to create free Tawk.to account and provide Property ID (then live chat ping works on their phone)
 - [ ] (Deferred, needs user confirm) Calibrate homeowner retail prices against RTA Store market comparison
+- [x] AI chat + "Talk to a live person" widget confirmed GLOBAL on every site (mounted outside Switch): main site, all pages, and affiliate storefronts like /store/firstclass (verified via screenshot) + future affiliate stores automatically
+
+
+## Session: Room Scenes as Hero Imagery (Jun 21 — user: "people buy the dream kitchen, not a door")
+- [x] Inventory existing kitchen/room-scene imagery (doorFamilyPhotos + any uploaded scenes); identify which styles lack a real kitchen scene
+- [x] Generated 5 full kitchen room scenes (white shaker, gray shaker + navy island, cherry raised panel, natural slab, espresso shaker) — watermark-free, no supplier names; hosted on project CDN
+- [x] Added kitchenSceneFor() resolver: maps every door style to the best scene by panel family + finish bucket (white/gray/dark/warmwood/lightwood); 7 vitest tests
+- [x] Storefront line cards lead with the KITCHEN ROOM SCENE; door swatch demoted to a small corner detail chip; "Shop This Kitchen" CTA (EN+ES strings family_door_detail added)
+- [x] Storefront locked-line view gets a full kitchen scene banner header
+- [x] Storefront hero rebuilt to two columns: copy/CTAs + large kitchen lifestyle photo with floating "Local & Family-Owned" proof card
+- [x] Main Home hero rebuilt with kitchen lifestyle collage; added "Find Your Kitchen Style — Shop the Look" scene mosaic section
+- [x] Verify across storefront + home (desktop), full test suite (289 pass) + typecheck clean, checkpoint

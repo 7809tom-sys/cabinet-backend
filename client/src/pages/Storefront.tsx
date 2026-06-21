@@ -6,6 +6,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useReferral } from "@/hooks/useReferral";
 import { useStorefrontLang } from "@/lib/storefrontI18n";
 import { StorefrontShop } from "@/components/storefront/StorefrontShop";
+import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import {
   ArrowRight, Phone, Mail, MapPin, Globe, Facebook, Instagram, Award,
   Ruler, ShieldCheck, Zap, Heart, Languages,
@@ -126,50 +127,71 @@ export default function Storefront({ slug }: { slug: string }) {
       <main className="flex-1">
         {/* ─── Hero ──────────────────────────────────────────────────────── */}
         <section className="relative overflow-hidden text-white" style={{ backgroundColor: brand.primary }}>
-          {data.heroImageUrl && (
-            <div className="absolute inset-0">
-              <img src={data.heroImageUrl} alt="" className="h-full w-full object-cover opacity-30" />
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `linear-gradient(90deg, ${brand.primary} 10%, ${brand.primary}cc 55%, ${brand.primary}66 100%)`,
-                }}
-              />
-            </div>
-          )}
-          <div className="relative container py-20 md:py-28">
-            <div className="max-w-2xl">
-              {data.yearsInBusiness ? (
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium mb-6">
-                  <Award className="h-3.5 w-3.5" style={{ color: brand.accent }} />
-                  {t("hero_badge_years", { years: data.yearsInBusiness })}
+          <div className="relative container py-16 md:py-20">
+            <div className="grid items-center gap-10 lg:grid-cols-2">
+              {/* Left: copy + CTAs */}
+              <div className="max-w-xl">
+                {data.yearsInBusiness ? (
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium mb-6">
+                    <Award className="h-3.5 w-3.5" style={{ color: brand.accent }} />
+                    {t("hero_badge_years", { years: data.yearsInBusiness })}
+                  </div>
+                ) : null}
+                <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+                  {data.tagline || (
+                    <>
+                      Beautiful Kitchens,
+                      <br />
+                      <span style={{ color: brand.accent }}>Built Around You.</span>
+                    </>
+                  )}
+                </h1>
+                <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed">
+                  {data.aboutText ||
+                    `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <a href="#shop">
+                    <Button size="lg" className="font-semibold text-white gap-2" style={{ backgroundColor: brand.accent }}>
+                      {t("hero_browse")} <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </a>
+                  <Link href={withRef("/design")}>
+                    <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                      {t("hero_design")}
+                    </Button>
+                  </Link>
                 </div>
-              ) : null}
-              <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                {data.tagline || (
-                  <>
-                    Beautiful Kitchens,
-                    <br />
-                    <span style={{ color: brand.accent }}>Built Around You.</span>
-                  </>
-                )}
-              </h1>
-              <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed">
-                {data.aboutText ||
-                  `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <a href="#shop">
-                  <Button size="lg" className="font-semibold text-white gap-2" style={{ backgroundColor: brand.accent }}>
-                    {t("hero_browse")} <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </a>
-                <Link href={withRef("/design")}>
-                  <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                    {t("hero_design")}
-                  </Button>
-                </Link>
               </div>
+
+              {/* Right: large kitchen lifestyle photo */}
+              <div className="relative hidden lg:block">
+                <div className="overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10">
+                  <img
+                    src={data.heroImageUrl || KITCHEN_SCENES["shaker-white"]}
+                    alt="Designed kitchen"
+                    className="aspect-[4/3] w-full object-cover"
+                  />
+                </div>
+                {/* Floating proof card */}
+                <div className="absolute -bottom-5 -left-5 rounded-xl bg-white/95 px-4 py-3 shadow-xl">
+                  <div className="flex items-center gap-2 text-sm font-bold" style={{ color: brand.primary }}>
+                    <Heart className="h-4 w-4" style={{ color: brand.accent }} />
+                    {t("value_local")}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{t("value_local_sub")}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Mobile kitchen photo below copy */}
+          <div className="relative container pb-16 lg:hidden">
+            <div className="overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10">
+              <img
+                src={data.heroImageUrl || KITCHEN_SCENES["shaker-white"]}
+                alt="Designed kitchen"
+                className="aspect-[16/10] w-full object-cover"
+              />
             </div>
           </div>
         </section>

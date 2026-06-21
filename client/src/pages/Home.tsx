@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Users, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
+import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
 
@@ -20,47 +21,73 @@ function Hero() {
           )`
         }}
       />
-      <div className="relative container py-20 md:py-28">
-        <div className="max-w-3xl">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium mb-6">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
-            The Trade Platform for Cabinet Professionals
+      <div className="relative container py-16 md:py-20">
+        <div className="grid items-center gap-12 lg:grid-cols-2">
+          {/* Left: copy + CTAs */}
+          <div className="max-w-2xl">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium mb-6">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
+              The Trade Platform for Cabinet Professionals
+            </div>
+
+            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+              Design the
+              <br />
+              <span className="text-[var(--color-gold)]">Kitchen of Their Dreams.</span>
+            </h1>
+
+            <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
+              Browse one unified cabinet catalog, choose from a wide range of door styles, and
+              compare trade pricing instantly. Design kitchens in 2D and submit orders — all
+              in one membership.
+            </p>
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link href="/catalog">
+                <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
+                  Browse Catalog
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/styles">
+                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                  Explore Door Styles
+                </Button>
+              </Link>
+              <a href={getLoginUrl()}>
+                <Button size="lg" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10 gap-2">
+                  Member Sign In
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </a>
+            </div>
           </div>
 
-          <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-            One Platform.
-            <br />
-            <span className="text-[var(--color-gold)]">Every Door Style.</span>
-            <br />
-            One Trade Price.
-          </h1>
-
-          <p className="text-lg md:text-xl text-white/75 mb-8 max-w-2xl leading-relaxed">
-            Browse one unified cabinet catalog, choose from a wide range of door styles, and
-            compare trade pricing instantly. Design kitchens in 2D and submit orders — all
-            in one membership.
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Link href="/catalog">
-              <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
-                Browse Catalog
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/styles">
-              <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                Explore Door Styles
-              </Button>
-            </Link>
-            <a href={getLoginUrl()}>
-              <Button size="lg" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10 gap-2">
-                Member Sign In
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </a>
+          {/* Right: kitchen lifestyle collage */}
+          <div className="relative hidden lg:block">
+            <div className="overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10">
+              <img
+                src={KITCHEN_SCENES["shaker-white"]}
+                alt="Designed kitchen"
+                className="aspect-[4/3] w-full object-cover"
+              />
+            </div>
+            <div className="absolute -bottom-6 -left-6 hidden w-40 overflow-hidden rounded-xl shadow-xl ring-4 ring-[var(--color-navy)] xl:block">
+              <img
+                src={KITCHEN_SCENES["shaker-gray"]}
+                alt="Gray shaker kitchen"
+                className="aspect-square w-full object-cover"
+              />
+            </div>
+            <div className="absolute -right-5 -top-5 hidden w-32 overflow-hidden rounded-xl shadow-xl ring-4 ring-[var(--color-navy)] xl:block">
+              <img
+                src={KITCHEN_SCENES["raised-cherry"]}
+                alt="Cherry kitchen"
+                className="aspect-square w-full object-cover"
+              />
+            </div>
           </div>
         </div>
 
@@ -324,6 +351,73 @@ function CategoryLinks() {
   );
 }
 
+// ─── Style Showcase (dream-kitchen scenes) ─────────────────────────────────────
+
+function StyleShowcase() {
+  const looks = [
+    { name: "White Shaker", blurb: "Bright, timeless, the #1 request", scene: KITCHEN_SCENES["shaker-white"], href: "/styles" },
+    { name: "Gray Shaker", blurb: "Soft, modern transitional", scene: KITCHEN_SCENES["shaker-gray"], href: "/styles" },
+    { name: "Cherry Raised Panel", blurb: "Warm, traditional elegance", scene: KITCHEN_SCENES["raised-cherry"], href: "/styles" },
+    { name: "Natural Slab", blurb: "Clean, handleless, contemporary", scene: KITCHEN_SCENES["slab-natural"], href: "/styles" },
+    { name: "Espresso Shaker", blurb: "Rich, dramatic, modern", scene: KITCHEN_SCENES["shaker-espresso"], href: "/styles" },
+  ];
+  return (
+    <section className="py-16 md:py-20 bg-muted/30">
+      <div className="container">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+            Shop the Look
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+          </div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
+            Find Your Kitchen Style
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Every look below is available across the full catalog — pick a style, then build the whole kitchen around it.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Feature the first look large */}
+          <Link href={looks[0].href} className="group relative col-span-1 md:row-span-2 overflow-hidden rounded-2xl shadow-sm transition-shadow hover:shadow-lg">
+            <img src={looks[0].scene} alt={looks[0].name} className="h-64 w-full object-cover transition-transform duration-500 group-hover:scale-105 md:h-full" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            <div className="absolute bottom-5 left-5 right-5 text-white">
+              <div className="font-serif text-2xl font-bold">{looks[0].name}</div>
+              <div className="text-sm text-white/85">{looks[0].blurb}</div>
+              <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-gold)]">
+                Shop this kitchen <ArrowRight className="h-4 w-4" />
+              </span>
+            </div>
+          </Link>
+
+          <div className="grid grid-cols-2 gap-6">
+            {looks.slice(1).map((look) => (
+              <Link key={look.name} href={look.href} className="group relative overflow-hidden rounded-2xl shadow-sm transition-shadow hover:shadow-lg">
+                <img src={look.scene} alt={look.name} className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                <div className="absolute bottom-3 left-3 right-3 text-white">
+                  <div className="font-serif text-base font-bold leading-tight">{look.name}</div>
+                  <div className="text-xs text-white/80">{look.blurb}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-10 text-center">
+          <Link href="/styles">
+            <Button size="lg" variant="outline" className="gap-2 bg-card">
+              Explore All Door Styles <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── Footer ───────────────────────────────────────────────────────────────────
 
 function Footer() {
@@ -411,6 +505,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <Hero />
       <DistributorsStrip />
+      <StyleShowcase />
       <AudienceCards />
       <PlatformFeatures />
       <CategoryLinks />
