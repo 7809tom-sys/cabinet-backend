@@ -1,0 +1,373 @@
+import { z } from "zod";
+import { and, eq, desc, isNull, inArray } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
+import { getDb } from "../db";
+import {
+  crmDeals,
+  crmActivities,
+  affiliates,
+  orderRequests,
+  proApplications,
+} from "../../drizzle/schema";
+import {
+  CRM_STAGES,
+  CRM_PRIORITIES,
+  CRM_ACTIVITY_KINDS,
+  CRM_LANGUAGES,
+  isClosedStage,
+  type CrmStage,
+} from "@shared/crm";
+
+// ─── Scope resolution ──────────────────────────────────────────────────────────
+// Admin (role === "admin") sees the HOUSE board: deals where affiliateId IS NULL.
+// A partner/affiliate user sees ONLY their own affiliate's deals.
+// We resolve the caller's affiliate by linked userId first, then by email.
+
+type Ctx = { user: { id: number; email: string | null; role: string } };
+
+async function resolveMyAffiliateId(ctx: Ctx): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const email = (ctx.user.email ?? "").toLowerCase();
+  const rows = await db.select().from(affiliates);
+  const mine =
+    rows.find((r) => r.userId === ctx.user.id) ??
+    rows.find((r) => (r.email ?? "").toLowerCase() === email && email.length > 0);
+  return mine?.id ?? null;
+}
+
+/**
+ * Returns the scope for the caller:
+ *  - admin → { kind: "house" } (affiliateId IS NULL deals)
+ *  - partner with an affiliate → { kind: "affiliate", affiliateId }
+ * Throws FORBIDDEN if a non-admin caller has no affiliate.
+ */
+async function resolveScope(
+  ctx: Ctx,
+): Promise<{ kind: "house" } | { kind: "affiliate"; affiliateId: number }> {
+  if (ctx.user.role === "admin") return { kind: "house" };
+  const affiliateId = await resolveMyAffiliateId(ctx);
+  if (affiliateId == null) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "No affiliate account is linked to your login.",
+    });
+  }
+  return { kind: "affiliate", affiliateId };
+}
+
+function scopeWhere(scope: { kind: "house" } | { kind: "affiliate"; affiliateId: number }) {
+  return scope.kind === "house"
+    ? isNull(crmDeals.affiliateId)
+    : eq(crmDeals.affiliateId, scope.affiliateId);
+}
+
+// Verify a deal belongs to the caller's scope; returns the deal or throws.
+async function getOwnedDeal(
+  ctx: Ctx,
+  dealId: number,
+) {
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+  const scope = await resolveScope(ctx);
+  const rows = await db
+    .select()
+    .from(crmDeals)
+    .where(and(eq(crmDeals.id, dealId), scopeWhere(scope)));
+  const deal = rows[0];
+  if (!deal) throw new TRPCError({ code: "NOT_FOUND", message: "Deal not found in your pipeline." });
+  return { db, scope, deal };
+}
+
+const dealCoreInput = {
+  title: z.string().min(1).max(256),
+  stage: z.enum(CRM_STAGES).optional(),
+  priority: z.enum(CRM_PRIORITIES).optional(),
+  contactName: z.string().max(256).nullable().optional(),
+  contactEmail: z.string().max(320).nullable().optional(),
+  contactPhone: z.string().max(32).nullable().optional(),
+  company: z.string().max(256).nullable().optional(),
+  location: z.string().max(256).nullable().optional(),
+  language: z.enum(CRM_LANGUAGES).optional(),
+  estimatedValue: z.number().min(0).nullable().optional(),
+  nextFollowUpAt: z.number().int().nullable().optional(), // epoch ms
+  notes: z.string().max(8000).nullable().optional(),
+};
+
+export const crmRouter = router({
+  // ── Board: all deals grouped by stage for the caller's scope ────────────────
+  board: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) {
+      return {
+        scope: "house" as "house" | "affiliate",
+        affiliateId: null as number | null,
+        deals: [] as (typeof crmDeals.$inferSelect)[],
+      };
+    }
+    const scope = await resolveScope(ctx);
+    const deals = await db
+      .select()
+      .from(crmDeals)
+      .where(scopeWhere(scope))
+      .orderBy(crmDeals.boardOrder, desc(crmDeals.updatedAt));
+    return {
+      scope: scope.kind as "house" | "affiliate",
+      affiliateId: (scope.kind === "affiliate" ? scope.affiliateId : null) as number | null,
+      deals,
+    };
+  }),
+
+  // ── Deal detail + its activity timeline ─────────────────────────────────────
+  deal: protectedProcedure
+    .input(z.object({ id: z.number().int() }))
+    .query(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.id);
+      const activities = await db
+        .select()
+        .from(crmActivities)
+        .where(eq(crmActivities.dealId, deal.id))
+        .orderBy(desc(crmActivities.createdAt));
+      return { deal, activities };
+    }),
+
+  // ── Create a deal in the caller's scope ─────────────────────────────────────
+  create: protectedProcedure
+    .input(z.object(dealCoreInput))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const scope = await resolveScope(ctx);
+      const stage = (input.stage ?? "new") as CrmStage;
+      const res = await db.insert(crmDeals).values({
+        affiliateId: scope.kind === "affiliate" ? scope.affiliateId : null,
+        ownerUserId: ctx.user.id,
+        title: input.title,
+        stage,
+        priority: input.priority ?? "medium",
+        contactName: input.contactName ?? null,
+        contactEmail: input.contactEmail ?? null,
+        contactPhone: input.contactPhone ?? null,
+        company: input.company ?? null,
+        location: input.location ?? null,
+        language: input.language ?? "en",
+        estimatedValue: input.estimatedValue != null ? String(input.estimatedValue) : null,
+        source: "manual",
+        nextFollowUpAt: input.nextFollowUpAt != null ? new Date(input.nextFollowUpAt) : null,
+        notes: input.notes ?? null,
+        closedAt: isClosedStage(stage) ? new Date() : null,
+      });
+      const insertId = (res as unknown as [{ insertId: number }])[0].insertId;
+      return { id: insertId };
+    }),
+
+  // ── Update deal fields ──────────────────────────────────────────────────────
+  update: protectedProcedure
+    .input(z.object({ id: z.number().int(), ...dealCoreInput, title: z.string().min(1).max(256).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.id);
+      const patch: Record<string, unknown> = {};
+      if (input.title !== undefined) patch.title = input.title;
+      if (input.priority !== undefined) patch.priority = input.priority;
+      if (input.contactName !== undefined) patch.contactName = input.contactName;
+      if (input.contactEmail !== undefined) patch.contactEmail = input.contactEmail;
+      if (input.contactPhone !== undefined) patch.contactPhone = input.contactPhone;
+      if (input.company !== undefined) patch.company = input.company;
+      if (input.location !== undefined) patch.location = input.location;
+      if (input.language !== undefined) patch.language = input.language;
+      if (input.estimatedValue !== undefined)
+        patch.estimatedValue = input.estimatedValue != null ? String(input.estimatedValue) : null;
+      if (input.nextFollowUpAt !== undefined)
+        patch.nextFollowUpAt = input.nextFollowUpAt != null ? new Date(input.nextFollowUpAt) : null;
+      if (input.notes !== undefined) patch.notes = input.notes;
+      if (input.stage !== undefined && input.stage !== deal.stage) {
+        patch.stage = input.stage;
+        patch.closedAt = isClosedStage(input.stage as CrmStage) ? new Date() : null;
+      }
+      if (Object.keys(patch).length > 0) {
+        await db.update(crmDeals).set(patch).where(eq(crmDeals.id, deal.id));
+      }
+      return { ok: true };
+    }),
+
+  // ── Move a deal to a new stage (board drag) ─────────────────────────────────
+  moveStage: protectedProcedure
+    .input(z.object({ id: z.number().int(), stage: z.enum(CRM_STAGES), boardOrder: z.number().int().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.id);
+      const changed = input.stage !== deal.stage;
+      await db
+        .update(crmDeals)
+        .set({
+          stage: input.stage,
+          boardOrder: input.boardOrder ?? deal.boardOrder,
+          closedAt: isClosedStage(input.stage) ? new Date() : null,
+        })
+        .where(eq(crmDeals.id, deal.id));
+      if (changed) {
+        await db.insert(crmActivities).values({
+          dealId: deal.id,
+          authorUserId: ctx.user.id,
+          kind: "stage_change",
+          body: `Stage changed from ${deal.stage} to ${input.stage}`,
+        });
+      }
+      return { ok: true };
+    }),
+
+  // ── Add an activity / note / task to a deal ─────────────────────────────────
+  addActivity: protectedProcedure
+    .input(
+      z.object({
+        dealId: z.number().int(),
+        kind: z.enum(CRM_ACTIVITY_KINDS).optional(),
+        body: z.string().min(1).max(8000),
+        dueAt: z.number().int().nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      await db.insert(crmActivities).values({
+        dealId: deal.id,
+        authorUserId: ctx.user.id,
+        kind: input.kind ?? "note",
+        body: input.body,
+        dueAt: input.dueAt != null ? new Date(input.dueAt) : null,
+      });
+      // touch the deal so it sorts to the top of its column
+      await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
+      return { ok: true };
+    }),
+
+  // ── Toggle a task activity done/undone ──────────────────────────────────────
+  toggleTask: protectedProcedure
+    .input(z.object({ activityId: z.number().int(), done: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const rows = await db.select().from(crmActivities).where(eq(crmActivities.id, input.activityId));
+      const act = rows[0];
+      if (!act) throw new TRPCError({ code: "NOT_FOUND" });
+      // ownership check via the parent deal
+      await getOwnedDeal(ctx, act.dealId);
+      await db.update(crmActivities).set({ done: input.done }).where(eq(crmActivities.id, act.id));
+      return { ok: true };
+    }),
+
+  // ── Delete a deal (and its activities) ──────────────────────────────────────
+  remove: protectedProcedure
+    .input(z.object({ id: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.id);
+      await db.delete(crmActivities).where(eq(crmActivities.dealId, deal.id));
+      await db.delete(crmDeals).where(eq(crmDeals.id, deal.id));
+      return { ok: true };
+    }),
+
+  // ── Importable leads: platform activity not yet a deal in this scope ─────────
+  // Admin: pro applications + house (unattributed) order requests.
+  // Affiliate: their own referred order requests.
+  importableLeads: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return { orderRequests: [], proApplications: [] };
+    const scope = await resolveScope(ctx);
+
+    // already-imported source ids in this scope
+    const existing = await db.select().from(crmDeals).where(scopeWhere(scope));
+    const usedOrderReqIds = new Set(existing.map((d) => d.orderRequestId).filter(Boolean) as number[]);
+    const usedProAppIds = new Set(existing.map((d) => d.proApplicationId).filter(Boolean) as number[]);
+
+    if (scope.kind === "affiliate") {
+      const reqs = await db
+        .select()
+        .from(orderRequests)
+        .where(eq(orderRequests.affiliateId, scope.affiliateId))
+        .orderBy(desc(orderRequests.createdAt));
+      return {
+        orderRequests: reqs.filter((r) => !usedOrderReqIds.has(r.id)).slice(0, 50),
+        proApplications: [],
+      };
+    }
+
+    // house/admin
+    const reqs = await db
+      .select()
+      .from(orderRequests)
+      .where(isNull(orderRequests.affiliateId))
+      .orderBy(desc(orderRequests.createdAt));
+    const apps = await db
+      .select()
+      .from(proApplications)
+      .orderBy(desc(proApplications.createdAt));
+    return {
+      orderRequests: reqs.filter((r) => !usedOrderReqIds.has(r.id)).slice(0, 50),
+      proApplications: apps.filter((a) => !usedProAppIds.has(a.id)).slice(0, 50),
+    };
+  }),
+
+  // ── Import a platform lead into the pipeline as a new deal ───────────────────
+  importLead: protectedProcedure
+    .input(
+      z.object({
+        type: z.enum(["order_request", "pro_application"]),
+        id: z.number().int(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const scope = await resolveScope(ctx);
+      const affiliateId = scope.kind === "affiliate" ? scope.affiliateId : null;
+
+      if (input.type === "order_request") {
+        const rows = await db.select().from(orderRequests).where(eq(orderRequests.id, input.id));
+        const r = rows[0];
+        if (!r) throw new TRPCError({ code: "NOT_FOUND" });
+        // affiliate scope can only import their own referred requests
+        if (scope.kind === "affiliate" && r.affiliateId !== scope.affiliateId) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        const res = await db.insert(crmDeals).values({
+          affiliateId,
+          ownerUserId: ctx.user.id,
+          title: `Order ${r.requestNumber}${r.originatorName ? ` — ${r.originatorName}` : ""}`,
+          stage: "qualified",
+          priority: "medium",
+          contactName: r.originatorName ?? null,
+          contactEmail: r.originatorEmail ?? null,
+          contactPhone: r.originatorPhone ?? null,
+          location: r.zip ?? null,
+          estimatedValue: r.totalAmount ?? null,
+          source: "order_request",
+          orderRequestId: r.id,
+          referralCode: r.referralCode ?? null,
+        });
+        return { id: (res as unknown as [{ insertId: number }])[0].insertId };
+      }
+
+      // pro_application (admin-only source)
+      if (scope.kind === "affiliate") throw new TRPCError({ code: "FORBIDDEN" });
+      const rows = await db.select().from(proApplications).where(eq(proApplications.id, input.id));
+      const a = rows[0];
+      if (!a) throw new TRPCError({ code: "NOT_FOUND" });
+      const res = await db.insert(crmDeals).values({
+        affiliateId: null,
+        ownerUserId: ctx.user.id,
+        title: `Pro — ${a.companyName}`,
+        stage: "new",
+        priority: "medium",
+        contactName: a.contactName,
+        contactEmail: a.email,
+        contactPhone: a.phone ?? null,
+        company: a.companyName,
+        location: a.baseZip ?? null,
+        source: "pro_application",
+        proApplicationId: a.id,
+      });
+      return { id: (res as unknown as [{ insertId: number }])[0].insertId };
+    }),
+});
+
+// (exported helpers kept internal; inArray imported for potential batch ops)
+void inArray;

@@ -21,6 +21,7 @@ import {
   Copy, ExternalLink, DollarSign, Package, CheckCircle2, Store,
   LinkIcon, Save, Loader2,
 } from "lucide-react";
+import { CrmBoard } from "@/components/crm/CrmBoard";
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -165,11 +166,16 @@ export default function AffiliateDashboard() {
         </div>
       </div>
 
-      <Tabs defaultValue="orders">
+      <Tabs defaultValue="crm">
         <TabsList>
+          <TabsTrigger value="crm">My CRM</TabsTrigger>
           <TabsTrigger value="orders">Referred Orders</TabsTrigger>
           <TabsTrigger value="branding">Storefront Branding</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="crm" className="mt-6">
+          <CrmBoard lang="en" />
+        </TabsContent>
 
         <TabsContent value="orders" className="mt-6">
           {orders.length === 0 ? (

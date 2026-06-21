@@ -12,6 +12,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
 // Trade-only platform: pricing is shown by trade tier. No homeowner/retail tier.
@@ -145,12 +146,22 @@ export default function CabinetDetail({ masterCode }: Props) {
           </div>
           {selectedRow ? (
             <div className="flex items-center gap-3 mb-6 rounded-lg border border-border p-2.5">
+              {doorFamilyPhoto(selectedRow) ? (
+                <div className="h-12 w-10 rounded bg-muted/40 shrink-0 overflow-hidden">
+                  <img
+                    src={doorFamilyPhoto(selectedRow)!}
+                    alt={`${selectedRow.doorStyle || "Door"} panel profile`}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : null}
               <div className="h-12 w-12 rounded bg-muted/40 shrink-0 flex items-center justify-center p-1 overflow-hidden">
                 <DoorStyleSwatch style={selectedRow} className="h-full w-auto" />
               </div>
               <div className="text-xs text-muted-foreground leading-tight">
                 <div className="font-medium text-foreground">{selectedRow.name}</div>
-                <div>Selected door style · drawing shown to scale</div>
+                <div>{selectedRow.doorStyle ? `${selectedRow.doorStyle} profile · true color` : "Selected door style"} · drawing to scale</div>
               </div>
             </div>
           ) : (

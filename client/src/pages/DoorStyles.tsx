@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { RoomScenePreview } from "@/components/RoomScenePreview";
+import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -25,6 +26,7 @@ interface DoorStyle {
 }
 
 function StyleCard({ style }: { style: DoorStyle }) {
+  const familyPhoto = doorFamilyPhoto(style);
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -32,12 +34,27 @@ function StyleCard({ style }: { style: DoorStyle }) {
           type="button"
           className="cabinet-card group rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          {/* Door sample rendered to the style's real color + panel treatment */}
+          {/* Photorealistic door-family sample with the style's true-color SVG swatch chip */}
           <div className="h-40 bg-gradient-to-b from-muted/30 to-muted/60 flex items-center justify-center border-b border-border overflow-hidden relative p-4">
-            <DoorStyleSwatch
-              style={style}
-              className="h-full w-auto drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
-            />
+            {familyPhoto ? (
+              <>
+                <img
+                  src={familyPhoto}
+                  alt={`${style.doorStyle || "Door"} panel profile sample`}
+                  loading="lazy"
+                  className="h-full w-auto object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
+                />
+                {/* true-color chip so the realistic profile + exact finish are both shown */}
+                <span className="absolute top-2 left-2 rounded-md bg-background/85 p-0.5 shadow-sm ring-1 ring-border">
+                  <DoorStyleSwatch style={style} className="h-9 w-auto" />
+                </span>
+              </>
+            ) : (
+              <DoorStyleSwatch
+                style={style}
+                className="h-full w-auto drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
+              />
+            )}
             <span className="absolute bottom-2 right-2 text-[10px] font-medium text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
               View in kitchen
             </span>
@@ -85,8 +102,16 @@ function StyleCard({ style }: { style: DoorStyle }) {
 
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
           <div className="flex items-center gap-2">
+            {familyPhoto ? (
+              <img
+                src={familyPhoto}
+                alt={`${style.doorStyle || "Door"} panel profile sample`}
+                loading="lazy"
+                className="h-16 w-auto object-contain rounded"
+              />
+            ) : null}
             <DoorStyleSwatch style={style} className="h-12 w-auto" />
-            <div className="text-xs text-muted-foreground">Door sample</div>
+            <div className="text-xs text-muted-foreground">Profile &amp; true color</div>
           </div>
           <div className="space-y-0.5">
             {style.doorStyle && <p className="text-xs"><span className="text-muted-foreground">Style:</span> {style.doorStyle}</p>}

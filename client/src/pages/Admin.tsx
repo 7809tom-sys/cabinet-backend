@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
+import { CrmBoard } from "@/components/crm/CrmBoard";
 import {
   Building2,
   Mail,
@@ -358,12 +359,16 @@ export default function Admin() {
         Manage affiliates, review Pro Network applications, and handle countertop quote requests.
       </p>
 
-      <Tabs defaultValue="affiliates">
+      <Tabs defaultValue="crm">
         <TabsList>
+          <TabsTrigger value="crm">Sales CRM</TabsTrigger>
           <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
           <TabsTrigger value="pros">Pro Applications</TabsTrigger>
           <TabsTrigger value="quotes">Countertop Quotes</TabsTrigger>
         </TabsList>
+        <TabsContent value="crm" className="mt-6">
+          <CrmBoard lang="en" />
+        </TabsContent>
         <TabsContent value="affiliates" className="mt-6">
           <AffiliatesAdmin />
         </TabsContent>

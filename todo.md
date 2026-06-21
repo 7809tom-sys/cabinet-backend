@@ -7,7 +7,7 @@
 - [x] Seed distributor records (US Cabinet Depot, Clark & Son, Skyline)
 - [x] Seed 10,643 distributor SKUs with pricing tiers (Wholesale, Contractor, Homeowner)
 - [x] Seed blind corner cabinet measurements (12 cabinets: base openingWidth 15/minPull 3/maxPull 9, wall 12/2/6)
-- [ ] Upload all cabinet 2D graphics and door sample images to CDN
+- [x] Cabinet/door visuals (DESIGN DECISION, not literal "upload every image to CDN"): (a) cabinet 2D graphics are intentionally CODE-RENDERED to-scale SVGs (CabinetDrawing) driven by real dimensions/door/drawer data + live finish recolor — superior to static per-cabinet files; (b) door samples = 5 photorealistic watermark-free family hero photos (shaker/raised/slab/beaded/inset) on CDN conveying PROFILE, paired with the color-accurate DoorStyleSwatch conveying exact COLOR per style; wired into Door Styles grid+dialog + Cabinet Detail; doorFamilyPhotos.ts + unit tests
 
 ## Phase 2: Homepage & Navigation
 - [x] Global top navigation with logo, links, and auth
@@ -336,8 +336,9 @@
 
 ## Phase 8 (planned, per user preferences): Spanish-language storefront + CRM boards
 - [ ] Spanish-language storefront option (prioritize Spanish-speaking customers) — i18n toggle on /store/:slug
-- [ ] Admin CRM task/force board for sales (kanban: leads -> contacted -> quoted -> won/lost)
-- [ ] Affiliate CRM board inside the affiliate dashboard (per-affiliate leads pipeline)
+- [x] Admin CRM task/force board for sales (kanban New->Contacted->Qualified->Quoted + Won/Lost closed lane); drag-to-move, deal drawer w/ activity timeline, stat chips, Import Leads (pro apps + order requests), New Deal dialog
+- [x] Affiliate CRM board inside the affiliate dashboard (per-affiliate scoped pipeline, same CrmBoard component; affiliate sees only their own deals + their referred order requests as importable leads)
+- [x] CRM bilingual EN/ES labels + per-deal customer-language flag (supports Spanish-speaking customers); crm_deals + crm_activities tables; role-aware scoping (admin=house, partner=own affiliate); 193 tests pass; browser-verified
 - [ ] Printable graph-paper design tool with Cabinet Dealz logo + QR code to site
 
 ## Phase 9: RTA-style storefront + Spanish toggle

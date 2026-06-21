@@ -407,3 +407,75 @@ export const affiliates = mysqlTable("affiliates", {
 
 export type Affiliate = typeof affiliates.$inferSelect;
 export type InsertAffiliate = typeof affiliates.$inferInsert;
+
+// ─── CRM: Sales pipeline (admin) + affiliate pipeline ──────────────────────────
+// A lightweight task-board / pipeline over leads & deals. A deal with
+// affiliateId = NULL is a "house" deal owned by the Cabinet Dealz sales team
+// (admin CRM board). A deal with a non-null affiliateId belongs to that
+// affiliate's own pipeline (affiliate CRM board inside their dashboard).
+// Deals can optionally reference an existing order request, pro application, or
+// affiliate-store lead so the pipeline ties back to real platform activity.
+
+export const crmDeals = mysqlTable("crm_deals", {
+  id: int("id").autoincrement().primaryKey(),
+  // Ownership / scope
+  affiliateId: int("affiliateId"), // NULL = house/admin deal; else the owning affiliate
+  ownerUserId: int("ownerUserId"), // assigned salesperson / partner user (nullable)
+  // Pipeline
+  title: varchar("title", { length: 256 }).notNull(), // e.g. "Kitchen remodel — J. Rivera"
+  stage: mysqlEnum("stage", [
+    "new",
+    "contacted",
+    "qualified",
+    "quoted",
+    "won",
+    "lost",
+  ]).default("new").notNull(),
+  priority: mysqlEnum("priority", ["low", "medium", "high"]).default("medium").notNull(),
+  // Contact
+  contactName: varchar("contactName", { length: 256 }),
+  contactEmail: varchar("contactEmail", { length: 320 }),
+  contactPhone: varchar("contactPhone", { length: 32 }),
+  company: varchar("company", { length: 256 }),
+  location: varchar("location", { length: 256 }),
+  language: mysqlEnum("language", ["en", "es"]).default("en").notNull(), // bilingual sales support
+  // Value + forecasting
+  estimatedValue: decimal("estimatedValue", { precision: 12, scale: 2 }),
+  // Source linkage (any may be null)
+  source: mysqlEnum("source", [
+    "manual",
+    "order_request",
+    "pro_application",
+    "storefront",
+    "referral",
+  ]).default("manual").notNull(),
+  orderRequestId: int("orderRequestId"),
+  proApplicationId: int("proApplicationId"),
+  referralCode: varchar("referralCode", { length: 32 }),
+  // Follow-up
+  nextFollowUpAt: timestamp("nextFollowUpAt"),
+  notes: text("notes"),
+  // Sort order within a stage column (for manual drag ordering)
+  boardOrder: int("boardOrder").default(0).notNull(),
+  closedAt: timestamp("closedAt"), // set when stage becomes won/lost
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CrmDeal = typeof crmDeals.$inferSelect;
+export type InsertCrmDeal = typeof crmDeals.$inferInsert;
+
+export const crmActivities = mysqlTable("crm_activities", {
+  id: int("id").autoincrement().primaryKey(),
+  dealId: int("dealId").notNull(),
+  authorUserId: int("authorUserId"), // who logged it
+  kind: mysqlEnum("kind", ["note", "call", "email", "meeting", "stage_change", "task"]).default("note").notNull(),
+  body: text("body").notNull(),
+  // Optional task fields (when kind = "task")
+  dueAt: timestamp("dueAt"),
+  done: boolean("done").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CrmActivity = typeof crmActivities.$inferSelect;
+export type InsertCrmActivity = typeof crmActivities.$inferInsert;
