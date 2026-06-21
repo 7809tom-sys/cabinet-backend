@@ -34,28 +34,33 @@ function StyleCard({ style }: { style: DoorStyle }) {
           type="button"
           className="cabinet-card group rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          {/* Photorealistic door-family sample with the style's true-color SVG swatch chip */}
-          <div className="h-40 bg-gradient-to-b from-muted/30 to-muted/60 flex items-center justify-center border-b border-border overflow-hidden relative p-4">
+          {/* Room scene backdrop + the door profile sample on top + true-color chip */}
+          <div className="h-40 flex items-center justify-center border-b border-border overflow-hidden relative">
+            {/* Per-style kitchen room scene rendered in this exact finish */}
+            <RoomScenePreview
+              style={style}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            {/* Soft scrim so the door sample reads clearly against the scene */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
             {familyPhoto ? (
-              <>
-                <img
-                  src={familyPhoto}
-                  alt={`${style.doorStyle || "Door"} panel profile sample`}
-                  loading="lazy"
-                  className="h-full w-auto object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
-                />
-                {/* true-color chip so the realistic profile + exact finish are both shown */}
-                <span className="absolute top-2 left-2 rounded-md bg-background/85 p-0.5 shadow-sm ring-1 ring-border">
-                  <DoorStyleSwatch style={style} className="h-9 w-auto" />
-                </span>
-              </>
+              <img
+                src={familyPhoto}
+                alt={`${style.doorStyle || "Door"} panel profile sample`}
+                loading="lazy"
+                className="relative h-28 w-auto object-contain drop-shadow-lg group-hover:scale-105 transition-transform duration-300"
+              />
             ) : (
               <DoorStyleSwatch
                 style={style}
-                className="h-full w-auto drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
+                className="relative h-28 w-auto drop-shadow-lg group-hover:scale-105 transition-transform duration-300"
               />
             )}
-            <span className="absolute bottom-2 right-2 text-[10px] font-medium text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* true-color chip so the realistic profile + exact finish are both shown */}
+            <span className="absolute top-2 left-2 rounded-md bg-background/90 p-0.5 shadow-sm ring-1 ring-border">
+              <DoorStyleSwatch style={style} className="h-9 w-auto" />
+            </span>
+            <span className="absolute bottom-2 right-2 text-[10px] font-medium text-white bg-black/55 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
               View in kitchen
             </span>
           </div>

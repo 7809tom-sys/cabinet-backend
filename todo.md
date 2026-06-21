@@ -567,3 +567,12 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Extended cabinetProductPhoto map: every category now covers white/gray/cherry/espresso (wall, tall, vanity); accessory covers white/warmwood/dark
 - [x] Updated resolver tests for new variants (18 tests in doorFamilyPhotos.test.ts)
 - [x] Typecheck clean, 312 tests pass, verified wall + tall detail pages render kitchen-scene lead-in + 3D image, checkpoint
+
+
+## Catalog: Door-Style-First (remove Shop by Category)
+- [x] Removed "Shop by Category" tiles from Catalog landing
+- [x] Replaced with "Shop by Door Style" section (5 scene tiles) linking to /styles
+- [x] Category drill-in kept under the hood for search + design tool
+- [x] Typecheck + 312 tests pass, verified, checkpoint
+
+- [x] Door Styles page: each card now shows a per-style kitchen room scene (rendered in the exact finish) as the backdrop WITH the door profile sample on top + true-color chip
