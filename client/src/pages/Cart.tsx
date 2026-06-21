@@ -67,8 +67,20 @@ export default function Cart() {
     toast.success(`Showing availability for ${normalizedZip}`);
   };
 
+  // Family-lock: every line in one order must share a single door-style family.
+  const familyGroups = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const i of items) m.set(i.styleId, i.styleLabel);
+    return m;
+  }, [items]);
+  const isMixedFamily = familyGroups.size > 1;
+
   const requestOrder = () => {
     if (items.length === 0) return;
+    if (isMixedFamily) {
+      toast.error("An order must stay within one door style. Remove items so only one style remains.");
+      return;
+    }
     const prefill = items.map((i) => ({ code: i.masterCode, qty: i.qty }));
     try {
       sessionStorage.setItem(CART_PREFILL_KEY, JSON.stringify(prefill));
@@ -245,7 +257,26 @@ export default function Cart() {
               request and our team will confirm options.
             </div>
           )}
-          <Button className="w-full" size="lg" onClick={requestOrder}>
+          {isMixedFamily && (
+            <div className="mb-3 rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div>
+                  An order ships in one door style. Your cart mixes{" "}
+                  <span className="font-semibold">{familyGroups.size}</span> styles
+                  {": "}
+                  {Array.from(familyGroups.values()).join(", ")}. Remove items so only one
+                  style remains to continue.
+                </div>
+              </div>
+            </div>
+          )}
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={requestOrder}
+            disabled={isMixedFamily}
+          >
             <Check className="mr-1.5 h-4 w-4" /> Request this order
           </Button>
           <Button variant="outline" className="mt-2 w-full bg-background" asChild>

@@ -77,21 +77,21 @@
 
 ## White-Label & Trade-Only Conversion
 - [x] Map distributor IDs to neutral labels (Line A / Line B / Line C) at the DB source
-- [ ] Remove distributor brand names from Home.tsx (hero copy, featured styles, distributor strip, footer)
-- [ ] Remove distributor brand names from Door Styles, Catalog, Cabinet Detail, Design Tool
-- [ ] Remove Homeowner pricing tier (keep Wholesale + Contractor trade tiers)
-- [ ] Remove consumer buy path: "Sign In to Order", "Add to Cart", cart icon, homeowner audience card/CTA
-- [ ] Update homepage messaging to trade/wholesale audience (no homeowner selling)
-- [ ] Verify no brand names or consumer-selling elements remain in UI
+- [x] Remove distributor brand names from Home.tsx (hero copy, featured styles, distributor strip, footer) — verified: Home self-brands as Cabinet Dealz, no supplier names
+- [x] Remove distributor brand names from Door Styles, Catalog, Cabinet Detail, Design Tool — all render inside AppLayout/TopNav (Cabinet Dealz brand); public catalog API scrubs supplier fields; grep CLEAN
+- [ ] (SUPERSEDED? — needs user confirm) Remove Homeowner pricing tier (keep Wholesale + Contractor trade tiers) — conflicts with revised "keep trade ordering path" + the cart/checkout user explicitly requested this session
+- [ ] (SUPERSEDED? — needs user confirm) Remove consumer buy path: "Sign In to Order", "Add to Cart", cart icon, homeowner audience card/CTA — user later asked to BUILD cart + "Request this order"; awaiting direction
+- [ ] (SUPERSEDED? — needs user confirm) Update homepage messaging to trade/wholesale audience (no homeowner selling)
+- [x] Verify no brand names remain in UI — leak audit grep CLEAN outside admin-gated import; server/whitelabel.test.ts asserts no brand strings in public APIs. (Note: trade buy/design path intentionally retained per revised white-label direction.)
 
 ## Per-Distributor White-Label Model (revised direction)
 - [x] Home page white-labeled + Cabinet Dealz self-branding (hero, audience, supply strip, footer)
-- [ ] Add `whiteLabel` boolean column to distributors table (default true = hidden)
-- [ ] API returns real brand name only when whiteLabel = false, else neutral label
-- [ ] All three current distributors set to white-labeled (hidden)
-- [ ] Door Styles / Catalog / Cabinet Detail / Design Tool respect whiteLabel flag
-- [ ] Cabinet Dealz brand strong across all customer-facing pages
-- [ ] Product image watermarks never show distributor/dealer names
+- [x] Add `whiteLabel` boolean column to distributors table (default true = hidden) — plus brandName/brandInitials/displayMode/seriesName/markupPercent; migration applied
+- [x] API returns real brand name only when whiteLabel = false (displayMode=branded), else neutral label — server/lib/presentation.ts resolvePresentation()
+- [x] All three current distributors set to white-labeled (hidden): Line A/B/C, whiteLabel=1, neutral displayMode; real brands (US Cabinet Depot/Clark & Son/Skyline) internal-only
+- [x] Door Styles / Catalog / Cabinet Detail / Design Tool respect whiteLabel flag — public catalog router scrubs descriptionSource + distributorName; brandName only exposed via adminProcedure (Distributors import tab); added server/whitelabel.test.ts (6 leak-guard tests)
+- [x] Cabinet Dealz brand strong across all customer-facing pages (hero self-branding, no supplier names anywhere user-facing — leak audit grep CLEAN outside admin-gated import)
+- [x] Product image watermarks never show distributor/dealer names — all imagery is platform-controlled (DoorStyleSwatch SVGs + watermark-free generated door-family photos); grep for brand-bearing image URLs returns NONE
 - [ ] Keep trade ordering path (buy/design); homeowner retail moves to future affiliate site
 
 
@@ -356,16 +356,16 @@
 ## Phase 9: RTA-style storefront + family-lock + i18n (user request)
 - [x] Source hero/category/door-style imagery; upload as webdev static assets
 - [x] Storefront i18n module (EN/ES dictionary + useStorefrontLang hook, English default, localStorage)
-- [ ] Family-lock rule: an order stays within ONE distributor + ONE cabinet family (door style/finish) to avoid multi-shipment shipping costs
-- [ ] Backend: families list query (active door_styles w/ room scene, door style, species, finish, distributor)
-- [ ] Backend: family-scoped catalog query (cabinets w/ published+available SKU for a styleId) + categories/subcategories within family
-- [ ] Storefront flow: room scene -> pick family (style+distributor) -> categories -> subcategories, all locked to styleId
-- [ ] Family-lock context (persist selectedStyleId/distributorId); lock banner with "Switch family" action
-- [ ] EN/Espanol language toggle in storefront header
-- [ ] RTA-style layout: image hero, value strip, image category tiles, featured door styles (room scenes), buy-now vs design choice, packages teaser, quote CTA
-- [ ] AI cabinet recommender constrained to locked family/distributor (no cross-distributor suggestions)
-- [ ] Package/galley/10x10 pricing: shipping shown as NOT included (remove 10% estimate)
-- [ ] Typecheck + vitest pass; browser-verify family lock + EN/ES + sections; checkpoint
+- [x] Family-lock rule: backend now ENFORCES single-family on order submit — shared/familyLock.ts validateFamilyLock() wired into orders.createRequest (rejects mixed-style submit with BAD_REQUEST); Cart shows a lock banner + disables "Request this order" when the cart mixes door styles. 7 familyLock tests added
+- [x] Backend: families list query (storefront.families — active styles w/ distributorId, no supplier name)
+- [x] Backend: family-scoped catalog query (storefront.familyCatalog + familyCategories/familySubCategories, all styleId-scoped)
+- [x] Storefront flow: pick family -> lock -> category tabs filtered within line (StorefrontShop, Phase 9 verified)
+- [x] Family-lock context (useFamilyLock persists selectedStyleId/distributorId per slug); lock banner with "Change Line" action
+- [x] EN/Espanol language toggle in storefront header (verified Phase 9: nav/value strip/headers/lock banner all switch)
+- [x] RTA-style layout: hero, value strip, StorefrontShop, how-it-works, quote CTA, branded footer (Phase 9)
+- [x] AI cabinet recommender constrained to locked family/distributor (storefront.recommendForIntent scoped to styleId; test asserts every recommended SKU belongs to the family)
+- [x] Package/galley/10x10 pricing: shipping shown as NOT included / quoted separately (Phase 9)
+- [x] Typecheck + vitest pass; browser-verified family lock + EN/ES + sections; checkpointed (Phase 9)
 
 
 ## Phase 9 verification + completion (2026-06-21)

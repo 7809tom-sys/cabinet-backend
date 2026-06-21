@@ -12,6 +12,7 @@ import {
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { normalizeReferralCode } from "@shared/affiliate";
+import { validateFamilyLock } from "@shared/familyLock";
 import {
   buildCodeIndex,
   matchCode,
@@ -418,6 +419,18 @@ export const ordersRouter = router({
           matched: l.matched,
         };
       });
+
+      // Family-lock: a single order must stay within one door-style family.
+      // Only enforced on submit (a draft may still be mid-review with mixed lines).
+      if (input.submit) {
+        const lock = validateFamilyLock(
+          normalizedLines.map((l) => ({ styleId: l.styleId, masterCode: l.masterCode })),
+          input.styleId ?? null
+        );
+        if (!lock.ok) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: lock.reason });
+        }
+      }
 
       const total = normalizedLines.reduce(
         (sum, l) => sum + (l.linePrice ?? 0),
