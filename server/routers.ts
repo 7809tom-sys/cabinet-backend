@@ -20,6 +20,7 @@ import { distributorImportRouter } from "./routers/distributors";
 import { distributorPortalRouter } from "./routers/distributorPortal";
 import { customersRouter } from "./routers/customers";
 import { ocrRouter } from "./routers/ocr";
+import { assistantRouter } from "./routers/assistant";
 
 export const appRouter = router({
   system: systemRouter,
@@ -50,6 +51,7 @@ export const appRouter = router({
   distributorPortal: distributorPortalRouter,
   customers: customersRouter,
   ocr: ocrRouter,
+  assistant: assistantRouter,
 });
 
 export type AppRouter = typeof appRouter;

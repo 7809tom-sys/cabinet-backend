@@ -2,6 +2,7 @@ import { Route, Switch } from "wouter";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TopNav } from "@/components/TopNav";
+import ChatWidget from "@/components/ChatWidget";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense } from "react";
@@ -181,6 +182,7 @@ export default function App() {
           </AppLayout>
         </Route>
       </Switch>
+      <ChatWidget />
       <Toaster />
     </ThemeProvider>
   );

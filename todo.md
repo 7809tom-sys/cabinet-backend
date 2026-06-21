@@ -505,3 +505,15 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Storefront now prefers doorFamilyPhoto() (the real uploaded CDN webp door photos already used by the Door Styles page) over the broken DB image paths
 - [x] Added FamilyCardImage helper: shows the photo when it loads, falls back to the color-accurate DoorStyleSwatch on empty OR broken (onError) — applied to the line-picker grid and the locked-family thumbnail
 - [x] Verified live in browser + screenshot; tsc clean; 252 tests passing
+
+
+## Session: Customer Tiers + AI Chat / Tawk Handoff (Jun 21)
+- [x] users.pricingTier enum (homeowner default / contractor / wholesale) + companyName column applied to live DB (reconciled schema/DB drift — companyName was missing)
+- [x] shared/pricingTier.ts pure resolver (tier -> effective price + label); 12 tests
+- [x] customers admin router: list (search + tier filter + counts) and setTier (adminProcedure); 6 tests
+- [x] Admin > Customers tab UI (CustomersAdmin): user list, tier badges, search/filter, one-click tier assignment
+- [x] assistant.chat router: cabinet/kitchen-scoped AI helper, white-labeled (never names suppliers); 3 tests incl. live on-topic reply + brand-leak guard
+- [x] ChatWidget floating bubble site-wide (AI assistant via AIChatBox) with "Talk to a live person" handoff
+- [x] Tawk.to integration (client/src/lib/tawk.ts): config-driven via VITE_TAWK_PROPERTY_ID / VITE_TAWK_WIDGET_ID; graceful no-op + friendly toast until configured
+- [ ] User to create free Tawk.to account and provide Property ID (then live chat ping works on their phone)
+- [ ] (Deferred, needs user confirm) Calibrate homeowner retail prices against RTA Store market comparison

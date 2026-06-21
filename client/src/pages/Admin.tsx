@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
+import CustomersAdmin from "@/components/admin/CustomersAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -363,6 +364,7 @@ export default function Admin() {
       <Tabs defaultValue="crm">
         <TabsList>
           <TabsTrigger value="crm">Sales CRM</TabsTrigger>
+          <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
           <TabsTrigger value="pros">Pro Applications</TabsTrigger>
           <TabsTrigger value="quotes">Countertop Quotes</TabsTrigger>
@@ -370,6 +372,9 @@ export default function Admin() {
         </TabsList>
         <TabsContent value="crm" className="mt-6">
           <CrmBoard lang="en" />
+        </TabsContent>
+        <TabsContent value="customers" className="mt-6">
+          <CustomersAdmin />
         </TabsContent>
         <TabsContent value="affiliates" className="mt-6">
           <AffiliatesAdmin />
