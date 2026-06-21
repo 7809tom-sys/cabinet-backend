@@ -54,9 +54,9 @@
 - [x] Fix 12 mismatched cabinet specs (BFH full-height, widths, panels tagged as accessory)
 
 ## Phase 6: OCR Photo-to-Cart & Bulk Ordering
-- [ ] Photo upload UI for floor plan images
-- [ ] OCR processing via LLM vision to extract cabinet codes
-- [ ] Code-to-Master-ID matching and cart population
+- [x] Photo upload UI for floor plan images — /photo-to-cart page (drag/choose image, preview, 8MB guard)
+- [x] OCR processing via LLM vision to extract cabinet codes — ocr.extractFromImage (protected), strict JSON-schema vision call; verified live (read 5/5 codes+qty from a generated list image)
+- [x] Code-to-Master-ID matching and cart population — shared/cabinetCodeMatch.ts (exact/normalized/fuzzy, qty coercion, candidates); review UI -> pick one door style (family-lock) + tier -> add all to cart; 10 matcher + 3 router tests
 - [ ] CSV upload bulk ordering
 - [ ] Barcode scan ordering interface
 - [ ] Order review and confirmation

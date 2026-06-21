@@ -64,6 +64,13 @@
       "when": 1782068928954,
       "tag": "0008_secret_rocket_racer",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1782075380402,
+      "tag": "0009_burly_cable",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,8 @@ import { crmRouter } from "./routers/crm";
 import { locationRouter } from "./routers/location";
 import { distributorImportRouter } from "./routers/distributors";
 import { distributorPortalRouter } from "./routers/distributorPortal";
+import { customersRouter } from "./routers/customers";
+import { ocrRouter } from "./routers/ocr";
 
 export const appRouter = router({
   system: systemRouter,
@@ -46,6 +48,8 @@ export const appRouter = router({
   location: locationRouter,
   distributorAdmin: distributorImportRouter,
   distributorPortal: distributorPortalRouter,
+  customers: customersRouter,
+  ocr: ocrRouter,
 });
 
 export type AppRouter = typeof appRouter;

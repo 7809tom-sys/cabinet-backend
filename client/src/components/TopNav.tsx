@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { label: "Door Styles", href: "/styles" },
   { label: "Design Tool", href: "/design" },
   { label: "Build an Order", href: "/order/new" },
+  { label: "Photo to Cart", href: "/photo-to-cart" },
   { label: "Pro Network", href: "/pro-network" },
 ];
 
