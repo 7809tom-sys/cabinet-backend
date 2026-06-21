@@ -167,8 +167,8 @@ export default function DoorStyles() {
           Door Styles
         </h1>
         <p className="text-muted-foreground">
-          {uniqueStyles.length} finishes available. Each style carries its own pricing —
-          open any cabinet to compare styles and trade pricing.
+          A full range of finishes, each carrying its own trade pricing —
+          open any cabinet to compare styles and member pricing.
         </p>
       </div>
 

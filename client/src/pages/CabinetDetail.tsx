@@ -259,9 +259,6 @@ export default function CabinetDetail({ masterCode }: Props) {
             <div className="flex items-center gap-2 mb-3">
               <Palette className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-semibold text-foreground">Select Door Style</span>
-              {styleRows.length > 0 && (
-                <span className="text-xs text-muted-foreground">({styleRows.length} available)</span>
-              )}
             </div>
             {pricingLoading ? (
               <div className="flex flex-wrap gap-2">

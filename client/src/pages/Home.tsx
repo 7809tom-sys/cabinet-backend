@@ -37,7 +37,7 @@ function Hero() {
           </h1>
 
           <p className="text-lg md:text-xl text-white/75 mb-8 max-w-2xl leading-relaxed">
-            Browse one unified cabinet catalog, choose from dozens of door styles, and
+            Browse one unified cabinet catalog, choose from a wide range of door styles, and
             compare trade pricing instantly. Design kitchens in 2D and submit orders — all
             in one membership.
           </p>
