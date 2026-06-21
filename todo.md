@@ -333,3 +333,9 @@
 - [ ] Compare to current computed homeowner prices; compute market median per item
 - [ ] Recommend homeowner pricing posture: ~5% under market median, never below cost floor; deliver comparison table
 - [ ] Present recommendation for user approval BEFORE changing live pricing
+
+## Phase 8 (planned, per user preferences): Spanish-language storefront + CRM boards
+- [ ] Spanish-language storefront option (prioritize Spanish-speaking customers) — i18n toggle on /store/:slug
+- [ ] Admin CRM task/force board for sales (kanban: leads -> contacted -> quoted -> won/lost)
+- [ ] Affiliate CRM board inside the affiliate dashboard (per-affiliate leads pipeline)
+- [ ] Printable graph-paper design tool with Cabinet Dealz logo + QR code to site
