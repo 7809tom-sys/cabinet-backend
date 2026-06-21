@@ -37,6 +37,36 @@ describe("orders.extractFromCsv", () => {
   });
 });
 
+describe("orders.touchUpKit", () => {
+  it("resolves the touch-up kit accessory (TUK) for the checkout suggestion", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const kit = await caller.orders.touchUpKit();
+    // TUK is seeded as an active Accessory, so it must resolve.
+    expect(kit).not.toBeNull();
+    expect(kit?.masterCode).toBe("TUK");
+    expect(typeof kit?.id).toBe("number");
+    expect((kit?.id ?? 0)).toBeGreaterThan(0);
+    expect(typeof kit?.description).toBe("string");
+  });
+
+  it("the resolved touch-up kit carries a real price (not a quote-only line)", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const kit = await caller.orders.touchUpKit();
+    expect(kit).not.toBeNull();
+    // Find a door style that can fulfill the kit, then price it.
+    const styles = await caller.orders.stylesForCabinets({ cabinetIds: [kit!.id] });
+    expect(styles.length).toBeGreaterThan(0);
+    const priced = await caller.orders.priceLines({
+      cabinetIds: [kit!.id],
+      styleId: styles[0].styleId,
+      tier: "Contractor",
+    });
+    const row = priced.prices.find((p) => p.cabinetId === kit!.id);
+    expect(row?.unitPrice).not.toBeNull();
+    expect(row!.unitPrice!).toBeGreaterThan(0);
+  });
+});
+
 describe("orders.matchCodes", () => {
   it("matches manual shorthand codes", async () => {
     const caller = appRouter.createCaller(publicCtx());

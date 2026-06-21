@@ -23,6 +23,7 @@ import {
   blindCornerFillers, snapToWall,
   nextFreeSpotOnWall, clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
+  addOnRecommendations,
 } from "@/lib/design";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
@@ -85,6 +86,12 @@ export default function DesignTool() {
   // Active wall: the wall the user has highlighted. New items drop onto it, and
   // it can be dragged on the canvas to resize the room on that side.
   const [activeWall, setActiveWall] = useState<WallSide>("top");
+  // Add-on accessories added from the "don't forget this" recommendations
+  // (touch-up kit, roll-out trays). These are non-spatial BOM line items keyed
+  // by cabinetId, so they price + export without cluttering the floor plan.
+  const [addedAddOns, setAddedAddOns] = useState<
+    { cabinetId: number; masterCode: string; description: string; qty: number }[]
+  >([]);
 
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
@@ -150,10 +157,19 @@ export default function DesignTool() {
       .slice(0, 80);
   }, [paletteCabinets, paletteSearch, paletteType, appliancePalette]);
 
-  // Pricing for placed cabinets (appliances carry cabinetId 0 and are unpriced).
+  // Pricing for placed cabinets + add-on accessories (appliances carry
+  // cabinetId 0 and are unpriced).
   const placedCabinetIds = useMemo(
-    () => Array.from(new Set(placed.map((p) => p.cabinetId).filter((id) => id > 0))),
-    [placed]
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...placed.map((p) => p.cabinetId),
+            ...addedAddOns.map((a) => a.cabinetId),
+          ].filter((id) => id > 0)
+        )
+      ),
+    [placed, addedAddOns]
   );
   const { data: priceRows } = trpc.design.priceForCabinets.useQuery(
     {
@@ -170,8 +186,59 @@ export default function DesignTool() {
   }, [priceRows, tier]);
 
   const total = useMemo(
-    () => placed.reduce((sum, p) => sum + (priceMap.get(p.cabinetId) ?? 0), 0),
-    [placed, priceMap]
+    () =>
+      placed.reduce((sum, p) => sum + (priceMap.get(p.cabinetId) ?? 0), 0) +
+      addedAddOns.reduce(
+        (sum, a) => sum + (priceMap.get(a.cabinetId) ?? 0) * a.qty,
+        0
+      ),
+    [placed, addedAddOns, priceMap]
+  );
+
+  // ─── Add-on recommendations ("don't forget this") ──────────────────────────
+  // Touch-up kit is always recommended; roll-out trays appear once the design
+  // has base cabinets. The buyable add-on rows are resolved server-side for the
+  // locked style so a recommendation only shows when it's actually orderable.
+  const { data: addOns } = trpc.design.findAddOns.useQuery(
+    { styleId: styleId ?? 0 },
+    { enabled: !!styleId }
+  );
+  const recommendations = useMemo(() => addOnRecommendations(placed), [placed]);
+  // Map each recommendation kind to its resolved buyable row (if any).
+  const addOnRowFor = useCallback(
+    (kind: string) => {
+      if (!addOns) return null;
+      if (kind === "touch-up-kit") return addOns.touchUpKit ?? null;
+      if (kind === "roll-out-tray")
+        return (addOns.rollOutTrays as Array<{ id: number; masterCode: string; description: string }>)[0] ?? null;
+      return null;
+    },
+    [addOns]
+  );
+  // Add (or increment) an add-on accessory as a BOM line item.
+  const addAddOn = useCallback(
+    (row: { id: number; masterCode: string; description: string }) => {
+      setAddedAddOns((prev) => {
+        const existing = prev.find((a) => a.cabinetId === row.id);
+        if (existing)
+          return prev.map((a) =>
+            a.cabinetId === row.id ? { ...a, qty: a.qty + 1 } : a
+          );
+        return [
+          ...prev,
+          { cabinetId: row.id, masterCode: row.masterCode, description: row.description, qty: 1 },
+        ];
+      });
+    },
+    []
+  );
+  const removeAddOn = useCallback((cabinetId: number) => {
+    setAddedAddOns((prev) => prev.filter((a) => a.cabinetId !== cabinetId));
+  }, []);
+  // Which add-on cabinetIds are already in the BOM (to toggle button state).
+  const addedAddOnIds = useMemo(
+    () => new Set(addedAddOns.map((a) => a.cabinetId)),
+    [addedAddOns]
   );
 
   // Active finish: derived from the selected door style name so picking a trim
@@ -211,8 +278,20 @@ export default function DesignTool() {
           unitPrice: styleId ? unit : null,
         });
     }
-    return Array.from(map.values());
-  }, [placed, priceMap, styleId]);
+    // Add-on accessories (touch-up kit, roll-out trays) as their own lines.
+    const rows = Array.from(map.values());
+    for (const a of addedAddOns) {
+      rows.push({
+        code: a.masterCode,
+        description: a.description,
+        widthIn: 0,
+        placement: "accessory",
+        qty: a.qty,
+        unitPrice: styleId ? priceMap.get(a.cabinetId) ?? null : null,
+      });
+    }
+    return rows;
+  }, [placed, addedAddOns, priceMap, styleId]);
   // Panel treatment for the placed cabinets' door fronts in the elevation view.
   const activePanelKind = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
@@ -901,7 +980,78 @@ export default function DesignTool() {
                 )}
               </div>
             )}
+
+            {/* Added add-on accessories (touch-up kit, roll-out trays) */}
+            {addedAddOns.length > 0 && (
+              <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
+                {addedAddOns.map((a) => {
+                  const unit = priceMap.get(a.cabinetId);
+                  return (
+                    <div key={a.cabinetId} className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-emerald-50 dark:bg-emerald-950/30">
+                      <div className="min-w-0">
+                        <div className="font-mono font-semibold truncate">{a.masterCode}{a.qty > 1 ? ` ×${a.qty}` : ""}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{a.description}</div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="font-semibold">{styleId && unit != null ? `$${(unit * a.qty).toFixed(2)}` : "—"}</span>
+                        <button
+                          onClick={() => removeAddOn(a.cabinetId)}
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label={`Remove ${a.masterCode}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          {/* "Don't forget this" recommendations — touch-up kit always, roll-out
+              trays once base cabinets are placed. Only shown when the add-on is
+              actually buyable in the selected style. */}
+          {styleId && (() => {
+            const cards = recommendations
+              .map((rec) => ({ rec, row: addOnRowFor(rec.kind) }))
+              .filter((c) => c.row && !addedAddOnIds.has(c.row!.id));
+            if (cards.length === 0) return null;
+            return (
+              <div className="px-3 pb-2 space-y-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Don&apos;t forget
+                </div>
+                {cards.map(({ rec, row }) => (
+                  <div
+                    key={rec.kind}
+                    className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2.5"
+                  >
+                    <div className="text-xs font-semibold text-foreground">
+                      {rec.kind === "touch-up-kit"
+                        ? "Add a touch-up kit"
+                        : "Add roll-out trays?"}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mb-2">
+                      {rec.kind === "touch-up-kit"
+                        ? "Match your finish for nicks & scratches — we recommend one on every order."
+                        : "Pull-out shelves make your base cabinets easier to reach."}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-7 w-full gap-1.5 text-xs"
+                      onClick={() => {
+                        addAddOn(row!);
+                        toast.success(`Added ${row!.masterCode} to your build sheet.`);
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add {row!.masterCode}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Total */}
           <div className="p-3 border-t border-border">

@@ -785,3 +785,60 @@ export function resizeRoomByWall(room: RoomData, side: WallSide, deltaIn: number
       return { ...room, depth: clampRoomInches(room.depth - deltaIn) };
   }
 }
+
+
+// ─── Design add-on recommendations ──────────────────────────────────────────
+// "Don't forget this" recommendations surfaced as the customer finishes a
+// design. Two rules today:
+//   1. Touch-up kit is ALWAYS recommended (every finished design needs one).
+//   2. Roll-out trays are recommended when the design contains base cabinets
+//      ("Want to add roll-out trays to any of these base cabinets?").
+// These are pure data so they can be unit-tested and reused by the UI.
+export type AddOnKind = "touch-up-kit" | "roll-out-tray";
+
+export interface AddOnRecommendation {
+  kind: AddOnKind;
+  /** i18n key for the headline shown to the customer. */
+  titleKey: string;
+  /** i18n key for the supporting line. */
+  bodyKey: string;
+  /** masterCode to add to the cart/quote when accepted (matched at add time). */
+  suggestCode: string;
+  /** When true the recommendation is always shown regardless of placement. */
+  always: boolean;
+}
+
+/** How many base cabinets are in the current design (drives roll-out trays). */
+export function baseCabinetCount(placed: PlacedCabinet[]): number {
+  return placed.filter((p) => p.placement === "base").length;
+}
+
+/**
+ * Build the ordered list of add-on recommendations for a design. The touch-up
+ * kit is always first (always-recommended); roll-out trays follow only when the
+ * design has base cabinets. Returned in display order.
+ */
+export function addOnRecommendations(
+  placed: PlacedCabinet[]
+): AddOnRecommendation[] {
+  const recs: AddOnRecommendation[] = [
+    {
+      kind: "touch-up-kit",
+      titleKey: "addon_touchup_title",
+      bodyKey: "addon_touchup_body",
+      suggestCode: "TUK",
+      always: true,
+    },
+  ];
+  if (baseCabinetCount(placed) > 0) {
+    recs.push({
+      kind: "roll-out-tray",
+      titleKey: "addon_rollout_title",
+      bodyKey: "addon_rollout_body",
+      // Generic roll-out tray; the actual sized RS-* is picked when added.
+      suggestCode: "RS-24",
+      always: false,
+    });
+  }
+  return recs;
+}

@@ -84,6 +84,10 @@ export const STOREFRONT_STRINGS = {
     rec_placeholder: "e.g. kitchen island, sink base, pantry",
     rec_btn: "Recommend",
     rec_empty: "No matches in this line — try different wording or browse the categories.",
+    // glass-door upsell
+    glass_upsell_q: "Make this a glass door?",
+    glass_upsell_add: "Switch to glass",
+    glass_upsell_note: "Glass-door version available",
     // shipping
     ship_not_included: "Shipping not included — quoted separately.",
     // footer
@@ -156,6 +160,9 @@ export const STOREFRONT_STRINGS = {
     rec_placeholder: "ej. isla de cocina, base para fregadero, despensa",
     rec_btn: "Recomendar",
     rec_empty: "Sin coincidencias en esta línea — prueba otras palabras o explora las categorías.",
+    glass_upsell_q: "¿Hacerlo con puerta de vidrio?",
+    glass_upsell_add: "Cambiar a vidrio",
+    glass_upsell_note: "Versión con puerta de vidrio disponible",
     ship_not_included: "Envío no incluido — se cotiza por separado.",
     footer_contact: "Contacto",
     footer_shop: "Comprar",

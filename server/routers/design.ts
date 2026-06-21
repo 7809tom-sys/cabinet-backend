@@ -89,6 +89,54 @@ export const designRouter = router({
       return filtered;
     }),
 
+  // Resolve design add-on recommendations (touch-up kit, roll-out trays) to the
+  // actual buyable cabinet rows for the locked style. Returns whatever is
+  // available; the UI only shows recommendations that resolve to a real item.
+  findAddOns: publicProcedure
+    .input(z.object({ styleId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { touchUpKit: null, rollOutTrays: [] as unknown[] };
+
+      const cols = {
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        numberOfDoors: cabinets.numberOfDoors,
+        numberOfDrawers: cabinets.numberOfDrawers,
+        isCornerCabinet: cabinets.isCornerCabinet,
+      };
+      const availabilityGate = and(
+        eq(cabinets.isActive, true),
+        eq(distributorSkus.styleId, input.styleId),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true)
+      );
+
+      // Touch-up kit (TUK). Always recommended when buyable in the line.
+      const tukRows = await db
+        .select(cols)
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(availabilityGate, eq(cabinets.masterCode, "TUK")))
+        .limit(1);
+
+      // Roll-out trays (RS-* / subCategory "Roll-Out Tray").
+      const trayRows = await db
+        .select(cols)
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(availabilityGate, eq(cabinets.subCategory, "Roll-Out Tray")))
+        .orderBy(cabinets.masterCode);
+
+      return { touchUpKit: tukRows[0] ?? null, rollOutTrays: trayRows };
+    }),
+
   priceForCabinets: publicProcedure
     .input(
       z.object({

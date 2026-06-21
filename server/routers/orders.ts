@@ -201,6 +201,33 @@ export const ordersRouter = router({
       };
     }),
 
+  // ─── Touch-up kit lookup (checkout add-on suggestion) ──────────────────────
+  // Resolves the touch-up kit accessory so the checkout flow can suggest it as a
+  // one-click add. Returns null if no buyable kit exists. Matched by master code
+  // "TUK"; falls back to an Accessory whose description mentions "touch-up".
+  touchUpKit: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return null;
+    const rows = await db
+      .select({
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        isActive: cabinets.isActive,
+      })
+      .from(cabinets)
+      .where(eq(cabinets.masterCode, "TUK"))
+      .limit(1);
+    const kit = rows[0];
+    if (!kit || kit.isActive === false) return null;
+    return {
+      id: kit.id,
+      masterCode: kit.masterCode,
+      description: kit.description ?? "Touch-Up Kit",
+    };
+  }),
+
   // ─── Manual / typed code matching ──────────────────────────────────────────
   matchCodes: publicProcedure
     .input(

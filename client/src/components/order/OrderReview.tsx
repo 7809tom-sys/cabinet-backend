@@ -172,6 +172,36 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
     () => lines.filter((l) => l.matched && l.cabinetId != null).map((l) => l.cabinetId as number),
     [lines]
   );
+
+  // ─── Touch-up kit checkout suggestion ─────────────────────────────────
+  // We always suggest a touch-up kit at checkout (it's an Accessory). The prompt
+  // appears once the order has at least one matched cabinet and the kit isn't
+  // already a line; "Add" inserts it as a normal review line so it prices,
+  // totals, and submits like any other item.
+  const touchUpKitQuery = trpc.orders.touchUpKit.useQuery(undefined, { retry: false });
+  const touchUpKit = touchUpKitQuery.data ?? null;
+  const hasTouchUpKit = useMemo(
+    () =>
+      touchUpKit != null &&
+      lines.some((l) => l.cabinetId === touchUpKit.id || (l.masterCode ?? "").toUpperCase() === "TUK"),
+    [lines, touchUpKit]
+  );
+  const hasMatchedCabinet = matchedCabinetIds.length > 0;
+  function addTouchUpKit() {
+    if (!touchUpKit || hasTouchUpKit) return;
+    const kitLine: ReviewLine = {
+      rawCode: touchUpKit.masterCode,
+      normalized: touchUpKit.masterCode,
+      qty: 1,
+      cabinetId: touchUpKit.id,
+      masterCode: touchUpKit.masterCode,
+      description: touchUpKit.description,
+      matched: true,
+      confidence: "exact",
+    };
+    onLinesChange([...lines, kitLine]);
+    toast.success("Touch-up kit added to your order.");
+  }
   const stableCabinetIds = useMemo(
     () => Array.from(new Set(matchedCabinetIds)).sort((a, b) => a - b),
     [matchedCabinetIds]
@@ -481,6 +511,28 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Touch-up kit checkout suggestion — always offered, one-click add */}
+      {touchUpKit && hasMatchedCabinet && !hasTouchUpKit && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed border-[var(--color-gold)]/60 bg-[var(--color-gold)]/10 px-4 py-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold)]/20">
+            <Plus className="h-4 w-4 text-[var(--color-navy)]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground">Don&apos;t forget a touch-up kit</p>
+            <p className="text-xs text-muted-foreground">
+              A finish-matched touch-up kit handles nicks &amp; scratches during install — we recommend adding one to every order.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={addTouchUpKit}
+            className="shrink-0 gap-1.5 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add {touchUpKit.masterCode}
+          </Button>
+        </div>
+      )}
 
       {/* Total */}
       <div className="flex items-center justify-between rounded-lg border border-border bg-card px-5 py-4">

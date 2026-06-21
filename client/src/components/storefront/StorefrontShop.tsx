@@ -169,6 +169,7 @@ function LockedCatalog({
   onSwitch: () => void;
 }) {
   const [category, setCategory] = useState<string | null>(null);
+  const [subGroup, setSubGroup] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
 
@@ -177,15 +178,29 @@ function LockedCatalog({
     return () => clearTimeout(id);
   }, [search]);
 
+  // Reset the sub-group whenever the top-level category changes.
+  useEffect(() => {
+    setSubGroup(null);
+  }, [category]);
+
   const { data: cats } = trpc.storefront.familyCategories.useQuery({ styleId: family.styleId });
+
+  // Accessory has clean display sub-groups (Trim & Molding / Accessories) so the
+  // tab never shows a sprawl of micro-categories.
+  const { data: accessorySubs } = trpc.storefront.familySubCategories.useQuery(
+    { styleId: family.styleId, category: "Accessory" },
+    { enabled: category === "Accessory" }
+  );
+
   const catalogInput = useMemo(
     () => ({
       styleId: family.styleId,
       category: category ?? undefined,
+      subCategory: category === "Accessory" && subGroup ? subGroup : undefined,
       search: debounced || undefined,
       limit: 60,
     }),
-    [family.styleId, category, debounced]
+    [family.styleId, category, subGroup, debounced]
   );
   const { data: catalog, isLoading } = trpc.storefront.familyCatalog.useQuery(catalogInput);
 
@@ -268,6 +283,38 @@ function LockedCatalog({
           </div>
         </div>
 
+        {/* Accessory sub-group tabs (Trim & Molding / Accessories) — only the
+            consolidated groups, never a sprawl of micro-categories. */}
+        {category === "Accessory" && (accessorySubs?.length ?? 0) > 0 && (
+          <div className="-mt-2 mb-5 flex flex-wrap gap-2">
+            <button
+              onClick={() => setSubGroup(null)}
+              className="rounded-full border px-3 py-1 text-xs font-semibold transition-colors"
+              style={
+                subGroup === null
+                  ? { backgroundColor: brand.accent, color: "#fff", borderColor: brand.accent }
+                  : { borderColor: "var(--border)" }
+              }
+            >
+              {t(lang, "shop_view_all")}
+            </button>
+            {(accessorySubs ?? []).map((g) => (
+              <button
+                key={g}
+                onClick={() => setSubGroup(g)}
+                className="rounded-full border px-3 py-1 text-xs font-semibold transition-colors"
+                style={
+                  subGroup === g
+                    ? { backgroundColor: brand.accent, color: "#fff", borderColor: brand.accent }
+                    : { borderColor: "var(--border)" }
+                }
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Catalog grid */}
         {isLoading ? (
           <div className="flex justify-center py-16"><Spinner className="h-8 w-8" /></div>
@@ -276,20 +323,13 @@ function LockedCatalog({
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {catalog.items.map((it) => (
-              <div key={it.id} className="flex flex-col rounded-xl border border-border bg-card p-4">
-                <div className="mb-1 flex items-start justify-between gap-2">
-                  <span className="font-mono text-xs font-semibold" style={{ color: brand.primary }}>
-                    {it.masterCode}
-                  </span>
-                  {it.category && (
-                    <Badge variant="secondary" className="text-[10px]">{it.category}</Badge>
-                  )}
-                </div>
-                <p className="line-clamp-2 text-sm text-foreground">{it.description}</p>
-                <div className="mt-auto pt-3">
-                  <div className="font-serif text-lg font-bold">{money(it.homeownerPrice)}</div>
-                </div>
-              </div>
+              <CatalogCard
+                key={it.id}
+                item={it}
+                styleId={family.styleId}
+                brand={brand}
+                lang={lang}
+              />
             ))}
           </div>
         )}
@@ -307,6 +347,79 @@ function LockedCatalog({
         </div>
       </div>
     </section>
+  );
+}
+
+// ─── Catalog card (with glass-door upsell on solid wall cabinets) ──────────────
+type CatalogItem = {
+  id: number;
+  masterCode: string;
+  description: string | null;
+  category: string | null;
+  homeownerPrice: unknown;
+};
+
+function CatalogCard({
+  item,
+  styleId,
+  brand,
+  lang,
+}: {
+  item: CatalogItem;
+  styleId: number;
+  brand: Brand;
+  lang: Lang;
+}) {
+  const [glass, setGlass] = useState(false);
+
+  // Only solid WALL cabinets are eligible to offer a glass-door swap. The query
+  // returns null for anything else (oven/tall/base, or no buyable GD twin), so
+  // the prompt simply never appears for those.
+  const eligible =
+    item.category === "Wall" && !item.masterCode.toUpperCase().endsWith("GD");
+  const { data: upsell } = trpc.storefront.glassDoorUpsell.useQuery(
+    { styleId, masterCode: item.masterCode },
+    { enabled: eligible }
+  );
+
+  const showing = glass && upsell ? upsell : item;
+  const code = showing.masterCode;
+  const description = showing.description;
+  const price = showing.homeownerPrice;
+
+  return (
+    <div className="flex flex-col rounded-xl border border-border bg-card p-4">
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <span className="font-mono text-xs font-semibold" style={{ color: brand.primary }}>
+          {code}
+        </span>
+        {item.category && (
+          <Badge variant="secondary" className="text-[10px]">{item.category}</Badge>
+        )}
+      </div>
+      <p className="line-clamp-2 text-sm text-foreground">{description}</p>
+
+      {/* Glass-door upsell — only when a buyable GD twin exists for this line. */}
+      {upsell && (
+        <button
+          type="button"
+          onClick={() => setGlass((g) => !g)}
+          className="mt-2 inline-flex items-center gap-1.5 self-start rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors"
+          style={
+            glass
+              ? { backgroundColor: brand.accent, color: "#fff", borderColor: brand.accent }
+              : { borderColor: "var(--border)", color: brand.accent }
+          }
+        >
+          <Sparkles className="h-3 w-3" />
+          {glass ? t(lang, "glass_upsell_add") : t(lang, "glass_upsell_q")}
+        </button>
+      )}
+
+      <div className="mt-auto pt-3">
+        <div className="font-serif text-lg font-bold">{money(price)}</div>
+      </div>
+    </div>
   );
 }
 

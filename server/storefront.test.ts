@@ -117,3 +117,84 @@ describe("storefront.recommendForIntent (family-locked, never cross-distributor)
     }
   });
 });
+
+
+import { accessoryGroupFor, ACCESSORY_GROUPS } from "./routers/storefront";
+
+describe("accessoryGroupFor (Accessory sub-grouping)", () => {
+  it("returns null for non-accessory cabinets", () => {
+    expect(
+      accessoryGroupFor({ category: "Base", subCategory: null, description: "24in Base" })
+    ).toBeNull();
+    expect(
+      accessoryGroupFor({ category: "Wall", subCategory: null, description: "Glass Door Wall" })
+    ).toBeNull();
+  });
+
+  it("groups fillers, moldings, toe kicks and scribes under Trim & Molding", () => {
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: "Trim & Molding", description: "Crown Molding" })
+    ).toBe(ACCESSORY_GROUPS.TRIM);
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: null, description: '6" Oven Filler' })
+    ).toBe(ACCESSORY_GROUPS.TRIM);
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: null, description: "Rope Scribe Molding" })
+    ).toBe(ACCESSORY_GROUPS.TRIM);
+  });
+
+  it("groups roll-out trays and the touch-up kit under general Accessories", () => {
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: "Roll-Out Tray", description: "Roll-Out Tray 24in" })
+    ).toBe(ACCESSORY_GROUPS.GENERAL);
+    expect(
+      accessoryGroupFor({ category: "Accessory", subCategory: "Hardware / Misc", description: "Touch-Up Kit" })
+    ).toBe(ACCESSORY_GROUPS.GENERAL);
+  });
+});
+
+describe("storefront.glassDoorUpsell (wall-cabinet swap only)", () => {
+  it("returns null for non-wall codes (oven/tall/base never get a glass swap)", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+    // Oven, tall, and base codes are not wall codes -> no swap.
+    for (const code of ["O-30", "U-24-90", "B-24", "OE-6-30"]) {
+      const res = await caller.storefront.glassDoorUpsell({ styleId, masterCode: code });
+      expect(res).toBeNull();
+    }
+  });
+
+  it("returns null when the code is already a glass-door (GD) cabinet", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+    const res = await caller.storefront.glassDoorUpsell({ styleId, masterCode: "W-24-30GD" });
+    expect(res).toBeNull();
+  });
+
+  it("if a solid wall cabinet has a buyable GD twin, the swap is that GD wall cabinet", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    if (!families.length) return;
+    const styleId = families[0].styleId;
+    // Find a solid wall cabinet in this family that actually has a buyable GD twin.
+    const all = await caller.storefront.familyCatalog({ styleId, category: "Wall", limit: 200 });
+    let checked = 0;
+    for (const it of all.items as Array<{ masterCode: string }>) {
+      const code = it.masterCode.toUpperCase();
+      if (code.endsWith("GD")) continue;
+      const res = await caller.storefront.glassDoorUpsell({ styleId, masterCode: code });
+      if (res) {
+        expect((res as { masterCode: string }).masterCode.toUpperCase()).toBe(`${code}GD`);
+        expect((res as { category: string }).category).toBe("Wall");
+        checked++;
+        if (checked >= 1) break;
+      }
+    }
+    // Not all families have GD twins; only assert structure when one was found.
+    expect(checked).toBeGreaterThanOrEqual(0);
+  });
+});

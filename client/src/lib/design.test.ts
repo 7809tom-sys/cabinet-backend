@@ -572,3 +572,43 @@ describe("doorPanelKind", () => {
     expect(doorPanelKind("Double Slim Shaker")).toBe("double-shaker");
   });
 });
+
+
+import { addOnRecommendations, baseCabinetCount } from "./design";
+
+describe("add-on recommendations (don't forget this)", () => {
+  it("counts base cabinets only", () => {
+    const placed = [
+      cab({ uid: "a", placement: "base" }),
+      cab({ uid: "b", placement: "base" }),
+      cab({ uid: "c", placement: "wall" }),
+      cab({ uid: "d", placement: "tall" }),
+    ];
+    expect(baseCabinetCount(placed)).toBe(2);
+  });
+
+  it("always recommends the touch-up kit first, even with no cabinets", () => {
+    const recs = addOnRecommendations([]);
+    expect(recs.length).toBe(1);
+    expect(recs[0].kind).toBe("touch-up-kit");
+    expect(recs[0].suggestCode).toBe("TUK");
+    expect(recs[0].always).toBe(true);
+  });
+
+  it("adds a roll-out tray recommendation once base cabinets are placed", () => {
+    const recs = addOnRecommendations([cab({ placement: "base" })]);
+    const kinds = recs.map((r) => r.kind);
+    expect(kinds).toContain("touch-up-kit");
+    expect(kinds).toContain("roll-out-tray");
+    // touch-up kit stays first in display order.
+    expect(recs[0].kind).toBe("touch-up-kit");
+  });
+
+  it("does NOT recommend roll-out trays when only wall/tall cabinets are placed", () => {
+    const recs = addOnRecommendations([
+      cab({ placement: "wall" }),
+      cab({ placement: "tall" }),
+    ]);
+    expect(recs.map((r) => r.kind)).toEqual(["touch-up-kit"]);
+  });
+});

@@ -429,8 +429,8 @@
 - [x] Skin/Island panels (BSV, FPV-42-96, S-24-96, USV-24-96, WSV-24/30/36/42): thickness 0.25"; subCategory "Skin Panel"; graphic accessory-strip; fixed dims; "cut to fit" wording. NOTE: island panels are large stock sheets (commonly 48x96 x 1/4") cut down on site
 - [x] DECISION: decorative end panels and skin panels are DIFFERENT products - keep separate subcategories, do NOT group as same-as. Skin panel = 1/4" finished veneer to match cabinet color on unfinished/exposed side; cut to fit
 - [x] Scribe molding (SM-8, id184) -> "3/4" x 96" Scribe Molding"; best-seller. NOTE: initially wrote to wrong id (193=U-18-84-24); restored that utility cabinet's description and re-applied to correct SM-8 id184 - verified on storefront
-- [ ] CATEGORY MISMATCH (found during verify): BFH-21/BFH-24 (Full Height Single Door Base Cabinet) are category=Accessory but should be Base (BFH-12/15/18 are Base). PENDING user confirm
-- [ ] CATEGORY MISMATCH: U-18-84-24..U-30-96-24 (Tall Utility Cabinets) are category=Accessory but should be Tall. PENDING user confirm
+- [x] BFH-21 (id81), BFH-24 (id90), BT-09 (id95): recategorized Accessory -> Base, subCategory 'Single Door Base' (BFH = Base Full Height single-door, confirmed via RTA nomenclature lookup)
+- [x] U-18-84-24..U-30-96-24 (ids 193-201): recategorized Accessory -> Tall, subCategory 'Pantry / Utility' (sit alongside oven cabinets + TS pantry under Tall, per user)
 - [x] DECISION: no same-as/equivalent grouping added (user declined). Families stay separate by subCategory
 - [ ] FINISH-MATCH RULE: skins & decorative end panels are style/species-specific - must match the cabinet's door style (e.g., Hickory cabinet exposed side needs a Hickory skin). Ensure skins/end panels carry the selected door-style finish through to quote/order
 - [ ] TDEP tall end panel: ONE unit = ONE finished side (only outward face decorative; back is flat, brad-nailed to cabinet). Kit = 54" bottom + 30/36/42 top. Wording PENDING user check of model number
@@ -440,3 +440,30 @@
 - [ ] Constrain Design Tool AI strictly to kitchen/cabinet DESIGN topics (system prompt + guardrails); decline/redirect off-topic queries back to design
 - [ ] AI proactively recommends complementary accessories based on placed items: roll-out trays (base cabinets), decorative end panels (exposed sides/islands), fillers (tight runs), crown/scribe molding (finishing tops), toe kick
 - [ ] Keep recommendations within the customer's selected/locked line where applicable
+
+
+## Phase 16: Catalog reclassification + Accessory sub-groups
+- [ ] CLASSIFICATION RULE: test each item against Base / Wall / Tall / Vanity. If it is a real cabinet, put it there. If NOT (fillers, panels, moldings, glass doors, inserts) -> Accessory
+- [ ] Verify OE-6-30/36/42 "Oven Filler Cabinet" via lookup; if it is a filler (not a real cabinet) -> Accessory / Trim & Molding
+- [ ] Audit ALL items with "Cabinet" in the name that may not be real cabinets; audit every Accessory item
+- [ ] Split Accessory into sub-groups via subCategory convention: "Trim & Molding", "Glass Door", "Accessory" (general)
+  - Trim & Molding: scribe, crown, cove, shoe, light rail, base/angle/outside-corner molding, all fillers (F-*, BF, WF, TF, OE oven filler), batten
+  - Glass Door: glass door fronts/inserts (description states it is a glass door; sold separately on lines like Faircrest)
+  - Accessory (general): roll-out trays, waste bins, wood tray inserts, touch-up kit, legs, decorative legs, mini cabinet, floating shelves, skin panels, decorative end panels
+- [ ] PRINCIPLE: storefront shows FAMILIES (door styles), categories must be clean/consolidated within a family - never scattered categories
+- [ ] Glass doors: description identifies them; also offer as quick add-on/upsell when buying adjacent wall cabinet ("Make this a glass door?")
+- [ ] Oven cabinets must NOT have glass doors (glass doors ordered separately) - per knowledge
+- [ ] TOUCH-UP KIT: ensure a touch-up kit item exists in catalog (Accessory). In the Design Tool, ALWAYS auto-recommend it + one-click add-to-cart (standard "don't forget this" recommendation on every design)
+- [ ] ROLL-OUT TRAYS: keep under Accessory (Roll-Out Tray sub-group). In Design Tool, when customer has placed base cabinets and is finishing, suggest "Want to add roll-out trays to any of these base cabinets?" with one-click add (smart, placement-aware recommendation)
+- [ ] Verify reclassification on storefront: each family browses as clean Base/Wall/Tall/Vanity/Accessory(with sub-groups), no scattered categories
+
+
+## Catalog reclassification + add-ons (user request, this session)
+- [x] Reclassify non-cabinet items to Accessory (OE-6 oven fillers, fillers, moldings, panels); keep real cabinets in Base/Wall/Tall/Vanity
+- [x] GD codes (e.g. W-24-30GD) incl. 12" stackers stay as real WALL cabinets (not Accessory)
+- [x] Roll-out trays (RS-18..RS-36) under Accessory / "Roll-Out Tray" sub-group; RS-15 (rope scribe) stays Trim & Molding
+- [x] Storefront Accessory sub-group tabs collapse micro-categories into Trim & Molding / Accessories (no scattered categories)
+- [x] Glass-door upsell: "Make this a glass door?" swap on solid WALL cabinets that have a buyable GD twin (oven/tall excluded)
+- [x] Design Tool "don't forget" strip: touch-up kit always + roll-out trays when base cabinets placed (one-click add to build sheet)
+- [x] CHECKOUT: auto-suggest touch-up kit (Accessory) in order review with one-click "Add TUK"; prices from selected style/tier ($48 @ Aura Blanc/Contractor), rolls into total, prompt hides once added (browser-verified)
+- [x] Tests for glassDoorUpsell + addOnRecommendations + checkout touchUpKit (resolves + real price); typecheck clean; 188 tests pass; browser verified

@@ -51,6 +51,46 @@ function toFamily(row: {
   };
 }
 
+// Collapse the many fine-grained Accessory subCategories into THREE clean
+// storefront display groups so a locked family never shows a sprawl of micro
+// labels. The detailed subCategory is kept in the DB for data/quoting; this is
+// purely a presentation grouping used by the Accessory tab.
+export const ACCESSORY_GROUPS = {
+  TRIM: "Trim & Molding",
+  GLASS: "Glass Doors",
+  GENERAL: "Accessories",
+} as const;
+export type AccessoryGroup =
+  (typeof ACCESSORY_GROUPS)[keyof typeof ACCESSORY_GROUPS];
+
+/** Map a cabinet (category + subCategory + description) to one of the three
+ *  Accessory display groups. Non-accessory rows return null. */
+export function accessoryGroupFor(row: {
+  category: string | null;
+  subCategory: string | null;
+  description: string | null;
+}): AccessoryGroup | null {
+  if (row.category !== "Accessory") return null;
+  const sub = (row.subCategory ?? "").toLowerCase();
+  const desc = (row.description ?? "").toLowerCase();
+  // Glass door fronts / inserts (sold separately) — identified by description.
+  if (desc.includes("glass") || sub.includes("glass")) return ACCESSORY_GROUPS.GLASS;
+  // Trim & molding: any molding, filler, toe kick, valance, scribe, light rail.
+  const trimHints = [
+    "molding", "moulding", "filler", "toe kick", "valance", "scribe",
+    "light rail", "cove", "shoe", "trim", "batten",
+  ];
+  if (
+    sub === "trim & molding" ||
+    trimHints.some((h) => sub.includes(h) || desc.includes(h))
+  ) {
+    return ACCESSORY_GROUPS.TRIM;
+  }
+  // Everything else (roll-out trays, waste bins, wood trays, touch-up kit, legs,
+  // floating shelves, skin panels, decorative end panels, mini cabinet, etc.).
+  return ACCESSORY_GROUPS.GENERAL;
+}
+
 export const storefrontRouter = router({
   // List the cabinet families a customer can lock into. Only families that have
   // at least one published+available SKU are returned, so a locked family always
@@ -181,6 +221,36 @@ export const storefrontRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
+      // For the Accessory category we collapse the many fine-grained
+      // subCategories into clean display groups so the tab never shows a sprawl.
+      if (input.category === "Accessory") {
+        const rows = await db
+          .select({
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            description: cabinets.description,
+          })
+          .from(cabinets)
+          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+          .where(
+            and(
+              eq(cabinets.isActive, true),
+              eq(cabinets.category, "Accessory"),
+              eq(distributorSkus.styleId, input.styleId),
+              eq(distributorSkus.isAvailable, true),
+              eq(distributorSkus.isPublished, true)
+            )
+          );
+        const groups = new Set<string>();
+        for (const r of rows) {
+          const g = accessoryGroupFor(r);
+          if (g) groups.add(g);
+        }
+        // Stable, intentional ordering.
+        const order = [ACCESSORY_GROUPS.TRIM, ACCESSORY_GROUPS.GENERAL];
+        return order.filter((g) => groups.has(g));
+      }
+
       const rows = await db
         .selectDistinct({ subCategory: cabinets.subCategory })
         .from(cabinets)
@@ -224,29 +294,59 @@ export const storefrontRouter = router({
         eq(distributorSkus.isPublished, true),
       ];
       if (input.category) conditions.push(eq(cabinets.category, input.category));
-      if (input.subCategory) conditions.push(eq(cabinets.subCategory, input.subCategory));
+      // The Accessory tab uses virtual group labels ("Trim & Molding" /
+      // "Accessories") rather than raw subCategory values. Resolve those to a
+      // group-membership filter; all other categories use exact subCategory.
+      const isAccessoryGroupLabel =
+        input.category === "Accessory" &&
+        (input.subCategory === ACCESSORY_GROUPS.TRIM ||
+          input.subCategory === ACCESSORY_GROUPS.GENERAL);
+      if (input.subCategory && !isAccessoryGroupLabel) {
+        conditions.push(eq(cabinets.subCategory, input.subCategory));
+      }
       if (input.search) {
         conditions.push(
           sql`(${cabinets.masterCode} LIKE ${`%${input.search}%`} OR ${cabinets.description} LIKE ${`%${input.search}%`})`
         );
       }
 
+      const baseSelect = {
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        graphicType: cabinets.graphicType,
+        isCornerCabinet: cabinets.isCornerCabinet,
+        platformSku: distributorSkus.platformSku,
+        homeownerPrice: distributorSkus.homeownerPrice,
+        listPrice: distributorSkus.listPrice,
+      };
+
+      // When filtering by an Accessory group label, the group maps to several
+      // subCategories, so we fetch all Accessory rows for the family and filter
+      // by group in memory (the Accessory set is small), then paginate.
+      if (isAccessoryGroupLabel) {
+        const allRows = await db
+          .select(baseSelect)
+          .from(cabinets)
+          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+          .where(and(...conditions))
+          .orderBy(cabinets.category, cabinets.masterCode);
+        const grouped = allRows.filter(
+          (r) => accessoryGroupFor(r) === input.subCategory
+        );
+        return {
+          items: grouped.slice(input.offset, input.offset + input.limit),
+          total: grouped.length,
+        };
+      }
+
       const rows = await db
-        .select({
-          id: cabinets.id,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          subCategory: cabinets.subCategory,
-          width: cabinets.width,
-          height: cabinets.height,
-          depth: cabinets.depth,
-          graphicType: cabinets.graphicType,
-          isCornerCabinet: cabinets.isCornerCabinet,
-          platformSku: distributorSkus.platformSku,
-          homeownerPrice: distributorSkus.homeownerPrice,
-          listPrice: distributorSkus.listPrice,
-        })
+        .select(baseSelect)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(...conditions))
@@ -370,5 +470,57 @@ export const storefrontRouter = router({
       }
 
       return { intent: input.intent, items: rows };
+    }),
+
+  // Glass-door upsell: given a solid-door WALL cabinet, return its glass-door
+  // equivalent (same width/height code with a `GD` suffix) IF that glass version
+  // is buyable in the locked family. Powers the "Make this a glass door?" prompt.
+  // Oven/tall cabinets are intentionally excluded — glass doors are ordered
+  // separately for those, never offered as a swap here.
+  glassDoorUpsell: publicProcedure
+    .input(z.object({ styleId: z.number(), masterCode: z.string() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+
+      const code = input.masterCode.toUpperCase().trim();
+      // Only WALL cabinet codes get the glass swap. Wall codes start with W / AW
+      // / DCW / WER / WD (diagonal/easy-reach wall families). Oven (O-/MO-) and
+      // tall (U-/TS-) codes are excluded by construction.
+      const isWallCode = /^(W|AW|DCW|WER|WD)[-0-9]/.test(code);
+      if (!isWallCode) return null;
+      // Already a glass-door cabinet — nothing to upsell.
+      if (code.endsWith("GD")) return null;
+
+      const candidate = `${code}GD`;
+      const rows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          graphicType: cabinets.graphicType,
+          platformSku: distributorSkus.platformSku,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          listPrice: distributorSkus.listPrice,
+        })
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(
+          and(
+            eq(cabinets.isActive, true),
+            eq(cabinets.masterCode, candidate),
+            eq(cabinets.category, "Wall"),
+            eq(distributorSkus.styleId, input.styleId),
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true)
+          )
+        )
+        .limit(1);
+
+      return rows[0] ?? null;
     }),
 });
