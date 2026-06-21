@@ -8,8 +8,10 @@ import {
   distributorSkus,
   doorStyles,
   orderRequests,
+  affiliates,
   type OrderLineItem,
 } from "../../drizzle/schema";
+import { normalizeReferralCode } from "@shared/affiliate";
 import {
   buildCodeIndex,
   matchCode,
@@ -362,6 +364,7 @@ export const ordersRouter = router({
         tier: tierEnum.default("Contractor"),
         lineItems: z.array(lineItemInput).min(1, "Add at least one line item"),
         notes: z.string().max(2000).optional(),
+        referralCode: z.string().max(32).optional(),
         submit: z.boolean().default(false),
       })
     )
@@ -395,6 +398,24 @@ export const ordersRouter = router({
       );
       const itemCount = normalizedLines.reduce((sum, l) => sum + l.qty, 0);
 
+      // Affiliate attribution: if a referral code was supplied, resolve the
+      // active affiliate it belongs to and tag this request.
+      let affiliateId: number | null = null;
+      let referralCode: string | null = null;
+      const code = normalizeReferralCode(input.referralCode ?? "");
+      if (code) {
+        const affRows = await db
+          .select({ id: affiliates.id, status: affiliates.status, referralCode: affiliates.referralCode })
+          .from(affiliates)
+          .where(eq(affiliates.referralCode, code))
+          .limit(1);
+        const aff = affRows[0];
+        if (aff && aff.status === "active") {
+          affiliateId = aff.id;
+          referralCode = aff.referralCode;
+        }
+      }
+
       const result = await db.insert(orderRequests).values({
         userId: ctx.user?.id ?? null,
         requestNumber: makeRequestNumber(),
@@ -411,6 +432,8 @@ export const ordersRouter = router({
         itemCount,
         totalAmount: total > 0 ? total.toFixed(2) : null,
         notes: input.notes ?? null,
+        affiliateId,
+        referralCode,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 

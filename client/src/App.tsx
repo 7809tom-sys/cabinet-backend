@@ -17,6 +17,8 @@ const PackageDetail = lazy(() => import("@/pages/PackageDetail"));
 const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
 const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
 const Admin = lazy(() => import("@/pages/Admin"));
+const Storefront = lazy(() => import("@/pages/Storefront"));
+const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
 
 function PageLoader() {
   return (
@@ -43,6 +45,15 @@ export default function App() {
       <Switch>
         {/* Home has its own footer, no AppLayout wrapper needed */}
         <Route path="/" component={Home} />
+
+        {/* Branded affiliate storefront — its own header/footer, no AppLayout */}
+        <Route path="/store/:slug">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <Storefront slug={params.slug} />
+            </Suspense>
+          )}
+        </Route>
 
         {/* All other pages use AppLayout with TopNav */}
         <Route path="/catalog">
@@ -109,6 +120,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <Admin />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/affiliate">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateDashboard />
             </Suspense>
           </AppLayout>
         </Route>

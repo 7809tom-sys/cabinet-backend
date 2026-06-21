@@ -19,6 +19,7 @@ import {
   Layers,
   Search,
 } from "lucide-react";
+import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -354,14 +355,18 @@ export default function Admin() {
     <div className="container py-10">
       <h1 className="font-serif text-3xl font-bold mb-1">Admin</h1>
       <p className="text-muted-foreground mb-8">
-        Review Pro Network applications and manage countertop quote requests.
+        Manage affiliates, review Pro Network applications, and handle countertop quote requests.
       </p>
 
-      <Tabs defaultValue="pros">
+      <Tabs defaultValue="affiliates">
         <TabsList>
+          <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
           <TabsTrigger value="pros">Pro Applications</TabsTrigger>
           <TabsTrigger value="quotes">Countertop Quotes</TabsTrigger>
         </TabsList>
+        <TabsContent value="affiliates" className="mt-6">
+          <AffiliatesAdmin />
+        </TabsContent>
         <TabsContent value="pros" className="mt-6">
           <ProApplications />
         </TabsContent>

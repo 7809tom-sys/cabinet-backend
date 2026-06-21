@@ -18,7 +18,7 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin", "distributor", "dealer"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "admin", "distributor", "dealer", "partner"]).default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -348,6 +348,9 @@ export const orderRequests = mysqlTable("order_requests", {
   styleId: int("styleId"), // default door style applied across lines
   styleName: varchar("styleName", { length: 128 }),
   tier: mysqlEnum("tier", ["Wholesale", "Contractor"]).default("Contractor").notNull(),
+  // Affiliate attribution: which affiliate referred this order (if any)
+  affiliateId: int("affiliateId"),
+  referralCode: varchar("referralCode", { length: 32 }),
   lineItems: json("lineItems").$type<OrderLineItem[]>().notNull(),
   itemCount: int("itemCount").default(0).notNull(),
   totalAmount: decimal("totalAmount", { precision: 12, scale: 2 }),
@@ -359,3 +362,48 @@ export const orderRequests = mysqlTable("order_requests", {
 
 export type OrderRequest = typeof orderRequests.$inferSelect;
 export type InsertOrderRequest = typeof orderRequests.$inferInsert;
+
+// ─── Affiliates / Partner stores ───────────────────────────────────────────────
+// Trade partners (cabinet/remodel stores) who refer orders to Cabinet Dealz. Each
+// affiliate gets a unique referralCode + link and a branded public storefront at
+// /store/:slug that mirrors the full platform experience (catalog, door styles,
+// packages, design tool, build-an-order) wrapped in their branding and auto-tagged
+// with their referral code. Orders carrying that code are attributed to the
+// affiliate, who earns a commission on confirmed totals. An affiliate is optionally
+// linked to a partner-role user account (by email) so the partner can sign in and
+// manage their store + see their dashboard.
+
+export const affiliates = mysqlTable("affiliates", {
+  id: int("id").autoincrement().primaryKey(),
+  // Identity
+  storeName: varchar("storeName", { length: 256 }).notNull(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(), // storefront path, e.g. "firstclass"
+  contactName: varchar("contactName", { length: 256 }),
+  email: varchar("email", { length: 320 }).notNull(),
+  phone: varchar("phone", { length: 32 }),
+  website: varchar("website", { length: 512 }),
+  location: varchar("location", { length: 256 }), // city/state, e.g. "Osprey, FL"
+  // Referral + commission
+  referralCode: varchar("referralCode", { length: 32 }).notNull().unique(), // e.g. FIRSTCLASS
+  commissionRate: decimal("commissionRate", { precision: 5, scale: 4 }).default("0.05").notNull(), // 0.05 = 5%
+  status: mysqlEnum("status", ["active", "paused", "inactive"]).default("active").notNull(),
+  userId: int("userId"), // linked partner-role user account (nullable until they sign in)
+  // Storefront branding
+  logoUrl: varchar("logoUrl", { length: 512 }),
+  primaryColor: varchar("primaryColor", { length: 16 }), // hex, e.g. "#0f2a4a"
+  accentColor: varchar("accentColor", { length: 16 }), // hex, e.g. "#c79a4b"
+  heroImageUrl: varchar("heroImageUrl", { length: 512 }),
+  tagline: varchar("tagline", { length: 256 }), // hero subheading
+  aboutText: text("aboutText"), // "about this store" blurb on storefront
+  serviceArea: varchar("serviceArea", { length: 256 }), // e.g. "Sarasota County & surrounding"
+  yearsInBusiness: int("yearsInBusiness"),
+  facebookUrl: varchar("facebookUrl", { length: 512 }),
+  instagramUrl: varchar("instagramUrl", { length: 512 }),
+  storefrontEnabled: boolean("storefrontEnabled").default(true).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Affiliate = typeof affiliates.$inferSelect;
+export type InsertAffiliate = typeof affiliates.$inferInsert;

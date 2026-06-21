@@ -299,3 +299,37 @@
 - [x] Code-to-master matching helper + unit tests (handles B24/W3030/BBC45 style codes, fuzzy)
 - [x] Typecheck + vitest pass (149 tests); browser verified Manual match + submit + confirm flow end-to-end; DB persistence verified
 - [x] Wired into TopNav ("Build an Order") and Home CTA; route /order/new (legacy /bulk-order redirects)
+
+## Phase 7: Affiliate / Partner program (first affiliate: First Class Flooring & Cabinet Design)
+- [x] DB: affiliates table (storeName, contactName, email, phone, website, location, status, referralCode unique, commissionRate, notes, userId nullable, timestamps)
+- [x] Add "partner" role to user role enum; migration applied
+- [x] Seed First Class as affiliate #1 (firstclassfcd@yahoo.com, (941) 899-3288, https://firstclassfcd.com, Osprey FL, 5% default commission)
+- [x] Link order_requests to affiliate via referralCode/affiliateId column
+- [x] tRPC affiliates router: admin create/update/list/get, byCode + bySlug + listActive (public), myAffiliate + myReferrals + updateMyStorefront (partner dashboard), adminReferrals
+- [x] adminProcedure/partner gating; commission computed from confirmed order totals (shared/affiliate.ts helpers)
+- [x] Link order_requests to affiliate via referralCode/affiliateId; attribution wired into createRequest
+- [ ] Capture ?ref= referral code in order flow (persist to localStorage, send on createRequest) + optional manual code entry
+- [ ] Admin UI: Affiliates management section (create/edit, view referrals + commission totals)
+- [ ] Affiliate dashboard page (/affiliate): referral link, referred orders, earned commission, status
+- [x] Unit tests: referral code generation/normalization, attribution on createRequest, commission calc, role gating (21 tests passing)
+- [ ] Typecheck + vitest pass; browser verify admin create + ref attribution + dashboard
+
+## Phase 7b: Branded affiliate storefront (Lily Ann / Cabinet Kings caliber)
+- [x] Schema: affiliates table extended w/ storefront branding (slug, logo, colors, hero, tagline, about, service area, socials)
+- [x] Seed First Class as affiliate #1 (slug firstclass, code FIRSTCLASS, 5% commission, partner access firstclassfcd@yahoo.com)
+- [x] Public storefront /store/:slug — branded hero, door-style showcase, catalog browse, packages, design tool entry, build-an-order CTA
+- [x] Storefront auto-tags affiliate referralCode (useReferral hook persists to localStorage; flows through to order requests — verified end-to-end)
+- [x] Storefront uses affiliate primary/accent colors + logo; falls back to platform navy/gold branding
+- [x] Affiliate storefront nav/footer with store contact, service area, socials ("Powered by Cabinet Dealz")
+- [x] First Class storefront live at /store/firstclass
+- [x] Partner Affiliate Dashboard (/affiliate): referral link, storefront link, referred-orders table, commission summary, branding editor
+- [x] Admin Affiliates tab: list, create dialog, status toggle, per-affiliate referrals + commission view
+- [x] Affiliate Portal link added to TopNav Portals dropdown
+- [x] Verified: referral attribution (order CD-...M2LKA -> affiliateId 1, confirmed, $2128.20); 170 tests passing
+
+## Phase 7c: Competitive homeowner (retail) pricing research
+- [ ] Research competitor retail list prices: Lily Ann, Cabinet Kings, The RTA Store, Wholesale Cabinets, Kitchen Cabinet Kings, Cabinets.com, Home Depot/Lowe's stock
+- [ ] Build a representative basket (popular base/wall/tall + a couple door styles) and gather comparable prices
+- [ ] Compare to current computed homeowner prices; compute market median per item
+- [ ] Recommend homeowner pricing posture: ~5% under market median, never below cost floor; deliver comparison table
+- [ ] Present recommendation for user approval BEFORE changing live pricing

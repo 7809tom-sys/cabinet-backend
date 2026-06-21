@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { readReferralCode } from "@/hooks/useReferral";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,6 +156,12 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
   const [zip, setZip] = useState("");
   const [notes, setNotes] = useState("");
   const [submittedId, setSubmittedId] = useState<number | null>(null);
+  // Referral attribution captured from a storefront visit or ?ref= link.
+  const [referralCode] = useState<string | null>(() => readReferralCode());
+  const referralInfo = trpc.affiliates.byCode.useQuery(
+    { code: referralCode ?? "" },
+    { enabled: !!referralCode, retry: false }
+  );
 
   useEffect(() => {
     if (user?.email && !email) setEmail(user.email);
@@ -258,6 +265,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       styleName: selectedStyle?.name ?? null,
       tier,
       notes: notes || undefined,
+      referralCode: referralCode ?? undefined,
       submit: true,
       lineItems: pricedLines.map((l) => ({
         cabinetId: l.cabinetId,
@@ -498,6 +506,14 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
         <p className="text-sm text-muted-foreground -mt-2">
           We'll review your request and route it to the supply line. All orders are confirmed with the originator before fulfillment.
         </p>
+        {referralInfo.data && (
+          <div className="flex items-center gap-2 rounded-md border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/10 px-3 py-2 text-sm">
+            <CheckCircle2 className="h-4 w-4 text-[var(--color-gold)] shrink-0" />
+            <span className="text-foreground">
+              Referred by <span className="font-semibold">{referralInfo.data.storeName}</span>
+            </span>
+          </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="ord-name">Name</Label>
