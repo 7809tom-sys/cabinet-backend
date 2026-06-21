@@ -529,3 +529,21 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Storefront hero rebuilt to two columns: copy/CTAs + large kitchen lifestyle photo with floating "Local & Family-Owned" proof card
 - [x] Main Home hero rebuilt with kitchen lifestyle collage; added "Find Your Kitchen Style — Shop the Look" scene mosaic section
 - [x] Verify across storefront + home (desktop), full test suite (289 pass) + typecheck clean, checkpoint
+
+
+## Ideas to Think About (Future / Not Scheduled)
+- [ ] NetSuite integration (many distributors use NetSuite). Possible directions to scope later: (a) pull live inventory/availability per line, (b) sync each distributor's pricing/cost tiers automatically, (c) push dealer orders back into the distributor's NetSuite as sales orders/POs. Notes: server-side token-based auth; each distributor authorizes their OWN NetSuite account; field mappings differ per instance (custom fields/item naming); biggest hurdle is distributors providing API access. Revisit with user — DISCUSS LATER, not started.
+
+
+## Pre-Launch Hardening Pass (before 10,000-contact campaign)
+- [x] Hardened OAuth sign-in callback: detailed upstream-error logging for diagnosis + graceful redirect home with friendly toast instead of dead 500 JSON page (3 regression tests). NOTE: definitive live confirmation requires clicking Sign In on the published site after next publish (sandbox can't reproduce the live domain redirect).
+- [x] QA critical money/lead flow: signup paths verified — Pro Network application form (required-field validation) and affiliate attribution by referral code; server tests green
+- [x] QA critical money/lead flow: Build an Order (/order/new, /bulk-order) renders 3 input modes (Scan/CSV/Type); order submission server flow verified (family-lock, totals, draft/submitted/confirmed) + tests
+- [x] QA critical money/lead flow: AI assistant / contact handoff bubble present on all pages
+- [x] QA storefront experience: branding + kitchen photos load, full cabinet-line grid, catalog category tiles; EN + ES verified. ES string table complete (72/72 keys)
+- [x] QA responsive/mobile: home + storefront verified at 375px (hero stacks, nav collapses, CTAs reachable, ES toggle visible)
+- [x] ENHANCEMENT: storefront auto-detects browser language + honors ?lang= deep link (campaign links can target Spanish) — 5 tests
+- [ ] KNOWN LIMITATION (not blocking): affiliate's custom hero headline + description are single-language brand copy and do NOT translate to ES; platform UI strings do. Future: add per-affiliate Spanish copy fields
+- [x] Verified key pages render with loading/empty handling; door swatch remains fallback if a kitchen scene image fails
+- [x] Full automated suite green: 301 tests / 33 files pass; typecheck clean. Added 8 tests (3 OAuth callback + 5 language detection)
+- [ ] Final checkpoint + launch-readiness report (in progress)

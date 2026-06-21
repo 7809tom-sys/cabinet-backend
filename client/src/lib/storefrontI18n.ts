@@ -175,10 +175,35 @@ export const STOREFRONT_STRINGS = {
 
 export type StringKey = keyof typeof STOREFRONT_STRINGS["en"];
 
-function readInitialLang(): Lang {
+export function readInitialLang(): Lang {
   if (typeof window === "undefined") return "en";
+
+  // 1) An explicit ?lang= link param always wins (lets campaigns deep-link to a
+  //    Spanish storefront, e.g. /store/firstclass?lang=es).
+  try {
+    const param = new URLSearchParams(window.location.search).get("lang");
+    if (param === "en" || param === "es") return param;
+  } catch {
+    /* ignore malformed URLs */
+  }
+
+  // 2) A previously chosen language (toggle) is remembered.
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === "en" || stored === "es") return stored;
+
+  // 3) Otherwise fall back to the visitor's browser language so Spanish-speaking
+  //    customers land on a Spanish storefront automatically on first visit.
+  try {
+    const nav = window.navigator;
+    const candidates = [
+      ...(Array.isArray(nav.languages) ? nav.languages : []),
+      nav.language,
+    ].filter(Boolean) as string[];
+    if (candidates.some((l) => l.toLowerCase().startsWith("es"))) return "es";
+  } catch {
+    /* ignore */
+  }
+
   return "en";
 }
 

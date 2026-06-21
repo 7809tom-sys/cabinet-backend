@@ -9,13 +9,28 @@ function getQueryParam(req: Request, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+/**
+ * Build a safe absolute redirect back to the site the user came from.
+ * We always send users back to a real page (never a raw JSON error page) so a
+ * sign-in hiccup never shows a dead end to a prospect. The error reason is
+ * passed as a query flag the frontend can surface as a friendly toast.
+ */
+function failRedirect(res: Response, reason: string) {
+  const target = `/?auth_error=${encodeURIComponent(reason)}`;
+  res.redirect(302, target);
+}
+
 export function registerOAuthRoutes(app: Express) {
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
     const state = getQueryParam(req, "state");
 
     if (!code || !state) {
-      res.status(400).json({ error: "code and state are required" });
+      console.warn("[OAuth] Callback missing code/state", {
+        hasCode: Boolean(code),
+        hasState: Boolean(state),
+      });
+      failRedirect(res, "missing_params");
       return;
     }
 
@@ -24,7 +39,8 @@ export function registerOAuthRoutes(app: Express) {
       const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
 
       if (!userInfo.openId) {
-        res.status(400).json({ error: "openId missing from user info" });
+        console.error("[OAuth] Callback succeeded but openId missing from user info");
+        failRedirect(res, "no_openid");
         return;
       }
 
@@ -46,8 +62,21 @@ export function registerOAuthRoutes(app: Express) {
 
       res.redirect(302, "/");
     } catch (error) {
-      console.error("[OAuth] Callback failed", error);
-      res.status(500).json({ error: "OAuth callback failed" });
+      // Surface as much detail as we safely can for diagnosis. Upstream axios
+      // errors carry status + response body which pinpoint redirectUri/appId
+      // mismatches — the most common live-deploy callback failure.
+      const anyErr = error as {
+        message?: string;
+        response?: { status?: number; data?: unknown };
+        code?: string;
+      };
+      console.error("[OAuth] Callback failed", {
+        message: anyErr?.message,
+        upstreamStatus: anyErr?.response?.status,
+        upstreamData: anyErr?.response?.data,
+        code: anyErr?.code,
+      });
+      failRedirect(res, "exchange_failed");
     }
   });
 }

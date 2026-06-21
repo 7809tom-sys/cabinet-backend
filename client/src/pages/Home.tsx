@@ -1,4 +1,6 @@
 import { Link } from "wouter";
+import { useEffect } from "react";
+import { toast } from "sonner";
 import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Users, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
@@ -501,6 +503,17 @@ function Footer() {
 // ─── Main Home Page ───────────────────────────────────────────────────────────
 
 export default function Home() {
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth_error")) {
+      toast.error("Sign-in didn't complete. Please try again.");
+      // Clean the flag from the URL so it doesn't re-fire on refresh.
+      params.delete("auth_error");
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Hero />
