@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -12,6 +12,7 @@ import {
   VALID_CATEGORIES,
   IMPORT_TEMPLATE_CSV,
 } from "@shared/distributorImport";
+import { buildCatalogCsv, type CatalogExportRow } from "@shared/catalogExport";
 
 /** Per-row plan describing what the commit will do (no writes during preview). */
 interface PreviewRow {
@@ -35,6 +36,39 @@ function normalizeCategory(raw: string | undefined): string | null {
 }
 
 export const distributorImportRouter = router({
+  /**
+   * Master catalog export: one row per cabinet with the review columns
+   * (code, description, category, subCategory, dims, doors/drawers, graphicType,
+   * and how many supply lines carry it). Returns a CSV string + a filename.
+   */
+  catalogExport: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { csv: "", filename: "master-catalog.csv", count: 0 };
+
+    const rows = await db
+      .select({
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        numberOfDoors: cabinets.numberOfDoors,
+        numberOfDrawers: cabinets.numberOfDrawers,
+        graphicType: cabinets.graphicType,
+        linesWithSku: sql<number>`count(distinct ${distributorSkus.distributorId})`,
+      })
+      .from(cabinets)
+      .leftJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+      .groupBy(cabinets.id)
+      .orderBy(cabinets.category, cabinets.masterCode);
+
+    const csv = buildCatalogCsv(rows as CatalogExportRow[]);
+    const date = new Date().toISOString().slice(0, 10);
+    return { csv, filename: `cabinet-dealz-master-catalog-${date}.csv`, count: rows.length };
+  }),
+
   /** Active distributors (lines) for the import picker. */
   adminList: adminProcedure.query(async () => {
     const db = await getDb();

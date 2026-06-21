@@ -62,6 +62,25 @@ export default function DistributorImport() {
     onError: (e) => toast.error(e.message),
   });
 
+  const [exporting, setExporting] = useState(false);
+  function downloadMasterCatalog() {
+    setExporting(true);
+    utils.distributorAdmin.catalogExport
+      .fetch()
+      .then(({ csv, filename, count }) => {
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(`Exported ${count} cabinets to ${filename}`);
+      })
+      .catch((e) => toast.error(e?.message ?? "Export failed"))
+      .finally(() => setExporting(false));
+  }
+
   function downloadTemplate() {
     utils.distributorAdmin.importTemplate.fetch().then(({ csv }) => {
       const blob = new Blob([csv], { type: "text/csv" });
@@ -89,6 +108,26 @@ export default function DistributorImport() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5" /> Master catalog export
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground max-w-xl">
+            Download every cabinet as one row (code, description, category,
+            sub-category, dimensions, doors/drawers, graphic type, and how many
+            supply lines carry it). Review and mark corrections, then re-import
+            via the panel below.
+          </p>
+          <Button onClick={downloadMasterCatalog} disabled={exporting} className="shrink-0">
+            {exporting ? <Spinner className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}
+            Download master catalog (CSV)
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

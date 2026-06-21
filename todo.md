@@ -380,7 +380,7 @@
 - [x] Checkpoint Phase 9
 
 ## Phase 10: Master catalog data review (user request — physical review)
-- [ ] Export master catalog spreadsheet: code, description, category, subCategory, dimensions, numberOfDoors/Drawers, graphicType (image/graphic name) for every cabinet
+- [x] Export master catalog spreadsheet: code, description, category, subCategory, dimensions, numberOfDoors/Drawers, graphicType + linesWithSKU for every cabinet — admin endpoint distributorAdmin.catalogExport + "Download master catalog (CSV)" button in Admin > Distributors; shared/catalogExport.ts pure builder (8 tests); generated cabinet-dealz-master-catalog.csv (388 cabinets) delivered to user for physical review
 - [ ] Known issue to verify: DWR-3 labeled "3\" Drawer Front" but user says it is a Dishwasher Return Panel (RTA)
 - [ ] User physically reviews spreadsheet, marks corrections (real category + correct image/graphic name)
 - [ ] Apply user-confirmed corrections back to DB (description/category/subCategory/graphicType)
