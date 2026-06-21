@@ -20,6 +20,11 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin", "distributor", "dealer", "partner"]).default("user").notNull(),
   distributorId: int("distributorId"), // set for role=distributor: which supply line this user manages
+  // Pricing tier the OWNER assigns after seeing the customer on the site (Tawk.to ping).
+  // Drives which price column the user sees/checks out at. Default homeowner until changed.
+  pricingTier: mysqlEnum("pricingTier", ["homeowner", "contractor", "wholesale"]).default("homeowner").notNull(),
+  // Optional credentials captured so the owner can decide a tier (business name etc.)
+  companyName: varchar("companyName", { length: 200 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

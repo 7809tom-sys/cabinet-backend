@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { useFamilyLock, type LockedFamily } from "@/hooks/useFamilyLock";
+import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
 import {
   STOREFRONT_STRINGS,
   type Lang,
@@ -16,6 +18,53 @@ import {
 } from "lucide-react";
 
 type Brand = { primary: string; accent: string };
+
+type SwatchStyle = {
+  styleCode?: string | null;
+  ourName?: string | null;
+  name?: string | null;
+  doorStyle?: string | null;
+  color?: string | null;
+  finish?: string | null;
+  woodSpecies?: string | null;
+};
+
+/**
+ * Shows the line's photo when it loads, otherwise (empty URL OR broken/missing
+ * file) renders the code-generated DoorStyleSwatch so a card is never blank.
+ */
+function FamilyCardImage({
+  src,
+  alt,
+  style,
+  imgClassName,
+  swatchClassName,
+}: {
+  src?: string | null;
+  alt: string;
+  style: SwatchStyle;
+  imgClassName?: string;
+  swatchClassName?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const showImg = !!src && !failed;
+  if (showImg) {
+    return (
+      <img
+        src={src as string}
+        alt={alt}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className={imgClassName}
+      />
+    );
+  }
+  return (
+    <div className={swatchClassName}>
+      <DoorStyleSwatch style={style} className="h-full w-full" />
+    </div>
+  );
+}
 
 function t(lang: Lang, key: StringKey, vars?: Record<string, string | number>) {
   const table = STOREFRONT_STRINGS[lang] ?? STOREFRONT_STRINGS.en;
@@ -93,24 +142,30 @@ function FamilyPicker({
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {data.map((f) => {
-              const img = f.roomSceneImageUrl || f.thumbnailImageUrl || f.doorSampleImageUrl;
+              // Prefer the real, uploaded CDN family photo (same as Door Styles page);
+              // the DB *ImageUrl fields point at files that were never uploaded.
+              const img = doorFamilyPhoto({ doorStyle: f.doorStyle }) || f.roomSceneImageUrl || f.thumbnailImageUrl || f.doorSampleImageUrl;
               return (
                 <div
                   key={f.styleId}
                   className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:shadow-md"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                    {img ? (
-                      <img
-                        src={img}
-                        alt={f.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        {f.name}
-                      </div>
-                    )}
+                    <FamilyCardImage
+                      src={img}
+                      alt={f.name}
+                      style={{
+                        styleCode: f.styleCode,
+                        ourName: f.name,
+                        name: f.name,
+                        doorStyle: f.doorStyle,
+                        color: f.color,
+                        finish: f.finish,
+                        woodSpecies: f.woodSpecies,
+                      }}
+                      imgClassName="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      swatchClassName="h-full w-full transition-transform duration-500 group-hover:scale-105"
+                    />
                     {f.doorStyle && (
                       <Badge
                         className="absolute left-3 top-3 border-0 text-white"
@@ -212,13 +267,19 @@ function LockedCatalog({
           className="mb-6 flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex items-center gap-3">
-            {(family.thumbnailImageUrl || family.roomSceneImageUrl) && (
-              <img
-                src={family.thumbnailImageUrl || family.roomSceneImageUrl || ""}
-                alt={family.name}
-                className="h-12 w-12 rounded-lg object-cover"
-              />
-            )}
+            <FamilyCardImage
+              src={doorFamilyPhoto({ doorStyle: family.doorStyle }) || family.thumbnailImageUrl || family.roomSceneImageUrl}
+              alt={family.name}
+              style={{
+                ourName: family.name,
+                name: family.name,
+                doorStyle: family.doorStyle,
+                color: family.color,
+                finish: family.finish,
+              }}
+              imgClassName="h-12 w-12 rounded-lg object-cover"
+              swatchClassName="h-12 w-12 overflow-hidden rounded-lg"
+            />
             <div>
               <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <Lock className="h-3 w-3" /> {t(lang, "family_locked_label")}

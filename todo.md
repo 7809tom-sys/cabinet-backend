@@ -481,3 +481,27 @@
 
 ## Session: Distributor spreadsheet onboarding — 2026-06-21
 - [x] Distributor CSV onboarding: shared/distributorImport.ts (pure CSV parser + flexible column mapping for code/description/category/subCategory/dimensions + optional per-style price columns); server/routers/distributors.ts distributorImportRouter.importPreview (dry-run diff: create/update/price/error counts + per-row) and importCommit (upsert cabinet info/descriptions + optional per-style pricing; new prices land UNPUBLISHED for review); mounted under distributorAdmin namespace; client/src/components/admin/DistributorImport.tsx (template download, paste/upload CSV, preview table, commit) wired into Admin "Distributors" tab. 16 import tests incl. live preview->commit->idempotent-reimport round-trip
+
+
+## Session: Customer Tier Management + Tawk.to live chat (user request)
+Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP cart/buy path. A logged-in user's pricing is set by the tier the OWNER assigns them after seeing them on the site. Homeowner is the default tier until changed. Tawk.to handles the "someone is on the site" ping (owner uses the Tawk mobile app); when pinged, owner logs into the site admin and assigns the tier.
+
+- [x] (SUPERSEDED — WON'T DO) Remove Homeowner pricing tier — confirmed: keep all 3 tiers
+- [x] (SUPERSEDED — WON'T DO) Remove consumer buy path / cart — confirmed: keep cart + "Request this order"
+- [x] (SUPERSEDED — WON'T DO) Homeowner-only trade messaging — confirmed: all audiences, tier set by approval
+- [ ] Add `pricingTier` enum field to users table (homeowner | contractor | wholesale), default homeowner; migration applied
+- [ ] db helper: list users with tier + assign tier; expose effective tier on auth.me
+- [ ] adminProcedure: customers.list (search/paginate users w/ tier, role, last-seen) + customers.setTier
+- [ ] Admin "Customers" tab: table of users with one-click tier assignment + toast + optimistic update
+- [ ] Storefront/catalog pricing resolves to the logged-in user's assigned pricingTier (default homeowner for guests/unassigned)
+- [ ] Tests: tier default, setTier admin-gated, pricing resolver picks correct tier column
+- [ ] Embed Tawk.to widget site-wide via env (VITE_TAWK_PROPERTY_ID / VITE_TAWK_WIDGET_ID); no-op if unset; ready for user's snippet
+- [ ] Checkpoint + deliver; request Tawk.to embed code from user
+
+
+## Session: Storefront line-card images fix (Jun 21)
+
+- [x] Bug: affiliate storefront ("First Class") cabinet-line cards showed blank gray boxes — DB roomSceneImageUrl/thumbnailImageUrl point at /room-scenes/*.jpg and /thumbnails/*.jpg files that were never uploaded, so the `<img>` rendered broken
+- [x] Storefront now prefers doorFamilyPhoto() (the real uploaded CDN webp door photos already used by the Door Styles page) over the broken DB image paths
+- [x] Added FamilyCardImage helper: shows the photo when it loads, falls back to the color-accurate DoorStyleSwatch on empty OR broken (onError) — applied to the line-picker grid and the locked-family thumbnail
+- [x] Verified live in browser + screenshot; tsc clean; 252 tests passing
