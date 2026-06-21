@@ -13,6 +13,7 @@ import { packagesRouter } from "./routers/packages";
 import { prosRouter } from "./routers/pros";
 import { ordersRouter } from "./routers/orders";
 import { affiliatesRouter } from "./routers/affiliates";
+import { storefrontRouter } from "./routers/storefront";
 
 export const appRouter = router({
   system: systemRouter,
@@ -36,6 +37,7 @@ export const appRouter = router({
   pros: prosRouter,
   orders: ordersRouter,
   affiliates: affiliatesRouter,
+  storefront: storefrontRouter,
 });
 
 export type AppRouter = typeof appRouter;

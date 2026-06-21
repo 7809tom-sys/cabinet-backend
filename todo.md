@@ -339,3 +339,47 @@
 - [ ] Admin CRM task/force board for sales (kanban: leads -> contacted -> quoted -> won/lost)
 - [ ] Affiliate CRM board inside the affiliate dashboard (per-affiliate leads pipeline)
 - [ ] Printable graph-paper design tool with Cabinet Dealz logo + QR code to site
+
+## Phase 9: RTA-style storefront + Spanish toggle
+- [ ] Storefront i18n: EN/ES dictionary + language toggle (English default, persists choice)
+- [ ] Spanish translations for all storefront UI strings + First Class copy
+- [ ] RTA-Store-style hero (full-width, headline, subhead, dual CTA Buy/Design)
+- [ ] Shop-by-category tiles (Base, Wall, Tall, Vanity, Accessories)
+- [ ] Featured door-styles section (cards with swatch + name)
+- [ ] Package/kitchen deals section (reuse packages data)
+- [ ] Value-prop strip (free design, all-plywood/soft-close, fast quote)
+- [ ] Quote/Design CTAs carry referral code; SEO meta per storefront (no SKU counts)
+- [ ] Typecheck + tests pass; browser-verify EN/ES + sections; checkpoint
+
+
+## Phase 9: RTA-style storefront + family-lock + i18n (user request)
+- [x] Source hero/category/door-style imagery; upload as webdev static assets
+- [x] Storefront i18n module (EN/ES dictionary + useStorefrontLang hook, English default, localStorage)
+- [ ] Family-lock rule: an order stays within ONE distributor + ONE cabinet family (door style/finish) to avoid multi-shipment shipping costs
+- [ ] Backend: families list query (active door_styles w/ room scene, door style, species, finish, distributor)
+- [ ] Backend: family-scoped catalog query (cabinets w/ published+available SKU for a styleId) + categories/subcategories within family
+- [ ] Storefront flow: room scene -> pick family (style+distributor) -> categories -> subcategories, all locked to styleId
+- [ ] Family-lock context (persist selectedStyleId/distributorId); lock banner with "Switch family" action
+- [ ] EN/Espanol language toggle in storefront header
+- [ ] RTA-style layout: image hero, value strip, image category tiles, featured door styles (room scenes), buy-now vs design choice, packages teaser, quote CTA
+- [ ] AI cabinet recommender constrained to locked family/distributor (no cross-distributor suggestions)
+- [ ] Package/galley/10x10 pricing: shipping shown as NOT included (remove 10% estimate)
+- [ ] Typecheck + vitest pass; browser-verify family lock + EN/ES + sections; checkpoint
+
+
+## Phase 9 verification + completion (2026-06-21)
+- [x] Backend storefront router (families, doorStyleTypes, familyById, familyCategories, familySubCategories, familyCatalog, recommendForIntent — all family/distributor scoped)
+- [x] Family-lock hook (useFamilyLock persists selectedStyleId/distributorId per slug to localStorage)
+- [x] StorefrontShop component: family picker, lock banner ("Buying: <line>" + "Change Line"), category tabs, AI recommender scoped to locked family
+- [x] Storefront.tsx rebuilt RTA-style: sticky header w/ EN/ES toggle, hero, value strip, StorefrontShop, how-it-works, quote CTA, branded footer
+- [x] EN/ES toggle verified in browser (nav, value strip, section headers, lock banner all switch)
+- [x] Family-lock flow verified: pick line -> locks catalog -> category tabs filter within line -> "Change Line" unlocks
+- [x] Shipping shows "not included / quoted separately" (Envío no incluido — se cotiza por separado)
+- [x] Improve AI recommender island synonyms ("kitchen island" now returns Base cabinets within the line; added synonyms + Base fallback; +1 test)
+- [x] Checkpoint Phase 9
+
+## Phase 10: Master catalog data review (user request — physical review)
+- [ ] Export master catalog spreadsheet: code, description, category, subCategory, dimensions, numberOfDoors/Drawers, graphicType (image/graphic name) for every cabinet
+- [ ] Known issue to verify: DWR-3 labeled "3\" Drawer Front" but user says it is a Dishwasher Return Panel (RTA)
+- [ ] User physically reviews spreadsheet, marks corrections (real category + correct image/graphic name)
+- [ ] Apply user-confirmed corrections back to DB (description/category/subCategory/graphicType)

@@ -4,15 +4,16 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useReferral } from "@/hooks/useReferral";
+import { useStorefrontLang } from "@/lib/storefrontI18n";
+import { StorefrontShop } from "@/components/storefront/StorefrontShop";
 import {
-  ArrowRight, Phone, Mail, MapPin, Globe, Palette, Ruler,
-  FileSpreadsheet, Grid3X3, ChevronRight, Facebook, Instagram, Award,
+  ArrowRight, Phone, Mail, MapPin, Globe, Facebook, Instagram, Award,
+  Ruler, ShieldCheck, Zap, Heart, Languages,
 } from "lucide-react";
 
 const PLATFORM_NAVY = "#1a2b4a";
 const PLATFORM_GOLD = "#c9a227";
 
-// Normalize a possibly-missing hex color to a usable CSS value.
 function color(val: string | null | undefined, fallback: string): string {
   if (!val) return fallback;
   const v = val.trim();
@@ -21,6 +22,7 @@ function color(val: string | null | undefined, fallback: string): string {
 
 export default function Storefront({ slug }: { slug: string }) {
   const { data, isLoading } = trpc.affiliates.bySlug.useQuery({ slug }, { retry: false });
+  const { lang, toggle, t } = useStorefrontLang();
 
   // Capture this affiliate's referral code for the visitor's session.
   const { setReferral } = useReferral(null);
@@ -28,12 +30,13 @@ export default function Storefront({ slug }: { slug: string }) {
     if (data?.referralCode) setReferral(data.referralCode);
   }, [data?.referralCode, setReferral]);
 
-  const brand = useMemo(() => {
-    return {
+  const brand = useMemo(
+    () => ({
       primary: color(data?.primaryColor, PLATFORM_NAVY),
       accent: color(data?.accentColor, PLATFORM_GOLD),
-    };
-  }, [data?.primaryColor, data?.accentColor]);
+    }),
+    [data?.primaryColor, data?.accentColor]
+  );
 
   if (isLoading) {
     return (
@@ -60,25 +63,23 @@ export default function Storefront({ slug }: { slug: string }) {
   const ref = data.referralCode;
   const withRef = (path: string) => `${path}${path.includes("?") ? "&" : "?"}ref=${encodeURIComponent(ref)}`;
 
-  const categories = [
-    { name: "Base", href: "/catalog?category=Base" },
-    { name: "Wall", href: "/catalog?category=Wall" },
-    { name: "Tall", href: "/catalog?category=Tall" },
-    { name: "ADA", href: "/catalog?category=ADA" },
-    { name: "Vanity", href: "/catalog?category=Vanity" },
-    { name: "Accessory", href: "/catalog?category=Accessory" },
+  const valueProps = [
+    { icon: Ruler, title: t("value_free_design"), sub: t("value_free_design_sub") },
+    { icon: ShieldCheck, title: t("value_all_plywood"), sub: t("value_all_plywood_sub") },
+    { icon: Zap, title: t("value_fast_quote"), sub: t("value_fast_quote_sub") },
+    { icon: Heart, title: t("value_local"), sub: t("value_local_sub") },
   ];
 
-  const features = [
-    { icon: Palette, title: "Every Door Style", desc: "Browse dozens of finishes and pick the look that fits the room." },
-    { icon: Ruler, title: "Free 2D Kitchen Design", desc: "Lay out your kitchen, place cabinets, and get a full materials list." },
-    { icon: FileSpreadsheet, title: "Fast Quotes", desc: "Scan a plan, import a list, or type codes — priced in seconds." },
-    { icon: Grid3X3, title: "Full Cabinet Catalog", desc: "Base, wall, tall, vanity, ADA, and specialty cabinets in one place." },
+  const steps = [
+    { n: 1, t: t("how_step1_t"), d: t("how_step1_d") },
+    { n: 2, t: t("how_step2_t"), d: t("how_step2_d") },
+    { n: 3, t: t("how_step3_t"), d: t("how_step3_d") },
+    { n: 4, t: t("how_step4_t"), d: t("how_step4_d") },
   ];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* ─── Storefront header ───────────────────────────────────────────── */}
+      {/* ─── Header ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
         <div className="container flex items-center justify-between h-16">
           <Link href={withRef(`/store/${data.slug}`)}>
@@ -98,55 +99,52 @@ export default function Storefront({ slug }: { slug: string }) {
               </span>
             </div>
           </Link>
-          <nav className="hidden md:flex items-center gap-1">
-            <Link href={withRef("/catalog")}>
-              <Button variant="ghost" size="sm">Catalog</Button>
+          <div className="flex items-center gap-2">
+            <a href="#shop" className="hidden sm:block">
+              <Button variant="ghost" size="sm">{t("cat_shop")}</Button>
+            </a>
+            <Link href={withRef("/design")} className="hidden sm:block">
+              <Button variant="ghost" size="sm">{t("nav_design")}</Button>
             </Link>
-            <Link href={withRef("/styles")}>
-              <Button variant="ghost" size="sm">Door Styles</Button>
+            <button
+              onClick={toggle}
+              aria-label="Toggle language"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+            >
+              <Languages className="h-3.5 w-3.5" />
+              {lang === "en" ? "ES" : "EN"}
+            </button>
+            <Link href={withRef("/order/new")}>
+              <Button size="sm" className="font-semibold text-white" style={{ backgroundColor: brand.accent }}>
+                {t("nav_quote")}
+              </Button>
             </Link>
-            <Link href={withRef("/packages")}>
-              <Button variant="ghost" size="sm">Packages</Button>
-            </Link>
-            <Link href={withRef("/design")}>
-              <Button variant="ghost" size="sm">Design Tool</Button>
-            </Link>
-          </nav>
-          <Link href={withRef("/order/new")}>
-            <Button size="sm" className="font-semibold text-white" style={{ backgroundColor: brand.accent }}>
-              Get a Quote
-            </Button>
-          </Link>
+          </div>
         </div>
       </header>
 
       <main className="flex-1">
         {/* ─── Hero ──────────────────────────────────────────────────────── */}
         <section className="relative overflow-hidden text-white" style={{ backgroundColor: brand.primary }}>
-          <div className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,0.04) 40px, rgba(255,255,255,0.04) 80px)`,
-            }}
-          />
           {data.heroImageUrl && (
             <div className="absolute inset-0">
-              <img src={data.heroImageUrl} alt="" className="h-full w-full object-cover opacity-25" />
-              <div className="absolute inset-0" style={{ backgroundColor: brand.primary, opacity: 0.7 }} />
+              <img src={data.heroImageUrl} alt="" className="h-full w-full object-cover opacity-30" />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(90deg, ${brand.primary} 10%, ${brand.primary}cc 55%, ${brand.primary}66 100%)`,
+                }}
+              />
             </div>
           )}
           <div className="relative container py-20 md:py-28">
-            <div className="max-w-3xl">
+            <div className="max-w-2xl">
               {data.yearsInBusiness ? (
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium mb-6">
                   <Award className="h-3.5 w-3.5" style={{ color: brand.accent }} />
-                  Serving customers for {data.yearsInBusiness}+ years
+                  {t("hero_badge_years", { years: data.yearsInBusiness })}
                 </div>
-              ) : (
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium mb-6">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: brand.accent }} />
-                  Quality Cabinets & Design
-                </div>
-              )}
+              ) : null}
               <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
                 {data.tagline || (
                   <>
@@ -156,19 +154,19 @@ export default function Storefront({ slug }: { slug: string }) {
                   </>
                 )}
               </h1>
-              <p className="text-lg md:text-xl text-white/80 mb-8 max-w-2xl leading-relaxed">
+              <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed">
                 {data.aboutText ||
-                  `Shop a full cabinet catalog, choose from dozens of door styles, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
+                  `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                <Link href={withRef("/catalog")}>
+                <a href="#shop">
                   <Button size="lg" className="font-semibold text-white gap-2" style={{ backgroundColor: brand.accent }}>
-                    Browse Cabinets <ArrowRight className="h-4 w-4" />
+                    {t("hero_browse")} <ArrowRight className="h-4 w-4" />
                   </Button>
-                </Link>
+                </a>
                 <Link href={withRef("/design")}>
                   <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                    Design Your Kitchen
+                    {t("hero_design")}
                   </Button>
                 </Link>
               </div>
@@ -176,88 +174,62 @@ export default function Storefront({ slug }: { slug: string }) {
           </div>
         </section>
 
-        {/* ─── Door-style strip ──────────────────────────────────────────── */}
-        <section className="py-10 border-b border-border bg-muted/20">
-          <div className="container flex flex-col md:flex-row items-center justify-between gap-6">
-            <p className="text-sm font-medium text-muted-foreground shrink-0">
-              Every cabinet, in the door style you want:
-            </p>
-            <div className="flex flex-wrap justify-center md:justify-end gap-3">
-              {["Shaker", "Raised Panel", "Contemporary Slab", "Inset", "Beaded"].map((name) => (
-                <span key={name} className="inline-flex items-center rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-foreground">
-                  {name}
-                </span>
-              ))}
-            </div>
+        {/* ─── Value strip ───────────────────────────────────────────────── */}
+        <section className="border-b border-border bg-card">
+          <div className="container grid grid-cols-2 lg:grid-cols-4 divide-x divide-border">
+            {valueProps.map((v) => (
+              <div key={v.title} className="flex items-center gap-3 px-3 py-5">
+                <div className="inline-flex p-2 rounded-lg text-white shrink-0" style={{ backgroundColor: brand.primary }}>
+                  <v.icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold leading-tight">{v.title}</div>
+                  <div className="text-xs text-muted-foreground">{v.sub}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* ─── Features ──────────────────────────────────────────────────── */}
-        <section className="py-16 md:py-20">
+        {/* ─── Family-locked shop (line picker → locked catalog) ─────────── */}
+        <StorefrontShop slug={data.slug} brand={brand} lang={lang} withRef={withRef} />
+
+        {/* ─── How it works ──────────────────────────────────────────────── */}
+        <section className="py-16 md:py-20 bg-muted/30">
           <div className="container">
-            <div className="text-center mb-12">
-              <h2 className="font-serif text-3xl md:text-4xl font-bold mb-3">Everything for Your Project</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                From browsing to a finished quote, {data.storeName} makes it easy.
-              </p>
-            </div>
+            <h2 className="font-serif text-3xl md:text-4xl font-bold text-center mb-12">{t("how_title")}</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {features.map((f) => (
-                <div key={f.title} className="rounded-xl border border-border bg-card p-6">
-                  <div className="inline-flex p-2.5 rounded-lg mb-4 text-white" style={{ backgroundColor: brand.primary }}>
-                    <f.icon className="h-5 w-5" />
+              {steps.map((s) => (
+                <div key={s.n} className="rounded-xl border border-border bg-card p-6">
+                  <div
+                    className="mb-4 flex h-9 w-9 items-center justify-center rounded-full font-bold text-white"
+                    style={{ backgroundColor: brand.accent }}
+                  >
+                    {s.n}
                   </div>
-                  <h3 className="font-serif text-lg font-bold mb-1.5">{f.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
+                  <h3 className="font-serif text-lg font-bold mb-1.5">{s.t}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{s.d}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ─── Shop by category ──────────────────────────────────────────── */}
-        <section className="py-16 md:py-20 bg-muted/30">
-          <div className="container">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="font-serif text-2xl md:text-3xl font-bold">Shop by Category</h2>
-              <Link href={withRef("/catalog")}>
-                <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
-                  View all <ChevronRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {categories.map((cat) => (
-                <Link key={cat.name} href={withRef(cat.href)}>
-                  <div className="group rounded-xl border border-border bg-card p-5 text-center hover:shadow-md transition-all cursor-pointer h-full">
-                    <div className="font-serif text-lg font-bold mb-1 transition-colors" style={{ color: brand.primary }}>
-                      {cat.name}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ─── CTA band ──────────────────────────────────────────────────── */}
+        {/* ─── Quote CTA band ────────────────────────────────────────────── */}
         <section className="py-16" style={{ backgroundColor: brand.primary }}>
           <div className="container text-center text-white">
-            <h2 className="font-serif text-3xl md:text-4xl font-bold mb-3">Ready for a Quote?</h2>
-            <p className="text-white/75 max-w-2xl mx-auto mb-8">
-              Scan an existing plan, upload a list, or type your cabinet codes. We'll price it for your
-              door style and get it ready — no obligation.
-            </p>
+            <h2 className="font-serif text-3xl md:text-4xl font-bold mb-3">{t("quote_title")}</h2>
+            <p className="text-white/80 max-w-2xl mx-auto mb-8">{t("quote_sub")}</p>
             <Link href={withRef("/order/new")}>
               <Button size="lg" className="font-semibold text-white gap-2" style={{ backgroundColor: brand.accent }}>
-                Build Your Order <ArrowRight className="h-4 w-4" />
+                {t("quote_btn")} <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>
         </section>
       </main>
 
-      {/* ─── Storefront footer (store contact) ───────────────────────────── */}
+      {/* ─── Footer ──────────────────────────────────────────────────────── */}
       <footer className="text-white/75" style={{ backgroundColor: brand.primary }}>
         <div className="container py-12">
           <div className="grid gap-8 md:grid-cols-3">
@@ -278,7 +250,7 @@ export default function Storefront({ slug }: { slug: string }) {
               </div>
             </div>
             <div>
-              <div className="font-semibold text-white mb-3">Contact</div>
+              <div className="font-semibold text-white mb-3">{t("footer_contact")}</div>
               <ul className="space-y-2 text-sm">
                 {data.phone && (
                   <li className="flex items-center gap-2">
@@ -309,19 +281,17 @@ export default function Storefront({ slug }: { slug: string }) {
               </ul>
             </div>
             <div>
-              <div className="font-semibold text-white mb-3">Shop</div>
+              <div className="font-semibold text-white mb-3">{t("cat_shop")}</div>
               <ul className="space-y-2 text-sm">
-                <li><Link href={withRef("/catalog")} className="hover:text-white">Cabinet Catalog</Link></li>
-                <li><Link href={withRef("/styles")} className="hover:text-white">Door Styles</Link></li>
-                <li><Link href={withRef("/packages")} className="hover:text-white">Kitchen Packages</Link></li>
-                <li><Link href={withRef("/design")} className="hover:text-white">2D Design Tool</Link></li>
-                <li><Link href={withRef("/order/new")} className="hover:text-white">Get a Quote</Link></li>
+                <li><a href="#shop" className="hover:text-white">{t("hero_browse")}</a></li>
+                <li><Link href={withRef("/design")} className="hover:text-white">{t("nav_design")}</Link></li>
+                <li><Link href={withRef("/order/new")} className="hover:text-white">{t("nav_quote")}</Link></li>
               </ul>
             </div>
           </div>
           <div className="mt-10 pt-6 border-t border-white/15 text-xs text-white/50 flex flex-col sm:flex-row justify-between gap-2">
-            <span>© {new Date().getFullYear()} {data.storeName}. All rights reserved.</span>
-            <span>Powered by Cabinet Dealz</span>
+            <span>© {new Date().getFullYear()} {data.storeName}. {t("footer_rights")}</span>
+            <span>{t("footer_powered")}</span>
           </div>
         </div>
       </footer>
