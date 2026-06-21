@@ -81,9 +81,26 @@ describe("cabinetProductPhoto", () => {
     expect(cabinetProductPhoto({ category: "Crown Molding", doorStyle: "White" })).toContain("prod-accessory");
   });
 
-  it("falls back gracefully for an unknown finish within a category (wall has no espresso render)", () => {
-    const url = cabinetProductPhoto({ category: "Wall", doorStyle: "Espresso" });
-    expect(url).toContain("prod-wall");
+  it("now has full finish coverage for wall (incl. espresso/dark)", () => {
+    expect(cabinetProductPhoto({ category: "Wall", doorStyle: "Espresso" })).toContain("prod-wall-espresso");
+    expect(cabinetProductPhoto({ category: "Wall", doorStyle: "Stone Gray" })).toContain("prod-wall-shaker-gray");
+    expect(cabinetProductPhoto({ category: "Wall", doorStyle: "Cherry" })).toContain("prod-wall-cherry");
+  });
+
+  it("now has gray/cherry/espresso renders for tall and vanity", () => {
+    expect(cabinetProductPhoto({ category: "Tall", doorStyle: "Stone Gray" })).toContain("prod-tall-gray");
+    expect(cabinetProductPhoto({ category: "Tall", doorStyle: "Cherry" })).toContain("prod-tall-cherry");
+    expect(cabinetProductPhoto({ category: "Tall", doorStyle: "Espresso" })).toContain("prod-tall-espresso");
+    expect(cabinetProductPhoto({ category: "Vanity", doorStyle: "Stone Gray" })).toContain("prod-vanity-gray");
+    expect(cabinetProductPhoto({ category: "Vanity", doorStyle: "Cherry" })).toContain("prod-vanity-cherry");
+    expect(cabinetProductPhoto({ category: "Vanity", doorStyle: "Espresso" })).toContain("prod-vanity-espresso");
+  });
+
+  it("maps accessory dark/warmwood to their renders, with graceful white fallback otherwise", () => {
+    expect(cabinetProductPhoto({ category: "Crown Molding", doorStyle: "Espresso" })).toContain("prod-accessory-espresso");
+    expect(cabinetProductPhoto({ category: "Filler", doorStyle: "Cherry" })).toContain("prod-accessory-cherry");
+    // gray accessory has no dedicated render -> falls back within accessory to white
+    expect(cabinetProductPhoto({ category: "Toe Kick", doorStyle: "Stone Gray" })).toContain("prod-accessory-crown");
   });
 
   it("always returns a non-empty url even with empty inputs", () => {

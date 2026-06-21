@@ -137,14 +137,25 @@ const PRODUCT_PHOTOS: Record<string, string> = {
   "base:gray": `${CDN}/prod-base-shaker-gray-bX7qNBMmZ5Abt4dxXHB5uB.webp`,
   "base:warmwood": `${CDN}/prod-base-cherry-bjnCyF9AS5p9oUeeYQNdaG.webp`,
   "base:dark": `${CDN}/prod-base-espresso-aaMH2vASEjTuRTPUt47Nsg.webp`,
-  // Wall — white / gray / warm wood
+  // Wall — full finish coverage
   "wall:white": `${CDN}/prod-wall-shaker-white-8PsrxeydDBdMRNU88ESQfS.webp`,
   "wall:gray": `${CDN}/prod-wall-shaker-gray-fxt8GwDMwtnxrb9iATKxfe.webp`,
   "wall:warmwood": `${CDN}/prod-wall-cherry-QHvngHNKEsCw3ipTKfDpDe.webp`,
-  // Tall / vanity / accessory — single neutral white render each (good generic read)
+  "wall:dark": `${CDN}/prod-wall-espresso-eVUAMmwcs3LAXnjGHuS6RJ.webp`,
+  // Tall — full finish coverage
   "tall:white": `${CDN}/prod-tall-shaker-white-oYxHAbKd3y3ZAZZHoJGdiA.webp`,
+  "tall:gray": `${CDN}/prod-tall-gray-WuDVv8ZBNTsQURBP5pBp6Z.webp`,
+  "tall:warmwood": `${CDN}/prod-tall-cherry-iCGauxVBC9tTJ4iRMdmcsC.webp`,
+  "tall:dark": `${CDN}/prod-tall-espresso-Dqth4GR5YPQeTqsjnzEZC9.webp`,
+  // Vanity — full finish coverage
   "vanity:white": `${CDN}/prod-vanity-shaker-white-PYq6TQSEeJfuj7XfG3Beov.webp`,
+  "vanity:gray": `${CDN}/prod-vanity-gray-WNCEY5BcdKUp8E2GaNWnLe.webp`,
+  "vanity:warmwood": `${CDN}/prod-vanity-cherry-3jcRo9a65MCKreEMFQx7oc.webp`,
+  "vanity:dark": `${CDN}/prod-vanity-espresso-Enqw8GFJLk6uNXEpCgvtAy.webp`,
+  // Accessory — neutral white + warm wood + dark
   "accessory:white": `${CDN}/prod-accessory-crown-BtKLVqnRs9FvTATNhbPLMq.webp`,
+  "accessory:warmwood": `${CDN}/prod-accessory-cherry-F6r5JhLTgBeNtHp3BTqk4M.webp`,
+  "accessory:dark": `${CDN}/prod-accessory-espresso-iEP6g93WYBisHc3YBgen6S.webp`,
 };
 
 // Map any DB category string to one of our render categories.

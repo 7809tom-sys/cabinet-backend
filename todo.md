@@ -557,3 +557,13 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Detail page: 3D render is the primary 'Product' image with a 'Dimensions' tab for the to-scale drawing; render updates with selected door style finish
 - [x] Buying flow now leads with a kitchen-scene banner + kitchen title/description (kitchenSceneWithCopy resolver, 3 tests) before the item
 - [x] Verified desktop + mobile (375px); 310 tests pass; typecheck clean; checkpoint
+
+
+## 3D Render Set Expansion (full finish coverage per category)
+- [x] Generated wall render in espresso/dark finish
+- [x] Generated tall renders in gray, cherry, espresso
+- [x] Generated vanity renders in gray, cherry, espresso
+- [x] Generated accessory renders in cherry/warm wood + espresso/dark
+- [x] Extended cabinetProductPhoto map: every category now covers white/gray/cherry/espresso (wall, tall, vanity); accessory covers white/warmwood/dark
+- [x] Updated resolver tests for new variants (18 tests in doorFamilyPhotos.test.ts)
+- [x] Typecheck clean, 312 tests pass, verified wall + tall detail pages render kitchen-scene lead-in + 3D image, checkpoint
