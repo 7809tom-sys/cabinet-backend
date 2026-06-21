@@ -428,7 +428,9 @@
 - [ ] Tall Decorative End Panel = 2-panel kit: 54" bottom + (30/36/42) top -> 84/90/96 total. Confirm: does 1 unit = ONE side (2 stacked panels) or BOTH sides? Update TDEP descriptions to "...Kit (54" + X")" once confirmed
 - [x] Skin/Island panels (BSV, FPV-42-96, S-24-96, USV-24-96, WSV-24/30/36/42): thickness 0.25"; subCategory "Skin Panel"; graphic accessory-strip; fixed dims; "cut to fit" wording. NOTE: island panels are large stock sheets (commonly 48x96 x 1/4") cut down on site
 - [x] DECISION: decorative end panels and skin panels are DIFFERENT products - keep separate subcategories, do NOT group as same-as. Skin panel = 1/4" finished veneer to match cabinet color on unfinished/exposed side; cut to fit
-- [x] Scribe molding (SM-8) -> "3/4" x 96" Scribe Molding"; best-seller in area, surface prominently in Accessory + Design Tool
+- [x] Scribe molding (SM-8, id184) -> "3/4" x 96" Scribe Molding"; best-seller. NOTE: initially wrote to wrong id (193=U-18-84-24); restored that utility cabinet's description and re-applied to correct SM-8 id184 - verified on storefront
+- [ ] CATEGORY MISMATCH (found during verify): BFH-21/BFH-24 (Full Height Single Door Base Cabinet) are category=Accessory but should be Base (BFH-12/15/18 are Base). PENDING user confirm
+- [ ] CATEGORY MISMATCH: U-18-84-24..U-30-96-24 (Tall Utility Cabinets) are category=Accessory but should be Tall. PENDING user confirm
 - [x] DECISION: no same-as/equivalent grouping added (user declined). Families stay separate by subCategory
 - [ ] FINISH-MATCH RULE: skins & decorative end panels are style/species-specific - must match the cabinet's door style (e.g., Hickory cabinet exposed side needs a Hickory skin). Ensure skins/end panels carry the selected door-style finish through to quote/order
 - [ ] TDEP tall end panel: ONE unit = ONE finished side (only outward face decorative; back is flat, brad-nailed to cabinet). Kit = 54" bottom + 30/36/42 top. Wording PENDING user check of model number
