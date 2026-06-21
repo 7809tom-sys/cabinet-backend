@@ -452,11 +452,11 @@
   - Glass Door: glass door fronts/inserts (description states it is a glass door; sold separately on lines like Faircrest)
   - Accessory (general): roll-out trays, waste bins, wood tray inserts, touch-up kit, legs, decorative legs, mini cabinet, floating shelves, skin panels, decorative end panels
 - [ ] PRINCIPLE: storefront shows FAMILIES (door styles), categories must be clean/consolidated within a family - never scattered categories
-- [ ] Glass doors: description identifies them; also offer as quick add-on/upsell when buying adjacent wall cabinet ("Make this a glass door?")
-- [ ] Oven cabinets must NOT have glass doors (glass doors ordered separately) - per knowledge
-- [ ] TOUCH-UP KIT: ensure a touch-up kit item exists in catalog (Accessory). In the Design Tool, ALWAYS auto-recommend it + one-click add-to-cart (standard "don't forget this" recommendation on every design)
-- [ ] ROLL-OUT TRAYS: keep under Accessory (Roll-Out Tray sub-group). In Design Tool, when customer has placed base cabinets and is finishing, suggest "Want to add roll-out trays to any of these base cabinets?" with one-click add (smart, placement-aware recommendation)
-- [ ] Verify reclassification on storefront: each family browses as clean Base/Wall/Tall/Vanity/Accessory(with sub-groups), no scattered categories
+- [x] Glass doors: GD wall cabinets + stackers stay in Wall (real cabinets, description identifies); "Make this a glass door?" upsell swaps solid wall cabinet -> buyable GD twin on storefront (tested)
+- [x] Oven cabinets must NOT have glass doors (glass doors ordered separately): glassDoorUpsell only fires for wall codes (W/AW/DCW/WER/WD); oven (O-/MO-) + tall (U-/TS-) excluded by construction
+- [x] TOUCH-UP KIT: exists in catalog (Accessory); Design Tool always auto-recommends + one-click add; ALSO auto-suggested at checkout (order review) with one-click Add TUK (priced per style/tier) — browser-verified
+- [x] ROLL-OUT TRAYS: under Accessory (Roll-Out Tray sub-group); Design Tool "don't forget" strip suggests them when base cabinets are placed, one-click add
+- [x] Verify reclassification on storefront: each family browses as clean Base/Wall/Tall/Vanity/Accessory(with sub-groups), no scattered categories
 
 
 ## Catalog reclassification + add-ons (user request, this session)
@@ -478,3 +478,6 @@
 - [x] Bugfix: B-24 (and other real Base/Wall/Tall/Vanity/ADA cabinets) no longer mislabeled "accessory / trim" — cabinetDrawingType now treats real cabinet families as non-accessory even when description mentions shelf/panel; keyword heuristic is fallback-only. cabinetGraphics regression tests added
 - [x] 209 tests pass; typecheck clean
 - [x] SEO: removed explicit count strings from public pages (Door Styles "N finishes available", Cabinet Detail "(N available)", Home "dozens of door styles") per "avoid displaying specific numbers of SKUs/styles" guideline; typecheck clean
+
+## Session: Distributor spreadsheet onboarding — 2026-06-21
+- [x] Distributor CSV onboarding: shared/distributorImport.ts (pure CSV parser + flexible column mapping for code/description/category/subCategory/dimensions + optional per-style price columns); server/routers/distributors.ts distributorImportRouter.importPreview (dry-run diff: create/update/price/error counts + per-row) and importCommit (upsert cabinet info/descriptions + optional per-style pricing; new prices land UNPUBLISHED for review); mounted under distributorAdmin namespace; client/src/components/admin/DistributorImport.tsx (template download, paste/upload CSV, preview table, commit) wired into Admin "Distributors" tab. 16 import tests incl. live preview->commit->idempotent-reimport round-trip

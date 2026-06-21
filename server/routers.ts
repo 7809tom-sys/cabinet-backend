@@ -16,6 +16,7 @@ import { affiliatesRouter } from "./routers/affiliates";
 import { storefrontRouter } from "./routers/storefront";
 import { crmRouter } from "./routers/crm";
 import { locationRouter } from "./routers/location";
+import { distributorImportRouter } from "./routers/distributors";
 
 export const appRouter = router({
   system: systemRouter,
@@ -42,6 +43,7 @@ export const appRouter = router({
   storefront: storefrontRouter,
   crm: crmRouter,
   location: locationRouter,
+  distributorAdmin: distributorImportRouter,
 });
 
 export type AppRouter = typeof appRouter;
