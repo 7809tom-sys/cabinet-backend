@@ -20,6 +20,7 @@ const Admin = lazy(() => import("@/pages/Admin"));
 const Storefront = lazy(() => import("@/pages/Storefront"));
 const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
 const Cart = lazy(() => import("@/pages/Cart"));
+const DistributorPortal = lazy(() => import("@/pages/DistributorPortal"));
 
 function PageLoader() {
   return (
@@ -121,6 +122,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <Admin />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/distributor">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <DistributorPortal />
             </Suspense>
           </AppLayout>
         </Route>

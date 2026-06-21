@@ -16,7 +16,7 @@ const NAV_LINKS = [
 ];
 
 const PORTAL_LINKS = [
-  { label: "Supplier Portal", href: "/portal/distributor" },
+  { label: "Supplier Portal", href: "/distributor" },
   { label: "Dealer Portal", href: "/portal/dealer" },
   { label: "Affiliate Portal", href: "/affiliate" },
   { label: "Admin", href: "/admin" },

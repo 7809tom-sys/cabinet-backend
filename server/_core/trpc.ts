@@ -43,3 +43,37 @@ export const adminProcedure = t.procedure.use(
     });
   }),
 );
+
+// Distributor portal access: a user with role=distributor (scoped to their own
+// supply line) or an admin. The distributor's line id is exposed as
+// ctx.distributorId; for distributors it is their users.distributorId, for
+// admins it is null (they may pass a distributorId explicitly in the input).
+export const distributorProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+    const isAdmin = ctx.user.role === "admin";
+    const isDistributor = ctx.user.role === "distributor";
+    if (!isAdmin && !isDistributor) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Distributor access required" });
+    }
+    if (isDistributor && ctx.user.distributorId == null) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Your account is not linked to a supply line yet. Contact the platform admin.",
+      });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+        isAdmin,
+        distributorId: isDistributor ? ctx.user.distributorId : null,
+      },
+    });
+  }),
+);

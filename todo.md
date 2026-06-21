@@ -62,8 +62,8 @@
 - [ ] Order review and confirmation
 
 ## Phase 7: Portals & Admin
-- [ ] Distributor portal: product visibility toggle (private vs. published)
-- [ ] Distributor portal: catalog management and order view
+- [x] Distributor portal: product visibility toggle (private vs. published) — /distributor page, per-SKU + role-scoped; distributorPortal.setVisibility/bulkSetVisibility with line-ownership guard; users.distributorId link added (migration 0008); distributorProcedure gate; 5 tests
+- [x] Distributor portal: catalog management and order view — catalog tab (search/style/category/hidden-only filters, live counts) + orders tab (submitted orders referencing this line's styles, originator contact intentionally hidden from supplier); admin can act on any line via picker. Search runs in SQL WHERE before pagination (total reflects filter); loading/error+retry/empty states for line/catalog/orders; 7 portal tests (search-count + orders assertions)
 - [ ] Dealer white-label storefront
 - [ ] Admin dashboard: manage distributors, subscribers, pricing multipliers
 - [ ] Admin dashboard: catalog updates and conflict resolution
