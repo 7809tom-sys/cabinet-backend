@@ -12,7 +12,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
-import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
+import { doorFamilyPhoto, cabinetProductPhoto, kitchenSceneWithCopy } from "@/lib/doorFamilyPhotos";
 import { useCart } from "@/contexts/CartContext";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
@@ -153,13 +153,54 @@ export default function CabinetDetail({ masterCode }: Props) {
         <span className="text-foreground font-medium">{masterCode}</span>
       </nav>
 
+      {/* Kitchen-scene lead-in: sell the finished kitchen first */}
+      {(() => {
+        const scene = kitchenSceneWithCopy(selectedRow ?? { doorStyle: null });
+        return (
+          <div className="relative overflow-hidden rounded-2xl border border-border mb-8">
+            <img
+              src={scene.image}
+              alt={scene.title}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-navy)]/90 via-[var(--color-navy)]/65 to-transparent" />
+            <div className="relative px-6 py-7 md:px-10 md:py-9 max-w-2xl">
+              <p className="text-[var(--color-gold,#c9a14a)] text-xs font-semibold uppercase tracking-wider mb-1">
+                Build this look
+              </p>
+              <h2 className="font-serif text-xl md:text-2xl font-bold text-white">
+                {scene.title}
+              </h2>
+              <p className="text-white/85 text-sm mt-2">{scene.blurb}</p>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
         {/* Left: Image + specs */}
         <div>
-          {/* Cabinet drawing (to-scale) + door finish sample */}
-          <div className="rounded-xl border border-border bg-gradient-to-b from-muted/20 to-muted/40 h-64 flex items-center justify-center mb-2 overflow-hidden p-6">
-            <CabinetDrawing cabinet={cabinet} className="h-full w-auto max-w-full" />
-          </div>
+          {/* Product image: 3D render (primary) with a to-scale dimensions view */}
+          <Tabs defaultValue="product" className="mb-2">
+            <TabsList className="mb-2">
+              <TabsTrigger value="product" className="text-xs">Product</TabsTrigger>
+              <TabsTrigger value="dimensions" className="text-xs">Dimensions</TabsTrigger>
+            </TabsList>
+            <TabsContent value="product">
+              <div className="rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 h-64 flex items-center justify-center overflow-hidden p-4">
+                <img
+                  src={cabinetProductPhoto({ category: cabinet.category, doorStyle: selectedRow?.doorStyle ?? null })}
+                  alt={cabinet.description ?? `${masterCode} cabinet`}
+                  className="h-full w-auto max-w-full object-contain"
+                />
+              </div>
+            </TabsContent>
+            <TabsContent value="dimensions">
+              <div className="rounded-xl border border-border bg-gradient-to-b from-muted/20 to-muted/40 h-64 flex items-center justify-center overflow-hidden p-6">
+                <CabinetDrawing cabinet={cabinet} className="h-full w-auto max-w-full" />
+              </div>
+            </TabsContent>
+          </Tabs>
           {selectedRow ? (
             <div className="flex items-center gap-3 mb-6 rounded-lg border border-border p-2.5">
               {doorFamilyPhoto(selectedRow) ? (

@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { type CabinetLike } from "@/lib/cabinetGraphics";
+import { cabinetProductPhoto } from "@/lib/doorFamilyPhotos";
 
 // ─── Category presentation config ──────────────────────────────────────────────
 // Maps DB category values to a room-scene image + short description. Categories
@@ -81,12 +82,25 @@ interface CabinetItem extends CabinetLike {
 }
 
 function CabinetCard({ cabinet }: { cabinet: CabinetItem }) {
+  const productPhoto = cabinetProductPhoto({
+    category: cabinet.category,
+    doorStyle: (cabinet as { doorStyle?: string | null }).doorStyle ?? null,
+  });
   return (
     <Link href={`/catalog/${cabinet.masterCode}`}>
       <div className="cabinet-card group rounded-xl border border-border bg-card hover:border-primary/30 cursor-pointer overflow-hidden transition-colors">
-        {/* To-scale 2D drawing */}
-        <div className="h-36 bg-gradient-to-b from-muted/20 to-muted/40 flex items-center justify-center border-b border-border p-4">
-          <CabinetDrawing cabinet={cabinet} className="h-full w-auto max-w-full" />
+        {/* Dimensional 3D product render */}
+        <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3">
+          <img
+            src={productPhoto}
+            alt={cabinet.description ?? `${cabinet.masterCode} cabinet`}
+            loading="lazy"
+            className="h-full w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.04]"
+          />
+          {/* To-scale drawing as a small corner badge */}
+          <div className="absolute bottom-2 right-2 h-10 w-10 rounded-md border border-border bg-white/90 backdrop-blur p-1 shadow-sm" title="Drawn to scale">
+            <CabinetDrawing cabinet={cabinet} className="h-full w-full" />
+          </div>
         </div>
 
         <div className="p-4">

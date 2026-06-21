@@ -117,3 +117,135 @@ export function kitchenSceneFor(style: DoorFamilyLike): string {
       return KITCHEN_SCENES["shaker-white"];
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dimensional 3D product renders (per generic cabinet item)
+// Photorealistic three-quarter-angle studio renders with depth + shadow, modeled
+// on leading RTA retailers. Each SKU resolves to the render that best matches its
+// CATEGORY (base / wall / tall / vanity / accessory) and FINISH bucket, so a
+// shopper sees a real product photo instead of a flat to-scale diagram. The
+// to-scale CabinetDrawing remains available as the "Dimensions" view, and the
+// SVG swatch stays the universal color-accurate fallback.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ProductCategory = "base" | "wall" | "tall" | "vanity" | "accessory";
+
+// Compressed webp renders (preferred for page loads).
+const PRODUCT_PHOTOS: Record<string, string> = {
+  // Base — full finish coverage
+  "base:white": `${CDN}/prod-base-shaker-white-EQqwnS39T7AsY7XCwYDyPW.webp`,
+  "base:gray": `${CDN}/prod-base-shaker-gray-bX7qNBMmZ5Abt4dxXHB5uB.webp`,
+  "base:warmwood": `${CDN}/prod-base-cherry-bjnCyF9AS5p9oUeeYQNdaG.webp`,
+  "base:dark": `${CDN}/prod-base-espresso-aaMH2vASEjTuRTPUt47Nsg.webp`,
+  // Wall — white / gray / warm wood
+  "wall:white": `${CDN}/prod-wall-shaker-white-8PsrxeydDBdMRNU88ESQfS.webp`,
+  "wall:gray": `${CDN}/prod-wall-shaker-gray-fxt8GwDMwtnxrb9iATKxfe.webp`,
+  "wall:warmwood": `${CDN}/prod-wall-cherry-QHvngHNKEsCw3ipTKfDpDe.webp`,
+  // Tall / vanity / accessory — single neutral white render each (good generic read)
+  "tall:white": `${CDN}/prod-tall-shaker-white-oYxHAbKd3y3ZAZZHoJGdiA.webp`,
+  "vanity:white": `${CDN}/prod-vanity-shaker-white-PYq6TQSEeJfuj7XfG3Beov.webp`,
+  "accessory:white": `${CDN}/prod-accessory-crown-BtKLVqnRs9FvTATNhbPLMq.webp`,
+};
+
+// Map any DB category string to one of our render categories.
+function productCategory(category?: string | null): ProductCategory {
+  const c = (category ?? "").toLowerCase();
+  if (c.includes("wall") || c.includes("upper")) return "wall";
+  if (c.includes("tall") || c.includes("pantry") || c.includes("utility")) return "tall";
+  if (c.includes("vanity") || c.includes("bath")) return "vanity";
+  if (
+    c.includes("accessor") ||
+    c.includes("molding") ||
+    c.includes("moulding") ||
+    c.includes("filler") ||
+    c.includes("panel") ||
+    c.includes("trim") ||
+    c.includes("toe") ||
+    c.includes("crown")
+  )
+    return "accessory";
+  // base, ada, sink base, drawer base, corner, etc. all read as a base render
+  return "base";
+}
+
+export interface CabinetProductLike {
+  category?: string | null;
+  doorStyle?: string | null;
+}
+
+/**
+ * Resolve the best dimensional 3D product render for a cabinet SKU, combining its
+ * category and finish bucket. Always returns a render URL (never null) so every
+ * card/detail page gets a real product photo. Falls back across finishes within a
+ * category, then to the white render, then to the base white render.
+ */
+export function cabinetProductPhoto(item: CabinetProductLike): string {
+  const cat = productCategory(item.category);
+  const finish = finishBucket(item.doorStyle);
+
+  // Preferred: exact category + finish.
+  const exact = PRODUCT_PHOTOS[`${cat}:${finish}`];
+  if (exact) return exact;
+
+  // Finish fallback chain within the same category (dark→warmwood reads closest).
+  const order: FinishBucket[] = ["white", "gray", "warmwood", "dark", "lightwood"];
+  for (const f of order) {
+    const url = PRODUCT_PHOTOS[`${cat}:${f}`];
+    if (url) return url;
+  }
+
+  // Category fallback: tall/vanity/accessory always have a white render; otherwise base white.
+  return PRODUCT_PHOTOS[`${cat}:white`] ?? PRODUCT_PHOTOS["base:white"];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Kitchen-scene lead-in copy
+// Short, evocative descriptions of the finished kitchen each scene depicts, used
+// to lead the buying flow with the "dream kitchen" before the individual item.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SCENE_BLURBS: Record<KitchenSceneKey, { title: string; blurb: string }> = {
+  "shaker-white": {
+    title: "Bright & Timeless White Shaker Kitchen",
+    blurb:
+      "Clean white shaker fronts, satin-nickel hardware and an airy, open feel — the most-requested look that brightens any space and never goes out of style.",
+  },
+  "shaker-gray": {
+    title: "Warm Greige Shaker Kitchen",
+    blurb:
+      "Soft dove-gray shaker cabinetry pairs with natural light for a calm, modern-farmhouse feel that hides everyday wear and complements almost any countertop.",
+  },
+  "shaker-espresso": {
+    title: "Rich Espresso Kitchen",
+    blurb:
+      "Deep espresso fronts deliver a dramatic, contemporary statement — striking against light counters and stainless appliances.",
+  },
+  "raised-cherry": {
+    title: "Classic Cherry Raised-Panel Kitchen",
+    blurb:
+      "Warm cherry wood grain and raised-panel doors create a traditional, inviting kitchen with timeless craftsmanship and depth.",
+  },
+  "slab-natural": {
+    title: "Modern Natural-Wood Kitchen",
+    blurb:
+      "Handle-free natural-wood slab fronts and a minimal profile give a sleek, European-modern look full of warmth.",
+  },
+};
+
+const SCENE_BY_URL: Record<string, KitchenSceneKey> = Object.fromEntries(
+  (Object.keys(KITCHEN_SCENES) as KitchenSceneKey[]).map((k) => [KITCHEN_SCENES[k], k]),
+) as Record<string, KitchenSceneKey>;
+
+/**
+ * Returns the kitchen-scene image URL plus a short title/blurb describing the
+ * finished kitchen, for leading the buying flow. Always returns a value.
+ */
+export function kitchenSceneWithCopy(style: DoorFamilyLike): {
+  image: string;
+  title: string;
+  blurb: string;
+} {
+  const image = kitchenSceneFor(style);
+  const key = SCENE_BY_URL[image] ?? "shaker-white";
+  return { image, ...SCENE_BLURBS[key] };
+}

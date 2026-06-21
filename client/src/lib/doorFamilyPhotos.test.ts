@@ -54,3 +54,57 @@ describe("kitchenSceneFor", () => {
     expect(kitchenSceneFor({ doorStyle: "Slate Gray Raised Panel" })).toBe(KITCHEN_SCENES["shaker-gray"]);
   });
 });
+
+import { cabinetProductPhoto, kitchenSceneWithCopy } from "./doorFamilyPhotos";
+
+describe("cabinetProductPhoto", () => {
+  it("returns a base render for base/sink/drawer categories", () => {
+    expect(cabinetProductPhoto({ category: "Base Cabinets", doorStyle: "Snow White Shaker" })).toContain("prod-base");
+    expect(cabinetProductPhoto({ category: "Sink Base", doorStyle: "White" })).toContain("prod-base");
+    expect(cabinetProductPhoto({ category: "Drawer Base", doorStyle: "Dove Gray" })).toContain("prod-base");
+  });
+
+  it("matches finish bucket within a category", () => {
+    expect(cabinetProductPhoto({ category: "Base", doorStyle: "Stone Gray Shaker" })).toContain("prod-base-shaker-gray");
+    expect(cabinetProductPhoto({ category: "Base", doorStyle: "Cherry Raised Panel" })).toContain("prod-base-cherry");
+    expect(cabinetProductPhoto({ category: "Base", doorStyle: "Espresso Shaker" })).toContain("prod-base-espresso");
+  });
+
+  it("maps wall/upper categories to a wall render", () => {
+    expect(cabinetProductPhoto({ category: "Wall Cabinets", doorStyle: "White" })).toContain("prod-wall");
+    expect(cabinetProductPhoto({ category: "Upper", doorStyle: "Gray" })).toContain("prod-wall");
+  });
+
+  it("maps tall / vanity / accessory categories to their renders", () => {
+    expect(cabinetProductPhoto({ category: "Tall Pantry", doorStyle: "White" })).toContain("prod-tall");
+    expect(cabinetProductPhoto({ category: "Vanity", doorStyle: "White" })).toContain("prod-vanity");
+    expect(cabinetProductPhoto({ category: "Crown Molding", doorStyle: "White" })).toContain("prod-accessory");
+  });
+
+  it("falls back gracefully for an unknown finish within a category (wall has no espresso render)", () => {
+    const url = cabinetProductPhoto({ category: "Wall", doorStyle: "Espresso" });
+    expect(url).toContain("prod-wall");
+  });
+
+  it("always returns a non-empty url even with empty inputs", () => {
+    expect(cabinetProductPhoto({ category: null, doorStyle: null })).toContain("prod-base");
+  });
+});
+
+describe("kitchenSceneWithCopy", () => {
+  it("returns an image plus a title and blurb", () => {
+    const r = kitchenSceneWithCopy({ doorStyle: "Snow White Shaker" });
+    expect(r.image).toMatch(/^https:\/\//);
+    expect(r.title.length).toBeGreaterThan(0);
+    expect(r.blurb.length).toBeGreaterThan(0);
+  });
+
+  it("gives the white-shaker copy for white styles and cherry copy for cherry", () => {
+    expect(kitchenSceneWithCopy({ doorStyle: "Arctic White Shaker" }).title).toMatch(/White Shaker/i);
+    expect(kitchenSceneWithCopy({ doorStyle: "Cherry Raised Panel" }).title).toMatch(/Cherry/i);
+  });
+
+  it("never throws on null door style", () => {
+    expect(() => kitchenSceneWithCopy({ doorStyle: null })).not.toThrow();
+  });
+});

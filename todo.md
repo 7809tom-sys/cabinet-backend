@@ -547,3 +547,13 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Verified key pages render with loading/empty handling; door swatch remains fallback if a kitchen scene image fails
 - [x] Full automated suite green: 301 tests / 33 files pass; typecheck clean. Added 8 tests (3 OAuth callback + 5 language detection)
 - [ ] Final checkpoint + launch-readiness report (in progress)
+
+
+## Catalog Imagery Upgrade (3D product renders + kitchen-scene lead-in)
+- [x] Audited SKU rendering: cards + detail page previously used flat to-scale CabinetDrawing as the primary image
+- [x] Generated dimensional 3D-style product renders (base in white/gray/cherry/espresso, wall in white/gray/cherry, plus tall/vanity/accessory white), three-quarter studio angle, watermark-free, no distributor names; hosted on project CDN
+- [x] Added cabinetProductPhoto() resolver (category + finish bucket -> best render, graceful fallback chain) + 6 tests
+- [x] Catalog grid card now leads with the 3D render; to-scale drawing demoted to a small corner badge
+- [x] Detail page: 3D render is the primary 'Product' image with a 'Dimensions' tab for the to-scale drawing; render updates with selected door style finish
+- [x] Buying flow now leads with a kitchen-scene banner + kitchen title/description (kitchenSceneWithCopy resolver, 3 tests) before the item
+- [x] Verified desktop + mobile (375px); 310 tests pass; typecheck clean; checkpoint
