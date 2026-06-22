@@ -13,7 +13,17 @@ export const STD = {
   TALL_DEPTH: 24,
   TOE_KICK: 4.5,
   SNAP_THRESHOLD: 6,
+  // Finished end panels, decorative door panels, and skins are 3/4" stock.
+  PANEL_THICKNESS: 0.75,
 };
+
+// True for finished end panels, decorative panels, refrigerator/dishwasher
+// skins, and door panels — all of which are 3/4" thick flat stock.
+export function isPanelItem(c: { description?: string | null; masterCode?: string | null; subCategory?: string | null }): boolean {
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
+  // Match "panel"/"skin" but not unrelated words like "panelized".
+  return /\bpanel\b|\bskin\b|end panel|dishwasher panel|refrigerator panel|decorative panel/.test(hay);
+}
 
 export type Placement = "base" | "wall" | "tall" | "appliance";
 
@@ -105,6 +115,10 @@ export function dim(value: string | null | undefined, fallback: number): number 
 }
 
 export function footprintDepth(c: DesignCabinet): number {
+  // Panels/skins are flat 3/4" stock regardless of placement bucket.
+  if (isPanelItem(c)) return dim(c.depth, STD.PANEL_THICKNESS) || STD.PANEL_THICKNESS;
+  // Panels/skins are flat 3/4" stock regardless of placement bucket.
+  if (isPanelItem(c)) return dim(c.depth, STD.PANEL_THICKNESS) || STD.PANEL_THICKNESS;
   if (c.placement === "wall") return dim(c.depth, STD.WALL_DEPTH);
   if (c.placement === "tall") return dim(c.depth, STD.TALL_DEPTH);
   if (c.placement === "appliance") return dim(c.depth, STD.BASE_DEPTH);

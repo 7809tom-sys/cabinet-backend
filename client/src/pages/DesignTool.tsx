@@ -20,7 +20,7 @@ import {
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea,
-  blindCornerFillers, snapToWall,
+  blindCornerFillers, snapToWall, snapPosition,
   nextFreeSpotOnWall, clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   addOnRecommendations,
@@ -156,6 +156,22 @@ export default function DesignTool() {
       .filter((c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
       .slice(0, 80);
   }, [paletteCabinets, paletteSearch, paletteType, appliancePalette]);
+
+  // Group the palette by cabinet height so wall cabinets (and others) are easy
+  // to find by size — mirrors how pros scan 2020's catalog by height.
+  const groupedPalette = useMemo(() => {
+    const groups = new Map<number, DesignCabinet[]>();
+    for (const c of filteredPalette) {
+      const h = Math.round(dim(c.height, 0));
+      const arr = groups.get(h);
+      if (arr) arr.push(c);
+      else groups.set(h, [c]);
+    }
+    // Tallest first; unknown height (0) sinks to the bottom.
+    return Array.from(groups.entries())
+      .sort((a, b) => (b[0] || -1) - (a[0] || -1))
+      .map(([height, items]) => ({ height, items }));
+  }, [filteredPalette]);
 
   // Pricing for placed cabinets + add-on accessories (appliances carry
   // cabinetId 0 and are unpriced).
@@ -405,7 +421,18 @@ export default function DesignTool() {
   const rotateSelected = () => {
     if (!selectedUid) return;
     setPlaced((prev) =>
-      prev.map((p) => (p.uid === selectedUid ? { ...p, rotation: (p.rotation + 90) % 360 } : p))
+      prev.map((p) => {
+        if (p.uid !== selectedUid) return p;
+        const rotated = { ...p, rotation: (p.rotation + 90) % 360 };
+        // Re-seat against the wall so the new orientation sits cleanly
+        // instead of keeping the old footprint's snapped position.
+        const snapped = snapPosition(
+          rotated,
+          room,
+          prev.filter((c) => c.placement === p.placement && c.uid !== p.uid)
+        );
+        return { ...rotated, x: snapped.x, y: snapped.y };
+      })
     );
   };
 
@@ -451,6 +478,9 @@ export default function DesignTool() {
       } else if ((e.key === "Delete" || e.key === "Backspace") && selectedUid) {
         e.preventDefault();
         deleteCabinet(selectedUid);
+      } else if ((e.key === "r" || e.key === "R") && selectedUid && !measureMode) {
+        e.preventDefault();
+        rotateSelected();
       } else if (e.key === "Escape") {
         setSelectedUid(null);
         setSelectedOpeningUid(null);
@@ -459,7 +489,7 @@ export default function DesignTool() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening]);
+  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening, measureMode, rotateSelected]);
 
   const dragDataRef = useState<{ current: DesignCabinet | null }>(() => ({ current: null }))[0];
 
@@ -651,7 +681,7 @@ export default function DesignTool() {
             <Square className="h-3.5 w-3.5" /> Countertop
           </Button>
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-8 gap-1.5">
-            <RotateCw className="h-3.5 w-3.5" /> Rotate
+            <RotateCw className="h-3.5 w-3.5" /> Rotate <span className="text-[10px] opacity-60">(R)</span>
           </Button>
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
             <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -743,24 +773,32 @@ export default function DesignTool() {
             ) : paletteLoading ? (
               Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)
             ) : (
-              filteredPalette.map((c) => (
-                <button
-                  key={c.id}
-                  draggable
-                  onDragStart={() => { dragDataRef.current = c; }}
-                  onClick={() => addCabinet(c)}
-                  className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
-                >
-                  <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
-                    <CabinetDrawing cabinet={c} className="h-full w-auto max-w-full" />
+              groupedPalette.map((group) => (
+                <div key={group.height} className="space-y-1.5">
+                  <div className="sticky top-0 z-10 -mx-1 px-2 py-1 bg-background/95 backdrop-blur text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
+                    {group.height > 0 ? `${group.height}" High` : "Other Heights"}
+                    <span className="ml-1 font-normal normal-case">({group.items.length})</span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
-                    <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                    <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W</div>
-                  </div>
-                  <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                </button>
+                  {group.items.map((c) => (
+                    <button
+                      key={c.id}
+                      draggable
+                      onDragStart={() => { dragDataRef.current = c; }}
+                      onClick={() => addCabinet(c)}
+                      className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                    >
+                      <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                        <CabinetDrawing cabinet={c} className="h-full w-auto max-w-full" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                        <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {dim(c.height, 0) > 0 ? `${dim(c.height, 0)}"H` : "—"}</div>
+                      </div>
+                      <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                    </button>
+                  ))}
+                </div>
               ))
             )}
             {paletteType !== "opening" && !paletteLoading && filteredPalette.length === 0 && (
@@ -815,7 +853,7 @@ export default function DesignTool() {
               cabinets={placed}
               selectedUid={selectedUid}
               onSelect={setSelectedUid}
-              wall="front"
+              wall={activeWall}
               openings={openings}
               finish={activeFinish}
               crown={crown}
@@ -857,7 +895,7 @@ export default function DesignTool() {
                   cabinets={placed}
                   selectedUid={selectedUid}
                   onSelect={setSelectedUid}
-                  wall="front"
+                  wall={activeWall}
                   openings={openings}
                   finish={activeFinish}
                   crown={crown}

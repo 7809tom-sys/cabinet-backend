@@ -1,7 +1,7 @@
 import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN,
-  type DoorPanelKind,
+  type DoorPanelKind, type WallSide, cabinetWall,
 } from "@/lib/design";
 import { useRef, useEffect, useState } from "react";
 
@@ -10,7 +10,9 @@ interface Props {
   cabinets: PlacedCabinet[];
   selectedUid: string | null;
   onSelect: (uid: string | null) => void;
-  wall: "front" | "back" | "left" | "right";
+  // Which physical wall to view, in plan terms (top/bottom/left/right).
+  // Back-compat: "front" maps to bottom, "back" maps to top.
+  wall: WallSide | "front" | "back";
   openings?: WallOpening[];
   finish?: FinishColors;
   crown?: boolean;
@@ -28,8 +30,18 @@ export function ElevationView({
   const PADDING = 40;
   const WALL_TOTAL_HEIGHT = 96;
 
-  const horizontal = wall === "front" || wall === "back";
+  // Normalize legacy "front"/"back" to plan WallSide values.
+  const side: WallSide =
+    wall === "front" ? "bottom" : wall === "back" ? "top" : (wall as WallSide);
+  const WALL_LABELS: Record<WallSide, string> = {
+    top: "Back", bottom: "Front", left: "Left", right: "Right",
+  };
+  const horizontal = side === "top" || side === "bottom";
   const planSpan = horizontal ? room.width : room.depth;
+
+  // Only show cabinets that actually sit on the wall being viewed, so other
+  // walls' cabinets don't bleed into this elevation.
+  const onThisWall = cabinets.filter((c) => cabinetWall(c, room) === side);
 
   useEffect(() => {
     const el = ref.current;
@@ -49,14 +61,13 @@ export function ElevationView({
   const wallPxW = planSpan * ppi;
   const wallPxH = WALL_TOTAL_HEIGHT * ppi;
 
-  const sorted = [...cabinets].sort((a, b) => {
+  const sorted = [...onThisWall].sort((a, b) => {
     const order: Record<string, number> = { tall: 0, base: 1, appliance: 1, wall: 2 };
     return (order[a.placement] ?? 1) - (order[b.placement] ?? 1);
   });
 
-  // Front elevation shows the "front" (bottom) wall; map its openings by offset along width.
-  const wallSideForView = wall === "front" ? "bottom" : wall === "back" ? "top" : wall;
-  const viewOpenings = openings.filter((o) => o.side === wallSideForView);
+  // Openings on the wall being viewed.
+  const viewOpenings = openings.filter((o) => o.side === side);
 
   return (
     <div
@@ -231,12 +242,12 @@ export function ElevationView({
       </div>
 
       <div className="absolute top-3 left-1/2 -translate-x-1/2 text-xs font-medium text-[#1a2744] bg-white/80 px-3 py-1 rounded-full">
-        Front Elevation
+        {WALL_LABELS[side]} Wall Elevation
       </div>
 
-      {cabinets.length === 0 && openings.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
-          Place cabinets in the plan view to see them here
+      {sorted.length === 0 && viewOpenings.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm text-center px-6">
+          Nothing on the {WALL_LABELS[side].toLowerCase()} wall yet. Switch the active wall above, or place cabinets on this wall in the plan view.
         </div>
       )}
     </div>

@@ -663,3 +663,8 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Editor "Apply to all B21" is a CHECKBOX, default ON; off = this SKU only
 - [ ] Self-paced: edit any time, saves as you go
 - [ ] Audit storefront/nav/family/design tool/admin for door-first compliance
+
+## Design Tool Fixes (2020-inspired usability)
+- [ ] Multi-wall elevation: pass activeWall into ElevationView (was hardcoded "front") so all 4 walls are viewable
+- [ ] Show which wall the elevation is displaying (label) + wall switcher works in Front View
+- [ ] Cabinet picker grouped/sorted by height (sticky height headers) so cabinets are easy to find
