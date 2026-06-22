@@ -746,3 +746,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Build Account page (/account): name/email/role, admin shortcut, Open Design Tool, Sign Out; redirects to /signin when logged out
 - [x] Register /account route in App.tsx
 - [x] Verified full signup -> session -> /account flow in browser; removed throwaway test user
+
+## Feature: BAM Batten Molding in Design Tool
+- [x] Corrected BAM catalog description + dimensions (3/4" x 3/16" x 96") to match spec image
+- [x] Added battenLinearInches() seam-based run helper + unit tests in design.ts
+- [x] Added "Batten" toggle to Design Tool toolbar (orders in 96" sticks)
+- [x] Added BATTEN MOLDING (BAM) line to the BOM / build sheet
+- [x] Render slim vertical batten strip at cabinet seams in Front View (ElevationView)

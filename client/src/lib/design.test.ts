@@ -166,6 +166,7 @@ describe("wall openings (doors & windows)", () => {
 import {
   finishColors, DEFAULT_FINISH_COLORS,
   crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
+  battenLinearInches, BATTEN_WIDTH_IN, BATTEN_THICKNESS_IN,
 } from "./design";
 
 describe("finishColors", () => {
@@ -485,6 +486,37 @@ describe("trim: toe kick is continuous (no miter allowance)", () => {
     const a = cab({ placement: "base", width: 24, depth: 24 });
     const b = cab({ placement: "tall", width: 24, depth: 24 });
     expect(toeKickLinearInches([a, b])).toBe(48);
+  });
+});
+
+describe("trim: batten molding (BAM) covers cabinet seams", () => {
+  it("counts one seam between two flush base cabinets (base height 34.5)", () => {
+    const a = cab({ placement: "base", width: 24, depth: 24, x: 0, y: 0 });
+    const b = cab({ placement: "base", width: 24, depth: 24, x: 24, y: 0 });
+    expect(battenLinearInches([a, b], ROOM_12x10)).toBe(34.5);
+  });
+
+  it("counts two seams across three flush cabinets", () => {
+    const a = cab({ placement: "base", width: 24, depth: 24, x: 0, y: 0 });
+    const b = cab({ placement: "base", width: 24, depth: 24, x: 24, y: 0 });
+    const c = cab({ placement: "base", width: 24, depth: 24, x: 48, y: 0 });
+    expect(battenLinearInches([a, b, c], ROOM_12x10)).toBe(69);
+  });
+
+  it("ignores cabinets that are not edge-to-edge (gap > tolerance)", () => {
+    const a = cab({ placement: "base", width: 24, depth: 24, x: 0, y: 0 });
+    const b = cab({ placement: "base", width: 24, depth: 24, x: 30, y: 0 });
+    expect(battenLinearInches([a, b], ROOM_12x10)).toBe(0);
+  });
+
+  it("returns 0 for a single cabinet", () => {
+    const a = cab({ placement: "base", width: 24, depth: 24, x: 0, y: 0 });
+    expect(battenLinearInches([a], ROOM_12x10)).toBe(0);
+  });
+
+  it("batten profile is 3/4in x 3/16in", () => {
+    expect(BATTEN_WIDTH_IN).toBe(0.75);
+    expect(BATTEN_THICKNESS_IN).toBe(0.1875);
   });
 });
 

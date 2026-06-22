@@ -22,7 +22,7 @@ import {
   APPLIANCES, applianceAsDesignCabinet,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
-  trimPiecesNeeded, countertopArea,
+  trimPiecesNeeded, countertopArea, battenLinearInches,
   blindCornerFillers, snapToWall, snapPosition,
   nextFreeSpotOnWall, clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
@@ -84,6 +84,7 @@ export default function DesignTool() {
   // Trim toggles rendered in elevation + added to the BOM.
   const [crown, setCrown] = useState(false);
   const [toeKick, setToeKick] = useState(false);
+  const [batten, setBatten] = useState(false);
   // Countertop tool: measures base + island runs; not auto-priced (quote request).
   const [countertop, setCountertop] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
@@ -394,6 +395,12 @@ export default function DesignTool() {
     () => (toeKick ? trimPiecesNeeded(toeKickLinearInches(placed)) : null),
     [toeKick, placed]
   );
+  // Batten molding (BAM): covers vertical seams between adjacent cabinets,
+  // ordered in whole 96" sticks like the other trims.
+  const battenOrder = useMemo(
+    () => (batten ? trimPiecesNeeded(battenLinearInches(placed, room)) : null),
+    [batten, placed, room]
+  );
   // Countertop measurement (base run + island), shown as a quote request.
   const counter = useMemo(
     () => (countertop ? countertopArea(placed, island) : null),
@@ -470,10 +477,12 @@ export default function DesignTool() {
       out.push({ label: "CROWN MOLDING", detail: `${crownOrder.pieces} pc @ ${crownOrder.stickFeet}ft` });
     if (toeKick && toeKickOrder && toeKickOrder.pieces > 0)
       out.push({ label: "TOE KICK", detail: `${toeKickOrder.pieces} pc @ ${toeKickOrder.stickFeet}ft` });
+    if (batten && battenOrder && battenOrder.pieces > 0)
+      out.push({ label: "BATTEN MOLDING (BAM)", detail: `${battenOrder.pieces} pc @ ${battenOrder.stickFeet}ft` });
     if (countertop && counter && counter.squareFeet > 0)
       out.push({ label: "COUNTERTOP (quote)", detail: `~${counter.squareFeet} sq ft / ${counter.linearFeet} lin ft` });
     return out;
-  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, countertop, counter]);
+  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, countertop, counter]);
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -857,6 +866,15 @@ export default function DesignTool() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setBatten((b) => !b)}
+            title="Batten molding (BAM): covers seams between cabinets; shown in Front View"
+            className={`h-8 gap-1.5 ${batten ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
+          >
+            <Columns3 className="h-3.5 w-3.5" /> Batten
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setCountertop((c) => !c)}
             title="Countertop (measured for a quote request)"
             className={`h-8 gap-1.5 ${countertop ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600" : ""}`}
@@ -1075,6 +1093,7 @@ export default function DesignTool() {
               finish={activeFinish}
               crown={crown}
               toeKick={toeKick}
+              batten={batten}
               panelKind={activePanelKind}
             />
           )}
@@ -1119,6 +1138,7 @@ export default function DesignTool() {
                   finish={activeFinish}
                   crown={crown}
                   toeKick={toeKick}
+                  batten={batten}
                   panelKind={activePanelKind}
                 />
               </div>
@@ -1234,7 +1254,7 @@ export default function DesignTool() {
                 ))}
               </div>
             )}
-            {(crown || toeKick || countertop) && placed.length > 0 && (
+            {(crown || toeKick || batten || countertop) && placed.length > 0 && (
               <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
                 {crown && crownOrder && crownOrder.pieces > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
@@ -1253,6 +1273,17 @@ export default function DesignTool() {
                       <div className="font-mono font-semibold truncate">TOE KICK</div>
                       <div className="text-[10px] text-muted-foreground">
                         {toeKickOrder.pieces} pc{toeKickOrder.pieces > 1 ? "s" : ""} @ {toeKickOrder.stickFeet}&apos; · {toeKickOrder.measuredFeet} ft run
+                      </div>
+                    </div>
+                    <span className="font-semibold shrink-0 text-muted-foreground">incl.</span>
+                  </div>
+                )}
+                {batten && battenOrder && battenOrder.pieces > 0 && (
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
+                    <div className="min-w-0">
+                      <div className="font-mono font-semibold truncate">BATTEN MOLDING (BAM)</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {battenOrder.pieces} pc{battenOrder.pieces > 1 ? "s" : ""} @ {battenOrder.stickFeet}&apos; · {battenOrder.measuredFeet} ft run · 3/4&quot; × 3/16&quot;
                       </div>
                     </div>
                     <span className="font-semibold shrink-0 text-muted-foreground">incl.</span>

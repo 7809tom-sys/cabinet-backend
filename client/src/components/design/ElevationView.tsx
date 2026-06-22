@@ -1,6 +1,6 @@
 import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
-  FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN,
+  FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN,
   type DoorPanelKind, type WallSide, cabinetWall,
 } from "@/lib/design";
 import { useRef, useEffect, useState } from "react";
@@ -17,12 +17,13 @@ interface Props {
   finish?: FinishColors;
   crown?: boolean;
   toeKick?: boolean;
+  batten?: boolean;
   panelKind?: DoorPanelKind;
 }
 
 export function ElevationView({
   room, cabinets, selectedUid, onSelect, wall, openings = [],
-  finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false,
+  finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false,
   panelKind = "shaker",
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -205,6 +206,43 @@ export function ElevationView({
             />
           );
         })}
+
+        {/* Batten molding: slim vertical strip covering the seam between two
+            edge-to-edge cabinets on this wall. */}
+        {batten && sorted
+          .filter((p) => p.cabinetId !== 0)
+          .map((p, i, arr) => {
+            if (i === arr.length - 1) return null;
+            const next = arr[i + 1];
+            const pAlong = horizontal ? p.x : p.y;
+            const pSize = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+            const nextAlong = horizontal ? next.x : next.y;
+            const pEnd = pAlong + pSize;
+            // Only draw where the two cabinets actually touch (within 1.5").
+            if (Math.abs(nextAlong - pEnd) > 1.5) return null;
+            const { bottom, height } = elevationBox(p);
+            const nextBox = elevationBox(next);
+            const top = Math.max(bottom + height, nextBox.bottom + nextBox.height);
+            const base = Math.min(bottom, nextBox.bottom);
+            const widthPx = Math.max(3, BATTEN_WIDTH_IN * ppi);
+            return (
+              <div
+                key={`batten-${p.uid}`}
+                className="absolute"
+                style={{
+                  left: pEnd * ppi - widthPx / 2,
+                  width: widthPx,
+                  bottom: base * ppi,
+                  height: (top - base) * ppi,
+                  background: finish.edge,
+                  borderRadius: "2px",
+                  boxShadow: "0 0 0 0.5px rgba(0,0,0,0.15)",
+                  zIndex: 5,
+                }}
+                title='Batten molding (BAM) 3/4" × 3/16"'
+              />
+            );
+          })}
 
         {/* Doors & windows on this wall, drawn at their sill height */}
         {viewOpenings.map((o) => {

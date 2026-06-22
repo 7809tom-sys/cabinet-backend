@@ -727,6 +727,52 @@ export function toeKickLinearInches(placed: PlacedCabinet[]): number {
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
 }
 
+// ─── Batten molding (BAM) ─────────────────────────────────────────────────────
+// Batten Molding is a slim 3/4" x 3/16" strip used to cover the VERTICAL seams
+// where two cabinets (or a cabinet and a finished end panel) meet, giving a
+// clean built-in look. Unlike crown/toe-kick (which run horizontally over
+// cabinet widths), batten runs vertically, so the run is derived from the
+// number of cabinet-to-cabinet seams x the seam height, not from cabinet width.
+export const BATTEN_WIDTH_IN = 0.75;   // 3/4" face width
+export const BATTEN_THICKNESS_IN = 0.1875; // 3/16" thickness
+
+// Count adjacent cabinet seams on each wall: cabinets sitting flush edge-to-edge
+// share a vertical seam that a batten can cover. We approximate the batten run
+// as (number of seams) x (representative seam height). Wall cabinets use ~30",
+// base/tall use their own height.
+export function battenLinearInches(placed: PlacedCabinet[], room?: RoomData): number {
+  if (placed.length < 2) return 0;
+  // Group by wall so we only count seams between neighbours on the same wall.
+  const groups = new Map<WallSide, PlacedCabinet[]>();
+  for (const p of placed) {
+    if (p.cabinetId === 0) continue;
+    const wall: WallSide = room ? cabinetWall(p, room) : "top";
+    const arr = groups.get(wall) ?? [];
+    arr.push(p);
+    groups.set(wall, arr);
+  }
+  let totalInches = 0;
+  const TOL = 1.5; // inches of gap tolerance to still count as a shared seam
+  for (const cabs of Array.from(groups.values())) {
+    if (cabs.length < 2) continue;
+    // Sort along the run axis (x). Walls are already grouped, so a simple x-sort
+    // is sufficient to find edge-to-edge neighbours.
+    const sorted = [...cabs].sort((a, b) => a.x - b.x);
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const a = sorted[i];
+      const b = sorted[i + 1];
+      const aEnd = a.x + rotatedSize(a).w;
+      const bStart = b.x;
+      if (Math.abs(bStart - aEnd) <= TOL) {
+        // Shared seam: batten covers the taller of the two cabinet faces.
+        const seamHeight = Math.max(placedHeight(a), placedHeight(b));
+        totalInches += seamHeight;
+      }
+    }
+  }
+  return totalInches;
+}
+
 export function inchesToLinearFeet(inches: number): number {
   return Math.ceil((inches / 12) * 10) / 10; // 1 decimal, rounded up
 }
