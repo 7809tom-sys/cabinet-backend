@@ -104,18 +104,28 @@ function CabinetCard({ cabinet }: { cabinet: CabinetItem }) {
   return (
     <Link href={`/catalog/${cabinet.masterCode}`}>
       <div className="cabinet-card group rounded-xl border border-border bg-card hover:border-primary/30 cursor-pointer overflow-hidden transition-colors">
-        {/* Dimensional 3D product render */}
+        {/* Real cabinet boxes get a dimensional 3D render; accessories (trim,
+            panels, shelves, fronts, inserts) show the accurate to-scale drawing. */}
         <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3">
-          <img
-            src={productPhoto}
-            alt={cabinet.description ?? `${cabinet.masterCode} cabinet`}
-            loading="lazy"
-            className="h-full w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.04]"
-          />
-          {/* To-scale drawing as a small corner badge */}
-          <div className="absolute bottom-2 right-2 h-10 w-10 rounded-md border border-border bg-white/90 backdrop-blur p-1 shadow-sm" title="Drawn to scale">
-            <CabinetDrawing cabinet={cabinet} className="h-full w-full" />
-          </div>
+          {productPhoto ? (
+            <>
+              <img
+                src={productPhoto}
+                alt={cabinet.description ?? `${cabinet.masterCode} cabinet`}
+                loading="lazy"
+                className="h-full w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.04]"
+              />
+              {/* To-scale drawing as a small corner badge */}
+              <div className="absolute bottom-2 right-2 h-10 w-10 rounded-md border border-border bg-white/90 backdrop-blur p-1 shadow-sm" title="Drawn to scale">
+                <CabinetDrawing cabinet={cabinet} className="h-full w-full" />
+              </div>
+            </>
+          ) : (
+            <CabinetDrawing
+              cabinet={cabinet}
+              className="h-full w-auto max-w-full transition-transform duration-300 group-hover:scale-[1.04]"
+            />
+          )}
         </div>
 
         <div className="p-4">

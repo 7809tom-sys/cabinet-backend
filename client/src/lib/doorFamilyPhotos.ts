@@ -186,12 +186,24 @@ export interface CabinetProductLike {
 
 /**
  * Resolve the best dimensional 3D product render for a cabinet SKU, combining its
- * category and finish bucket. Always returns a render URL (never null) so every
- * card/detail page gets a real product photo. Falls back across finishes within a
- * category, then to the white render, then to the base white render.
+ * category and finish bucket.
+ *
+ * Returns `null` for the Accessory category (trim & molding, panels, shelves,
+ * roll-out trays, drawer/display fronts, inserts, etc.). Those items are too
+ * varied for a single glamour render — a generic crown-molding photo on a flat
+ * drawer front or a shelf reads wrong — so the caller should fall back to the
+ * accurate, item-specific to-scale CabinetDrawing instead.
+ *
+ * For real cabinet boxes (base / wall / tall / vanity / ada) it always returns a
+ * render URL, falling back across finishes within the category, then to white,
+ * then to the base white render.
  */
-export function cabinetProductPhoto(item: CabinetProductLike): string {
+export function cabinetProductPhoto(item: CabinetProductLike): string | null {
   const cat = productCategory(item.category);
+
+  // Accessories are not real cabinet boxes — let the UI use the accurate drawing.
+  if (cat === "accessory") return null;
+
   const finish = finishBucket(item.doorStyle);
 
   // Preferred: exact category + finish.
@@ -205,7 +217,7 @@ export function cabinetProductPhoto(item: CabinetProductLike): string {
     if (url) return url;
   }
 
-  // Category fallback: tall/vanity/accessory always have a white render; otherwise base white.
+  // Category fallback: tall/vanity always have a white render; otherwise base white.
   return PRODUCT_PHOTOS[`${cat}:white`] ?? PRODUCT_PHOTOS["base:white"];
 }
 

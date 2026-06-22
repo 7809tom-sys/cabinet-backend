@@ -75,10 +75,17 @@ describe("cabinetProductPhoto", () => {
     expect(cabinetProductPhoto({ category: "Upper", doorStyle: "Gray" })).toContain("prod-wall");
   });
 
-  it("maps tall / vanity / accessory categories to their renders", () => {
+  it("maps tall / vanity categories to their renders", () => {
     expect(cabinetProductPhoto({ category: "Tall Pantry", doorStyle: "White" })).toContain("prod-tall");
     expect(cabinetProductPhoto({ category: "Vanity", doorStyle: "White" })).toContain("prod-vanity");
-    expect(cabinetProductPhoto({ category: "Crown Molding", doorStyle: "White" })).toContain("prod-accessory");
+  });
+
+  it("returns null for accessories so the UI shows the accurate to-scale drawing", () => {
+    // Trim/molding, fronts, panels, shelves, inserts are too varied for one render.
+    expect(cabinetProductPhoto({ category: "Accessory", doorStyle: "White" })).toBeNull();
+    expect(cabinetProductPhoto({ category: "Crown Molding", doorStyle: "Espresso" })).toBeNull();
+    expect(cabinetProductPhoto({ category: "Filler", doorStyle: "Cherry" })).toBeNull();
+    expect(cabinetProductPhoto({ category: "Decorative End Panel", doorStyle: "Gray" })).toBeNull();
   });
 
   it("now has full finish coverage for wall (incl. espresso/dark)", () => {
@@ -96,14 +103,7 @@ describe("cabinetProductPhoto", () => {
     expect(cabinetProductPhoto({ category: "Vanity", doorStyle: "Espresso" })).toContain("prod-vanity-espresso");
   });
 
-  it("maps accessory dark/warmwood to their renders, with graceful white fallback otherwise", () => {
-    expect(cabinetProductPhoto({ category: "Crown Molding", doorStyle: "Espresso" })).toContain("prod-accessory-espresso");
-    expect(cabinetProductPhoto({ category: "Filler", doorStyle: "Cherry" })).toContain("prod-accessory-cherry");
-    // gray accessory has no dedicated render -> falls back within accessory to white
-    expect(cabinetProductPhoto({ category: "Toe Kick", doorStyle: "Stone Gray" })).toContain("prod-accessory-crown");
-  });
-
-  it("always returns a non-empty url even with empty inputs", () => {
+  it("returns a base render (never null) for real cabinet boxes even with empty inputs", () => {
     expect(cabinetProductPhoto({ category: null, doorStyle: null })).toContain("prod-base");
   });
 });

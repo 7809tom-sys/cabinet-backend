@@ -188,11 +188,20 @@ export default function CabinetDetail({ masterCode }: Props) {
             </TabsList>
             <TabsContent value="product">
               <div className="rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 h-64 flex items-center justify-center overflow-hidden p-4">
-                <img
-                  src={cabinetProductPhoto({ category: cabinet.category, doorStyle: selectedRow?.doorStyle ?? null })}
-                  alt={cabinet.description ?? `${masterCode} cabinet`}
-                  className="h-full w-auto max-w-full object-contain"
-                />
+                {(() => {
+                  const render = cabinetProductPhoto({ category: cabinet.category, doorStyle: selectedRow?.doorStyle ?? null });
+                  // Accessories (trim, panels, shelves, fronts, inserts) have no
+                  // representative glamour render — show the accurate drawing instead.
+                  return render ? (
+                    <img
+                      src={render}
+                      alt={cabinet.description ?? `${masterCode} cabinet`}
+                      className="h-full w-auto max-w-full object-contain"
+                    />
+                  ) : (
+                    <CabinetDrawing cabinet={cabinet} className="h-full w-auto max-w-full" />
+                  );
+                })()}
               </div>
             </TabsContent>
             <TabsContent value="dimensions">

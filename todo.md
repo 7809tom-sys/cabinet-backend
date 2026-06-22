@@ -576,3 +576,8 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Typecheck + 312 tests pass, verified, checkpoint
 
 - [x] Door Styles page: each card now shows a per-style kitchen room scene (rendered in the exact finish) as the backdrop WITH the door profile sample on top + true-color chip
+
+
+## Bug Fixes (vanity depth + wrong generic render)
+- [x] Vanity depth bug FIXED: 15 vanity SKUs corrected from 12" -> 21" deep (V-30/33/36 series + VS-30/36, VDB-12-3, VDB-21-3, VSD-48); left VA-* aprons at 3" and BFH-* furniture vanities at 24". Verified V-30-21DL now reads Depth 21.00"
+- [x] Wrong generic render FIXED: Accessory category (trim/molding, panels, shelves, fronts, inserts) was showing a single crown-molding glamour photo for everything. cabinetProductPhoto() now returns null for accessories and both the catalog card + detail page fall back to the accurate item-specific to-scale drawing. Real cabinet boxes (base/wall/tall/vanity/ada) keep their 3D renders. Verified DWR-3 now shows the correct end-panel drawing. Tests updated (312 pass).
