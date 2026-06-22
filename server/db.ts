@@ -1,4 +1,5 @@
-import { eq } from "drizzle-orm";
+import crypto from "node:crypto";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -89,4 +90,75 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ─── Email/password auth helpers ──────────────────────────────────────────────
+
+export async function getUserByEmailLower(emailLower: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.emailLower, emailLower))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Create a new email/password account. Generates a synthetic openId so the row
+ * coexists with Manus OAuth users (which key on the OAuth openId). The configured
+ * owner email is auto-promoted to admin.
+ */
+export async function createEmailUser(params: {
+  email: string;
+  emailLower: string;
+  passwordHash: string;
+  name?: string | null;
+  companyName?: string | null;
+}): Promise<{ id: number; openId: string } | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  const openId = `email_${crypto.randomUUID()}`;
+  const isOwner = params.emailLower === (ENV.ownerEmail ?? "").toLowerCase();
+
+  await db.insert(users).values({
+    openId,
+    name: params.name ?? null,
+    email: params.email,
+    emailLower: params.emailLower,
+    passwordHash: params.passwordHash,
+    loginMethod: "password",
+    companyName: params.companyName ?? null,
+    role: isOwner ? "admin" : "user",
+    lastSignedIn: new Date(),
+  });
+
+  const created = await getUserByEmailLower(params.emailLower);
+  return created ? { id: created.id, openId: created.openId } : null;
+}
+
+export async function recordLoginResult(
+  userId: number,
+  ok: boolean,
+  lockedUntil?: Date | null
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  if (ok) {
+    await db
+      .update(users)
+      .set({ failedLoginAttempts: 0, lockedUntil: null, lastSignedIn: new Date() })
+      .where(eq(users.id, userId));
+  } else {
+    await db
+      .update(users)
+      .set({ failedLoginAttempts: sql`${users.failedLoginAttempts} + 1`, lockedUntil: lockedUntil ?? null })
+      .where(eq(users.id, userId));
+  }
+}
+
+export async function setPasswordHash(userId: number, passwordHash: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+}

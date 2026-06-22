@@ -24,6 +24,7 @@ const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
 const Cart = lazy(() => import("@/pages/Cart"));
 const DistributorPortal = lazy(() => import("@/pages/DistributorPortal"));
 const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
+const SignIn = lazy(() => import("@/pages/SignIn"));
 
 function PageLoader() {
   return (
@@ -176,6 +177,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <Cart />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/signin">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <SignIn />
             </Suspense>
           </AppLayout>
         </Route>

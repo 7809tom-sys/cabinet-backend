@@ -3,7 +3,6 @@ import { Link, useLocation } from "wouter";
 import { Menu, X, ShoppingCart, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { useCart } from "@/contexts/CartContext";
 
 const NAV_LINKS = [
@@ -109,14 +108,14 @@ export function TopNav() {
               </Link>
             </div>
           ) : (
-            <a href={getLoginUrl()}>
+            <Link href="/signin">
               <Button
                 size="sm"
                 className="hidden md:flex bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
               >
                 Sign In
               </Button>
-            </a>
+            </Link>
           )}
 
           {/* Mobile menu toggle */}
@@ -163,9 +162,9 @@ export function TopNav() {
             ))}
             <div className="border-t border-border my-2" />
             {!user && (
-              <a href={getLoginUrl()} className="px-3">
+              <Link href="/signin" onClick={() => setMobileOpen(false)} className="px-3">
                 <Button className="w-full bg-[var(--color-navy)] text-white">Sign In</Button>
-              </a>
+              </Link>
             )}
           </nav>
         </div>

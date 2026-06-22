@@ -720,3 +720,23 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Replace placeholder closet parts with user's real closet product list + trade pricing (awaiting list)
 - [ ] (Backlog) Email/password admin login alongside Manus OAuth (awaiting scope confirmation)
 - [ ] (Backlog) Add DWP + AG2418 + other items from user's list once provided
+
+
+## Email/password login (alongside Manus OAuth)
+- [ ] Add passwordHash + email (unique) columns to user table; generate + apply migration
+- [ ] DB helpers: getUserByEmail, createEmailUser, setPasswordHash
+- [ ] Auth procedures: emailSignup, emailLogin, emailLogout (bcrypt hashing, issues same session cookie)
+- [ ] Rate limiting / lockout on login attempts
+- [ ] Promote 7809tom@gmail.com to admin on signup with that email
+- [ ] Login/Signup UI alongside Manus sign-in (toggle)
+- [ ] Vitest coverage for signup/login/wrong-password/lockout
+
+## Email / Password Auth
+- [x] Schema: emailLower (unique), passwordHash, failedLoginAttempts, lockedUntil on users
+- [x] DB helpers: getUserByEmailLower, createEmailUser (auto-admin for owner email), recordLoginResult, setPasswordHash
+- [x] emailAuth router (signup/login/logout) issuing same JWT session cookie as OAuth
+- [x] Lockout: 5 failed attempts -> 15 min lock
+- [x] Mount emailAuthRouter in server/routers.ts
+- [x] SignIn page (/signin) with tabbed Sign In / Create Account + "Continue with Manus"
+- [x] TopNav Sign In buttons route to /signin (desktop + mobile)
+- [x] Vitest coverage for email auth logic + logout (9 tests)

@@ -17,6 +17,11 @@ export const users = mysqlTable("users", {
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
+  // Email/password auth (alongside Manus OAuth). emailLower is the unique login key.
+  emailLower: varchar("emailLower", { length: 320 }).unique(),
+  passwordHash: varchar("passwordHash", { length: 255 }),
+  failedLoginAttempts: int("failedLoginAttempts").default(0).notNull(),
+  lockedUntil: timestamp("lockedUntil"),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin", "distributor", "dealer", "partner"]).default("user").notNull(),
   distributorId: int("distributorId"), // set for role=distributor: which supply line this user manages
