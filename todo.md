@@ -740,3 +740,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] SignIn page (/signin) with tabbed Sign In / Create Account + "Continue with Manus"
 - [x] TopNav Sign In buttons route to /signin (desktop + mobile)
 - [x] Vitest coverage for email auth logic + logout (9 tests)
+
+## Fix: "Sign In does nothing"
+- [x] Root cause: post-login redirect + TopNav Account button pointed at /account, which had no route (landed on 404 catch-all)
+- [x] Build Account page (/account): name/email/role, admin shortcut, Open Design Tool, Sign Out; redirects to /signin when logged out
+- [x] Register /account route in App.tsx
+- [x] Verified full signup -> session -> /account flow in browser; removed throwaway test user

@@ -25,6 +25,7 @@ const Cart = lazy(() => import("@/pages/Cart"));
 const DistributorPortal = lazy(() => import("@/pages/DistributorPortal"));
 const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
 const SignIn = lazy(() => import("@/pages/SignIn"));
+const Account = lazy(() => import("@/pages/Account"));
 
 function PageLoader() {
   return (
@@ -177,6 +178,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <Cart />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/account">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Account />
             </Suspense>
           </AppLayout>
         </Route>
