@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
-import { Palette } from "lucide-react";
+import { Link } from "wouter";
+import { Palette, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
@@ -126,8 +128,16 @@ function StyleCard({ style }: { style: DoorStyle }) {
           </div>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Scene is a rendered illustration of this finish across upper and base cabinets. Open any cabinet to compare trade pricing in this style.
+          Scene is a rendered illustration of this finish across upper and base cabinets.
         </p>
+
+        {/* Primary path into shopping: see EVERY cabinet available in this family */}
+        <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
+          <Button className="w-full mt-1" size="lg">
+            Shop the {style.ourName || style.styleCode} collection
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </Button>
+        </Link>
       </DialogContent>
     </Dialog>
   );

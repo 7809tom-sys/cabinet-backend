@@ -88,6 +88,101 @@ export const doorStylesRouter = router({
         .limit(1);
       return rows[0] ? scrubDoorStyle(rows[0]) : null;
     }),
+
+  byCode: publicProcedure
+    .input(z.object({ styleCode: z.string() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      // Style codes are not guaranteed unique across supply lines; return the
+      // first active match (we collapse duplicates to one family in the UI).
+      const rows = await db
+        .select()
+        .from(doorStyles)
+        .where(
+          and(
+            eq(doorStyles.styleCode, input.styleCode),
+            eq(doorStyles.isActive, true)
+          )
+        )
+        .limit(1);
+      return rows[0] ? scrubDoorStyle(rows[0]) : null;
+    }),
+
+  // ── Family catalog (the door-style-FAMILY-first shopping view) ──────────────
+  // Given one door style, return EVERY cabinet available in that style (base,
+  // wall, tall, vanity, accessory — all together) collapsed to one priced row
+  // per cabinet. This powers the /family/:styleCode page so a shopper picks a
+  // family first and then sees all cabinet types in that one look.
+  familyCatalog: publicProcedure
+    .input(z.object({ styleId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { style: null, items: [] };
+
+      const styleRows = await db
+        .select()
+        .from(doorStyles)
+        .where(eq(doorStyles.id, input.styleId))
+        .limit(1);
+      const style = styleRows[0];
+      if (!style) return { style: null, items: [] };
+
+      const rows = await db
+        .select({
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          numberOfDoors: cabinets.numberOfDoors,
+          numberOfDrawers: cabinets.numberOfDrawers,
+          graphicType: cabinets.graphicType,
+          listPrice: distributorSkus.listPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          platformSku: distributorSkus.platformSku,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(
+          and(
+            eq(distributorSkus.styleId, input.styleId),
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true),
+            eq(cabinets.isActive, true)
+          )
+        );
+
+      // Collapse to one row per cabinet (a cabinet may be carried by multiple
+      // supply lines in the same style). Prefer the lowest contractor price.
+      const byCabinet = new Map<number, (typeof rows)[number]>();
+      for (const r of rows) {
+        const existing = byCabinet.get(r.cabinetId);
+        if (!existing) {
+          byCabinet.set(r.cabinetId, r);
+          continue;
+        }
+        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+        const b = Number(
+          existing.contractorPrice ?? existing.wholesalePrice ?? Infinity
+        );
+        if (a < b) byCabinet.set(r.cabinetId, r);
+      }
+
+      const items = Array.from(byCabinet.values()).sort((a, b) =>
+        (a.masterCode || "").localeCompare(b.masterCode || "", undefined, {
+          numeric: true,
+        })
+      );
+
+      return { style: scrubDoorStyle(style), items };
+    }),
 });
 
 // ─── Cabinets ─────────────────────────────────────────────────────────────────

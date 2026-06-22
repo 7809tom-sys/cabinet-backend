@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 const Catalog = lazy(() => import("@/pages/Catalog"));
 const CabinetDetail = lazy(() => import("@/pages/CabinetDetail"));
 const DoorStyles = lazy(() => import("@/pages/DoorStyles"));
+const Family = lazy(() => import("@/pages/Family"));
 const DesignTool = lazy(() => import("@/pages/DesignTool"));
 const Packages = lazy(() => import("@/pages/Packages"));
 const PackageDetail = lazy(() => import("@/pages/PackageDetail"));
@@ -102,6 +103,17 @@ export default function App() {
               <DoorStyles />
             </Suspense>
           </AppLayout>
+        </Route>
+
+        {/* Door-style FAMILY page: pick a family, shop every cabinet in it together */}
+        <Route path="/family/:styleCode">
+          {(params) => (
+            <AppLayout>
+              <Suspense fallback={<PageLoader />}>
+                <Family styleCode={decodeURIComponent(params.styleCode)} />
+              </Suspense>
+            </AppLayout>
+          )}
         </Route>
 
         <Route path="/design">

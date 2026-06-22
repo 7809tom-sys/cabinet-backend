@@ -1,10 +1,11 @@
 import { Link } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Users, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
-import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
+import { KITCHEN_SCENES, kitchenSceneFor } from "@/lib/doorFamilyPhotos";
+import { trpc } from "@/lib/trpc";
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
 
@@ -356,13 +357,57 @@ function CategoryLinks() {
 // ─── Style Showcase (dream-kitchen scenes) ─────────────────────────────────────
 
 function StyleShowcase() {
-  const looks = [
+  // Feature real door-style families so each tile links straight into that
+  // family's full catalog (/family/:styleCode), not a generic list page.
+  const { data: styles } = trpc.doorStyles.list.useQuery();
+  const fallback = [
     { name: "White Shaker", blurb: "Bright, timeless, the #1 request", scene: KITCHEN_SCENES["shaker-white"], href: "/styles" },
     { name: "Gray Shaker", blurb: "Soft, modern transitional", scene: KITCHEN_SCENES["shaker-gray"], href: "/styles" },
     { name: "Cherry Raised Panel", blurb: "Warm, traditional elegance", scene: KITCHEN_SCENES["raised-cherry"], href: "/styles" },
     { name: "Natural Slab", blurb: "Clean, handleless, contemporary", scene: KITCHEN_SCENES["slab-natural"], href: "/styles" },
     { name: "Espresso Shaker", blurb: "Rich, dramatic, modern", scene: KITCHEN_SCENES["shaker-espresso"], href: "/styles" },
   ];
+  const looks = useMemo(() => {
+    type S = { id: number; styleCode: string; ourName: string | null; doorStyle: string | null; color: string | null; woodSpecies: string | null };
+    const list = (styles ?? []) as S[];
+    if (list.length === 0) return fallback;
+    // Pick a visually-diverse set: one family per finish bucket so the showcase
+    // shows real variety (white / gray / dark / warm wood / light wood) instead
+    // of five near-identical scenes.
+    const bucketOf = (s: S) => {
+      const t = [s.color, s.ourName, s.doorStyle, s.woodSpecies].filter(Boolean).join(" ").toLowerCase();
+      if (/black|obsidian|onyx|tricorn|espresso|java|ebony/.test(t)) return "dark";
+      if (/grey|gray|graphite|slate|sage|fog|navy|blue|cobalt/.test(t)) return "gray";
+      if (/cherry|mahogany|chestnut|saddle|autumn|rust|spice/.test(t)) return "warm";
+      if (/oak|honey|natural|maple|hickory|wheat|gold|solstice/.test(t)) return "light";
+      return "white";
+    };
+    const seen = new Set<string>();
+    const picked: S[] = [];
+    // First pass: one per finish bucket.
+    for (const s of list) {
+      const b = bucketOf(s);
+      if (seen.has(b)) continue;
+      seen.add(b);
+      picked.push(s);
+      if (picked.length >= 5) break;
+    }
+    // Fill remaining slots with any other distinct families.
+    for (const s of list) {
+      if (picked.length >= 5) break;
+      if (picked.some((p) => p.id === s.id)) continue;
+      picked.push(s);
+    }
+    return picked.map((s) => ({
+      name: s.ourName || s.styleCode,
+      blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") || "Shop every cabinet in this finish",
+      scene: kitchenSceneFor({
+        doorStyle: [s.doorStyle, s.color, s.ourName, s.woodSpecies].filter(Boolean).join(" "),
+      }),
+      href: `/family/${encodeURIComponent(s.styleCode)}`,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [styles]);
   return (
     <section className="py-16 md:py-20 bg-muted/30">
       <div className="container">

@@ -145,7 +145,11 @@ function FamilyPicker({
               // We sell the dream kitchen, not a door: lead with a full-room
               // lifestyle scene (RTA-retailer style). The color-accurate door
               // swatch is demoted to a small detail chip overlaid on the scene.
-              const scene = kitchenSceneFor({ doorStyle: f.doorStyle });
+              const scene = kitchenSceneFor({
+                doorStyle: [f.doorStyle, f.color, f.name, f.woodSpecies]
+                  .filter(Boolean)
+                  .join(" "),
+              });
               return (
                 <button
                   key={f.styleId}
@@ -282,7 +286,11 @@ function LockedCatalog({
         {/* Dream-kitchen scene banner for the locked line */}
         <div className="relative mb-4 overflow-hidden rounded-2xl">
           <img
-            src={kitchenSceneFor({ doorStyle: family.doorStyle })}
+            src={kitchenSceneFor({
+              doorStyle: [family.doorStyle, family.color, family.name]
+                .filter(Boolean)
+                .join(" "),
+            })}
             alt={`${family.name} kitchen`}
             className="h-44 w-full object-cover sm:h-56"
           />

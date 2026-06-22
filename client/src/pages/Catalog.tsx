@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+// (useMemo used for featured door-style families)
 import { Link, useSearch, useLocation } from "wouter";
 import { Search, Filter, ChevronRight, ChevronLeft, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { type CabinetLike } from "@/lib/cabinetGraphics";
-import { cabinetProductPhoto, KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
+import { KITCHEN_SCENES, kitchenSceneFor } from "@/lib/doorFamilyPhotos";
 
 // Door-style tiles for the catalog landing — the shop is organized by door style,
 // not Base/Wall/Tall categories. Each links into the full Door Styles experience.
@@ -97,35 +98,17 @@ interface CabinetItem extends CabinetLike {
 }
 
 function CabinetCard({ cabinet }: { cabinet: CabinetItem }) {
-  const productPhoto = cabinetProductPhoto({
-    category: cabinet.category,
-    doorStyle: (cabinet as { doorStyle?: string | null }).doorStyle ?? null,
-  });
   return (
     <Link href={`/catalog/${cabinet.masterCode}`}>
       <div className="cabinet-card group rounded-xl border border-border bg-card hover:border-primary/30 cursor-pointer overflow-hidden transition-colors">
-        {/* Real cabinet boxes get a dimensional 3D render; accessories (trim,
-            panels, shelves, fronts, inserts) show the accurate to-scale drawing. */}
+        {/* Every item shows its accurate, to-scale drawing so the picture always
+            matches the real item type (drawer base draws drawers, sink base shows
+            the sink cutout, glass walls show glass, corners show the L-shape). */}
         <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3">
-          {productPhoto ? (
-            <>
-              <img
-                src={productPhoto}
-                alt={cabinet.description ?? `${cabinet.masterCode} cabinet`}
-                loading="lazy"
-                className="h-full w-auto max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.04]"
-              />
-              {/* To-scale drawing as a small corner badge */}
-              <div className="absolute bottom-2 right-2 h-10 w-10 rounded-md border border-border bg-white/90 backdrop-blur p-1 shadow-sm" title="Drawn to scale">
-                <CabinetDrawing cabinet={cabinet} className="h-full w-full" />
-              </div>
-            </>
-          ) : (
-            <CabinetDrawing
-              cabinet={cabinet}
-              className="h-full w-auto max-w-full transition-transform duration-300 group-hover:scale-[1.04]"
-            />
-          )}
+          <CabinetDrawing
+            cabinet={cabinet}
+            className="h-full w-auto max-w-full transition-transform duration-300 group-hover:scale-[1.04]"
+          />
         </div>
 
         <div className="p-4">
@@ -174,6 +157,26 @@ function CategoryLanding({
   onSearch: (term: string) => void;
 }) {
   const [term, setTerm] = useState("");
+
+  // Pull real door styles so the "Shop by Door Style" tiles each link into that
+  // family's full catalog (/family/:styleCode), not a generic list page.
+  const { data: styles } = trpc.doorStyles.list.useQuery();
+  const featuredStyles = useMemo(() => {
+    type FeaturedStyle = {
+      id: number;
+      styleCode: string;
+      ourName: string | null;
+      doorStyle: string | null;
+      color: string | null;
+      woodSpecies: string | null;
+    };
+    const map = new Map<string, FeaturedStyle>();
+    for (const s of (styles ?? []) as FeaturedStyle[]) {
+      const key = (s.ourName || s.styleCode || String(s.id)).toLowerCase();
+      if (!map.has(key)) map.set(key, s);
+    }
+    return Array.from(map.values()).slice(0, 6);
+  }, [styles]);
 
   return (
     <div>
@@ -228,10 +231,28 @@ function CategoryLanding({
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {DOOR_STYLE_TILES.map((tile) => (
+        {(featuredStyles.length > 0
+          ? featuredStyles.map((s) => ({
+              label: s.ourName || s.styleCode,
+              href: `/family/${encodeURIComponent(s.styleCode)}`,
+              image: kitchenSceneFor({
+                doorStyle: [s.doorStyle, s.color, s.ourName, s.woodSpecies]
+                  .filter(Boolean)
+                  .join(" "),
+              }),
+              blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") ||
+                "Shop every cabinet in this finish.",
+            }))
+          : DOOR_STYLE_TILES.map((t) => ({
+              label: t.label,
+              href: "/styles",
+              image: t.image,
+              blurb: t.blurb,
+            }))
+        ).map((tile) => (
           <Link
             key={tile.label}
-            href="/styles"
+            href={tile.href}
             className="group relative h-52 overflow-hidden rounded-2xl border border-border text-left transition-transform duration-200 hover:-translate-y-0.5 block"
           >
             <img

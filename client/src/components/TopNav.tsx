@@ -7,9 +7,9 @@ import { getLoginUrl } from "@/const";
 import { useCart } from "@/contexts/CartContext";
 
 const NAV_LINKS = [
+  { label: "Shop by Style", href: "/styles" },
   { label: "Kitchen Packages", href: "/packages" },
-  { label: "Catalog", href: "/catalog" },
-  { label: "Door Styles", href: "/styles" },
+  { label: "All Cabinets", href: "/catalog" },
   { label: "Design Tool", href: "/design" },
   { label: "Build an Order", href: "/order/new" },
   { label: "Photo to Cart", href: "/photo-to-cart" },

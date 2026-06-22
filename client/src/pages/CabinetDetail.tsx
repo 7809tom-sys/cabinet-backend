@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import {
   ChevronLeft, Package, Palette, DollarSign,
   ShoppingCart, Info, Check
@@ -12,7 +12,8 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
-import { doorFamilyPhoto, cabinetProductPhoto, kitchenSceneWithCopy } from "@/lib/doorFamilyPhotos";
+import { doorFamilyPhoto, kitchenSceneWithCopy } from "@/lib/doorFamilyPhotos";
+import { finishColors } from "@/lib/design";
 import { useCart } from "@/contexts/CartContext";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
@@ -64,7 +65,15 @@ interface Props {
 }
 
 export default function CabinetDetail({ masterCode }: Props) {
-  const [selectedStyleId, setSelectedStyleId] = useState<number | null>(null);
+  const searchStr = useSearch();
+  // When a shopper arrives from a door-style FAMILY page we pre-lock that style
+  // (passed as ?style=<styleId>) so the cabinet shows in the family they picked.
+  const styleParam = (() => {
+    const v = new URLSearchParams(searchStr).get("style");
+    const n = v ? Number(v) : NaN;
+    return Number.isFinite(n) ? n : null;
+  })();
+  const [selectedStyleId, setSelectedStyleId] = useState<number | null>(styleParam);
   const [tier, setTier] = useState<PricingTier>("Contractor");
   const [qty, setQty] = useState(1);
 
@@ -79,9 +88,21 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   const styleRows = (styles ?? []) as StyleRow[];
 
-  // Auto-select first style
-  const activeStyle = selectedStyleId ?? styleRows[0]?.styleId ?? null;
+  // Auto-select: the family passed in ?style= if it's available for this
+  // cabinet, otherwise the explicit user choice, otherwise the first style.
+  const styleParamAvailable =
+    styleParam != null && styleRows.some((s) => s.styleId === styleParam);
+  const activeStyle =
+    selectedStyleId ??
+    (styleParamAvailable ? styleParam : null) ??
+    styleRows[0]?.styleId ??
+    null;
   const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
+
+  // Recolor the to-scale drawing to the selected door style's real finish.
+  const finishFace = finishColors(
+    selectedRow?.color || selectedRow?.name || selectedRow?.styleCode
+  ).face;
 
   const { addItem } = useCart();
 
@@ -153,9 +174,15 @@ export default function CabinetDetail({ masterCode }: Props) {
         <span className="text-foreground font-medium">{masterCode}</span>
       </nav>
 
-      {/* Kitchen-scene lead-in: sell the finished kitchen first */}
+      {/* Kitchen-scene lead-in: sell the finished kitchen first.
+          Combine panel family + color + name so the scene matches the finish. */}
       {(() => {
-        const scene = kitchenSceneWithCopy(selectedRow ?? { doorStyle: null });
+        const sceneKey = selectedRow
+          ? [selectedRow.doorStyle, selectedRow.color, selectedRow.name]
+              .filter(Boolean)
+              .join(" ")
+          : null;
+        const scene = kitchenSceneWithCopy({ doorStyle: sceneKey });
         return (
           <div className="relative overflow-hidden rounded-2xl border border-border mb-8">
             <img
@@ -180,36 +207,22 @@ export default function CabinetDetail({ masterCode }: Props) {
       <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
         {/* Left: Image + specs */}
         <div>
-          {/* Product image: 3D render (primary) with a to-scale dimensions view */}
-          <Tabs defaultValue="product" className="mb-2">
-            <TabsList className="mb-2">
-              <TabsTrigger value="product" className="text-xs">Product</TabsTrigger>
-              <TabsTrigger value="dimensions" className="text-xs">Dimensions</TabsTrigger>
-            </TabsList>
-            <TabsContent value="product">
-              <div className="rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 h-64 flex items-center justify-center overflow-hidden p-4">
-                {(() => {
-                  const render = cabinetProductPhoto({ category: cabinet.category, doorStyle: selectedRow?.doorStyle ?? null });
-                  // Accessories (trim, panels, shelves, fronts, inserts) have no
-                  // representative glamour render — show the accurate drawing instead.
-                  return render ? (
-                    <img
-                      src={render}
-                      alt={cabinet.description ?? `${masterCode} cabinet`}
-                      className="h-full w-auto max-w-full object-contain"
-                    />
-                  ) : (
-                    <CabinetDrawing cabinet={cabinet} className="h-full w-auto max-w-full" />
-                  );
-                })()}
-              </div>
-            </TabsContent>
-            <TabsContent value="dimensions">
-              <div className="rounded-xl border border-border bg-gradient-to-b from-muted/20 to-muted/40 h-64 flex items-center justify-center overflow-hidden p-6">
-                <CabinetDrawing cabinet={cabinet} className="h-full w-auto max-w-full" />
-              </div>
-            </TabsContent>
-          </Tabs>
+          {/* Product image: an accurate, to-scale drawing of THIS exact item,
+              recolored to the selected door-style finish. The drawing is driven
+              by the cabinet's real type + dimensions + door/drawer counts, so it
+              always matches the actual item (no generic/wrong renders). */}
+          <div className="mb-2">
+            <div className="rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 h-64 flex items-center justify-center overflow-hidden p-4">
+              <CabinetDrawing
+                cabinet={cabinet}
+                finishColor={finishFace}
+                className="h-full w-auto max-w-full"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5 text-center">
+              Drawn to scale{selectedRow ? ` in ${selectedRow.name}` : ""} — front elevation
+            </p>
+          </div>
           {selectedRow ? (
             <div className="flex items-center gap-3 mb-6 rounded-lg border border-border p-2.5">
               {doorFamilyPhoto(selectedRow) ? (
