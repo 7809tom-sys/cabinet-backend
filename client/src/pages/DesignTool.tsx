@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearch } from "wouter";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
-  DollarSign, PanelTop, Columns3, Ruler, Square, Download,
+  DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,8 @@ import { toast } from "sonner";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight,
-  conflictingUids, isOnIsland,
+  conflictingUids, isOnIsland, isCornerCabinet,
+  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   APPLIANCES, applianceAsDesignCabinet,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
@@ -96,7 +97,7 @@ export default function DesignTool() {
 
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "wall" | "tall" | "appliance" | "opening">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening">("base");
 
   // Pricing selectors
   const [styleId, setStyleId] = useState<number | null>(null);
@@ -117,13 +118,28 @@ export default function DesignTool() {
   const { data: paletteCabinets, isLoading: paletteLoadingRaw } =
     trpc.design.placeableCabinets.useQuery(
       {
-        placement: paletteType === "appliance" || paletteType === "opening" ? "base" : paletteType,
+        placement:
+          paletteType === "appliance" || paletteType === "opening"
+            ? "base"
+            : paletteType === "wallht" || paletteType === "cornerwall"
+            ? "wall"
+            : paletteType,
         // Narrow to the chosen line + style so only purchasable cabinets show.
         styleId: styleId ?? undefined,
       },
       { enabled: paletteType !== "appliance" && paletteType !== "opening" }
     );
   const paletteLoading = paletteType === "appliance" || paletteType === "opening" ? false : paletteLoadingRaw;
+
+  // Detect a diagonal/corner WALL cabinet for the dedicated "Corner Wall" tab.
+  const isCornerWall = useCallback((c: DesignCabinet) => {
+    const sub = (c.subCategory || "").toLowerCase();
+    return (
+      c.isCornerCabinet === true ||
+      sub.includes("corner") ||
+      isCornerCabinet(c.masterCode, c.description || undefined)
+    );
+  }, []);
 
   // Doors & windows handlers.
   const addOpening = useCallback((def: OpeningDef) => {
@@ -154,9 +170,17 @@ export default function DesignTool() {
       paletteType === "appliance" ? appliancePalette : ((paletteCabinets as DesignCabinet[]) ?? []);
     const s = paletteSearch.toLowerCase();
     return source
+      .filter((c) => {
+        // "Corner Wall" shows only diagonal/corner wall cabinets; "Wall by Ht"
+        // and plain "Wall" show the rest of the wall cabinets (non-corner) so
+        // the two tabs don't duplicate each other.
+        if (paletteType === "cornerwall") return isCornerWall(c);
+        if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
+        return true;
+      })
       .filter((c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
       .slice(0, 80);
-  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette]);
+  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall]);
 
   // Group the palette by cabinet height so wall cabinets (and others) are easy
   // to find by size — mirrors how pros scan 2020's catalog by height.
@@ -281,7 +305,8 @@ export default function DesignTool() {
   const buildRows = useMemo<BuildSheetRow[]>(() => {
     const map = new Map<string, BuildSheetRow>();
     for (const p of placed) {
-      const key = `${p.masterCode}|${Math.round(p.width)}`;
+      const sw = resolveSwing(p);
+      const key = `${p.masterCode}|${Math.round(p.width)}|${sw}`;
       const unit = priceMap.get(p.cabinetId) ?? null;
       const existing = map.get(key);
       if (existing) existing.qty += 1;
@@ -293,6 +318,7 @@ export default function DesignTool() {
           heightIn: placedHeight(p),
           depthIn: rotatedSize(p).d,
           placement: p.placement,
+          swing: sw === "none" ? undefined : sw,
           qty: 1,
           unitPrice: styleId ? unit : null,
         });
@@ -357,6 +383,7 @@ export default function DesignTool() {
       unitPrice: number | null;
       hasConflict: boolean;
       label: string;
+      swing: DoorSwing;
     }>();
     for (const p of placed) {
       const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}`;
@@ -375,6 +402,7 @@ export default function DesignTool() {
           unitPrice: styleId ? unit : null,
           hasConflict: conflictUids.has(p.uid),
           label: dimLabel(p),
+          swing: resolveSwing(p),
         });
       }
     }
@@ -494,6 +522,27 @@ export default function DesignTool() {
     setPlaced((prev) => prev.map((p) => (p.uid === uid ? { ...p, x, y } : p)));
   }, []);
 
+  const swingSelected = () => {
+    if (!selectedUid) return;
+    setPlaced((prev) =>
+      prev.map((p) => {
+        if (p.uid !== selectedUid) return p;
+        if (!hasDoorSwing(p)) {
+          toast.info("This item has no hinged door to swing.");
+          return p;
+        }
+        const current = resolveSwing(p);
+        if (current === "double") {
+          toast.info("Double-door cabinet — both doors open from the center.");
+          return p;
+        }
+        const next: DoorSwing = cycleSwing(current);
+        toast.success(swingText(next));
+        return { ...p, swing: next };
+      })
+    );
+  };
+
   const rotateSelected = () => {
     if (!selectedUid) return;
     setPlaced((prev) =>
@@ -563,6 +612,9 @@ export default function DesignTool() {
       } else if ((e.key === "r" || e.key === "R") && selectedUid && !measureMode) {
         e.preventDefault();
         rotateSelected();
+      } else if ((e.key === "s" || e.key === "S") && selectedUid && !measureMode) {
+        e.preventDefault();
+        swingSelected();
       } else if (e.key === "Escape") {
         setSelectedUid(null);
         setSelectedOpeningUid(null);
@@ -571,7 +623,7 @@ export default function DesignTool() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening, measureMode, rotateSelected]);
+  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening, measureMode, rotateSelected, swingSelected]);
 
   const dragDataRef = useState<{ current: DesignCabinet | null }>(() => ({ current: null }))[0];
 
@@ -766,6 +818,9 @@ export default function DesignTool() {
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-8 gap-1.5">
             <RotateCw className="h-3.5 w-3.5" /> Rotate <span className="text-[10px] opacity-60">(R)</span>
           </Button>
+          <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-8 gap-1.5">
+            <DoorOpen className="h-3.5 w-3.5" /> Swing <span className="text-[10px] opacity-60">(S)</span>
+          </Button>
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </Button>
@@ -812,7 +867,7 @@ export default function DesignTool() {
         <div className="w-60 shrink-0 border-r border-border bg-card flex flex-col">
           <div className="p-3 border-b border-border">
             <div className="flex rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
-              {(["base", "wall", "tall", "appliance", "opening"] as const).map((t) => (
+              {(["base", "wall", "wallht", "cornerwall", "tall", "appliance", "opening"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setPaletteType(t)}
@@ -820,7 +875,15 @@ export default function DesignTool() {
                     paletteType === t ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {t === "appliance" ? "Appli." : t === "opening" ? "Door/Win" : t}
+                  {t === "appliance"
+                    ? "Appli."
+                    : t === "opening"
+                    ? "Door/Win"
+                    : t === "wallht"
+                    ? "Wall by Ht"
+                    : t === "cornerwall"
+                    ? "Corner Wall"
+                    : t}
                 </button>
               ))}
             </div>
@@ -1059,7 +1122,12 @@ export default function DesignTool() {
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-muted-foreground truncate">{g.label} · {g.sample.placement}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {g.label} · {g.sample.placement}
+                        {(g.swing === "left" || g.swing === "right") && (
+                          <span className="ml-1 font-semibold text-foreground/70">· {g.swing === "left" ? "L hinge" : "R hinge"}</span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <div className="text-right">

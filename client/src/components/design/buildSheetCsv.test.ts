@@ -48,7 +48,7 @@ describe("buildSheetCsv", () => {
     })!;
     expect(csv).toContain("Door Style:,(not selected)");
     // unpriced row: a full W x H x D size cell, then empty unit price + line total
-    expect(csv).toContain('B12,"12"" Base","12""W x 34.5""H x 24""D",12,34.5,24,base,1,,');
+    expect(csv).toContain('B12,"12"" Base","12""W x 34.5""H x 24""D",12,34.5,24,base,,1,,');
   });
 
   it("escapes values containing commas/quotes", () => {

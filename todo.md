@@ -678,3 +678,26 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Island and the cabinets on it should move together when the island is dragged
 - [x] Build-sheet PRICING panel: consolidate identical cabinets (code+size) into one line with visible ×qty + line total
 - [x] Consolidated build-sheet line: delete control removes the item from the design (decrement qty when >1)
+- [ ] Door swing: add hinge side (Left/Right) per door cabinet — data model + toggle control in Design Tool
+- [ ] Door swing: render L/R indicator on plan + elevation canvas; show on build-sheet/order lines
+- [ ] Door swing: Vitest coverage for swing default + toggle
+- [ ] (backlog) Email + password admin login for 7809tom@gmail.com (scope TBD with user)
+- [ ] Add a visible "Corner Wall" category/tab in the Design Tool cabinet picker (group diagonal/corner wall cabinets)
+- [x] Add "Wall by Ht" and "Corner Wall" tabs to Design Tool cabinet picker
+- [x] Diagonal corner wall cabinet draws as a 45-degree triangle (not L-shape/rectangle)
+- [ ] Diagonal corner cabinet footprint should be a square bounding box (~24" each wall), not 12" deep
+- [ ] Appliance Garage in Faircrest door style does not reflect correctly (investigate data/availability)
+
+## Design Tool — session (round 3)
+- [x] Door swing (Left/Right hinge) helpers + data model
+- [x] Swing toolbar button + 'S' shortcut on selected cabinet
+- [x] Swing shown on consolidated panel line + canvas hinge marker
+- [x] Swing column in exported build-sheet CSV
+- [x] Diagonal corner wall: 12"+12"+45° pentagon footprint
+- [x] Angled wall (AW) / appliance garage (AG) share diagonal footprint
+- [x] Corner Wall + Wall-by-Height picker tabs
+- [x] Wall cabinets allowed on island (move with island)
+- [ ] AG2418 appliance garage not in catalog — needs catalog data (awaiting list)
+- [ ] No "Faircrest" door style in DB — confirm intended style name
+- [ ] Click to set a (wall) cabinet to ground level / floor — pending scope confirm (A vs B)
+- [ ] Email + password login + admin (7809tom@gmail.com) — pending scope confirm

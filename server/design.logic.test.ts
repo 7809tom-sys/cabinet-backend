@@ -8,6 +8,11 @@ import {
   conflictingUids,
   isOnIsland,
   dimLabel,
+  isDiagonalCorner,
+  diagonalCornerClipPath,
+  footprintDepth,
+  resolveSwing,
+  cycleSwing,
 } from "../client/src/lib/design";
 
 // Minimal factory for a placed item.
@@ -23,6 +28,9 @@ function mk(partial: Partial<PlacedCabinet> & { uid: string; placement: PlacedCa
     width: partial.width ?? 24,
     depth: partial.depth ?? 24,
     height: partial.height,
+    swing: partial.swing,
+    numberOfDoors: partial.numberOfDoors,
+    numberOfDrawers: partial.numberOfDrawers,
     rotation: partial.rotation ?? 0,
   };
 }
@@ -101,6 +109,10 @@ describe("isOnIsland", () => {
     const cab = mk({ uid: "a", placement: "base", x: 0, y: 0, width: 24, depth: 24 });
     expect(isOnIsland(cab, island)).toBe(false);
   });
+  it("treats a WALL cabinet on the island the same as a base cabinet (wall uppers allowed on islands)", () => {
+    const wallCab = mk({ uid: "w", placement: "wall", x: 56, y: 46, width: 24, depth: 12 });
+    expect(isOnIsland(wallCab, island)).toBe(true);
+  });
 });
 
 describe("dimLabel — full W x H x D", () => {
@@ -111,5 +123,48 @@ describe("dimLabel — full W x H x D", () => {
   it("swaps width/depth when rotated 90 degrees", () => {
     const cab = mk({ uid: "a", placement: "base", width: 24, depth: 12, height: 34.5, rotation: 90 });
     expect(dimLabel(cab)).toBe('12"W \u00d7 34.5"H \u00d7 24"D');
+  });
+});
+
+describe("diagonal corner wall cabinet", () => {
+  it("detects DCW codes and 'diagonal' descriptions as diagonal corners", () => {
+    expect(isDiagonalCorner("DCW-24-30", "24x30 Diagonal Corner Wall Cabinet")).toBe(true);
+    expect(isDiagonalCorner("WDC2442", "")).toBe(true);
+    expect(isDiagonalCorner("W3030", "30 Wall Cabinet")).toBe(false);
+  });
+  it("clip-path is a 5-point pentagon (two 12\" legs + 45-degree face)", () => {
+    const cp = diagonalCornerClipPath(0, 0.5);
+    // pentagon => 5 coordinate pairs (4 commas inside the polygon)
+    const inner = cp.replace(/^polygon\(/, "").replace(/\)$/, "");
+    expect(inner.split(",").length).toBe(5);
+    expect(cp).toContain("50%");
+  });
+  it("rotates to a different polygon for each orientation", () => {
+    const set = new Set([0, 90, 180, 270].map((r) => diagonalCornerClipPath(r)));
+    expect(set.size).toBe(4);
+  });
+  it("footprint depth equals its width (square bounding box) so the angle reads", () => {
+    const dcw = { masterCode: "DCW-24-30", description: "Diagonal Corner Wall", category: "Wall", subCategory: "Diagonal Corner Wall", width: "24", height: "30", depth: "12", placement: "wall" as const, numberOfDoors: 1, numberOfDrawers: 0, isCornerCabinet: true, id: 1 };
+    expect(footprintDepth(dcw)).toBe(24);
+  });
+});
+
+describe("door swing (hinge side)", () => {
+  it("defaults a single-door cabinet to a left hinge", () => {
+    const cab = mk({ uid: "a", placement: "base", masterCode: "B18", numberOfDoors: 1 });
+    expect(resolveSwing(cab)).toBe("left");
+  });
+  it("defaults a two-door cabinet to double", () => {
+    const cab = mk({ uid: "a", placement: "base", masterCode: "B36", numberOfDoors: 2 });
+    expect(resolveSwing(cab)).toBe("double");
+  });
+  it("treats appliances as no swing", () => {
+    const cab = mk({ uid: "a", placement: "appliance", masterCode: "RANGE-30" });
+    expect(resolveSwing(cab)).toBe("none");
+  });
+  it("cycles a single door left <-> right but leaves double alone", () => {
+    expect(cycleSwing("left")).toBe("right");
+    expect(cycleSwing("right")).toBe("left");
+    expect(cycleSwing("double")).toBe("double");
   });
 });

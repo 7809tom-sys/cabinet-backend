@@ -1,7 +1,8 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, snapPosition, hasCollision,
-  isCornerCabinet, cornerClipPath, formatInches, isBlindCorner,
+  isCornerCabinet, cornerClipPath, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner,
+  resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide, WALL_LABELS,
 } from "@/lib/design";
@@ -560,6 +561,7 @@ export function PlanCanvas({
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const isCorner = isCornerCabinet(p.masterCode, p.description);
+            const isDiagonal = isDiagonalCorner(p.masterCode, p.description);
             const isBlind = isBlindCorner(p.masterCode, p.description);
             const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
@@ -606,7 +608,11 @@ export function PlanCanvas({
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
                   borderRadius: isCorner ? 0 : 2,
-                  clipPath: isCorner ? cornerClipPath(p.rotation) : undefined,
+                  clipPath: isDiagonal
+                    ? diagonalCornerClipPath(p.rotation)
+                    : isCorner
+                    ? cornerClipPath(p.rotation)
+                    : undefined,
                 }}
                 title={`${p.masterCode} — ${p.description}`}
               >
@@ -624,6 +630,23 @@ export function PlanCanvas({
                     style={{ height: 2 }}
                   />
                 )}
+                {/* Hinge-side marker: a short bar on the hinge edge of the door
+                    face so the shop can see Left vs Right swing at a glance. */}
+                {(() => {
+                  const sw = resolveSwing(p);
+                  if (sw !== "left" && sw !== "right") return null;
+                  return (
+                    <div
+                      className="absolute top-1/2 z-10 -translate-y-1/2 rounded bg-[#1a2744]"
+                      style={{
+                        [sw === "left" ? "left" : "right"]: 1,
+                        width: 2,
+                        height: "55%",
+                      } as React.CSSProperties}
+                      title={sw === "left" ? "Left hinge" : "Right hinge"}
+                    />
+                  );
+                })()}
                 {/* Blind corners need a corner filler strip for door clearance — show
                     a hatched gap marker on the inside edge so the layout reads correctly. */}
                 {isBlind && (

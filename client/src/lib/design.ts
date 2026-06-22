@@ -88,6 +88,10 @@ export interface DesignCabinet {
   isCornerCabinet: boolean | null;
 }
 
+// Door hinge side as seen from the front of the cabinet. "none" is used for
+// items without a hinged door (drawer bases, open shelves, panels, appliances).
+export type DoorSwing = "left" | "right" | "double" | "none";
+
 export interface PlacedCabinet {
   uid: string;
   cabinetId: number;
@@ -102,7 +106,58 @@ export interface PlacedCabinet {
   // saved designs that never stored a height; elevationBox falls back to the
   // standard height for the placement bucket when this is missing.
   height?: number;
+  // Hinge side (Left/Right) of the door, so the shop knows how to hinge it.
+  // Optional for backward-compat; resolve with resolveSwing() which falls back
+  // to a sensible default based on the cabinet's door count.
+  swing?: DoorSwing;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
   rotation: number;
+}
+
+// True when a cabinet has a hinged door whose swing side is meaningful. A
+// drawer-only base, an appliance, an open cabinet, or a panel has no swing.
+export function hasDoorSwing(p: { placement: Placement; numberOfDoors?: number | null; numberOfDrawers?: number | null; description?: string | null; masterCode?: string | null; subCategory?: string | null }): boolean {
+  if (p.placement === "appliance") return false;
+  if (isPanelItem(p)) return false;
+  // If we know the door count, trust it.
+  if (typeof p.numberOfDoors === "number") return p.numberOfDoors > 0;
+  // Drawer-only bases (no doors) typically have a drawer count and no doors.
+  const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
+  if (/\bdrawer base\b|^db|drawer\b/.test(hay) && !/door/.test(hay)) return false;
+  // Default: assume it has a door.
+  return true;
+}
+
+// Resolve a placed cabinet's swing, defaulting double-door cabinets to "double"
+// and single-door cabinets to "left" (most common), and "none" for no-door items.
+export function resolveSwing(p: PlacedCabinet): DoorSwing {
+  if (!hasDoorSwing(p)) return "none";
+  if (p.swing && p.swing !== "none") return p.swing;
+  if (typeof p.numberOfDoors === "number" && p.numberOfDoors >= 2) return "double";
+  return p.swing ?? "left";
+}
+
+// Cycle a single-door swing Left -> Right -> Left. Double doors stay double.
+export function cycleSwing(current: DoorSwing): DoorSwing {
+  if (current === "double" || current === "none") return current;
+  return current === "left" ? "right" : "left";
+}
+
+// Short label for the swing, e.g. "L", "R", "LR".
+export function swingLabel(s: DoorSwing): string {
+  if (s === "left") return "L";
+  if (s === "right") return "R";
+  if (s === "double") return "LR";
+  return "";
+}
+
+// Full-word swing label for build sheets, e.g. "Left hinge".
+export function swingText(s: DoorSwing): string {
+  if (s === "left") return "Left hinge";
+  if (s === "right") return "Right hinge";
+  if (s === "double") return "Double door";
+  return "";
 }
 
 // Standard height (inches) for a placement bucket, used as a fallback when a
@@ -140,8 +195,13 @@ export function dim(value: string | null | undefined, fallback: number): number 
 export function footprintDepth(c: DesignCabinet): number {
   // Panels/skins are flat 3/4" stock regardless of placement bucket.
   if (isPanelItem(c)) return dim(c.depth, STD.PANEL_THICKNESS) || STD.PANEL_THICKNESS;
-  // Panels/skins are flat 3/4" stock regardless of placement bucket.
-  if (isPanelItem(c)) return dim(c.depth, STD.PANEL_THICKNESS) || STD.PANEL_THICKNESS;
+  // A diagonal corner cabinet occupies the same span on BOTH walls, so its
+  // plan footprint is a square bounding box (e.g. 24" wide => 24" deep), not the
+  // standard shallow wall/base depth.
+  if (isDiagonalCorner(c.masterCode || "", c.description || undefined)) {
+    const w = dim(c.width, 24);
+    return w > 0 ? w : 24;
+  }
   if (c.placement === "wall") return dim(c.depth, STD.WALL_DEPTH);
   if (c.placement === "tall") return dim(c.depth, STD.TALL_DEPTH);
   if (c.placement === "appliance") return dim(c.depth, STD.BASE_DEPTH);
@@ -359,10 +419,45 @@ function height_safe(roomDepth: number, _placement: Placement): number {
 // by masterCode prefix so both placed packages and palette drops render correctly.
 export function isCornerCabinet(masterCode: string, description?: string): boolean {
   const code = (masterCode || "").toUpperCase();
-  if (/^(BBC|WBC|BLB|LSB|BEC|CSB|WLS|DCW|DCB|ER)/.test(code)) return true;
+  if (/^(BBC|WBC|BLB|LSB|BEC|CSB|WLS|DCW|DCB|ER|AW-|AW\d|WDC|KWD|DCFF|AG-|AG\d|CAG)/.test(code)) return true;
   if (/-CNR|CORNER/.test(code)) return true;
   const desc = (description || "").toLowerCase();
-  return /corner|lazy susan|easy reach|blind/.test(desc);
+  return /corner|lazy susan|easy reach|blind|diagonal|angled (wall|corner)/.test(desc);
+}
+
+// A diagonal corner cabinet has a single 45-degree angled front face spanning
+// the corner (NOT an L-shaped notch like a blind/lazy-susan corner). Codes like
+// DCW (Diagonal Corner Wall), WDC, KWD and descriptions containing "diagonal".
+export function isDiagonalCorner(masterCode: string, description?: string): boolean {
+  const code = (masterCode || "").toUpperCase();
+  // Diagonal corner wall/base, angled wall (AW), and corner appliance garages
+  // (AG) all sit across the corner at 45 degrees and share the same footprint.
+  if (/^(DCW|WDC|KWD|DCB|DCFF|AW-|AW\d|AG-|AG\d|CAG)/.test(code)) return true;
+  const desc = (description || "").toLowerCase();
+  if (/diagonal|angled (wall|corner)|appliance garage/.test(desc)) return true;
+  return false;
+}
+
+// Returns a CSS clip-path describing the plan footprint of a diagonal corner
+// cabinet. The cabinet comes out a fixed depth (~12") along EACH wall, then the
+// front cuts back at a 45-degree diagonal across the inside corner. Within a
+// square bounding box this is a pentagon: two short legs (the wall-facing backs)
+// plus the angled front face. `legRatio` is the leg depth as a fraction of the
+// box (12" of a 24" box = 0.5). Rotation selects which corner is the wall corner
+// (rot 0 = wall corner at top-left; the diagonal face points to bottom-right).
+export function diagonalCornerClipPath(rotation: number, legRatio = 0.5): string {
+  const r = ((rotation % 360) + 360) % 360;
+  const k = Math.round(legRatio * 100); // leg depth as %
+  switch (r) {
+    case 90: // wall corner top-right; face toward bottom-left
+      return `polygon(100% 0, 100% 100%, ${100 - k}% 100%, 0 ${k}%, 0 0)`;
+    case 180: // wall corner bottom-right; face toward top-left
+      return `polygon(100% 100%, 0 100%, 0 ${100 - k}%, ${100 - k}% 0, 100% 0)`;
+    case 270: // wall corner bottom-left; face toward top-right
+      return `polygon(0 100%, 0 0, ${k}% 0, 100% ${100 - k}%, 100% 100%)`;
+    default: // 0 — wall corner top-left; face toward bottom-right
+      return `polygon(0 0, 100% 0, 100% ${k}%, ${k}% 100%, 0 100%)`;
+  }
 }
 
 // Returns a CSS clip-path polygon describing an L-shape inscribed in the

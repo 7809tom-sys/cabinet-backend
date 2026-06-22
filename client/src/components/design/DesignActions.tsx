@@ -25,8 +25,18 @@ export interface BuildSheetRow {
   heightIn: number;
   depthIn: number;
   placement: string;
+  // Door hinge side, e.g. "left" | "right" | "double"; omitted for no-door items.
+  swing?: string;
   qty: number;
   unitPrice: number | null;
+}
+
+// Human label for the hinge side used on the build sheet.
+function swingCell(s: string | undefined): string {
+  if (s === "left") return "Left hinge";
+  if (s === "right") return "Right hinge";
+  if (s === "double") return "Double door";
+  return "";
 }
 
 // Inch value without trailing zeros (34.5 -> "34.5", 24 -> "24"). Returns ""
@@ -84,7 +94,7 @@ export interface BuildSheetArgs {
 export function buildSheetCsv(args: BuildSheetArgs): string | null {
   const { room, styleName, tier, total, buildRows, extraLines } = args;
   if (buildRows.length === 0) return null;
-  const header = ["Item Code", "Description", "Size (W x H x D)", "W (in)", "H (in)", "D (in)", "Type", "Qty", "Unit Price", "Line Total"];
+  const header = ["Item Code", "Description", "Size (W x H x D)", "W (in)", "H (in)", "D (in)", "Type", "Swing", "Qty", "Unit Price", "Line Total"];
   const lines: string[] = [];
   lines.push(`Cabinet Dealz Build Sheet`);
   lines.push(`Door Style:,${csvEscape(styleName ?? "(not selected)")}`);
@@ -97,15 +107,15 @@ export function buildSheetCsv(args: BuildSheetArgs): string | null {
     lines.push([
       r.code, r.description, sizeCell(r),
       fmtIn(r.widthIn), fmtIn(r.heightIn), fmtIn(r.depthIn),
-      r.placement, r.qty,
+      r.placement, swingCell(r.swing), r.qty,
       r.unitPrice != null ? r.unitPrice.toFixed(2) : "", lineTotal,
     ].map(csvEscape).join(","));
   }
   for (const e of extraLines) {
-    lines.push([e.label, e.detail, "", "", "", "", "", "", "", "incl."].map(csvEscape).join(","));
+    lines.push([e.label, e.detail, "", "", "", "", "", "", "", "", "incl."].map(csvEscape).join(","));
   }
   lines.push("");
-  lines.push(`Estimated Total,,,,,,,,,${total.toFixed(2)}`);
+  lines.push(`Estimated Total,,,,,,,,,,${total.toFixed(2)}`);
   return lines.join("\n");
 }
 
