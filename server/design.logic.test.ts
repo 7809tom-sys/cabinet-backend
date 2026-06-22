@@ -13,6 +13,7 @@ import {
   footprintDepth,
   resolveSwing,
   cycleSwing,
+  blindCornerViolations,
 } from "../client/src/lib/design";
 
 // Minimal factory for a placed item.
@@ -166,5 +167,34 @@ describe("door swing (hinge side)", () => {
     expect(cycleSwing("left")).toBe("right");
     expect(cycleSwing("right")).toBe("left");
     expect(cycleSwing("double")).toBe("double");
+  });
+});
+
+describe("blind corner rule", () => {
+  // A blind base corner at x:0..24 (y:0..24). Neighbor along x to its right.
+  const blind = mk({
+    uid: "blind",
+    placement: "base",
+    masterCode: "BBC-42",
+    description: "Blind Base Corner Cabinet",
+    x: 0, y: 0, width: 24, depth: 24,
+  });
+
+  it("flags a neighbor butted right against the blind corner (no 3\" pull)", () => {
+    const neighbor = mk({ uid: "n", placement: "base", masterCode: "B30", x: 24, y: 0, width: 30, depth: 24 });
+    const bad = blindCornerViolations([blind, neighbor]);
+    expect(bad.has("blind")).toBe(true);
+  });
+
+  it("passes when the neighbor is pulled 3\" off the corner", () => {
+    const neighbor = mk({ uid: "n", placement: "base", masterCode: "B30", x: 27, y: 0, width: 30, depth: 24 });
+    const bad = blindCornerViolations([blind, neighbor]);
+    expect(bad.has("blind")).toBe(false);
+  });
+
+  it("ignores non-blind cabinets", () => {
+    const a = mk({ uid: "a", placement: "base", masterCode: "B24", x: 0, y: 0, width: 24, depth: 24 });
+    const b = mk({ uid: "b", placement: "base", masterCode: "B30", x: 24, y: 0, width: 30, depth: 24 });
+    expect(blindCornerViolations([a, b]).size).toBe(0);
   });
 });

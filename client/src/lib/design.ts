@@ -358,6 +358,44 @@ export function conflictingUids(placed: PlacedCabinet[]): Set<string> {
   return conflicts;
 }
 
+// Blind corner rule: a blind corner cabinet needs a 3" filler on its blind side,
+// which means the ADJACENT cabinet on the perpendicular run must be pulled at
+// least 3" off the corner so the blind cabinet's door can clear. If a neighbor
+// butts up against the blind cabinet's blind edge closer than 3", the layout is
+// not buildable. Returns the uids of blind corner cabinets whose required pull
+// is violated (so they can be flagged). Detection of "blind corner" is driven by
+// the product description / code via isBlindCorner.
+export function blindCornerViolations(
+  placed: PlacedCabinet[],
+  fillerIn = BLIND_CORNER_FILLER_WIDTH_IN
+): Set<string> {
+  const bad = new Set<string>();
+  const blinds = placed.filter((p) => isBlindCorner(p.masterCode, p.description));
+  for (const blind of blinds) {
+    const rb = footprintRect(blind);
+    for (const o of placed) {
+      if (o.uid === blind.uid) continue;
+      if (isBlindCorner(o.masterCode, o.description)) continue;
+      // Only same vertical zone neighbors matter (base-vs-base, wall-vs-wall).
+      if (occupiesUpperZone(o) !== occupiesUpperZone(blind)) continue;
+      const ro = footprintRect(o);
+      // Perpendicular neighbor whose run approaches the blind cabinet's corner.
+      // Vertical adjacency: neighbor sits beside the blind cab along x, with
+      // overlapping y-extent — the gap between their facing edges must be >= filler.
+      const yOverlap = rb.y1 < ro.y2 && rb.y2 > ro.y1;
+      const xOverlap = rb.x1 < ro.x2 && rb.x2 > ro.x1;
+      if (yOverlap && !xOverlap) {
+        const gap = ro.x1 >= rb.x2 ? ro.x1 - rb.x2 : rb.x1 - ro.x2;
+        if (gap >= -0.5 && gap < fillerIn - 0.01) bad.add(blind.uid);
+      } else if (xOverlap && !yOverlap) {
+        const gap = ro.y1 >= rb.y2 ? ro.y1 - rb.y2 : rb.y1 - ro.y2;
+        if (gap >= -0.5 && gap < fillerIn - 0.01) bad.add(blind.uid);
+      }
+    }
+  }
+  return bad;
+}
+
 export function elevationBox(p: PlacedCabinet): { bottom: number; height: number } {
   if (p.placement === "appliance") {
     const def = APPLIANCES.find((a) => a.masterCode === p.masterCode);

@@ -701,3 +701,22 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] No "Faircrest" door style in DB — confirm intended style name
 - [ ] Click to set a (wall) cabinet to ground level / floor — pending scope confirm (A vs B)
 - [ ] Email + password login + admin (7809tom@gmail.com) — pending scope confirm
+
+## Design Tool — blind corner rule
+- [ ] Blind corner base sits on floor (base height)
+- [ ] Blind corner requires a 3" filler on the blind side (auto-marked)
+- [ ] Adjacent perpendicular cabinet must be pulled 3" off the corner
+- [ ] Flag a conflict when the 3" pull/filler is missing
+- [ ] Show filler + violation on canvas and in BOM/export warning
+- [ ] Vitest coverage for the blind corner rule
+
+## Closet Designer (v1 framework) + Blind corner rule
+- [x] Blind corner rule: flag conflict if adjacent cabinet not pulled 3" off the corner (description-driven detection)
+- [x] Closet parts catalog (placeholder products + prices) in client/src/lib/closet.ts
+- [x] Kitchen/Closet room-type toggle in Design Tool; closet palette grouped by category
+- [x] Closet parts priced via unitPriceFor (id=0, skipped by cabinet pricing engine)
+- [x] Closet parts flow through canvas/build-sheet/W×H×D pipeline
+- [x] Vitest coverage for closet catalog + blind corner rule (351 tests pass)
+- [ ] Replace placeholder closet parts with user's real closet product list + trade pricing (awaiting list)
+- [ ] (Backlog) Email/password admin login alongside Manus OAuth (awaiting scope confirmation)
+- [ ] (Backlog) Add DWP + AG2418 + other items from user's list once provided

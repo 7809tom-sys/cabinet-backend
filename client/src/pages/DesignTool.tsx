@@ -16,8 +16,9 @@ import { toast } from "sonner";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight,
-  conflictingUids, isOnIsland, isCornerCabinet,
+  conflictingUids, blindCornerViolations, isOnIsland, isCornerCabinet,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
+  // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
@@ -27,6 +28,9 @@ import {
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   addOnRecommendations,
 } from "@/lib/design";
+import {
+  closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
+} from "@/lib/closet";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
 import { EmailGate } from "@/components/design/EmailGate";
@@ -98,6 +102,8 @@ export default function DesignTool() {
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<"base" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening">("base");
+  // Room type: kitchen cabinets (default) or closet system parts.
+  const [roomType, setRoomType] = useState<"kitchen" | "closet">("kitchen");
 
   // Pricing selectors
   const [styleId, setStyleId] = useState<number | null>(null);
@@ -164,8 +170,16 @@ export default function DesignTool() {
     []
   );
 
+  // Closet parts palette (placeholder products), grouped by category.
+  const closetGroups = useMemo(() => closetPaletteByCategory(), []);
+
   // Filtered palette
   const filteredPalette = useMemo(() => {
+    if (roomType === "closet") {
+      const s0 = paletteSearch.toLowerCase();
+      const all = closetGroups.flatMap((g) => g.items);
+      return all.filter((c) => !s0 || c.masterCode.toLowerCase().includes(s0) || c.description.toLowerCase().includes(s0));
+    }
     const source: DesignCabinet[] =
       paletteType === "appliance" ? appliancePalette : ((paletteCabinets as DesignCabinet[]) ?? []);
     const s = paletteSearch.toLowerCase();
@@ -180,11 +194,23 @@ export default function DesignTool() {
       })
       .filter((c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
       .slice(0, 80);
-  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall]);
+  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, roomType, closetGroups]);
 
   // Group the palette by cabinet height so wall cabinets (and others) are easy
   // to find by size — mirrors how pros scan 2020's catalog by height.
   const groupedPalette = useMemo(() => {
+    // Closet mode groups by part category (Panels, Shelves, Hanging, ...).
+    if (roomType === "closet") {
+      const s = paletteSearch.toLowerCase();
+      return closetGroups
+        .map((g) => ({
+          label: g.category,
+          items: g.items.filter(
+            (c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s)
+          ),
+        }))
+        .filter((g) => g.items.length > 0);
+    }
     const groups = new Map<number, DesignCabinet[]>();
     for (const c of filteredPalette) {
       const h = Math.round(dim(c.height, 0));
@@ -195,8 +221,8 @@ export default function DesignTool() {
     // Tallest first; unknown height (0) sinks to the bottom.
     return Array.from(groups.entries())
       .sort((a, b) => (b[0] || -1) - (a[0] || -1))
-      .map(([height, items]) => ({ height, items }));
-  }, [filteredPalette]);
+      .map(([height, items]) => ({ label: height ? `${height}\" High` : "Other", items }));
+  }, [filteredPalette, roomType, paletteSearch, closetGroups]);
 
   // Pricing for placed cabinets + add-on accessories (appliances carry
   // cabinetId 0 and are unpriced).
@@ -226,14 +252,26 @@ export default function DesignTool() {
     return m;
   }, [priceRows, tier]);
 
+  // Resolve a placed item's unit price: closet parts carry id=0 (skipped by
+  // the cabinet pricing engine) so they price from the placeholder catalog;
+  // everything else prices from the DB price map.
+  const unitPriceFor = useCallback(
+    (p: { masterCode: string; cabinetId: number }): number | null => {
+      if (isClosetPart(p.masterCode)) return closetPartPrice(p.masterCode);
+      const v = priceMap.get(p.cabinetId);
+      return v ?? null;
+    },
+    [priceMap]
+  );
+
   const total = useMemo(
     () =>
-      placed.reduce((sum, p) => sum + (priceMap.get(p.cabinetId) ?? 0), 0) +
+      placed.reduce((sum, p) => sum + (unitPriceFor(p) ?? 0), 0) +
       addedAddOns.reduce(
         (sum, a) => sum + (priceMap.get(a.cabinetId) ?? 0) * a.qty,
         0
       ),
-    [placed, addedAddOns, priceMap]
+    [placed, addedAddOns, priceMap, unitPriceFor]
   );
 
   // ─── Add-on recommendations ("don't forget this") ──────────────────────────
@@ -307,7 +345,8 @@ export default function DesignTool() {
     for (const p of placed) {
       const sw = resolveSwing(p);
       const key = `${p.masterCode}|${Math.round(p.width)}|${sw}`;
-      const unit = priceMap.get(p.cabinetId) ?? null;
+      const closet = isClosetPart(p.masterCode);
+      const unit = unitPriceFor(p);
       const existing = map.get(key);
       if (existing) existing.qty += 1;
       else
@@ -320,7 +359,7 @@ export default function DesignTool() {
           placement: p.placement,
           swing: sw === "none" ? undefined : sw,
           qty: 1,
-          unitPrice: styleId ? unit : null,
+          unitPrice: closet ? unit : styleId ? unit : null,
         });
     }
     // Add-on accessories (touch-up kit, roll-out trays) as their own lines.
@@ -338,7 +377,7 @@ export default function DesignTool() {
       });
     }
     return rows;
-  }, [placed, addedAddOns, priceMap, styleId]);
+  }, [placed, addedAddOns, priceMap, styleId, unitPriceFor]);
   // Panel treatment for the placed cabinets' door fronts in the elevation view.
   const activePanelKind = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
@@ -367,8 +406,16 @@ export default function DesignTool() {
 
   // Conflicts: an appliance physically running into a cabinet. Highlighted red
   // on the canvas, badged in the BOM, and warned about before export.
-  const conflictUids = useMemo(() => conflictingUids(placed), [placed]);
+  const conflictUids = useMemo(() => {
+    const set = conflictingUids(placed);
+    // Blind corner rule: a blind corner whose neighbor isn't pulled the
+    // required 3" off the corner is also a conflict.
+    blindCornerViolations(placed).forEach((uid) => set.add(uid));
+    return set;
+  }, [placed]);
   const hasConflicts = conflictUids.size > 0;
+  // Blind corner violations specifically, for a tailored warning message.
+  const blindViolationUids = useMemo(() => blindCornerViolations(placed), [placed]);
 
   // Consolidated rows for the on-screen PRICING panel: identical cabinets
   // (same code + size + rotation) collapse into ONE line with a quantity, a
@@ -387,7 +434,8 @@ export default function DesignTool() {
     }>();
     for (const p of placed) {
       const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}`;
-      const unit = priceMap.get(p.cabinetId) ?? null;
+      const closet = isClosetPart(p.masterCode);
+      const unit = unitPriceFor(p);
       const existing = map.get(key);
       if (existing) {
         existing.qty += 1;
@@ -399,7 +447,7 @@ export default function DesignTool() {
           sample: p,
           uids: [p.uid],
           qty: 1,
-          unitPrice: styleId ? unit : null,
+          unitPrice: closet ? unit : styleId ? unit : null,
           hasConflict: conflictUids.has(p.uid),
           label: dimLabel(p),
           swing: resolveSwing(p),
@@ -407,7 +455,7 @@ export default function DesignTool() {
       }
     }
     return Array.from(map.values());
-  }, [placed, priceMap, styleId, conflictUids]);
+  }, [placed, priceMap, styleId, conflictUids, unitPriceFor]);
 
   // Non-cabinet build-sheet lines (fillers, crown, toe kick, countertop note).
   const extraLines = useMemo(() => {
@@ -866,6 +914,26 @@ export default function DesignTool() {
         {/* Left palette */}
         <div className="w-60 shrink-0 border-r border-border bg-card flex flex-col">
           <div className="p-3 border-b border-border">
+            {/* Room type: Kitchen cabinets vs Closet system parts */}
+            <div className="flex rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
+              {(["kitchen", "closet"] as const).map((rt) => (
+                <button
+                  key={rt}
+                  onClick={() => setRoomType(rt)}
+                  className={`flex-1 py-1.5 rounded-md text-[11px] font-semibold capitalize transition-colors ${
+                    roomType === rt ? "bg-[#a87f33] text-white" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {rt}
+                </button>
+              ))}
+            </div>
+            {roomType === "closet" && (
+              <p className="mb-2 rounded-md bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] text-amber-700">
+                Closet parts are placeholder products &amp; prices — your real closet catalog will replace these.
+              </p>
+            )}
+            {roomType === "kitchen" && (
             <div className="flex rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(["base", "wall", "wallht", "cornerwall", "tall", "appliance", "opening"] as const).map((t) => (
                 <button
@@ -887,10 +955,11 @@ export default function DesignTool() {
                 </button>
               ))}
             </div>
+            )}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Search cabinets..."
+                placeholder={roomType === "closet" ? "Search closet parts..." : "Search cabinets..."}
                 className="pl-8 h-8 text-xs"
                 value={paletteSearch}
                 onChange={(e) => setPaletteSearch(e.target.value)}
@@ -920,14 +989,14 @@ export default function DesignTool() {
               Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)
             ) : (
               groupedPalette.map((group) => (
-                <div key={group.height} className="space-y-1.5">
+                <div key={group.label} className="space-y-1.5">
                   <div className="sticky top-0 z-10 -mx-1 px-2 py-1 bg-background/95 backdrop-blur text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
-                    {group.height > 0 ? `${group.height}" High` : "Other Heights"}
+                    {group.label}
                     <span className="ml-1 font-normal normal-case">({group.items.length})</span>
                   </div>
                   {group.items.map((c) => (
                     <button
-                      key={c.id}
+                      key={c.masterCode}
                       draggable
                       onDragStart={() => { dragDataRef.current = c; }}
                       onClick={() => addCabinet(c)}
@@ -1282,7 +1351,10 @@ export default function DesignTool() {
                 <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-600" />
                 <span>
                   <strong>{conflictUids.size} item{conflictUids.size > 1 ? "s" : ""} in conflict.</strong>{" "}
-                  An appliance is running into a cabinet. Move them apart before ordering.
+                  {blindViolationUids.size > 0
+                    ? `A blind corner needs a 3" filler — pull the adjacent cabinet at least 3" off the corner. `
+                    : ""}
+                  An appliance running into a cabinet, or a blind corner without its 3" pull, must be fixed before ordering.
                 </span>
               </div>
             )}
