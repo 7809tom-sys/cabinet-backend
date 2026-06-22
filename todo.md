@@ -676,3 +676,5 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Detect appliance-in-cabinet collisions, mark as "Conflict" status (red on canvas + badge on line + warn before export)
 - [x] Vitest coverage for height resolution + conflict detection
 - [x] Island and the cabinets on it should move together when the island is dragged
+- [x] Build-sheet PRICING panel: consolidate identical cabinets (code+size) into one line with visible ×qty + line total
+- [x] Consolidated build-sheet line: delete control removes the item from the design (decrement qty when >1)

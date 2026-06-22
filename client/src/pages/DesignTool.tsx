@@ -344,6 +344,43 @@ export default function DesignTool() {
   const conflictUids = useMemo(() => conflictingUids(placed), [placed]);
   const hasConflicts = conflictUids.size > 0;
 
+  // Consolidated rows for the on-screen PRICING panel: identical cabinets
+  // (same code + size + rotation) collapse into ONE line with a quantity, a
+  // line total, the conflict flag, and the list of member uids so the line's
+  // delete control can remove one instance at a time.
+  const panelGroups = useMemo(() => {
+    const map = new Map<string, {
+      key: string;
+      sample: PlacedCabinet;
+      uids: string[];
+      qty: number;
+      unitPrice: number | null;
+      hasConflict: boolean;
+      label: string;
+    }>();
+    for (const p of placed) {
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}`;
+      const unit = priceMap.get(p.cabinetId) ?? null;
+      const existing = map.get(key);
+      if (existing) {
+        existing.qty += 1;
+        existing.uids.push(p.uid);
+        if (conflictUids.has(p.uid)) existing.hasConflict = true;
+      } else {
+        map.set(key, {
+          key,
+          sample: p,
+          uids: [p.uid],
+          qty: 1,
+          unitPrice: styleId ? unit : null,
+          hasConflict: conflictUids.has(p.uid),
+          label: dimLabel(p),
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [placed, priceMap, styleId, conflictUids]);
+
   // Non-cabinet build-sheet lines (fillers, crown, toe kick, countertop note).
   const extraLines = useMemo(() => {
     const out: { label: string; detail: string }[] = [];
@@ -503,6 +540,12 @@ export default function DesignTool() {
     setPlaced((prev) => prev.filter((p) => p.uid !== uid));
     setSelectedUid((cur) => (cur === uid ? null : cur));
   }, []);
+
+  // Remove ONE instance from a consolidated panel group (decrement qty).
+  const deleteOneFromGroup = useCallback((uids: string[]) => {
+    const last = uids[uids.length - 1];
+    if (last) deleteCabinet(last);
+  }, [deleteCabinet]);
 
   // Keyboard: Delete/Backspace removes the selected cabinet; Escape clears
   // selection and exits measure mode. Ignored while typing in inputs.
@@ -991,31 +1034,53 @@ export default function DesignTool() {
                 Add cabinets to build your bill of materials
               </div>
             ) : (
-              placed.map((p) => {
-                const price = priceMap.get(p.cabinetId);
+              panelGroups.map((g) => {
+                const selected = g.uids.includes(selectedUid ?? "");
+                const lineTotal = g.unitPrice != null ? g.unitPrice * g.qty : null;
                 return (
-                  <button
-                    key={p.uid}
-                    onClick={() => setSelectedUid(p.uid)}
-                    className={`w-full text-left flex items-center justify-between gap-2 p-2 rounded-lg text-xs transition-colors ${
-                      selectedUid === p.uid ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
+                  <div
+                    key={g.key}
+                    onClick={() => setSelectedUid(g.uids[g.uids.length - 1])}
+                    className={`group w-full text-left flex items-center justify-between gap-2 p-2 rounded-lg text-xs transition-colors cursor-pointer ${
+                      selected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
                     }`}
                   >
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate flex items-center gap-1.5">
-                        {p.masterCode}
-                        {conflictUids.has(p.uid) && (
+                        {g.sample.masterCode}
+                        {g.qty > 1 && (
+                          <span className="inline-flex items-center rounded bg-[#1a2744] text-white px-1.5 py-0.5 text-[9px] font-bold">
+                            ×{g.qty}
+                          </span>
+                        )}
+                        {g.hasConflict && (
                           <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
                             Conflict
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-muted-foreground truncate">{dimLabel(p)} · {p.placement}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">{g.label} · {g.sample.placement}</div>
                     </div>
-                    <span className="font-semibold shrink-0">
-                      {styleId ? (price != null ? `$${price.toFixed(2)}` : "N/A") : "—"}
-                    </span>
-                  </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="text-right">
+                        <div className="font-semibold leading-none">
+                          {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A") : "—"}
+                        </div>
+                        {styleId && g.qty > 1 && g.unitPrice != null && (
+                          <div className="text-[9px] text-muted-foreground mt-0.5">${g.unitPrice.toFixed(2)} ea</div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); deleteOneFromGroup(g.uids); }}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label={g.qty > 1 ? `Remove one ${g.sample.masterCode}` : `Remove ${g.sample.masterCode}`}
+                        title={g.qty > 1 ? "Remove one from the design" : "Remove from the design"}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 );
               })
             )}
