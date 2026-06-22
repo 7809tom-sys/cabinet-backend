@@ -26,6 +26,9 @@ interface Props {
   measureMode?: boolean;
   island?: IslandZone | null;
   onIslandChange?: (zone: IslandZone) => void;
+  // Incremental island move (inches). When provided, moving the island also
+  // carries the cabinets sitting on it. Resize still uses onIslandChange.
+  onIslandMove?: (dxIn: number, dyIn: number) => void;
   openings?: WallOpening[];
   selectedOpeningUid?: string | null;
   onSelectOpening?: (uid: string | null) => void;
@@ -39,15 +42,17 @@ interface Props {
   activeWall?: WallSide;
   onSelectWall?: (side: WallSide) => void;
   onResizeWall?: (side: WallSide, deltaIn: number) => void;
+  // Uids of items that are in a conflict (e.g. appliance running into a cabinet).
+  conflictUids?: Set<string>;
 }
 
 export function PlanCanvas({
   room, cabinets, selectedUid, onSelect, onMove, onDelete, onDropNew,
-  showWallLayer, measureMode = false, island = null, onIslandChange,
+  showWallLayer, measureMode = false, island = null, onIslandChange, onIslandMove,
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
-  activeWall, onSelectWall, onResizeWall,
+  activeWall, onSelectWall, onResizeWall, conflictUids,
 }: Props) {
   // Door/window drag along its wall (move) or width-resize.
   const openingDrag = useRef<
@@ -98,17 +103,25 @@ export function PlanCanvas({
 
   const onIslandPointerMove = (e: React.PointerEvent) => {
     const d = islandDrag.current;
-    if (!d || !island || !onIslandChange) return;
+    if (!d || !island || (!onIslandChange && !onIslandMove)) return;
     const dxIn = (e.clientX - d.startX) / ppiRef.current;
     const dyIn = (e.clientY - d.startY) / ppiRef.current;
     if (d.mode === "move") {
       const x = Math.max(0, Math.min(d.orig.x + dxIn, room.width - d.orig.width));
       const y = Math.max(0, Math.min(d.orig.y + dyIn, room.depth - d.orig.depth));
-      onIslandChange({ ...d.orig, x, y });
+      // If a grouped-move handler is provided, report the incremental delta from
+      // the island's CURRENT position so the cabinets on it move in lockstep.
+      if (onIslandMove) {
+        const ddx = x - island.x;
+        const ddy = y - island.y;
+        if (ddx !== 0 || ddy !== 0) onIslandMove(ddx, ddy);
+      } else {
+        onIslandChange?.({ ...d.orig, x, y });
+      }
     } else {
       const width = Math.max(18, Math.min(d.orig.width + dxIn, room.width - d.orig.x));
       const depth = Math.max(18, Math.min(d.orig.depth + dyIn, room.depth - d.orig.y));
-      onIslandChange({ ...d.orig, width, depth });
+      onIslandChange?.({ ...d.orig, width, depth });
     }
   };
 
@@ -556,6 +569,7 @@ export function PlanCanvas({
               p,
               cabinets.filter((c) => c.placement === p.placement)
             );
+            const inConflict = conflictUids?.has(p.uid) ?? false;
             return (
               <div
                 key={p.uid}
@@ -573,7 +587,9 @@ export function PlanCanvas({
                   background: isWall
                     ? `repeating-linear-gradient(45deg, ${edgeColor}33, ${edgeColor}33 6px, ${edgeColor}55 6px, ${edgeColor}55 12px), ${faceFill}`
                     : faceFill,
-                  border: isPicked
+                  border: inConflict
+                    ? "2.5px solid #dc2626"
+                    : isPicked
                     ? "2px solid #d4a75a"
                     : isSelected
                     ? "2px solid #1a2744"
@@ -582,7 +598,9 @@ export function PlanCanvas({
                     : isWall
                     ? `1.5px dashed ${edgeColor}`
                     : `1.5px solid ${edgeColor}`,
-                  boxShadow: isPicked
+                  boxShadow: inConflict
+                    ? "0 0 0 3px rgba(220,38,38,0.45)"
+                    : isPicked
                     ? "0 0 0 3px rgba(212,167,90,0.55)"
                     : isSelected
                     ? "0 0 0 3px rgba(212,167,90,0.5)"

@@ -668,3 +668,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Multi-wall elevation: pass activeWall into ElevationView (was hardcoded "front") so all 4 walls are viewable
 - [ ] Show which wall the elevation is displaying (label) + wall switcher works in Front View
 - [ ] Cabinet picker grouped/sorted by height (sticky height headers) so cabinets are easy to find
+
+## Design Tool — heights, line sizing & conflict status (user request)
+- [x] Add real `height` to PlacedCabinet; capture on placement + package load
+- [x] Fix elevationBox() so wall cabinets render at true height, hung from the 84" top line
+- [x] Show full W×H×D size on every build-sheet/order line item (UI panel + CSV export)
+- [x] Detect appliance-in-cabinet collisions, mark as "Conflict" status (red on canvas + badge on line + warn before export)
+- [x] Vitest coverage for height resolution + conflict detection
+- [x] Island and the cabinets on it should move together when the island is dragged

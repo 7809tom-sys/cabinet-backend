@@ -98,8 +98,31 @@ export interface PlacedCabinet {
   y: number;
   width: number;
   depth: number;
+  // Real vertical height in inches. Optional for backward-compat with older
+  // saved designs that never stored a height; elevationBox falls back to the
+  // standard height for the placement bucket when this is missing.
+  height?: number;
   rotation: number;
 }
+
+// Standard height (inches) for a placement bucket, used as a fallback when a
+// placed cabinet has no explicit height (legacy saved designs).
+export function standardHeight(placement: Placement): number {
+  if (placement === "wall") return STD.WALL_HEIGHT;
+  if (placement === "tall") return STD.TALL_HEIGHT;
+  if (placement === "appliance") return STD.COUNTERTOP_HEIGHT;
+  return STD.BASE_HEIGHT;
+}
+
+// Resolve a placed cabinet's real height, falling back to the bucket standard.
+export function placedHeight(p: PlacedCabinet): number {
+  if (typeof p.height === "number" && p.height > 0) return p.height;
+  return standardHeight(p.placement);
+}
+
+// The standard line (inches from floor) that the TOP of wall cabinets aligns to
+// in a kitchen. Wall cabinets of different heights all hang from this top line.
+export const WALL_CABINET_TOP = STD.WALL_MOUNT_BOTTOM + STD.WALL_HEIGHT; // 84"
 
 export interface RoomData {
   width: number;
@@ -131,6 +154,20 @@ export function rotatedSize(p: PlacedCabinet): { w: number; d: number } {
     return { w: p.depth, d: p.width };
   }
   return { w: p.width, d: p.depth };
+}
+
+// Format an inch value without trailing zeros (34.5 -> "34.5", 24 -> "24").
+export function fmtIn(n: number): string {
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+}
+
+// Full 3-dimensional size label for a placed item: W x H x D in inches.
+// Width/depth are rotation-aware (a turned cabinet swaps its footprint), while
+// height comes from the placed height (with a sensible bucket fallback).
+export function dimLabel(p: PlacedCabinet): string {
+  const { w, d } = rotatedSize(p);
+  const h = placedHeight(p);
+  return `${fmtIn(w)}\"W \u00d7 ${fmtIn(h)}\"H \u00d7 ${fmtIn(d)}\"D`;
 }
 
 export function snapPosition(
@@ -189,6 +226,78 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
   return false;
 }
 
+// Footprint rectangle (rotation-aware) for a placed item.
+function footprintRect(p: PlacedCabinet): { x1: number; y1: number; x2: number; y2: number } {
+  const { w, d } = rotatedSize(p);
+  return { x1: p.x, y1: p.y, x2: p.x + w, y2: p.y + d };
+}
+
+// Do two placed items overlap in plan? Uses a small tolerance so cabinets that
+// merely touch edge-to-edge (a normal, valid run) are NOT treated as overlapping.
+function footprintsOverlap(a: PlacedCabinet, b: PlacedCabinet, tol = 0.5): boolean {
+  const ra = footprintRect(a);
+  const rb = footprintRect(b);
+  return (
+    ra.x1 < rb.x2 - tol &&
+    ra.x2 > rb.x1 + tol &&
+    ra.y1 < rb.y2 - tol &&
+    ra.y2 > rb.y1 + tol
+  );
+}
+
+// Conflict detection: an APPLIANCE physically running into a CABINET.
+// Appliances (range, fridge, dishwasher, sink, hood, microwave) must sit in
+// their own opening; if an appliance footprint overlaps a real cabinet box the
+// design is not buildable, so both items are flagged as a conflict.
+//
+// Wall-mounted items (wall cabinets, hood, over-range microwave) only conflict
+// with other wall/over-counter items, and floor items only with floor items, so
+// an upper cabinet sitting "above" a base appliance in plan is not a conflict.
+function occupiesUpperZone(p: PlacedCabinet): boolean {
+  if (p.placement === "wall") return true;
+  // Hoods and over-range microwaves hang above the counter.
+  return /^(HOOD|MW)-/.test((p.masterCode || "").toUpperCase());
+}
+
+// A cabinet is "on the island" when its footprint center sits inside the island
+// rectangle. Used so dragging the island carries its cabinets along.
+export function isOnIsland(
+  p: PlacedCabinet,
+  island: { x: number; y: number; width: number; depth: number }
+): boolean {
+  const { w, d } = rotatedSize(p);
+  const cx = p.x + w / 2;
+  const cy = p.y + d / 2;
+  return (
+    cx >= island.x &&
+    cx <= island.x + island.width &&
+    cy >= island.y &&
+    cy <= island.y + island.depth
+  );
+}
+
+export function conflictingUids(placed: PlacedCabinet[]): Set<string> {
+  const conflicts = new Set<string>();
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const a = placed[i];
+      const b = placed[j];
+      // At least one must be an appliance for an appliance-in-cabinet conflict.
+      const oneAppliance = a.placement === "appliance" || b.placement === "appliance";
+      if (!oneAppliance) continue;
+      // Don't flag two appliances against each other (e.g. hood over range).
+      if (a.placement === "appliance" && b.placement === "appliance") continue;
+      // Only items sharing the same vertical zone can truly collide.
+      if (occupiesUpperZone(a) !== occupiesUpperZone(b)) continue;
+      if (footprintsOverlap(a, b)) {
+        conflicts.add(a.uid);
+        conflicts.add(b.uid);
+      }
+    }
+  }
+  return conflicts;
+}
+
 export function elevationBox(p: PlacedCabinet): { bottom: number; height: number } {
   if (p.placement === "appliance") {
     const def = APPLIANCES.find((a) => a.masterCode === p.masterCode);
@@ -196,12 +305,15 @@ export function elevationBox(p: PlacedCabinet): { bottom: number; height: number
     return { bottom: 0, height: STD.COUNTERTOP_HEIGHT };
   }
   if (p.placement === "wall") {
-    return { bottom: STD.WALL_MOUNT_BOTTOM, height: STD.WALL_HEIGHT };
+    // Wall cabinets hang from a common top line (84"); taller cabinets drop
+    // their bottom lower. A 30" cabinet bottoms at 54", a 42" at 42", etc.
+    const h = placedHeight(p);
+    return { bottom: Math.max(0, WALL_CABINET_TOP - h), height: h };
   }
   if (p.placement === "tall") {
-    return { bottom: 0, height: STD.TALL_HEIGHT };
+    return { bottom: 0, height: placedHeight(p) };
   }
-  return { bottom: 0, height: STD.COUNTERTOP_HEIGHT };
+  return { bottom: 0, height: placedHeight(p) };
 }
 
 // Find the next free position along the back wall so newly-added cabinets

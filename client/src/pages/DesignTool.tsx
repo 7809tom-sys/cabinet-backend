@@ -15,7 +15,8 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
-  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot,
+  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight,
+  conflictingUids, isOnIsland,
   APPLIANCES, applianceAsDesignCabinet,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
@@ -288,7 +289,9 @@ export default function DesignTool() {
         map.set(key, {
           code: p.masterCode,
           description: p.description,
-          widthIn: p.width,
+          widthIn: rotatedSize(p).w,
+          heightIn: placedHeight(p),
+          depthIn: rotatedSize(p).d,
           placement: p.placement,
           qty: 1,
           unitPrice: styleId ? unit : null,
@@ -301,6 +304,8 @@ export default function DesignTool() {
         code: a.masterCode,
         description: a.description,
         widthIn: 0,
+        heightIn: 0,
+        depthIn: 0,
         placement: "accessory",
         qty: a.qty,
         unitPrice: styleId ? priceMap.get(a.cabinetId) ?? null : null,
@@ -334,6 +339,11 @@ export default function DesignTool() {
   // blind corner, split into base vs wall lines for the BOM.
   const fillers = useMemo(() => blindCornerFillers(placed), [placed]);
 
+  // Conflicts: an appliance physically running into a cabinet. Highlighted red
+  // on the canvas, badged in the BOM, and warned about before export.
+  const conflictUids = useMemo(() => conflictingUids(placed), [placed]);
+  const hasConflicts = conflictUids.size > 0;
+
   // Non-cabinet build-sheet lines (fillers, crown, toe kick, countertop note).
   const extraLines = useMemo(() => {
     const out: { label: string; detail: string }[] = [];
@@ -358,6 +368,7 @@ export default function DesignTool() {
     (c: DesignCabinet, x?: number, y?: number) => {
       const width = dim(c.width, 24);
       const depth = footprintDepth(c);
+      const height = dim(c.height, standardHeight(c.placement));
       setPlaced((prev) => {
         // Explicit drop position (drag-and-drop) wins; otherwise place flush
         // against the highlighted active wall, marching along it.
@@ -377,6 +388,7 @@ export default function DesignTool() {
           y: spot.y,
           width,
           depth,
+          height,
           rotation: spot.rotation,
         };
         setSelectedUid(newCab.uid);
@@ -385,6 +397,33 @@ export default function DesignTool() {
     },
     [room, activeWall]
   );
+
+  // Move the island AND every cabinet sitting on it by the same delta, clamped
+  // so the island stays inside the room. Cabinets move in lockstep so they
+  // never slide off the island.
+  const moveIsland = useCallback((dxIn: number, dyIn: number) => {
+    setIsland((cur) => {
+      if (!cur) return cur;
+      const nx = Math.max(0, Math.min(cur.x + dxIn, room.width - cur.width));
+      const ny = Math.max(0, Math.min(cur.y + dyIn, room.depth - cur.depth));
+      const ddx = nx - cur.x;
+      const ddy = ny - cur.y;
+      if (ddx === 0 && ddy === 0) return cur;
+      const islandRect = cur;
+      setPlaced((prevPlaced) =>
+        prevPlaced.map((p) =>
+          isOnIsland(p, islandRect)
+            ? {
+                ...p,
+                x: Math.max(0, Math.min(p.x + ddx, room.width - rotatedSize(p).w)),
+                y: Math.max(0, Math.min(p.y + ddy, room.depth - rotatedSize(p).d)),
+              }
+            : p
+        )
+      );
+      return { ...cur, x: nx, y: ny };
+    });
+  }, [room]);
 
   // Apply a new room size and keep every item inside the new walls.
   const applyRoom = useCallback((next: RoomData) => {
@@ -501,7 +540,7 @@ export default function DesignTool() {
     const items = (packageLayout.items as Array<{
       cabinetId: number; masterCode: string; description: string;
       placement: "base" | "wall" | "tall"; x: number; y: number; rotation: number;
-      width: number | null; depth: number | null;
+      width: number | null; depth: number | null; height?: number | null;
     }>).map((it) => ({
       uid: makeUid(),
       cabinetId: it.cabinetId,
@@ -519,6 +558,7 @@ export default function DesignTool() {
           : it.placement === "tall"
           ? STD.TALL_DEPTH
           : STD.BASE_DEPTH,
+      height: it.height && it.height > 0 ? it.height : standardHeight(it.placement),
       rotation: it.rotation,
     }));
     setPlaced(items);
@@ -834,6 +874,7 @@ export default function DesignTool() {
               measureMode={measureMode}
               island={island}
               onIslandChange={setIsland}
+              onIslandMove={moveIsland}
               openings={openings}
               selectedOpeningUid={selectedOpeningUid}
               onSelectOpening={setSelectedOpeningUid}
@@ -845,6 +886,7 @@ export default function DesignTool() {
               activeWall={activeWall}
               onSelectWall={setActiveWall}
               onResizeWall={resizeWall}
+              conflictUids={conflictUids}
             />
           )}
           {viewMode === "elevation" && (
@@ -876,6 +918,7 @@ export default function DesignTool() {
                   measureMode={measureMode}
                   island={island}
                   onIslandChange={setIsland}
+                  onIslandMove={moveIsland}
                   openings={openings}
                   selectedOpeningUid={selectedOpeningUid}
                   onSelectOpening={setSelectedOpeningUid}
@@ -887,6 +930,7 @@ export default function DesignTool() {
                   activeWall={activeWall}
                   onSelectWall={setActiveWall}
                   onResizeWall={resizeWall}
+                  conflictUids={conflictUids}
                 />
               </div>
               <div className="flex-1 min-h-0">
@@ -958,8 +1002,15 @@ export default function DesignTool() {
                     }`}
                   >
                     <div className="min-w-0">
-                      <div className="font-mono font-semibold truncate">{p.masterCode}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{Math.round(p.width)}"W · {p.placement}</div>
+                      <div className="font-mono font-semibold truncate flex items-center gap-1.5">
+                        {p.masterCode}
+                        {conflictUids.has(p.uid) && (
+                          <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                            Conflict
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate">{dimLabel(p)} · {p.placement}</div>
                     </div>
                     <span className="font-semibold shrink-0">
                       {styleId ? (price != null ? `$${price.toFixed(2)}` : "N/A") : "—"}
@@ -1093,6 +1144,15 @@ export default function DesignTool() {
 
           {/* Total */}
           <div className="p-3 border-t border-border">
+            {hasConflicts && (
+              <div className="mb-2 flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-2 text-[11px] text-red-700">
+                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-600" />
+                <span>
+                  <strong>{conflictUids.size} item{conflictUids.size > 1 ? "s" : ""} in conflict.</strong>{" "}
+                  An appliance is running into a cabinet. Move them apart before ordering.
+                </span>
+              </div>
+            )}
             {!styleId && placed.length > 0 && (
               <p className="text-[10px] text-amber-600 mb-2">Select a door style to see pricing.</p>
             )}
@@ -1112,7 +1172,12 @@ export default function DesignTool() {
             <Button
               className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90 gap-2"
               disabled={placed.length === 0}
-              onClick={() => exportBuildSheet({ room, styleName: activeStyleName, tier, total, buildRows, extraLines })}
+              onClick={() => {
+                if (hasConflicts && !window.confirm(
+                  `This design has ${conflictUids.size} conflict${conflictUids.size > 1 ? "s" : ""} (an appliance running into a cabinet). Export the build sheet anyway?`
+                )) return;
+                exportBuildSheet({ room, styleName: activeStyleName, tier, total, buildRows, extraLines });
+              }}
             >
               <Download className="h-4 w-4" /> Export Build Sheet (CSV)
             </Button>

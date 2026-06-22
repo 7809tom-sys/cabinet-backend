@@ -21,9 +21,29 @@ export interface BuildSheetRow {
   code: string;
   description: string;
   widthIn: number;
+  // Real height & depth in inches so every line carries a full 3D size.
+  heightIn: number;
+  depthIn: number;
   placement: string;
   qty: number;
   unitPrice: number | null;
+}
+
+// Inch value without trailing zeros (34.5 -> "34.5", 24 -> "24"). Returns ""
+// for missing/invalid numbers so the CSV never prints NaN.
+function fmtIn(n: number | undefined | null): string {
+  if (typeof n !== "number" || !Number.isFinite(n) || n <= 0) return "";
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+}
+
+// Combined W x H x D size cell for a build-sheet row. Only includes the
+// dimensions that are actually known.
+function sizeCell(r: BuildSheetRow): string {
+  const w = fmtIn(r.widthIn);
+  const h = fmtIn(r.heightIn);
+  const d = fmtIn(r.depthIn);
+  if (!w && !h && !d) return "";
+  return `${w || "?"}\"W x ${h || "?"}\"H x ${d || "?"}\"D`;
 }
 
 interface Props {
@@ -64,7 +84,7 @@ export interface BuildSheetArgs {
 export function buildSheetCsv(args: BuildSheetArgs): string | null {
   const { room, styleName, tier, total, buildRows, extraLines } = args;
   if (buildRows.length === 0) return null;
-  const header = ["Item Code", "Description", "Width (in)", "Type", "Qty", "Unit Price", "Line Total"];
+  const header = ["Item Code", "Description", "Size (W x H x D)", "W (in)", "H (in)", "D (in)", "Type", "Qty", "Unit Price", "Line Total"];
   const lines: string[] = [];
   lines.push(`Cabinet Dealz Build Sheet`);
   lines.push(`Door Style:,${csvEscape(styleName ?? "(not selected)")}`);
@@ -75,15 +95,17 @@ export function buildSheetCsv(args: BuildSheetArgs): string | null {
   for (const r of buildRows) {
     const lineTotal = r.unitPrice != null ? (r.unitPrice * r.qty).toFixed(2) : "";
     lines.push([
-      r.code, r.description, Math.round(r.widthIn), r.placement, r.qty,
+      r.code, r.description, sizeCell(r),
+      fmtIn(r.widthIn), fmtIn(r.heightIn), fmtIn(r.depthIn),
+      r.placement, r.qty,
       r.unitPrice != null ? r.unitPrice.toFixed(2) : "", lineTotal,
     ].map(csvEscape).join(","));
   }
   for (const e of extraLines) {
-    lines.push([e.label, e.detail, "", "", "", "", "incl."].map(csvEscape).join(","));
+    lines.push([e.label, e.detail, "", "", "", "", "", "", "", "incl."].map(csvEscape).join(","));
   }
   lines.push("");
-  lines.push(`Estimated Total,,,,,,${total.toFixed(2)}`);
+  lines.push(`Estimated Total,,,,,,,,,${total.toFixed(2)}`);
   return lines.join("\n");
 }
 

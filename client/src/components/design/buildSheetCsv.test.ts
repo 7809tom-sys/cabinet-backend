@@ -7,8 +7,8 @@ const base: BuildSheetArgs = {
   tier: "Contractor",
   total: 1234.5,
   buildRows: [
-    { code: "DB-24-3", description: "24\" Drawer Base", widthIn: 24, placement: "base", qty: 2, unitPrice: 199.99 },
-    { code: "W3030", description: "30\" Wall", widthIn: 30, placement: "wall", qty: 1, unitPrice: 120 },
+    { code: "DB-24-3", description: "24\" Drawer Base", widthIn: 24, heightIn: 34.5, depthIn: 24, placement: "base", qty: 2, unitPrice: 199.99 },
+    { code: "W3030", description: "30\" Wall", widthIn: 30, heightIn: 30, depthIn: 12, placement: "wall", qty: 1, unitPrice: 120 },
   ],
   extraLines: [{ label: "BASE CORNER FILLER", detail: "1 x 3in (required for blind corner)" }],
 };
@@ -44,17 +44,17 @@ describe("buildSheetCsv", () => {
     const csv = buildSheetCsv({
       ...base,
       styleName: null,
-      buildRows: [{ code: "B12", description: "12\" Base", widthIn: 12, placement: "base", qty: 1, unitPrice: null }],
+      buildRows: [{ code: "B12", description: "12\" Base", widthIn: 12, heightIn: 34.5, depthIn: 24, placement: "base", qty: 1, unitPrice: null }],
     })!;
     expect(csv).toContain("Door Style:,(not selected)");
-    // unpriced row: unit price + line total columns are empty
-    expect(csv).toContain('B12,"12"" Base",12,base,1,,');
+    // unpriced row: a full W x H x D size cell, then empty unit price + line total
+    expect(csv).toContain('B12,"12"" Base","12""W x 34.5""H x 24""D",12,34.5,24,base,1,,');
   });
 
   it("escapes values containing commas/quotes", () => {
     const csv = buildSheetCsv({
       ...base,
-      buildRows: [{ code: "X1", description: 'Lazy Susan, 33"', widthIn: 33, placement: "base", qty: 1, unitPrice: 50 }],
+      buildRows: [{ code: "X1", description: 'Lazy Susan, 33"', widthIn: 33, heightIn: 34.5, depthIn: 24, placement: "base", qty: 1, unitPrice: 50 }],
     })!;
     expect(csv).toContain('"Lazy Susan, 33"""');
   });
