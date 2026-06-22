@@ -145,6 +145,10 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   homeownerPrice: decimal("homeownerPrice", { precision: 10, scale: 2 }),
   isAvailable: boolean("isAvailable").default(true).notNull(),
   isPublished: boolean("isPublished").default(true).notNull(), // distributor visibility toggle
+  // SKU-level image (per cabinet + door style). Falls back to door-style image, then drawing.
+  imageUrl: varchar("imageUrl", { length: 512 }),
+  // PO-only fields (internal; never shown to customers)
+  supplierCabinetName: varchar("supplierCabinetName", { length: 255 }), // distributor's own cabinet name on the PO
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

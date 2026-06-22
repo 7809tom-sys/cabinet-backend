@@ -7,7 +7,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { RoomScenePreview } from "@/components/RoomScenePreview";
-import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -25,10 +24,17 @@ interface DoorStyle {
   finish: string | null;
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
+  roomSceneImageUrl: string | null;
 }
 
 function StyleCard({ style }: { style: DoorStyle }) {
-  const familyPhoto = doorFamilyPhoto(style);
+  // STRICT ONE-FAMILY-ONE-COLOR: use ONLY this style's own verified photo.
+  // When there's no real photo, fall back to the color-accurate swatch/preview
+  // (recolored to THIS style's exact finish) — never a generic stock door or
+  // another family's scene.
+  const realScene = style.roomSceneImageUrl || null;
+  const realDoor = style.doorSampleImageUrl || null;
+  const familyPhoto = realDoor;
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -38,11 +44,20 @@ function StyleCard({ style }: { style: DoorStyle }) {
         >
           {/* Room scene backdrop + the door profile sample on top + true-color chip */}
           <div className="h-40 flex items-center justify-center border-b border-border overflow-hidden relative">
-            {/* Per-style kitchen room scene rendered in this exact finish */}
-            <RoomScenePreview
-              style={style}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            {/* Per-style kitchen room scene — real distributor photo when available */}
+            {realScene ? (
+              <img
+                src={realScene}
+                alt={`${style.ourName || style.styleCode} kitchen`}
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <RoomScenePreview
+                style={style}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            )}
             {/* Soft scrim so the door sample reads clearly against the scene */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
             {familyPhoto ? (
@@ -102,9 +117,17 @@ function StyleCard({ style }: { style: DoorStyle }) {
           </DialogTitle>
         </DialogHeader>
 
-        {/* Generated room scene in this style's color + panel treatment */}
+        {/* Room scene — real distributor photo of this finish when available */}
         <div className="rounded-lg overflow-hidden border border-border">
-          <RoomScenePreview style={style} className="w-full h-auto block" />
+          {realScene ? (
+            <img
+              src={realScene}
+              alt={`${style.ourName || style.styleCode} kitchen`}
+              className="w-full h-auto block"
+            />
+          ) : (
+            <RoomScenePreview style={style} className="w-full h-auto block" />
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
@@ -127,9 +150,11 @@ function StyleCard({ style }: { style: DoorStyle }) {
             {style.color && <p className="text-xs"><span className="text-muted-foreground">Color:</span> {style.color}</p>}
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          Scene is a rendered illustration of this finish across upper and base cabinets.
-        </p>
+        {!realScene && (
+          <p className="text-[11px] text-muted-foreground">
+            Scene is a rendered illustration of this finish across upper and base cabinets.
+          </p>
+        )}
 
         {/* Primary path into shopping: see EVERY cabinet available in this family */}
         <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>

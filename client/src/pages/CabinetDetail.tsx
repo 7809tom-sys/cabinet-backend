@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
+import { cabinetTypeLabel, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto, kitchenSceneWithCopy } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
@@ -283,14 +284,12 @@ export default function CabinetDetail({ masterCode }: Props) {
             </h3>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               {[
-                { label: "Master Code", value: cabinet.masterCode },
-                { label: "Category", value: cabinet.category },
-                { label: "Sub-Category", value: cabinet.subCategory },
+                { label: "Type", value: cabinetTypeLabel(cabinet) },
                 { label: "Width", value: cabinet.width ? `${cabinet.width}"` : null },
                 { label: "Height", value: cabinet.height ? `${cabinet.height}"` : null },
                 { label: "Depth", value: cabinet.depth ? `${cabinet.depth}"` : null },
-                { label: "Doors", value: cabinet.numberOfDoors ? String(cabinet.numberOfDoors) : null },
-                { label: "Drawers", value: cabinet.numberOfDrawers ? String(cabinet.numberOfDrawers) : null },
+                { label: "Doors", value: resolveDoorDrawerCounts(cabinet).doors ? String(resolveDoorDrawerCounts(cabinet).doors) : null },
+                { label: "Drawers", value: resolveDoorDrawerCounts(cabinet).drawers ? String(resolveDoorDrawerCounts(cabinet).drawers) : null },
               ]
                 .filter((item) => item.value)
                 .map((item) => (
@@ -309,9 +308,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
               {masterCode}
             </span>
-            {cabinet.subCategory && (
-              <Badge variant="secondary" className="ml-2 text-xs">{cabinet.subCategory}</Badge>
-            )}
+            <Badge variant="secondary" className="ml-2 text-xs">{cabinetTypeLabel(cabinet)}</Badge>
           </div>
           <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground mt-2 mb-1">
             {cabinet.description}

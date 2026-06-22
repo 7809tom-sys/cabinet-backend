@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
-import { type CabinetLike } from "@/lib/cabinetGraphics";
+import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import { KITCHEN_SCENES, kitchenSceneFor } from "@/lib/doorFamilyPhotos";
 
 // Door-style tiles for the catalog landing — the shop is organized by door style,
@@ -116,11 +116,9 @@ function CabinetCard({ cabinet }: { cabinet: CabinetItem }) {
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
               {cabinet.masterCode}
             </span>
-            {cabinet.subCategory && (
-              <Badge variant="secondary" className="text-xs shrink-0">
-                {cabinet.subCategory}
-              </Badge>
-            )}
+            <Badge variant="secondary" className="text-xs shrink-0">
+              {cabinetTypeLabel(cabinet)}
+            </Badge>
           </div>
 
           <p className="text-sm font-medium text-foreground mt-2 leading-snug line-clamp-2">

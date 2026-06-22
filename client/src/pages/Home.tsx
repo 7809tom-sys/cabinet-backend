@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Users, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
-import { KITCHEN_SCENES, kitchenSceneFor } from "@/lib/doorFamilyPhotos";
+import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
@@ -41,22 +41,22 @@ function Hero() {
             </h1>
 
             <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
-              Browse one unified cabinet catalog, choose from a wide range of door styles, and
-              compare trade pricing instantly. Design kitchens in 2D and submit orders — all
-              in one membership.
+              Start with a door style you love, then see every cabinet available in that
+              exact look — with trade pricing instantly. Design kitchens in 2D and submit
+              orders, all in one membership.
             </p>
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-3">
-              <Link href="/catalog">
+              <Link href="/styles">
                 <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
-                  Browse Catalog
+                  Shop by Door Style
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/styles">
+              <Link href="/design">
                 <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                  Explore Door Styles
+                  Design Your Kitchen
                 </Button>
               </Link>
               <a href={getLoginUrl()}>
@@ -311,25 +311,32 @@ function DistributorsStrip() {
 // ─── Category Quick Links ─────────────────────────────────────────────────────
 
 function CategoryLinks() {
+  // Door styles lead the catalog: categories are a preview of what you'll find
+  // INSIDE a chosen style. Every tile routes to the door-style selector first.
   const categories = [
-    { name: "Base", description: "Standard base cabinets, sink bases, drawer bases", href: "/catalog?category=Base" },
-    { name: "Wall", description: "Upper wall cabinets in all widths and heights", href: "/catalog?category=Wall" },
-    { name: "Tall", description: "Pantry, utility, and full-height cabinets", href: "/catalog?category=Tall" },
-    { name: "ADA", description: "Accessible design, ADA-compliant cabinets", href: "/catalog?category=ADA" },
-    { name: "Vanity", description: "Bathroom vanity bases and wall cabinets", href: "/catalog?category=Vanity" },
-    { name: "Accessory", description: "Fillers, trim, molding, and specialty items", href: "/catalog?category=Accessory" },
+    { name: "Base", description: "Standard base cabinets, sink bases, drawer bases", href: "/styles" },
+    { name: "Wall", description: "Upper wall cabinets in all widths and heights", href: "/styles" },
+    { name: "Tall", description: "Pantry, utility, and full-height cabinets", href: "/styles" },
+    { name: "ADA", description: "Accessible design, ADA-compliant cabinets", href: "/styles" },
+    { name: "Vanity", description: "Bathroom vanity bases and wall cabinets", href: "/styles" },
+    { name: "Accessory", description: "Fillers, trim, molding, and specialty items", href: "/styles" },
   ];
 
   return (
     <section className="py-16 md:py-20">
       <div className="container">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
-            Shop by Category
-          </h2>
-          <Link href="/catalog">
+          <div>
+            <h2 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
+              Every Cabinet Type, in Your Door Style
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Pick a door style first — then shop base, wall, tall, vanity, ADA and trim all in that look.
+            </p>
+          </div>
+          <Link href="/styles">
             <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
-              View all
+              Choose a style
               <ChevronRight className="h-4 w-4" />
             </Button>
           </Link>
@@ -368,8 +375,10 @@ function StyleShowcase() {
     { name: "Espresso Shaker", blurb: "Rich, dramatic, modern", scene: KITCHEN_SCENES["shaker-espresso"], href: "/styles" },
   ];
   const looks = useMemo(() => {
-    type S = { id: number; styleCode: string; ourName: string | null; doorStyle: string | null; color: string | null; woodSpecies: string | null };
-    const list = (styles ?? []) as S[];
+    type S = { id: number; styleCode: string; ourName: string | null; doorStyle: string | null; color: string | null; woodSpecies: string | null; roomSceneImageUrl?: string | null };
+    // STRICT ONE-FAMILY-ONE-COLOR: only feature families that have a REAL
+    // verified room-scene photo — never a guessed/bucket scene on the home page.
+    const list = (styles ?? []).filter((s) => !!(s as S).roomSceneImageUrl) as S[];
     if (list.length === 0) return fallback;
     // Pick a visually-diverse set: one family per finish bucket so the showcase
     // shows real variety (white / gray / dark / warm wood / light wood) instead
@@ -401,9 +410,8 @@ function StyleShowcase() {
     return picked.map((s) => ({
       name: s.ourName || s.styleCode,
       blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") || "Shop every cabinet in this finish",
-      scene: kitchenSceneFor({
-        doorStyle: [s.doorStyle, s.color, s.ourName, s.woodSpecies].filter(Boolean).join(" "),
-      }),
+      // Real verified photo only (guaranteed present by the filter above).
+      scene: s.roomSceneImageUrl as string,
       href: `/family/${encodeURIComponent(s.styleCode)}`,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps

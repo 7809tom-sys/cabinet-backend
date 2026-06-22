@@ -147,6 +147,7 @@ export const doorStylesRouter = router({
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
           platformSku: distributorSkus.platformSku,
+          skuImageUrl: distributorSkus.imageUrl,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
@@ -321,6 +322,7 @@ export const pricingRouter = router({
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           platformSku: distributorSkus.platformSku,
+          skuImageUrl: distributorSkus.imageUrl,
           leadTimeDays: distributors.leadTimeDays,
           distributorId: distributorSkus.distributorId,
         })
@@ -368,6 +370,7 @@ export const pricingRouter = router({
           wholesalePrice: r.wholesalePrice,
           contractorPrice: r.contractorPrice,
           platformSku: r.platformSku,
+          skuImageUrl: r.skuImageUrl,
           leadTimeDays: r.leadTimeDays,
           distributorId: r.distributorId,
         }))

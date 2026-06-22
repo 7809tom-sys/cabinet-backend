@@ -36,6 +36,60 @@ function lc(v: string | null | undefined): string {
   return (v ?? "").toLowerCase();
 }
 
+const WORD_NUM: Record<string, number> = {
+  single: 1, one: 1, two: 2, double: 2, three: 3, triple: 3,
+  four: 4, five: 5, six: 6,
+};
+
+/**
+ * Resolve how many door panels and drawer fronts a cabinet should DRAW so that
+ * the picture always agrees with the visible label. The catalog's numeric
+ * `numberOfDoors` / `subCategory` fields are unreliable for some rows (e.g. a
+ * 12" wall tagged "Double Door Wall" / doors=1 whose description clearly says
+ * "Single Door"), so the human-readable DESCRIPTION is treated as the source of
+ * truth, with numeric fields and width as fallbacks.
+ */
+export function resolveDoorDrawerCounts(cab: CabinetLike): {
+  doors: number;
+  drawers: number;
+} {
+  const desc = lc(cab.description);
+  const sub = lc(cab.subCategory);
+  const w = toNum(cab.width);
+
+  // 1) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
+  let drawers = 0;
+  const drawerNum = desc.match(/(\d+)\s*[- ]?drawer/);
+  if (drawerNum) drawers = parseInt(drawerNum[1], 10);
+  else {
+    const drawerWord = desc.match(/\b(single|two|double|three|triple|four|five|six)\s*[- ]?drawer/);
+    if (drawerWord) drawers = WORD_NUM[drawerWord[1]] ?? 0;
+  }
+  if (drawers === 0 && (cab.numberOfDrawers ?? 0) > 0 && /drawer/.test(`${desc} ${sub}`)) {
+    drawers = cab.numberOfDrawers ?? 0;
+  }
+
+  // 2) Doors from the description first ("Single Door", "Double Door", "2 Door").
+  let doors = 0;
+  const doorNum = desc.match(/(\d+)\s*[- ]?door/);
+  if (doorNum) doors = parseInt(doorNum[1], 10);
+  else {
+    const doorWord = desc.match(/\b(single|two|double|three|triple|four)\s*[- ]?door/);
+    if (doorWord) doors = WORD_NUM[doorWord[1]] ?? 0;
+  }
+
+  // 3) Fall back to the numeric field, then to width (>=24" base/wall = 2 doors).
+  if (doors === 0) {
+    const n = cab.numberOfDoors ?? 0;
+    if (n > 0) doors = n;
+  }
+  if (doors === 0 && drawers === 0) {
+    doors = w !== null && w >= 24 ? 2 : 1;
+  }
+
+  return { doors, drawers };
+}
+
 /**
  * Decide which 2D front drawing best represents this cabinet, based on the
  * real catalog data (category / subCategory / counts / corner flag).
@@ -95,10 +149,10 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "vanity";
   }
 
-  // Drawer base: all-drawer fronts (no doors, or explicitly a drawer base).
-  const doors = cab.numberOfDoors ?? 0;
-  const drawers = cab.numberOfDrawers ?? 0;
-  if (/drawer base|\bdrawer\b/.test(`${sub} ${desc}`) && doors === 0) {
+  // Drawer base: all-drawer fronts (no doors). Use the description-driven
+  // resolver so the type matches the label (e.g. "3 Drawer Base").
+  const { doors, drawers } = resolveDoorDrawerCounts(cab);
+  if (/drawer base/.test(`${sub} ${desc}`) && doors === 0) {
     return "drawer-base";
   }
   if (drawers > 0 && doors === 0) {
@@ -107,6 +161,44 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
 
   // Default: a door box (with optional top drawer handled by the renderer).
   return "standard-door";
+}
+
+/**
+ * A short, shopper-facing type label that ALWAYS agrees with the drawing.
+ * The catalog's `subCategory` is sometimes wrong (a single-door wall tagged
+ * "Double Door Wall"), so when the description clearly states the door/drawer
+ * count we derive the label from the description instead.
+ */
+export function cabinetTypeLabel(cab: CabinetLike): string {
+  const cat = lc(cab.category);
+  const sub = (cab.subCategory ?? "").trim();
+  const desc = lc(cab.description);
+  const type = cabinetDrawingType(cab);
+  const { doors, drawers } = resolveDoorDrawerCounts(cab);
+
+  const placement =
+    cat === "wall" ? "Wall" :
+    cat === "tall" ? "Tall" :
+    cat === "vanity" ? "Vanity" :
+    cat === "ada" ? "ADA" :
+    cat === "accessory" ? "Accessory" : "Base";
+
+  if (type === "drawer-base") {
+    return drawers > 0 ? `${drawers}-Drawer ${placement}` : `Drawer ${placement}`;
+  }
+  if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
+  if (type === "blind-corner") return /lazy susan|easy reach/.test(desc) ? `Corner ${placement}` : `Blind Corner ${placement}`;
+  if (type === "appliance-garage") return "Appliance Garage";
+  if (type === "glass-door") return doors >= 2 ? `Double Glass Door ${placement}` : `Single Glass Door ${placement}`;
+  if (type === "accessory-strip") return sub || "Trim / Accessory";
+
+  // Standard door box: name by door count so it matches the drawing.
+  if (type === "standard-door") {
+    const doorWord = doors >= 2 ? "Double Door" : "Single Door";
+    if (placement === "Vanity" || placement === "ADA") return `${doorWord} ${placement}`;
+    return `${doorWord} ${placement}`;
+  }
+  return sub || `${placement} Cabinet`;
 }
 
 /** Slugify a string into an SEO-friendly, hyphenated token. */
@@ -140,8 +232,7 @@ export function cabinetAltText(cab: CabinetLike): string {
   const code = cab.masterCode ?? "";
   const w = toNum(cab.width);
   const type = cabinetDrawingType(cab);
-  const doors = cab.numberOfDoors ?? 0;
-  const drawers = cab.numberOfDrawers ?? 0;
+  const { doors, drawers } = resolveDoorDrawerCounts(cab);
 
   const widthPart = w ? `${w}"` : "";
   const namePart = (cab.description ?? "").split(/[.,;]/)[0]?.trim() || cab.subCategory || "Cabinet";

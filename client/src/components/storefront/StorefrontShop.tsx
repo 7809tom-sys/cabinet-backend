@@ -7,7 +7,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { useFamilyLock, type LockedFamily } from "@/hooks/useFamilyLock";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
-import { doorFamilyPhoto, kitchenSceneFor } from "@/lib/doorFamilyPhotos";
 import {
   STOREFRONT_STRINGS,
   type Lang,
@@ -142,14 +141,10 @@ function FamilyPicker({
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {data.map((f) => {
-              // We sell the dream kitchen, not a door: lead with a full-room
-              // lifestyle scene (RTA-retailer style). The color-accurate door
-              // swatch is demoted to a small detail chip overlaid on the scene.
-              const scene = kitchenSceneFor({
-                doorStyle: [f.doorStyle, f.color, f.name, f.woodSpecies]
-                  .filter(Boolean)
-                  .join(" "),
-              });
+              // STRICT ONE-FAMILY-ONE-COLOR: lead with this family's OWN verified
+              // room scene. No keyword/bucket guessing — if there's no real photo
+              // we render the color-accurate swatch on the family's finish color.
+              const scene = f.roomSceneImageUrl || null;
               return (
                 <button
                   key={f.styleId}
@@ -171,12 +166,26 @@ function FamilyPicker({
                 >
                   {/* Full kitchen scene hero */}
                   <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                    <img
-                      src={scene}
-                      alt={`${f.name} kitchen`}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
+                    {scene ? (
+                      <img
+                        src={scene}
+                        alt={`${f.name} kitchen`}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <DoorStyleSwatch
+                        style={{
+                          styleCode: f.styleCode,
+                          ourName: f.name,
+                          name: f.name,
+                          doorStyle: f.doorStyle,
+                          color: f.color,
+                          finish: f.finish,
+                        }}
+                        className="h-full w-full"
+                      />
+                    )}
                     {/* gradient for legibility */}
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0" />
                     {f.doorStyle && (
@@ -283,16 +292,22 @@ function LockedCatalog({
   return (
     <section id="shop" className="py-12 md:py-16">
       <div className="container">
-        {/* Dream-kitchen scene banner for the locked line */}
+        {/* Dream-kitchen scene banner for the locked line — ONLY this family's
+            own verified photo; no bucket guessing. Falls back to the family's
+            finish color block (handled by FamilyCardImage below) if absent. */}
         <div className="relative mb-4 overflow-hidden rounded-2xl">
-          <img
-            src={kitchenSceneFor({
-              doorStyle: [family.doorStyle, family.color, family.name]
-                .filter(Boolean)
-                .join(" "),
-            })}
+          <FamilyCardImage
+            src={family.roomSceneImageUrl}
             alt={`${family.name} kitchen`}
-            className="h-44 w-full object-cover sm:h-56"
+            style={{
+              ourName: family.name,
+              name: family.name,
+              doorStyle: family.doorStyle,
+              color: family.color,
+              finish: family.finish,
+            }}
+            imgClassName="h-44 w-full object-cover sm:h-56"
+            swatchClassName="h-44 w-full sm:h-56"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           <div className="absolute bottom-4 left-5 right-5">
@@ -316,7 +331,7 @@ function LockedCatalog({
         >
           <div className="flex items-center gap-3">
             <FamilyCardImage
-              src={doorFamilyPhoto({ doorStyle: family.doorStyle }) || family.thumbnailImageUrl || family.roomSceneImageUrl}
+              src={family.thumbnailImageUrl || family.roomSceneImageUrl}
               alt={family.name}
               style={{
                 ourName: family.name,

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   cabinetDrawingType,
   cabinetAltText,
+  resolveDoorDrawerCounts,
   type CabinetLike,
   type CabinetDrawingType,
 } from "@/lib/cabinetGraphics";
@@ -119,8 +120,9 @@ function Box({ x, y, w, h, fill }: { x: number; y: number; w: number; h: number;
 
 // Standard door cabinet: outer box + 1..N door panels, optional top drawer row.
 function StandardDoorFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
-  const doors = Math.max(1, cabinet?.numberOfDoors ?? (w > 21 ? 2 : 1));
-  const drawers = cabinet?.numberOfDrawers ?? 0;
+  const counts = resolveDoorDrawerCounts(cabinet ?? {});
+  const doors = Math.max(1, counts.doors || (w > 21 ? 2 : 1));
+  const drawers = counts.drawers;
   const inset = 4;
   const hasTopDrawer = drawers > 0;
   const drawerH = hasTopDrawer ? Math.min(14, h * 0.18) : 0;
@@ -171,7 +173,7 @@ function StandardDoorFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type
 
 // Drawer base: stack of drawer fronts (count from data, default 3).
 function DrawerBaseFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
-  const n = Math.max(1, cabinet?.numberOfDrawers ?? 3);
+  const n = Math.max(1, resolveDoorDrawerCounts(cabinet ?? {}).drawers || 3);
   const inset = 4;
   const gap = 3;
   const innerW = w - inset * 2;
@@ -344,7 +346,7 @@ function BlindCornerFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabin
 
 // Glass-front wall cabinet: door(s) with a glass pane + mullion cross.
 function GlassDoorFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
-  const doors = Math.max(1, cabinet?.numberOfDoors ?? (w > 21 ? 2 : 1));
+  const doors = Math.max(1, resolveDoorDrawerCounts(cabinet ?? {}).doors || (w > 21 ? 2 : 1));
   const inset = 4;
   const innerW = w - inset * 2;
   const innerH = h - inset * 2;

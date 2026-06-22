@@ -7,9 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
-import { doorFamilyPhoto, kitchenSceneFor } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
-import { type CabinetLike } from "@/lib/cabinetGraphics";
+import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Family page — the DOOR-STYLE-FAMILY-first shopping experience.
@@ -29,6 +28,8 @@ interface FamilyStyle {
   woodSpecies: string | null;
   color: string | null;
   finish: string | null;
+  roomSceneImageUrl: string | null;
+  doorSampleImageUrl: string | null;
 }
 
 interface FamilyItem extends CabinetLike {
@@ -40,6 +41,7 @@ interface FamilyItem extends CabinetLike {
   width: string | null;
   height: string | null;
   depth: string | null;
+  skuImageUrl?: string | null;
 }
 
 // Group the DB categories into the buyer-facing room-section filters.
@@ -69,11 +71,19 @@ function FamilyCabinetCard({
             matches the real item type (drawer base draws drawers, sink base shows
             the sink, glass walls show glass, corners show the L-shape, etc.). */}
         <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3">
-          <CabinetDrawing
-            cabinet={item}
-            finishColor={finish}
-            className="h-full w-auto max-w-full transition-transform duration-300 group-hover:scale-[1.04]"
-          />
+          {item.skuImageUrl ? (
+            <img
+              src={item.skuImageUrl}
+              alt={item.description ?? item.masterCode}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+            />
+          ) : (
+            <CabinetDrawing
+              cabinet={item}
+              finishColor={finish}
+              className="h-full w-auto max-w-full transition-transform duration-300 group-hover:scale-[1.04]"
+            />
+          )}
         </div>
 
         <div className="p-4">
@@ -81,11 +91,9 @@ function FamilyCabinetCard({
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
               {item.masterCode}
             </span>
-            {item.subCategory && (
-              <Badge variant="secondary" className="text-xs shrink-0">
-                {item.subCategory}
-              </Badge>
-            )}
+            <Badge variant="secondary" className="text-xs shrink-0">
+              {cabinetTypeLabel(item)}
+            </Badge>
           </div>
 
           <p className="text-sm font-medium text-foreground mt-2 leading-snug line-clamp-2">
@@ -164,15 +172,13 @@ export default function Family({ styleCode }: { styleCode: string }) {
 
   const s = style as FamilyStyle | null;
   const familyName = s?.ourName || s?.styleCode || "Door Style";
-  // The scene/door resolvers key off keyword matching, so feed them BOTH the
-  // panel family (doorStyle) AND the color/name keywords. This makes a Hickory
-  // ("Shaker" + warm wood color) resolve to a warm-wood scene rather than a
-  // generic white shaker scene.
-  const sceneKey = [s?.doorStyle, s?.color, s?.ourName, s?.woodSpecies]
-    .filter(Boolean)
-    .join(" ");
-  const scene = kitchenSceneFor({ doorStyle: sceneKey });
-  const sampleDoor = doorFamilyPhoto({ doorStyle: s?.doorStyle ?? s?.ourName ?? null });
+  // STRICT ONE-FAMILY-ONE-COLOR: a family shows ONLY its own verified photo.
+  // There is NO keyword/bucket fallback — we never borrow another family's
+  // scene. When a family has no real photo yet, `realScene` stays null and the
+  // header renders a clean color-accurate door panel (in this family's exact
+  // finish) instead of a stock kitchen.
+  const realScene = s?.roomSceneImageUrl || null;
+  const realDoor = s?.doorSampleImageUrl || null;
 
   if (styleLoading) {
     return (
@@ -218,11 +224,21 @@ export default function Family({ styleCode }: { styleCode: string }) {
 
       {/* ── Family header: room scene + sample door + the facts ───────────────── */}
       <div className="relative overflow-hidden rounded-2xl border border-border mb-8">
-        <img
-          src={scene}
-          alt={`${familyName} kitchen room scene`}
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        {realScene ? (
+          <img
+            src={realScene}
+            alt={`${familyName} kitchen room scene`}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          // No verified photo for this family yet — fill the backdrop with this
+          // family's EXACT finish color (never another family's kitchen).
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: finish }}
+            aria-hidden
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-navy)]/92 via-[var(--color-navy)]/75 to-transparent" />
         <div className="relative grid md:grid-cols-[1.4fr_1fr] gap-6 p-6 md:p-10 items-center">
           <div className="max-w-xl">
@@ -262,7 +278,15 @@ export default function Family({ styleCode }: { styleCode: string }) {
 
           {/* Compact door+finish swatch for mobile (the large sample is desktop-only). */}
           <div className="md:hidden mt-4 flex items-center gap-3 rounded-xl bg-white/95 p-3 shadow-lg ring-1 ring-white/40">
-            <DoorStyleSwatch style={s} className="h-16 w-14 shrink-0" />
+            {realDoor ? (
+              <img
+                src={realDoor}
+                alt={`${familyName} door sample`}
+                className="h-16 w-14 shrink-0 rounded object-cover ring-1 ring-border"
+              />
+            ) : (
+              <DoorStyleSwatch style={s} className="h-16 w-14 shrink-0" />
+            )}
             <div className="min-w-0">
               <p className="text-xs font-semibold text-foreground truncate">
                 {familyName} door &amp; finish
@@ -279,16 +303,14 @@ export default function Family({ styleCode }: { styleCode: string }) {
               profile photo is shown small underneath for door-profile reference. */}
           <div className="hidden md:flex items-center justify-center">
             <div className="rounded-xl bg-white/95 p-4 shadow-xl ring-1 ring-white/40">
-              <DoorStyleSwatch style={s} className="h-44 w-auto" />
-              {sampleDoor && (
-                <div className="mt-2 flex items-center justify-center gap-2">
-                  <img
-                    src={sampleDoor}
-                    alt={`${s.doorStyle || "Door"} panel profile`}
-                    className="h-8 w-auto object-contain rounded opacity-80"
-                  />
-                  <span className="text-[10px] text-muted-foreground">profile</span>
-                </div>
+              {realDoor ? (
+                <img
+                  src={realDoor}
+                  alt={`${familyName} door sample`}
+                  className="h-44 w-44 rounded-lg object-cover ring-1 ring-border"
+                />
+              ) : (
+                <DoorStyleSwatch style={s} className="h-44 w-auto" />
               )}
               <p className="text-center text-[11px] text-muted-foreground mt-2">
                 {familyName} door &amp; finish

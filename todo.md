@@ -590,3 +590,76 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] CORRECT images: replaced the generic/wrong 3D photo with the accurate to-scale CabinetDrawing (driven by real dims + door/drawer counts + subCategory) as the primary product image on catalog cards, family cards, and the detail page — so a drawer base draws drawers, a sink base shows a sink, a blind corner draws the L, recolored to the family finish.
 - [x] Finish-accurate scenes/doors: hardened finishBucket so black/espresso wins over wood species, oak/natural reads light-wood, etc.; family/detail/storefront scenes now combine color+name+species keywords so dark & warm families no longer collapse onto the generic white scene.
 - [x] Tests: added server/family.test.ts (familyCatalog populated + multi-category + deduped + priced; byCode resolve + null) and finish-bucket scene tests; full suite green (315 passing); verified desktop + mobile.
+
+
+## BUGS — White scene + door-count drawing (user feedback Jun 22, 2nd round)
+- [ ] White family (Lumina White / SW 7006 Extra White) shows a CHERRY kitchen scene. A white cabinet MUST show a white kitchen. Fix finishBucket so "extra white"/white never falls to cherry/dark.
+- [ ] The wood scene we use should be a room-STAIN finish, not red cherry. Replace/relabel cherry scene with a neutral stained scene.
+- [ ] Card label vs picture mismatch: title says "Single Door Wall" but tag says "Double Door Wall", and the to-scale drawing shows the same single door for both. Drawing must match the actual door count (double = 2 doors) and the title/tag must agree.
+
+
+## BUGS — Image correctness round 2 (user feedback Jun 22)
+- [ ] White family (Lumina White / SW 7006 Extra White) shows a CHERRY kitchen scene. White cabinet MUST show a white kitchen. Fix finishBucket: "extra white"/white never falls to cherry/dark.
+- [ ] The wood/traditional scene must read as a room STAIN finish, not red cherry. Use a neutral stained scene.
+- [ ] Card label vs drawing mismatch: title "Single Door Wall" while tag "Double Door Wall"; drawing shows one door for both. Drawing must match real door count (double = 2 doors); title and tag must agree (use real numberOfDoors).
+- [ ] Door-style browse cards: big door preview is the same cream door for every style; it must render in the actual style color (Oxford Sage = green, Oxford Toffee = gold) like the corner swatch does.
+
+
+## REAL PER-STYLE IMAGES (sourced from public distributor pages)
+
+- [ ] Collect real room-scene + door image URLs for all 61 families (search by real door name; widely sold across distributors)
+- [ ] Download images, host on our CDN (manus-upload-file --webdev), store roomSceneImageUrl + doorSampleImageUrl per door style
+- [ ] Wire family page hero, door-style cards, and home showcase to use per-style images (fallback to finish-colored drawing only if missing)
+- [ ] Fix the to-scale drawing + label door-count mismatch (double door draws 2 doors; title/tag agree)
+- [ ] Verify white shows white kitchen (no cherry), sage shows sage, etc.; test + screenshots desktop/mobile; checkpoint
+
+
+## STRICT ONE-FAMILY-ONE-COLOR (user mandate: no mixing, no fallbacks, ever)
+- [ ] Remove ALL bucket/keyword scene-guessing fallback from the family page, door-style cards, and home showcase. A family shows ONLY its own stored roomSceneImageUrl / doorSampleImageUrl.
+- [ ] If a family has NO verified photo: show a clean, color-accurate door-panel placeholder (in that family's finish) — NEVER another family's photo or a generic stock scene.
+- [ ] Every cabinet drawing on a family page stays recolored to that family's exact finish — confirm no item renders in a different color.
+- [ ] Carry the locked family finish through to the cabinet detail page (already via ?style=).
+- [ ] Audit all 61 families: which have a verified-correct photo vs which are missing/uncertain. Produce a clear gap list for the user to supply photos.
+- [ ] Hand the user the gap list; drop user-supplied photos straight into the matching family.
+- [ ] Tests green; screenshot Sage + White + a dark family to confirm zero color mixing; checkpoint.
+
+## SKU Model Rebuild + Master SKU Spreadsheet (from july_master.xlsx)
+- [x] Reverse-engineer july_master.xlsx (distributors, color maps, API_Export grid, pricing tabs)
+- [ ] Define canonical SKU: DISTRIBUTOR-STYLE-CABINET (e.g. CS-ASP-B21); distributor codes CS/SKY/UCD
+- [ ] Build master SKU spreadsheet: one row per unique SKU across all 3 distributors (unpivot per-color pricing)
+- [ ] Columns: SKU, distributor(hidden), family/color(public Our Name), internal door name, category, sub-category/type, description, W/H/D, List, Adjusted List, Our Cost, Homeowner, Contractor, Wholesale, image
+- [ ] Make image human-friendly: embed thumbnail in the .xlsx (so user sees the photo, not a URL)
+- [ ] Validate: total SKU count (~25-30k), per-distributor counts, unmapped colors/cabinets report
+- [ ] Add imageUrl column to distributor_skus schema; generate + apply migration
+- [ ] Rebuild platformSku in DB to DISTRIBUTOR-STYLE-CABINET format
+- [ ] Wire SKU-level image into family-first flow (fall back to accurate drawing when blank)
+- [ ] Build foolproof visual image-management admin page (see photo -> click Replace -> upload, no URLs)
+- [ ] Admin SKU import/export (upload edited master sheet to update prices + images)
+- [ ] Tests + checkpoint + deliver master spreadsheet to user
+
+## SKU-Level Images (CONFIRMED: image is per SKU = cabinet + door style)
+- [x] Master SKU build from july_master.xlsx (14,901 SKUs, 3 distributors, categories cleaned)
+- [ ] Rebuild workbook: per-distributor tabs, ONE ROW PER SKU, grouped by door style, with per-SKU image column
+- [ ] Add SKU-level imageUrl to distributor_skus schema (migration + apply)
+- [ ] Rebuild platformSku to DIST-STYLE-CABINET (e.g. CS-ASP-B21)
+- [ ] Storefront resolves image at SKU level (fallback to door-style image, then drawing)
+- [ ] Batch image uploader: auto-match filenames (CS-ASP-B21 / ASP-B21 / B21-ASP / Aspen-B21) to SKUs; report unmatched
+- [ ] Repeatable distributor import: upload sheet -> alias-resolve -> auto-category -> generate SKUs
+- [ ] Tests + checkpoint + deliver workbook to user
+
+## SKU Image Management (front-end)
+- [ ] DB: imageUrl + supplierCabinetName on distributor_skus (DONE)
+- [ ] Storefront resolves image: SKU image -> door-style image -> drawing fallback
+- [ ] Admin: per-SKU "Edit/Replace photo" with in-browser crop/rotate/zoom editor (faster than prepping files)
+- [ ] Admin: batch image uploader, auto-match files by SKU code / cabinet+style / plain names; report unmatched
+- [ ] S3 upload via storagePut; standardize/auto-fit images on save
+- [ ] Repeatable distributor import (alias + category auto-resolve) reused by onboarding
+- [ ] vitest for image-match resolver + SKU image fallback
+- [ ] Editor "Apply to" scope: default = ALL of this cabinet (same masterCode across every door style + distributor); options = this SKU only / this door style. Confirm count before applying.
+
+## Door styles = master category leader (site-wide)
+- [ ] Hierarchy everywhere: Door Style -> Category -> Sub-category -> Cabinet
+- [ ] Shopper picks door style FIRST, then browses cabinets within that one style (no flat cross-style cabinet lists, no cross-family mixing)
+- [ ] Editor "Apply to all B21" is a CHECKBOX, default ON; off = this SKU only
+- [ ] Self-paced: edit any time, saves as you go
+- [ ] Audit storefront/nav/family/design tool/admin for door-first compliance
