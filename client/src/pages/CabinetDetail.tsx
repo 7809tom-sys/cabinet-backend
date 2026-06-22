@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { CabinetDrawing } from "@/components/CabinetDrawing";
+import { CabinetImage } from "@/components/CabinetImage";
 import { cabinetTypeLabel, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto, kitchenSceneWithCopy } from "@/lib/doorFamilyPhotos";
@@ -214,14 +214,16 @@ export default function CabinetDetail({ masterCode }: Props) {
               always matches the actual item (no generic/wrong renders). */}
           <div className="mb-2">
             <div className="rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 h-64 flex items-center justify-center overflow-hidden p-4">
-              <CabinetDrawing
+              <CabinetImage
                 cabinet={cabinet}
                 finishColor={finishFace}
                 className="h-full w-auto max-w-full"
               />
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5 text-center">
-              Drawn to scale{selectedRow ? ` in ${selectedRow.name}` : ""} — front elevation
+              {cabinet.catalogImageUrl
+                ? "Catalog illustration — front elevation"
+                : `Drawn to scale${selectedRow ? ` in ${selectedRow.name}` : ""} — front elevation`}
             </p>
           </div>
           {selectedRow ? (

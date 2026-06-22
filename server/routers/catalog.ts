@@ -141,6 +141,7 @@ export const doorStylesRouter = router({
           numberOfDoors: cabinets.numberOfDoors,
           numberOfDrawers: cabinets.numberOfDrawers,
           graphicType: cabinets.graphicType,
+          catalogImageUrl: cabinets.catalogImageUrl,
           listPrice: distributorSkus.listPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           wholesalePrice: distributorSkus.wholesalePrice,

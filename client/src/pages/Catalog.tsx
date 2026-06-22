@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
-import { CabinetDrawing } from "@/components/CabinetDrawing";
+import { CabinetImage } from "@/components/CabinetImage";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import { KITCHEN_SCENES, kitchenSceneFor } from "@/lib/doorFamilyPhotos";
 
@@ -105,7 +105,7 @@ function CabinetCard({ cabinet }: { cabinet: CabinetItem }) {
             matches the real item type (drawer base draws drawers, sink base shows
             the sink cutout, glass walls show glass, corners show the L-shape). */}
         <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3">
-          <CabinetDrawing
+          <CabinetImage
             cabinet={cabinet}
             className="h-full w-auto max-w-full transition-transform duration-300 group-hover:scale-[1.04]"
           />

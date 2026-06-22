@@ -123,6 +123,8 @@ export const cabinets = mysqlTable("cabinets", {
   maxPull: decimal("maxPull", { precision: 5, scale: 2 }),
   // 2D graphic
   graphicType: varchar("graphicType", { length: 64 }), // base_1door, wall_2door, etc.
+  // Catalog line-art image (20/20 catalog renders, keyed by code). Falls back to code-drawn SVG.
+  catalogImageUrl: varchar("catalogImageUrl", { length: 512 }),
   // Packaging
   pkgLength: decimal("pkgLength", { precision: 6, scale: 2 }),
   pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),

@@ -753,3 +753,18 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Added "Batten" toggle to Design Tool toolbar (orders in 96" sticks)
 - [x] Added BATTEN MOLDING (BAM) line to the BOM / build sheet
 - [x] Render slim vertical batten strip at cabinet seams in Front View (ElevationView)
+
+
+## Catalog images + molding fixes (2026-06-22)
+- [x] Pool 4 x 20/20 catalogs, extract product line-art (1224 images)
+- [x] Match catalog images to 359/388 master codes (override map for stragglers)
+- [x] Upload 299 unique images to webdev static storage
+- [x] Add cabinets.catalogImageUrl column + populate (359 rows)
+- [x] Expose catalogImageUrl via catalog + design tRPC procedures
+- [x] CabinetImage wrapper (img with onError -> CabinetDrawing fallback)
+- [x] Wire into Catalog, CabinetDetail, Family, DesignTool palette
+- [x] Verify rendering via screenshots (family/IB, /catalog/B-24, /catalog)
+- [x] Fix flagged molding/filler dims from catalog (F-3/6-42/96, FBM, LRM-8, ALRM-8, VA-48)
+- [x] Reclassify FS-24/FS-30 as Floating Shelf (2-3/16"H x 12"D)
+- [ ] PENDING new catalogs: CBT (Corner Base Trim) + plain LRM 1-1/4" (not in current 4 catalogs)
+- [ ] PENDING US Cabinet Depot + Faircrest 20/20 catalogs to fill 29 unmatched images

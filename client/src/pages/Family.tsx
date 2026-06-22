@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
-import { CabinetDrawing } from "@/components/CabinetDrawing";
+import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { finishColors } from "@/lib/design";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
@@ -78,7 +78,7 @@ function FamilyCabinetCard({
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
             />
           ) : (
-            <CabinetDrawing
+            <CabinetImage
               cabinet={item}
               finishColor={finish}
               className="h-full w-auto max-w-full transition-transform duration-300 group-hover:scale-[1.04]"

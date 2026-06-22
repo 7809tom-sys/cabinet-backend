@@ -36,6 +36,7 @@ export const designRouter = router({
           numberOfDoors: cabinets.numberOfDoors,
           numberOfDrawers: cabinets.numberOfDrawers,
           isCornerCabinet: cabinets.isCornerCabinet,
+          catalogImageUrl: cabinets.catalogImageUrl,
         })
         .from(cabinets)
         .where(eq(cabinets.isActive, true));

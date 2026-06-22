@@ -40,6 +40,7 @@ import { WallPicker } from "@/components/design/WallPicker";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
+import { CabinetImage } from "@/components/CabinetImage";
 
 type ViewMode = "plan" | "elevation" | "split";
 type PricingTier = "Wholesale" | "Contractor";
@@ -1021,7 +1022,7 @@ export default function DesignTool() {
                       className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                     >
                       <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
-                        <CabinetDrawing cabinet={c} className="h-full w-auto max-w-full" />
+                        <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>

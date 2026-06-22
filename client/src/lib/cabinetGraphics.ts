@@ -24,6 +24,7 @@ export interface CabinetLike {
   numberOfDrawers?: number | null;
   isCornerCabinet?: boolean | null;
   placementType?: string | null;
+  catalogImageUrl?: string | null;
 }
 
 function toNum(v: number | string | null | undefined): number | null {
