@@ -73,7 +73,10 @@ export default function DesignTool() {
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("plan");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const v = new URLSearchParams(window.location.search).get("view");
+    return v === "front" ? "elevation" : v === "split" ? "split" : "plan";
+  });
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
   // Island zone: an optional rectangular guide (inches) marking where island
@@ -513,6 +516,9 @@ export default function DesignTool() {
           depth,
           height,
           rotation: spot.rotation,
+          numberOfDoors: c.numberOfDoors,
+          numberOfDrawers: c.numberOfDrawers,
+          catalogImageUrl: c.catalogImageUrl ?? null,
         };
         setSelectedUid(newCab.uid);
         return [...prev, newCab];
@@ -694,6 +700,7 @@ export default function DesignTool() {
       cabinetId: number; masterCode: string; description: string;
       placement: "base" | "wall" | "tall"; x: number; y: number; rotation: number;
       width: number | null; depth: number | null; height?: number | null;
+      catalogImageUrl?: string | null;
     }>).map((it) => ({
       uid: makeUid(),
       cabinetId: it.cabinetId,
@@ -713,6 +720,7 @@ export default function DesignTool() {
           : STD.BASE_DEPTH,
       height: it.height && it.height > 0 ? it.height : standardHeight(it.placement),
       rotation: it.rotation,
+      catalogImageUrl: it.catalogImageUrl ?? null,
     }));
     setPlaced(items);
     setSelectedUid(null);
@@ -913,8 +921,12 @@ export default function DesignTool() {
         <div className="border-b border-border bg-[#f7f5f0] px-4 py-1.5 flex items-center gap-3 flex-wrap shrink-0">
           {selectedCab && !drawMode && (
             <>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-white p-0.5">
+                <CabinetImage cabinet={selectedCab} className="h-full w-auto max-w-full" />
+              </div>
               <span className="text-[11px] text-muted-foreground">
                 Selected <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
+                <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
               </span>
               <div className="h-4 w-px bg-border" />
               <WallPicker onPick={snapSelectedToWall} />

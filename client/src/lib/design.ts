@@ -69,6 +69,7 @@ export function applianceAsDesignCabinet(a: ApplianceDef): DesignCabinet {
     placement: "appliance",
     numberOfDoors: null,
     numberOfDrawers: null,
+    catalogImageUrl: null,
     isCornerCabinet: false,
   };
 }
@@ -86,6 +87,7 @@ export interface DesignCabinet {
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
   isCornerCabinet: boolean | null;
+  catalogImageUrl?: string | null;
 }
 
 // Door hinge side as seen from the front of the cabinet. "none" is used for
@@ -113,6 +115,10 @@ export interface PlacedCabinet {
   numberOfDoors?: number | null;
   numberOfDrawers?: number | null;
   rotation: number;
+  // Official 20/20 catalog line-art for this cabinet code, if available.
+  // Optional for backward-compat with older saved designs; the canvas falls
+  // back to the to-scale code-drawn shape when absent.
+  catalogImageUrl?: string | null;
 }
 
 // True when a cabinet has a hinged door whose swing side is meaningful. A

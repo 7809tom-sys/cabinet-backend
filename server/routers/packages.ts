@@ -176,6 +176,7 @@ export const packagesRouter = router({
           description: cabinets.description,
           width: cabinets.width,
           depth: cabinets.depth,
+          catalogImageUrl: cabinets.catalogImageUrl,
         })
         .from(cabinets)
         .where(inArray(cabinets.masterCode, codes));
@@ -196,6 +197,7 @@ export const packagesRouter = router({
             rotation: l.rotation,
             width: cab.width ? Number(cab.width) : null,
             depth: cab.depth ? Number(cab.depth) : null,
+            catalogImageUrl: cab.catalogImageUrl ?? null,
           };
         })
         .filter(Boolean);

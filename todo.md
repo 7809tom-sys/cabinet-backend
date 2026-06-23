@@ -768,3 +768,13 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Reclassify FS-24/FS-30 as Floating Shelf (2-3/16"H x 12"D)
 - [ ] PENDING new catalogs: CBT (Corner Base Trim) + plain LRM 1-1/4" (not in current 4 catalogs)
 - [ ] PENDING US Cabinet Depot + Faircrest 20/20 catalogs to fill 29 unmatched images
+
+
+## Design canvas line-art (20/20 feel) (2026-06-22)
+- [x] Carry catalogImageUrl through placed cabinets (palette add + package preload + packages.layout API)
+- [x] Show catalog line-art thumbnail of the SELECTED cabinet in the Selected bar (img + drawing fallback)
+- [x] Decision: keep plan as top-down footprint + elevation as colored door-style front (perspective line-art would misread there); line-art lives on palette + selected-item preview
+- [x] Added ?view=front/split default-view param for deep-linking elevation
+- [x] Verify in browser (plan + elevation screenshots), tests 365 pass, typecheck clean
+
+- [ ] Mobile UX: design canvas is unusable on phones — add "best on larger screen" notice + simplified mobile mode (browse/preview/request quote instead of tiny drag canvas)
