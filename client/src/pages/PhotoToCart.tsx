@@ -61,7 +61,7 @@ export default function PhotoToCart() {
   const [filename, setFilename] = useState<string>("");
   const [rows, setRows] = useState<MatchRow[] | null>(null);
   const [styleId, setStyleId] = useState<string>("");
-  const [tier, setTier] = useState<"Wholesale" | "Contractor">("Contractor");
+  const [tier, setTier] = useState<"wholesale" | "contractor">("contractor");
 
   const stylesQuery = trpc.doorStyles.list.useQuery(undefined);
   const styleOptions = useMemo(
@@ -356,13 +356,13 @@ export default function PhotoToCart() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={tier} onValueChange={(v) => setTier(v as "Wholesale" | "Contractor")}>
+              <Select value={tier} onValueChange={(v) => setTier(v as "wholesale" | "contractor")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Contractor">Contractor pricing</SelectItem>
-                  <SelectItem value="Wholesale">Wholesale pricing</SelectItem>
+                  <SelectItem value="contractor">Contractor pricing</SelectItem>
+                  <SelectItem value="wholesale">Wholesale pricing</SelectItem>
                 </SelectContent>
               </Select>
             </div>

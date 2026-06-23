@@ -10,6 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  type PricingTier,
+  resolveStorefrontTier,
+  resolveTierPrice,
+  compareAtPrice,
+  tierLabel,
+} from "@shared/pricingTier";
 import { CabinetImage } from "@/components/CabinetImage";
 import { cabinetTypeLabel, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
@@ -18,14 +26,15 @@ import { finishColors } from "@/lib/design";
 import { useCart } from "@/contexts/CartContext";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
-// Trade-only platform: pricing is shown by trade tier. No homeowner/retail tier.
+// Retail storefront: guests/homeowners see retail (homeowner) pricing with a
+// "Compare at" strike-through. Logged-in pros see the tier the owner assigned
+// to their account (contractor or wholesale).
 
-type PricingTier = "Wholesale" | "Contractor";
-
-const TIERS: { key: PricingTier; label: string; description: string }[] = [
-  { key: "Wholesale", label: "Wholesale", description: "For licensed dealers & high-volume trade accounts" },
-  { key: "Contractor", label: "Contractor", description: "For general contractors & remodelers" },
-];
+const TIER_DESCRIPTION: Record<PricingTier, string> = {
+  homeowner: "Retail price for homeowners",
+  contractor: "For general contractors & remodelers",
+  wholesale: "For licensed dealers & high-volume trade accounts",
+};
 
 function fmt(val: string | null | undefined): string {
   if (!val) return "—";
@@ -49,14 +58,70 @@ interface StyleRow {
   adjustedListPrice: string | null;
   wholesalePrice: string | null;
   contractorPrice: string | null;
+  homeownerPrice: string | null;
   platformSku: string;
   leadTimeDays: number | null;
   distributorId: number | null;
 }
 
+function priceNumberForTier(row: StyleRow, tier: PricingTier): number | null {
+  return resolveTierPrice(tier, row);
+}
+
 function priceForTier(row: StyleRow, tier: PricingTier): string {
-  if (tier === "Wholesale") return fmt(row.wholesalePrice);
-  return fmt(row.contractorPrice);
+  const n = priceNumberForTier(row, tier);
+  return n == null ? "—" : `$${n.toFixed(2)}`;
+}
+
+// ─── Price card (tier price + homeowner "Compare at" strike-through) ─────────
+
+function PriceCard({ row, tier }: { row: StyleRow; tier: PricingTier }) {
+  const price = priceNumberForTier(row, tier);
+  const compareAt = compareAtPrice(tier, row);
+  const savePct =
+    compareAt != null && price != null && compareAt > price
+      ? Math.round(((compareAt - price) / compareAt) * 100)
+      : null;
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <div className="text-3xl font-bold text-foreground">
+              {price == null ? "—" : `$${price.toFixed(2)}`}
+            </div>
+            {compareAt != null && (
+              <div className="text-base text-muted-foreground line-through">
+                ${compareAt.toFixed(2)}
+              </div>
+            )}
+            {savePct != null && savePct > 0 && (
+              <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                Save {savePct}%
+              </Badge>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {TIER_DESCRIPTION[tier]}
+          </div>
+        </div>
+        <div className="text-right text-xs text-muted-foreground shrink-0">
+          {tier !== "homeowner" && <div>MSRP: {fmt(row.listPrice)}</div>}
+          {row.leadTimeDays != null && <div>Lead time: ~{row.leadTimeDays} days</div>}
+        </div>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+        <span>{row.name}</span>
+        {row.doorStyle && (
+          <>
+            <span className="mx-2">·</span>
+            <span>{row.doorStyle}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Main Detail Page ─────────────────────────────────────────────────────────
@@ -75,7 +140,20 @@ export default function CabinetDetail({ masterCode }: Props) {
     return Number.isFinite(n) ? n : null;
   })();
   const [selectedStyleId, setSelectedStyleId] = useState<number | null>(styleParam);
-  const [tier, setTier] = useState<PricingTier>("Contractor");
+  const { user } = useAuth();
+  // The viewer's storefront tier: guests/homeowners see retail; logged-in pros
+  // see their assigned tier. Pros may toggle to compare, but the default is
+  // their own tier.
+  const viewerTier = resolveStorefrontTier(user);
+  const [tierOverride, setTierOverride] = useState<PricingTier | null>(null);
+  const tier: PricingTier = tierOverride ?? viewerTier;
+  const setTier = (t: PricingTier) => setTierOverride(t);
+  // Pros (assigned a trade tier) may switch between homeowner/contractor/
+  // wholesale to compare; pure homeowners/guests only ever see retail.
+  const isPro = viewerTier !== "homeowner";
+  const visibleTiers: PricingTier[] = isPro
+    ? ["homeowner", "contractor", "wholesale"]
+    : ["homeowner"];
   const [qty, setQty] = useState(1);
 
   const { data: cabinet, isLoading: cabinetLoading } = trpc.cabinets.byCode.useQuery({
@@ -109,8 +187,7 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   const handleAddToCart = () => {
     if (!selectedRow) return;
-    const priceStr = tier === "Wholesale" ? selectedRow.wholesalePrice : selectedRow.contractorPrice;
-    const unitPrice = priceStr ? parseFloat(priceStr) : null;
+    const unitPrice = priceNumberForTier(selectedRow, tier);
     addItem({
       masterCode,
       name: cabinet?.description ?? selectedRow.name,
@@ -122,7 +199,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       qty,
     });
     toast.success(`Added ${qty}\u00d7 ${masterCode} to cart`, {
-      description: `${selectedRow.name} \u00b7 ${tier} pricing`,
+      description: `${selectedRow.name} \u00b7 ${tierLabel(tier)} pricing`,
     });
   };
 
@@ -355,49 +432,30 @@ export default function CabinetDetail({ masterCode }: Props) {
             <div className="mt-6">
               <div className="flex items-center gap-2 mb-3">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">Trade Pricing</span>
+                <span className="text-sm font-semibold text-foreground">
+                  {isPro ? "Your Pricing" : "Price"}
+                </span>
               </div>
 
-              <Tabs value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
-                <TabsList className="w-full">
-                  {TIERS.map((t) => (
-                    <TabsTrigger key={t.key} value={t.key} className="flex-1 text-xs">
-                      {t.label}
-                    </TabsTrigger>
+              {isPro ? (
+                <Tabs value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
+                  <TabsList className="w-full">
+                    {visibleTiers.map((t) => (
+                      <TabsTrigger key={t} value={t} className="flex-1 text-xs">
+                        {tierLabel(t)}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+
+                  {visibleTiers.map((t) => (
+                    <TabsContent key={t} value={t} className="mt-3">
+                      <PriceCard row={selectedRow} tier={t} />
+                    </TabsContent>
                   ))}
-                </TabsList>
-
-                {TIERS.map((t) => (
-                  <TabsContent key={t.key} value={t.key} className="mt-3">
-                    <div className="rounded-xl border border-border bg-card p-4">
-                      <div className="flex items-baseline justify-between">
-                        <div>
-                          <div className="text-3xl font-bold text-foreground">
-                            {priceForTier(selectedRow, t.key)}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">{t.description}</div>
-                        </div>
-                        <div className="text-right text-xs text-muted-foreground">
-                          <div>MSRP: {fmt(selectedRow.listPrice)}</div>
-                          {selectedRow.leadTimeDays != null && (
-                            <div>Lead time: ~{selectedRow.leadTimeDays} days</div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-                        <span>{selectedRow.name}</span>
-                        {selectedRow.doorStyle && (
-                          <>
-                            <span className="mx-2">·</span>
-                            <span>{selectedRow.doorStyle}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </TabsContent>
-                ))}
-              </Tabs>
+                </Tabs>
+              ) : (
+                <PriceCard row={selectedRow} tier="homeowner" />
+              )}
 
               {/* Qty + Add to Cart */}
               <div className="mt-4 flex items-center gap-3">

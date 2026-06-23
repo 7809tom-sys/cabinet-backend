@@ -360,6 +360,74 @@ export const cabinetsRouter = router({
       };
     }),
 
+  // Style-scoped catalog list: only returns cabinets that have a published +
+  // available SKU for the SELECTED door style. This makes the storefront
+  // Catalog reflect true per-door-style availability (each style carries its
+  // own cabinet set), matching the Design Tool's placeableCabinets gate.
+  listForStyle: publicProcedure
+    .input(
+      z.object({
+        styleId: z.number(),
+        category: z.string().optional(),
+        subCategory: z.string().optional(),
+        search: z.string().optional(),
+        limit: z.number().min(1).max(200).default(48),
+        offset: z.number().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { items: [], total: 0 };
+
+      const conds = [
+        eq(distributorSkus.styleId, input.styleId),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+        eq(cabinets.isActive, true),
+      ];
+      if (input.category) conds.push(eq(cabinets.category, input.category));
+      if (input.subCategory) conds.push(eq(cabinets.subCategory, input.subCategory));
+      if (input.search) {
+        conds.push(
+          sql`(${cabinets.masterCode} LIKE ${`%${input.search}%`} OR ${cabinets.description} LIKE ${`%${input.search}%`})`
+        );
+      }
+
+      // Pull all matching cabinet rows for this style (a cabinet may have
+      // multiple SKUs across lines in the same style) then collapse to one row
+      // per cabinet before paginating, so counts/pages reflect distinct items.
+      const rows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          numberOfDoors: cabinets.numberOfDoors,
+          numberOfDrawers: cabinets.numberOfDrawers,
+          graphicType: cabinets.graphicType,
+          catalogImageUrl: cabinets.catalogImageUrl,
+          placementType: cabinets.placementType,
+          isCornerCabinet: cabinets.isCornerCabinet,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(...conds));
+
+      const byCabinet = new Map<number, (typeof rows)[number]>();
+      for (const r of rows) if (!byCabinet.has(r.id)) byCabinet.set(r.id, r);
+      const distinct = Array.from(byCabinet.values()).sort((a, b) =>
+        (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true })
+      );
+
+      const total = distinct.length;
+      const page = distinct.slice(input.offset, input.offset + input.limit);
+      return { items: page, total };
+    }),
+
   categories: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
@@ -443,6 +511,7 @@ export const pricingRouter = router({
           adjustedListPrice: distributorSkus.adjustedListPrice,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
           platformSku: distributorSkus.platformSku,
           skuImageUrl: distributorSkus.imageUrl,
           leadTimeDays: distributors.leadTimeDays,
@@ -491,6 +560,7 @@ export const pricingRouter = router({
           adjustedListPrice: r.adjustedListPrice,
           wholesalePrice: r.wholesalePrice,
           contractorPrice: r.contractorPrice,
+          homeownerPrice: r.homeownerPrice,
           platformSku: r.platformSku,
           skuImageUrl: r.skuImageUrl,
           leadTimeDays: r.leadTimeDays,

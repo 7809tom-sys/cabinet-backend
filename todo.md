@@ -987,3 +987,39 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Applied: homeowner = max(round(median*0.95), round(cost*1.7)); adjustedListPrice (Compare-at) = old homeowner. 9,629 SKUs lowered, catalog homeowner value -33%
 - [x] Verified: 0 below cost, avg margin 47.7%, min 41%, all 10,643 have Compare-at; the 2,224 'below 1.7x' are exact-1.70x rounded to whole dollars (not a real violation)
 - [ ] NOTE: storefront CabinetDetail/DesignTool only expose Wholesale+Contractor tiers — homeowner price/Compare-at not yet surfaced to guests (needs homeowner-tier display decision; see Phase 28)
+
+## Phase 28: Retail/affiliate storefront — surface homeowner pricing to guests (user request 2026-06-23)
+- [ ] Audit pricing flow: pricing.stylesForCabinet + catalog/cart server fields (homeowner/adjusted/contractor/wholesale)
+- [ ] Public default tier = Homeowner (retail) for guests; show Compare-at (adjustedListPrice) strike-through
+- [ ] Logged-in pros see their assigned tier (Contractor/Wholesale) instead of retail
+- [ ] Wire homeowner price through catalog cards, CabinetDetail, Add-to-Cart unit price, cart totals
+- [ ] Tests for tier resolution (guest->homeowner, pro->assigned) + typecheck; verify in browser; checkpoint
+
+## Phase 29: Save designs + attach to CRM (user request 2026-06-23)
+- [ ] Ensure designs are saved with a NAME (saveDesign already takes name) and listable
+- [ ] CRM deal: "Linked Designs" section with a drop-down of saved designs (by name) to attach
+- [ ] Persist deal<->design link (new table or column); show linked design name on the deal
+- [ ] Confirm scope: all my designs vs filtered to the deal's customer (asked user)
+- [ ] Tests + verify; checkpoint
+
+## Phase 30: BUG - drawer base cabinets missing from Design Tool palette (user report 2026-06-23)
+- [ ] Reproduce: drawer base (DB-*) cabinets not appearing in the Design Tool cabinet picker
+- [ ] Determine if catalog has DB-* drawer bases (and whether tied to a style like Skyline)
+- [ ] Check the Design Tool palette query/filter for why drawer bases are excluded
+- [ ] Fix so drawer bases appear in the palette; verify in browser
+- [ ] Tests + checkpoint
+
+## Phase 31: REVERSED DECISION - cabinet availability is per-door-style, NOT shared across a supply line (user clarification 2026-06-23)
+- [x] Owner clarified: each door style (e.g., Aspen White) has its OWN set of available cabinets; do NOT force a line's full catalog into every style.
+- [x] Design Tool behavior (styleId-gated placeableCabinets/familyCatalog) is CORRECT — keep as-is.
+- [x] Backfill approach ABANDONED. A live run of backfill-style-skus.mjs had already inserted 4,549 rows; reverted precisely via revert-backfill-style-skus.mjs using the inserted-platformSku list. distributor_skus restored to 10,643 rows.
+- [x] Confirmed NO "Skyline" style exists in catalog (separate note)
+
+## Phase 31b: Make storefront Catalog reflect per-style availability (so a cabinet only shows when its door style is selected)
+- [x] Added server cabinets.listForStyle (style-gated published+available SKUs, category/search/pagination)
+- [x] Catalog category view now requires a door style (selector + "Select a door style to begin" prompt) before any cabinets show; ?style= deep-link preselects
+- [x] Catalog cabinet grid scoped to selected style's published+available SKUs (matches Design Tool); cards carry ?style= into detail
+- [x] Replaced misleading "every cabinet is available in each finish" copy with per-style wording
+- [x] Verified in browser (Dual Blanc shows only its base lineup); typecheck clean
+- [x] Ran full vitest (463 passed) + typecheck clean
+- [x] Verified CabinetDetail pricing: guests/homeowners see retail (homeowner) PriceCard with Compare-at; pros see tier tabs; cart uses resolved tier price via priceNumberForTier

@@ -13,7 +13,7 @@ export type CartItem = {
   styleId: number;
   styleLabel: string;
   distributorId: number | null;
-  tier: "Wholesale" | "Contractor";
+  tier: import("@shared/pricingTier").PricingTier;
   unitPrice: number | null; // null = quoted later
   qty: number;
 };

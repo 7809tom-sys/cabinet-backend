@@ -86,3 +86,32 @@ export function resolveTierPrice(
       return homeowner ?? adjusted ?? list ?? contractor ?? wholesale;
   }
 }
+
+/**
+ * Resolve the storefront pricing tier for the current viewer. Anonymous
+ * visitors (and users without an explicit tier) see the retail HOMEOWNER price;
+ * a logged-in pro sees the tier the owner assigned to their account.
+ */
+export function resolveStorefrontTier(
+  user: { pricingTier?: unknown } | null | undefined,
+): PricingTier {
+  if (!user) return DEFAULT_PRICING_TIER;
+  return normalizeTier(user.pricingTier);
+}
+
+/**
+ * The struck-through "Compare at" reference price for the homeowner sale
+ * display: the prior list price (adjustedListPrice/listPrice), shown only when
+ * it is strictly higher than the live homeowner price. Null when there is no
+ * genuine markdown to show, or for non-homeowner tiers.
+ */
+export function compareAtPrice(
+  tier: PricingTier,
+  prices: TierPrices,
+): number | null {
+  if (tier !== "homeowner") return null;
+  const live = resolveTierPrice("homeowner", prices);
+  const compare = num(prices.adjustedListPrice) ?? num(prices.listPrice);
+  if (live === null || compare === null) return null;
+  return compare > live ? compare : null;
+}

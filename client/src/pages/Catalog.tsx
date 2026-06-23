@@ -97,9 +97,12 @@ interface CabinetItem extends CabinetLike {
   depth: string | null;
 }
 
-function CabinetCard({ cabinet }: { cabinet: CabinetItem }) {
+function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: number | null }) {
+  const href = styleId
+    ? `/catalog/${cabinet.masterCode}?style=${styleId}`
+    : `/catalog/${cabinet.masterCode}`;
   return (
-    <Link href={`/catalog/${cabinet.masterCode}`}>
+    <Link href={href}>
       <div className="cabinet-card group rounded-xl border border-border bg-card hover:border-primary/30 cursor-pointer overflow-hidden transition-colors">
         {/* Every item shows its accurate, to-scale drawing so the picture always
             matches the real item type (drawer base draws drawers, sink base shows
@@ -191,8 +194,8 @@ function CategoryLanding({
             Browse the Cabinet Catalog
           </h1>
           <p className="text-white/85 text-sm md:text-base mb-6">
-            Choose your door style, then explore every cabinet in that finish —
-            with member trade pricing built in.
+            Choose your door style, then explore the cabinets available in that
+            finish — with member trade pricing built in.
           </p>
           <form
             onSubmit={(e) => {
@@ -225,7 +228,7 @@ function CategoryLanding({
         </Link>
       </div>
       <p className="text-muted-foreground text-sm mb-6">
-        Pick the look you want — every cabinet is available in each finish, with trade pricing built in.
+        Pick the look you want — each door style has its own cabinet lineup, with trade pricing built in.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -288,7 +291,27 @@ function CategoryView({
 }) {
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [offset, setOffset] = useState(0);
+  // Cabinet availability is per door style: the shopper must pick a style
+  // before any cabinets are shown, so the catalog matches the Design Tool.
+  // A ?style=<id> URL param preselects it (deep-linking from a style page).
+  const initialStyle = (() => {
+    if (typeof window === "undefined") return null;
+    const v = new URLSearchParams(window.location.search).get("style");
+    const n = v ? Number(v) : NaN;
+    return Number.isFinite(n) ? n : null;
+  })();
+  const [styleId, setStyleId] = useState<number | null>(initialStyle);
   const LIMIT = 48;
+
+  const { data: styles } = trpc.doorStyles.list.useQuery();
+  const styleOptions = useMemo(() => {
+    type S = { id: number; styleCode: string; ourName: string | null };
+    return ((styles ?? []) as S[])
+      .map((s) => ({ id: s.id, label: s.ourName || s.styleCode }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [styles]);
+  const selectedStyleLabel =
+    styleOptions.find((s) => s.id === styleId)?.label ?? null;
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -297,14 +320,18 @@ function CategoryView({
 
   useEffect(() => {
     setOffset(0);
-  }, [category, debouncedSearch]);
+  }, [category, debouncedSearch, styleId]);
 
-  const { data, isLoading } = trpc.cabinets.list.useQuery({
-    category: category ?? undefined,
-    search: debouncedSearch || undefined,
-    limit: LIMIT,
-    offset,
-  });
+  const { data, isLoading } = trpc.cabinets.listForStyle.useQuery(
+    {
+      styleId: styleId ?? 0,
+      category: category ?? undefined,
+      search: debouncedSearch || undefined,
+      limit: LIMIT,
+      offset,
+    },
+    { enabled: styleId != null }
+  );
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -343,16 +370,48 @@ function CategoryView({
         <h1 className="font-serif text-2xl font-bold text-foreground mb-4">{heading}</h1>
       )}
 
-      {/* Search */}
-      <div className="relative mb-6 max-w-lg">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search within results..."
-          className="pl-9"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
+      {/* Door style selector — availability is per door style, so the shopper
+          must choose a style before any cabinets are shown. */}
+      <div className="mb-6 rounded-xl border border-border bg-muted/30 p-4">
+        <label className="block text-sm font-semibold text-foreground mb-2">
+          Door style
+        </label>
+        <p className="text-xs text-muted-foreground mb-3">
+          Each door style carries its own cabinet lineup. Pick a style to see the
+          cabinets available in that finish.
+        </p>
+        <select
+          value={styleId ?? ""}
+          onChange={(e) => setStyleId(e.target.value ? Number(e.target.value) : null)}
+          className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Select a door style…</option>
+          {styleOptions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        {selectedStyleLabel && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Showing cabinets available in{" "}
+            <span className="font-medium text-foreground">{selectedStyleLabel}</span>.
+          </p>
+        )}
       </div>
+
+      {/* Search (only meaningful once a style is selected) */}
+      {styleId != null && (
+        <div className="relative mb-6 max-w-lg">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search within results..."
+            className="pl-9"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
+        </div>
+      )}
 
       {/* Active filters */}
       {debouncedSearch && (
@@ -368,6 +427,17 @@ function CategoryView({
         </div>
       )}
 
+      {/* Prompt to choose a style before any grid renders */}
+      {styleId == null ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">Select a door style to begin</p>
+          <p className="text-sm mt-1">
+            Cabinet availability depends on the door style you choose.
+          </p>
+        </div>
+      ) : (
+      <>
       {/* Grid */}
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -391,9 +461,11 @@ function CategoryView({
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {items.map((cabinet) => (
-            <CabinetCard key={cabinet.id} cabinet={cabinet as CabinetItem} />
+            <CabinetCard key={cabinet.id} cabinet={cabinet as CabinetItem} styleId={styleId} />
           ))}
         </div>
+      )}
+      </>
       )}
 
       {/* Pagination */}
