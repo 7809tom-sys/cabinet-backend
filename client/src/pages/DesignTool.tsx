@@ -4,6 +4,7 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
+  ChevronUp, ChevronDown, ChevronsDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +27,8 @@ import { toast } from "sonner";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight,
-  conflictingUids, blindCornerViolations, isOnIsland, isCornerCabinet,
+  conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
+  blindCornerAutoFiller,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet,
@@ -39,11 +41,15 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   addOnRecommendations,
+  freeSegmentsOnWall, wallPlacementAt, cabinetWall,
+  rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
+  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
+  elevationBox,
 } from "@/lib/design";
 import {
   closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
 } from "@/lib/closet";
-import { autoFillSpan, type FillMode } from "@/lib/autofill";
+import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
@@ -464,6 +470,28 @@ export default function DesignTool() {
     () => (batten ? trimPiecesNeeded(battenLinearInches(placed, room)) : null),
     [batten, placed, room]
   );
+  // Countertop is a POST-LAYOUT step: it can only be applied once the kitchen
+  // has base cabinets (or an island) to sit on. A base run, a vanity, or an
+  // island all count as a surface that takes a top.
+  const hasBaseRun = useMemo(
+    () => !!island || placed.some((p) => p.placement === "base"),
+    [placed, island]
+  );
+  // If the layout loses all base/island surface while the countertop is on,
+  // turn it off automatically so we never quote a top over nothing.
+  useEffect(() => {
+    if (countertop && !hasBaseRun) setCountertop(false);
+  }, [countertop, hasBaseRun]);
+  // Guarded toggle: refuse to turn the countertop on before the layout exists.
+  const toggleCountertop = useCallback(() => {
+    setCountertop((c) => {
+      if (!c && !hasBaseRun) {
+        toast.info("Build the kitchen layout first — place base cabinets, then add the countertop.");
+        return c;
+      }
+      return !c;
+    });
+  }, [hasBaseRun]);
   // Countertop measurement (base run + island), shown as a quote request.
   const counter = useMemo(
     () => (countertop ? countertopArea(placed, island) : null),
@@ -476,16 +504,44 @@ export default function DesignTool() {
 
   // Conflicts: an appliance physically running into a cabinet. Highlighted red
   // on the canvas, badged in the BOM, and warned about before export.
+  // Range/oven corner clearance rule: a range/oven at a wall corner butting a
+  // cabinet needs a filler between them so the handles clear.
+  const rangeClearanceUids = useMemo(
+    () => rangeOvenClearanceViolations(placed, room),
+    [placed, room]
+  );
+  // Wall cabinets must keep >= 3" from doors/windows.
+  const wallOpeningUids = useMemo(
+    () => wallOpeningClearanceViolations(placed, openings, room),
+    [placed, openings, room]
+  );
+  // Blind corner manufacturer pull spec: missing spec OR installed pull out of
+  // the [min,max] range. Missing spec must be resolved by the administrator.
+  const blindSpecIssues = useMemo(() => blindCornerSpecViolations(placed), [placed]);
   const conflictUids = useMemo(() => {
     const set = conflictingUids(placed);
     // Blind corner rule: a blind corner whose neighbor isn't pulled the
     // required 3" off the corner is also a conflict.
     blindCornerViolations(placed).forEach((uid) => set.add(uid));
+    // Range/oven corner clearance: flag the appliance until a filler is added.
+    rangeClearanceUids.forEach((uid: string) => set.add(uid));
+    // Wall cabinet too close to a door/window opening.
+    wallOpeningUids.forEach((uid: string) => set.add(uid));
+    // Blind corner pull spec issues (missing spec or out-of-range).
+    blindSpecIssues.forEach((_issue, uid) => set.add(uid));
     return set;
-  }, [placed]);
+  }, [placed, rangeClearanceUids, wallOpeningUids, blindSpecIssues]);
   const hasConflicts = conflictUids.size > 0;
   // Blind corner violations specifically, for a tailored warning message.
   const blindViolationUids = useMemo(() => blindCornerViolations(placed), [placed]);
+  const blindMissingSpecCount = useMemo(
+    () => Array.from(blindSpecIssues.values()).filter((v) => v === "missing-spec").length,
+    [blindSpecIssues]
+  );
+  const blindOutOfRangeCount = useMemo(
+    () => Array.from(blindSpecIssues.values()).filter((v) => v === "out-of-range").length,
+    [blindSpecIssues]
+  );
 
   // Consolidated rows for the on-screen PRICING panel: identical cabinets
   // (same code + size + rotation) collapse into ONE line with a quantity, a
@@ -583,8 +639,25 @@ export default function DesignTool() {
           numberOfDoors: c.numberOfDoors,
           numberOfDrawers: c.numberOfDrawers,
           catalogImageUrl: c.catalogImageUrl ?? null,
+          pullMin: c.pullMin ?? null,
+          pullMax: c.pullMax ?? null,
         };
         setSelectedUid(newCab.uid);
+        // Blind corner trade rule: when a blind corner cabinet is dropped flush
+        // in a room corner, auto-snap a 3" filler on the side OPPOSITE the pull
+        // and let the cabinet project its full corner return. If we can't tell
+        // which corner/side it is (ambiguous), we place nothing and the existing
+        // blind-corner conflict stays on so the user resolves it manually.
+        if (isBlindCorner(newCab.masterCode, newCab.description)) {
+          const res = blindCornerAutoFiller(newCab, room, makeUid);
+          if (res.filler) {
+            toast.success('Blind corner: added a 3" filler on the side opposite the pull.');
+            return [...prev, newCab, res.filler];
+          }
+          if (res.ambiguous) {
+            toast.warning("Blind corner needs its filler — seat it in a corner so the opposite-side filler can be placed (left in conflict for now).");
+          }
+        }
         return [...prev, newCab];
       });
     },
@@ -598,70 +671,129 @@ export default function DesignTool() {
   // geometry as manual placement. Items are fully movable/deletable afterward.
   const autoFillActiveWall = useCallback(() => {
     if (layoutLocked) { toast.info("Unlock the layout to auto-fill a wall."); return; }
-    const horizontal = activeWall === "top" || activeWall === "bottom";
-    const wallLen = horizontal ? room.width : room.depth;
     const mode: FillMode = roomType === "closet" ? "closet" : "kitchen";
     const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
     if (pool.length === 0) { toast.error("No cabinets available for this line yet — pick a door style first."); return; }
 
-    // How much of the wall is already taken by base cabinets on this wall?
-    const T = 2;
-    const usedOnWall = placed
-      .filter((p) => p.placement === "base")
-      .filter((p) => {
-        const s = rotatedSize(p);
-        switch (activeWall) {
-          case "top": return Math.abs(p.y - 0) <= T;
-          case "bottom": return Math.abs(p.y + s.d - room.depth) <= T;
-          case "left": return Math.abs(p.x - 0) <= T;
-          case "right": return Math.abs(p.x + s.w - room.width) <= T;
-        }
-      })
-      .reduce((sum, p) => sum + (horizontal ? rotatedSize(p).w : rotatedSize(p).d), 0);
-    // Openings on this wall reduce the run too (a door interrupts the cabinets).
-    const openingOnWall = openings
-      .filter((o) => o.side === activeWall)
-      .reduce((sum, o) => sum + o.width, 0);
+    // Break the wall into OPEN segments around existing cabinets and any
+    // door/window openings, then tile EACH segment independently so the run
+    // breaks cleanly around a doorway instead of running under it.
+    const segments = freeSegmentsOnWall(activeWall, room, placed, openings, 9);
+    if (segments.length === 0) { toast.info("This wall is already full."); return; }
 
-    const span = Math.max(0, wallLen - usedOnWall - openingOnWall);
-    if (span < 9) { toast.info("This wall is already full."); return; }
-
-    const result = autoFillSpan(span, mode, pool);
-    if (result.items.length === 0) { toast.info("Couldn't fit any cabinets in the remaining space."); return; }
-
+    let totalCount = 0;
+    let totalFiller = 0;
     setPlaced((prev) => {
       let working = [...prev];
-      let count = 0;
-      for (const it of result.items) {
-        const c = it.cabinet;
-        const width = it.width;
-        const depth = footprintDepth(c);
-        const height = dim(c.height, standardHeight(c.placement));
-        const spot = nextFreeSpotOnWall(width, depth, "base", activeWall, room, working);
-        const newCab: PlacedCabinet = {
-          uid: makeUid(),
-          cabinetId: c.id,
-          masterCode: c.masterCode,
-          description: c.description,
-          placement: "base",
-          x: spot.x,
-          y: spot.y,
-          width,
-          depth,
-          height,
-          rotation: spot.rotation,
-          numberOfDoors: c.numberOfDoors,
-          numberOfDrawers: c.numberOfDrawers,
-          catalogImageUrl: c.catalogImageUrl ?? null,
-        };
-        working = [...working, newCab];
-        count++;
+      for (const seg of segments) {
+        const result = autoFillSpan(seg.length, mode, pool);
+        if (result.items.length === 0) continue;
+        // Place items left-to-right starting at the segment's run-axis start.
+        let along = seg.start;
+        for (const it of result.items) {
+          const c = it.cabinet;
+          const width = it.width;
+          const depth = footprintDepth(c);
+          const height = dim(c.height, standardHeight(c.placement));
+          const spot = wallPlacementAt(along, width, depth, activeWall, room);
+          const newCab: PlacedCabinet = {
+            uid: makeUid(),
+            cabinetId: c.id,
+            masterCode: c.masterCode,
+            description: c.description,
+            placement: "base",
+            x: spot.x,
+            y: spot.y,
+            width,
+            depth,
+            height,
+            rotation: spot.rotation,
+            numberOfDoors: c.numberOfDoors,
+            numberOfDrawers: c.numberOfDrawers,
+            catalogImageUrl: c.catalogImageUrl ?? null,
+            pullMin: c.pullMin ?? null,
+            pullMax: c.pullMax ?? null,
+          };
+          working = [...working, newCab];
+          along += width;
+          totalCount++;
+        }
+        totalFiller += result.fillerInches;
       }
-      const fillerNote = result.fillerInches > 0 ? ` + ${result.fillerInches}\" filler` : "";
-      toast.success(`Auto-filled ${WALL_LABELS[activeWall]} wall: ${count} cabinet${count === 1 ? "" : "s"}${fillerNote}.`);
+      if (totalCount === 0) {
+        toast.info("Couldn't fit any cabinets in the remaining space.");
+        return prev;
+      }
+      const segNote = segments.length > 1 ? ` across ${segments.length} sections` : "";
+      const fillerNote = totalFiller > 0 ? ` + ${Math.round(totalFiller * 10) / 10}\" filler` : "";
+      toast.success(`Auto-filled ${WALL_LABELS[activeWall]} wall: ${totalCount} cabinet${totalCount === 1 ? "" : "s"}${segNote}${fillerNote}.`);
       return working;
     });
   }, [layoutLocked, activeWall, room, roomType, autoFillCabinets, placed, openings]);
+
+  // ── Range/oven corner clearance: one-click fix ──────────────────────────────
+  // For each range/oven flagged by the clearance rule, nudge the neighboring
+  // cabinets on its interior side outward by the filler width and drop a real
+  // filler/scribe between the appliance and that cabinet so the handles clear.
+  const addClearanceFiller = useCallback(() => {
+    if (layoutLocked) { toast.info("Unlock the layout to add a clearance filler."); return; }
+    const bad = rangeOvenClearanceViolations(placed, room);
+    if (bad.size === 0) { toast.info("No range/oven corner clearance issues to fix."); return; }
+    const W = RANGE_CLEARANCE_FILLER_IN;
+    setPlaced((prev) => {
+      let working = [...prev];
+      let added = 0;
+      for (const range of prev) {
+        if (!bad.has(range.uid)) continue;
+        const side = cabinetWall(range, room);
+        const horizontal = side === "top" || side === "bottom";
+        const rs = rotatedSize(range);
+        const start = horizontal ? range.x : range.y;
+        const end = start + (horizontal ? rs.w : rs.d);
+        const atStartCorner = Math.abs(start - 0) <= 1.0;
+        // Interior edge is the end facing into the run.
+        const interiorEdge = atStartCorner ? end : start;
+        const dir = atStartCorner ? 1 : -1; // push neighbors away from the corner
+        // Shift every base/tall cabinet beyond the interior edge outward by W.
+        working = working.map((p) => {
+          if (p.uid === range.uid) return p;
+          if (p.placement !== "base" && p.placement !== "tall") return p;
+          if (cabinetWall(p, room) !== side) return p;
+          const ps = rotatedSize(p);
+          const pStart = horizontal ? p.x : p.y;
+          const pEnd = pStart + (horizontal ? ps.w : ps.d);
+          const beyond = dir > 0 ? pStart >= interiorEdge - 1.0 : pEnd <= interiorEdge + 1.0;
+          if (!beyond) return p;
+          if (horizontal) return { ...p, x: p.x + dir * W };
+          return { ...p, y: p.y + dir * W };
+        });
+        // Drop the filler exactly in the gap that opened up at the interior edge.
+        const along = dir > 0 ? interiorEdge : interiorEdge - W;
+        const fillerDef = makeFiller(W, "base");
+        const spot = wallPlacementAt(along, W, footprintDepth(fillerDef), side, room);
+        working.push({
+          uid: makeUid(),
+          cabinetId: 0,
+          masterCode: fillerDef.masterCode,
+          description: `${W}\" Range/Oven Clearance Filler`,
+          placement: "base",
+          x: spot.x,
+          y: spot.y,
+          width: W,
+          depth: footprintDepth(fillerDef),
+          height: dim(fillerDef.height, standardHeight("base")),
+          rotation: spot.rotation,
+          numberOfDoors: 0,
+          numberOfDrawers: 0,
+          catalogImageUrl: null,
+        });
+        added++;
+      }
+      if (added === 0) { toast.info("Couldn't place a clearance filler automatically — try nudging the cabinet manually."); return prev; }
+      toast.success(`Added ${added} clearance filler${added === 1 ? "" : "s"} (${W}\" each) next to the range/oven.`);
+      return working;
+    });
+  }, [layoutLocked, placed, room]);
 
   // ── AI Design Consultant ────────────────────────────────────────────────────
   // The consultant takes the user's marked walls + request, asks the server
@@ -889,6 +1021,40 @@ export default function DesignTool() {
     setSelectedUid(null);
   };
 
+  // Raise/lower the selected WALL cabinet's mount height. Stores an explicit
+  // mountBottom override (inches from floor to the box bottom); the elevation
+  // then uses it verbatim instead of the default hang rule.
+  const adjustMountHeight = useCallback((deltaIn: number) => {
+    if (!selectedUid) return;
+    setPlaced((prev) =>
+      prev.map((p) => {
+        if (p.uid !== selectedUid) return p;
+        if (p.placement !== "wall") return p;
+        const cur = elevationBox(p).bottom;
+        const next = Math.max(0, Math.round((cur + deltaIn) * 10) / 10);
+        return { ...p, mountBottom: next };
+      })
+    );
+  }, [selectedUid]);
+
+  // Clear the override so the cabinet returns to its default rule position.
+  const resetMountHeight = useCallback(() => {
+    if (!selectedUid) return;
+    setPlaced((prev) =>
+      prev.map((p) => (p.uid === selectedUid ? { ...p, mountBottom: null } : p))
+    );
+  }, [selectedUid]);
+
+  // Administrator-entered blind-corner pull spec for the selected cabinet.
+  // Setting both min and max clears the "missing spec" conflict. Pass null to
+  // clear a field. Values are inches across the corner.
+  const setBlindPull = useCallback((field: "pullMin" | "pullMax", value: number | null) => {
+    if (!selectedUid) return;
+    setPlaced((prev) =>
+      prev.map((p) => (p.uid === selectedUid ? { ...p, [field]: value } : p))
+    );
+  }, [selectedUid]);
+
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(
     (side: WallSide) => {
@@ -911,6 +1077,31 @@ export default function DesignTool() {
     setPlaced((prev) => prev.filter((p) => p.uid !== uid));
     setSelectedUid((cur) => (cur === uid ? null : cur));
   }, []);
+
+  // Right-click a WALL cabinet -> drop it to the floor as an island/peninsula
+  // base. It keeps its width but becomes a floor-standing box, so its TOP lands
+  // at the standard base box height (34.5"): bottom = 0. A 30" wall cabinet on
+  // the floor therefore tops out at 34.5", matching base/counter height.
+  const dropToFloor = useCallback((uid: string) => {
+    if (layoutLocked) { toast.info("Unlock the layout to drop a cabinet to the floor."); return; }
+    setPlaced((prev) =>
+      prev.map((p) => {
+        if (p.uid !== uid) return p;
+        if (p.placement !== "wall") return p;
+        return {
+          ...p,
+          placement: "base",
+          depth: STD.BASE_DEPTH,
+          // Box height: keep the cabinet's own height if it has one, otherwise
+          // fall back to the standard base box height.
+          height: p.height && p.height > 0 ? p.height : STD.BASE_HEIGHT,
+          // Sits on the floor as an island base; clear any wall-mount override.
+          mountBottom: undefined,
+        };
+      })
+    );
+    toast.success("Dropped to floor as an island base (top at 34.5\").");
+  }, [layoutLocked]);
 
   // Remove ONE instance from a consolidated panel group (decrement qty).
   const deleteOneFromGroup = useCallback((uids: string[]) => {
@@ -1282,7 +1473,7 @@ export default function DesignTool() {
               <DropdownMenuCheckboxItem checked={crown} onCheckedChange={() => setCrown((c) => !c)}>Crown molding</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={toeKick} onCheckedChange={() => setToeKick((t) => !t)}>Toe kick</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={batten} onCheckedChange={() => setBatten((b) => !b)}>Batten molding</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={countertop} onCheckedChange={() => setCountertop((c) => !c)}>Countertop</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={countertop} disabled={!countertop && !hasBaseRun} onCheckedChange={toggleCountertop}>Countertop</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem disabled={!selectedUid || measureMode} onClick={swingSelected}>Swing door</DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -1364,8 +1555,9 @@ export default function DesignTool() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setCountertop((c) => !c)}
-            title="Countertop (measured for a quote request)"
+            onClick={toggleCountertop}
+            disabled={!countertop && !hasBaseRun}
+            title={!countertop && !hasBaseRun ? "Place base cabinets first, then add the countertop" : "Countertop (measured for a quote request)"}
             className={`h-8 gap-1.5 ${countertop ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600" : ""}`}
           >
             <Square className="h-3.5 w-3.5" /> Countertop
@@ -1410,6 +1602,88 @@ export default function DesignTool() {
               </span>
               <div className="h-4 w-px bg-border" />
               <WallPicker onPick={snapSelectedToWall} />
+              {selectedCab.placement === "wall" && (
+                <>
+                  <div className="h-4 w-px bg-border" />
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-muted-foreground mr-0.5">Mount</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      title="Raise 1 inch"
+                      onClick={() => adjustMountHeight(1)}
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-[11px] font-mono tabular-nums text-foreground min-w-[34px] text-center">
+                      {Math.round(elevationBox(selectedCab).bottom)}″
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      title="Lower 1 inch"
+                      onClick={() => adjustMountHeight(-1)}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                    {typeof selectedCab.mountBottom === "number" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[11px] text-muted-foreground"
+                        title="Reset to default mount height"
+                        onClick={resetMountHeight}
+                      >
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                  <div className="h-4 w-px bg-border" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    title="Drop this wall cabinet to the floor as an island/peninsula base (top at 34.5 in)"
+                    onClick={() => dropToFloor(selectedCab.uid)}
+                  >
+                    <ChevronsDown className="h-3.5 w-3.5" />
+                    Drop to floor
+                  </Button>
+                </>
+              )}
+              {isBlindCorner(selectedCab.masterCode, selectedCab.description) && (
+                <>
+                  <div className="h-4 w-px bg-border" />
+                  <div
+                    className={`flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                      typeof selectedCab.pullMin === "number" && typeof selectedCab.pullMax === "number"
+                        ? ""
+                        : "bg-red-50 ring-1 ring-red-300"
+                    }`}
+                    title="Manufacturer blind-corner pull range (inches across the corner). An administrator must enter the min and max from the manufacturer spec."
+                  >
+                    <span className="text-[11px] text-muted-foreground mr-0.5">Pull spec</span>
+                    <Input
+                      type="number"
+                      value={typeof selectedCab.pullMin === "number" ? selectedCab.pullMin : ""}
+                      placeholder="min"
+                      className="h-7 w-14 text-[11px]"
+                      onChange={(e) => setBlindPull("pullMin", e.target.value === "" ? null : Number(e.target.value))}
+                    />
+                    <span className="text-[11px] text-muted-foreground">–</span>
+                    <Input
+                      type="number"
+                      value={typeof selectedCab.pullMax === "number" ? selectedCab.pullMax : ""}
+                      placeholder="max"
+                      className="h-7 w-14 text-[11px]"
+                      onChange={(e) => setBlindPull("pullMax", e.target.value === "" ? null : Number(e.target.value))}
+                    />
+                    <span className="text-[11px] text-muted-foreground">in</span>
+                  </div>
+                </>
+              )}
             </>
           )}
           {selectedOpening && !drawMode && (
@@ -1605,6 +1879,7 @@ export default function DesignTool() {
               selectedSinkUid={selectedSinkUid}
               onSelectSink={setSelectedSinkUid}
               onMoveSink={moveSink}
+              onDropToFloor={dropToFloor}
             />
           )}
           {viewMode === "elevation" && (
@@ -1657,6 +1932,7 @@ export default function DesignTool() {
                   selectedSinkUid={selectedSinkUid}
                   onSelectSink={setSelectedSinkUid}
                   onMoveSink={moveSink}
+                  onDropToFloor={dropToFloor}
                 />
               </div>
               <div className="flex-1 min-h-0">
@@ -1921,9 +2197,31 @@ export default function DesignTool() {
                   {blindViolationUids.size > 0
                     ? `A blind corner needs a 3" filler — pull the adjacent cabinet at least 3" off the corner. `
                     : ""}
+                  {rangeClearanceUids.size > 0
+                    ? `A range/oven in the corner needs a ${RANGE_CLEARANCE_FILLER_IN}" filler beside it so the range handle clears the cabinet handle. `
+                    : ""}
+                  {wallOpeningUids.size > 0
+                    ? `A wall cabinet is within ${WALL_OPENING_CLEARANCE_IN}" of a door or window — wall cabinets must stay at least ${WALL_OPENING_CLEARANCE_IN}" away from openings. `
+                    : ""}
+                  {blindMissingSpecCount > 0
+                    ? `${blindMissingSpecCount} blind corner cabinet${blindMissingSpecCount > 1 ? "s" : ""} ${blindMissingSpecCount > 1 ? "have" : "has"} no manufacturer pull spec — an administrator must enter the min/max pull before this design can be ordered. `
+                    : ""}
+                  {blindOutOfRangeCount > 0
+                    ? `${blindOutOfRangeCount} blind corner cabinet${blindOutOfRangeCount > 1 ? "s" : ""} ${blindOutOfRangeCount > 1 ? "are" : "is"} pulled outside the manufacturer's min/max range. `
+                    : ""}
                   An appliance running into a cabinet, or a blind corner without its 3" pull, must be fixed before ordering.
                 </span>
               </div>
+            )}
+            {rangeClearanceUids.size > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mb-2 w-full gap-2 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300"
+                onClick={addClearanceFiller}
+              >
+                <Plus className="h-4 w-4" /> Add {RANGE_CLEARANCE_FILLER_IN}" clearance filler next to range/oven
+              </Button>
             )}
             {!styleId && placed.length > 0 && (
               <p className="text-[10px] text-amber-600 mb-2">Select a door style to see pricing.</p>

@@ -941,3 +941,29 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 ## Phase 23 (later): Cabinet hardware (knobs/pulls)
 - [ ] Hardware catalog (knobs, bar pulls, cup pulls) selectable per door/drawer or globally
 - [ ] Render hardware on cabinet fronts in elevation; show on BOM
+
+## Phase 24: Smart fillers + range/oven corner rule + appliance/closet sizing (user request)
+- [x] Varied auto-fill layouts: planVariedWidths mixes standard widths (e.g. 96"->36+30+24) instead of repeating the widest; tests added
+- [x] Break the cabinet run around door/window openings: freeSegmentsOnWall + wallPlacementAt; Auto-Fill tiles each segment; tested
+- [ ] Intelligent filler placement: insert a real filler/scribe SKU for small leftover gaps; split a larger leftover into a balanced 2-sided reveal when sensible
+- [ ] Manual filler placement available from the palette (Accessory > Filler)
+- [x] Range/oven corner clearance rule: rangeOvenClearanceViolations validator + 3" filler; UI warning + one-click Add clearance filler; tested
+- [x] Surface a design-check warning when a range/oven abuts a cabinet at a corner without clearance filler (red conflict banner + amber CTA button)
+- [ ] Dishwasher panel sizing: dishwasher end/decorative panel must use correct WIDTH and DEPTH (not a default), matching the dishwasher footprint
+- [ ] Closet/laundry program depth: closet & laundry units use correct (shallower) depth, not the 24" kitchen base depth
+- [ ] Run full test suite; add vitest for new engine behaviors; checkpoint
+- [ ] Vanity cabinets default to 21" deep (industry standard); wall 12", kitchen base 24" confirmed correct
+- [x] Wall cabinet elevation rule: all wall cabinets share the same TOP line (84"); a cabinet shorter than 30" hangs higher so its BOTTOM = 84 - height (12" -> 72"); tested
+- [x] Glass stacker wall cabinets stack ON TOP of the wall cabinet below them (bottom at 84", growing UP to ceiling) via isStacker; tested
+- [x] Base cabinets always start at 0" (elevation bottom = floor); box 34.5" tall, countertop top line at 36"; tested
+- [x] Countertop is a post-layout step: Countertop action gated until base/island present (button + dropdown disabled, toast guidance, auto-off when base run removed); top generated over assembled base run via countertopArea
+- [x] Wall cabinet mount height adjustable up/down (Raise/Lower/Reset controls); mountBottom override stored; elevation uses override when set; tested
+- [x] Wall cabinets must stay >= 3" away from doors and windows: freeSegmentsOnWall openingClearance param pads each opening by 3"; wallOpeningClearanceViolations validator + conflict warning flag any wall cabinet within 3"; tested
+- [x] Right-click a wall cabinet (or use the Drop to floor button) -> converts it to a floor-standing island/peninsula base, depth 24", bottom = 0 so its TOP lands at 34.5"
+- [x] Blind corner pull spec: pullMin/pullMax carried onto placed cabinets; blindCornerSpecViolations flags out-of-range; admin Min/Max inputs in contextual row; tested
+- [x] Blind corner filler enforced via existing blindCornerFillers/blindCornerViolations (filler + 3" pull on opposite side)
+- [x] Blind corner with NO pullMin/pullMax spec -> missing-spec conflict + red banner message telling the administrator to enter the manufacturer min/max; tested
+- [x] Countertop runs all the way to the wall over a pulled blind corner: countertopSurfaces widens the blind-corner base slab by the pull gap (default 3" filler, or pullMax travel) toward the corner; tested
+- [x] Blind corner placement auto-snaps a 3" filler on the OPPOSITE (pull) side via blindCornerAutoFiller (projects full base depth into the corner); ambiguous corner -> no guess; tested
+- [x] Skyline easy-reach corner base cabinets (ERB-33, ERB-36) flagged isCornerCabinet=1, subCategory='Easy Reach Corner Base' (BES-12 corrected back to Base End Shelf)
+- [x] Safety rule: ambiguous corner/blind conditions (missing spec, undetermined pull side, no room for filler) leave the design in CONFLICT rather than guessing

@@ -12,7 +12,13 @@ import {
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
   doorPanelKind, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH,
-  type PlacedCabinet, type RoomData,
+  freeSegmentsOnWall, wallPlacementAt,
+  rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
+  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
+  blindCornerSpecViolations, blindPullRange,
+  blindCornerAutoFiller,
+  isStacker,
+  type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
@@ -39,6 +45,9 @@ describe("corner cabinet detection", () => {
     expect(isCornerCabinet("WBC-24-30")).toBe(true); // wall blind corner
     expect(isCornerCabinet("LSB36")).toBe(true); // lazy susan
     expect(isCornerCabinet("BEC-24")).toBe(true); // base easy reach
+    expect(isCornerCabinet("ERB-33")).toBe(true); // easy reach corner base
+    expect(isCornerCabinet("BER-36")).toBe(true); // Skyline easy reach corner base alias
+    expect(isCornerCabinet("BES-12")).toBe(false); // base end shelf is NOT a corner
     expect(isCornerCabinet("CSB-36")).toBe(true); // corner sink base
   });
 
@@ -716,6 +725,23 @@ describe("countertopSurfaces", () => {
     const island = surfaces.find((s) => s.kind === "island");
     expect(island).toMatchObject({ x: 50, y: 40, width: 48, depth: 24 });
   });
+
+  it("runs the countertop to the wall over a pulled blind corner (top wall, left corner)", () => {
+    // Blind base pulled 3" off the left corner: cabinet starts at x=3, width 36.
+    // The slab should extend back to x=0 and be 3" wider to cover the dead corner.
+    const blind = cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36, depth: 24, x: 3, y: 0 });
+    const [s] = countertopSurfaces([blind], ROOM_12x10);
+    expect(s.x).toBe(0);
+    expect(s.width).toBe(39); // 36 + 3" filler gap
+  });
+
+  it("uses the pull-spec travel when wider than the default filler", () => {
+    // pullMax 42 on a 36" cabinet -> 6" of travel, wider than the 3" default.
+    const blind = cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36, depth: 24, x: 6, y: 0, pullMin: 36, pullMax: 42 });
+    const [s] = countertopSurfaces([blind], ROOM_12x10);
+    expect(s.x).toBe(0);
+    expect(s.width).toBe(42); // 36 + 6" travel
+  });
 });
 
 describe("countertopMaterial + makeSink", () => {
@@ -728,5 +754,266 @@ describe("countertopMaterial + makeSink", () => {
     const sink = makeSink("double", 12, 4);
     expect(sink).toMatchObject({ type: "double", x: 12, y: 4, width: 33, faucet: true });
     expect(sink.uid).toMatch(/^sink-/);
+  });
+});
+
+function opening(partial: Partial<WallOpening>): WallOpening {
+  return {
+    uid: "o",
+    kind: "door",
+    label: "Door",
+    side: "top",
+    offset: 0,
+    width: 36,
+    height: 80,
+    sill: 0,
+    ...partial,
+  };
+}
+
+describe("freeSegmentsOnWall (break the run around openings)", () => {
+  it("returns the whole wall when nothing blocks it", () => {
+    const segs = freeSegmentsOnWall("top", ROOM_12x10, [], [], 9);
+    expect(segs).toEqual([{ start: 0, length: 144 }]);
+  });
+
+  it("splits the wall into two segments around a centered door", () => {
+    // 144" wall, 36" door centered at offset 54 → [0..54] and [90..144].
+    const door = opening({ side: "top", offset: 54, width: 36 });
+    const segs = freeSegmentsOnWall("top", ROOM_12x10, [], [door], 9);
+    expect(segs.length).toBe(2);
+    expect(segs[0]).toMatchObject({ start: 0, length: 54 });
+    expect(segs[1]).toMatchObject({ start: 90, length: 54 });
+  });
+
+  it("subtracts existing base cabinets on the wall", () => {
+    const existing = cab({ placement: "base", x: 0, y: 0, width: 48, depth: 24 });
+    const segs = freeSegmentsOnWall("top", ROOM_12x10, [existing], [], 9);
+    expect(segs.length).toBe(1);
+    expect(segs[0]).toMatchObject({ start: 48, length: 96 });
+  });
+
+  it("drops segments narrower than minLen", () => {
+    // Door leaves only 5" on the left, which is < minLen 9 → dropped.
+    const door = opening({ side: "top", offset: 5, width: 36 });
+    const segs = freeSegmentsOnWall("top", ROOM_12x10, [], [door], 9);
+    expect(segs.every((s) => s.length >= 9)).toBe(true);
+    expect(segs.some((s) => s.start === 0)).toBe(false);
+  });
+
+  it("works on a vertical (left) wall using the depth axis", () => {
+    const door = opening({ side: "left", offset: 40, width: 30 });
+    const segs = freeSegmentsOnWall("left", ROOM_12x10, [], [door], 9);
+    // 120" deep wall, door 30 at 40 → [0..40] and [70..120].
+    expect(segs[0]).toMatchObject({ start: 0, length: 40 });
+    expect(segs[1]).toMatchObject({ start: 70, length: 50 });
+  });
+});
+
+describe("wallPlacementAt", () => {
+  it("pins to the back wall and keeps the run-axis offset (top)", () => {
+    const p = wallPlacementAt(24, 36, 24, "top", ROOM_12x10);
+    expect(p).toMatchObject({ x: 24, y: 0, rotation: 0 });
+  });
+  it("pins to the front wall accounting for depth (bottom)", () => {
+    const p = wallPlacementAt(24, 36, 24, "bottom", ROOM_12x10);
+    expect(p).toMatchObject({ x: 24, y: 120 - 24, rotation: 0 });
+  });
+  it("rotates 90 and pins to the left wall (vertical run)", () => {
+    const p = wallPlacementAt(40, 36, 24, "left", ROOM_12x10);
+    expect(p).toMatchObject({ x: 0, y: 40, rotation: 90 });
+  });
+});
+
+describe("rangeOvenClearanceViolations (corner filler rule)", () => {
+  it("flags a range butting a cabinet at a wall corner with no filler", () => {
+    // Range at the left corner (x=0), cabinet immediately to its right.
+    const range = cab({ uid: "r", masterCode: "RANGE-30", placement: "appliance", x: 0, y: 0, width: 30, depth: 25 });
+    const base = cab({ uid: "b", masterCode: "B-24", placement: "base", x: 30, y: 0, width: 24, depth: 24 });
+    const bad = rangeOvenClearanceViolations([range, base], ROOM_12x10);
+    expect(bad.has("r")).toBe(true);
+  });
+
+  it("does NOT flag when a clearance filler separates them", () => {
+    const range = cab({ uid: "r", masterCode: "RANGE-30", placement: "appliance", x: 0, y: 0, width: 30, depth: 25 });
+    // 3" gap (a filler would sit here) before the cabinet.
+    const base = cab({ uid: "b", masterCode: "B-24", placement: "base", x: 33, y: 0, width: 24, depth: 24 });
+    const bad = rangeOvenClearanceViolations([range, base], ROOM_12x10);
+    expect(bad.has("r")).toBe(false);
+  });
+
+  it("does NOT flag a range in the middle of a wall (not at a corner)", () => {
+    const range = cab({ uid: "r", masterCode: "RANGE-30", placement: "appliance", x: 60, y: 0, width: 30, depth: 25 });
+    const base = cab({ uid: "b", masterCode: "B-24", placement: "base", x: 90, y: 0, width: 24, depth: 24 });
+    const bad = rangeOvenClearanceViolations([range, base], ROOM_12x10);
+    expect(bad.has("r")).toBe(false);
+  });
+
+  it("exposes a 3\" standard clearance filler width", () => {
+    expect(RANGE_CLEARANCE_FILLER_IN).toBe(3);
+  });
+});
+
+describe("wall cabinet elevation rules", () => {
+  it("a standard 30in wall cabinet bottoms at 54in (top line 84)", () => {
+    const box = elevationBox(cab({ placement: "wall", width: 30, height: 30 }));
+    expect(box.bottom).toBe(54);
+    expect(box.height).toBe(30);
+  });
+
+  it("a short 12in bridge wall cabinet hangs higher: bottom at 72in", () => {
+    const box = elevationBox(cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "30x12 Bridge Wall Cabinet" }));
+    expect(box.bottom).toBe(72);
+    expect(box.height).toBe(12);
+  });
+
+  it("a glass stacker sits ON TOP of the wall cabinet below (bottom at 84in)", () => {
+    const box = elevationBox(cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12GD", description: "30x12 Stacker Wall Cabinet with Glass Door" }));
+    expect(box.bottom).toBe(84);
+    expect(box.height).toBe(12);
+  });
+
+  it("a user mountBottom override always wins over the default rule", () => {
+    const box = elevationBox(cab({ placement: "wall", width: 30, height: 30, mountBottom: 60 }));
+    expect(box.bottom).toBe(60);
+  });
+
+  it("base cabinets always sit on the floor (bottom 0)", () => {
+    expect(elevationBox(cab({ placement: "base", width: 24, height: 34.5 })).bottom).toBe(0);
+  });
+
+  it("isStacker detects stacker cabinets and ignores plain wall cabinets", () => {
+    expect(isStacker({ description: "30x12 Stacker Wall Cabinet with Glass Door" })).toBe(true);
+    expect(isStacker({ description: "30\" x 12\" Bridge Wall Cabinet" })).toBe(false);
+  });
+});
+
+describe("wall cabinet clearance from doors/windows", () => {
+  const room: RoomData = { width: 144, depth: 120 };
+  // A window centered on the top wall: 36" wide, centered -> offset 54..90.
+  function topWindow(offset: number, width = 36): WallOpening {
+    return { uid: "win", kind: "window", label: "Window", side: "top", offset, width, height: 36, sill: 40 };
+  }
+
+  it("flags a wall cabinet sitting within 3\" of a window", () => {
+    // Window 54..90. Wall cabinet ending at 92 is 2" away -> violation.
+    const wall = cab({ uid: "w1", placement: "wall", x: 92, y: 0, width: 30, depth: 12 });
+    const bad = wallOpeningClearanceViolations([wall], [topWindow(54)], room);
+    expect(bad.has("w1")).toBe(true);
+  });
+
+  it("passes a wall cabinet that keeps >= 3\" from the window", () => {
+    // Window 54..90. Wall cabinet starting at 93 (3" clear) -> ok.
+    const wall = cab({ uid: "w2", placement: "wall", x: 93, y: 0, width: 30, depth: 12 });
+    const bad = wallOpeningClearanceViolations([wall], [topWindow(54)], room);
+    expect(bad.has("w2")).toBe(false);
+  });
+
+  it("ignores base cabinets (only wall cabinets must clear openings)", () => {
+    const base = cab({ uid: "b1", placement: "base", x: 91, y: 0, width: 24, depth: 24 });
+    const bad = wallOpeningClearanceViolations([base], [topWindow(54)], room);
+    expect(bad.has("b1")).toBe(false);
+  });
+
+  it("uses the standard 3\" clearance default", () => {
+    expect(WALL_OPENING_CLEARANCE_IN).toBe(3);
+  });
+
+  it("pads openings by the clearance when computing wall free segments", () => {
+    // Window 54..90 on a 144 wall. With 3" clearance the blocked band becomes
+    // 51..93, so the right-hand free segment starts at 93 (not 90).
+    const segs = freeSegmentsOnWall("top", room, [], [topWindow(54)], 9, WALL_OPENING_CLEARANCE_IN);
+    const right = segs.find((s) => s.start >= 90);
+    expect(right).toBeDefined();
+    expect(right!.start).toBeCloseTo(93, 1);
+  });
+});
+
+describe("blind corner pull spec", () => {
+  it("blindPullRange returns null when spec missing", () => {
+    expect(blindPullRange({})).toBeNull();
+    expect(blindPullRange({ pullMin: 36 })).toBeNull();
+    expect(blindPullRange({ pullMax: 39 })).toBeNull();
+  });
+
+  it("blindPullRange normalizes swapped min/max", () => {
+    expect(blindPullRange({ pullMin: 39, pullMax: 36 })).toEqual({ min: 36, max: 39 });
+    expect(blindPullRange({ pullMin: 36, pullMax: 39 })).toEqual({ min: 36, max: 39 });
+  });
+
+  it("flags a blind corner with NO pull spec as missing-spec", () => {
+    const v = blindCornerSpecViolations([
+      cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36 }),
+    ]);
+    expect(v.get("bc")).toBe("missing-spec");
+  });
+
+  it("passes a blind corner whose installed width is within [min,max]", () => {
+    const v = blindCornerSpecViolations([
+      cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 37, pullMin: 36, pullMax: 39 }),
+    ]);
+    expect(v.has("bc")).toBe(false);
+  });
+
+  it("flags out-of-range when installed width exceeds max", () => {
+    const v = blindCornerSpecViolations([
+      cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 41, pullMin: 36, pullMax: 39 }),
+    ]);
+    expect(v.get("bc")).toBe("out-of-range");
+  });
+
+  it("flags out-of-range when installed width is below min", () => {
+    const v = blindCornerSpecViolations([
+      cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 34, pullMin: 36, pullMax: 39 }),
+    ]);
+    expect(v.get("bc")).toBe("out-of-range");
+  });
+
+  it("ignores non-blind cabinets", () => {
+    const v = blindCornerSpecViolations([
+      cab({ uid: "b", masterCode: "B-24", placement: "base", width: 24 }),
+    ]);
+    expect(v.size).toBe(0);
+  });
+});
+
+describe("blindCornerAutoFiller — auto 3in filler opposite the pull", () => {
+  const room: RoomData = { width: 144, depth: 120 };
+  let n = 0;
+  const uid = () => `f${n++}`;
+
+  it("places a base filler just past a blind corner seated at the start corner of the top wall", () => {
+    const blind = cab({ masterCode: "BBC-36", placement: "base", x: 0, y: 0, width: 33, depth: 24, rotation: 0 });
+    const res = blindCornerAutoFiller(blind, room, uid);
+    expect(res.ambiguous).toBe(false);
+    expect(res.filler).not.toBeNull();
+    // filler sits on the open (run) side, just past the cabinet's far end (x=33)
+    expect(res.filler!.x).toBeCloseTo(33, 1);
+    expect(res.filler!.y).toBe(0);
+    expect(res.filler!.width).toBe(BLIND_CORNER_FILLER_WIDTH_IN);
+    expect(res.filler!.placement).toBe("base");
+  });
+
+  it("places the filler before the cabinet when the blind corner is at the far end of the wall", () => {
+    // cabinet's far end is flush with the right end of the top wall (144)
+    const blind = cab({ masterCode: "BBC-36", placement: "base", x: 144 - 33, y: 0, width: 33, depth: 24, rotation: 0 });
+    const res = blindCornerAutoFiller(blind, room, uid);
+    expect(res.ambiguous).toBe(false);
+    // filler sits just before the near end (x = (144-33) - 3)
+    expect(res.filler!.x).toBeCloseTo(144 - 33 - BLIND_CORNER_FILLER_WIDTH_IN, 1);
+  });
+
+  it("is ambiguous (no filler) when the blind corner is not seated in a corner", () => {
+    const blind = cab({ masterCode: "BBC-36", placement: "base", x: 60, y: 0, width: 33, depth: 24, rotation: 0 });
+    const res = blindCornerAutoFiller(blind, room, uid);
+    expect(res.ambiguous).toBe(true);
+    expect(res.filler).toBeNull();
+  });
+
+  it("returns no filler for a non-blind cabinet", () => {
+    const reg = cab({ masterCode: "B-24", placement: "base", x: 0, y: 0 });
+    const res = blindCornerAutoFiller(reg, room, uid);
+    expect(res.filler).toBeNull();
+    expect(res.ambiguous).toBe(false);
   });
 });

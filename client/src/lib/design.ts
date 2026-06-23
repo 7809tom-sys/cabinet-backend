@@ -88,6 +88,11 @@ export interface DesignCabinet {
   numberOfDrawers: number | null;
   isCornerCabinet: boolean | null;
   catalogImageUrl?: string | null;
+  // Manufacturer blind-corner pull range (inches across the corner). Optional;
+  // when absent for a blind corner, the design flags a conflict so the admin
+  // can enter the spec.
+  pullMin?: number | null;
+  pullMax?: number | null;
 }
 
 // Door hinge side as seen from the front of the cabinet. "none" is used for
@@ -119,6 +124,19 @@ export interface PlacedCabinet {
   // Optional for backward-compat with older saved designs; the canvas falls
   // back to the to-scale code-drawn shape when absent.
   catalogImageUrl?: string | null;
+  // User override for a WALL cabinet's mount height (inches from floor to the
+  // BOTTOM of the box). When set, the elevation uses this exactly; when absent,
+  // elevationBox derives the bottom from the default rule (stacker stacks on
+  // top at 84"; a standalone short wall cabinet hangs from the 84" top line).
+  mountBottom?: number | null;
+  // Blind corner cabinets install ACROSS the corner with a manufacturer pull
+  // range: the cabinet can be pulled away from the corner between pullMin and
+  // pullMax inches (e.g. a 36" blind base that pulls out to 39"). These come
+  // from the manufacturer spec and are carried onto the placed item. When a
+  // blind corner cabinet has NO pull spec, the design is flagged as a conflict
+  // so the administrator can enter the manufacturer's min/max pull.
+  pullMin?: number | null;
+  pullMax?: number | null;
 }
 
 // True when a cabinet has a hinged door whose swing side is meaningful. A
@@ -402,6 +420,15 @@ export function blindCornerViolations(
   return bad;
 }
 
+// A glass STACKER is a short wall cabinet designed to sit ON TOP of the main
+// wall cabinet below it (common in Skyline lines), growing UP toward the
+// ceiling — unlike a standalone short/bridge wall cabinet, which hangs from the
+// 84" top line. Detected from the description/code ("stacker").
+export function isStacker(p: { description?: string | null; masterCode?: string | null; subCategory?: string | null }): boolean {
+  const hay = `${p.subCategory ?? ""} ${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
+  return /\bstacker\b|\bstack(?:ing|ed)?\b/.test(hay);
+}
+
 export function elevationBox(p: PlacedCabinet): { bottom: number; height: number } {
   if (p.placement === "appliance") {
     const def = APPLIANCES.find((a) => a.masterCode === p.masterCode);
@@ -409,11 +436,21 @@ export function elevationBox(p: PlacedCabinet): { bottom: number; height: number
     return { bottom: 0, height: STD.COUNTERTOP_HEIGHT };
   }
   if (p.placement === "wall") {
-    // Wall cabinets hang from a common top line (84"); taller cabinets drop
-    // their bottom lower. A 30" cabinet bottoms at 54", a 42" at 42", etc.
     const h = placedHeight(p);
+    // 1) Explicit user override always wins (drag/adjust up or down).
+    if (typeof p.mountBottom === "number" && p.mountBottom >= 0) {
+      return { bottom: p.mountBottom, height: h };
+    }
+    // 2) Glass stackers sit ON TOP of the wall cabinet below them: their bottom
+    //    rests on the standard 84" top line and they grow up to the ceiling.
+    if (isStacker(p)) {
+      return { bottom: WALL_CABINET_TOP, height: h };
+    }
+    // 3) Standalone / bridge wall cabinets hang from the common 84" top line, so
+    //    a shorter cabinet's bottom moves UP (30" -> 54", 12" -> 72").
     return { bottom: Math.max(0, WALL_CABINET_TOP - h), height: h };
   }
+  // Base, tall, vanity: the box always sits on the floor (bottom = 0).
   if (p.placement === "tall") {
     return { bottom: 0, height: placedHeight(p) };
   }
@@ -463,7 +500,9 @@ function height_safe(roomDepth: number, _placement: Placement): number {
 // by masterCode prefix so both placed packages and palette drops render correctly.
 export function isCornerCabinet(masterCode: string, description?: string): boolean {
   const code = (masterCode || "").toUpperCase();
-  if (/^(BBC|WBC|BLB|LSB|BEC|CSB|WLS|DCW|DCB|ER|AW-|AW\d|WDC|KWD|DCFF|AG-|AG\d|CAG)/.test(code)) return true;
+  // ERB/BER are the easy-reach corner base codes (BER is the Skyline naming;
+  // ERB is how the catalog stores the same cabinet). WER is the wall easy-reach.
+  if (/^(BBC|WBC|BLB|LSB|BEC|CSB|WLS|DCW|DCB|ER|ERB|BER|WER|AW-|AW\d|WDC|KWD|DCFF|AG-|AG\d|CAG)/.test(code)) return true;
   if (/-CNR|CORNER/.test(code)) return true;
   const desc = (description || "").toLowerCase();
   return /corner|lazy susan|easy reach|blind|diagonal|angled (wall|corner)/.test(desc);
@@ -880,6 +919,53 @@ export interface FillerLine {
   width: number; // inches each
 }
 
+// Resolve a blind corner cabinet's manufacturer pull range. Prefer the explicit
+// pullMin/pullMax carried on the placed item (entered by the administrator). If
+// those are missing, return null so the caller can flag a conflict — we never
+// guess a manufacturer spec.
+export function blindPullRange(
+  p: { pullMin?: number | null; pullMax?: number | null }
+): { min: number; max: number } | null {
+  const min = typeof p.pullMin === "number" ? p.pullMin : null;
+  const max = typeof p.pullMax === "number" ? p.pullMax : null;
+  if (min == null || max == null) return null;
+  if (max < min) return { min: max, max: min };
+  return { min, max };
+}
+
+// The reason a blind corner cabinet is flagged, so the UI can show a tailored
+// message. "missing-spec" -> administrator must enter the manufacturer pull;
+// "out-of-range" -> the installed pull is outside [min,max].
+export type BlindSpecIssue = "missing-spec" | "out-of-range";
+
+// Validate blind corner cabinets against their manufacturer pull spec. For each
+// blind corner cabinet:
+//  - If it carries NO pullMin/pullMax spec -> "missing-spec" (conflict: the
+//    administrator must enter the manufacturer's min/max pull before ordering).
+//  - If it has a spec but its installed width-across-the-corner is outside
+//    [pullMin, pullMax] -> "out-of-range".
+// Returns a map of uid -> issue so the UI can flag and explain each one.
+export function blindCornerSpecViolations(
+  placed: PlacedCabinet[]
+): Map<string, BlindSpecIssue> {
+  const out = new Map<string, BlindSpecIssue>();
+  for (const p of placed) {
+    if (!isBlindCorner(p.masterCode, p.description)) continue;
+    const range = blindPullRange(p);
+    if (!range) {
+      out.set(p.uid, "missing-spec");
+      continue;
+    }
+    // The installed pull is the cabinet's width across the corner. Allow a
+    // small tolerance so exact min/max values pass.
+    const installed = p.width;
+    if (installed < range.min - 0.01 || installed > range.max + 0.01) {
+      out.set(p.uid, "out-of-range");
+    }
+  }
+  return out;
+}
+
 // Count blind corners in a layout and return the required filler lines, split
 // by base vs wall so the BOM can label them correctly. One filler per blind
 // corner cabinet.
@@ -895,6 +981,94 @@ export function blindCornerFillers(placed: PlacedCabinet[]): FillerLine[] {
   if (base > 0) out.push({ kind: "base", count: base, width: BLIND_CORNER_FILLER_WIDTH_IN });
   if (wall > 0) out.push({ kind: "wall", count: wall, width: BLIND_CORNER_FILLER_WIDTH_IN });
   return out;
+}
+
+// Result of attempting to auto-place a blind corner's opposite-side filler.
+// `filler` is a ready-to-place 3" filler when we can confidently determine the
+// corner and the pull side. `ambiguous` is true when we cannot — per the trade
+// rule "if in doubt, put it in conflict", the caller should NOT guess and should
+// leave the blind corner flagged so the user resolves it manually.
+export interface BlindAutoFillerResult {
+  filler: PlacedCabinet | null;
+  ambiguous: boolean;
+  reason?: string;
+}
+
+// When a blind corner base/wall cabinet is seated in a room corner, the trade
+// rule is: the cabinet projects its full corner return (its real depth) into
+// the corner, and a filler ALWAYS goes on the side OPPOSITE the pull (the open
+// run side) so the adjacent run clears the corner. This computes that filler as
+// a placed item flush against the same wall, butting the blind cabinet's far
+// (run-side) end. If the blind cabinet is not clearly in a corner, we return
+// `ambiguous: true` and place nothing — the design stays in conflict.
+export function blindCornerAutoFiller(
+  blind: PlacedCabinet,
+  room: RoomData,
+  makeUidFn: () => string = makeUid
+): BlindAutoFillerResult {
+  if (!isBlindCorner(blind.masterCode, blind.description)) {
+    return { filler: null, ambiguous: false, reason: "not-blind" };
+  }
+  const wall = cabinetWall(blind, room);
+  const horizontal = wall === "top" || wall === "bottom";
+  const { w, d } = rotatedSize(blind);
+  const W = BLIND_CORNER_FILLER_WIDTH_IN;
+
+  // Run-axis extent of the blind cabinet along its wall.
+  const runStart = horizontal ? blind.x : blind.y;
+  const runEnd = runStart + (horizontal ? w : d);
+  const runMax = horizontal ? room.width : room.depth;
+
+  // Which end sits in the room corner? A corner end is within tolerance of 0 or
+  // the wall's far end. If NEITHER end is in a corner, the placement is
+  // ambiguous — we can't tell which side the pull/return faces.
+  const T = 2;
+  const atStart = Math.abs(runStart - 0) <= T;
+  const atEnd = Math.abs(runEnd - runMax) <= T;
+  if (atStart === atEnd) {
+    // Both in a corner (cabinet spans the whole wall) or neither -> ambiguous.
+    return { filler: null, ambiguous: true, reason: "corner-undetermined" };
+  }
+
+  // The filler goes on the side OPPOSITE the corner (the open run side).
+  // If the corner is at the start, the open side is the far end (runEnd); the
+  // filler sits just past the cabinet. If the corner is at the end, the filler
+  // sits just before the cabinet's near end (runStart - W).
+  const fillerAlong = atStart ? runEnd : runStart - W;
+  if (fillerAlong < -0.01 || fillerAlong + W > runMax + 0.01) {
+    return { filler: null, ambiguous: true, reason: "no-room-for-filler" };
+  }
+
+  // Build the filler flush against the same wall as the blind cabinet.
+  const fillerPlacement: Placement = blind.placement === "wall" ? "wall" : "base";
+  const fillerDepth = fillerPlacement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
+  const fillerHeight = fillerPlacement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT;
+  let fx: number, fy: number, fw: number, fd: number;
+  if (horizontal) {
+    fx = fillerAlong;
+    fy = wall === "top" ? 0 : Math.max(0, room.depth - fillerDepth);
+    fw = W;
+    fd = fillerDepth;
+  } else {
+    fy = fillerAlong;
+    fx = wall === "left" ? 0 : Math.max(0, room.width - fillerDepth);
+    fw = fillerDepth;
+    fd = W;
+  }
+  const filler: PlacedCabinet = {
+    uid: makeUidFn(),
+    cabinetId: 0,
+    masterCode: `FILL-${W}`,
+    description: `${W}" Blind Corner Filler (opposite pull)`,
+    placement: fillerPlacement,
+    x: fx,
+    y: fy,
+    width: fw,
+    depth: fd,
+    height: fillerHeight,
+    rotation: horizontal ? 0 : 90,
+  };
+  return { filler, ambiguous: false };
 }
 
 // ─── Explicit wall placement ────────────────────────────────────────────────
@@ -1095,6 +1269,218 @@ export function nextFreeSpotOnWall(
   // Left/right walls need a 90° turn so depth runs horizontally into the room.
   const rotation = horizontal ? 0 : 90;
 
+  return { x, y, rotation };
+}
+
+// ─── Range / oven corner clearance rule ─────────────────────────────────────
+// Trade rule: when a range or oven sits at a wall CORNER directly adjacent to a
+// cabinet, a filler must separate the appliance from that cabinet so the range
+// handle (and the cabinet door/drawer handle) have clearance and don't collide.
+// Standard clearance filler is 3" (same width as a blind-corner filler).
+//
+// We flag a range/oven when:
+//   (1) it is a range or oven appliance/cabinet (masterCode RANGE-* / OVEN, or
+//       description mentions range/oven), AND
+//   (2) one of its run-axis ends is AT a wall corner (the appliance touches the
+//       start or end of the wall it sits on), AND
+//   (3) a real cabinet butts up against that SAME end closer than the required
+//       clearance filler width.
+// Returns the uids of the offending range/oven items so the UI can warn and
+// offer a one-click "Add clearance filler".
+export const RANGE_CLEARANCE_FILLER_IN = 3;
+
+export function isRangeOrOven(masterCode?: string | null, description?: string | null): boolean {
+  const code = (masterCode || "").toUpperCase();
+  if (/^(RANGE|OVEN|RNG|OV)[-\d]/.test(code) || code === "RANGE" || code === "OVEN") return true;
+  const desc = (description || "").toLowerCase();
+  return /\brange\b|\boven\b|\bstove\b|\bcooktop\b/.test(desc);
+}
+
+export function rangeOvenClearanceViolations(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  fillerIn = RANGE_CLEARANCE_FILLER_IN
+): Set<string> {
+  const bad = new Set<string>();
+  const ranges = placed.filter((p) => isRangeOrOven(p.masterCode, p.description));
+  for (const range of ranges) {
+    const side = cabinetWall(range, room);
+    const horizontal = side === "top" || side === "bottom";
+    const wallLen = horizontal ? room.width : room.depth;
+    const rs = rotatedSize(range);
+    const start = horizontal ? range.x : range.y;
+    const end = start + (horizontal ? rs.w : rs.d);
+    const atStartCorner = Math.abs(start - 0) <= 1.0;
+    const atEndCorner = Math.abs(end - wallLen) <= 1.0;
+    if (!atStartCorner && !atEndCorner) continue;
+
+    // Look for a real cabinet butting the INTERIOR end of the range (the end
+    // that faces into the run, away from the corner).
+    for (const o of placed) {
+      if (o.uid === range.uid) continue;
+      if (o.placement !== "base" && o.placement !== "tall") continue;
+      if (isRangeOrOven(o.masterCode, o.description)) continue;
+      // Skip a filler/scribe that is already doing its job.
+      if (/\bfiller\b|\bscribe\b/i.test(`${o.masterCode} ${o.description}`)) continue;
+      if (cabinetWall(o, room) !== side) continue;
+      const os = rotatedSize(o);
+      const oStart = horizontal ? o.x : o.y;
+      const oEnd = oStart + (horizontal ? os.w : os.d);
+      // The neighbor must overlap the appliance's depth-band (same run) — since
+      // both are on the same wall that's already true; check run-axis gap.
+      let gap: number | null = null;
+      if (atStartCorner) {
+        // Interior end is `end`; neighbor should be to the right of it.
+        if (oStart >= end - 1.0) gap = oStart - end;
+      } else {
+        // atEndCorner: interior end is `start`; neighbor to the left of it.
+        if (oEnd <= start + 1.0) gap = start - oEnd;
+      }
+      if (gap != null && gap >= -0.5 && gap < fillerIn - 0.01) {
+        bad.add(range.uid);
+      }
+    }
+  }
+  return bad;
+}
+
+// Wall cabinets must keep at least this clearance (inches) from doors and
+// windows on both sides of the opening. Base cabinets are exempt (counters/
+// fillers can run beneath a window), so this buffer is only applied when
+// filling the WALL layer.
+export const WALL_OPENING_CLEARANCE_IN = 3;
+
+// Wall cabinets must keep a minimum clearance (default 3") from door/window
+// openings. Returns the uids of WALL cabinets whose run-axis extent comes within
+// `clearance` inches of any opening on the SAME wall (including overlap). Used
+// for the design-check warning. Pure + deterministic.
+export function wallOpeningClearanceViolations(
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  room: RoomData,
+  clearance = WALL_OPENING_CLEARANCE_IN
+): Set<string> {
+  const bad = new Set<string>();
+  if (openings.length === 0) return bad;
+  for (const p of placed) {
+    if (p.placement !== "wall") continue;
+    const side = cabinetWall(p, room);
+    const horizontal = side === "top" || side === "bottom";
+    const ps = rotatedSize(p);
+    const cStart = horizontal ? p.x : p.y;
+    const cEnd = cStart + (horizontal ? ps.w : ps.d);
+    for (const o of openings) {
+      if (o.side !== side) continue;
+      const oStart = o.offset;
+      const oEnd = o.offset + o.width;
+      // Gap between the cabinet span and the opening span along the run axis.
+      // Negative gap means they overlap; positive means a clear distance.
+      const gap = Math.max(oStart - cEnd, cStart - oEnd);
+      if (gap < clearance - 0.01) {
+        bad.add(p.uid);
+        break;
+      }
+    }
+  }
+  return bad;
+}
+
+// ─── Free wall segments (break the run around openings) ─────────────────────
+// Compute the OPEN gaps along a wall's run axis, after removing the run-axis
+// extents of (a) base cabinets already on that wall and (b) door/window
+// openings on that wall. Auto-Fill then tiles each returned segment separately
+// so cabinets break cleanly around a doorway instead of running under it.
+//
+// Returns segments as { start, length } in inches along the wall's run axis
+// (X for top/bottom walls, Y for left/right). Only segments >= `minLen` are
+// returned. Pure + deterministic so it can be unit-tested.
+export interface WallSegment {
+  start: number;
+  length: number;
+}
+
+export function freeSegmentsOnWall(
+  side: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  minLen = 9,
+  // Extra clearance padded onto EACH side of every opening before computing
+  // free segments. Pass WALL_OPENING_CLEARANCE_IN when tiling wall cabinets.
+  openingClearance = 0
+): WallSegment[] {
+  const horizontal = side === "top" || side === "bottom";
+  const wallLen = horizontal ? room.width : room.depth;
+
+  // Collect blocked [start, end] intervals along the run axis.
+  const blocked: { s: number; e: number }[] = [];
+
+  // Base cabinets already flush on this wall.
+  for (const p of placed) {
+    if (p.placement !== "base") continue;
+    if (!isAgainstWall(p, side, room)) continue;
+    const s = rotatedSize(p);
+    const start = horizontal ? p.x : p.y;
+    const span = horizontal ? s.w : s.d;
+    blocked.push({ s: start, e: start + span });
+  }
+
+  // Openings on this wall (a door/window interrupts the run at its position).
+  // Pad by openingClearance on both sides so wall cabinets keep their distance.
+  for (const o of openings) {
+    if (o.side !== side) continue;
+    blocked.push({
+      s: Math.max(0, o.offset - openingClearance),
+      e: Math.min(wallLen, o.offset + o.width + openingClearance),
+    });
+  }
+
+  // Merge overlapping/touching blocked intervals.
+  blocked.sort((a, b) => a.s - b.s);
+  const merged: { s: number; e: number }[] = [];
+  for (const b of blocked) {
+    const last = merged[merged.length - 1];
+    if (last && b.s <= last.e + 0.01) {
+      last.e = Math.max(last.e, b.e);
+    } else {
+      merged.push({ ...b });
+    }
+  }
+
+  // The free segments are the gaps between merged blocks (and the ends).
+  const segments: WallSegment[] = [];
+  let cursor = 0;
+  for (const b of merged) {
+    const gap = b.s - cursor;
+    if (gap >= minLen) segments.push({ start: cursor, length: Math.round(gap * 100) / 100 });
+    cursor = Math.max(cursor, b.e);
+  }
+  const tail = wallLen - cursor;
+  if (tail >= minLen) segments.push({ start: cursor, length: Math.round(tail * 100) / 100 });
+
+  return segments;
+}
+
+
+// Convert a run-axis coordinate on a wall into the {x, y, rotation} a placed
+// cabinet needs. `along` is the run-axis start (X for top/bottom, Y for left/
+// right); the perpendicular coordinate is pinned to the wall.
+export function wallPlacementAt(
+  along: number,
+  width: number,
+  depth: number,
+  side: WallSide,
+  room: RoomData
+): { x: number; y: number; rotation: number } {
+  const horizontal = side === "top" || side === "bottom";
+  const rotation = horizontal ? 0 : 90;
+  // depth runs into the room from the wall.
+  let x = 0;
+  let y = 0;
+  if (side === "top") { y = 0; x = along; }
+  else if (side === "bottom") { y = Math.max(0, room.depth - depth); x = along; }
+  else if (side === "left") { x = 0; y = along; }
+  else { x = Math.max(0, room.width - depth); y = along; }
   return { x, y, rotation };
 }
 
@@ -1367,15 +1753,37 @@ export function countertopSurfaces(
     if (p.placement !== "base") continue;
     const { w } = rotatedSize(p);
     const side = cabinetWall(p, room);
+    // Blind corner bases install pulled away from the corner (by the filler /
+    // pull gap). Even though the cabinet is pulled off the wall, the countertop
+    // still runs ALL THE WAY to the wall to cover the dead corner. We widen the
+    // slab by the pull gap on the side that faces the corner. The gap defaults
+    // to the standard 3" blind-corner filler; if a pull spec exists, use the
+    // extra travel (pullMax - cabinet width) when larger.
+    let cornerGap = 0;
+    if (isBlindCorner(p.masterCode, p.description)) {
+      cornerGap = BLIND_CORNER_FILLER_WIDTH_IN;
+      const range = blindPullRange(p);
+      if (range) cornerGap = Math.max(cornerGap, range.max - w);
+      if (cornerGap < 0) cornerGap = 0;
+    }
     if (side === "top") {
-      out.push({ x: p.x, y: 0, width: w, depth: D, kind: "base" });
+      // Extend toward whichever horizontal end is nearer the corner (the wall).
+      const nearLeft = p.x <= room.width - (p.x + w);
+      const x = nearLeft ? p.x - cornerGap : p.x;
+      out.push({ x: Math.max(0, x), y: 0, width: w + cornerGap, depth: D, kind: "base" });
     } else if (side === "bottom") {
-      out.push({ x: p.x, y: room.depth - D, width: w, depth: D, kind: "base" });
+      const nearLeft = p.x <= room.width - (p.x + w);
+      const x = nearLeft ? p.x - cornerGap : p.x;
+      out.push({ x: Math.max(0, x), y: room.depth - D, width: w + cornerGap, depth: D, kind: "base" });
     } else if (side === "left") {
       // Vertical run: slab is D wide (into room) and w tall along the wall.
-      out.push({ x: 0, y: p.y, width: D, depth: w, kind: "base" });
+      const nearTop = p.y <= room.depth - (p.y + w);
+      const y = nearTop ? p.y - cornerGap : p.y;
+      out.push({ x: 0, y: Math.max(0, y), width: D, depth: w + cornerGap, kind: "base" });
     } else {
-      out.push({ x: room.width - D, y: p.y, width: D, depth: w, kind: "base" });
+      const nearTop = p.y <= room.depth - (p.y + w);
+      const y = nearTop ? p.y - cornerGap : p.y;
+      out.push({ x: room.width - D, y: Math.max(0, y), width: D, depth: w + cornerGap, kind: "base" });
     }
   }
   if (island && island.width > 0 && island.depth > 0) {

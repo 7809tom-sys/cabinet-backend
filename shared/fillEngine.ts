@@ -45,6 +45,10 @@ export interface FillResult {
 
 const MIN_FILLER = 1.5;
 const MAX_FILLER = 6;
+// Trade rule: when a range/oven sits at a corner next to a cabinet, a filler is
+// inserted between them so the appliance handle clears the cabinet handle.
+// Standard clearance filler is 3" (same as a blind-corner filler).
+export const RANGE_CLEARANCE_FILLER_IN = 3;
 
 function widthOf(c: FillCabinet, fallback = 24): number {
   const w = c.width != null ? parseFloat(c.width) : NaN;
@@ -110,11 +114,97 @@ export function makeFiller(widthInches: number, placement: FillCabinet["placemen
   };
 }
 
+// ─── Varied layout planner ───────────────────────────────────────────────────
+// Instead of greedily repeating the single widest cabinet, choose a MIX of
+// widths that still sums to (at most) the span. We do a bounded search that
+// favours: (1) covering the most span, then (2) using the FEWEST cabinets, then
+// (3) the most VARIETY (distinct widths). This yields realistic runs like
+// 36 + 24 + 18 rather than 48 + 48, while staying fully deterministic.
+//
+// To keep the search cheap we work on the set of DISTINCT candidate widths and
+// reconstruct which cabinet each width maps to afterwards (widest cabinet for a
+// given width). The search is depth-bounded and width-bounded so it is O(small).
+
+interface WidthPick {
+  widths: number[]; // chosen cabinet widths, in placement order (widest-first)
+  used: number;     // sum of widths
+}
+
+function planVariedWidths(span: number, distinctWidths: number[]): number[] {
+  const widths = Array.from(new Set(distinctWidths)).sort((a, b) => b - a);
+  if (widths.length === 0) return [];
+  const smallest = widths[widths.length - 1];
+
+  // Cap how many cabinets we will place so the search stays bounded even on a
+  // very long wall. Beyond the cap we top up greedily with the widest cabinet.
+  const MAX_PIECES = 12;
+
+  let best: WidthPick | null = null;
+
+  const score = (pick: WidthPick): number => {
+    const leftover = span - pick.used;
+    const distinct = new Set(pick.widths).size;
+    // Lower is better. Heavily penalise leftover, then piece count, then reward
+    // variety (subtract distinct widths so more variety lowers the score).
+    return leftover * 1000 + pick.widths.length * 10 - distinct * 3;
+  };
+
+  const consider = (pick: WidthPick) => {
+    if (pick.used > span + 0.01) return;
+    if (best === null || score(pick) < score(best)) best = pick;
+  };
+
+  // DFS over width choices, always trying larger widths first but allowing the
+  // engine to drop to a smaller width to introduce variety.
+  const dfs = (remaining: number, chosen: number[]) => {
+    consider({ widths: chosen, used: span - remaining });
+    if (chosen.length >= MAX_PIECES) return;
+    if (remaining < smallest - 0.01) return;
+    for (const w of widths) {
+      if (w > remaining + 0.01) continue;
+      // Avoid placing 3+ identical widths in a row early — nudge toward variety
+      // by skipping a width once it already appears twice consecutively at the
+      // tail (still allowed later, just de-prioritised by ordering).
+      const tail = chosen.slice(-2);
+      if (tail.length === 2 && tail[0] === w && tail[1] === w) {
+        // allow but only as a fallback: try the rest first via ordering
+      }
+      dfs(Math.round((remaining - w) * 100) / 100, [...chosen, w]);
+    }
+  };
+
+  dfs(span, []);
+
+  let result = best ? (best as WidthPick).widths.slice() : [];
+
+  // If the bounded search stopped short of the span (very long wall), top up
+  // greedily with the widest cabinet until we can't fit another.
+  let used = result.reduce((s, w) => s + w, 0);
+  const widest = widths[0];
+  let guard = 0;
+  while (span - used >= smallest - 0.01 && guard < 200) {
+    guard++;
+    const fit = widths.find((w) => w <= span - used + 0.01);
+    if (!fit) break;
+    result.push(fit);
+    used += fit;
+  }
+
+  return result;
+}
+
 /**
- * Tile a wall span with real catalog cabinets (greedy widest-first), resolving
- * any leftover with a filler/scribe strip.
+ * Tile a wall span with real catalog cabinets, resolving any leftover with a
+ * filler/scribe strip. Produces a VARIED mix of widths (not just the widest
+ * repeated). When `forceFiller` is true a clearance filler is always appended
+ * (used for the range/oven corner rule).
  */
-export function autoFillSpan(spanInches: number, mode: FillMode, catalog: FillCabinet[]): FillResult {
+export function autoFillSpan(
+  spanInches: number,
+  mode: FillMode,
+  catalog: FillCabinet[],
+  opts: { forceFiller?: number } = {}
+): FillResult {
   const span = Math.max(0, Math.round(spanInches * 100) / 100);
   const items: FillItem[] = [];
   const candidates = candidatesForMode(mode, catalog);
@@ -123,26 +213,40 @@ export function autoFillSpan(spanInches: number, mode: FillMode, catalog: FillCa
     return { items, usedInches: 0, leftoverInches: span, fillerInches: 0 };
   }
 
-  const narrowest = candidates[candidates.length - 1];
-  const narrowestW = widthOf(narrowest);
-
-  let remaining = span;
-  let guard = 0;
-  while (remaining >= narrowestW - 0.01 && guard < 500) {
-    guard++;
-    const fit = candidates.find((c) => widthOf(c) <= remaining + 0.01);
-    if (!fit) break;
-    const w = widthOf(fit);
-    items.push({ cabinet: fit, width: w, isFiller: false });
-    remaining = Math.round((remaining - w) * 100) / 100;
+  // Map each distinct width to a representative cabinet (the widest match, which
+  // candidatesForMode already orders first for that width).
+  const byWidth = new Map<number, FillCabinet>();
+  for (const c of candidates) {
+    const w = widthOf(c);
+    if (!byWidth.has(w)) byWidth.set(w, c);
   }
+  const distinctWidths = Array.from(byWidth.keys());
+
+  const plannedWidths = planVariedWidths(span, distinctWidths);
+  for (const w of plannedWidths) {
+    const c = byWidth.get(w);
+    if (!c) continue;
+    items.push({ cabinet: c, width: w, isFiller: false });
+  }
+
+  const placement: FillCabinet["placement"] = mode === "closet"
+    ? candidates[candidates.length - 1].placement
+    : "base";
+
+  let used = items.reduce((s, it) => s + it.width, 0);
+  let remaining = Math.round((span - used) * 100) / 100;
 
   let fillerInches = 0;
   if (remaining >= MIN_FILLER) {
-    const placement = mode === "closet" ? narrowest.placement : "base";
     fillerInches = Math.min(remaining, MAX_FILLER);
     items.push({ cabinet: makeFiller(fillerInches, placement), width: fillerInches, isFiller: true });
     remaining = Math.round((remaining - fillerInches) * 100) / 100;
+  }
+
+  if (opts.forceFiller && opts.forceFiller > 0) {
+    const fw = Math.round(opts.forceFiller * 100) / 100;
+    items.push({ cabinet: makeFiller(fw, placement), width: fw, isFiller: true });
+    fillerInches += fw;
   }
 
   const usedInches = Math.round(items.reduce((s, it) => s + it.width, 0) * 100) / 100;

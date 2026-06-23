@@ -33,6 +33,11 @@ export function makeFiller(widthInches: number, placement: DesignCabinet["placem
   return makeFillerShared(widthInches, placement) as unknown as DesignCabinet;
 }
 
-export function autoFillSpan(spanInches: number, mode: FillMode, catalog: DesignCabinet[]): FillResult {
-  return autoFillSpanShared(spanInches, mode, catalog as never) as unknown as FillResult;
+export function autoFillSpan(
+  spanInches: number,
+  mode: FillMode,
+  catalog: DesignCabinet[],
+  opts: { forceFiller?: number } = {}
+): FillResult {
+  return autoFillSpanShared(spanInches, mode, catalog as never, opts) as unknown as FillResult;
 }

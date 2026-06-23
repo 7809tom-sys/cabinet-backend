@@ -60,8 +60,26 @@ describe("autoFillSpan", () => {
     expect(r.fillerInches).toBe(0);
     expect(r.leftoverInches).toBeCloseTo(0, 2);
     expect(r.usedInches).toBeCloseTo(72, 2);
-    // Greedy widest-first → two 36" bases.
+    // Two 36" bases is the fewest-pieces exact cover for 72".
     expect(r.items.filter((i) => !i.isFiller).map((i) => i.cabinet.masterCode)).toEqual(["B-36", "B-36"]);
+  });
+
+  it("produces a VARIED mix of widths, not just the widest repeated (96\")", () => {
+    const r = autoFillSpan(96, "kitchen", KITCHEN);
+    const widths = r.items.filter((i) => !i.isFiller).map((i) => i.width);
+    const distinct = new Set(widths);
+    // 96 could be 2x48 (none here) or 3x32 — the engine should mix widths
+    // (e.g. 36+30+24) rather than emitting the same width three times.
+    expect(widths.length).toBeGreaterThanOrEqual(2);
+    expect(distinct.size).toBeGreaterThanOrEqual(2);
+    expect(r.usedInches + r.leftoverInches).toBeCloseTo(96, 1);
+  });
+
+  it("force-appends a clearance filler when requested (range/oven corner rule)", () => {
+    const r = autoFillSpan(60, "kitchen", KITCHEN, { forceFiller: 3 });
+    const fillers = r.items.filter((i) => i.isFiller);
+    expect(fillers.some((f) => Math.abs(f.width - 3) < 0.01)).toBe(true);
+    expect(r.fillerInches).toBeGreaterThanOrEqual(3);
   });
 
   it("covers the full span; used + leftover never exceeds span", () => {
@@ -72,9 +90,13 @@ describe("autoFillSpan", () => {
     }
   });
 
-  it("adds a filler for a small leftover gap (40\" → 36 + 4 filler)", () => {
-    const r = autoFillSpan(40, "kitchen", KITCHEN);
-    // 36 fits, leftover 4 → filler (4 < min cabinet 12, within MAX_FILLER 6)
+  it("adds a filler only when real cabinets can't close the gap tighter", () => {
+    // The varied planner prefers a tighter all-cabinet cover (24+15 ⇒ ~1" reveal)
+    // over forcing a filler, but when the only good cover leaves a 1.5"–6" gap a
+    // filler IS inserted. Use a catalog whose smallest box is 24 so a 28" span
+    // can only be covered by 24 + 4" filler.
+    const BIG: DesignCabinet[] = [cab("B-24", 24), cab("B-30", 30), cab("B-36", 36)];
+    const r = autoFillSpan(28, "kitchen", BIG);
     const fillers = r.items.filter((i) => i.isFiller);
     expect(fillers.length).toBe(1);
     expect(r.fillerInches).toBeCloseTo(4, 2);

@@ -58,10 +58,13 @@ interface Props {
   selectedSinkUid?: string | null;
   onSelectSink?: (uid: string | null) => void;
   onMoveSink?: (uid: string, x: number, y: number) => void;
+  // Right-click a WALL cabinet to drop it to the floor as an island/peninsula
+  // base (top lands at 34.5 in). Provided by DesignTool.
+  onDropToFloor?: (uid: string) => void;
 }
 
 export function PlanCanvas({
-  room, cabinets, selectedUid, onSelect, onMove, onDelete, onDropNew,
+  room, cabinets, selectedUid, onSelect, onMove, onDelete, onDropNew, onDropToFloor,
   showWallLayer, measureMode = false, island = null, onIslandChange, onIslandMove,
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
@@ -730,6 +733,15 @@ export function PlanCanvas({
                 onPointerDown={(e) => handlePointerDown(e, p)}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
+                onContextMenu={
+                  isWall && onDropToFloor
+                    ? (e) => {
+                        e.preventDefault();
+                        onSelect(p.uid);
+                        onDropToFloor(p.uid);
+                      }
+                    : undefined
+                }
                 className={`group absolute transition-shadow ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
                 } ${isSelected ? "z-20" : isWall ? "z-10" : "z-0"}`}
