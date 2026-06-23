@@ -789,3 +789,27 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Desktop toolbar tool toggles (Measure/Island/Crown/Toe Kick/Batten/Countertop/Swing) collapse into a mobile "More" dropdown; desktop layout untouched at md+
 - [x] Keep desktop layout intact (responsive, mobile-first additions only) — side columns are hidden md:flex; mobile renders same content in Sheets
 - [x] Verify on phone (390x844) plan + catalog drawer + cart drawer + desktop; 371 tests pass; typecheck clean; checkpoint
+
+
+## Social sign-in + launch readiness (2026-06-23)
+- [ ] Surface prominent "Continue with Google" / "Continue with Apple" (+ Microsoft) buttons on SignIn page, routing through the Manus OAuth portal (Option A: no new credentials)
+- [ ] Keep email/password + a generic "more options" path; visually prioritize social buttons
+- [ ] Pass a provider hint to the portal where supported so the right provider is preselected
+- [ ] Diagnose published-site OAuth callback error (exchange_failed) — likely redirectUri/appId mismatch on the deployed origin
+- [ ] Ensure callback + getLoginUrl use the current origin so it works on cabinetdeals.com once DNS is connected
+- [ ] Vitest for login-url builder (provider hint + redirectUri); typecheck; checkpoint
+- [ ] Report exact Publish + Settings→Domains DNS steps for cabinetdeals.com
+
+
+## Phase 14: Social Sign-In, Mobile Designer & OAuth Hardening (this session)
+- [x] Catalog line-art images: matched 359/388 cabinet codes, uploaded 299 images, added cabinets.catalogImageUrl (migration 0012), wired into Catalog/Detail/Family/Design palette with drawing fallback
+- [x] Molding/filler spec fixes (F-3/6-42/96 fillers, FBM, LRM-8, ALRM-8, VA-48; FS-24/FS-30 reclassified as Floating Shelves)
+- [x] Mobile Kitchen Designer: full-bleed canvas + fixed bottom toolbar (Catalog/View/Rotate/Delete/Cart) + Sheet drawers (PaletteShell/PricingShell); desktop layout untouched at md+
+- [x] Tape-measure room entry: parseLengthToInches() (feet/inches/fractions) + RoomSizeControl rewrite + 6 vitest cases
+- [x] getLoginUrl() accepts optional LoginProvider hint, passes provider/loginMethod params to Manus OAuth portal
+- [x] SignIn page: Google/Apple/Microsoft social buttons (brand SVG glyphs) + "More sign-in options" fallback; email/password tabs retained
+- [x] Fixed stale DesignTool.tsx Vite parse error (verified clean parse via Babel + tsc; dev server restarted)
+- [x] OAuth callback hardening: logs decoded attemptedRedirectUri + host on exchange_failed for live-domain diagnosis; graceful redirect retained
+- [x] 371 tests passing, typecheck clean
+- [ ] PENDING (waiting on Rich): US Cabinet Depot + Faircrest 20/20 catalogs to fill 29 unmatched cabinet images + confirm CBT & plain LRM specs
+- [ ] PENDING (launch): bind cabinetdeals.com in Settings → Domains, publish, then verify OAuth callback on the live domain

@@ -70,11 +70,23 @@ export function registerOAuthRoutes(app: Express) {
         response?: { status?: number; data?: unknown };
         code?: string;
       };
+      // The redirectUri is base64-encoded in `state`; decoding it here tells us
+      // exactly which origin was sent upstream, so a live-domain mismatch (e.g.
+      // cabinetdeals.com not yet registered with the OAuth app) is obvious in
+      // the logs without guesswork.
+      let attemptedRedirectUri: string | undefined;
+      try {
+        attemptedRedirectUri = Buffer.from(state, "base64").toString("utf8");
+      } catch {
+        attemptedRedirectUri = undefined;
+      }
       console.error("[OAuth] Callback failed", {
         message: anyErr?.message,
         upstreamStatus: anyErr?.response?.status,
         upstreamData: anyErr?.response?.data,
         code: anyErr?.code,
+        attemptedRedirectUri,
+        host: req.headers?.host,
       });
       failRedirect(res, "exchange_failed");
     }
