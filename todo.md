@@ -949,10 +949,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Manual filler placement available from the palette (Accessory > Filler)
 - [x] Range/oven corner clearance rule: rangeOvenClearanceViolations validator + 3" filler; UI warning + one-click Add clearance filler; tested
 - [x] Surface a design-check warning when a range/oven abuts a cabinet at a corner without clearance filler (red conflict banner + amber CTA button)
-- [ ] Dishwasher panel sizing: dishwasher end/decorative panel must use correct WIDTH and DEPTH (not a default), matching the dishwasher footprint
-- [ ] Closet/laundry program depth: closet & laundry units use correct (shallower) depth, not the 24" kitchen base depth
-- [ ] Run full test suite; add vitest for new engine behaviors; checkpoint
-- [ ] Vanity cabinets default to 21" deep (industry standard); wall 12", kitchen base 24" confirmed correct
+- [x] Dishwasher panel sizing: BDEP corrected to 3"W x 34.5"H x 24"D, DWR-3 dishwasher end panel 3"W x 34.5"H; panels render at 3/4" stock via isPanelItem
+- [x] Closet/laundry program depth: closet program uses shallow CLOSET_PANEL_DEPTH=14" (16" variant), not 24" kitchen base depth (verified in closet.ts)
+- [x] Run full test suite (441+ passing); added vitest for new engine behaviors; checkpoint saved
+- [x] Vanity cabinets 21" deep (fixed BFH-27/30/33/36 from 24"->21", VDEP->21"; ADA + V-* already 21"); wall 12", kitchen base 24" confirmed correct
 - [x] Wall cabinet elevation rule: all wall cabinets share the same TOP line (84"); a cabinet shorter than 30" hangs higher so its BOTTOM = 84 - height (12" -> 72"); tested
 - [x] Glass stacker wall cabinets stack ON TOP of the wall cabinet below them (bottom at 84", growing UP to ceiling) via isStacker; tested
 - [x] Base cabinets always start at 0" (elevation bottom = floor); box 34.5" tall, countertop top line at 36"; tested
