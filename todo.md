@@ -858,3 +858,81 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Cross-check against master spreadsheet / source data to identify exact missing codes
 - [ ] Re-insert missing pantry cabinets with correct dimensions, type, and distributor SKUs/pricing
 - [ ] Verify they appear in catalog + designer; run tests; checkpoint
+
+## Phase 18: Chat bubble overlaps mobile designer toolbar (user report)
+- [ ] Locate where the floating chat widget is rendered (App-level / layout)
+- [ ] Hide or lift the chat bubble on the /design route at mobile widths so it never covers the bottom toolbar (Delete/Cart)
+- [ ] Verify on phone viewport that Delete + Cart are fully tappable; desktop chat unaffected
+
+## Phase 19: Auto-Design — mark wall span (A to B) -> auto-fill layout (user request)
+- [ ] UX: let user mark/measure a wall span and trigger "Auto-fill this wall"
+- [ ] Deterministic closet auto-fill rules (hanging single/double, shelf stacks, drawer banks) sized to the span
+- [ ] Deterministic kitchen auto-fill rules (base run, fillers, corners) sized to the span
+- [ ] Wire generated cabinets onto the canvas as normal placed items (movable/deletable); respect lock state
+- [ ] Vitest coverage for the fill algorithm (totals to within span, no overlaps, valid catalog codes)
+
+## Phase 20: AI design-consultant chat mode (user request)
+- [ ] Designer chat panel acts as a design consultant: user describes wants ("8ft closet, hanging left, drawers right")
+- [ ] Consultant uses marked wall measurements + catalog (same family/distributor) as constraints
+- [ ] AI returns a structured layout (cabinet codes + positions) that is placed on the canvas, with a plain-language summary
+- [ ] Validate AI output against catalog (reject unknown codes, clamp to span) before placing
+- [ ] Vitest coverage for parsing/validating the AI layout payload
+
+## Phase 18b: Closet mode is too restrictive — allow cabinets + doors in closets (user report)
+- [x] Root cause: the "Door/Win" + cabinet tabs render only when roomType===kitchen, so closets can ONLY place closet parts; user got stuck switching modes to add a door
+- [x] In Closet mode, show ALL palette tabs: closet parts PLUS base/wall/tall cabinets and the Door/Win opening tool
+- [x] Closet/Kitchen toggle just sets starting catalog + pricing context; switching keeps everything placed (cabinets, closet parts, openings)
+- [x] Verify in browser: in Closet mode add a door (Entry Door 36" placed); tabs all present; switching keeps items
+
+## Phase 18c: Adjustable doors & windows (user request)
+- [x] Let a placed door/window be resized (width along wall; height for windows/openings where sensible)
+- [x] Add a simple size control (drag handle and/or numeric width input) when an opening is selected
+- [x] OpeningSizeEditor: numeric Width for all; Height + Sill for windows; clamped to wall length; verified on canvas (DOOR 36->48)
+- [ ] Clamp to the wall length; reflect new size in plan + elevation views
+- [ ] Persist adjusted size in the auto-saved draft; verify in browser
+
+## Phase 19: Live drag tape-measure (20/20-style) (user request)
+- [x] While dragging a cabinet, show live dimension lines + numbers on BOTH sides along the wall at once: left edge -> previous obstacle (neighbor cabinet edge or wall) AND right edge -> next obstacle (neighbor or wall) — wallSpanMeasure() helper + dragTape overlay in PlanCanvas
+- [x] Both numbers update live as you drag (inches, with feet-inches readout); measure to nearest neighbor if present else the wall
+- [x] Readout updates in real time and respects snapping; hides on drop
+- [x] 4 vitest cases for wallSpanMeasure pass (90 design tests green)
+
+## Phase 20: Deterministic wall-span auto-fill engine (user request)
+- [ ] New tested module autofill.ts: given a wall span length + mode (closet/kitchen) + catalog, tile real cabinets snapping to standard widths, add fillers as needed
+- [ ] "Auto-Fill Wall" control in the designer that fills the active wall (or a marked A->B span)
+- [ ] Placed items use existing nextFreeSpotOnWall/snapToWall geometry; movable/deletable like hand-placed; respects Lock Layout
+- [ ] Closet rules first (hanging single ~40, hanging double ~80, shelf stacks, drawer banks 24/30); kitchen base run reuse
+- [ ] Vitest covering exact fill math (sums to span, valid codes)
+
+## Phase 21: AI design-consultant chat (user request)
+- [ ] Chat consultant mode that interprets a described layout + marked wall measurements and proposes a plan
+- [ ] AI selects strategy; deterministic engine places real catalog parts (no hallucinated SKUs/sizes)
+- [ ] Uses catalog + door styles + distributor families + project rules + aggregated/anonymized network popularity (no personal/financial data)
+- [ ] Proposed layout is applied to the canvas and is fully editable
+
+## Phase 19b: New cabinets drop in room center, not the corner (user request)
+- [x] When adding a cabinet from the palette, place it at the center of the room (unattached) instead of snapping to the active wall's corner — verified in browser (fresh B-36 dropped centered)
+- [x] User can then drag it; existing wall snapping still applies when dragged near a wall (snapPosition on drag)
+- [x] Live tape measure works from the center position too
+
+
+## Phase 20 (done): Deterministic wall-span auto-fill engine
+- [x] autofill.ts engine: greedy widest-first tiling to a wall span + filler for small leftover (10 vitest cases pass)
+- [x] candidatesForMode excludes corners/panels/fillers/appliances; kitchen=base, closet=closet parts or base/tall fallback
+- [x] "Auto-Fill Wall" toolbar button (Wand2) fills the highlighted active wall, packing past existing cabinets/openings
+- [x] Placed items use nextFreeSpotOnWall geometry; fully movable/deletable; respects Lock Layout
+- [x] Browser verify: Auto-Fill Back wall -> toast "Auto-filled Back wall: 2 cabinets", B-48 + DB-24-2 packed flush past existing B-24; BOM updated 2->4 items
+- [ ] Polish (later): break the run around a door opening's actual position instead of just subtracting its width
+
+## Phase 22: Visible countertop + colors/materials + sink & faucet (user request)
+- [x] Countertop renders as an actual surface over base cabinets in PLAN view (slab overlay) — verified in browser
+- [x] Countertop color/material picker (White/Black Granite/Marble/Butcher Block/Concrete/Sand Quartz) recolors the rendered surface — verified (switched to Black Granite)
+- [x] Place a SINK into the countertop (basin) + a FAUCET indicator; 4 sink presets — verified (Bar/Prep + Double Bowl added, faucet toggle)
+- [x] Persist countertop material + sinks in the auto-saved draft (snapshot + restore + autosave deps)
+- [x] Vitest for countertopSurfaces/material/makeSink (96 design tests green); browser verify
+- [ ] FRONT/elevation view countertop band (deferred — plan view covers the core ask)
+- [ ] Show countertop material + sinks on BOM/quote line items (deferred polish)
+
+## Phase 23 (later): Cabinet hardware (knobs/pulls)
+- [ ] Hardware catalog (knobs, bar pulls, cup pulls) selectable per door/drawer or globally
+- [ ] Render hardware on cabinet fronts in elevation; show on BOM

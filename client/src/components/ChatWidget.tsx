@@ -1,5 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useIsMobile } from "@/hooks/useMobile";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,11 +19,23 @@ const SUGGESTED = [
 ];
 
 export function ChatWidget() {
+  const [location] = useLocation();
+  // The Kitchen/Closet Designer uses a fixed bottom toolbar (Delete/Cart) on
+  // touch layouts (<1024px). The floating chat launcher would sit on top of it,
+  // covering those controls, so we hide the launcher there. Desktop keeps chat.
+  const isDesignerTouch = useIsMobile(1024) && location.startsWith("/design");
+
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [connecting, setConnecting] = useState(false);
 
   const chat = trpc.assistant.chat.useMutation();
+
+  // If we navigate into the designer on a touch layout while the panel is open,
+  // close it so nothing lingers over the toolbar.
+  useEffect(() => {
+    if (isDesignerTouch && open) setOpen(false);
+  }, [isDesignerTouch, open]);
 
   const handleSend = useCallback(
     (content: string) => {
@@ -64,6 +78,8 @@ export function ChatWidget() {
       toast.error("Couldn't open live chat. Please try again in a moment.");
     }
   }, []);
+
+  if (isDesignerTouch) return null;
 
   return (
     <>

@@ -3,7 +3,7 @@ import { useSearch } from "wouter";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
-  Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen,
+  Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,20 +33,24 @@ import {
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches,
-  blindCornerFillers, snapToWall, snapPosition,
-  nextFreeSpotOnWall, clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
+  COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
+  makeSink, SINK_PRESETS, type SinkFixture, type SinkType,
+  blindCornerFillers, snapToWall, snapPosition, nextFreeSpotOnWall,
+  clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   addOnRecommendations,
 } from "@/lib/design";
 import {
   closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
 } from "@/lib/closet";
+import { autoFillSpan, type FillMode } from "@/lib/autofill";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
 import { EmailGate } from "@/components/design/EmailGate";
 import { DesignActions, exportBuildSheet, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl } from "@/components/design/RoomSizeControl";
 import { WallPicker } from "@/components/design/WallPicker";
+import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
@@ -113,6 +117,11 @@ export default function DesignTool() {
   const [batten, setBatten] = useState(false);
   // Countertop tool: measures base + island runs; not auto-priced (quote request).
   const [countertop, setCountertop] = useState(false);
+  // Countertop material: when set, a visible slab is drawn over base cabinets.
+  const [countertopMaterialId, setCountertopMaterialId] = useState<string>(DEFAULT_COUNTERTOP_MATERIAL_ID);
+  // Sink + faucet fixtures placed on the counter.
+  const [sinks, setSinks] = useState<SinkFixture[]>([]);
+  const [selectedSinkUid, setSelectedSinkUid] = useState<string | null>(null);
   const [quoteOpen, setQuoteOpen] = useState(false);
   // Mouse-draw room mode: drag on an empty canvas to draw the room outline.
   const [drawMode, setDrawMode] = useState(false);
@@ -133,7 +142,7 @@ export default function DesignTool() {
 
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts">("base");
   // Room type: kitchen cabinets (default) or closet system parts.
   const [roomType, setRoomType] = useState<"kitchen" | "closet">("kitchen");
 
@@ -157,7 +166,7 @@ export default function DesignTool() {
     trpc.design.placeableCabinets.useQuery(
       {
         placement:
-          paletteType === "appliance" || paletteType === "opening"
+          paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts"
             ? "base"
             : paletteType === "wallht" || paletteType === "cornerwall"
             ? "wall"
@@ -165,9 +174,16 @@ export default function DesignTool() {
         // Narrow to the chosen line + style so only purchasable cabinets show.
         styleId: styleId ?? undefined,
       },
-      { enabled: paletteType !== "appliance" && paletteType !== "opening" }
+      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" }
     );
-  const paletteLoading = paletteType === "appliance" || paletteType === "opening" ? false : paletteLoadingRaw;
+  const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" ? false : paletteLoadingRaw;
+
+  // A dedicated, full base-cabinet list for the active line, used by the
+  // Auto-Fill engine (independent of which palette tab/search is active).
+  const { data: autoFillCabinets } = trpc.design.placeableCabinets.useQuery({
+    placement: "base",
+    styleId: styleId ?? undefined,
+  });
 
   // Detect a diagonal/corner WALL cabinet for the dedicated "Corner Wall" tab.
   const isCornerWall = useCallback((c: DesignCabinet) => {
@@ -207,7 +223,11 @@ export default function DesignTool() {
 
   // Filtered palette
   const filteredPalette = useMemo(() => {
-    if (roomType === "closet") {
+    // The "Closet parts" tab shows the modular closet system parts (panels,
+    // shelves, hanging, drawers, accessories). Every other tab shows real
+    // cabinets/appliances/openings exactly as in kitchen mode, so a closet can
+    // hold cabinets and doors too.
+    if (paletteType === "closetparts") {
       const s0 = paletteSearch.toLowerCase();
       const all = closetGroups.flatMap((g) => g.items);
       return all.filter((c) => !s0 || c.masterCode.toLowerCase().includes(s0) || c.description.toLowerCase().includes(s0));
@@ -226,13 +246,13 @@ export default function DesignTool() {
       })
       .filter((c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
       .slice(0, 80);
-  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, roomType, closetGroups]);
+  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, closetGroups]);
 
   // Group the palette by cabinet height so wall cabinets (and others) are easy
   // to find by size — mirrors how pros scan 2020's catalog by height.
   const groupedPalette = useMemo(() => {
-    // Closet mode groups by part category (Panels, Shelves, Hanging, ...).
-    if (roomType === "closet") {
+    // The Closet-parts tab groups by part category (Panels, Shelves, Hanging…).
+    if (paletteType === "closetparts") {
       const s = paletteSearch.toLowerCase();
       return closetGroups
         .map((g) => ({
@@ -254,7 +274,7 @@ export default function DesignTool() {
     return Array.from(groups.entries())
       .sort((a, b) => (b[0] || -1) - (a[0] || -1))
       .map(([height, items]) => ({ label: height ? `${height}\" High` : "Other", items }));
-  }, [filteredPalette, roomType, paletteSearch, closetGroups]);
+  }, [filteredPalette, paletteType, paletteSearch, closetGroups]);
 
   // Pricing for placed cabinets + add-on accessories (appliances carry
   // cabinetId 0 and are unpriced).
@@ -523,13 +543,18 @@ export default function DesignTool() {
       const depth = footprintDepth(c);
       const height = dim(c.height, standardHeight(c.placement));
       setPlaced((prev) => {
-        // Explicit drop position (drag-and-drop) wins; otherwise place flush
-        // against the highlighted active wall, marching along it.
+        // Explicit drop position (drag-and-drop) wins. Otherwise we drop the
+        // cabinet UNATTACHED in the center of the room so the user can grab it
+        // and drag it wherever they want (it still snaps to a wall when dragged
+        // close). This feels more like 20/20 than auto-pinning to a corner.
         let spot: { x: number; y: number; rotation: number };
         if (x != null && y != null) {
           spot = { x, y, rotation: 0 };
         } else {
-          spot = nextFreeSpotOnWall(width, depth, c.placement, activeWall, room, prev);
+          // Center the cabinet's footprint in the room, clamped in-bounds.
+          const cx = Math.max(0, Math.min(room.width / 2 - width / 2, Math.max(0, room.width - width)));
+          const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
+          spot = { x: cx, y: cy, rotation: 0 };
         }
         const newCab: PlacedCabinet = {
           uid: makeUid(),
@@ -553,6 +578,108 @@ export default function DesignTool() {
     },
     [room, activeWall]
   );
+
+  // ── Auto-Fill: tile the active wall with a suggested run of cabinets ────────
+  // Computes the usable span on the highlighted wall (wall length minus any
+  // cabinets/openings already on it), runs the deterministic engine, and drops
+  // each chosen cabinet flush along the wall using the same nextFreeSpotOnWall
+  // geometry as manual placement. Items are fully movable/deletable afterward.
+  const autoFillActiveWall = useCallback(() => {
+    if (layoutLocked) { toast.info("Unlock the layout to auto-fill a wall."); return; }
+    const horizontal = activeWall === "top" || activeWall === "bottom";
+    const wallLen = horizontal ? room.width : room.depth;
+    const mode: FillMode = roomType === "closet" ? "closet" : "kitchen";
+    const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
+    if (pool.length === 0) { toast.error("No cabinets available for this line yet — pick a door style first."); return; }
+
+    // How much of the wall is already taken by base cabinets on this wall?
+    const T = 2;
+    const usedOnWall = placed
+      .filter((p) => p.placement === "base")
+      .filter((p) => {
+        const s = rotatedSize(p);
+        switch (activeWall) {
+          case "top": return Math.abs(p.y - 0) <= T;
+          case "bottom": return Math.abs(p.y + s.d - room.depth) <= T;
+          case "left": return Math.abs(p.x - 0) <= T;
+          case "right": return Math.abs(p.x + s.w - room.width) <= T;
+        }
+      })
+      .reduce((sum, p) => sum + (horizontal ? rotatedSize(p).w : rotatedSize(p).d), 0);
+    // Openings on this wall reduce the run too (a door interrupts the cabinets).
+    const openingOnWall = openings
+      .filter((o) => o.side === activeWall)
+      .reduce((sum, o) => sum + o.width, 0);
+
+    const span = Math.max(0, wallLen - usedOnWall - openingOnWall);
+    if (span < 9) { toast.info("This wall is already full."); return; }
+
+    const result = autoFillSpan(span, mode, pool);
+    if (result.items.length === 0) { toast.info("Couldn't fit any cabinets in the remaining space."); return; }
+
+    setPlaced((prev) => {
+      let working = [...prev];
+      let count = 0;
+      for (const it of result.items) {
+        const c = it.cabinet;
+        const width = it.width;
+        const depth = footprintDepth(c);
+        const height = dim(c.height, standardHeight(c.placement));
+        const spot = nextFreeSpotOnWall(width, depth, "base", activeWall, room, working);
+        const newCab: PlacedCabinet = {
+          uid: makeUid(),
+          cabinetId: c.id,
+          masterCode: c.masterCode,
+          description: c.description,
+          placement: "base",
+          x: spot.x,
+          y: spot.y,
+          width,
+          depth,
+          height,
+          rotation: spot.rotation,
+          numberOfDoors: c.numberOfDoors,
+          numberOfDrawers: c.numberOfDrawers,
+          catalogImageUrl: c.catalogImageUrl ?? null,
+        };
+        working = [...working, newCab];
+        count++;
+      }
+      const fillerNote = result.fillerInches > 0 ? ` + ${result.fillerInches}\" filler` : "";
+      toast.success(`Auto-filled ${WALL_LABELS[activeWall]} wall: ${count} cabinet${count === 1 ? "" : "s"}${fillerNote}.`);
+      return working;
+    });
+  }, [layoutLocked, activeWall, room, roomType, autoFillCabinets, placed, openings]);
+
+  // ── Sink + faucet fixtures ──────────────────────────────────────────────────
+  const addSink = useCallback((type: SinkType) => {
+    const preset = SINK_PRESETS[type];
+    // Drop centered on the active wall's run so it lands on the counter, but the
+    // user can drag it anywhere afterward.
+    const x = Math.max(0, Math.min(room.width / 2 - preset.width / 2, room.width - preset.width));
+    let y: number;
+    if (activeWall === "bottom") y = room.depth - preset.depth - 1;
+    else if (activeWall === "top") y = 1;
+    else y = room.depth / 2 - preset.depth / 2;
+    const sink = makeSink(type, x, y);
+    setSinks((prev) => [...prev, sink]);
+    setSelectedSinkUid(sink.uid);
+    setCountertop(true); // a sink implies a counter
+    toast.success(`${preset.name} added — drag it onto the counter.`);
+  }, [room, activeWall]);
+
+  const moveSink = useCallback((uid: string, x: number, y: number) => {
+    setSinks((prev) => prev.map((s) => (s.uid === uid ? { ...s, x, y } : s)));
+  }, []);
+
+  const deleteSink = useCallback((uid: string) => {
+    setSinks((prev) => prev.filter((s) => s.uid !== uid));
+    setSelectedSinkUid((cur) => (cur === uid ? null : cur));
+  }, []);
+
+  const toggleSinkFaucet = useCallback((uid: string) => {
+    setSinks((prev) => prev.map((s) => (s.uid === uid ? { ...s, faucet: !s.faucet } : s)));
+  }, []);
 
   // Move the island AND every cabinet sitting on it by the same delta, clamped
   // so the island stays inside the room. Cabinets move in lockstep so they
@@ -793,6 +920,8 @@ export default function DesignTool() {
     toeKick,
     batten,
     countertop,
+    countertopMaterialId,
+    sinks,
     roomType,
     activeWall,
     layoutLocked,
@@ -840,6 +969,8 @@ export default function DesignTool() {
           setToeKick(!!d.toeKick);
           setBatten(!!d.batten);
           setCountertop(!!d.countertop);
+          if (typeof d.countertopMaterialId === "string") setCountertopMaterialId(d.countertopMaterialId);
+          if (Array.isArray(d.sinks)) setSinks(d.sinks);
           if (d.roomType) setRoomType(d.roomType);
           if (d.activeWall) setActiveWall(d.activeWall);
           setLayoutLocked(!!d.layoutLocked);
@@ -861,7 +992,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, countertop, roomType, activeWall, layoutLocked, lockedWalls, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, countertop, countertopMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -890,6 +1021,7 @@ export default function DesignTool() {
   });
 
   const selectedCab = placed.find((p) => p.uid === selectedUid);
+  const selectedOpening = openings.find((o) => o.uid === selectedOpeningUid);
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -978,6 +1110,15 @@ export default function DesignTool() {
           >
             {layoutLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
             {layoutLocked ? "Locked" : "Lock Layout"}
+          </button>
+          <button
+            onClick={autoFillActiveWall}
+            disabled={layoutLocked}
+            title={`Auto-fill the highlighted ${WALL_LABELS[activeWall]} wall with a suggested run of cabinets`}
+            className="flex items-center gap-1.5 rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
+          >
+            <Wand2 className="h-3.5 w-3.5" />
+            Auto-Fill Wall
           </button>
         </div>
 
@@ -1143,7 +1284,7 @@ export default function DesignTool() {
       </div>
 
       {/* Contextual row: wall picker for the selected cabinet, or draw-mode hint */}
-      {(selectedCab || drawMode) && !measureMode && (
+      {(selectedCab || selectedOpening || drawMode) && !measureMode && (
         <div className="border-b border-border bg-[#f7f5f0] px-4 py-1.5 flex items-center gap-3 flex-wrap shrink-0">
           {selectedCab && !drawMode && (
             <>
@@ -1157,6 +1298,14 @@ export default function DesignTool() {
               <div className="h-4 w-px bg-border" />
               <WallPicker onPick={snapSelectedToWall} />
             </>
+          )}
+          {selectedOpening && !drawMode && (
+            <OpeningSizeEditor
+              opening={selectedOpening}
+              room={room}
+              onChange={changeOpening}
+              onDelete={() => deleteOpening(selectedOpening.uid)}
+            />
           )}
           {drawMode && (
             <span className="text-[11px] font-medium text-[#a87f33]">
@@ -1182,7 +1331,12 @@ export default function DesignTool() {
               {(["kitchen", "closet"] as const).map((rt) => (
                 <button
                   key={rt}
-                  onClick={() => setRoomType(rt)}
+                  onClick={() => {
+                    setRoomType(rt);
+                    // Pick a sensible starting tab for the chosen room type
+                    // without forbidding the others.
+                    setPaletteType(rt === "closet" ? "closetparts" : "base");
+                  }}
                   className={`flex-1 py-1.5 rounded-md text-[11px] font-semibold capitalize transition-colors ${
                     roomType === rt ? "bg-[#a87f33] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
@@ -1191,14 +1345,19 @@ export default function DesignTool() {
                 </button>
               ))}
             </div>
-            {roomType === "closet" && (
+            {paletteType === "closetparts" && (
               <p className="mb-2 rounded-md bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] text-amber-700">
-                Closet parts are placeholder products &amp; prices — your real closet catalog will replace these.
+                Closet parts are placeholder products &amp; prices — your real closet catalog will replace these. You can also add real cabinets and a door from the other tabs.
               </p>
             )}
-            {roomType === "kitchen" && (
-            <div className="flex rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
-              {(["base", "wall", "wallht", "cornerwall", "tall", "appliance", "opening"] as const).map((t) => (
+            {/* Catalog tabs. Closet mode leads with the Closet parts tab but
+                still exposes cabinets + the Door/Win tool so a closet can hold
+                cabinets and an entry door. Kitchen mode keeps its tab set. */}
+            <div className="flex flex-wrap rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
+              {(roomType === "closet"
+                ? (["closetparts", "base", "wall", "tall", "opening"] as const)
+                : (["base", "wall", "wallht", "cornerwall", "tall", "appliance", "opening"] as const)
+              ).map((t) => (
                 <button
                   key={t}
                   onClick={() => setPaletteType(t)}
@@ -1214,11 +1373,12 @@ export default function DesignTool() {
                     ? "Wall by Ht"
                     : t === "cornerwall"
                     ? "Corner Wall"
+                    : t === "closetparts"
+                    ? "Closet"
                     : t}
                 </button>
               ))}
             </div>
-            )}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
@@ -1327,6 +1487,11 @@ export default function DesignTool() {
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}
               lockedWalls={lockedWalls}
+              countertopMaterialId={countertop ? countertopMaterialId : null}
+              sinks={sinks}
+              selectedSinkUid={selectedSinkUid}
+              onSelectSink={setSelectedSinkUid}
+              onMoveSink={moveSink}
             />
           )}
           {viewMode === "elevation" && (
@@ -1374,6 +1539,11 @@ export default function DesignTool() {
                   conflictUids={conflictUids}
                   layoutLocked={layoutLocked}
                   lockedWalls={lockedWalls}
+                  countertopMaterialId={countertop ? countertopMaterialId : null}
+                  sinks={sinks}
+                  selectedSinkUid={selectedSinkUid}
+                  onSelectSink={setSelectedSinkUid}
+                  onMoveSink={moveSink}
                 />
               </div>
               <div className="flex-1 min-h-0">
@@ -1678,6 +1848,65 @@ export default function DesignTool() {
               >
                 <Square className="h-4 w-4" /> Request Countertop Quote
               </Button>
+            )}
+
+            {countertop && (
+              <div className="mt-4 rounded-lg border border-border p-3">
+                <p className="text-xs font-semibold text-foreground mb-2">Countertop material</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {COUNTERTOP_MATERIALS.map((m) => {
+                    const active = m.id === countertopMaterialId;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => setCountertopMaterialId(m.id)}
+                        title={m.name}
+                        className={`flex flex-col items-center gap-1 rounded-md border p-1.5 transition ${active ? "border-[#1a2744] ring-1 ring-[#1a2744]" : "border-border hover:border-muted-foreground"}`}
+                      >
+                        <span
+                          className="h-7 w-full rounded"
+                          style={{
+                            background: m.fill,
+                            border: `1px solid ${m.edge}`,
+                            backgroundImage: m.speckle ? `radial-gradient(${m.speckle} 0.5px, transparent 0.6px)` : undefined,
+                            backgroundSize: m.speckle ? "6px 6px" : undefined,
+                          }}
+                        />
+                        <span className="text-[9px] leading-tight text-center text-muted-foreground">{m.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p className="text-xs font-semibold text-foreground mt-3 mb-2">Add sink &amp; faucet</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.keys(SINK_PRESETS) as SinkType[]).map((t) => (
+                    <Button key={t} variant="outline" size="sm" className="h-8 text-[11px] justify-start gap-1.5" onClick={() => addSink(t)}>
+                      <Plus className="h-3 w-3" /> {SINK_PRESETS[t].name}
+                    </Button>
+                  ))}
+                </div>
+
+                {sinks.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    {sinks.map((s) => (
+                      <div key={s.uid} className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-[11px] ${s.uid === selectedSinkUid ? "border-[#1a2744] bg-muted/40" : "border-border"}`}>
+                        <button className="flex-1 text-left truncate" onClick={() => setSelectedSinkUid(s.uid)}>
+                          {SINK_PRESETS[s.type].name}
+                        </button>
+                        <label className="flex items-center gap-1 text-muted-foreground cursor-pointer">
+                          <input type="checkbox" checked={s.faucet} onChange={() => toggleSinkFaucet(s.uid)} className="h-3 w-3" />
+                          Faucet
+                        </label>
+                        <button className="text-destructive" title="Remove" onClick={() => deleteSink(s.uid)}>
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground mt-2">Tip: drag a sink on the plan to position it. Sinks &amp; faucets are shown for layout only and are quoted separately.</p>
+              </div>
             )}
           </div>
         </PricingShell>

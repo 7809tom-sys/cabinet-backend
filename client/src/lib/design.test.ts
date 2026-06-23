@@ -10,7 +10,8 @@ import {
   crownLinearInches, toeKickLinearInches, trimPiecesNeeded,
   miteredTrimInches, cabinetWall, countertopArea,
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
-  doorPanelKind,
+  doorPanelKind, wallSpanMeasure,
+  countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH,
   type PlacedCabinet, type RoomData,
 } from "./design";
 
@@ -642,5 +643,90 @@ describe("add-on recommendations (don't forget this)", () => {
       cab({ placement: "tall" }),
     ]);
     expect(recs.map((r) => r.kind)).toEqual(["touch-up-kit"]);
+  });
+});
+
+
+describe("wallSpanMeasure (live drag tape, both sides)", () => {
+  const room: RoomData = { width: 144, depth: 120 };
+
+  it("measures to the walls on both sides when alone on the back wall", () => {
+    // 24" cabinet placed 59" from the left, on the top (back) wall.
+    const c = cab({ uid: "m", x: 59, y: 0, width: 24, depth: 24 });
+    const m = wallSpanMeasure(c, room, [c], "top");
+    expect(Math.round(m.before)).toBe(59); // left wall -> cabinet
+    expect(Math.round(m.after)).toBe(144 - 59 - 24); // cabinet -> right wall = 61
+    expect(m.beforeIsCabinet).toBe(false);
+    expect(m.afterIsCabinet).toBe(false);
+  });
+
+  it("measures to a neighbor cabinet on the side where one exists", () => {
+    const neighbor = cab({ uid: "n", x: 0, y: 0, width: 30, depth: 24 }); // ends at 30
+    const moving = cab({ uid: "m", x: 50, y: 0, width: 24, depth: 24 }); // starts at 50
+    const m = wallSpanMeasure(moving, room, [neighbor, moving], "top");
+    expect(Math.round(m.before)).toBe(20); // 50 - 30 gap to neighbor
+    expect(m.beforeIsCabinet).toBe(true);
+    expect(Math.round(m.after)).toBe(144 - 74); // to right wall = 70
+    expect(m.afterIsCabinet).toBe(false);
+  });
+
+  it("uses the nearest neighbor when several are on the same wall", () => {
+    const a = cab({ uid: "a", x: 0, y: 0, width: 24, depth: 24 }); // ends 24
+    const b = cab({ uid: "b", x: 30, y: 0, width: 12, depth: 24 }); // ends 42
+    const moving = cab({ uid: "m", x: 60, y: 0, width: 24, depth: 24 }); // starts 60
+    const m = wallSpanMeasure(moving, room, [a, b, moving], "top");
+    expect(Math.round(m.before)).toBe(18); // nearest is b (ends 42): 60-42
+    expect(m.beforeIsCabinet).toBe(true);
+  });
+
+  it("works on a vertical (left) wall using the depth axis", () => {
+    // On the left wall, cabinets are rotated; run axis is Y.
+    const moving = cab({ uid: "m", x: 0, y: 40, width: 24, depth: 24, rotation: 90 });
+    const m = wallSpanMeasure(moving, room, [moving], "left");
+    // rotated: along-wall span = original width (24); start y=40
+    expect(Math.round(m.before)).toBe(40);
+    expect(Math.round(m.after)).toBe(120 - 40 - 24); // 56
+  });
+});
+
+describe("countertopSurfaces", () => {
+  it("creates a slab for each base cabinet pinned to its wall", () => {
+    const back = cab({ uid: "a", placement: "base", width: 36, depth: 24, x: 0, y: 0 });
+    const surfaces = countertopSurfaces([back], ROOM_12x10);
+    expect(surfaces).toHaveLength(1);
+    expect(surfaces[0]).toMatchObject({ x: 0, y: 0, width: 36, depth: CT_DEPTH, kind: "base" });
+  });
+
+  it("ignores wall and tall cabinets (no top)", () => {
+    const wall = cab({ placement: "wall", width: 30 });
+    const tall = cab({ placement: "tall", width: 24 });
+    expect(countertopSurfaces([wall, tall], ROOM_12x10)).toHaveLength(0);
+  });
+
+  it("pins a front-wall slab to the bottom of the room", () => {
+    const front = cab({ placement: "base", width: 24, depth: 24, x: 10, y: 96 });
+    const [s] = countertopSurfaces([front], ROOM_12x10);
+    expect(s.y).toBe(ROOM_12x10.depth - CT_DEPTH);
+    expect(s.width).toBe(24);
+  });
+
+  it("adds an island slab matching its footprint", () => {
+    const base = cab({ placement: "base", width: 24 });
+    const surfaces = countertopSurfaces([base], ROOM_12x10, { x: 50, y: 40, width: 48, depth: 24 });
+    const island = surfaces.find((s) => s.kind === "island");
+    expect(island).toMatchObject({ x: 50, y: 40, width: 48, depth: 24 });
+  });
+});
+
+describe("countertopMaterial + makeSink", () => {
+  it("looks up a material by id and falls back to the first", () => {
+    expect(countertopMaterial("black-granite").name).toBe("Black Granite");
+    expect(countertopMaterial("nope").name).toBe(countertopMaterial(undefined).name);
+  });
+
+  it("builds a sink from a preset with a faucet on by default", () => {
+    const sink = makeSink("double", 12, 4);
+    expect(sink).toMatchObject({ type: "double", x: 12, y: 4, width: 33, faucet: true });
+    expect(sink.uid).toMatch(/^sink-/);
   });
 });

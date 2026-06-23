@@ -5,6 +5,8 @@ import {
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide, WALL_LABELS,
+  cabinetWall, wallSpanMeasure,
+  countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
 } from "@/lib/design";
 import { X } from "lucide-react";
 
@@ -49,6 +51,13 @@ interface Props {
   // are frozen (cabinets can still be moved). lockedWalls freezes specific walls.
   layoutLocked?: boolean;
   lockedWalls?: Set<WallSide>;
+  // Countertop: when a material id is set, draw a visible slab over base cabinets
+  // (and the island). Sinks/faucets are drawn on top of the counter.
+  countertopMaterialId?: string | null;
+  sinks?: SinkFixture[];
+  selectedSinkUid?: string | null;
+  onSelectSink?: (uid: string | null) => void;
+  onMoveSink?: (uid: string, x: number, y: number) => void;
 }
 
 export function PlanCanvas({
@@ -59,6 +68,7 @@ export function PlanCanvas({
   drawMode = false, onDrawRoom,
   activeWall, onSelectWall, onResizeWall, conflictUids,
   layoutLocked = false, lockedWalls,
+  countertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
 }: Props) {
   // A wall cannot be resized if the whole layout is locked or that wall is locked.
   const isWallLocked = (side: WallSide) => layoutLocked || !!lockedWalls?.has(side);
@@ -139,6 +149,35 @@ export function PlanCanvas({
     }
     islandDrag.current = null;
   };
+
+  // Sink drag: freely move a sink fixture around (it floats on the counter).
+  const sinkDrag = useRef<
+    | { uid: string; startX: number; startY: number; origX: number; origY: number; w: number; d: number }
+    | null
+  >(null);
+  const onSinkPointerDown = (e: React.PointerEvent, s: SinkFixture) => {
+    if (!onMoveSink || layoutLocked) return;
+    e.stopPropagation();
+    onSelectSink?.(s.uid);
+    sinkDrag.current = { uid: s.uid, startX: e.clientX, startY: e.clientY, origX: s.x, origY: s.y, w: s.width, d: s.depth };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onSinkPointerMove = (e: React.PointerEvent) => {
+    const dgr = sinkDrag.current;
+    if (!dgr || !onMoveSink) return;
+    const dx = (e.clientX - dgr.startX) / ppiRef.current;
+    const dy = (e.clientY - dgr.startY) / ppiRef.current;
+    const x = Math.max(0, Math.min(dgr.origX + dx, room.width - dgr.w));
+    const y = Math.max(0, Math.min(dgr.origY + dy, room.depth - dgr.d));
+    onMoveSink(dgr.uid, x, y);
+  };
+  const onSinkPointerUp = (e: React.PointerEvent) => {
+    if (sinkDrag.current) {
+      try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    }
+    sinkDrag.current = null;
+  };
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [ppi, setPpi] = useState(4);
   const ppiRef = useRef(4);
@@ -335,6 +374,28 @@ export function PlanCanvas({
   const yTicks: number[] = [];
   for (let i = 0; i <= room.depth; i += 12) yTicks.push(i);
 
+  // Live drag tape-measure: while dragging a cabinet, bracket it along its wall
+  // and show the clearance on BOTH sides (to the neighbor cabinet edge, else the
+  // wall). Built in inches then scaled to px for the overlay.
+  const dragTape = (() => {
+    if (!dragUid) return null;
+    const p = cabinets.find((c) => c.uid === dragUid);
+    if (!p) return null;
+    const side = cabinetWall(p, room);
+    const m = wallSpanMeasure(p, room, cabinets, side);
+    const horizontal = side === "top" || side === "bottom";
+    const { w, d } = rotatedSize(p);
+    // The fixed cross-axis line where we draw the dimension (just outside the
+    // cabinet face, toward the room interior).
+    const band = 14; // px offset from the wall edge for the dimension line
+    let crossPx: number;
+    if (side === "top") crossPx = (p.y + d) * ppi + band;
+    else if (side === "bottom") crossPx = p.y * ppi - band;
+    else if (side === "left") crossPx = (p.x + w) * ppi + band;
+    else crossPx = p.x * ppi - band;
+    return { side, m, horizontal, crossPx, startPx: m.start * ppi, endPx: m.end * ppi };
+  })();
+
   // Compute the measurement line between the two picked cabinets (centers).
   const measure = (() => {
     if (measurePicks.length !== 2) return null;
@@ -467,6 +528,79 @@ export function PlanCanvas({
             })()}
           </div>
         )}
+
+        {/* Countertop slab layer — visible material over base cabinets + island.
+            Sits above the floor but below cabinet faces so faces read on top. */}
+        {countertopMaterialId && (() => {
+          const mat = countertopMaterial(countertopMaterialId);
+          const surfaces = countertopSurfaces(cabinets, room, island);
+          if (surfaces.length === 0) return null;
+          return (
+            <div className="pointer-events-none absolute inset-0 z-[2]">
+              {surfaces.map((s, i) => (
+                <div
+                  key={`ct${i}`}
+                  className="absolute"
+                  style={{
+                    left: s.x * ppi,
+                    top: s.y * ppi,
+                    width: s.width * ppi,
+                    height: s.depth * ppi,
+                    background: mat.fill,
+                    border: `1px solid ${mat.edge}`,
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
+                    backgroundImage: mat.speckle
+                      ? `radial-gradient(${mat.speckle} 0.5px, transparent 0.6px)`
+                      : undefined,
+                    backgroundSize: mat.speckle ? "6px 6px" : undefined,
+                    opacity: 0.92,
+                  }}
+                />
+              ))}
+            </div>
+          );
+        })()}
+
+        {/* Sink + faucet fixtures — drawn on top of the counter. */}
+        {sinks.map((s) => {
+          const isSel = s.uid === selectedSinkUid;
+          return (
+            <div
+              key={s.uid}
+              onPointerDown={(e) => onSinkPointerDown(e, s)}
+              onPointerMove={onSinkPointerMove}
+              onPointerUp={onSinkPointerUp}
+              className={`absolute z-[3] ${onMoveSink && !layoutLocked ? "cursor-move" : ""}`}
+              style={{
+                left: s.x * ppi,
+                top: s.y * ppi,
+                width: s.width * ppi,
+                height: s.depth * ppi,
+              }}
+              title={`${SINK_PRESETS[s.type].name} — drag to position`}
+            >
+              {/* basin */}
+              <div
+                className="absolute inset-0 rounded-[3px]"
+                style={{
+                  background: "#d7dde2",
+                  border: isSel ? "2px solid #1a2744" : "1.5px solid #8b949c",
+                  boxShadow: "inset 0 2px 4px rgba(0,0,0,0.18)",
+                }}
+              />
+              {s.type === "double" && (
+                <div className="absolute top-[12%] bottom-[12%] left-1/2 w-px -translate-x-1/2" style={{ background: "#8b949c" }} />
+              )}
+              {/* faucet — a small fixture centered behind the basin */}
+              {s.faucet && (
+                <div
+                  className="absolute left-1/2 -translate-x-1/2"
+                  style={{ top: -5, width: Math.max(4, 3 * ppi), height: Math.max(4, 4 * ppi), background: "#5b636b", borderRadius: 2 }}
+                />
+              )}
+            </div>
+          );
+        })}
 
         {/* Island zone guide — sits beneath cabinets so items placed inside show on top */}
         {island && (
@@ -695,6 +829,57 @@ export function PlanCanvas({
               </div>
             );
           })}
+
+        {/* Live drag tape-measure: two-sided clearance along the wall */}
+        {dragTape && (() => {
+          const { m, horizontal, crossPx, startPx, endPx } = dragTape;
+          const beforePx = m.before * ppi;
+          const afterPx = m.after * ppi;
+          // Endpoints of the two dimension segments along the run axis.
+          const beforeFrom = startPx - beforePx;
+          const afterTo = endPx + afterPx;
+          const tick = 5; // half-length of the end ticks
+          const segs: { a: number; b: number; mid: number; val: number; show: boolean }[] = [
+            { a: beforeFrom, b: startPx, mid: (beforeFrom + startPx) / 2, val: m.before, show: m.before > 0.5 },
+            { a: endPx, b: afterTo, mid: (endPx + afterTo) / 2, val: m.after, show: m.after > 0.5 },
+          ];
+          return (
+            <>
+              <svg className="pointer-events-none absolute inset-0 z-40 overflow-visible" width={roomPxW} height={roomPxH}>
+                {segs.map((s, i) => {
+                  if (!s.show) return null;
+                  if (horizontal) {
+                    return (
+                      <g key={i} stroke="#1a2744" strokeWidth={1.25}>
+                        <line x1={s.a} y1={crossPx} x2={s.b} y2={crossPx} />
+                        <line x1={s.a} y1={crossPx - tick} x2={s.a} y2={crossPx + tick} />
+                        <line x1={s.b} y1={crossPx - tick} x2={s.b} y2={crossPx + tick} />
+                      </g>
+                    );
+                  }
+                  return (
+                    <g key={i} stroke="#1a2744" strokeWidth={1.25}>
+                      <line x1={crossPx} y1={s.a} x2={crossPx} y2={s.b} />
+                      <line x1={crossPx - tick} y1={s.a} x2={crossPx + tick} y2={s.a} />
+                      <line x1={crossPx - tick} y1={s.b} x2={crossPx + tick} y2={s.b} />
+                    </g>
+                  );
+                })}
+              </svg>
+              {segs.map((s, i) =>
+                s.show ? (
+                  <div
+                    key={i}
+                    className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-semibold text-white shadow whitespace-nowrap"
+                    style={horizontal ? { left: s.mid, top: crossPx } : { left: crossPx, top: s.mid }}
+                  >
+                    {formatInches(s.val)}
+                  </div>
+                ) : null
+              )}
+            </>
+          );
+        })()}
 
         {/* Tape-measure dimension line */}
         {measure && (

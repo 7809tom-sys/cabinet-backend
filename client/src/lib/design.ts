@@ -1215,3 +1215,213 @@ export function addOnRecommendations(
   }
   return recs;
 }
+
+
+// ─── Live drag tape-measure (20/20-style) ───────────────────────────────────
+// While dragging a cabinet we show the clearance on BOTH sides of it along the
+// wall it sits against: from its near edge back to the previous obstacle
+// (a neighbor cabinet edge, otherwise the wall start) and from its far edge to
+// the next obstacle (a neighbor, otherwise the wall end). This mirrors how the
+// 20/20 tape reads, e.g. "59" from the left wall" on one side and the remaining
+// gap on the other. All math is in inches along the wall's run axis so it can be
+// unit-tested independently of the canvas.
+export interface WallSpanMeasure {
+  side: WallSide;
+  /** Inches from the moving item's start edge to the previous obstacle. */
+  before: number;
+  /** Inches from the moving item's end edge to the next obstacle. */
+  after: number;
+  /** Run-axis start coordinate (inches) of the moving item along the wall. */
+  start: number;
+  /** Run-axis end coordinate (inches) of the moving item along the wall. */
+  end: number;
+  /** Total wall length (inches) on the run axis. */
+  wallLen: number;
+  /** Whether the previous obstacle is a neighbor cabinet (vs the wall). */
+  beforeIsCabinet: boolean;
+  /** Whether the next obstacle is a neighbor cabinet (vs the wall). */
+  afterIsCabinet: boolean;
+}
+
+// Project a placed item onto the run axis of a wall, returning [start, end] in
+// inches. For top/bottom walls the run axis is X; for left/right it is Y.
+function runSpan(p: PlacedCabinet, side: WallSide): { start: number; end: number } {
+  const { w, d } = rotatedSize(p);
+  const horizontal = side === "top" || side === "bottom";
+  const start = horizontal ? p.x : p.y;
+  const span = horizontal ? w : d;
+  return { start, end: start + span };
+}
+
+// Does an item sit on the same depth-band as the wall (i.e. is it part of this
+// wall's run)? We reuse the loose wall-adjacency test for the moving item's wall
+// and only consider neighbors that share the same placement layer.
+export function wallSpanMeasure(
+  moving: PlacedCabinet,
+  room: RoomData,
+  others: PlacedCabinet[],
+  side: WallSide
+): WallSpanMeasure {
+  const horizontal = side === "top" || side === "bottom";
+  const wallLen = horizontal ? room.width : room.depth;
+  const me = runSpan(moving, side);
+
+  // Neighbors on the same wall + same layer, excluding the moving item itself.
+  const neighbors = others
+    .filter((o) => o.uid !== moving.uid)
+    .filter((o) => o.placement === moving.placement)
+    .filter((o) => isAgainstWall(o, side, room))
+    .map((o) => runSpan(o, side));
+
+  // Previous obstacle: the closest neighbor that ends at/below our start.
+  let beforeEdge = 0;
+  let beforeIsCabinet = false;
+  for (const n of neighbors) {
+    if (n.end <= me.start + 0.001 && n.end > beforeEdge) {
+      beforeEdge = n.end;
+      beforeIsCabinet = true;
+    }
+  }
+
+  // Next obstacle: the closest neighbor that starts at/above our end.
+  let afterEdge = wallLen;
+  let afterIsCabinet = false;
+  for (const n of neighbors) {
+    if (n.start >= me.end - 0.001 && n.start < afterEdge) {
+      afterEdge = n.start;
+      afterIsCabinet = true;
+    }
+  }
+
+  const before = Math.max(0, me.start - beforeEdge);
+  const after = Math.max(0, afterEdge - me.end);
+
+  return {
+    side,
+    before,
+    after,
+    start: me.start,
+    end: me.end,
+    wallLen,
+    beforeIsCabinet,
+    afterIsCabinet,
+  };
+}
+
+// ─── Countertop materials & surfaces ─────────────────────────────────────────
+// A small, curated material palette. Each material carries a plan-view fill,
+// a darker edge for the front lip/seam, and a label for legends/BOM. Colors are
+// indicative renders only — actual material/edge/fabrication is supplier-quoted.
+export interface CountertopMaterial {
+  id: string;
+  name: string;
+  fill: string;   // plan/front slab fill
+  edge: string;   // front lip / outline
+  speckle?: string; // optional accent dots for stone look
+}
+
+export const COUNTERTOP_MATERIALS: CountertopMaterial[] = [
+  { id: "white-quartz",   name: "White Quartz",   fill: "#eef0f2", edge: "#c4c9cf", speckle: "#cfd4d9" },
+  { id: "carrara-marble", name: "Carrara Marble", fill: "#e9ecef", edge: "#b7bec6", speckle: "#aeb6bf" },
+  { id: "black-granite",  name: "Black Granite",  fill: "#2c2f33", edge: "#15171a", speckle: "#5b6068" },
+  { id: "butcher-block",  name: "Butcher Block",  fill: "#b9824a", edge: "#8a5d30", speckle: "#a06f3c" },
+  { id: "concrete-gray",  name: "Concrete Gray",  fill: "#8b9097", edge: "#666b72", speckle: "#7c818a" },
+  { id: "sand-quartz",    name: "Sand Quartz",    fill: "#ddd2bb", edge: "#bcae90", speckle: "#c9bc9f" },
+];
+
+export const DEFAULT_COUNTERTOP_MATERIAL_ID = "white-quartz";
+
+export function countertopMaterial(id: string | null | undefined): CountertopMaterial {
+  return (
+    COUNTERTOP_MATERIALS.find((m) => m.id === id) ??
+    COUNTERTOP_MATERIALS[0]
+  );
+}
+
+// A rectangular countertop surface in room (inch) coordinates, used by the plan
+// renderer to draw a visible slab over base cabinets and the island.
+export interface CountertopSurface {
+  x: number;
+  y: number;
+  width: number;
+  depth: number;
+  kind: "base" | "island";
+}
+
+/**
+ * Compute the visible countertop surfaces for a layout. Every base cabinet gets
+ * a slab the width of the cabinet and the standard countertop depth, pinned to
+ * the wall the cabinet sits on (so the overhang projects into the room). The
+ * island (if any) gets a slab matching its footprint.
+ *
+ * Pure + deterministic so it can be unit-tested independently of rendering.
+ */
+export function countertopSurfaces(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  island?: { x: number; y: number; width: number; depth: number } | null
+): CountertopSurface[] {
+  const out: CountertopSurface[] = [];
+  const D = COUNTERTOP_DEPTH_IN;
+  for (const p of placed) {
+    if (p.placement !== "base") continue;
+    const { w } = rotatedSize(p);
+    const side = cabinetWall(p, room);
+    if (side === "top") {
+      out.push({ x: p.x, y: 0, width: w, depth: D, kind: "base" });
+    } else if (side === "bottom") {
+      out.push({ x: p.x, y: room.depth - D, width: w, depth: D, kind: "base" });
+    } else if (side === "left") {
+      // Vertical run: slab is D wide (into room) and w tall along the wall.
+      out.push({ x: 0, y: p.y, width: D, depth: w, kind: "base" });
+    } else {
+      out.push({ x: room.width - D, y: p.y, width: D, depth: w, kind: "base" });
+    }
+  }
+  if (island && island.width > 0 && island.depth > 0) {
+    out.push({
+      x: island.x,
+      y: island.y,
+      width: island.width,
+      depth: island.depth,
+      kind: "island",
+    });
+  }
+  return out;
+}
+
+// ─── Sink & faucet fixtures ───────────────────────────────────────────────────
+// Fixtures live on the countertop. We keep them simple: a sink basin (with a
+// type) and a faucet point. Positions are room (inch) coordinates of the basin's
+// top-left. Stored on the design draft so they persist.
+export type SinkType = "single" | "double" | "farmhouse" | "bar";
+
+export interface SinkFixture {
+  uid: string;
+  type: SinkType;
+  x: number;
+  y: number;
+  width: number;
+  depth: number;
+  faucet: boolean;
+}
+
+export const SINK_PRESETS: Record<SinkType, { name: string; width: number; depth: number }> = {
+  single:    { name: "Single Bowl Sink", width: 25, depth: 18 },
+  double:    { name: "Double Bowl Sink", width: 33, depth: 20 },
+  farmhouse: { name: "Farmhouse Sink",   width: 30, depth: 20 },
+  bar:       { name: "Bar / Prep Sink",  width: 15, depth: 15 },
+};
+
+export function makeSink(type: SinkType, x: number, y: number): SinkFixture {
+  const preset = SINK_PRESETS[type];
+  return {
+    uid: `sink-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    type,
+    x,
+    y,
+    width: preset.width,
+    depth: preset.depth,
+    faucet: true,
+  };
+}
