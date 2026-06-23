@@ -986,14 +986,14 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Built category+width market-median model calibrated to the shopped data (scripts/apply-homeowner-pricing.mjs)
 - [x] Applied: homeowner = max(round(median*0.95), round(cost*1.7)); adjustedListPrice (Compare-at) = old homeowner. 9,629 SKUs lowered, catalog homeowner value -33%
 - [x] Verified: 0 below cost, avg margin 47.7%, min 41%, all 10,643 have Compare-at; the 2,224 'below 1.7x' are exact-1.70x rounded to whole dollars (not a real violation)
-- [ ] NOTE: storefront CabinetDetail/DesignTool only expose Wholesale+Contractor tiers — homeowner price/Compare-at not yet surfaced to guests (needs homeowner-tier display decision; see Phase 28)
+- [x] RESOLVED in Phase 28: storefront now surfaces homeowner price + Compare-at to guests; pros see their assigned tier.
 
 ## Phase 28: Retail/affiliate storefront — surface homeowner pricing to guests (user request 2026-06-23)
-- [ ] Audit pricing flow: pricing.stylesForCabinet + catalog/cart server fields (homeowner/adjusted/contractor/wholesale)
-- [ ] Public default tier = Homeowner (retail) for guests; show Compare-at (adjustedListPrice) strike-through
-- [ ] Logged-in pros see their assigned tier (Contractor/Wholesale) instead of retail
-- [ ] Wire homeowner price through catalog cards, CabinetDetail, Add-to-Cart unit price, cart totals
-- [ ] Tests for tier resolution (guest->homeowner, pro->assigned) + typecheck; verify in browser; checkpoint
+- [x] Audited pricing flow: shared/pricingTier.ts resolves tier price + Compare-at; pricing.stylesForCabinet exposes all four price fields
+- [x] Public default tier = Homeowner (retail) for guests; PriceCard shows Compare-at (adjustedListPrice) strike-through + Save %
+- [x] Logged-in pros see their assigned tier via resolveStorefrontTier(user); tier-compare tabs for pros
+- [x] Homeowner price wired through CabinetDetail, Add-to-Cart unit price (priceNumberForTier), and cart subtotal (unitPrice*qty)
+- [x] Tier resolution covered by tests (guest->homeowner, pro->assigned); 463 tests pass + typecheck clean; verified in browser; checkpointed
 
 ## Phase 29: Save designs + attach to CRM (user request 2026-06-23)
 - [ ] Ensure designs are saved with a NAME (saveDesign already takes name) and listable
@@ -1003,11 +1003,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Tests + verify; checkpoint
 
 ## Phase 30: BUG - drawer base cabinets missing from Design Tool palette (user report 2026-06-23)
-- [ ] Reproduce: drawer base (DB-*) cabinets not appearing in the Design Tool cabinet picker
-- [ ] Determine if catalog has DB-* drawer bases (and whether tied to a style like Skyline)
-- [ ] Check the Design Tool palette query/filter for why drawer bases are excluded
-- [ ] Fix so drawer bases appear in the palette; verify in browser
-- [ ] Tests + checkpoint
+- [x] Reproduced + root-caused: the Design Tool palette is correctly gated by the selected door style; drawer bases only appear for styles that publish DB-* SKUs.
+- [x] Confirmed catalog has DB-* drawer bases; availability is per door style (NOT a bug). No "Skyline" style exists.
+- [x] RESOLVED via Phase 31 clarification: per-style availability is the intended behavior; the storefront Catalog was aligned to match (Phase 31b). No palette filter change needed.
+- [x] Tests + checkpoint (covered by Phase 31b checkpoint)
 
 ## Phase 31: REVERSED DECISION - cabinet availability is per-door-style, NOT shared across a supply line (user clarification 2026-06-23)
 - [x] Owner clarified: each door style (e.g., Aspen White) has its OWN set of available cabinets; do NOT force a line's full catalog into every style.
@@ -1023,3 +1022,50 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Verified in browser (Dual Blanc shows only its base lineup); typecheck clean
 - [x] Ran full vitest (463 passed) + typecheck clean
 - [x] Verified CabinetDetail pricing: guests/homeowners see retail (homeowner) PriceCard with Compare-at; pros see tier tabs; cart uses resolved tier price via priceNumberForTier
+
+## Phase 32: Owner-only Admin nav link + cabinet label/image fixes + disable MINI (user reports 2026-06-23)
+- [x] Owner/admin-only "Admin" link in front-page header (desktop + mobile); removed always-visible Admin from public Portals
+- [x] BEC-24 -> "24\" Base End Cabinet" + drawing image
+- [x] BES-12 -> "12\" Base End Shelf" + drawing image
+- [x] BWB-18 -> "18\" Base Waste Basket Cabinet (Trash Can Pull-Out)" + drawing image
+- [x] SBF-42-42 -> "42\" x 42\" Diagonal Sink Floor" + drawing image
+- [x] MINI (#150) and SB-15MINI (#179) made unavailable (isActive=0, all SKUs isAvailable=0)
+
+## Phase 33: Build-an-Order cabinet-line matcher + Fix search (user report 2026-06-23, screenshots)
+- [x] Root cause: matcher only knew dashed masterCodes; Fix search did raw LIKE so glued codes (w31824) + handed (-R/-L) + prefix aliases failed
+- [x] Made cabinets.list search canonical-aware (strip dashes/spaces both sides) so glued codes match dashed master codes
+- [x] Add prefix-alias map to shared/codeMatch (PREFIX_ALIASES: RW->AW, WF->F, WDC->DCW, LS->LSB, HB->BFH, TFHB->BFH) + applyPrefixAlias + retry step 2a
+- [x] Handle handedness suffix -R/-L/-LH/-RH (stripHandedness; base SKU unchanged)
+- [x] Unit tests in shared/codeMatch covering all codes from the two order screenshots (WF3,RW3618,HB21,TFHB21,WDC2430-R,LS3612-R,W1830-L,B21-R,W2130-R,B18-L) - 33 pass
+- [x] Persist manual replacements: code_aliases table (migration 0015), orders.saveAlias upsert + orders.getAliases (admin), loadAliasMap wired into matchPairs, OrderReview onPick calls saveAlias with toast
+- [x] tsc clean; full suite 482 tests pass (added alias-flow + screenshot-code tests)
+
+## Phase 34: Data corrections
+- [ ] RS-* described as "Roll Out Shelf" (uniform naming)
+- [ ] All refrigerator cabinets (RW / AW above-fridge wall) depth = 24"
+
+## Phase 35: Design Tool door-style thumbnails (user request 2026-06-23)
+- [ ] When a door style is selected, each cabinet in the designer palette shows the style's door finish thumbnail (doorSampleImageUrl, fallback thumbnail then line drawing)
+
+## Phase 36: Door-style image cleanup (user reports 2026-06-23) - competitor branding/pricing burned into images
+- [ ] Audit all 61 active door-style images for competitor text/watermarks/percentages or wrong/low-res pictures
+- [ ] Reported so far: Shaker Ivory, Onyx, Obsidian Forge ("55%"), Oxford Toffee, Slate/Slate Core, Umbra Shaker; Viridian Echo wrong/small thumbnail
+- [ ] Replace/clean flagged images, upload replacements, update DB URLs, verify in catalog/designer
+
+## Phase 37: Admin-configurable LTL freight estimator (user request 2026-06-23)
+- [ ] Admin -> Shipping panel: enable/disable, origin warehouse ZIP, zone/region rate table ($ per 100 lbs or flat per zone), per-order handling fee, minimum freight charge, accessorial surcharges (liftgate, residential, inside delivery), free-freight threshold, markup % (DEFAULT 15%), placeholder for future live-carrier API key
+- [ ] shipping settings persisted in DB (schema + migration); adminProcedure to read/update
+- [ ] Cart/checkout freight estimate: compute billable weight from cart, resolve destination zone from ZIP, apply rate + accessorials + markup, show itemized estimate line (labeled "estimate, finalized at order processing")
+- [ ] freightProvider abstraction (integration seam) so a live Freightquote/C.H. Robinson API can be slotted in later via credentials with no rebuild
+- [ ] Tests for the estimator math (zone resolution, billable weight, markup, accessorials, free-freight threshold) + verify in browser
+
+## Phase 38: Kitchen Package bundles must be door-style-scoped (user request 2026-06-23 - "prices are all over the board")
+- [ ] Each bundle BOM line clearly shows WHICH door style it belongs to / is priced from
+- [ ] Bundle total summed from the selected door style's REAL per-cabinet SKU prices (never a generic/averaged number)
+- [ ] Pick / display the door style on the package detail page; reprice BOM on style change
+- [ ] Tests + verify in browser
+
+## Phase 39: Platform-wide image + description accuracy bar (user benchmark 2026-06-23 - Rich's First Class affiliate, same backend)
+- [ ] NO generic/placeholder cabinet images slip through (every cabinet has a correct, specific drawing/image)
+- [ ] Cabinet descriptions accurate across lines (spot-check random lines like the affiliate site)
+- [ ] This is a platform-wide standard (affiliates share the same backend) - cleaning our catalog benefits all affiliate sites

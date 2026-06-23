@@ -95,6 +95,14 @@ export default function DesignTool() {
   const search = useSearch();
   const packageSlug = useMemo(() => new URLSearchParams(search).get("package"), [search]);
   const loadedPackageRef = useRef<string | null>(null);
+  // Optional saved design to load (?load=<designId>), e.g. from a CRM deal's
+  // "Linked Designs" list. Loads the saved room + placed cabinets + style.
+  const loadDesignId = useMemo(() => {
+    const v = new URLSearchParams(search).get("load");
+    const n = v ? Number(v) : NaN;
+    return Number.isFinite(n) ? n : null;
+  }, [search]);
+  const loadedDesignRef = useRef<number | null>(null);
   // Auto-save draft: flips true once we've attempted to restore a saved draft,
   // so the debounced save effect doesn't overwrite the stored draft with the
   // initial empty state before restore runs.
@@ -102,6 +110,10 @@ export default function DesignTool() {
   const { data: packageLayout, isError: packageError } = trpc.packages.layout.useQuery(
     { slug: packageSlug ?? "" },
     { enabled: !!packageSlug && verified, retry: 1 }
+  );
+  const { data: savedDesign } = trpc.design.byId.useQuery(
+    { id: loadDesignId ?? 0 },
+    { enabled: loadDesignId != null && verified, retry: 1 }
   );
   const packageErrorRef = useRef(false);
 
@@ -1219,6 +1231,20 @@ export default function DesignTool() {
     toast.success(`Loaded "${packageLayout.name}" — edit, swap styles, and re-price.`);
   }, [packageLayout]);
 
+  // Load a saved design from ?load=<id> (e.g. opened from a CRM deal).
+  useEffect(() => {
+    if (loadDesignId == null || !savedDesign || loadedDesignRef.current === loadDesignId) return;
+    loadedDesignRef.current = loadDesignId;
+    const room = (savedDesign.roomData ?? null) as RoomData | null;
+    const placedCabs = (savedDesign.placedCabinets ?? null) as PlacedCabinet[] | null;
+    loadSavedDesign({
+      room: room ?? DEFAULT_ROOM,
+      placed: Array.isArray(placedCabs) ? placedCabs : [],
+      styleId: (savedDesign.selectedStyleId ?? null) as number | null,
+    });
+    toast.success(`Loaded "${savedDesign.name}" — edit, swap styles, and re-price.`);
+  }, [loadDesignId, savedDesign, loadSavedDesign]);
+
   // Surface a failed package preload (network error or invalid slug).
   useEffect(() => {
     if (!packageSlug || !verified) return;
@@ -1288,8 +1314,9 @@ export default function DesignTool() {
   // Restore once, after verification, unless we're loading a package layout.
   useEffect(() => {
     if (!verified || draftRestoredRef.current) return;
-    if (packageSlug) {
-      // A package load owns the canvas; skip draft restore but allow future saves.
+    if (packageSlug || loadDesignId != null) {
+      // A package or saved-design load owns the canvas; skip draft restore but
+      // allow future saves.
       draftRestoredRef.current = true;
       return;
     }

@@ -28,6 +28,55 @@ export function canonicalize(code: string): string {
   return (code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+// ─── Prefix aliases ───────────────────────────────────────────────────────────
+// Trade quotes use prefixes that differ from the platform's catalog convention.
+// These map a buyer's leading-letter prefix to the catalog family prefix so the
+// dimensioned remainder can still resolve against real master codes.
+//   RW   = Refrigerator Wall            -> AW (above-fridge / refrigerator wall, 24" deep)
+//   WF   = Wall Filler                  -> F  (filler family; e.g. F-3-42)
+//   WDC  = Wall Diagonal Corner cabinet -> DCW (diagonal corner wall)
+//   LS   = Lazy Susan                   -> LSB (base easy-reach lazy susan)
+//   HB   = (Full) Height Base           -> BFH (base full height)
+//   TFHB = Tall Full Height Base roller -> BFH (base full height)
+// RS (Roll Out Shelf) already matches the catalog RS prefix, so no alias needed.
+export const PREFIX_ALIASES: Record<string, string> = {
+  RW: "AW",
+  WF: "F",
+  WDC: "DCW",
+  LS: "LSB",
+  HB: "BFH",
+  TFHB: "BFH",
+};
+
+// Directional / handedness suffixes that describe orientation, not a different
+// cabinet. We strip these for matching (the base cabinet is the same SKU) but the
+// caller can surface handedness separately if needed.
+//
+// Remove a trailing handedness marker from a raw code. "WDC2430-R" -> "WDC2430",
+// "W1830-L" -> "W1830", "B21-R" -> "B21". Only strips a SINGLE trailing L/R that
+// follows a digit (so we don't eat a real trailing letter like the L in a code).
+export function stripHandedness(raw: string): { code: string; hand: "L" | "R" | null } {
+  const trimmed = (raw || "").trim().toUpperCase();
+  // Match an explicit dash + L/R, or a glued single L/R that follows a digit.
+  const m = trimmed.match(/^(.*?\d[A-Z]*?)(?:-(L|R|LH|RH)|(L|R))$/);
+  if (m) {
+    const hand = (m[2] || m[3] || "").charAt(0) as "L" | "R";
+    // Guard: don't strip if the remainder no longer contains a digit.
+    if (/\d/.test(m[1])) return { code: m[1], hand: hand === "L" || hand === "R" ? hand : null };
+  }
+  return { code: trimmed, hand: null };
+}
+
+// Apply a prefix alias to a canonicalized code. "RW3618" -> "AW3618".
+function applyPrefixAlias(canon: string): string {
+  const m = canon.match(/^([A-Z]+)(\d.*)?$/);
+  if (!m) return canon;
+  const prefix = m[1];
+  const rest = m[2] ?? "";
+  const alias = PREFIX_ALIASES[prefix];
+  return alias ? `${alias}${rest}` : canon;
+}
+
 // Normalize a raw user/OCR token into the platform's dash-delimited shape where
 // we can confidently infer it. We DON'T guess wildly here — we only insert the
 // dashes that the catalog convention uses:
@@ -95,9 +144,14 @@ export function buildCodeIndex(records: CabinetCodeRecord[]) {
 }
 
 // Match a single raw code against the index.
+//
+// `aliasMap` is an optional persisted lookup of canonical raw code -> cabinet
+// record (populated from user-confirmed "Fix"/swap choices). It is consulted
+// BEFORE fuzzy guessing so a remembered replacement always wins.
 export function matchCode(
   rawCode: string,
-  index: ReturnType<typeof buildCodeIndex>
+  index: ReturnType<typeof buildCodeIndex>,
+  aliasMap?: Map<string, CabinetCodeRecord>
 ): CodeMatch {
   const raw = (rawCode || "").trim();
   const normalized = normalizeCode(raw);
@@ -105,6 +159,21 @@ export function matchCode(
     rawCode: raw,
     normalized,
   };
+
+  // 0) Persisted alias wins first (a human already mapped this raw code).
+  if (aliasMap) {
+    const aliasHit = aliasMap.get(canonicalize(raw));
+    if (aliasHit) {
+      return {
+        ...base,
+        cabinetId: aliasHit.id,
+        masterCode: aliasHit.masterCode,
+        description: aliasHit.description ?? null,
+        matched: true,
+        confidence: "normalized",
+      };
+    }
+  }
 
   // 1) Exact match on normalized dash-delimited code.
   const exact = index.byExact.get(normalized.toUpperCase());
@@ -134,6 +203,30 @@ export function matchCode(
       confidence: "normalized",
     };
   }
+
+  // 2a) Retry the canonical-key match after stripping handedness (-R/-L) and
+  // applying a prefix alias (RW->AW, WDC->DCW, etc.). Handedness does not change
+  // the SKU, and the alias re-points a trade prefix at the catalog family.
+  const { code: deHanded } = stripHandedness(raw);
+  const candidateCanons = new Set<string>();
+  candidateCanons.add(canonicalize(deHanded));
+  candidateCanons.add(applyPrefixAlias(canonicalize(deHanded)));
+  candidateCanons.add(applyPrefixAlias(canonicalize(raw)));
+  for (const ck of Array.from(candidateCanons)) {
+    if (!ck || ck === canon) continue;
+    const list = index.byCanon.get(ck);
+    if (list && list.length === 1) {
+      const rec = list[0];
+      return {
+        ...base,
+        cabinetId: rec.id,
+        masterCode: rec.masterCode,
+        description: rec.description ?? null,
+        matched: true,
+        confidence: "normalized",
+      };
+    }
+  }
   // 2b) Canonical key of the normalized form (e.g. raw "W 30 30" -> normalized
   // "W-30-30" -> canon "W3030").
   const normCanon = canonicalize(normalized);
@@ -153,24 +246,36 @@ export function matchCode(
   }
 
   // 3) Fuzzy: unique prefix-of-canonical match. Useful when a buyer drops a
-  // trailing suffix or count (e.g. "DB24" -> "DB-24-3"). Only accept when the
-  // candidate set collapses to a single record to avoid wrong guesses.
-  const candidates: CabinetCodeRecord[] = [];
-  Array.from(index.byCanon.entries()).forEach(([key, recs]) => {
-    if (key.startsWith(canon) && canon.length >= 2) {
-      candidates.push(...recs);
+  // trailing suffix or count (e.g. "DB24" -> "DB-24-3"), OR carries an extra
+  // dimension the catalog family code omits (e.g. "LS3612" -> alias "LSB3612"
+  // -> unique family "LSB36"). We try the raw canonical AND the de-handed /
+  // prefix-aliased canonical forms as prefixes. Only accept when the candidate
+  // set collapses to a single record to avoid wrong guesses.
+  const prefixKeys = Array.from(
+    new Set(
+      [canon, ...Array.from(candidateCanons)].filter((k) => k && k.length >= 2)
+    )
+  );
+  for (const pk of prefixKeys) {
+    // Match in BOTH directions: catalog key extends the query (dropped count),
+    // or the query extends the catalog key (extra dimension on a family code).
+    const uniq = new Map<number, CabinetCodeRecord>();
+    Array.from(index.byCanon.entries()).forEach(([key, recs]) => {
+      if (key.startsWith(pk) || pk.startsWith(key)) {
+        recs.forEach((r) => uniq.set(r.id, r));
+      }
+    });
+    if (uniq.size === 1) {
+      const rec = Array.from(uniq.values())[0];
+      return {
+        ...base,
+        cabinetId: rec.id,
+        masterCode: rec.masterCode,
+        description: rec.description ?? null,
+        matched: true,
+        confidence: "fuzzy",
+      };
     }
-  });
-  if (candidates.length === 1) {
-    const rec = candidates[0];
-    return {
-      ...base,
-      cabinetId: rec.id,
-      masterCode: rec.masterCode,
-      description: rec.description ?? null,
-      matched: true,
-      confidence: "fuzzy",
-    };
   }
 
   // No confident match.

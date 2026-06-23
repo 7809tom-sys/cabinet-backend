@@ -263,6 +263,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
 
   // ─── Submit ───────────────────────────────────────────────────────────────
   const utils = trpc.useUtils();
+
+  // Persist a manual Fix/swap so the same raw code auto-resolves next time.
+  // Fire-and-forget: a failed save never blocks the local swap.
+  const saveAlias = trpc.orders.saveAlias.useMutation();
   const createReq = trpc.orders.createRequest.useMutation({
     onSuccess: (res) => {
       setSubmittedId(res.id);
@@ -462,6 +466,13 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                     <div className="mt-1">
                       <CabinetSearchPicker
                         onPick={(c) => {
+                          // Remember this manual fix so the raw code resolves
+                          // automatically next time (keyed by the raw code as
+                          // typed/scanned, not the catalog master code).
+                          const rawForAlias = (l.rawCode || "").trim();
+                          if (rawForAlias) {
+                            saveAlias.mutate({ rawCode: rawForAlias, cabinetId: c.id });
+                          }
                           updateLine(idx, {
                             cabinetId: c.id,
                             masterCode: c.masterCode,
@@ -471,6 +482,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                             normalized: c.masterCode,
                           });
                           setFixingIndex(null);
+                          toast.success("Code fixed & remembered", {
+                            description: `"${rawForAlias}" will now match ${c.masterCode} automatically.`,
+                          });
                         }}
                       />
                       <Button variant="ghost" size="sm" className="mt-1 h-7 text-xs" onClick={() => setFixingIndex(null)}>

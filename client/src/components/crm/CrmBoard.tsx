@@ -429,8 +429,26 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
     onSuccess: () => { toast.success(lang === "es" ? "Trato eliminado" : "Deal removed"); utils.crm.board.invalidate(); onClose(); },
   });
 
+  const { data: linkable } = trpc.crm.linkableDesigns.useQuery(undefined, { enabled: dealId != null });
+  const [designToLink, setDesignToLink] = useState<string>("");
+  const linkDesign = trpc.crm.linkDesign.useMutation({
+    onSuccess: (r) => {
+      setDesignToLink("");
+      utils.crm.deal.invalidate({ id: dealId! });
+      toast.success(r?.alreadyLinked ? (lang === "es" ? "Ya estaba vinculado" : "Already linked") : (lang === "es" ? "Dise\u00f1o vinculado" : "Design linked"));
+    },
+    onError: () => toast.error(lang === "es" ? "No se pudo vincular" : "Couldn't link design"),
+  });
+  const unlinkDesign = trpc.crm.unlinkDesign.useMutation({
+    onSuccess: () => utils.crm.deal.invalidate({ id: dealId! }),
+    onError: () => toast.error(lang === "es" ? "No se pudo desvincular" : "Couldn't unlink"),
+  });
+
   const deal = data?.deal as DealRow | undefined;
   const activities = (data?.activities ?? []) as { id: number; kind: string; body: string; createdAt: string | Date }[];
+  const linkedDesigns = (data?.linkedDesigns ?? []) as { id: number; designId: number; designName: string }[];
+  const linkedIds = new Set(linkedDesigns.map((l) => l.designId));
+  const availableDesigns = (linkable ?? []).filter((d) => !linkedIds.has(d.id));
 
   return (
     <Sheet open={dealId != null} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -477,6 +495,30 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                       <span className="text-muted-foreground">{new Date(a.createdAt).toLocaleString()}</span>
                       <span className="ml-2 uppercase text-[10px] tracking-wide text-muted-foreground">{a.kind}</span>
                       <p className="text-foreground">{a.body}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Linked designs */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">{lang === "es" ? "Dise\u00f1os vinculados" : "Linked Designs"}</p>
+                <div className="flex gap-2 mb-3">
+                  <Select value={designToLink} onValueChange={setDesignToLink}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder={availableDesigns.length ? (lang === "es" ? "Elegir un dise\u00f1o guardado\u2026" : "Choose a saved design\u2026") : (lang === "es" ? "Sin dise\u00f1os guardados" : "No saved designs")} /></SelectTrigger>
+                    <SelectContent>
+                      {availableDesigns.map((d) => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" disabled={!designToLink || linkDesign.isPending} onClick={() => linkDesign.mutate({ dealId: deal.id, designId: Number(designToLink) })}>{lang === "es" ? "Vincular" : "Attach"}</Button>
+                </div>
+                <div className="space-y-2">
+                  {linkedDesigns.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">{lang === "es" ? "Ning\u00fan dise\u00f1o vinculado." : "No designs linked yet."}</p>
+                  ) : linkedDesigns.map((l) => (
+                    <div key={l.id} className="flex items-center justify-between text-sm border border-border rounded-md px-3 py-1.5">
+                      <a href={`/designer?load=${l.designId}`} className="text-primary hover:underline truncate">{l.designName}</a>
+                      <button className="text-muted-foreground hover:text-red-600 shrink-0 ml-2" onClick={() => unlinkDesign.mutate({ dealId: deal.id, linkId: l.id })} aria-label="Unlink design"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   ))}
                 </div>

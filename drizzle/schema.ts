@@ -500,3 +500,38 @@ export const crmActivities = mysqlTable("crm_activities", {
 
 export type CrmActivity = typeof crmActivities.$inferSelect;
 export type InsertCrmActivity = typeof crmActivities.$inferInsert;
+
+// ─── CRM ↔ Saved Design links ──────────────────────────────────────────────────
+// A deal may have one or more saved kitchen designs attached. We snapshot the
+// design name at link time so the deal still shows a sensible label even if the
+// design is later renamed or removed.
+export const crmDealDesigns = mysqlTable("crm_deal_designs", {
+  id: int("id").autoincrement().primaryKey(),
+  dealId: int("dealId").notNull(),
+  designId: int("designId").notNull(),
+  designName: varchar("designName", { length: 256 }).notNull(),
+  linkedByUserId: int("linkedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CrmDealDesign = typeof crmDealDesigns.$inferSelect;
+export type InsertCrmDealDesign = typeof crmDealDesigns.$inferInsert;
+
+// ─── Build-an-Order code aliases ───────────────────────────────────────────────
+// Remembers a human's manual "Fix"/swap choice so an unrecognized order code
+// resolves automatically next time. Keyed by the CANONICALIZED raw code (uppercase
+// alphanumerics only) so spacing/dash/case variants of the same token collapse to
+// one entry. The mapping always points at a real cabinet; the admin retains the
+// ability to override or re-point it later.
+export const codeAliases = mysqlTable("code_aliases", {
+  id: int("id").autoincrement().primaryKey(),
+  rawCodeCanon: varchar("rawCodeCanon", { length: 128 }).notNull().unique(),
+  rawCodeSample: varchar("rawCodeSample", { length: 128 }).notNull(),
+  cabinetId: int("cabinetId").notNull(),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type CodeAlias = typeof codeAliases.$inferSelect;
+export type InsertCodeAlias = typeof codeAliases.$inferInsert;

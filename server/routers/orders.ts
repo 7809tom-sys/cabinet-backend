@@ -9,6 +9,7 @@ import {
   doorStyles,
   orderRequests,
   affiliates,
+  codeAliases,
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { normalizeReferralCode } from "@shared/affiliate";
@@ -16,6 +17,7 @@ import { validateFamilyLock } from "@shared/familyLock";
 import {
   buildCodeIndex,
   matchCode,
+  canonicalize,
   parseOrderCsv,
   type CabinetCodeRecord,
   type CodeMatch,
@@ -63,13 +65,34 @@ function toExtractedLine(match: CodeMatch, qty: number): ExtractedLine {
   };
 }
 
-// Match a list of {code, qty} pairs against the master catalog.
+// Load persisted manual-fix aliases as a canonical-raw-code -> cabinet record map.
+// Only aliases whose target cabinet is still active are included.
+async function loadAliasMap(
+  records: CabinetCodeRecord[]
+): Promise<Map<string, CabinetCodeRecord>> {
+  const db = await getDb();
+  const map = new Map<string, CabinetCodeRecord>();
+  if (!db) return map;
+  const byId = new Map(records.map((r) => [r.id, r]));
+  const rows = await db
+    .select({ rawCodeCanon: codeAliases.rawCodeCanon, cabinetId: codeAliases.cabinetId })
+    .from(codeAliases);
+  for (const a of rows) {
+    const rec = byId.get(a.cabinetId);
+    if (rec) map.set(a.rawCodeCanon, rec);
+  }
+  return map;
+}
+
+// Match a list of {code, qty} pairs against the master catalog, honoring any
+// persisted manual-fix aliases first.
 async function matchPairs(
   pairs: { code: string; qty: number }[]
 ): Promise<ExtractedLine[]> {
   const records = await loadCodeRecords();
   const index = buildCodeIndex(records);
-  return pairs.map((p) => toExtractedLine(matchCode(p.code, index), p.qty));
+  const aliasMap = await loadAliasMap(records);
+  return pairs.map((p) => toExtractedLine(matchCode(p.code, index, aliasMap), p.qty));
 }
 
 const tierEnum = z.enum(["Wholesale", "Contractor"]);
@@ -545,4 +568,69 @@ export const ordersRouter = router({
       if (input?.status) return rows.filter((r) => r.status === input.status);
       return rows;
     }),
+
+  // ─── Persisted manual-fix alias ────────────────────────────────────────────
+  // When a user resolves an unrecognized order code by hand (Fix/swap), remember
+  // the mapping so the same raw code auto-resolves next time. Keyed by the
+  // canonicalized raw code; re-saving the same raw code re-points it (upsert).
+  saveAlias: publicProcedure
+    .input(
+      z.object({
+        rawCode: z.string().min(1).max(128),
+        cabinetId: z.number().int().positive(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db)
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const canon = canonicalize(input.rawCode);
+      if (!canon) throw new TRPCError({ code: "BAD_REQUEST", message: "Empty code" });
+      // Confirm the target cabinet exists and is active.
+      const cab = await db
+        .select({ id: cabinets.id })
+        .from(cabinets)
+        .where(and(eq(cabinets.id, input.cabinetId), eq(cabinets.isActive, true)))
+        .limit(1);
+      if (cab.length === 0)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown cabinet" });
+      const userId = (ctx as { user?: { id?: number } }).user?.id ?? null;
+      // Upsert on the unique canonical key.
+      await db
+        .insert(codeAliases)
+        .values({
+          rawCodeCanon: canon,
+          rawCodeSample: input.rawCode.trim().slice(0, 128),
+          cabinetId: input.cabinetId,
+          createdByUserId: userId,
+        })
+        .onDuplicateKeyUpdate({
+          set: {
+            cabinetId: input.cabinetId,
+            rawCodeSample: input.rawCode.trim().slice(0, 128),
+            updatedAt: new Date(),
+          },
+        });
+      return { ok: true, rawCodeCanon: canon };
+    }),
+
+  // List saved aliases (admin-only) for review/management.
+  getAliases: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select({
+        id: codeAliases.id,
+        rawCodeCanon: codeAliases.rawCodeCanon,
+        rawCodeSample: codeAliases.rawCodeSample,
+        cabinetId: codeAliases.cabinetId,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        updatedAt: codeAliases.updatedAt,
+      })
+      .from(codeAliases)
+      .leftJoin(cabinets, eq(codeAliases.cabinetId, cabinets.id))
+      .orderBy(desc(codeAliases.updatedAt));
+  }),
 });

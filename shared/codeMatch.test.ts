@@ -6,6 +6,7 @@ import {
   matchCode,
   matchCodes,
   parseOrderCsv,
+  stripHandedness,
   type CabinetCodeRecord,
 } from "./codeMatch";
 
@@ -104,6 +105,74 @@ describe("matchCodes batch", () => {
     expect(out[0].matched).toBe(true);
     expect(out[1].matched).toBe(false);
     expect(out[2].masterCode).toBe("SB-36");
+  });
+});
+
+// ─── Real-world trade codes from the user's two Build-an-Order screenshots ─────
+// These exercise prefix aliases (RW->AW, WF->F, WDC->DCW, LS->LSB, HB/TFHB->BFH),
+// handedness suffixes (-R/-L), and glued/dashed dimension groups.
+const CATALOG: CabinetCodeRecord[] = [
+  { id: 101, masterCode: "F-3", description: "Wall Filler 3in", category: "Accessory" },
+  { id: 102, masterCode: "AW-36-18", description: 'Refrigerator Wall 36x18', category: "Wall" },
+  { id: 103, masterCode: "BFH-21", description: "Base Full Height 21in", category: "Base" },
+  { id: 104, masterCode: "DCW-24-30", description: "Wall Diagonal Corner 24x30", category: "Wall" },
+  { id: 105, masterCode: "LSB-36", description: "Lazy Susan Base 36", category: "Base" },
+  { id: 106, masterCode: "W-18-30", description: "Wall 18x30", category: "Wall" },
+  { id: 107, masterCode: "B-21", description: '21" Base Cabinet', category: "Base" },
+  { id: 108, masterCode: "W-21-30", description: "Wall 21x30", category: "Wall" },
+  { id: 109, masterCode: "B-18", description: '18" Base Cabinet', category: "Base" },
+];
+
+describe("stripHandedness", () => {
+  it("strips trailing -R/-L and glued L/R after a digit", () => {
+    expect(stripHandedness("WDC2430-R")).toEqual({ code: "WDC2430", hand: "R" });
+    expect(stripHandedness("W1830-L")).toEqual({ code: "W1830", hand: "L" });
+    expect(stripHandedness("B21-R")).toEqual({ code: "B21", hand: "R" });
+  });
+  it("leaves codes without a handedness suffix unchanged", () => {
+    expect(stripHandedness("B-24")).toEqual({ code: "B-24", hand: null });
+    expect(stripHandedness("W3030")).toEqual({ code: "W3030", hand: null });
+  });
+});
+
+describe("matchCode — trade codes from order screenshots", () => {
+  const index = buildCodeIndex(CATALOG);
+  const cases: Array<[string, string]> = [
+    ["WF3", "F-3"],          // wall filler alias
+    ["RW3618", "AW-36-18"],  // refrigerator wall alias
+    ["HB21", "BFH-21"],      // full-height base alias
+    ["TFHB21", "BFH-21"],    // tall full-height base alias
+    ["WDC2430-R", "DCW-24-30"], // diagonal corner alias + handedness
+    ["LS3612-R", "LSB-36"],  // lazy susan alias + handedness
+    ["W1830-L", "W-18-30"],  // wall + handedness
+    ["B21-R", "B-21"],       // base + handedness
+    ["W2130-R", "W-21-30"],  // wall + handedness
+    ["B18-L", "B-18"],       // base + handedness
+  ];
+  for (const [raw, expected] of cases) {
+    it(`resolves ${raw} -> ${expected}`, () => {
+      const m = matchCode(raw, index);
+      expect(m.matched).toBe(true);
+      expect(m.masterCode).toBe(expected);
+    });
+  }
+});
+
+describe("matchCode — persisted alias map", () => {
+  const index = buildCodeIndex(CATALOG);
+  it("resolves a remembered manual fix before fuzzy guessing", () => {
+    const aliasMap = new Map([
+      [canonicalize("WEIRDCODE99"), CATALOG[6]], // -> B-21
+    ]);
+    const m = matchCode("weird code 99", index, aliasMap);
+    expect(m.matched).toBe(true);
+    expect(m.masterCode).toBe("B-21");
+    expect(m.cabinetId).toBe(107);
+  });
+  it("ignores the alias map when no entry matches", () => {
+    const aliasMap = new Map([[canonicalize("OTHER"), CATALOG[0]]]);
+    const m = matchCode("ZZZ-99", index, aliasMap);
+    expect(m.matched).toBe(false);
   });
 });
 

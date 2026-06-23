@@ -113,6 +113,47 @@ describe("orders.createRequest + confirm", () => {
   });
 });
 
+describe("orders.saveAlias + alias-aware matching", () => {
+  it("remembers a manual fix so a previously-unmatched code resolves next time", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    // A nonsense code that the matcher cannot resolve on its own.
+    const weird = `ZQX${Date.now() % 100000}`;
+    const before = await caller.orders.matchCodes({ items: [{ code: weird, qty: 1 }] });
+    expect(before.lines[0].matched).toBe(false);
+
+    // Resolve B-24 to a real cabinet id via stylesForCabinets/touchUpKit path:
+    // simplest is to look up an active cabinet through extractFromCsv on B-24.
+    const known = await caller.orders.matchCodes({ items: [{ code: "B-24", qty: 1 }] });
+    const cabinetId = known.lines[0].cabinetId;
+    expect(cabinetId).not.toBeNull();
+
+    // Save the alias, then the weird code should now resolve to that cabinet.
+    const saved = await caller.orders.saveAlias({ rawCode: weird, cabinetId: cabinetId! });
+    expect(saved.ok).toBe(true);
+
+    const after = await caller.orders.matchCodes({ items: [{ code: weird.toLowerCase(), qty: 1 }] });
+    expect(after.lines[0].matched).toBe(true);
+    expect(after.lines[0].cabinetId).toBe(cabinetId);
+  });
+
+  it("rejects saving an alias to an unknown cabinet", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    await expect(
+      caller.orders.saveAlias({ rawCode: "WHATEVER1", cabinetId: 99999999 })
+    ).rejects.toThrow();
+  });
+});
+
+describe("orders.getAliases", () => {
+  it("is admin-only", async () => {
+    const userCaller = appRouter.createCaller(userCtx("user"));
+    await expect(userCaller.orders.getAliases()).rejects.toThrow();
+    const adminCaller = appRouter.createCaller(userCtx("admin"));
+    const list = await adminCaller.orders.getAliases();
+    expect(Array.isArray(list)).toBe(true);
+  });
+});
+
 describe("orders.adminList", () => {
   it("only admins can list order requests", async () => {
     const userCaller = appRouter.createCaller(userCtx("user"));

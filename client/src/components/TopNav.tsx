@@ -19,7 +19,6 @@ const PORTAL_LINKS = [
   { label: "Supplier Portal", href: "/distributor" },
   { label: "Dealer Portal", href: "/portal/dealer" },
   { label: "Affiliate Portal", href: "/affiliate" },
-  { label: "Admin", href: "/admin" },
 ];
 
 export function TopNav() {
@@ -103,6 +102,16 @@ export function TopNav() {
           {user ? (
             <div className="hidden md:flex items-center gap-2">
               <span className="text-sm text-muted-foreground">{user.name || user.email}</span>
+              {user.role === "admin" && (
+                <Link href="/admin">
+                  <Button
+                    size="sm"
+                    className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90"
+                  >
+                    Admin
+                  </Button>
+                </Link>
+              )}
               <Link href="/account">
                 <Button variant="outline" size="sm">Account</Button>
               </Link>
@@ -161,6 +170,18 @@ export function TopNav() {
               </Link>
             ))}
             <div className="border-t border-border my-2" />
+            {user?.role === "admin" && (
+              <Link href="/admin" onClick={() => setMobileOpen(false)} className="px-3">
+                <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
+                  Admin
+                </Button>
+              </Link>
+            )}
+            {user && (
+              <Link href="/account" onClick={() => setMobileOpen(false)} className="px-3">
+                <Button variant="outline" className="w-full">Account</Button>
+              </Link>
+            )}
             {!user && (
               <Link href="/signin" onClick={() => setMobileOpen(false)} className="px-3">
                 <Button className="w-full bg-[var(--color-navy)] text-white">Sign In</Button>

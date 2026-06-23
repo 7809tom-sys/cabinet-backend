@@ -6,6 +6,8 @@ import { getDb } from "../db";
 import {
   crmDeals,
   crmActivities,
+  crmDealDesigns,
+  kitchenDesigns,
   affiliates,
   orderRequests,
   proApplications,
@@ -129,7 +131,84 @@ export const crmRouter = router({
         .from(crmActivities)
         .where(eq(crmActivities.dealId, deal.id))
         .orderBy(desc(crmActivities.createdAt));
-      return { deal, activities };
+      const linkedDesigns = await db
+        .select()
+        .from(crmDealDesigns)
+        .where(eq(crmDealDesigns.dealId, deal.id))
+        .orderBy(desc(crmDealDesigns.createdAt));
+      return { deal, activities, linkedDesigns };
+    }),
+
+  // ── Saved designs the caller can attach (their own, by name) ────────────────
+  linkableDesigns: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return [];
+    const rows = await db
+      .select({
+        id: kitchenDesigns.id,
+        name: kitchenDesigns.name,
+        updatedAt: kitchenDesigns.updatedAt,
+      })
+      .from(kitchenDesigns)
+      .where(eq(kitchenDesigns.userId, ctx.user.id))
+      .orderBy(desc(kitchenDesigns.updatedAt));
+    return rows;
+  }),
+
+  // ── Attach a saved design to a deal (snapshots the name) ────────────────────
+  linkDesign: protectedProcedure
+    .input(z.object({ dealId: z.number().int(), designId: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      // The design must belong to the caller.
+      const dRows = await db
+        .select()
+        .from(kitchenDesigns)
+        .where(
+          and(
+            eq(kitchenDesigns.id, input.designId),
+            eq(kitchenDesigns.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      const design = dRows[0];
+      if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+      // Avoid duplicate links.
+      const existing = await db
+        .select()
+        .from(crmDealDesigns)
+        .where(
+          and(
+            eq(crmDealDesigns.dealId, deal.id),
+            eq(crmDealDesigns.designId, design.id)
+          )
+        )
+        .limit(1);
+      if (existing[0]) return { ok: true, alreadyLinked: true };
+      await db.insert(crmDealDesigns).values({
+        dealId: deal.id,
+        designId: design.id,
+        designName: design.name,
+        linkedByUserId: ctx.user.id,
+      });
+      await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
+      return { ok: true };
+    }),
+
+  // ── Detach a linked design from a deal ──────────────────────────────────────
+  unlinkDesign: protectedProcedure
+    .input(z.object({ dealId: z.number().int(), linkId: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      await db
+        .delete(crmDealDesigns)
+        .where(
+          and(
+            eq(crmDealDesigns.id, input.linkId),
+            eq(crmDealDesigns.dealId, deal.id)
+          )
+        );
+      return { ok: true };
     }),
 
   // ── Create a deal in the caller's scope ─────────────────────────────────────

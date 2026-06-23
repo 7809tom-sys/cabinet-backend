@@ -333,9 +333,21 @@ export const cabinetsRouter = router({
         conditions.push(eq(cabinets.subCategory, input.subCategory));
       }
       if (input?.search) {
-        conditions.push(
-          sql`(${cabinets.masterCode} LIKE ${`%${input.search}%`} OR ${cabinets.description} LIKE ${`%${input.search}%`})`
-        );
+        const raw = input.search.trim();
+        // Canonical key: strip everything but alphanumerics so glued user codes
+        // (e.g. "w31824", "W2736", "WDC2430R") match dashed master codes
+        // ("W-318-24", "W-27-36", "WDC-24-30-R").
+        const canon = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        // SQL-side canonicalization of masterCode: remove dashes and spaces.
+        const canonCol = sql`UPPER(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''))`;
+        const orParts = [
+          sql`${cabinets.masterCode} LIKE ${`%${raw}%`}`,
+          sql`${cabinets.description} LIKE ${`%${raw}%`}`,
+        ];
+        if (canon) {
+          orParts.push(sql`${canonCol} LIKE ${`%${canon}%`}`);
+        }
+        conditions.push(sql`(${sql.join(orParts, sql` OR `)})`);
       }
 
       const limit = input?.limit ?? 50;
