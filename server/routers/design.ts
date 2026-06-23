@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, like } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -137,7 +137,31 @@ export const designRouter = router({
         .where(and(availabilityGate, eq(cabinets.subCategory, "Roll-Out Tray")))
         .orderBy(cabinets.masterCode);
 
-      return { touchUpKit: tukRows[0] ?? null, rollOutTrays: trayRows };
+      // Decorative end panels (subCategory "Decorative End Panel"): match the
+      // exposed side of a cabinet to the chosen door style. Prefer the base
+      // decorative end panel (BDEP/BEP-3) but return whatever is buyable.
+      const endPanelRows = await db
+        .select(cols)
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(availabilityGate, eq(cabinets.subCategory, "Decorative End Panel")))
+        .orderBy(cabinets.masterCode);
+
+      // Crown molding (subCategory "Trim & Molding", CM-* codes) for finishing
+      // the top of wall cabinets in the locked style.
+      const crownRows = await db
+        .select(cols)
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(availabilityGate, like(cabinets.masterCode, "CM-%")))
+        .orderBy(cabinets.masterCode);
+
+      return {
+        touchUpKit: tukRows[0] ?? null,
+        rollOutTrays: trayRows,
+        endPanels: endPanelRows,
+        crownMoldings: crownRows,
+      };
     }),
 
   priceForCabinets: publicProcedure

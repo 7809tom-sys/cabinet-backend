@@ -361,6 +361,10 @@ export default function DesignTool() {
       if (kind === "touch-up-kit") return addOns.touchUpKit ?? null;
       if (kind === "roll-out-tray")
         return (addOns.rollOutTrays as Array<{ id: number; masterCode: string; description: string }>)[0] ?? null;
+      if (kind === "end-panel")
+        return (addOns.endPanels as Array<{ id: number; masterCode: string; description: string }> | undefined)?.[0] ?? null;
+      if (kind === "crown-molding")
+        return (addOns.crownMoldings as Array<{ id: number; masterCode: string; description: string }> | undefined)?.[0] ?? null;
       return null;
     },
     [addOns]
@@ -2232,12 +2236,20 @@ export default function DesignTool() {
                     <div className="text-xs font-semibold text-foreground">
                       {rec.kind === "touch-up-kit"
                         ? "Add a touch-up kit"
-                        : "Add roll-out trays?"}
+                        : rec.kind === "roll-out-tray"
+                          ? "Add roll-out trays?"
+                          : rec.kind === "end-panel"
+                            ? "Finish exposed sides?"
+                            : "Add crown molding?"}
                     </div>
                     <div className="text-[10px] text-muted-foreground mb-2">
                       {rec.kind === "touch-up-kit"
                         ? "Match your finish for nicks & scratches — we recommend one on every order."
-                        : "Pull-out shelves make your base cabinets easier to reach."}
+                        : rec.kind === "roll-out-tray"
+                          ? "Pull-out shelves make your base cabinets easier to reach."
+                          : rec.kind === "end-panel"
+                            ? "Cover an exposed cabinet side or island end with a decorative panel that matches your door style."
+                            : "A crown profile across the top of your wall cabinets gives the run a finished, built-in look."}
                     </div>
                     <Button
                       size="sm"

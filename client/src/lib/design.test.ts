@@ -632,7 +632,7 @@ describe("doorPanelKind", () => {
 });
 
 
-import { addOnRecommendations, baseCabinetCount } from "./design";
+import { addOnRecommendations, baseCabinetCount, wallCabinetCount, exposedSideCount } from "./design";
 
 describe("add-on recommendations (don't forget this)", () => {
   it("counts base cabinets only", () => {
@@ -667,7 +667,35 @@ describe("add-on recommendations (don't forget this)", () => {
       cab({ placement: "wall" }),
       cab({ placement: "tall" }),
     ]);
-    expect(recs.map((r) => r.kind)).toEqual(["touch-up-kit"]);
+    expect(recs.map((r) => r.kind)).not.toContain("roll-out-tray");
+  });
+
+  it("recommends an end panel once any base/wall/tall cabinet is placed", () => {
+    expect(addOnRecommendations([]).map((r) => r.kind)).not.toContain("end-panel");
+    const recs = addOnRecommendations([cab({ placement: "base" })]);
+    const ep = recs.find((r) => r.kind === "end-panel");
+    expect(ep).toBeTruthy();
+    expect(ep!.suggestCode).toBe("BDEP");
+  });
+
+  it("recommends crown molding only when wall cabinets are present", () => {
+    expect(addOnRecommendations([cab({ placement: "base" })]).map((r) => r.kind)).not.toContain(
+      "crown-molding",
+    );
+    const recs = addOnRecommendations([cab({ placement: "wall" })]);
+    const crown = recs.find((r) => r.kind === "crown-molding");
+    expect(crown).toBeTruthy();
+    expect(crown!.suggestCode).toBe("CM-8");
+  });
+
+  it("counts wall cabinets and exposed sides correctly", () => {
+    const placed = [
+      cab({ uid: "a", placement: "base" }),
+      cab({ uid: "b", placement: "wall" }),
+      cab({ uid: "c", placement: "tall" }),
+    ];
+    expect(wallCabinetCount(placed)).toBe(1);
+    expect(exposedSideCount(placed)).toBe(3);
   });
 });
 

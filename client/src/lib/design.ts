@@ -1567,7 +1567,11 @@ export function resizeRoomByWall(room: RoomData, side: WallSide, deltaIn: number
 //   2. Roll-out trays are recommended when the design contains base cabinets
 //      ("Want to add roll-out trays to any of these base cabinets?").
 // These are pure data so they can be unit-tested and reused by the UI.
-export type AddOnKind = "touch-up-kit" | "roll-out-tray";
+export type AddOnKind =
+  | "touch-up-kit"
+  | "roll-out-tray"
+  | "end-panel"
+  | "crown-molding";
 
 export interface AddOnRecommendation {
   kind: AddOnKind;
@@ -1584,6 +1588,18 @@ export interface AddOnRecommendation {
 /** How many base cabinets are in the current design (drives roll-out trays). */
 export function baseCabinetCount(placed: PlacedCabinet[]): number {
   return placed.filter((p) => p.placement === "base").length;
+}
+
+/** How many wall (upper) cabinets are in the design (drives crown molding). */
+export function wallCabinetCount(placed: PlacedCabinet[]): number {
+  return placed.filter((p) => p.placement === "wall").length;
+}
+
+/** Any cabinet that can have an exposed finished side (base/wall/tall). */
+export function exposedSideCount(placed: PlacedCabinet[]): number {
+  return placed.filter(
+    (p) => p.placement === "base" || p.placement === "wall" || p.placement === "tall",
+  ).length;
 }
 
 /**
@@ -1610,6 +1626,28 @@ export function addOnRecommendations(
       bodyKey: "addon_rollout_body",
       // Generic roll-out tray; the actual sized RS-* is picked when added.
       suggestCode: "RS-24",
+      always: false,
+    });
+  }
+  // Exposed cabinet sides (islands, end-of-run) need a decorative end panel to
+  // match the door style. Suggested once any base/wall/tall cabinet is placed.
+  if (exposedSideCount(placed) > 0) {
+    recs.push({
+      kind: "end-panel",
+      titleKey: "addon_endpanel_title",
+      bodyKey: "addon_endpanel_body",
+      // Base decorative end panel; the resolver picks the buyable panel in line.
+      suggestCode: "BDEP",
+      always: false,
+    });
+  }
+  // Wall cabinets get a finished look with crown molding across the top.
+  if (wallCabinetCount(placed) > 0) {
+    recs.push({
+      kind: "crown-molding",
+      titleKey: "addon_crown_title",
+      bodyKey: "addon_crown_body",
+      suggestCode: "CM-8",
       always: false,
     });
   }

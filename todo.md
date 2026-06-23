@@ -438,9 +438,9 @@
 
 
 ## Phase 15: Design Tool AI scope + accessory recommendations
-- [ ] Constrain Design Tool AI strictly to kitchen/cabinet DESIGN topics (system prompt + guardrails); decline/redirect off-topic queries back to design
-- [ ] AI proactively recommends complementary accessories based on placed items: roll-out trays (base cabinets), decorative end panels (exposed sides/islands), fillers (tight runs), crown/scribe molding (finishing tops), toe kick
-- [ ] Keep recommendations within the customer's selected/locked line where applicable
+- [x] Constrain Design Tool AI strictly to kitchen/cabinet DESIGN topics — consult SYSTEM prompt restricts to choosing a fill strategy; assistant SYSTEM prompt redirects off-topic ("I can help with cabinets, door styles, and your kitchen project"); both never name suppliers
+- [x] Proactively recommend complementary accessories based on placed items — "Don't forget" cards: touch-up kit (always), roll-out trays (base cabinets), decorative end panels (any exposed base/wall/tall side), crown molding (wall cabinets); plus one-click range/oven clearance filler + blind-corner filler when those conflicts exist
+- [x] Keep recommendations within the selected/locked line — findAddOns resolves every suggestion against the locked styleId's buyable distributorSkus; a card only renders when it resolves to a real orderable SKU in that style (3 new vitest cases)
 
 
 ## Phase 16: Catalog reclassification + Accessory sub-groups
