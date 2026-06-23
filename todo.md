@@ -1053,11 +1053,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Replace/clean flagged images, upload replacements, update DB URLs, verify in catalog/designer
 
 ## Phase 37: Admin-configurable LTL freight estimator (user request 2026-06-23)
-- [ ] Admin -> Shipping panel: enable/disable, origin warehouse ZIP, zone/region rate table ($ per 100 lbs or flat per zone), per-order handling fee, minimum freight charge, accessorial surcharges (liftgate, residential, inside delivery), free-freight threshold, markup % (DEFAULT 15%), placeholder for future live-carrier API key
-- [ ] shipping settings persisted in DB (schema + migration); adminProcedure to read/update
-- [ ] Cart/checkout freight estimate: compute billable weight from cart, resolve destination zone from ZIP, apply rate + accessorials + markup, show itemized estimate line (labeled "estimate, finalized at order processing")
-- [ ] freightProvider abstraction (integration seam) so a live Freightquote/C.H. Robinson API can be slotted in later via credentials with no rebuild
-- [ ] Tests for the estimator math (zone resolution, billable weight, markup, accessorials, free-freight threshold) + verify in browser
+- [x] Admin -> Shipping panel (ShippingAdmin.tsx, new "Shipping" tab): enable/disable, origin ZIP, zone rate table ($/100lbs or flat per zone), handling fee, min charge, accessorials (liftgate/residential/inside), free-freight threshold, markup % (DEFAULT 15%), damage coverage %, default cabinet weight, live-provider API key placeholder, live preview calculator
+- [x] shipping_settings + freight_zones tables (migration 0016); seeded 15% markup + 5 US LTL zones; freight.adminGet/adminUpdateSettings/adminSaveZones (adminProcedure)
+- [x] Cart freight estimate: resolves weight by masterCode server-side, computes zone+billable weight+markup, shows Est. freight + Estimated total + zone/weight note (enabled once ZIP entered)
+- [x] freightProvider seam (quoteViaProvider switches on settings.liveProvider; estimator default) so a live Freightquote/C.H. Robinson API slots in later with no rebuild
+- [x] shared/freight.ts pure estimator + 14 unit tests; server/freight.test.ts 4 tests (estimate + admin gating + markup round-trip); full suite 500 tests pass
 
 ## Phase 38: Kitchen Package bundles must be door-style-scoped (user request 2026-06-23 - "prices are all over the board")
 - [ ] Each bundle BOM line clearly shows WHICH door style it belongs to / is priced from

@@ -535,3 +535,59 @@ export const codeAliases = mysqlTable("code_aliases", {
 
 export type CodeAlias = typeof codeAliases.$inferSelect;
 export type InsertCodeAlias = typeof codeAliases.$inferInsert;
+
+// ─── Shipping / freight estimator settings ─────────────────────────────────────
+// Single-row admin configuration for the LTL freight estimator. We avoid a live
+// broker/middleman by computing rates from this table; a future live-carrier API
+// can replace the math behind the same procedure via the freightProvider seam.
+// All money is stored in whole cents to avoid float drift; rates that are
+// "$ per 100 lbs" are stored in cents per 100 lbs.
+export const shippingSettings = mysqlTable("shipping_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  enabled: boolean("enabled").default(true).notNull(),
+  originZip: varchar("originZip", { length: 16 }).default("").notNull(),
+  // Base rate model. "per_cwt" = $ per 100 lbs (hundredweight) per zone;
+  // "flat" = a flat $ per zone regardless of weight.
+  rateModel: mysqlEnum("rateModel", ["per_cwt", "flat"]).default("per_cwt").notNull(),
+  handlingFeeCents: int("handlingFeeCents").default(0).notNull(),
+  minChargeCents: int("minChargeCents").default(8900).notNull(),
+  liftgateFeeCents: int("liftgateFeeCents").default(7500).notNull(),
+  residentialFeeCents: int("residentialFeeCents").default(6500).notNull(),
+  insideDeliveryFeeCents: int("insideDeliveryFeeCents").default(5000).notNull(),
+  // Markup applied on top of computed freight (basis points; 1500 = 15%).
+  markupBps: int("markupBps").default(1500).notNull(),
+  // Optional damage-coverage surcharge on the freight subtotal (basis points).
+  damageFeeBps: int("damageFeeBps").default(0).notNull(),
+  // Free freight when the cart merchandise subtotal (cents) meets/exceeds this.
+  // 0 (or null) disables the threshold.
+  freeFreightThresholdCents: int("freeFreightThresholdCents").default(0).notNull(),
+  // Fallback weight (lbs) used when a cabinet has no stored weight.
+  defaultCabinetWeightLbs: decimal("defaultCabinetWeightLbs", { precision: 6, scale: 2 })
+    .default("45")
+    .notNull(),
+  // Placeholder for a future live carrier/broker API key (e.g. Freightquote / C.H.
+  // Robinson). When set + provider!="estimator", the live provider is used.
+  liveProvider: varchar("liveProvider", { length: 64 }).default("estimator").notNull(),
+  liveApiKey: varchar("liveApiKey", { length: 255 }),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type ShippingSettings = typeof shippingSettings.$inferSelect;
+export type InsertShippingSettings = typeof shippingSettings.$inferInsert;
+
+// Maps a destination region to a freight zone + its rate. We match a shipment's
+// destination ZIP by its leading digits (zipPrefix) to the most specific row.
+// rateCents meaning depends on shippingSettings.rateModel (per-cwt vs flat).
+export const freightZones = mysqlTable("freight_zones", {
+  id: int("id").autoincrement().primaryKey(),
+  zoneName: varchar("zoneName", { length: 64 }).notNull(),
+  // Leading ZIP digits this zone covers, comma-separated (e.g. "0,1,2" or
+  // "30,31,32"). Most digits = most specific = wins.
+  zipPrefixes: varchar("zipPrefixes", { length: 255 }).notNull(),
+  rateCents: int("rateCents").notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FreightZone = typeof freightZones.$inferSelect;
+export type InsertFreightZone = typeof freightZones.$inferInsert;

@@ -44,6 +44,22 @@ export default function Cart() {
 
   const hasCheckedZip = !!normalizedZip && availabilityQuery.isSuccess;
 
+  // Freight estimate (computed in-house from origin/zone/weight + markup).
+  const freightItems = useMemo(
+    () => items.map((i) => ({ cabinetId: null, masterCode: i.masterCode, qty: i.qty })),
+    [items]
+  );
+  const subtotalCents = Math.round(subtotal * 100);
+  const freightQuery = trpc.freight.estimate.useQuery(
+    {
+      destinationZip: normalizedZip ?? "",
+      items: freightItems,
+      merchandiseSubtotalCents: subtotalCents,
+    },
+    { enabled: !!normalizedZip && items.length > 0 }
+  );
+  const freight = freightQuery.data;
+
   const itemAvailability = (distributorId: number | null) => {
     if (distributorId == null) return null;
     return availByDist.get(distributorId) ?? null;
@@ -244,6 +260,35 @@ export default function Cart() {
               <span className="text-muted-foreground">Estimated subtotal</span>
               <span className="font-medium">${subtotal.toFixed(2)}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground inline-flex items-center gap-1">
+                <Truck className="h-3.5 w-3.5" /> Est. freight
+              </span>
+              <span className="font-medium">
+                {!normalizedZip ? (
+                  <span className="text-xs text-muted-foreground">Enter ZIP above</span>
+                ) : freightQuery.isFetching ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : freight?.available ? (
+                  freight.freeFreightApplied ? "FREE" : `$${(freight.totalCents / 100).toFixed(2)}`
+                ) : (
+                  <span className="text-xs text-amber-600">Quoted</span>
+                )}
+              </span>
+            </div>
+            {freight?.available && !freight.freeFreightApplied && (
+              <div className="flex justify-between border-t border-border pt-2 mt-1">
+                <span className="text-muted-foreground">Estimated total</span>
+                <span className="font-semibold">
+                  ${(subtotal + freight.totalCents / 100).toFixed(2)}
+                </span>
+              </div>
+            )}
+            {freight?.available && (
+              <p className="text-[11px] text-muted-foreground pt-1">
+                {freight.zoneName} · ~{freight.billableWeightLbs} lbs · freight estimate, confirmed on your order.
+              </p>
+            )}
           </div>
           <Separator className="my-4" />
           <p className="mb-4 text-xs text-muted-foreground">

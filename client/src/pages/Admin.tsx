@@ -25,6 +25,7 @@ import DistributorImport from "@/components/admin/DistributorImport";
 import CustomersAdmin from "@/components/admin/CustomersAdmin";
 import SkuImageManager from "@/components/admin/SkuImageManager";
 import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
+import ShippingAdmin from "@/components/admin/ShippingAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -373,6 +374,7 @@ export default function Admin() {
           <TabsTrigger value="featured">Featured Styles</TabsTrigger>
           <TabsTrigger value="distributors">Distributors</TabsTrigger>
           <TabsTrigger value="images">Product Images</TabsTrigger>
+          <TabsTrigger value="shipping">Shipping</TabsTrigger>
         </TabsList>
         <TabsContent value="crm" className="mt-6">
           <CrmBoard lang="en" />
@@ -397,6 +399,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="distributors" className="mt-6">
           <DistributorImport />
+        </TabsContent>
+        <TabsContent value="shipping" className="mt-6">
+          <ShippingAdmin />
         </TabsContent>
       </Tabs>
     </div>

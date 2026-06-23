@@ -23,6 +23,7 @@ import { ocrRouter } from "./routers/ocr";
 import { assistantRouter } from "./routers/assistant";
 import { skuImagesRouter } from "./routers/skuImages";
 import { emailAuthRouter } from "./routers/emailAuth";
+import { freightRouter } from "./routers/freight";
 
 export const appRouter = router({
   system: systemRouter,
@@ -56,6 +57,7 @@ export const appRouter = router({
   assistant: assistantRouter,
   skuImages: skuImagesRouter,
   emailAuth: emailAuthRouter,
+  freight: freightRouter,
 });
 
 export type AppRouter = typeof appRouter;
