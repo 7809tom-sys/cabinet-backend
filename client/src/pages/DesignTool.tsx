@@ -1889,6 +1889,7 @@ export default function DesignTool() {
               selectedUid={selectedUid}
               onSelect={setSelectedUid}
               wall={activeWall}
+              onSelectWall={setActiveWall}
               openings={openings}
               finish={activeFinish}
               crown={crown}
@@ -1942,6 +1943,7 @@ export default function DesignTool() {
                   selectedUid={selectedUid}
                   onSelect={setSelectedUid}
                   wall={activeWall}
+                  onSelectWall={setActiveWall}
                   openings={openings}
                   finish={activeFinish}
                   crown={crown}

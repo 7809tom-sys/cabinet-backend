@@ -1,7 +1,7 @@
 import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN,
-  type DoorPanelKind, type WallSide, cabinetWall,
+  type DoorPanelKind, type WallSide, cabinetWall, resolveSwing,
 } from "@/lib/design";
 import { useRef, useEffect, useState } from "react";
 
@@ -13,6 +13,10 @@ interface Props {
   // Which physical wall to view, in plan terms (top/bottom/left/right).
   // Back-compat: "front" maps to bottom, "back" maps to top.
   wall: WallSide | "front" | "back";
+  // Optional: lets the user flip the displayed wall straight from the elevation
+  // panel (a compact Back/Front/Left/Right switcher) instead of going back to
+  // the top toolbar. When omitted, the switcher is hidden.
+  onSelectWall?: (side: WallSide) => void;
   openings?: WallOpening[];
   finish?: FinishColors;
   crown?: boolean;
@@ -22,7 +26,7 @@ interface Props {
 }
 
 export function ElevationView({
-  room, cabinets, selectedUid, onSelect, wall, openings = [],
+  room, cabinets, selectedUid, onSelect, wall, onSelectWall, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false,
   panelKind = "shaker",
 }: Props) {
@@ -134,6 +138,23 @@ export function ElevationView({
                 {!isAppliance && (
                   <DoorFront kind={panelKind} edge={edgeColor} face={finish.face} />
                 )}
+                {/* Hinge-side marker: a slim vertical bar on the hinge edge so the
+                    shop reads Left vs Right swing on the elevation too. */}
+                {!isAppliance && (() => {
+                  const sw = resolveSwing(p);
+                  if (sw !== "left" && sw !== "right") return null;
+                  return (
+                    <div
+                      className="absolute top-[12%] bottom-[12%] z-10 rounded"
+                      style={{
+                        [sw === "left" ? "left" : "right"]: 1,
+                        width: 2.5,
+                        background: "#1a2744",
+                      } as React.CSSProperties}
+                      title={sw === "left" ? "Left hinge" : "Right hinge"}
+                    />
+                  );
+                })()}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : finish.label }}>
                     {p.masterCode}
@@ -279,9 +300,34 @@ export function ElevationView({
         })}
       </div>
 
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 text-xs font-medium text-[#1a2744] bg-white/80 px-3 py-1 rounded-full">
-        {WALL_LABELS[side]} Wall Elevation
-      </div>
+      {/* Wall switcher: flip the displayed wall straight from the elevation
+          panel. Falls back to a static label when no handler is provided. */}
+      {onSelectWall ? (
+        <div
+          className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/85 px-1.5 py-1 rounded-full shadow-sm"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Wall</span>
+          {((["top", "left", "bottom", "right"] as WallSide[]).map((w) => (
+            <button
+              key={w}
+              type="button"
+              onClick={() => onSelectWall(w)}
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+                w === side
+                  ? "bg-[#1a2744] text-white"
+                  : "text-[#1a2744] hover:bg-[#1a2744]/10"
+              }`}
+            >
+              {WALL_LABELS[w]}
+            </button>
+          )))}
+        </div>
+      ) : (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 text-xs font-medium text-[#1a2744] bg-white/80 px-3 py-1 rounded-full">
+          {WALL_LABELS[side]} Wall Elevation
+        </div>
+      )}
 
       {sorted.length === 0 && viewOpenings.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm text-center px-6">

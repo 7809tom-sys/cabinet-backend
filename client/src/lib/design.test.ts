@@ -18,6 +18,8 @@ import {
   blindCornerSpecViolations, blindPullRange,
   blindCornerAutoFiller,
   isStacker,
+  isDiagonalCorner, footprintDepth,
+  resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
 
@@ -1015,5 +1017,100 @@ describe("blindCornerAutoFiller — auto 3in filler opposite the pull", () => {
     const res = blindCornerAutoFiller(reg, room, uid);
     expect(res.filler).toBeNull();
     expect(res.ambiguous).toBe(false);
+  });
+});
+
+
+describe("diagonal corner footprint", () => {
+  it("detects diagonal corner cabinets by code and description", () => {
+    expect(isDiagonalCorner("DCW-2424")).toBe(true); // diagonal corner wall
+    expect(isDiagonalCorner("WDC-24")).toBe(true);
+    expect(isDiagonalCorner("DCB-36")).toBe(true); // diagonal corner base
+    expect(isDiagonalCorner("AW-12")).toBe(true); // angled wall
+    expect(isDiagonalCorner("X-99", "Diagonal Corner Wall Cabinet")).toBe(true);
+    expect(isDiagonalCorner("B-24", "Base 24 inch")).toBe(false); // ordinary base
+    expect(isDiagonalCorner("BBC-36", "Blind Corner Base")).toBe(false); // blind, not diagonal
+  });
+
+  it("gives a diagonal corner wall cabinet a SQUARE footprint (depth == width), not the shallow 12\" wall depth", () => {
+    const d = footprintDepth({
+      id: 1, masterCode: "DCW-2424", description: "Diagonal Corner Wall",
+      category: "Wall", subCategory: null, width: "24", height: "30", depth: "12",
+      placement: "wall", numberOfDoors: 1, numberOfDrawers: 0, isCornerCabinet: true,
+    });
+    expect(d).toBe(24); // square bounding box, NOT the 12" wall depth
+  });
+
+  it("gives a diagonal corner BASE cabinet a square footprint matching its width", () => {
+    const d = footprintDepth({
+      id: 2, masterCode: "DCB-36", description: "Diagonal Corner Base",
+      category: "Base", subCategory: null, width: "36", height: "34.5", depth: "24",
+      placement: "base", numberOfDoors: 1, numberOfDrawers: 0, isCornerCabinet: true,
+    });
+    expect(d).toBe(36);
+  });
+
+  it("leaves ordinary wall/base cabinets at their normal shallow depth", () => {
+    expect(footprintDepth({
+      id: 3, masterCode: "W-2430", description: "Wall 24x30",
+      category: "Wall", subCategory: null, width: "24", height: "30", depth: "12",
+      placement: "wall", numberOfDoors: 1, numberOfDrawers: 0, isCornerCabinet: false,
+    })).toBe(12);
+    expect(footprintDepth({
+      id: 4, masterCode: "B-24", description: "Base 24",
+      category: "Base", subCategory: null, width: "24", height: "34.5", depth: "24",
+      placement: "base", numberOfDoors: 1, numberOfDrawers: 0, isCornerCabinet: false,
+    })).toBe(24);
+  });
+});
+
+
+describe("door swing (hinge side)", () => {
+  it("defaults a single-door base to a Left hinge", () => {
+    const p = cab({ masterCode: "B-18", description: "Base 18 1 Door", numberOfDoors: 1 });
+    expect(resolveSwing(p)).toBe("left");
+  });
+
+  it("defaults a two-door base to a double door (no single hinge side)", () => {
+    const p = cab({ masterCode: "B-36", description: "Base 36 2 Door", numberOfDoors: 2 });
+    expect(resolveSwing(p)).toBe("double");
+  });
+
+  it("reports no swing for drawer-only bases", () => {
+    const p = cab({ masterCode: "DB-15", description: "Drawer Base 15", numberOfDoors: 0, numberOfDrawers: 3 });
+    expect(resolveSwing(p)).toBe("none");
+    expect(hasDoorSwing(p)).toBe(false);
+  });
+
+  it("reports no swing for appliances and panels", () => {
+    const appliance = cab({ masterCode: "RANGE-30", description: "Range 30", placement: "appliance" });
+    expect(resolveSwing(appliance)).toBe("none");
+    const panel = cab({ masterCode: "BDEP", description: "Base/Dishwasher End Panel", numberOfDoors: 0 });
+    expect(resolveSwing(panel)).toBe("none");
+  });
+
+  it("honors an explicit swing override over the default", () => {
+    const p = cab({ masterCode: "B-18", description: "Base 18 1 Door", numberOfDoors: 1, swing: "right" });
+    expect(resolveSwing(p)).toBe("right");
+  });
+
+  it("toggles a single-door swing Left <-> Right and leaves double/none untouched", () => {
+    expect(cycleSwing("left")).toBe("right");
+    expect(cycleSwing("right")).toBe("left");
+    expect(cycleSwing("double")).toBe("double");
+    expect(cycleSwing("none")).toBe("none");
+  });
+
+  it("renders short and full hinge labels", () => {
+    const cases: [DoorSwing, string, string][] = [
+      ["left", "L", "Left hinge"],
+      ["right", "R", "Right hinge"],
+      ["double", "LR", "Double door"],
+      ["none", "", ""],
+    ];
+    for (const [s, short, full] of cases) {
+      expect(swingLabel(s)).toBe(short);
+      expect(swingText(s)).toBe(full);
+    }
   });
 });

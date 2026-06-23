@@ -967,3 +967,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Blind corner placement auto-snaps a 3" filler on the OPPOSITE (pull) side via blindCornerAutoFiller (projects full base depth into the corner); ambiguous corner -> no guess; tested
 - [x] Skyline easy-reach corner base cabinets (ERB-33, ERB-36) flagged isCornerCabinet=1, subCategory='Easy Reach Corner Base' (BES-12 corrected back to Base End Shelf)
 - [x] Safety rule: ambiguous corner/blind conditions (missing spec, undetermined pull side, no room for filler) leave the design in CONFLICT rather than guessing
+
+## Phase 25: Backlog continuation (engineering-ready items)
+
+- [x] Reconcile already-implemented duplicate backlog lines: verified in code — varied/mixed fills + break-around-openings live in shared/fillEngine.ts (planVariedWidths + forceFiller); intelligent filler + range/oven clearance filler in DesignTool; manual filler via makeFiller; blind-corner pull spec + auto-filler in design.ts
+- [x] Diagonal corner cabinet footprint = square bounding box: footprintDepth() returns width-as-depth for isDiagonalCorner() cabinets (DCW/WDC/DCB/AW/AG + "diagonal"); pentagon clip-path renderer in plan; added 4 vitest cases
+- [x] Multi-wall elevation: ElevationView already receives wall={activeWall}; added an in-panel WALL Back/Left/Front/Right switcher (onSelectWall) so you can flip walls from the elevation itself; wall label retained as fallback
+- [x] Door swing hinge L/R: DoorSwing model + resolveSwing/cycleSwing/swingLabel/swingText; Swing toolbar button + (S) shortcut + dropdown; L/R marker on plan AND now on elevation door fronts; Swing column on build-sheet CSV + L/R hinge note in BOM; added 7 vitest cases (default/double/none/override/cycle/labels)
+- [x] Mobile chat bubble: ChatWidget returns null on /design at <1024px (isDesignerTouch) and when the in-designer consultant panel is open, so it never covers the Delete/Cart toolbar; desktop chat unaffected
