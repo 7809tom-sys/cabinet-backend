@@ -2,6 +2,7 @@ import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN,
   type DoorPanelKind, type WallSide, cabinetWall, resolveSwing,
+  countertopMaterial,
 } from "@/lib/design";
 import { useRef, useEffect, useState } from "react";
 
@@ -17,6 +18,9 @@ interface Props {
   // panel (a compact Back/Front/Left/Right switcher) instead of going back to
   // the top toolbar. When omitted, the switcher is hidden.
   onSelectWall?: (side: WallSide) => void;
+  // When set, draw a thin colored countertop band on top of the base run at the
+  // 36" counter line, colored by the chosen material. null/undefined = no band.
+  countertopMaterialId?: string | null;
   openings?: WallOpening[];
   finish?: FinishColors;
   crown?: boolean;
@@ -26,7 +30,7 @@ interface Props {
 }
 
 export function ElevationView({
-  room, cabinets, selectedUid, onSelect, wall, onSelectWall, openings = [],
+  room, cabinets, selectedUid, onSelect, wall, onSelectWall, countertopMaterialId = null, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false,
   panelKind = "shaker",
 }: Props) {
@@ -99,6 +103,42 @@ export function ElevationView({
           className="absolute left-0 right-0 border-b border-dashed border-[#b08d57]/40"
           style={{ bottom: STD.COUNTERTOP_HEIGHT * ppi }}
         />
+
+        {/* Countertop band: a thin colored slab sitting on top of the base run,
+            its top edge on the 36" counter line, colored by the chosen material.
+            Spans the leftmost-to-rightmost base/appliance extent on this wall. */}
+        {countertopMaterialId && (() => {
+          const baseRun = sorted.filter(
+            (p) => p.placement === "base" || p.placement === "appliance"
+          );
+          if (baseRun.length === 0) return null;
+          const extents = baseRun.map((p) => {
+            const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+            const posAlong = horizontal ? p.x : p.y;
+            return { start: posAlong, end: posAlong + sizeAlong };
+          });
+          const left = Math.min(...extents.map((e) => e.start));
+          const right = Math.max(...extents.map((e) => e.end));
+          const mat = countertopMaterial(countertopMaterialId);
+          const THICKNESS_IN = 1.5;
+          const OVERHANG_IN = 0.75; // a little nosing past the cabinet faces
+          return (
+            <div
+              className="absolute z-20 pointer-events-none rounded-[1px]"
+              style={{
+                left: (left - OVERHANG_IN) * ppi,
+                width: (right - left + OVERHANG_IN * 2) * ppi,
+                bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                height: THICKNESS_IN * ppi,
+                background: mat.fill,
+                borderTop: `1px solid ${mat.edge}`,
+                borderBottom: `1px solid ${mat.edge}`,
+                boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+              }}
+              title={`${mat.name} countertop`}
+            />
+          );
+        })()}
 
         {sorted.map((p) => {
           const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;

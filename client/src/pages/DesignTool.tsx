@@ -598,10 +598,24 @@ export default function DesignTool() {
       out.push({ label: "TOE KICK", detail: `${toeKickOrder.pieces} pc @ ${toeKickOrder.stickFeet}ft` });
     if (batten && battenOrder && battenOrder.pieces > 0)
       out.push({ label: "BATTEN MOLDING (BAM)", detail: `${battenOrder.pieces} pc @ ${battenOrder.stickFeet}ft` });
-    if (countertop && counter && counter.squareFeet > 0)
-      out.push({ label: "COUNTERTOP (quote)", detail: `~${counter.squareFeet} sq ft / ${counter.linearFeet} lin ft` });
+    if (countertop && counter && counter.squareFeet > 0) {
+      const mat = countertopMaterial(countertopMaterialId);
+      out.push({
+        label: "COUNTERTOP (quote)",
+        detail: `${mat?.name ?? "Material TBD"} — ~${counter.squareFeet} sq ft / ${counter.linearFeet} lin ft`,
+      });
+    }
+    // Sinks placed into the counter are quote-only fixtures; list them so the
+    // shop sees the basin(s) + whether a faucet was requested.
+    if (sinks.length > 0) {
+      const faucetCount = sinks.filter((s) => s.faucet).length;
+      out.push({
+        label: "SINK (quote)",
+        detail: `${sinks.length} basin${sinks.length === 1 ? "" : "s"}${faucetCount > 0 ? ` + ${faucetCount} faucet${faucetCount === 1 ? "" : "s"}` : ""}`,
+      });
+    }
     return out;
-  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, countertop, counter]);
+  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, countertop, counter, countertopMaterialId, sinks]);
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -663,6 +677,23 @@ export default function DesignTool() {
     },
     [room, activeWall]
   );
+
+  // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
+  // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
+  // makeFiller spec as the auto-fill engine so it carries a code + width and
+  // shows on the build sheet. Default 3" — the most common scribe width.
+  const addManualFiller = useCallback(() => {
+    if (layoutLocked) { toast.info("Unlock the layout to add a filler."); return; }
+    const raw = window.prompt('Filler width in inches (typical 3", max 6"):', "3");
+    if (raw == null) return;
+    const w = Math.round(parseFloat(raw) * 10) / 10;
+    if (!Number.isFinite(w) || w <= 0) { toast.error("Enter a filler width greater than 0."); return; }
+    if (w > 6) { toast.error('Fillers are typically 6" or less — use a panel for wider gaps.'); return; }
+    const placement: DesignCabinet["placement"] = roomType === "closet" ? "base" : "base";
+    const fillerDef = makeFiller(w, placement);
+    addCabinet(fillerDef);
+    toast.success(`Added a ${w}" filler — drag it into the gap.`);
+  }, [layoutLocked, roomType, addCabinet]);
 
   // ── Auto-Fill: tile the active wall with a suggested run of cabinets ────────
   // Computes the usable span on the highlighted wall (wall length minus any
@@ -1475,6 +1506,7 @@ export default function DesignTool() {
               <DropdownMenuCheckboxItem checked={batten} onCheckedChange={() => setBatten((b) => !b)}>Batten molding</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={countertop} disabled={!countertop && !hasBaseRun} onCheckedChange={toggleCountertop}>Countertop</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={layoutLocked} onClick={addManualFiller}>Add filler…</DropdownMenuItem>
               <DropdownMenuItem disabled={!selectedUid || measureMode} onClick={swingSelected}>Swing door</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -1551,6 +1583,16 @@ export default function DesignTool() {
             className={`h-8 gap-1.5 ${batten ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
             <Columns3 className="h-3.5 w-3.5" /> Batten
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addManualFiller}
+            disabled={layoutLocked}
+            title="Add a filler/scribe strip (typical 3″) and drag it into a gap"
+            className="h-8 gap-1.5"
+          >
+            <Columns3 className="h-3.5 w-3.5" /> Filler
           </Button>
           <Button
             variant="outline"
@@ -1890,6 +1932,7 @@ export default function DesignTool() {
               onSelect={setSelectedUid}
               wall={activeWall}
               onSelectWall={setActiveWall}
+              countertopMaterialId={countertop ? countertopMaterialId : null}
               openings={openings}
               finish={activeFinish}
               crown={crown}
@@ -1944,6 +1987,7 @@ export default function DesignTool() {
                   onSelect={setSelectedUid}
                   wall={activeWall}
                   onSelectWall={setActiveWall}
+                  countertopMaterialId={countertop ? countertopMaterialId : null}
                   openings={openings}
                   finish={activeFinish}
                   crown={crown}

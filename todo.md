@@ -665,9 +665,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Audit storefront/nav/family/design tool/admin for door-first compliance
 
 ## Design Tool Fixes (2020-inspired usability)
-- [ ] Multi-wall elevation: pass activeWall into ElevationView (was hardcoded "front") so all 4 walls are viewable
-- [ ] Show which wall the elevation is displaying (label) + wall switcher works in Front View
-- [ ] Cabinet picker grouped/sorted by height (sticky height headers) so cabinets are easy to find
+- [x] Multi-wall elevation: ElevationView receives wall={activeWall}; all 4 walls viewable (see Phase 25)
+- [x] Show which wall the elevation is displaying (label) + wall switcher in Front View (in-panel WALL Back/Left/Front/Right switcher added in Phase 25)
+- [x] Cabinet picker grouped/sorted by height (sticky "42″ HIGH"/"35″ HIGH" headers) — verified rendering in browser
 
 ## Design Tool — heights, line sizing & conflict status (user request)
 - [x] Add real `height` to PlacedCabinet; capture on placement + package load
@@ -678,15 +678,15 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Island and the cabinets on it should move together when the island is dragged
 - [x] Build-sheet PRICING panel: consolidate identical cabinets (code+size) into one line with visible ×qty + line total
 - [x] Consolidated build-sheet line: delete control removes the item from the design (decrement qty when >1)
-- [ ] Door swing: add hinge side (Left/Right) per door cabinet — data model + toggle control in Design Tool
-- [ ] Door swing: render L/R indicator on plan + elevation canvas; show on build-sheet/order lines
-- [ ] Door swing: Vitest coverage for swing default + toggle
+- [x] Door swing: hinge side (Left/Right) per door cabinet — DoorSwing model + Swing toolbar toggle (see Phase 25)
+- [x] Door swing: L/R indicator on plan AND elevation; Swing column on build-sheet/order lines (Phase 25)
+- [x] Door swing: Vitest coverage for swing default + toggle (7 cases added in Phase 25)
 - [ ] (backlog) Email + password admin login for 7809tom@gmail.com (scope TBD with user)
-- [ ] Add a visible "Corner Wall" category/tab in the Design Tool cabinet picker (group diagonal/corner wall cabinets)
+- [x] Add a visible "Corner Wall" category/tab in the Design Tool cabinet picker (group diagonal/corner wall cabinets) — verified rendering (duplicate of below)
 - [x] Add "Wall by Ht" and "Corner Wall" tabs to Design Tool cabinet picker
 - [x] Diagonal corner wall cabinet draws as a 45-degree triangle (not L-shape/rectangle)
-- [ ] Diagonal corner cabinet footprint should be a square bounding box (~24" each wall), not 12" deep
-- [ ] Appliance Garage in Faircrest door style does not reflect correctly (investigate data/availability)
+- [x] Diagonal corner cabinet footprint = square bounding box (~24" each wall) via footprintDepth() (see Phase 25; 4 vitest cases)
+- [ ] Appliance Garage in Faircrest door style does not reflect correctly (investigate data/availability) — BLOCKED: no "Faircrest" style in DB / AG2418 not in catalog; awaiting catalog data from Rich
 
 ## Design Tool — session (round 3)
 - [x] Door swing (Left/Right hinge) helpers + data model
@@ -699,16 +699,16 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Wall cabinets allowed on island (move with island)
 - [ ] AG2418 appliance garage not in catalog — needs catalog data (awaiting list)
 - [ ] No "Faircrest" door style in DB — confirm intended style name
-- [ ] Click to set a (wall) cabinet to ground level / floor — pending scope confirm (A vs B)
+- [x] Click to set a (wall) cabinet to ground level / floor — shipped as right-click + "Drop to floor (island base)" (dropToFloor handler; top lands at 34.5")
 - [ ] Email + password login + admin (7809tom@gmail.com) — pending scope confirm
 
 ## Design Tool — blind corner rule
-- [ ] Blind corner base sits on floor (base height)
-- [ ] Blind corner requires a 3" filler on the blind side (auto-marked)
-- [ ] Adjacent perpendicular cabinet must be pulled 3" off the corner
-- [ ] Flag a conflict when the 3" pull/filler is missing
-- [ ] Show filler + violation on canvas and in BOM/export warning
-- [ ] Vitest coverage for the blind corner rule
+- [x] Blind corner base sits on floor (base height) — elevationBox base bottom=0
+- [x] Blind corner requires a 3" filler on the blind side (auto-marked) — blindCornerFillers + blindCornerAutoFiller
+- [x] Adjacent perpendicular cabinet must be pulled 3" off the corner — blindCornerViolations / pull spec
+- [x] Flag a conflict when the 3" pull/filler is missing — conflict banner + missing-spec conflict
+- [x] Show filler + violation on canvas and in BOM/export warning — hatched filler marker + BOM filler line
+- [x] Vitest coverage for the blind corner rule (design.test.ts)
 
 ## Closet Designer (v1 framework) + Blind corner rule
 - [x] Blind corner rule: flag conflict if adjacent cabinet not pulled 3" off the corner (description-driven detection)
@@ -792,12 +792,12 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Social sign-in + launch readiness (2026-06-23)
-- [ ] Surface prominent "Continue with Google" / "Continue with Apple" (+ Microsoft) buttons on SignIn page, routing through the Manus OAuth portal (Option A: no new credentials)
-- [ ] Keep email/password + a generic "more options" path; visually prioritize social buttons
-- [ ] Pass a provider hint to the portal where supported so the right provider is preselected
-- [ ] Diagnose published-site OAuth callback error (exchange_failed) — likely redirectUri/appId mismatch on the deployed origin
-- [ ] Ensure callback + getLoginUrl use the current origin so it works on cabinetdeals.com once DNS is connected
-- [ ] Vitest for login-url builder (provider hint + redirectUri); typecheck; checkpoint
+- [x] Surface prominent "Continue with Google" / "Continue with Apple" (+ Microsoft) buttons on SignIn page, routing through the Manus OAuth portal (Option A: no new credentials)
+- [x] Keep email/password + a generic "More sign-in options" path; social buttons visually prioritized
+- [x] Pass a provider hint to the portal (provider + loginMethod params) so the right provider is preselected
+- [ ] Diagnose published-site OAuth callback error (exchange_failed) — BLOCKED: needs the live published origin; getLoginUrl already uses window.location.origin so the redirectUri will match once published/DNS-connected. Re-test after publish.
+- [x] Ensure callback + getLoginUrl use the current origin so it works on cabinetdeals.com once DNS is connected (redirectUri = window.location.origin)
+- [x] Vitest for login-url builder (provider hint + redirectUri) — client/src/lib/loginUrl.test.ts (3 cases)
 - [ ] Report exact Publish + Settings→Domains DNS steps for cabinetdeals.com
 
 
@@ -860,23 +860,23 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Verify they appear in catalog + designer; run tests; checkpoint
 
 ## Phase 18: Chat bubble overlaps mobile designer toolbar (user report)
-- [ ] Locate where the floating chat widget is rendered (App-level / layout)
-- [ ] Hide or lift the chat bubble on the /design route at mobile widths so it never covers the bottom toolbar (Delete/Cart)
-- [ ] Verify on phone viewport that Delete + Cart are fully tappable; desktop chat unaffected
+- [x] Located: ChatWidget rendered at App level (client/src/App.tsx)
+- [x] Hidden on /design at <1024px (isDesignerTouch) AND when the in-designer consultant panel is open, so it never covers the Delete/Cart toolbar
+- [x] Desktop chat unaffected (launcher still shows at lg+)
 
 ## Phase 19: Auto-Design — mark wall span (A to B) -> auto-fill layout (user request)
-- [ ] UX: let user mark/measure a wall span and trigger "Auto-fill this wall"
-- [ ] Deterministic closet auto-fill rules (hanging single/double, shelf stacks, drawer banks) sized to the span
-- [ ] Deterministic kitchen auto-fill rules (base run, fillers, corners) sized to the span
-- [ ] Wire generated cabinets onto the canvas as normal placed items (movable/deletable); respect lock state
-- [ ] Vitest coverage for the fill algorithm (totals to within span, no overlaps, valid catalog codes)
+- [x] UX: "Auto-Fill Wall" toolbar button fills the active (highlighted) wall; breaks the run around door/window openings via freeSegmentsOnWall
+- [x] Deterministic closet auto-fill rules (closet FillMode candidates; falls back to base/tall when no closet parts) sized to the span
+- [x] Deterministic kitchen auto-fill rules (varied base run + fillers + range/oven clearance filler) sized to the span
+- [x] Generated cabinets placed as normal movable/deletable items via wallPlacementAt; respects layoutLocked
+- [x] Vitest coverage (autofill.test.ts + shared/fillEngine.test.ts): span coverage, no overlap/overflow, valid catalog widths, varied mix, clearance filler
 
 ## Phase 20: AI design-consultant chat mode (user request)
-- [ ] Designer chat panel acts as a design consultant: user describes wants ("8ft closet, hanging left, drawers right")
-- [ ] Consultant uses marked wall measurements + catalog (same family/distributor) as constraints
-- [ ] AI returns a structured layout (cabinet codes + positions) that is placed on the canvas, with a plain-language summary
-- [ ] Validate AI output against catalog (reject unknown codes, clamp to span) before placing
-- [ ] Vitest coverage for parsing/validating the AI layout payload
+- [x] Designer chat panel acts as a design consultant (DUP of Phase 21): slide-in Design Consultant panel
+- [x] Consultant uses marked wall measurements + catalog (same family/distributor) as constraints (server consult input: walls + styleId/distributorId)
+- [x] AI returns a structured layout placed on the canvas + plain-language summary (applyConsultPlan)
+- [x] Validates against catalog: LLM picks strategy only; deterministic fillEngine emits real SKUs (impossible to invent a code/size)
+- [x] Vitest: server/design.consult.test.ts (reply+plan, closet fallback, empty-wall reject) + fillEngine determinism
 
 ## Phase 18b: Closet mode is too restrictive — allow cabinets + doors in closets (user report)
 - [x] Root cause: the "Door/Win" + cabinet tabs render only when roomType===kitchen, so closets can ONLY place closet parts; user got stuck switching modes to add a door
@@ -897,12 +897,12 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Readout updates in real time and respects snapping; hides on drop
 - [x] 4 vitest cases for wallSpanMeasure pass (90 design tests green)
 
-## Phase 20: Deterministic wall-span auto-fill engine (user request)
-- [ ] New tested module autofill.ts: given a wall span length + mode (closet/kitchen) + catalog, tile real cabinets snapping to standard widths, add fillers as needed
-- [ ] "Auto-Fill Wall" control in the designer that fills the active wall (or a marked A->B span)
-- [ ] Placed items use existing nextFreeSpotOnWall/snapToWall geometry; movable/deletable like hand-placed; respects Lock Layout
-- [ ] Closet rules first (hanging single ~40, hanging double ~80, shelf stacks, drawer banks 24/30); kitchen base run reuse
-- [ ] Vitest covering exact fill math (sums to span, valid codes)
+## Phase 20: Deterministic wall-span auto-fill engine (user request) — DONE (see "Phase 20 (done)" + Phase 24)
+- [x] Tested module autofill.ts (wraps shared/fillEngine.ts): tiles real cabinets to standard widths + fillers
+- [x] "Auto-Fill Wall" control fills the active wall, breaking around openings
+- [x] Placed items use wallPlacementAt geometry; movable/deletable; respects Lock Layout
+- [x] Closet + kitchen rules (candidatesForMode); closet falls back to base/tall when no closet parts
+- [x] Vitest covering fill math (sums to span, valid codes) — autofill.test.ts + fillEngine.test.ts
 
 ## Phase 21: AI design-consultant chat (user request)
 - [x] Chat consultant panel (Design Consultant button + slide-in AIChatBox) interprets a described layout + marked wall measurements and proposes a plan
@@ -913,7 +913,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Fix: styleId/distributorId now nullish (was 400 when no door style selected)
 - [x] Fix: closet pool excludes accessory fronts/"display"/"door & drawer front"; requires real base/tall storage units
 - [x] Fix: hide global chat bubble while consultant panel open (no overlap)
-- [ ] Polish (later): varied/mixed fills instead of repeating the widest cabinet; break run around door openings
+- [x] Polish: varied/mixed fills (planVariedWidths) + break run around door openings (freeSegmentsOnWall) — shipped in Phase 24
 
 ## Phase 19b: New cabinets drop in room center, not the corner (user request)
 - [x] When adding a cabinet from the palette, place it at the center of the room (unattached) instead of snapping to the active wall's corner — verified in browser (fresh B-36 dropped centered)
@@ -935,8 +935,8 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Place a SINK into the countertop (basin) + a FAUCET indicator; 4 sink presets — verified (Bar/Prep + Double Bowl added, faucet toggle)
 - [x] Persist countertop material + sinks in the auto-saved draft (snapshot + restore + autosave deps)
 - [x] Vitest for countertopSurfaces/material/makeSink (96 design tests green); browser verify
-- [ ] FRONT/elevation view countertop band (deferred — plan view covers the core ask)
-- [ ] Show countertop material + sinks on BOM/quote line items (deferred polish)
+- [x] FRONT/elevation view countertop band: thin colored slab drawn on top of the base run at the 36" counter line, colored by the selected material (ElevationView countertopMaterialId)
+- [x] Show countertop material + sinks on BOM/quote line items: COUNTERTOP line now names the material; SINK line lists basins + faucets; both flow into the exported CSV
 
 ## Phase 23 (later): Cabinet hardware (knobs/pulls)
 - [ ] Hardware catalog (knobs, bar pulls, cup pulls) selectable per door/drawer or globally
@@ -945,8 +945,8 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 ## Phase 24: Smart fillers + range/oven corner rule + appliance/closet sizing (user request)
 - [x] Varied auto-fill layouts: planVariedWidths mixes standard widths (e.g. 96"->36+30+24) instead of repeating the widest; tests added
 - [x] Break the cabinet run around door/window openings: freeSegmentsOnWall + wallPlacementAt; Auto-Fill tiles each segment; tested
-- [ ] Intelligent filler placement: insert a real filler/scribe SKU for small leftover gaps; split a larger leftover into a balanced 2-sided reveal when sensible
-- [ ] Manual filler placement available from the palette (Accessory > Filler)
+- [x] Intelligent filler placement: fillEngine inserts a real FILL-* SKU for 1.5–6" leftover gaps and absorbs sub-threshold leftovers as reveal (autofill.test.ts covers both)
+- [x] Manual filler placement: "Filler" toolbar button + "Add filler…" in mobile More menu — prompts width (default 3", max 6"), drops a movable FILL-* item via makeFiller; respects Lock Layout; 3 new makeFiller vitest cases
 - [x] Range/oven corner clearance rule: rangeOvenClearanceViolations validator + 3" filler; UI warning + one-click Add clearance filler; tested
 - [x] Surface a design-check warning when a range/oven abuts a cabinet at a corner without clearance filler (red conflict banner + amber CTA button)
 - [x] Dishwasher panel sizing: BDEP corrected to 3"W x 34.5"H x 24"D, DWR-3 dishwasher end panel 3"W x 34.5"H; panels render at 3/4" stock via isPanelItem

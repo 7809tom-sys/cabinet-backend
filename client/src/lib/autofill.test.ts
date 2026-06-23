@@ -137,4 +137,24 @@ describe("makeFiller", () => {
     expect(parseFloat(f.width!)).toBeCloseTo(3.5, 2);
     expect(f.isCornerCabinet).toBe(false);
   });
+
+  it("defaults to a base-depth filler (manual palette drop)", () => {
+    const f = makeFiller(3);
+    expect(f.placement).toBe("base");
+    expect(parseFloat(f.depth!)).toBeCloseTo(24, 2);
+    expect(f.numberOfDoors).toBe(0);
+    expect(f.numberOfDrawers).toBe(0);
+  });
+
+  it("makes a shallow wall filler when placed on a wall run", () => {
+    const f = makeFiller(2, "wall");
+    expect(f.placement).toBe("wall");
+    expect(parseFloat(f.depth!)).toBeCloseTo(12, 2);
+  });
+
+  it("rounds odd widths to one decimal so the code/width stay tidy", () => {
+    const f = makeFiller(2.46);
+    expect(f.masterCode).toBe("FILL-2.5");
+    expect(parseFloat(f.width!)).toBeCloseTo(2.5, 2);
+  });
 });
