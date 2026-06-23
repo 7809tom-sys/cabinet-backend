@@ -407,10 +407,10 @@
 
 
 ## Phase 12: Design Tool molding/trim expansion (NEW REQUEST)
-- [ ] Catalog: ensure full molding/trim family exists as Accessory items (crown, decorative/dentil crown, rope molding, inset crown, scribe, light rail, batten/angle/shoe, fillers)
-- [ ] Design Tool currently only offers toe kick + crown molding -> add the rest of the molding/trim options
-- [ ] Allow STACKING/LAYERING of multiple trim pieces (e.g., crown + dentil strip on top + rope accent + light rail underneath)
-- [ ] Crown molding length rule: add extra inches for cuts (e.g., +3" for a 12" sidewall -> cut 15")
+- [x] Catalog: full molding/trim family exists as Accessory items — verified (2026-06-23): crown profiles CM-2/4/8, angle crown ACM-8, base crown BCM-8, cove COV, light rail ALRM-8, batten BAM, furniture base FBM, fillers (BF/BFF/F-3/F-6 wall+tall), skins, corner trim
+- [x] Design Tool now offers Toe Kick + Crown + Batten + Light Rail + manual Filler (was only toe kick + crown). Each is an independent toggle shown in Front View + added to the BOM/CSV
+- [x] Allow STACKING/LAYERING of multiple trim pieces — crown, batten, and light rail are independent toggles that can all be on at once (crown caps the top, light rail runs under uppers, batten covers seams) and each adds its own BOM line
+- [x] Crown/light-rail length rule: +3" miter allowance per WALL run (miteredTrimInches / MITER_ALLOWANCE_IN) — e.g. a 12" sidewall yields a 15" cut (covered by vitest)
 
 
 ## Phase 13: Decorative End Panel family DB fixes (confirmed by user + research)
@@ -854,10 +854,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Phase 17: Restore missing Faircrest pantry cabinets (user report)
-- [ ] Audit catalog for Faircrest pantry/utility cabinets (multi-part / 2-piece items) that appear deleted
-- [ ] Cross-check against master spreadsheet / source data to identify exact missing codes
-- [ ] Re-insert missing pantry cabinets with correct dimensions, type, and distributor SKUs/pricing
-- [ ] Verify they appear in catalog + designer; run tests; checkpoint
+- [x] Audited catalog (2026-06-23): 24 tall cabinets ALL present + active — ovens (O-*), microwave (MO-*), and the full utility/pantry range U-18/24/30 at 84/90/96" (9 SKUs). 0 rows contain the word "pantry" (active OR inactive); 9 "utility" cabinets. No deleted/inactive pantry rows exist.
+- [x] Cross-check: there is NO "Faircrest" distributor (Line A/B/C only) and NO Faircrest door style in the DB. The missing items are specific to the Faircrest line, which was never imported.
+- [ ] BLOCKED — needs the Faircrest source catalog/spreadsheet from Rich to import the line (distributor + door styles + SKUs/pricing). Cannot fabricate SKUs or prices. The platform's generic pantry/utility cabinets (U-series) are intact and usable in the meantime.
+- [ ] (After import) Verify they appear in catalog + designer; run tests; checkpoint
 
 ## Phase 18: Chat bubble overlaps mobile designer toolbar (user report)
 - [x] Located: ChatWidget rendered at App level (client/src/App.tsx)
@@ -888,8 +888,8 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Let a placed door/window be resized (width along wall; height for windows/openings where sensible)
 - [x] Add a simple size control (drag handle and/or numeric width input) when an opening is selected
 - [x] OpeningSizeEditor: numeric Width for all; Height + Sill for windows; clamped to wall length; verified on canvas (DOOR 36->48)
-- [ ] Clamp to the wall length; reflect new size in plan + elevation views
-- [ ] Persist adjusted size in the auto-saved draft; verify in browser
+- [x] Clamp to the wall length (clampOpening + wallLength in OpeningSizeEditor; clampOpeningsToRoom on room resize); new size reflected in plan + elevation (openings drive freeSegments + viewOpenings)
+- [x] Persist adjusted size in the auto-saved draft (openings in snapshot deps + restored via d.openings)
 
 ## Phase 19: Live drag tape-measure (20/20-style) (user request)
 - [x] While dragging a cabinet, show live dimension lines + numbers on BOTH sides along the wall at once: left edge -> previous obstacle (neighbor cabinet edge or wall) AND right edge -> next obstacle (neighbor or wall) — wallSpanMeasure() helper + dragTape overlay in PlanCanvas

@@ -177,7 +177,7 @@ describe("wall openings (doors & windows)", () => {
 
 import {
   finishColors, DEFAULT_FINISH_COLORS,
-  crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
+  crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   battenLinearInches, BATTEN_WIDTH_IN, BATTEN_THICKNESS_IN,
 } from "./design";
 
@@ -229,6 +229,20 @@ describe("trim linear footage", () => {
     const placed = [cab({ placement: "wall", width: 30, depth: 12, rotation: 90 })];
     // rotated width 12 + 3in miter allowance = 15.
     expect(crownLinearInches(placed)).toBe(15);
+  });
+  it("light rail sums ONLY wall cabinet widths (not base/tall/appliance)", () => {
+    const placed = [
+      cab({ placement: "wall", width: 30 }),
+      cab({ placement: "wall", width: 24 }),
+      cab({ placement: "tall", width: 24 }),
+      cab({ placement: "base", width: 36 }),
+    ];
+    // 30 + 24 = 54 wall run, + 3in miter allowance = 57 (tall/base excluded).
+    expect(lightRailLinearInches(placed)).toBe(57);
+  });
+  it("light rail is zero when there are no wall cabinets", () => {
+    const placed = [cab({ placement: "base", width: 36 }), cab({ placement: "tall", width: 24 })];
+    expect(lightRailLinearInches(placed)).toBe(0);
   });
 });
 

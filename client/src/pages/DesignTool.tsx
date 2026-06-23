@@ -33,7 +33,7 @@ import {
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
-  finishColors, crownLinearInches, toeKickLinearInches, inchesToLinearFeet,
+  finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   makeSink, SINK_PRESETS, type SinkFixture, type SinkType,
@@ -133,6 +133,7 @@ export default function DesignTool() {
   const [crown, setCrown] = useState(false);
   const [toeKick, setToeKick] = useState(false);
   const [batten, setBatten] = useState(false);
+  const [lightRail, setLightRail] = useState(false);
   // Countertop tool: measures base + island runs; not auto-priced (quote request).
   const [countertop, setCountertop] = useState(false);
   // Countertop material: when set, a visible slab is drawn over base cabinets.
@@ -470,6 +471,11 @@ export default function DesignTool() {
     () => (batten ? trimPiecesNeeded(battenLinearInches(placed, room)) : null),
     [batten, placed, room]
   );
+  // Light rail runs under the upper cabinets; mitered per wall like crown.
+  const lightRailOrder = useMemo(
+    () => (lightRail ? trimPiecesNeeded(lightRailLinearInches(placed, room)) : null),
+    [lightRail, placed, room]
+  );
   // Countertop is a POST-LAYOUT step: it can only be applied once the kitchen
   // has base cabinets (or an island) to sit on. A base run, a vanity, or an
   // island all count as a surface that takes a top.
@@ -598,6 +604,8 @@ export default function DesignTool() {
       out.push({ label: "TOE KICK", detail: `${toeKickOrder.pieces} pc @ ${toeKickOrder.stickFeet}ft` });
     if (batten && battenOrder && battenOrder.pieces > 0)
       out.push({ label: "BATTEN MOLDING (BAM)", detail: `${battenOrder.pieces} pc @ ${battenOrder.stickFeet}ft` });
+    if (lightRail && lightRailOrder && lightRailOrder.pieces > 0)
+      out.push({ label: "LIGHT RAIL MOLDING", detail: `${lightRailOrder.pieces} pc @ ${lightRailOrder.stickFeet}ft` });
     if (countertop && counter && counter.squareFeet > 0) {
       const mat = countertopMaterial(countertopMaterialId);
       out.push({
@@ -615,7 +623,7 @@ export default function DesignTool() {
       });
     }
     return out;
-  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, countertop, counter, countertopMaterialId, sinks]);
+  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, sinks]);
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -1245,6 +1253,7 @@ export default function DesignTool() {
     crown,
     toeKick,
     batten,
+    lightRail,
     countertop,
     countertopMaterialId,
     sinks,
@@ -1294,6 +1303,7 @@ export default function DesignTool() {
           setCrown(!!d.crown);
           setToeKick(!!d.toeKick);
           setBatten(!!d.batten);
+          setLightRail(!!d.lightRail);
           setCountertop(!!d.countertop);
           if (typeof d.countertopMaterialId === "string") setCountertopMaterialId(d.countertopMaterialId);
           if (Array.isArray(d.sinks)) setSinks(d.sinks);
@@ -1318,7 +1328,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, countertop, countertopMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -1504,6 +1514,7 @@ export default function DesignTool() {
               <DropdownMenuCheckboxItem checked={crown} onCheckedChange={() => setCrown((c) => !c)}>Crown molding</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={toeKick} onCheckedChange={() => setToeKick((t) => !t)}>Toe kick</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={batten} onCheckedChange={() => setBatten((b) => !b)}>Batten molding</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={lightRail} onCheckedChange={() => setLightRail((l) => !l)}>Light rail</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={countertop} disabled={!countertop && !hasBaseRun} onCheckedChange={toggleCountertop}>Countertop</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem disabled={layoutLocked} onClick={addManualFiller}>Add filler…</DropdownMenuItem>
@@ -1517,7 +1528,7 @@ export default function DesignTool() {
                   setIsland(null);
                   setSelectedUid(null);
                   setSelectedOpeningUid(null);
-                  setCrown(false); setToeKick(false); setBatten(false); setCountertop(false);
+                  setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false);
                   clearDraft();
                   toast.success("Started a new design.");
                 }}
@@ -1583,6 +1594,15 @@ export default function DesignTool() {
             className={`h-8 gap-1.5 ${batten ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
             <Columns3 className="h-3.5 w-3.5" /> Batten
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setLightRail((l) => !l)}
+            title="Light rail molding: valance under wall cabinets; shown in Front View"
+            className={`h-8 gap-1.5 ${lightRail ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
+          >
+            <PanelTop className="h-3.5 w-3.5" /> Light Rail
           </Button>
           <Button
             variant="outline"
@@ -1938,6 +1958,7 @@ export default function DesignTool() {
               crown={crown}
               toeKick={toeKick}
               batten={batten}
+              lightRail={lightRail}
               panelKind={activePanelKind}
             />
           )}
@@ -1993,6 +2014,7 @@ export default function DesignTool() {
                   crown={crown}
                   toeKick={toeKick}
                   batten={batten}
+                  lightRail={lightRail}
                   panelKind={activePanelKind}
                 />
               </div>

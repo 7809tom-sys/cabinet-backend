@@ -1,6 +1,6 @@
 import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
-  FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN,
+  FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
   type DoorPanelKind, type WallSide, cabinetWall, resolveSwing,
   countertopMaterial,
 } from "@/lib/design";
@@ -26,12 +26,13 @@ interface Props {
   crown?: boolean;
   toeKick?: boolean;
   batten?: boolean;
+  lightRail?: boolean;
   panelKind?: DoorPanelKind;
 }
 
 export function ElevationView({
   room, cabinets, selectedUid, onSelect, wall, onSelectWall, countertopMaterialId = null, openings = [],
-  finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false,
+  finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker",
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -244,6 +245,31 @@ export function ElevationView({
                 zIndex: 3,
               }}
               title="Crown molding"
+            />
+          );
+        })}
+
+        {/* Light rail: slim valance strip under the bottom edge of each wall
+            cabinet (hides under-cabinet lighting). */}
+        {lightRail && sorted.filter((p) => p.placement === "wall").map((p) => {
+          const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+          const posAlong = horizontal ? p.x : p.y;
+          const { bottom } = elevationBox(p);
+          return (
+            <div
+              key={`lightrail-${p.uid}`}
+              className="absolute"
+              style={{
+                left: posAlong * ppi + 1,
+                width: sizeAlong * ppi - 2,
+                bottom: (bottom - LIGHT_RAIL_HEIGHT_IN) * ppi,
+                height: Math.max(2, LIGHT_RAIL_HEIGHT_IN * ppi),
+                background: finish.edge,
+                borderBottom: `1px solid ${finish.label === "#f8fafc" || finish.label === "#f5f5f5" ? finish.edge : "#1a2744"}`,
+                borderRadius: "0 0 2px 2px",
+                zIndex: 3,
+              }}
+              title="Light rail molding"
             />
           );
         })}

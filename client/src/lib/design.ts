@@ -712,6 +712,7 @@ export function finishColors(styleCodeOrName?: string | null): FinishColors {
 // cabinets (wall widths for crown, base+tall widths for toe kick).
 export const CROWN_HEIGHT_IN = 3;     // visual crown band height in elevation
 export const TOE_KICK_HEIGHT_IN = STD.TOE_KICK; // 4.5"
+export const LIGHT_RAIL_HEIGHT_IN = 1.5; // light rail valance under wall cabinets
 // Any mitered trim (crown, light rail, decorative molding) loses length at the
 // 45° corner cuts, so each continuous wall run needs extra material. Trade rule
 // of thumb: add 3" to each wall's run (e.g. a 12" wall needs a 15" cut). The
@@ -770,6 +771,19 @@ export function toeKickLinearInches(placed: PlacedCabinet[]): number {
   return placed
     .filter((p) => p.placement === "base" || p.placement === "tall")
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
+}
+
+// Light rail runs along the BOTTOM edge of UPPER (wall) cabinets only (hides
+// under-cabinet lighting). Like crown it's mitered per wall, so it carries the
+// same corner allowance, but it never applies to tall/base cabinets.
+export function lightRailLinearInches(placed: PlacedCabinet[], room?: RoomData): number {
+  const wallCabs = placed.filter((p) => p.placement === "wall");
+  if (wallCabs.length === 0) return 0;
+  if (!room) {
+    const run = wallCabs.reduce((s, p) => s + rotatedSize(p).w, 0);
+    return run + MITER_ALLOWANCE_IN;
+  }
+  return miteredTrimInches(wallCabs, room);
 }
 
 // ─── Batten molding (BAM) ─────────────────────────────────────────────────────
