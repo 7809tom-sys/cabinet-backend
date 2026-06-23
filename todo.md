@@ -224,17 +224,17 @@
 - [x] Typecheck + vitest pass (107 tests green); browser verify signup + admin review
 
 
-## Cabinet imagery: to-scale 2D drawings per model (user request — ~380 models, image must match model + size)
-- [ ] Build CabinetDrawing SVG component: proportions from real width/height (12" narrow vs 30" wide)
-- [ ] Front detail by type: standard doors, drawer base (stacked drawers), sink base (false tilt-out top + sink cutout, NOT straight edge), appliance garage (tambour roll-up slats), blind corner (L-shape), vanity, ADA, accessory/molding (thin strip)
-- [ ] Derive drawing type from category/subCategory/masterCode + numberOfDoors/numberOfDrawers
-- [ ] Replace generic Package icon on Catalog cards with CabinetDrawing
-- [ ] Replace generic Package icon on Cabinet Detail with CabinetDrawing
-- [ ] Use CabinetDrawing in Design Tool palette/canvas where helpful (consistency)
-- [ ] Unit tests for drawing-type selection + proportion (aspect ratio from w/h)
-- [ ] Typecheck + vitest pass
-- [ ] Browser verify: 12" vs 30" drawer base look different, sink base tilt-out+cutout, appliance garage tambour
-- [ ] Checkpoint
+## Cabinet imagery: to-scale 2D drawings per model (user request — ~380 models, image must match model + size) — SUPERSEDED by the completed block below (all items shipped via CabinetDrawing)
+- [x] Build CabinetDrawing SVG component: proportions from real width/height (12" narrow vs 30" wide)
+- [x] Front detail by type: standard doors, drawer base, sink base (tilt-out + cutout), appliance garage (tambour), blind corner (L-shape), vanity, ADA, accessory/molding
+- [x] Derive drawing type from category/subCategory/masterCode + numberOfDoors/numberOfDrawers
+- [x] Replace generic Package icon on Catalog cards with CabinetDrawing
+- [x] Replace generic Package icon on Cabinet Detail with CabinetDrawing
+- [x] Use CabinetDrawing in Design Tool palette/canvas
+- [x] Unit tests for drawing-type selection + proportion
+- [x] Typecheck + vitest pass
+- [x] Browser verify: 12" vs 30" drawer base differ, sink base tilt-out+cutout, appliance garage tambour
+- [x] Checkpoint
 
 
 ## Cabinet imagery: to-scale 2D drawings per model (~380 models; image must match model + size)
@@ -444,14 +444,11 @@
 
 
 ## Phase 16: Catalog reclassification + Accessory sub-groups
-- [ ] CLASSIFICATION RULE: test each item against Base / Wall / Tall / Vanity. If it is a real cabinet, put it there. If NOT (fillers, panels, moldings, glass doors, inserts) -> Accessory
-- [ ] Verify OE-6-30/36/42 "Oven Filler Cabinet" via lookup; if it is a filler (not a real cabinet) -> Accessory / Trim & Molding
-- [ ] Audit ALL items with "Cabinet" in the name that may not be real cabinets; audit every Accessory item
-- [ ] Split Accessory into sub-groups via subCategory convention: "Trim & Molding", "Glass Door", "Accessory" (general)
-  - Trim & Molding: scribe, crown, cove, shoe, light rail, base/angle/outside-corner molding, all fillers (F-*, BF, WF, TF, OE oven filler), batten
-  - Glass Door: glass door fronts/inserts (description states it is a glass door; sold separately on lines like Faircrest)
-  - Accessory (general): roll-out trays, waste bins, wood tray inserts, touch-up kit, legs, decorative legs, mini cabinet, floating shelves, skin panels, decorative end panels
-- [ ] PRINCIPLE: storefront shows FAMILIES (door styles), categories must be clean/consolidated within a family - never scattered categories
+- [x] CLASSIFICATION RULE applied & audited (2026-06-23): every non-cabinet (fillers, moldings, scribes, panels, skins, end panels) is under Accessory; real cabinets stay in Base/Wall/Tall/Vanity/ADA
+- [x] OE-6-30/36/42 verified: it is NOT an oven filler — it's a "Wall Open End Shelf" (6"W open display shelf that mounts on the wall = a real cabinet). Correctly classified Wall / Specialty Wall; no move needed
+- [x] Audited all non-Accessory items whose description contains filler/molding/scribe/light rail/end panel/skin: the ONLY hits are legitimate glass-door WALL cabinets (DCW-*GD, W-*GD) which correctly stay in Wall per the GD decision. Zero misclassified accessories remain in cabinet categories
+- [x] Accessory already sub-grouped via subCategory: Trim & Molding, Decorative End Panel, End Panel, Skin Panel, Roll-Out Tray, Wood Tray Insert, Waste Bin Insert, Floating Shelf, Decorative Leg, Full Height Panel, etc. (glass doors are real Wall cabinets, not an Accessory sub-group)
+- [x] PRINCIPLE upheld: storefront browses FAMILIES (door styles) -> clean Base/Wall/Tall/Vanity/ADA/Accessory categories, no scattered categories (verified in earlier storefront check)
 - [x] Glass doors: GD wall cabinets + stackers stay in Wall (real cabinets, description identifies); "Make this a glass door?" upsell swaps solid wall cabinet -> buyable GD twin on storefront (tested)
 - [x] Oven cabinets must NOT have glass doors (glass doors ordered separately): glassDoorUpsell only fires for wall codes (W/AW/DCW/WER/WD); oven (O-/MO-) + tall (U-/TS-) excluded by construction
 - [x] TOUCH-UP KIT: exists in catalog (Accessory); Design Tool always auto-recommends + one-click add; ALSO auto-suggested at checkout (order review) with one-click Add TUK (priced per style/tier) — browser-verified
@@ -975,3 +972,18 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Multi-wall elevation: ElevationView already receives wall={activeWall}; added an in-panel WALL Back/Left/Front/Right switcher (onSelectWall) so you can flip walls from the elevation itself; wall label retained as fallback
 - [x] Door swing hinge L/R: DoorSwing model + resolveSwing/cycleSwing/swingLabel/swingText; Swing toolbar button + (S) shortcut + dropdown; L/R marker on plan AND now on elevation door fronts; Swing column on build-sheet CSV + L/R hinge note in BOM; added 7 vitest cases (default/double/none/override/cycle/labels)
 - [x] Mobile chat bubble: ChatWidget returns null on /design at <1024px (isDesignerTouch) and when the in-designer consultant panel is open, so it never covers the Delete/Cart toolbar; desktop chat unaffected
+
+
+## Phase 26: Homeowner pricing competitor research (user request 2026-06-23 — "have homeowner price but please shop for pricing")
+- [x] Pulled current homeowner prices + cost floor for a 10-item basket (scripts/price-basket.mjs)
+- [x] Researched competitor RETAIL street prices across 8 sellers + Home Depot ceiling (scripts/price-research.md)
+- [x] Computed market median per item; we run ~1.6-2.6x over market (scripts/price-reco.mjs)
+- [x] Recommendation written: ~5% under median, floor = cost x1.7, holds 41-61% margin (HOMEOWNER_PRICING_RECOMMENDATION.md)
+- [x] User approved Option A (2026-06-23) — applied in Phase 27
+
+## Phase 27: Apply approved homeowner repricing (Option A, approved 2026-06-23)
+- [x] Backed up all 10,643 rows (homeowner+adjustedList) to scripts/price-backup-<ts>.json + .sql (reversible restore UPDATEs)
+- [x] Built category+width market-median model calibrated to the shopped data (scripts/apply-homeowner-pricing.mjs)
+- [x] Applied: homeowner = max(round(median*0.95), round(cost*1.7)); adjustedListPrice (Compare-at) = old homeowner. 9,629 SKUs lowered, catalog homeowner value -33%
+- [x] Verified: 0 below cost, avg margin 47.7%, min 41%, all 10,643 have Compare-at; the 2,224 'below 1.7x' are exact-1.70x rounded to whole dollars (not a real violation)
+- [ ] NOTE: storefront CabinetDetail/DesignTool only expose Wholesale+Contractor tiers — homeowner price/Compare-at not yet surfaced to guests (needs homeowner-tier display decision; see Phase 28)
