@@ -41,9 +41,9 @@ function Hero() {
             </h1>
 
             <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
-              Start with a door style you love, then see every cabinet available in that
-              exact look — with trade pricing instantly. Design kitchens in 2D and submit
-              orders, all in one membership.
+              Start with a door style you love, then browse the cabinets offered in
+              that look — each style has its own lineup, with trade pricing instantly.
+              Design kitchens in 2D and submit orders, all in one membership.
             </p>
 
             {/* CTAs */}
@@ -290,7 +290,7 @@ function DistributorsStrip() {
       <div className="container">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <p className="text-sm font-medium text-muted-foreground shrink-0">
-            Every cabinet, in the door style you want:
+            Pick a door style, see its cabinet lineup:
           </p>
           <div className="flex flex-wrap justify-center md:justify-end gap-3">
             {styles.map((name) => (
