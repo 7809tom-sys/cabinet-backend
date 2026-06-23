@@ -28,6 +28,18 @@ export function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [connecting, setConnecting] = useState(false);
+  // The Designer's own "Design Consultant" panel is a second chat surface that
+  // overlaps the bottom-right launcher. While it's open, hide this global
+  // launcher/panel so the two never collide. The designer dispatches a
+  // "cd:consultant" CustomEvent({ detail: { open } }) when it opens/closes.
+  const [consultantOpen, setConsultantOpen] = useState(false);
+  useEffect(() => {
+    const onConsultant = (e: Event) => {
+      setConsultantOpen(Boolean((e as CustomEvent<{ open?: boolean }>).detail?.open));
+    };
+    window.addEventListener("cd:consultant", onConsultant as EventListener);
+    return () => window.removeEventListener("cd:consultant", onConsultant as EventListener);
+  }, []);
 
   const chat = trpc.assistant.chat.useMutation();
 
@@ -79,7 +91,7 @@ export function ChatWidget() {
     }
   }, []);
 
-  if (isDesignerTouch) return null;
+  if (isDesignerTouch || consultantOpen) return null;
 
   return (
     <>

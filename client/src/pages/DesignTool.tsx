@@ -3,7 +3,7 @@ import { useSearch } from "wouter";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
-  Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X,
+  Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ import {
   closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
 } from "@/lib/closet";
 import { autoFillSpan, type FillMode } from "@/lib/autofill";
+import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
 import { EmailGate } from "@/components/design/EmailGate";
@@ -55,6 +56,17 @@ import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { CabinetImage } from "@/components/CabinetImage";
+
+// One wall's worth of a consultant plan (mirrors the server `consult` output).
+type ConsultPlanWall = {
+  wallId: string;
+  wallLabel: string;
+  mode: FillMode;
+  intent: string;
+  items: Array<{ masterCode: string; description: string; width: number; placement: string; isFiller: boolean; cabinetId: number }>;
+  usedInches: number;
+  leftoverInches: number;
+};
 
 type ViewMode = "plan" | "elevation" | "split";
 type PricingTier = "Wholesale" | "Contractor";
@@ -651,6 +663,98 @@ export default function DesignTool() {
     });
   }, [layoutLocked, activeWall, room, roomType, autoFillCabinets, placed, openings]);
 
+  // ── AI Design Consultant ────────────────────────────────────────────────────
+  // The consultant takes the user's marked walls + request, asks the server
+  // (which uses the SAME deterministic fill engine as Auto-Fill), and drops the
+  // returned plan onto the canvas. Everything it places is movable/deletable.
+  const [consultOpen, setConsultOpen] = useState(false);
+  // Tell the global ChatWidget to hide its floating launcher while the
+  // Design Consultant panel is open (they share the bottom-right corner).
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("cd:consultant", { detail: { open: consultOpen } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent("cd:consultant", { detail: { open: false } }));
+    };
+  }, [consultOpen]);
+  const [consultMessages, setConsultMessages] = useState<AIMessage[]>([]);
+
+  // The room's four walls as spans (usable length = full wall minus the openings
+  // on it), so the consultant works with realistic numbers.
+  const consultWalls = useMemo(() => {
+    const sides: WallSide[] = ["top", "bottom", "left", "right"];
+    return sides.map((side) => {
+      const full = side === "top" || side === "bottom" ? room.width : room.depth;
+      const openingW = openings.filter((o) => o.side === side).reduce((s, o) => s + o.width, 0);
+      return { id: side, label: WALL_LABELS[side], lengthInches: Math.max(12, full - openingW) };
+    });
+  }, [room, openings]);
+
+  // Apply a returned plan: place each wall's items flush along that wall.
+  const applyConsultPlan = useCallback(
+    (plan: ConsultPlanWall[]) => {
+      if (layoutLocked) { toast.info("Unlock the layout to apply a suggested design."); return; }
+      if (!plan || plan.length === 0) return;
+      let total = 0;
+      setPlaced((prev) => {
+        let working = [...prev];
+        for (const wall of plan) {
+          const side = wall.wallId as WallSide;
+          for (const it of wall.items) {
+            const width = it.width;
+            const depth = it.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
+            const height = it.placement === "wall" ? STD.WALL_HEIGHT : it.placement === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT;
+            const spot = nextFreeSpotOnWall(width, depth, "base", side, room, working);
+            const newCab: PlacedCabinet = {
+              uid: makeUid(),
+              cabinetId: it.cabinetId,
+              masterCode: it.masterCode,
+              description: it.description,
+              placement: "base",
+              x: spot.x,
+              y: spot.y,
+              width,
+              depth,
+              height,
+              rotation: spot.rotation,
+              catalogImageUrl: null,
+            };
+            working = [...working, newCab];
+            total++;
+          }
+        }
+        return working;
+      });
+      if (total > 0) toast.success(`Design consultant placed ${total} item${total === 1 ? "" : "s"} — drag or swap anything.`);
+    },
+    [layoutLocked, room],
+  );
+
+  const consultMutation = trpc.design.consult.useMutation({
+    onSuccess: (res) => {
+      setConsultMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
+      if (res.plan && res.plan.length > 0) applyConsultPlan(res.plan as ConsultPlanWall[]);
+    },
+    onError: () => {
+      setConsultMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Sorry, I had trouble with that. Try describing the wall and what you'd like on it." },
+      ]);
+    },
+  });
+
+  const sendConsult = useCallback(
+    (content: string) => {
+      setConsultMessages((prev) => [...prev, { role: "user", content }]);
+      consultMutation.mutate({
+        message: content,
+        walls: consultWalls,
+        roomType,
+        styleId: styleId ?? undefined,
+      });
+    },
+    [consultMutation, consultWalls, roomType, styleId],
+  );
+
   // ── Sink + faucet fixtures ──────────────────────────────────────────────────
   const addSink = useCallback((type: SinkType) => {
     const preset = SINK_PRESETS[type];
@@ -1119,6 +1223,15 @@ export default function DesignTool() {
           >
             <Wand2 className="h-3.5 w-3.5" />
             Auto-Fill Wall
+          </button>
+          <button
+            type="button"
+            onClick={() => setConsultOpen((o) => !o)}
+            title="Ask the AI design consultant to lay out a wall from your description"
+            className="flex items-center gap-1.5 rounded-lg border border-[#1a2744]/30 bg-[#1a2744]/5 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition-colors hover:bg-[#1a2744]/10"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Design Consultant
           </button>
         </div>
 
@@ -1960,6 +2073,61 @@ export default function DesignTool() {
           roomData={room}
           placedCabinets={placed}
         />
+      )}
+
+      {/* AI Design Consultant slide-in panel */}
+      {consultOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setConsultOpen(false)}
+          />
+          <div className="relative flex h-full w-full max-w-md flex-col bg-card shadow-2xl border-l border-border animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-[#d4a75a]" />
+                <div>
+                  <h2 className="font-serif text-sm font-bold text-foreground leading-tight">Design Consultant</h2>
+                  <p className="text-[10px] text-muted-foreground">
+                    {roomType === "closet" ? "Closet" : "Kitchen"} · walls: {consultWalls.map((w) => `${w.label} ${Math.round(w.lengthInches)}"`).join(" · ")}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConsultOpen(false)}
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close design consultant"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <AIChatBox
+                messages={consultMessages}
+                onSendMessage={sendConsult}
+                isLoading={consultMutation.isPending}
+                height="100%"
+                placeholder={`Describe what you want on a wall (e.g. "fill the ${consultWalls[0]?.label ?? "back"} wall with base cabinets and leave room for a sink")`}
+                emptyStateMessage="Tell me about the wall you're designing and what you'd like on it. I'll lay it out using real cabinets from your catalog — then you can drag, swap, or delete anything."
+                suggestedPrompts={
+                  roomType === "closet"
+                    ? [
+                        "Fill the back wall with hanging space on the left and drawers on the right",
+                        "Give me a reach-in closet with shelves and a drawer bank",
+                      ]
+                    : [
+                        "Fill the back wall with base cabinets and leave room for a sink",
+                        "Design a kitchen wall with a 30-inch range opening in the middle",
+                      ]
+                }
+              />
+            </div>
+            <div className="border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
+              Suggestions use real catalog cabinets and your marked wall sizes. Everything placed is fully editable.
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

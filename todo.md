@@ -905,10 +905,15 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Vitest covering exact fill math (sums to span, valid codes)
 
 ## Phase 21: AI design-consultant chat (user request)
-- [ ] Chat consultant mode that interprets a described layout + marked wall measurements and proposes a plan
-- [ ] AI selects strategy; deterministic engine places real catalog parts (no hallucinated SKUs/sizes)
-- [ ] Uses catalog + door styles + distributor families + project rules + aggregated/anonymized network popularity (no personal/financial data)
-- [ ] Proposed layout is applied to the canvas and is fully editable
+- [x] Chat consultant panel (Design Consultant button + slide-in AIChatBox) interprets a described layout + marked wall measurements and proposes a plan
+- [x] AI selects strategy only; shared deterministic fillEngine places real catalog parts (no hallucinated SKUs/sizes) — verified via API: closet+kitchen both fill 96" wall exactly (B-48+B-48), leftover 0
+- [x] Uses catalog + door styles + distributor families + project rules; layout-only (no personal/financial data)
+- [x] Proposed layout applied to canvas via applyConsultPlan using nextFreeSpotOnWall; fully editable
+- [x] Server tests (design.consult.test.ts, 5 cases) + deterministic fallback for build requests; 104 tests green
+- [x] Fix: styleId/distributorId now nullish (was 400 when no door style selected)
+- [x] Fix: closet pool excludes accessory fronts/"display"/"door & drawer front"; requires real base/tall storage units
+- [x] Fix: hide global chat bubble while consultant panel open (no overlap)
+- [ ] Polish (later): varied/mixed fills instead of repeating the widest cabinet; break run around door openings
 
 ## Phase 19b: New cabinets drop in room center, not the corner (user request)
 - [x] When adding a cabinet from the palette, place it at the center of the room (unattached) instead of snapping to the active wall's corner — verified in browser (fresh B-36 dropped centered)
