@@ -3,6 +3,7 @@ import { useSearch } from "wouter";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
+  Boxes, ShoppingCart, MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
@@ -68,6 +77,10 @@ export default function DesignTool() {
     { enabled: !!packageSlug && verified, retry: 1 }
   );
   const packageErrorRef = useRef(false);
+
+  // Mobile layout: which slide-up panel is open (catalog picker or cart/BOM).
+  const isMobile = useIsMobile();
+  const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart">(null);
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
@@ -826,7 +839,32 @@ export default function DesignTool() {
           </button>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* Mobile: compact "More" menu with the toggles that live in the desktop toolbar */}
+        <div className="ml-auto flex items-center gap-2 md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <MoreHorizontal className="h-4 w-4" /> More
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel>Tools</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem checked={measureMode} onCheckedChange={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}>Measure</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={!!island} onCheckedChange={() => setIsland((cur) => cur ? null : { width: Math.min(48, room.width - 24), depth: Math.min(24, room.depth - 24), x: Math.max(0, room.width / 2 - 24), y: Math.max(0, room.depth / 2 - 12) })}>Island zone</DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Trim (Front View)</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem checked={crown} onCheckedChange={() => setCrown((c) => !c)}>Crown molding</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={toeKick} onCheckedChange={() => setToeKick((t) => !t)}>Toe kick</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={batten} onCheckedChange={() => setBatten((b) => !b)}>Batten molding</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={countertop} onCheckedChange={() => setCountertop((c) => !c)}>Countertop</DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={!selectedUid || measureMode} onClick={swingSelected}>Swing door</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Desktop action cluster */}
+        <div className="ml-auto hidden md:flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -942,8 +980,14 @@ export default function DesignTool() {
 
       {/* Main area */}
       <div className="flex flex-1 min-h-0">
-        {/* Left palette */}
-        <div className="w-60 shrink-0 border-r border-border bg-card flex flex-col">
+        {/* Left palette — inline column on desktop; slide-in drawer on mobile.
+            Mobile wraps the SAME body in a left Sheet; desktop renders it as a
+            fixed-width column. The body markup below is shared (no duplication). */}
+        <PaletteShell
+          isMobile={isMobile}
+          open={mobilePanel === "catalog"}
+          onOpenChange={(o) => setMobilePanel(o ? "catalog" : null)}
+        >
           <div className="p-3 border-b border-border">
             {/* Room type: Kitchen cabinets vs Closet system parts */}
             <div className="flex rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
@@ -1063,10 +1107,10 @@ export default function DesignTool() {
           <div className="p-2 border-t border-border text-[10px] text-muted-foreground text-center">
             Click or drag to add · drag on canvas to snap
           </div>
-        </div>
+        </PaletteShell>
 
         {/* Canvas */}
-        <div className="flex-1 min-w-0 relative">
+        <div className="flex-1 min-w-0 relative pb-14 md:pb-0">
           {viewMode === "plan" && (
             <PlanCanvas
               room={room}
@@ -1170,8 +1214,12 @@ export default function DesignTool() {
           )}
         </div>
 
-        {/* Right: pricing + BOM */}
-        <div className="w-72 shrink-0 border-l border-border bg-card flex flex-col">
+        {/* Right: pricing + BOM — inline column on desktop; bottom drawer on mobile */}
+        <PricingShell
+          isMobile={isMobile}
+          open={mobilePanel === "cart"}
+          onOpenChange={(o) => setMobilePanel(o ? "cart" : null)}
+        >
           <div className="p-3 border-b border-border space-y-2">
             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pricing</div>
 
@@ -1440,8 +1488,45 @@ export default function DesignTool() {
               </Button>
             )}
           </div>
-        </div>
+        </PricingShell>
       </div>
+
+      {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
+      {isMobile && (
+        <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden">
+          <div className="grid grid-cols-5 h-14">
+            <MobileBarButton
+              icon={<Boxes className="h-5 w-5" />}
+              label="Catalog"
+              onClick={() => setMobilePanel("catalog")}
+            />
+            <MobileBarButton
+              icon={viewMode === "elevation" ? <LayoutGrid className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              label={viewMode === "elevation" ? "Plan" : "Front"}
+              onClick={() => setViewMode((m) => (m === "elevation" ? "plan" : "elevation"))}
+            />
+            <MobileBarButton
+              icon={<RotateCw className="h-5 w-5" />}
+              label="Rotate"
+              disabled={!selectedUid || measureMode}
+              onClick={rotateSelected}
+            />
+            <MobileBarButton
+              icon={<Trash2 className="h-5 w-5" />}
+              label="Delete"
+              disabled={!selectedUid || measureMode}
+              danger
+              onClick={deleteSelected}
+            />
+            <MobileBarButton
+              icon={<ShoppingCart className="h-5 w-5" />}
+              label="Cart"
+              badge={placed.length || undefined}
+              onClick={() => setMobilePanel("cart")}
+            />
+          </div>
+        </div>
+      )}
 
       {counter && (
         <CountertopQuoteDialog
@@ -1455,6 +1540,97 @@ export default function DesignTool() {
           placedCabinets={placed}
         />
       )}
+    </div>
+  );
+}
+
+// ─── Mobile bottom-bar button ───────────────────────────────────────────────
+function MobileBarButton({
+  icon, label, onClick, disabled, danger, badge,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+  badge?: number;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`relative flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors active:scale-95 disabled:opacity-40 ${
+        danger ? "text-destructive" : "text-foreground"
+      }`}
+    >
+      <span className="relative">
+        {icon}
+        {badge != null && (
+          <span className="absolute -right-2 -top-1.5 min-w-4 h-4 px-1 rounded-full bg-[#1a2744] text-white text-[9px] font-bold flex items-center justify-center">
+            {badge}
+          </span>
+        )}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+// ─── Mobile-aware column shells ─────────────────────────────────────────────
+// Each renders its children inline as a fixed-width desktop column, or inside a
+// slide-in Sheet on mobile, so the heavy palette / pricing markup is written
+// once and reused for both layouts.
+function PaletteShell({
+  isMobile, open, onOpenChange, children,
+}: {
+  isMobile: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: React.ReactNode;
+}) {
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="left" className="w-[88vw] max-w-sm p-0 gap-0 flex flex-col">
+          <SheetHeader className="px-3 py-2 border-b border-border text-left">
+            <SheetTitle className="text-sm">Catalog</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+  return (
+    <div className="hidden md:flex w-60 shrink-0 border-r border-border bg-card flex-col">
+      {children}
+    </div>
+  );
+}
+
+function PricingShell({
+  isMobile, open, onOpenChange, children,
+}: {
+  isMobile: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  children: React.ReactNode;
+}) {
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="h-[82vh] p-0 gap-0 flex flex-col rounded-t-2xl">
+          <SheetHeader className="px-3 py-2 border-b border-border text-left">
+            <SheetTitle className="text-sm">Estimate & Build Sheet</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+  return (
+    <div className="hidden md:flex w-72 shrink-0 border-l border-border bg-card flex-col">
+      {children}
     </div>
   );
 }

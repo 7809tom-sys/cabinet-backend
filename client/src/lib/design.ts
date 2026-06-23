@@ -935,6 +935,68 @@ export function feetInchesToInches(feet: number, inches: number): number {
   return clampRoomInches(total);
 }
 
+/**
+ * Parse a free-form tape-measure length into inches (unclamped).
+ * Accepts: 10' 6", 10ft 6in, 126", 126, 120 1/2, 10' 6 1/2", 8.5', 102.5
+ * Returns null when the string can't be understood.
+ */
+export function parseLengthToInches(raw: string): number | null {
+  if (raw == null) return null;
+  let s = String(raw).trim().toLowerCase();
+  if (!s) return null;
+  // normalize unit words/symbols to ' (feet) and " (inches)
+  s = s
+    .replace(/feet|foot|ft/g, "'")
+    .replace(/\u2019/g, "'")
+    .replace(/inches|inch|in\b/g, '"')
+    .replace(/\u201d/g, '"')
+    .replace(/''/g, '"');
+  s = s.replace(/\s+/g, " ").trim();
+
+  // turn a numeric token (with optional fraction) into a number
+  const toNum = (tok: string): number | null => {
+    tok = tok.trim();
+    if (!tok) return null;
+    const mixed = tok.match(/^(\d+)\s*[- ]\s*(\d+)\s*\/\s*(\d+)$/);
+    if (mixed) {
+      const den = parseInt(mixed[3], 10);
+      if (den === 0) return null;
+      return parseInt(mixed[1], 10) + parseInt(mixed[2], 10) / den;
+    }
+    const frac = tok.match(/^(\d+)\s*\/\s*(\d+)$/);
+    if (frac) {
+      const den = parseInt(frac[2], 10);
+      if (den === 0) return null;
+      return parseInt(frac[1], 10) / den;
+    }
+    if (/^\d+(\.\d+)?$/.test(tok)) return parseFloat(tok);
+    return null;
+  };
+
+  let feet = 0;
+  let inches = 0;
+  let matched = false;
+
+  const footMatch = s.match(/^([\d./\- ]+?)'/);
+  if (footMatch) {
+    const f = toNum(footMatch[1]);
+    if (f != null) { feet = f; matched = true; }
+    s = s.slice(footMatch[0].length).trim();
+  }
+
+  const inchStr = s.replace(/"/g, "").trim();
+  if (inchStr) {
+    const i = toNum(inchStr);
+    if (i != null) { inches = i; matched = true; }
+    else if (!matched) return null;
+  }
+
+  if (!matched) return null;
+  const total = feet * 12 + inches;
+  if (!Number.isFinite(total) || total <= 0) return null;
+  return total;
+}
+
 export function inchesToFeetInches(totalInches: number): { feet: number; inches: number } {
   const t = Math.round(totalInches);
   return { feet: Math.floor(t / 12), inches: t % 12 };

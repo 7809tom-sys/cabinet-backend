@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Maximize, Pencil } from "lucide-react";
+import { Maximize, Pencil, Ruler, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  RoomData, feetInchesToInches, inchesToFeetInches,
+  RoomData, inchesToFeetInches, parseLengthToInches, clampRoomInches,
 } from "@/lib/design";
 
 interface Props {
@@ -25,29 +25,34 @@ const PRESETS: { label: string; width: number; depth: number }[] = [
   { label: "16 × 12", width: 192, depth: 144 },
 ];
 
+// Display inches as a clean tape-measure string, e.g. 126 -> 10' 6"
+function toTapeString(totalInches: number): string {
+  const { feet, inches } = inchesToFeetInches(totalInches);
+  if (inches === 0) return `${feet}'`;
+  return `${feet}' ${inches}"`;
+}
+
 export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Props) {
   const [open, setOpen] = useState(false);
 
-  // Local feet/inches fields, seeded from the current room and kept in sync
-  // whenever the room changes externally (e.g. mouse-draw or package preload).
-  const wInit = inchesToFeetInches(room.width);
-  const dInit = inchesToFeetInches(room.depth);
-  const [wFt, setWFt] = useState(String(wInit.feet));
-  const [wIn, setWIn] = useState(String(wInit.inches));
-  const [dFt, setDFt] = useState(String(dInit.feet));
-  const [dIn, setDIn] = useState(String(dInit.inches));
+  // Single tape-measure field per wall, seeded from the current room and kept in
+  // sync whenever the room changes externally (mouse-draw / package preload).
+  const [wStr, setWStr] = useState(() => toTapeString(room.width));
+  const [dStr, setDStr] = useState(() => toTapeString(room.depth));
 
   useEffect(() => {
-    const w = inchesToFeetInches(room.width);
-    const d = inchesToFeetInches(room.depth);
-    setWFt(String(w.feet)); setWIn(String(w.inches));
-    setDFt(String(d.feet)); setDIn(String(d.inches));
+    setWStr(toTapeString(room.width));
+    setDStr(toTapeString(room.depth));
   }, [room.width, room.depth]);
 
+  const wParsed = parseLengthToInches(wStr);
+  const dParsed = parseLengthToInches(dStr);
+  const wValid = wParsed != null;
+  const dValid = dParsed != null;
+
   const apply = () => {
-    const width = feetInchesToInches(parseInt(wFt || "0", 10), parseInt(wIn || "0", 10));
-    const depth = feetInchesToInches(parseInt(dFt || "0", 10), parseInt(dIn || "0", 10));
-    onChange({ width, depth });
+    if (!wValid || !dValid) return;
+    onChange({ width: clampRoomInches(wParsed!), depth: clampRoomInches(dParsed!) });
     setOpen(false);
   };
 
@@ -65,49 +70,62 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
             <span className="text-xs">Room: {fmt(wDisp)} × {fmt(dDisp)}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-72" align="start">
+        <PopoverContent className="w-80" align="start">
           <div className="space-y-3">
+            <div className="flex items-start gap-2">
+              <Ruler className="h-4 w-4 mt-0.5 text-[#a87f33] shrink-0" />
+              <div>
+                <div className="text-sm font-semibold text-foreground">Measure your room</div>
+                <p className="text-[11px] text-muted-foreground">
+                  Grab a tape measure and enter each wall. Type any format — <span className="font-medium">10' 6"</span>, <span className="font-medium">126"</span>, or <span className="font-medium">120 1/2</span>.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              <WallField
+                label="Back wall (width)"
+                value={wStr}
+                onChange={setWStr}
+                onEnter={apply}
+                parsed={wParsed}
+                valid={wValid}
+              />
+              <WallField
+                label="Side wall (depth)"
+                value={dStr}
+                onChange={setDStr}
+                onEnter={apply}
+                parsed={dParsed}
+                valid={dValid}
+              />
+            </div>
+
             <div>
-              <div className="text-sm font-semibold text-foreground">Room size</div>
-              <p className="text-[11px] text-muted-foreground">Enter your kitchen's wall dimensions.</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Width (along back wall)</Label>
-                <div className="flex items-center gap-1">
-                  <Input value={wFt} onChange={(e) => setWFt(e.target.value.replace(/[^0-9]/g, ""))} className="h-8 text-xs" inputMode="numeric" />
-                  <span className="text-[11px] text-muted-foreground">ft</span>
-                  <Input value={wIn} onChange={(e) => setWIn(e.target.value.replace(/[^0-9]/g, ""))} className="h-8 text-xs" inputMode="numeric" />
-                  <span className="text-[11px] text-muted-foreground">in</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Depth (side wall)</Label>
-                <div className="flex items-center gap-1">
-                  <Input value={dFt} onChange={(e) => setDFt(e.target.value.replace(/[^0-9]/g, ""))} className="h-8 text-xs" inputMode="numeric" />
-                  <span className="text-[11px] text-muted-foreground">ft</span>
-                  <Input value={dIn} onChange={(e) => setDIn(e.target.value.replace(/[^0-9]/g, ""))} className="h-8 text-xs" inputMode="numeric" />
-                  <span className="text-[11px] text-muted-foreground">in</span>
-                </div>
+              <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Quick presets</Label>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={() => onChange({ width: p.width, depth: p.depth })}
+                    className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/60 transition-colors"
+                  >
+                    {p.label} ft
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-1">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.label}
-                  onClick={() => onChange({ width: p.width, depth: p.depth })}
-                  className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/60 transition-colors"
-                >
-                  {p.label} ft
-                </button>
-              ))}
-            </div>
-
-            <Button onClick={apply} className="w-full h-8 bg-[#1a2744] text-white hover:bg-[#243456]">
-              Apply size
+            <Button
+              onClick={apply}
+              disabled={!wValid || !dValid}
+              className="w-full h-9 bg-[#1a2744] text-white hover:bg-[#243456] gap-1.5"
+            >
+              <Check className="h-4 w-4" /> Apply room size
             </Button>
+            <p className="text-[10px] text-muted-foreground text-center">
+              Tip: always double-check critical dimensions with your tape before ordering.
+            </p>
           </div>
         </PopoverContent>
       </Popover>
@@ -121,6 +139,39 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
       >
         <Pencil className="h-3.5 w-3.5" /> Draw Room
       </Button>
+    </div>
+  );
+}
+
+function WallField({
+  label, value, onChange, onEnter, parsed, valid,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onEnter: () => void;
+  parsed: number | null;
+  valid: boolean;
+}) {
+  const showError = value.trim().length > 0 && !valid;
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") onEnter(); }}
+        placeholder={`e.g. 10' 6"`}
+        inputMode="text"
+        className={`h-9 text-sm ${showError ? "border-red-400 focus-visible:ring-red-400" : ""}`}
+      />
+      <div className="h-3.5 text-[10px] leading-none">
+        {valid && parsed != null ? (
+          <span className="text-emerald-600">= {Math.round(parsed * 100) / 100}" ({toTapeString(parsed)})</span>
+        ) : showError ? (
+          <span className="text-red-500">Couldn't read that — try 10' 6" or 126"</span>
+        ) : null}
+      </div>
     </div>
   );
 }

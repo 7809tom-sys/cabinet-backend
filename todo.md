@@ -777,4 +777,15 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Added ?view=front/split default-view param for deep-linking elevation
 - [x] Verify in browser (plan + elevation screenshots), tests 365 pass, typecheck clean
 
-- [ ] Mobile UX: design canvas is unusable on phones — add "best on larger screen" notice + simplified mobile mode (browse/preview/request quote instead of tiny drag canvas)
+- [x] Mobile UX: design canvas now usable on phones — full-bleed canvas + bottom toolbar + drawers (see below)
+
+
+## Mobile designer + tape-measure room entry (2026-06-23)
+- [x] Tape-measure room entry: RoomSizeControl now takes a single tape-measure field per wall (Back/Front/Left/Right) that builds the room to scale
+- [x] Parse feet/inches + fractions (e.g. 10' 6", 126", 120 1/2", 10 ft 6 in, decimals) into inches — parseLengthToInches in design.ts + 6 vitest cases (server/parseLength.test.ts)
+- [x] Mobile layout: full-bleed canvas on phones with a fixed bottom toolbar (Catalog · Front/Bird's-Eye view toggle · Rotate · Delete · Cart w/ item badge)
+- [x] Catalog/cabinet picker as its own mobile drawer (left Sheet) — reuses the exact desktop palette JSX via PaletteShell wrapper (no duplication)
+- [x] Cart/BOM + pricing as its own mobile drawer (bottom Sheet) — reuses desktop pricing JSX via PricingShell wrapper
+- [x] Desktop toolbar tool toggles (Measure/Island/Crown/Toe Kick/Batten/Countertop/Swing) collapse into a mobile "More" dropdown; desktop layout untouched at md+
+- [x] Keep desktop layout intact (responsive, mobile-first additions only) — side columns are hidden md:flex; mobile renders same content in Sheets
+- [x] Verify on phone (390x844) plan + catalog drawer + cart drawer + desktop; 371 tests pass; typecheck clean; checkpoint
