@@ -3,7 +3,7 @@ import { useSearch } from "wouter";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
-  Boxes, ShoppingCart, MoreHorizontal,
+  Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,6 +119,11 @@ export default function DesignTool() {
   // Active wall: the wall the user has highlighted. New items drop onto it, and
   // it can be dragged on the canvas to resize the room on that side.
   const [activeWall, setActiveWall] = useState<WallSide>("top");
+  // Lock state: layoutLocked freezes the whole room/walls/openings/island so the
+  // plan can't be nudged while placing cabinets. lockedWalls freezes individual
+  // walls. Cabinets can always still be added/moved.
+  const [layoutLocked, setLayoutLocked] = useState(false);
+  const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
   // Add-on accessories added from the "don't forget this" recommendations
   // (touch-up kit, roll-out trays). These are non-spatial BOM line items keyed
   // by cabinetId, so they price + export without cluttering the floor plan.
@@ -790,6 +795,8 @@ export default function DesignTool() {
     countertop,
     roomType,
     activeWall,
+    layoutLocked,
+    lockedWalls: Array.from(lockedWalls),
   }));
 
   const writeDraft = usePersistFn(() => {
@@ -835,6 +842,8 @@ export default function DesignTool() {
           setCountertop(!!d.countertop);
           if (d.roomType) setRoomType(d.roomType);
           if (d.activeWall) setActiveWall(d.activeWall);
+          setLayoutLocked(!!d.layoutLocked);
+          if (Array.isArray(d.lockedWalls)) setLockedWalls(new Set(d.lockedWalls as WallSide[]));
           if (Array.isArray(d.placed) && d.placed.length > 0) {
             toast.success("Restored your in-progress design.");
           }
@@ -852,7 +861,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, countertop, roomType, activeWall, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, countertop, roomType, activeWall, layoutLocked, lockedWalls, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -901,17 +910,20 @@ export default function DesignTool() {
 
         <div className="h-5 w-px bg-border" />
 
-        {/* Room size editor + mouse-draw mode */}
-        <RoomSizeControl
-          room={room}
-          onChange={applyRoom}
-          drawMode={drawMode}
-          onToggleDraw={() => {
-            setDrawMode((d) => !d);
-            setSelectedUid(null);
-            setMeasureMode(false);
-          }}
-        />
+        {/* Room size editor + mouse-draw mode. Disabled while the layout is locked. */}
+        <div className={layoutLocked ? "pointer-events-none opacity-50" : ""} title={layoutLocked ? "Unlock the layout to edit the room" : undefined}>
+          <RoomSizeControl
+            room={room}
+            onChange={applyRoom}
+            drawMode={drawMode}
+            onToggleDraw={() => {
+              if (layoutLocked) return;
+              setDrawMode((d) => !d);
+              setSelectedUid(null);
+              setMeasureMode(false);
+            }}
+          />
+        </div>
 
         <div className="h-5 w-px bg-border" />
 
@@ -920,19 +932,53 @@ export default function DesignTool() {
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] font-medium text-muted-foreground">Wall:</span>
           <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
-            {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
-              <button
-                key={w}
-                onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                title={`Highlight the ${WALL_LABELS[w]} wall — new items land here; drag it on the canvas to resize`}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                  activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {WALL_LABELS[w]}
-              </button>
-            ))}
+            {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => {
+              const wLocked = layoutLocked || lockedWalls.has(w);
+              return (
+                <div key={w} className="flex items-center">
+                  <button
+                    onClick={() => { setActiveWall(w); setDrawMode(false); }}
+                    title={`Highlight the ${WALL_LABELS[w]} wall — new items land here; drag it on the canvas to resize`}
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {WALL_LABELS[w]}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (layoutLocked) { toast.info("Whole layout is locked. Turn off Lock Layout to lock walls individually."); return; }
+                      setLockedWalls((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(w)) next.delete(w); else next.add(w);
+                        return next;
+                      });
+                    }}
+                    title={wLocked ? `${WALL_LABELS[w]} wall is locked — click to unlock` : `Lock the ${WALL_LABELS[w]} wall so it can't be resized`}
+                    className={`ml-0.5 mr-0.5 rounded p-1 transition-colors ${
+                      wLocked ? "text-[#d4a75a]" : "text-muted-foreground/50 hover:text-foreground"
+                    }`}
+                  >
+                    {wLocked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
+                  </button>
+                </div>
+              );
+            })}
           </div>
+          <button
+            onClick={() => {
+              setLayoutLocked((v) => !v);
+              setDrawMode(false);
+              toast.success(!layoutLocked ? "Layout locked — walls & room are frozen. Cabinets can still be placed." : "Layout unlocked.");
+            }}
+            title={layoutLocked ? "Unlock the floor plan and walls" : "Lock the floor plan and walls so they can't be moved while you place cabinets"}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              layoutLocked ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {layoutLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+            {layoutLocked ? "Locked" : "Lock Layout"}
+          </button>
         </div>
 
         <div className="h-5 w-px bg-border" />
@@ -1279,6 +1325,8 @@ export default function DesignTool() {
               onSelectWall={setActiveWall}
               onResizeWall={resizeWall}
               conflictUids={conflictUids}
+              layoutLocked={layoutLocked}
+              lockedWalls={lockedWalls}
             />
           )}
           {viewMode === "elevation" && (
@@ -1324,6 +1372,8 @@ export default function DesignTool() {
                   onSelectWall={setActiveWall}
                   onResizeWall={resizeWall}
                   conflictUids={conflictUids}
+                  layoutLocked={layoutLocked}
+                  lockedWalls={lockedWalls}
                 />
               </div>
               <div className="flex-1 min-h-0">

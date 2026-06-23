@@ -846,11 +846,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Verified in browser: placed DB-12-3, fired visibilitychange, reloaded, re-entered email -> design restored; 378 tests pass
 
 ## Phase 16: Lock floor plan / walls (user request)
-- [ ] Global "Lock Layout" toggle in toolbar: freezes room resize + wall drag while still allowing cabinet add/move
-- [ ] Per-wall lock: lock individual walls so they can't be dragged to resize
-- [ ] Disable Draw Room + room-size editing when locked; show lock state visually on canvas
-- [ ] Wire lock state into PlanCanvas wall-drag handlers and RoomSizeControl
-- [ ] Verify on desktop + mobile; run tests; checkpoint
+- [x] Global "Lock Layout" toggle in toolbar: freezes room resize + wall drag + opening/island move while still allowing cabinet add/move (toast confirms)
+- [x] Per-wall lock: each wall has a padlock toggle; locked walls show a padlock badge + "<wall> — locked" label and can't be dragged
+- [x] Draw Room + room-size editing disabled when locked; lock state shown on canvas
+- [x] Wired lock state into PlanCanvas wall/opening/island handlers + drawMode commit guard; lock state persisted in draft
+- [x] Verified in browser (global + per-wall locked states render, walls frozen); 378 tests pass
 
 
 ## Phase 17: Restore missing Faircrest pantry cabinets (user report)

@@ -45,6 +45,10 @@ interface Props {
   onResizeWall?: (side: WallSide, deltaIn: number) => void;
   // Uids of items that are in a conflict (e.g. appliance running into a cabinet).
   conflictUids?: Set<string>;
+  // Lock state: when layoutLocked is true the whole room/walls/openings/island
+  // are frozen (cabinets can still be moved). lockedWalls freezes specific walls.
+  layoutLocked?: boolean;
+  lockedWalls?: Set<WallSide>;
 }
 
 export function PlanCanvas({
@@ -54,7 +58,10 @@ export function PlanCanvas({
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
   activeWall, onSelectWall, onResizeWall, conflictUids,
+  layoutLocked = false, lockedWalls,
 }: Props) {
+  // A wall cannot be resized if the whole layout is locked or that wall is locked.
+  const isWallLocked = (side: WallSide) => layoutLocked || !!lockedWalls?.has(side);
   // Door/window drag along its wall (move) or width-resize.
   const openingDrag = useRef<
     | { mode: "move" | "resize"; startX: number; startY: number; orig: WallOpening }
@@ -62,7 +69,7 @@ export function PlanCanvas({
   >(null);
 
   const onOpeningPointerDown = (e: React.PointerEvent, o: WallOpening, mode: "move" | "resize") => {
-    if (!onOpeningChange) return;
+    if (!onOpeningChange || layoutLocked) return;
     e.stopPropagation();
     onSelectOpening?.(o.uid);
     openingDrag.current = { mode, startX: e.clientX, startY: e.clientY, orig: { ...o } };
@@ -96,7 +103,7 @@ export function PlanCanvas({
   >(null);
 
   const onIslandPointerDown = (e: React.PointerEvent, mode: "move" | "resize") => {
-    if (!island || !onIslandChange) return;
+    if (!island || !onIslandChange || layoutLocked) return;
     e.stopPropagation();
     islandDrag.current = { mode, startX: e.clientX, startY: e.clientY, orig: { ...island } };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -223,6 +230,7 @@ export function PlanCanvas({
     if (!r || r.w < 12 || r.h < 12) return;
     const width = clampRoomInches(r.w / ppi);
     const depth = clampRoomInches(r.h / ppi);
+    if (layoutLocked) return;
     onDrawRoom({ width, depth });
   };
 
@@ -230,7 +238,7 @@ export function PlanCanvas({
   const onWallPointerDown = (e: React.PointerEvent, side: WallSide) => {
     e.stopPropagation();
     onSelectWall?.(side);
-    if (!onResizeWall) return;
+    if (!onResizeWall || isWallLocked(side)) return;
     wallDrag.current = { side, startX: e.clientX, startY: e.clientY };
     setWallPreview({ side, w: room.width, h: room.depth });
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
@@ -396,6 +404,7 @@ export function PlanCanvas({
         {onSelectWall && !measureMode && !drawMode && (["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
           const horizontal = side === "top" || side === "bottom";
           const isActive = activeWall === side;
+          const wallLocked = isWallLocked(side);
           const band = 14;
           const wstyle: React.CSSProperties = horizontal
             ? {
@@ -403,14 +412,14 @@ export function PlanCanvas({
                 width: roomPxW,
                 height: band,
                 top: side === "top" ? 0 : roomPxH - band,
-                cursor: onResizeWall ? "ns-resize" : "pointer",
+                cursor: wallLocked ? "pointer" : onResizeWall ? "ns-resize" : "pointer",
               }
             : {
                 top: 0,
                 height: roomPxH,
                 width: band,
                 left: side === "left" ? 0 : roomPxW - band,
-                cursor: onResizeWall ? "ew-resize" : "pointer",
+                cursor: wallLocked ? "pointer" : onResizeWall ? "ew-resize" : "pointer",
               };
           return (
             <div
@@ -431,7 +440,16 @@ export function PlanCanvas({
                   className="pointer-events-none rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold text-white shadow whitespace-nowrap"
                   style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
                 >
-                  {WALL_LABELS[side].toUpperCase()} — drag to resize
+                  {WALL_LABELS[side].toUpperCase()}{wallLocked ? " — locked" : " — drag to resize"}
+                </span>
+              )}
+              {wallLocked && !isActive && (
+                <span
+                  className="pointer-events-none rounded bg-[#1a2744]/80 px-1 text-[9px] font-bold text-[#d4a75a] shadow"
+                  style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
+                  title={`${WALL_LABELS[side]} wall is locked`}
+                >
+                  🔒
                 </span>
               )}
             </div>
