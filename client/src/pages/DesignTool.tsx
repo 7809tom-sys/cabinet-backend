@@ -72,6 +72,10 @@ export default function DesignTool() {
   const search = useSearch();
   const packageSlug = useMemo(() => new URLSearchParams(search).get("package"), [search]);
   const loadedPackageRef = useRef<string | null>(null);
+  // Auto-save draft: flips true once we've attempted to restore a saved draft,
+  // so the debounced save effect doesn't overwrite the stored draft with the
+  // initial empty state before restore runs.
+  const draftRestoredRef = useRef(false);
   const { data: packageLayout, isError: packageError } = trpc.packages.layout.useQuery(
     { slug: packageSlug ?? "" },
     { enabled: !!packageSlug && verified, retry: 1 }

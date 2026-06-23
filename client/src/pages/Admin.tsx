@@ -24,6 +24,7 @@ import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
 import CustomersAdmin from "@/components/admin/CustomersAdmin";
 import SkuImageManager from "@/components/admin/SkuImageManager";
+import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -369,6 +370,7 @@ export default function Admin() {
           <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
           <TabsTrigger value="pros">Pro Applications</TabsTrigger>
           <TabsTrigger value="quotes">Countertop Quotes</TabsTrigger>
+          <TabsTrigger value="featured">Featured Styles</TabsTrigger>
           <TabsTrigger value="distributors">Distributors</TabsTrigger>
           <TabsTrigger value="images">Product Images</TabsTrigger>
         </TabsList>
@@ -386,6 +388,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="quotes" className="mt-6">
           <CountertopQuotes />
+        </TabsContent>
+        <TabsContent value="featured" className="mt-6">
+          <FeaturedStylesAdmin />
         </TabsContent>
         <TabsContent value="images" className="mt-6">
           <SkuImageManager />

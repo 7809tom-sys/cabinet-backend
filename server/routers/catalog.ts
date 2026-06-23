@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { eq, and, like, inArray, isNotNull, sql } from "drizzle-orm";
-import { publicProcedure, router } from "../_core/trpc";
+import { eq, and, like, inArray, isNotNull, sql, desc, asc } from "drizzle-orm";
+import { publicProcedure, adminProcedure, router } from "../_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { getDb } from "../db";
 import {
   cabinets,
@@ -107,6 +108,89 @@ export const doorStylesRouter = router({
         )
         .limit(1);
       return rows[0] ? scrubDoorStyle(rows[0]) : null;
+    }),
+
+  // ── Featured door styles (admin-curated 80/20 merchandising) ────────────────
+  // Public: the curated set pushed on the storefront, ordered by rank, hard
+  // capped at 30 so the affiliate/homeowner sees a focused selection.
+  featured: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const rows = await db
+      .select()
+      .from(doorStyles)
+      .where(and(eq(doorStyles.isActive, true), eq(doorStyles.isFeatured, true)))
+      .orderBy(asc(doorStyles.featuredRank), asc(doorStyles.ourName))
+      .limit(30);
+    return rows.map(scrubDoorStyle);
+  }),
+
+  // Admin: every active style with its featured flag/rank, for the manager UI.
+  listForAdmin: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const rows = await db
+      .select()
+      .from(doorStyles)
+      .where(eq(doorStyles.isActive, true))
+      .orderBy(asc(doorStyles.ourName));
+    return rows; // admin sees full rows (incl. distributorName) intentionally
+  }),
+
+  // Admin: toggle a style's featured state. Enforces the MAX 30 cap on enable.
+  setFeatured: adminProcedure
+    .input(z.object({ id: z.number(), featured: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      if (input.featured) {
+        const [{ cnt }] = await db
+          .select({ cnt: sql<number>`count(*)` })
+          .from(doorStyles)
+          .where(and(eq(doorStyles.isActive, true), eq(doorStyles.isFeatured, true)));
+        // Allow re-featuring an already-featured row without tripping the cap.
+        const already = await db
+          .select({ isFeatured: doorStyles.isFeatured })
+          .from(doorStyles)
+          .where(eq(doorStyles.id, input.id))
+          .limit(1);
+        const isAlready = already[0]?.isFeatured === true;
+        if (!isAlready && Number(cnt) >= 30) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You can feature up to 30 door styles. Remove one before adding another.",
+          });
+        }
+        // New featured items go to the end of the order by default.
+        const [{ maxRank }] = await db
+          .select({ maxRank: sql<number>`coalesce(max(featuredRank), 0)` })
+          .from(doorStyles)
+          .where(and(eq(doorStyles.isActive, true), eq(doorStyles.isFeatured, true)));
+        await db
+          .update(doorStyles)
+          .set({ isFeatured: true, featuredRank: Number(maxRank) + 10 })
+          .where(eq(doorStyles.id, input.id));
+      } else {
+        await db
+          .update(doorStyles)
+          .set({ isFeatured: false })
+          .where(eq(doorStyles.id, input.id));
+      }
+      return { ok: true };
+    }),
+
+  // Admin: persist a new order for the featured styles (array of ids, in order).
+  reorderFeatured: adminProcedure
+    .input(z.object({ orderedIds: z.array(z.number()).max(30) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      let rank = 10;
+      for (const id of input.orderedIds) {
+        await db.update(doorStyles).set({ featuredRank: rank }).where(eq(doorStyles.id, id));
+        rank += 10;
+      }
+      return { ok: true };
     }),
 
   // ── Family catalog (the door-style-FAMILY-first shopping view) ──────────────

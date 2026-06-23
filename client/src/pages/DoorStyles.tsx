@@ -174,6 +174,8 @@ export default function DoorStyles() {
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
   const { data: styles, isLoading } = trpc.doorStyles.list.useQuery();
+  // Admin-curated featured set (80/20 merchandising), ordered by rank, max 30.
+  const { data: featuredData } = trpc.doorStyles.featured.useQuery();
 
   // De-duplicate styles by display name (the same style can be carried by more
   // than one supply line internally; members should only ever see it once).
@@ -195,9 +197,44 @@ export default function DoorStyles() {
     return Array.from(set).sort();
   }, [uniqueStyles]);
 
+  // Featured push styles come from the admin-curated list (Admin → Featured
+  // Styles). The backend already orders by rank and caps at 30; we preserve
+  // that order here. Membership is keyed by display name so de-duped rows match.
+  const featuredNames = useMemo(() => {
+    const names = new Map<string, number>();
+    ((featuredData ?? []) as DoorStyle[]).forEach((s, i) => {
+      const key = (s.ourName || s.styleCode || String(s.id)).toLowerCase();
+      if (!names.has(key)) names.set(key, i);
+    });
+    return names;
+  }, [featuredData]);
+
+  const isFeatured = (s: DoorStyle) =>
+    featuredNames.has((s.ourName || s.styleCode || String(s.id)).toLowerCase());
+
+  const featured = useMemo(
+    () =>
+      uniqueStyles
+        .filter(isFeatured)
+        .sort(
+          (a, b) =>
+            (featuredNames.get((a.ourName || a.styleCode || String(a.id)).toLowerCase()) ?? 0) -
+            (featuredNames.get((b.ourName || b.styleCode || String(b.id)).toLowerCase()) ?? 0)
+        )
+        .slice(0, 30),
+    [uniqueStyles, featuredNames]
+  );
+
   const visible = selectedType
     ? uniqueStyles.filter((s) => s.doorStyle === selectedType)
     : uniqueStyles;
+
+  // When no profile filter is active, show the Featured row separately and keep
+  // the main grid as the rest (so featured styles aren't duplicated below).
+  const showFeatured = !selectedType && featured.length > 0;
+  const gridStyles = showFeatured
+    ? visible.filter((s) => !isFeatured(s))
+    : visible;
 
   return (
     <div className="container py-8">
@@ -241,6 +278,25 @@ export default function DoorStyles() {
         </div>
       )}
 
+      {/* Featured: Skyline (Aero) styles lead the page */}
+      {!isLoading && showFeatured && (
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="font-serif text-xl font-bold text-foreground">Featured Door Styles</h2>
+            <Badge className="bg-primary text-primary-foreground">Editor's Picks</Badge>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {featured.map((style) => (
+              <StyleCard key={style.id} style={style} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!isLoading && showFeatured && gridStyles.length > 0 && (
+        <h2 className="font-serif text-xl font-bold text-foreground mb-4">All Door Styles</h2>
+      )}
+
       {isLoading ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {Array.from({ length: 20 }).map((_, i) => (
@@ -261,7 +317,7 @@ export default function DoorStyles() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {visible.map((style) => (
+          {gridStyles.map((style) => (
             <StyleCard key={style.id} style={style} />
           ))}
         </div>

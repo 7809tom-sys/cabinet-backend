@@ -819,3 +819,42 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Phone shows cramped 3-column desktop layout instead of single-column mobile UI — raised designer breakpoint to 1024px (useIsMobile(1024)) and switched shells/toolbar/canvas from md: to lg: so phone/tablet/desktop-site widths always get the mobile UI
 - [x] Make the top toolbar collapse on mobile — desktop action cluster now hidden below lg, compact More menu shown instead
 - [x] Verified at 390px, 720px, and 1280px; 371 tests pass; checkpoint saved
+
+
+## Phase 15c: Door Styles page — feature Skyline first + profile filters (user request)
+- [x] Pin Skyline (Aero) door styles to the top as Featured row (interim: name-prefix match), ahead of the full grid
+- [x] Profile filter buttons already present up top (All Styles / Shaker / Slim Shaker / Double Shaker / Raised Panel / Slab, etc.)
+- [x] Verified storefront featured row renders (owner screenshot)
+
+## Phase 15d: Admin-controlled Featured Door Styles (user request — 80/20 merchandising)
+- [x] Add isFeatured (bool) + featuredRank (int) to door_styles schema; migration 0013 generated + applied
+- [x] adminProcedure set/unset (setFeatured) + reorder (reorderFeatured) + listForAdmin; public featured query (cap 30, rank order)
+- [x] Admin UI: Featured Styles tab (FeaturedStylesAdmin) toggle + order, MAX 30 enforced (server cap + input guard)
+- [x] Storefront Featured row reads admin selection, capped at 30, ordered by featuredRank (seeded Skyline/Aero default)
+- [x] Verified storefront + admin render (owner screenshot); 375 tests pass incl. new featuredStyles.test.ts (4 tests)
+
+## Phase 15b: CRITICAL — Door style click skips color/style selection (user report)
+- [ ] Clicking a Skyline (Aero) door style on /styles jumps straight to a cabinet instead of letting user pick door color/style first
+- [ ] Trace the onClick/navigation in StylesPage + family page; show color options before cabinets
+- [ ] Verify on desktop + mobile
+
+## Phase 16b: CRITICAL — Designer loses everything when leaving the screen (user report)
+- [ ] In-progress design (placed cabinets, room, style, tier, walls, openings, island, moldings) is lost on navigate-away/reload
+- [ ] Auto-persist working design to localStorage (keyed by verified email) on every change, debounced
+- [ ] Restore the working design on mount; clear only on explicit New/Clear
+- [ ] Add a beforeunload guard if there are unsaved items
+- [ ] Verify: place cabinets, leave, return — design still there
+
+## Phase 16: Lock floor plan / walls (user request)
+- [ ] Global "Lock Layout" toggle in toolbar: freezes room resize + wall drag while still allowing cabinet add/move
+- [ ] Per-wall lock: lock individual walls so they can't be dragged to resize
+- [ ] Disable Draw Room + room-size editing when locked; show lock state visually on canvas
+- [ ] Wire lock state into PlanCanvas wall-drag handlers and RoomSizeControl
+- [ ] Verify on desktop + mobile; run tests; checkpoint
+
+
+## Phase 17: Restore missing Faircrest pantry cabinets (user report)
+- [ ] Audit catalog for Faircrest pantry/utility cabinets (multi-part / 2-piece items) that appear deleted
+- [ ] Cross-check against master spreadsheet / source data to identify exact missing codes
+- [ ] Re-insert missing pantry cabinets with correct dimensions, type, and distributor SKUs/pricing
+- [ ] Verify they appear in catalog + designer; run tests; checkpoint

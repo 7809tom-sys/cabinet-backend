@@ -86,6 +86,10 @@ export const doorStyles = mysqlTable("door_styles", {
   doorSampleImageUrl: varchar("doorSampleImageUrl", { length: 512 }),
   roomSceneImageUrl: varchar("roomSceneImageUrl", { length: 512 }),
   thumbnailImageUrl: varchar("thumbnailImageUrl", { length: 512 }),
+  // Admin merchandising (80/20): which styles get pushed in the Featured row.
+  // featuredRank orders them (lower = first); UI enforces a max of 30 featured.
+  isFeatured: boolean("isFeatured").default(false).notNull(),
+  featuredRank: int("featuredRank").default(0).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
