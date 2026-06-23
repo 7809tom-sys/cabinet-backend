@@ -834,16 +834,16 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Verified storefront + admin render (owner screenshot); 375 tests pass incl. new featuredStyles.test.ts (4 tests)
 
 ## Phase 15b: CRITICAL — Door style click skips color/style selection (user report)
-- [ ] Clicking a Skyline (Aero) door style on /styles jumps straight to a cabinet instead of letting user pick door color/style first
-- [ ] Trace the onClick/navigation in StylesPage + family page; show color options before cabinets
-- [ ] Verify on desktop + mobile
+- [x] Added doorStyles.siblings query (color variations within same door profile, current first, deduped)
+- [x] Family page now has a "Choose your finish" swatch row (color-accurate, current ringed gold) — pick the COLOR in place; cabinets recolor; each swatch links to that color's family
+- [x] Verified on real Aero Blanc family (/family/SDW): 5 finish swatches render; siblings.test.ts (3 tests) pass
 
 ## Phase 16b: CRITICAL — Designer loses everything when leaving the screen (user report)
-- [ ] In-progress design (placed cabinets, room, style, tier, walls, openings, island, moldings) is lost on navigate-away/reload
-- [ ] Auto-persist working design to localStorage (keyed by verified email) on every change, debounced
-- [ ] Restore the working design on mount; clear only on explicit New/Clear
-- [ ] Add a beforeunload guard if there are unsaved items
-- [ ] Verify: place cabinets, leave, return — design still there
+- [x] Auto-persist full working design to localStorage (key cabinet-dealz:designer-draft:v1:<email>), debounced ~400ms on every change
+- [x] Immediate save on visibilitychange(hidden) + pagehide + beforeunload — catches incoming phone call / OS tab eviction
+- [x] Restore on mount (after verification, skipped when ?package= present); shows "Restored your in-progress design" toast
+- [x] "Start new design" item in More menu clears canvas + draft (with confirm)
+- [x] Verified in browser: placed DB-12-3, fired visibilitychange, reloaded, re-entered email -> design restored; 378 tests pass
 
 ## Phase 16: Lock floor plan / walls (user request)
 - [ ] Global "Lock Layout" toggle in toolbar: freezes room resize + wall drag while still allowing cabinet add/move

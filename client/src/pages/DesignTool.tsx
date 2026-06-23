@@ -20,6 +20,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { useIsMobile } from "@/hooks/useMobile";
+import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
@@ -762,6 +763,123 @@ export default function DesignTool() {
     }
   }, [packageError, packageLayout, packageSlug, verified]);
 
+  // ─── Draft auto-save / restore ───────────────────────────────────────────────
+  // Real-world safeguard: someone designs on their phone, a call comes in (or the
+  // OS evicts the tab), and the work must NOT vanish. We persist the full working
+  // design to localStorage on every change (debounced) AND immediately when the
+  // tab is backgrounded (visibilitychange / pagehide — the events mobile browsers
+  // reliably fire before freezing/discarding a tab), then restore it on return.
+  const draftKey = useMemo(
+    () => `cabinet-dealz:designer-draft:v1:${(verifiedEmail || "guest").toLowerCase()}`,
+    [verifiedEmail],
+  );
+
+  // Snapshot the full design into a serializable object.
+  const snapshotDraft = usePersistFn(() => ({
+    v: 1,
+    savedAt: Date.now(),
+    room,
+    placed,
+    openings,
+    island,
+    styleId,
+    tier,
+    crown,
+    toeKick,
+    batten,
+    countertop,
+    roomType,
+    activeWall,
+  }));
+
+  const writeDraft = usePersistFn(() => {
+    if (!draftRestoredRef.current) return; // don't clobber a saved draft pre-restore
+    try {
+      const snap = snapshotDraft();
+      // Only persist if there is something worth keeping.
+      const worthKeeping =
+        snap.placed.length > 0 ||
+        snap.openings.length > 0 ||
+        snap.island != null ||
+        snap.styleId != null;
+      if (worthKeeping) {
+        localStorage.setItem(draftKey, JSON.stringify(snap));
+      }
+    } catch {
+      /* storage full / unavailable — ignore */
+    }
+  });
+
+  // Restore once, after verification, unless we're loading a package layout.
+  useEffect(() => {
+    if (!verified || draftRestoredRef.current) return;
+    if (packageSlug) {
+      // A package load owns the canvas; skip draft restore but allow future saves.
+      draftRestoredRef.current = true;
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d && typeof d === "object") {
+          if (d.room) setRoom(d.room);
+          if (Array.isArray(d.placed)) setPlaced(d.placed);
+          if (Array.isArray(d.openings)) setOpenings(d.openings);
+          setIsland(d.island ?? null);
+          setStyleId(d.styleId ?? null);
+          if (d.tier) setTier(d.tier);
+          setCrown(!!d.crown);
+          setToeKick(!!d.toeKick);
+          setBatten(!!d.batten);
+          setCountertop(!!d.countertop);
+          if (d.roomType) setRoomType(d.roomType);
+          if (d.activeWall) setActiveWall(d.activeWall);
+          if (Array.isArray(d.placed) && d.placed.length > 0) {
+            toast.success("Restored your in-progress design.");
+          }
+        }
+      }
+    } catch {
+      /* corrupt draft — ignore */
+    }
+    draftRestoredRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verified, packageSlug, draftKey]);
+
+  // Debounced save on any design change.
+  useEffect(() => {
+    if (!draftRestoredRef.current) return;
+    const t = setTimeout(writeDraft, 400);
+    return () => clearTimeout(t);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, countertop, roomType, activeWall, writeDraft]);
+
+  // Immediate save when the tab is hidden/backgrounded or about to unload —
+  // this is what catches an incoming phone call or an OS tab eviction.
+  useEffect(() => {
+    const flush = () => writeDraft();
+    const onVis = () => {
+      if (document.visibilityState === "hidden") writeDraft();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [writeDraft]);
+
+  // Clear the saved draft (used by an explicit New/Clear action).
+  const clearDraft = usePersistFn(() => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* ignore */
+    }
+  });
+
   const selectedCab = placed.find((p) => p.uid === selectedUid);
 
   // ─── Render ──────────────────────────────────────────────────────────────────
@@ -867,6 +985,22 @@ export default function DesignTool() {
               <DropdownMenuCheckboxItem checked={countertop} onCheckedChange={() => setCountertop((c) => !c)}>Countertop</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem disabled={!selectedUid || measureMode} onClick={swingSelected}>Swing door</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  if (placed.length > 0 && !window.confirm("Start a new design? This clears the current canvas.")) return;
+                  setPlaced([]);
+                  setOpenings([]);
+                  setIsland(null);
+                  setSelectedUid(null);
+                  setSelectedOpeningUid(null);
+                  setCrown(false); setToeKick(false); setBatten(false); setCountertop(false);
+                  clearDraft();
+                  toast.success("Started a new design.");
+                }}
+              >
+                Start new design
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

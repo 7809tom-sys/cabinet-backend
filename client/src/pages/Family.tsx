@@ -145,6 +145,16 @@ export default function Family({ styleCode }: { styleCode: string }) {
 
   const items = useMemo(() => (data?.items ?? []) as FamilyItem[], [data]);
 
+  // Color variations within the same door profile (in-place finish picker).
+  const { data: siblingsData } = trpc.doorStyles.siblings.useQuery(
+    { styleCode },
+    { enabled: !!styleCode },
+  );
+  const siblings = useMemo(
+    () => (siblingsData ?? []) as FamilyStyle[],
+    [siblingsData],
+  );
+
   // Finish color for recoloring every drawing to this family's real finish.
   const finish = useMemo(() => {
     const s = style as FamilyStyle | null;
@@ -274,6 +284,48 @@ export default function Family({ styleCode }: { styleCode: string }) {
                 </p>
               )}
             </div>
+
+            {/* In-place finish picker: switch the color within this door profile
+                without leaving the family. Current color is highlighted. */}
+            {siblings.length > 1 && (
+              <div className="mt-6">
+                <p className="text-white/70 text-xs font-medium uppercase tracking-wider mb-2">
+                  Choose your finish
+                </p>
+                <div className="flex flex-wrap gap-2.5">
+                  {siblings.map((sib) => {
+                    const isCurrent = sib.id === s.id;
+                    const sc = finishColors(sib.color || sib.ourName || sib.styleCode);
+                    const label = sib.color || sib.ourName || sib.styleCode;
+                    return (
+                      <Link
+                        key={sib.id}
+                        href={`/family/${sib.styleCode}`}
+                        title={label}
+                        aria-label={`View ${label} finish`}
+                        className={`group/sw relative flex flex-col items-center gap-1 outline-none`}
+                      >
+                        <span
+                          className={`block h-9 w-9 rounded-full ring-2 ring-offset-2 ring-offset-[var(--color-navy)] transition-transform duration-150 group-hover/sw:scale-110 ${
+                            isCurrent
+                              ? "ring-[var(--color-gold)]"
+                              : "ring-white/30 group-hover/sw:ring-white/70"
+                          }`}
+                          style={{ backgroundColor: sc.face }}
+                        />
+                        <span
+                          className={`max-w-[4.5rem] truncate text-[10px] leading-tight text-center ${
+                            isCurrent ? "text-white font-semibold" : "text-white/60"
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Compact door+finish swatch for mobile (the large sample is desktop-only). */}

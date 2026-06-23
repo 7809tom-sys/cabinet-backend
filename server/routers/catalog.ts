@@ -110,6 +110,43 @@ export const doorStylesRouter = router({
       return rows[0] ? scrubDoorStyle(rows[0]) : null;
     }),
 
+  // Color variations within the SAME door profile (e.g. all Slim Shaker colors).
+  // Powers the in-place finish picker on the Family page so a shopper can switch
+  // the color without leaving the family. Returns active styles sharing this
+  // style's doorStyle profile, the current one first, deduped by display name.
+  siblings: publicProcedure
+    .input(z.object({ styleCode: z.string() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const current = await db
+        .select()
+        .from(doorStyles)
+        .where(and(eq(doorStyles.styleCode, input.styleCode), eq(doorStyles.isActive, true)))
+        .limit(1);
+      const cur = current[0];
+      if (!cur || !cur.doorStyle) return cur ? [scrubDoorStyle(cur)] : [];
+      const rows = await db
+        .select()
+        .from(doorStyles)
+        .where(and(eq(doorStyles.doorStyle, cur.doorStyle), eq(doorStyles.isActive, true)))
+        .orderBy(asc(doorStyles.ourName));
+      // Dedupe by display name; keep the current style at the front.
+      const seen = new Set<string>();
+      const out: typeof rows = [];
+      const keyOf = (r: (typeof rows)[number]) =>
+        (r.ourName || r.styleCode || String(r.id)).toLowerCase();
+      out.push(cur);
+      seen.add(keyOf(cur));
+      for (const r of rows) {
+        const k = keyOf(r);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(r);
+      }
+      return out.map(scrubDoorStyle);
+    }),
+
   // ── Featured door styles (admin-curated 80/20 merchandising) ────────────────
   // Public: the curated set pushed on the storefront, ordered by rank, hard
   // capped at 30 so the affiliate/homeowner sees a focused selection.
