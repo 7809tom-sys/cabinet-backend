@@ -813,3 +813,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] 371 tests passing, typecheck clean
 - [ ] PENDING (waiting on Rich): US Cabinet Depot + Faircrest 20/20 catalogs to fill 29 unmatched cabinet images + confirm CBT & plain LRM specs
 - [ ] PENDING (launch): bind cabinetdeals.com in Settings → Domains, publish, then verify OAuth callback on the live domain
+
+
+## Phase 15: Mobile Design Tool layout bug (reported by user)
+- [x] Phone shows cramped 3-column desktop layout instead of single-column mobile UI — raised designer breakpoint to 1024px (useIsMobile(1024)) and switched shells/toolbar/canvas from md: to lg: so phone/tablet/desktop-site widths always get the mobile UI
+- [x] Make the top toolbar collapse on mobile — desktop action cluster now hidden below lg, compact More menu shown instead
+- [x] Verified at 390px, 720px, and 1280px; 371 tests pass; checkpoint saved

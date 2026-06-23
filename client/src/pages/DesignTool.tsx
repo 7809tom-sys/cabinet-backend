@@ -79,7 +79,11 @@ export default function DesignTool() {
   const packageErrorRef = useRef(false);
 
   // Mobile layout: which slide-up panel is open (catalog picker or cart/BOM).
-  const isMobile = useIsMobile();
+  // Designer is touch-first: treat anything narrower than a small laptop (1024px)
+  // as "mobile" so tablets, foldables, and phones in desktop-site mode still get
+  // the single-column UI with the bottom toolbar + drawers (never the cramped
+  // 3-column desktop view).
+  const isMobile = useIsMobile(1024);
   const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart">(null);
 
   // Room + placement state
@@ -840,7 +844,7 @@ export default function DesignTool() {
         </div>
 
         {/* Mobile: compact "More" menu with the toggles that live in the desktop toolbar */}
-        <div className="ml-auto flex items-center gap-2 md:hidden">
+        <div className="ml-auto flex items-center gap-2 lg:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1.5">
@@ -864,7 +868,7 @@ export default function DesignTool() {
         </div>
 
         {/* Desktop action cluster */}
-        <div className="ml-auto hidden md:flex items-center gap-2">
+        <div className="ml-auto hidden lg:flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -1110,7 +1114,7 @@ export default function DesignTool() {
         </PaletteShell>
 
         {/* Canvas */}
-        <div className="flex-1 min-w-0 relative pb-14 md:pb-0">
+        <div className="flex-1 min-w-0 relative pb-14 lg:pb-0">
           {viewMode === "plan" && (
             <PlanCanvas
               room={room}
@@ -1493,7 +1497,7 @@ export default function DesignTool() {
 
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
-        <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden">
+        <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
           <div className="grid grid-cols-5 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
@@ -1602,7 +1606,7 @@ function PaletteShell({
     );
   }
   return (
-    <div className="hidden md:flex w-60 shrink-0 border-r border-border bg-card flex-col">
+    <div className="hidden lg:flex w-60 shrink-0 border-r border-border bg-card flex-col">
       {children}
     </div>
   );
@@ -1629,7 +1633,7 @@ function PricingShell({
     );
   }
   return (
-    <div className="hidden md:flex w-72 shrink-0 border-l border-border bg-card flex-col">
+    <div className="hidden lg:flex w-72 shrink-0 border-l border-border bg-card flex-col">
       {children}
     </div>
   );
