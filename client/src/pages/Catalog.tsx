@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { CabinetImage } from "@/components/CabinetImage";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
-import { KITCHEN_SCENES, kitchenSceneFor } from "@/lib/doorFamilyPhotos";
+import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 
 // Door-style tiles for the catalog landing — the shop is organized by door style,
 // not Base/Wall/Tall categories. Each links into the full Door Styles experience.
@@ -170,9 +170,13 @@ function CategoryLanding({
       doorStyle: string | null;
       color: string | null;
       woodSpecies: string | null;
+      roomSceneImageUrl: string | null;
     };
     const map = new Map<string, FeaturedStyle>();
+    // Only feature styles that have a REAL verified room-scene photo, so every
+    // tile shows the style's own name-matched scene (never a guessed bucket).
     for (const s of (styles ?? []) as FeaturedStyle[]) {
+      if (!s.roomSceneImageUrl) continue;
       const key = (s.ourName || s.styleCode || String(s.id)).toLowerCase();
       if (!map.has(key)) map.set(key, s);
     }
@@ -236,11 +240,9 @@ function CategoryLanding({
           ? featuredStyles.map((s) => ({
               label: s.ourName || s.styleCode,
               href: `/family/${encodeURIComponent(s.styleCode)}`,
-              image: kitchenSceneFor({
-                doorStyle: [s.doorStyle, s.color, s.ourName, s.woodSpecies]
-                  .filter(Boolean)
-                  .join(" "),
-              }),
+              // Real, verified per-style scene from the DB (guaranteed present by
+              // the filter above) — matches the style's name, never a guess.
+              image: s.roomSceneImageUrl as string,
               blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") ||
                 "Shop every cabinet in this finish.",
             }))

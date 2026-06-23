@@ -53,21 +53,34 @@ interface Props {
   onReset: () => void;
 }
 
+// Extract the dimension digits from a raw code so the Fix picker can pre-search
+// by size. "W2496" -> "2496", "WP-24-96" -> "2496", "W 24 96" -> "2496".
+// Falls back to the raw code itself when no usable digit run is present.
+function dimensionSeed(rawCode?: string | null): string {
+  const raw = (rawCode || "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/[^0-9]/g, "");
+  // 3+ digits almost always encodes a dimension (e.g. 2496, 3042, 2742).
+  return digits.length >= 3 ? digits : raw;
+}
+
 // ─── Inline cabinet search for fixing an unmatched line ─────────────────────────
 function CabinetSearchPicker({
   onPick,
+  initialTerm = "",
 }: {
   onPick: (c: { id: number; masterCode: string; description: string }) => void;
+  initialTerm?: string;
 }) {
-  const [term, setTerm] = useState("");
-  const [debounced, setDebounced] = useState("");
+  const [term, setTerm] = useState(initialTerm);
+  const [debounced, setDebounced] = useState(initialTerm);
   useEffect(() => {
     const t = setTimeout(() => setDebounced(term), 250);
     return () => clearTimeout(t);
   }, [term]);
 
   const { data, isLoading } = trpc.cabinets.list.useQuery(
-    { search: debounced || undefined, limit: 8, offset: 0 },
+    { search: debounced || undefined, limit: 50, offset: 0 },
     { enabled: debounced.length >= 1 }
   );
   const items = data?.items ?? [];
@@ -89,20 +102,28 @@ function CabinetSearchPicker({
           <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
         </div>
       ) : items.length > 0 ? (
-        <div className="max-h-56 overflow-auto rounded-md border border-border divide-y divide-border">
+        <div className="relative z-20 max-h-72 overflow-auto rounded-md border border-border divide-y divide-border bg-popover">
+          {items.length >= 2 && (
+            <p className="px-3 py-1.5 text-[11px] text-muted-foreground bg-muted/50 sticky top-0">
+              {items.length} matches — pick the exact cabinet (e.g. pantry vs. decorative panel)
+            </p>
+          )}
           {items.map((c) => {
             const cab = c as { id: number; masterCode: string; description?: string | null };
             return (
               <button
                 key={cab.id}
-                onClick={() =>
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   onPick({
                     id: cab.id,
                     masterCode: cab.masterCode,
                     description: cab.description ?? cab.masterCode,
-                  })
-                }
-                className="w-full text-left px-3 py-2 hover:bg-muted transition-colors"
+                  });
+                }}
+                className="relative z-10 block w-full text-left px-3 py-2 hover:bg-muted transition-colors cursor-pointer"
               >
                 <span className="font-mono text-sm font-semibold">{cab.masterCode}</span>
                 <span className="block text-xs text-muted-foreground truncate">
@@ -465,6 +486,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                   {fixingIndex === idx && (
                     <div className="mt-1">
                       <CabinetSearchPicker
+                        initialTerm={dimensionSeed(l.rawCode)}
                         onPick={(c) => {
                           // Remember this manual fix so the raw code resolves
                           // automatically next time (keyed by the raw code as

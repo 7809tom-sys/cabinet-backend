@@ -4,6 +4,8 @@ import {
   slugify,
   cabinetImageSlug,
   cabinetAltText,
+  cabinetTypeLabel,
+  resolveDoorDrawerCounts,
   type CabinetLike,
 } from "./cabinetGraphics";
 
@@ -205,5 +207,53 @@ describe("cabinetDrawingType — real cabinet families never become accessory st
       numberOfDrawers: 0,
     };
     expect(cabinetDrawingType(cab)).toBe("accessory-strip");
+  });
+});
+
+describe("door-count agreement: label + drawing follow the description, not a wrong subCategory", () => {
+  // Reported bug: a single-door wall whose subCategory is mislabeled
+  // "Double Door Wall". The drawing, the resolved count, and the visible
+  // tag must all agree on ONE door.
+  it("single-door wall mislabeled 'Double Door Wall' resolves to 1 door + 'Single Door Wall'", () => {
+    const cab: CabinetLike = {
+      masterCode: "W-12-30",
+      description: '12" Single Door Wall Cabinet',
+      category: "Wall",
+      subCategory: "Double Door Wall", // <- wrong catalog tag
+      width: "12",
+      numberOfDoors: 2, // <- wrong numeric field too
+      numberOfDrawers: 0,
+    };
+    expect(resolveDoorDrawerCounts(cab).doors).toBe(1);
+    expect(cabinetTypeLabel(cab)).toBe("Single Door Wall");
+  });
+
+  it("true double-door wall resolves to 2 doors + 'Double Door Wall'", () => {
+    const cab: CabinetLike = {
+      masterCode: "W-30-30",
+      description: '30" Double Door Wall Cabinet',
+      category: "Wall",
+      subCategory: "Double Door Wall",
+      width: "30",
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+    };
+    expect(resolveDoorDrawerCounts(cab).doors).toBe(2);
+    expect(cabinetTypeLabel(cab)).toBe("Double Door Wall");
+  });
+
+  it("label tracks the same door count the drawing uses (no description hint -> width fallback)", () => {
+    const cab: CabinetLike = {
+      masterCode: "W-18-30",
+      description: '18" Wall Cabinet', // no door word -> width<24 => 1 door
+      category: "Wall",
+      subCategory: "Double Door Wall",
+      width: "18",
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+    const { doors } = resolveDoorDrawerCounts(cab);
+    expect(doors).toBe(1);
+    expect(cabinetTypeLabel(cab)).toBe("Single Door Wall");
   });
 });

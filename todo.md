@@ -592,13 +592,13 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 ## BUGS — White scene + door-count drawing (user feedback Jun 22, 2nd round)
 - [ ] White family (Lumina White / SW 7006 Extra White) shows a CHERRY kitchen scene. A white cabinet MUST show a white kitchen. Fix finishBucket so "extra white"/white never falls to cherry/dark.
 - [ ] The wood scene we use should be a room-STAIN finish, not red cherry. Replace/relabel cherry scene with a neutral stained scene.
-- [ ] Card label vs picture mismatch: title says "Single Door Wall" but tag says "Double Door Wall", and the to-scale drawing shows the same single door for both. Drawing must match the actual door count (double = 2 doors) and the title/tag must agree.
+- [x] Card label vs picture mismatch FIXED: resolveDoorDrawerCounts() (description-first, numeric/width fallback) drives BOTH the drawing and cabinetTypeLabel(); all card surfaces (Family, Catalog, CabinetDetail) use cabinetTypeLabel so title/tag/drawing agree. Regression tests added (cabinetGraphics.test.ts: mislabeled 'Double Door Wall' w/ doors=2 + 'Single Door' desc resolves to 1 door + 'Single Door Wall').
 
 
 ## BUGS — Image correctness round 2 (user feedback Jun 22)
 - [ ] White family (Lumina White / SW 7006 Extra White) shows a CHERRY kitchen scene. White cabinet MUST show a white kitchen. Fix finishBucket: "extra white"/white never falls to cherry/dark.
 - [ ] The wood/traditional scene must read as a room STAIN finish, not red cherry. Use a neutral stained scene.
-- [ ] Card label vs drawing mismatch: title "Single Door Wall" while tag "Double Door Wall"; drawing shows one door for both. Drawing must match real door count (double = 2 doors); title and tag must agree (use real numberOfDoors).
+- [x] Card label vs drawing mismatch FIXED (same single source of truth: resolveDoorDrawerCounts + cabinetTypeLabel; regression tests pass, 22 cabinetGraphics tests green).
 - [ ] Door-style browse cards: big door preview is the same cream door for every style; it must render in the actual style color (Oxford Sage = green, Oxford Toffee = gold) like the corner swatch does.
 
 
@@ -607,7 +607,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Collect real room-scene + door image URLs for all 61 families (search by real door name; widely sold across distributors)
 - [ ] Download images, host on our CDN (manus-upload-file --webdev), store roomSceneImageUrl + doorSampleImageUrl per door style
 - [ ] Wire family page hero, door-style cards, and home showcase to use per-style images (fallback to finish-colored drawing only if missing)
-- [ ] Fix the to-scale drawing + label door-count mismatch (double door draws 2 doors; title/tag agree)
+- [x] Fixed the to-scale drawing + label door-count mismatch (single resolver drives both; title/tag/drawing agree; regression tests added)
 - [ ] Verify white shows white kitchen (no cherry), sage shows sage, etc.; test + screenshots desktop/mobile; checkpoint
 
 
@@ -1069,3 +1069,69 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] NO generic/placeholder cabinet images slip through (every cabinet has a correct, specific drawing/image)
 - [ ] Cabinet descriptions accurate across lines (spot-check random lines like the affiliate site)
 - [ ] This is a platform-wide standard (affiliates share the same backend) - cleaning our catalog benefits all affiliate sites
+
+
+## Phase 40: Kitchen Package bundles MUST be door-style-scoped (user request 2026-06-23 - "prices are all over the board")
+- [ ] packages router: pricePackage accepts styleId + tier; price every BOM line from THAT style's real distributor_skus row (resolveTierPrice), not lowest-across-lines white-shaker
+- [ ] Return door-style name/label on the package and on each BOM line (each line shows which style it is priced from)
+- [ ] Flag any BOM line with no SKU in the chosen style (available=false) instead of silently averaging
+- [ ] PackageDetail UI: door-style picker; reprice BOM on style change; each line shows its style
+- [ ] Packages list: price using a sensible default featured style per package
+- [ ] Tests for style-scoped pricing + verify in browser
+
+## Phase 41: Cabinet Dealz tiered pricing structure (user spec 2026-06-23)
+- [ ] platform_pricing_settings table (single row): wholesaleMarkupPct, affiliateMarkupPct (default 5%), retailMarkupPct (suggested retail), damageFeePct (default 1%, EVERYONE pays), techFeePct (default 10%), techFeeCapUsd (default $100), cardFeePct (default 4%)
+- [ ] Price ladder derived from base cost: base cost (internal) -> Wholesale (+wholesale%) -> Affiliate (+~5%) -> Suggested Retail (customer-facing fallback)
+- [ ] Damage fee 1% on cabinet subtotal - applied to EVERY order, all tiers
+- [ ] Tech/technology fee 10% capped at $100 per transaction (on cabinet subtotal)
+- [ ] Credit card fee 4% on the FINAL total (cabinets + freight + damage + tech) - CARD payments only
+- [ ] Bank-to-bank (ACH) transfer: if approved through our system, NO 4% card fee
+- [ ] Admin pricing panel to edit all percentages/caps; defaults as above
+- [ ] OWNER-ONLY dual cost: when owner/admin logged in, every cabinet line + bundle BOM shows "My Cost" (base/platform) AND "Your Cost" (affiliate cost) side by side; affiliates/customers never see base cost
+- [ ] shared/pricing fee engine (pure, unit-tested): computes the full fee stack deterministically (damage, tech cap, conditional card fee)
+
+## Phase 42: Affiliate white-label + markup section (user request 2026-06-23 - ~5 new affiliates signing up)
+- [ ] Affiliate dashboard "My Catalog / Branding" section: browse ALL cabinets organized by door style
+- [ ] Affiliate sets own white-label brand names for door styles (per-affiliate layer over central ourName)
+- [ ] Affiliate sets markup %: global default + optional per-door-style / per-category overrides, applied on top of affiliate cost
+- [ ] Live preview of resulting customer retail price
+- [ ] Persist per-affiliate branding + markup (schema + migration)
+
+## Phase 43: Central Stripe payments + weekly affiliate payouts (user decision 2026-06-23 - Option A)
+- [ ] Enable Stripe (webdev_add_feature stripe) - ALL customer funds route to Cabinet Dealz central account
+- [ ] Two payment paths at checkout: (1) Card via Stripe -> +4% card fee; (2) Bank transfer (ACH) -> pending admin approval, fee-free on approval
+- [ ] Affiliate earnings ledger: each paid order records affiliate, customer-paid amount, my cost, affiliate margin owed
+- [ ] Weekly payout view (admin): what each affiliate is owed this week, mark paid/issued, log payout (weekly checks)
+- [ ] Affiliate dashboard shows own earnings / pending-this-week
+
+## Phase 44: Fee System PDF for admin (user request 2026-06-23 - for Rich, handles the money)
+- [ ] Write Cabinet Dealz Fee System doc: full price ladder + all fees (wholesale%, affiliate 5%, suggested retail, 1% damage, 10% tech cap $100, 4% card / ACH waiver), worked example
+- [ ] Generate PDF; downloadable from the admin panel so Rich can review
+
+
+## Phase 45: Cabinet image consistency across the whole site (user bug 2026-06-23)
+- [ ] BUG: same cabinet (e.g. B-12) must show the SAME catalog drawing (2020-catalog line-art/spec image) EVERYWHERE: Catalog grid, CabinetDetail page, Build-an-Order review, AND Design Tool palette. Design Tool palette currently shows the image but Catalog/website shows blank/different.
+- [ ] Find the single image field/source the Design Tool palette uses (manus-storage/*.jpg per cabinet) and make Catalog + detail + order review read the SAME field
+- [ ] Verify B-12 (and a few others) render identical image in Catalog and Design Tool; check for missing/placeholder fallbacks
+
+
+## Phase 46: Door-style ROOM SCENE images must match their style name (user bug 2026-06-23 - "5 pictures on the opening part")
+- [ ] BUG: the ~5 door-style cards (White Shaker/Lumina White, Gray Shaker, Raised Panel, Contemporary Slab, Espresso) show room-scene photos that DO NOT match the style name. Observed: White Shaker card used kitchen-scene-raised-cherry; the SAME kitchen-scene-slab-natural reused across Gray/Terra/Zenith/Silva. Duplicated + mismatched.
+- [ ] Find where door-style room-scene image URLs are set (doorStyles table heroImage/sceneImage column or a styles config) and map EACH style to a scene that matches its actual finish/color/name
+- [ ] Ensure consistency EVERYWHERE the style scene appears: /styles, /catalog landing, /family/:id hero, home page, Kitchen Packages
+- [ ] Verify each of the 5+ styles shows a correct, distinct, name-matching room scene
+
+
+## Phase 42 addendum: affiliate storefront templates (user decision 2026-06-23)
+- [ ] Provide 4-5 ready-made affiliate storefront templates (layout/color/hero theme) for affiliates to pick from (NOT a full custom builder); affiliate then layers white-label brand names + markup on top
+
+
+## Phase 47: Clean door-swatch thumbnails for all 61 styles (user chose Option 1, 2026-06-23)
+- [x] Catalog "Shop by Door Style" tiles + Home StyleShowcase now read real per-style roomSceneImageUrl from DB (no more 5-scene heuristic duplicates/mismatch). Home decorative hero collage left as-is (unlabeled).
+- [ ] /styles + family swatch thumbnails: several show COMPETITOR watermarks (LilyAnnCabinets visible), blanks, or wrong color. Replace ALL 61 with clean, watermark-free, color-accurate generated door swatches matching each style's real doorStyle + SW color.
+- [ ] Inventory per-style spec (ourName, doorStyle, color SW#, woodSpecies) to drive each swatch
+- [ ] Generate 61 swatches; upload via manus-upload-file --webdev; set doorSampleImageUrl/thumbnailImageUrl per style in DB
+- [ ] Verify /styles shows clean, distinct, color-correct swatches with zero competitor marks/blanks; confirm same swatch used on family hero + Design Tool style picker
+
+## Phase 33b: Build-an-Order Fix picker selection bug
+- [x] Fix W2496 -> U-24-96-24 selection: picker result buttons defaulted to type="submit" and an overlay intercepted pointer hit-tests at the button center; added type="button" + preventDefault/stopPropagation, and gave the result list relative z-20/bg-popover with each row relative z-10. Selection now closes the picker, updates the line, and saves the alias. Verified live (W2496 resolves to U-24-96-24 pantry, priced $1189.20). 505 tests pass.

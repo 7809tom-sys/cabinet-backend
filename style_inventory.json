@@ -1,0 +1,612 @@
+[
+  {
+    "id": 30031,
+    "styleCode": "SWO",
+    "ourName": "Aero Alba",
+    "doorStyle": "Slim Shaker",
+    "color": "SW 3118 White Oak",
+    "woodSpecies": "Solid Birch",
+    "sample": "aero-alba-door_3725c1e3.webp",
+    "thumb": "aero-alba-door-thumb.jpg"
+  },
+  {
+    "id": 30027,
+    "styleCode": "SDW",
+    "ourName": "Aero Blanc",
+    "doorStyle": "Slim Shaker",
+    "color": "SW 7001 Marshmallow",
+    "woodSpecies": "Solid Birch",
+    "sample": "aero-blanc-door_3fbaf561.jpg",
+    "thumb": "aero-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30029,
+    "styleCode": "SIB",
+    "ourName": "Aero Obsidian",
+    "doorStyle": "Slim Shaker",
+    "color": "SW 6258 Tricorn Black",
+    "woodSpecies": "Solid Birch",
+    "sample": "aero-obsidian-door_da4f83d9.webp",
+    "thumb": "aero-obsidian-door-thumb.jpg"
+  },
+  {
+    "id": 30028,
+    "styleCode": "SAG",
+    "ourName": "Aero Relic",
+    "doorStyle": "Slim Shaker",
+    "color": "SW 7015 Repose Gray",
+    "woodSpecies": "Solid Birch",
+    "sample": "aero-relic-door_f4500529.jpg",
+    "thumb": "aero-relic-door-thumb.jpg"
+  },
+  {
+    "id": 30030,
+    "styleCode": "SAO",
+    "ourName": "Aero Solstice",
+    "doorStyle": "Slim Shaker",
+    "color": "SW 3125 Autumn Oak",
+    "woodSpecies": "Solid Birch",
+    "sample": "aero-solstice-door_1dc53ad5.webp",
+    "thumb": "aero-solstice-door-thumb.jpg"
+  },
+  {
+    "id": 30043,
+    "styleCode": "SA",
+    "ourName": "Aura Blanc",
+    "doorStyle": "Shaker",
+    "color": "SW 7004 Snowbound",
+    "woodSpecies": "HDF",
+    "sample": "aura-blanc-door_b981ad62.webp",
+    "thumb": "aura-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30002,
+    "styleCode": "CC",
+    "ourName": "Aura Cream",
+    "doorStyle": "Shaker",
+    "color": "SW 7012 Creamy",
+    "woodSpecies": "Solid Maple / Birch",
+    "sample": "aura-cream-door_cfb8c7eb.jpg",
+    "thumb": "aura-cream-door-thumb.jpg"
+  },
+  {
+    "id": 30020,
+    "styleCode": "TC",
+    "ourName": "Aurum Vault",
+    "doorStyle": "Shaker",
+    "color": "SW 6130 Manila",
+    "woodSpecies": "Solid Birch",
+    "sample": "aurum-vault-door_d04f1ed4.webp",
+    "thumb": "aurum-vault-door-thumb.jpg"
+  },
+  {
+    "id": 30011,
+    "styleCode": "SW",
+    "ourName": "Blanc Core",
+    "doorStyle": "Shaker",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "Solid Birch",
+    "sample": "blanc-core-door_9ff7e341.webp",
+    "thumb": "blanc-core-door-thumb.jpg"
+  },
+  {
+    "id": 30040,
+    "styleCode": "FW",
+    "ourName": "Bloom Blanc",
+    "doorStyle": "Shaker",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "Solid Birch",
+    "sample": "bloom-blanc-door_31b5f209.webp",
+    "thumb": "bloom-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30041,
+    "styleCode": "FG",
+    "ourName": "Bloom Cinder",
+    "doorStyle": "Shaker",
+    "color": "SW 7015 Repose Gray",
+    "woodSpecies": "Solid Birch",
+    "sample": "bloom-cinder-door_25fa459b.jpg",
+    "thumb": "bloom-cinder-door-thumb.jpg"
+  },
+  {
+    "id": 30042,
+    "styleCode": "FE",
+    "ourName": "Bloom Umbra",
+    "doorStyle": "Shaker",
+    "color": "SW 2750 Espresso",
+    "woodSpecies": "Solid Birch",
+    "sample": "bloom-umbra-door_ea09a98f.jpg",
+    "thumb": "bloom-umbra-door-thumb.jpg"
+  },
+  {
+    "id": 30023,
+    "styleCode": "AC",
+    "ourName": "Carbon Frost",
+    "doorStyle": "Shaker",
+    "color": "SW 7068 Grizzle Gray",
+    "woodSpecies": "Solid Birch",
+    "sample": "carbon-frost-door_90898980.jpg",
+    "thumb": "carbon-frost-door-thumb.jpg"
+  },
+  {
+    "id": 30055,
+    "styleCode": "CW",
+    "ourName": "Casselberry Blanc",
+    "doorStyle": "Casselberry",
+    "color": "SW 7004 Snowbound",
+    "woodSpecies": "HDF",
+    "sample": "casselberry-blanc-door_0ce921e3.webp",
+    "thumb": "casselberry-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30056,
+    "styleCode": "CS",
+    "ourName": "Casselberry Saddle",
+    "doorStyle": "Casselberry",
+    "color": "SW 3127 Saddle",
+    "woodSpecies": "Solid Birch",
+    "sample": "casselberry-saddle-door_541890a5.png",
+    "thumb": "casselberry-saddle-door-thumb.jpg"
+  },
+  {
+    "id": 30012,
+    "styleCode": "GR",
+    "ourName": "Cinder Core",
+    "doorStyle": "Shaker",
+    "color": "SW 7015 Repose Gray",
+    "woodSpecies": "Solid Birch",
+    "sample": "cinder-core-door_f5922e62.jpg",
+    "thumb": "cinder-core-door-thumb.jpg"
+  },
+  {
+    "id": 30051,
+    "styleCode": "SC",
+    "ourName": "Cinder Core",
+    "doorStyle": "Shaker",
+    "color": "SW 7018 Dovetail",
+    "woodSpecies": "Solid Birch",
+    "sample": "cinder-core-door_f5922e62.jpg",
+    "thumb": "cinder-core-door-thumb.jpg"
+  },
+  {
+    "id": 30014,
+    "styleCode": "NB",
+    "ourName": "Cobalt Abyss",
+    "doorStyle": "Shaker",
+    "color": "SW 6244 Naval",
+    "woodSpecies": "Solid Birch",
+    "sample": "cobalt-abyss-door_d1614706.jpg",
+    "thumb": "cobalt-abyss-door-thumb.jpg"
+  },
+  {
+    "id": 30025,
+    "styleCode": "DDW",
+    "ourName": "Dual Blanc",
+    "doorStyle": "Double Shaker",
+    "color": "SW 7001 Marshmallow",
+    "woodSpecies": "Solid Birch",
+    "sample": "dual-blanc-door_7880fc58.webp",
+    "thumb": "dual-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30024,
+    "styleCode": "DSG",
+    "ourName": "Dual Vesper",
+    "doorStyle": "Double Shaker",
+    "color": "SW 7017 Dorian Gray",
+    "woodSpecies": "Solid Birch",
+    "sample": "dual-vesper-door_fc030150.webp",
+    "thumb": "dual-vesper-door-thumb.jpg"
+  },
+  {
+    "id": 30052,
+    "styleCode": "EW",
+    "ourName": "Edge Blanc",
+    "doorStyle": "Edgeline",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "HDF",
+    "sample": "edge-blanc-door_e679e3ed.webp",
+    "thumb": "edge-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30061,
+    "styleCode": "SEO",
+    "ourName": "Essence Oak",
+    "doorStyle": "Shaker",
+    "color": "SW 3130 Essence Oak",
+    "woodSpecies": "Solid Birch",
+    "sample": "essence-oak-door_81629945.webp",
+    "thumb": "essence-oak-door-thumb.jpg"
+  },
+  {
+    "id": 30032,
+    "styleCode": "HW",
+    "ourName": "Glace Blanc",
+    "doorStyle": "Slab",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "Solid Birch",
+    "sample": "glace-blanc-door_b0042db6.webp",
+    "thumb": "glace-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30033,
+    "styleCode": "HG",
+    "ourName": "Glace Cinder",
+    "doorStyle": "Slab",
+    "color": "SW 7015 Repose Gray",
+    "woodSpecies": "Solid Birch",
+    "sample": "glace-cinder-door_0125cc8b.webp",
+    "thumb": "glace-cinder-door-thumb.jpg"
+  },
+  {
+    "id": 30057,
+    "styleCode": "HD",
+    "ourName": "Haven Dune",
+    "doorStyle": "Haven",
+    "color": "SW 6037 Temperate Taupe",
+    "woodSpecies": "HDF",
+    "sample": "haven-dune-door_735c4e1e.webp",
+    "thumb": "haven-dune-door-thumb.jpg"
+  },
+  {
+    "id": 30060,
+    "styleCode": "HE",
+    "ourName": "Haven Ember",
+    "doorStyle": "Haven",
+    "color": "SW 3129 Ember",
+    "woodSpecies": "Solid Birch",
+    "sample": "haven-ember-door_b66aa230.webp",
+    "thumb": "haven-ember-door-thumb.jpg"
+  },
+  {
+    "id": 30026,
+    "styleCode": "CW",
+    "ourName": "Haven White",
+    "doorStyle": "Shaker",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "Solid Birch",
+    "sample": "haven-white-door_d9835304.jpg",
+    "thumb": "haven-white-door-thumb.jpg"
+  },
+  {
+    "id": 30050,
+    "styleCode": "SH",
+    "ourName": "Honey Core",
+    "doorStyle": "Shaker",
+    "color": "SW 3122 Honey",
+    "woodSpecies": "Solid Birch",
+    "sample": "honey-core-door_f2a4a18d.webp",
+    "thumb": "honey-core-door-thumb.jpg"
+  },
+  {
+    "id": 30047,
+    "styleCode": "SI",
+    "ourName": "Ivy Core",
+    "doorStyle": "Shaker",
+    "color": "SW 6194 Basil",
+    "woodSpecies": "HDF",
+    "sample": "ivy-core-door_fe08f848.webp",
+    "thumb": "ivy-core-door-thumb.jpg"
+  },
+  {
+    "id": 30022,
+    "styleCode": "AW",
+    "ourName": "Lumina Blanc",
+    "doorStyle": "Shaker",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "Solid Birch",
+    "sample": "lumina-blanc-door_325794e7.jpg",
+    "thumb": "lumina-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30001,
+    "styleCode": "ASP",
+    "ourName": "Lumina White",
+    "doorStyle": "Raised Panel",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "Solid Maple / Birch",
+    "sample": "lumina-white-door_da585117.webp",
+    "thumb": "lumina-white-door-thumb.jpg"
+  },
+  {
+    "id": 30048,
+    "styleCode": "SN",
+    "ourName": "Navy Core",
+    "doorStyle": "Shaker",
+    "color": "SW 6244 Naval",
+    "woodSpecies": "HDF",
+    "sample": "navy-core-door_91a26ac2.webp",
+    "thumb": "navy-core-door-thumb.jpg"
+  },
+  {
+    "id": 30044,
+    "styleCode": "SD",
+    "ourName": "Nimbus Blanc",
+    "doorStyle": "Shaker",
+    "color": "SW 7001 Marshmallow",
+    "woodSpecies": "HDF",
+    "sample": "nimbus-blanc-door_0022fbbf.webp",
+    "thumb": "nimbus-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30009,
+    "styleCode": "WPG",
+    "ourName": "Nimbus Grey",
+    "doorStyle": "Shaker",
+    "color": "SW 7066 Gray Matters",
+    "woodSpecies": "Solid Maple / Birch",
+    "sample": "nimbus-grey-door_45357b41.webp",
+    "thumb": "nimbus-grey-door-thumb.jpg"
+  },
+  {
+    "id": 30039,
+    "styleCode": "MG",
+    "ourName": "Nocturne Glass",
+    "doorStyle": "Slab",
+    "color": "N/A",
+    "woodSpecies": "Solid Birch",
+    "sample": "nocturne-glass-door_09d79124.webp",
+    "thumb": "nocturne-glass-door-thumb.jpg"
+  },
+  {
+    "id": 30046,
+    "styleCode": "SW",
+    "ourName": "Nova Blanc",
+    "doorStyle": "Shaker",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "HDF",
+    "sample": "nova-blanc-door_59dec250.webp",
+    "thumb": "nova-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30010,
+    "styleCode": "WS",
+    "ourName": "Nova White",
+    "doorStyle": "Shaker",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "Solid Maple / Birch",
+    "sample": "nova-white-door_855e829d.webp",
+    "thumb": "nova-white-door-thumb.jpg"
+  },
+  {
+    "id": 30016,
+    "styleCode": "IB",
+    "ourName": "Obsidian Forge",
+    "doorStyle": "Shaker",
+    "color": "SW 6258 Tricorn Black",
+    "woodSpecies": "Solid Birch",
+    "sample": "obsidian-forge-door_687d7786.webp",
+    "thumb": "obsidian-forge-door-thumb.jpg"
+  },
+  {
+    "id": 30049,
+    "styleCode": "SB",
+    "ourName": "Onyx Core",
+    "doorStyle": "Shaker",
+    "color": "SW 6258 Tricorn Black",
+    "woodSpecies": "HDF",
+    "sample": "onyx-core-door_2adf68e3.jpg",
+    "thumb": "onyx-core-door-thumb.jpg"
+  },
+  {
+    "id": 30006,
+    "styleCode": "MBS",
+    "ourName": "Onyx Shadow",
+    "doorStyle": "Shaker",
+    "color": "SW 6258 Tricorn Black",
+    "woodSpecies": "Solid Maple / Birch",
+    "sample": "onyx-shadow-door_d8ce1b6c.jpg",
+    "thumb": "onyx-shadow-door-thumb.jpg"
+  },
+  {
+    "id": 30053,
+    "styleCode": "OW",
+    "ourName": "Oxford Blanc",
+    "doorStyle": "Oxford",
+    "color": "SW 7006 Extra White",
+    "woodSpecies": "HDF",
+    "sample": "oxford-blanc-door_81ff72f1.webp",
+    "thumb": "oxford-blanc-door-thumb.jpg"
+  },
+  {
+    "id": 30058,
+    "styleCode": "OM",
+    "ourName": "Oxford Mist",
+    "doorStyle": "Oxford",
+    "color": "SW 6232 Misty",
+    "woodSpecies": "Solid Birch",
+    "sample": "oxford-mist-door_0696ca36.webp",
+    "thumb": "oxford-mist-door-thumb.jpg"
+  },
+  {
+    "id": 30054,
+    "styleCode": "OS",
+    "ourName": "Oxford Sage",
+    "doorStyle": "Oxford",
+    "color": "SW 2860 Sage",
+    "woodSpecies": "HDF",
+    "sample": "oxford-sage-door_bbba7453.webp",
+    "thumb": "oxford-sage-door-thumb.jpg"
+  },
+  {
+    "id": 30059,
+    "styleCode": "OT",
+    "ourName": "Oxford Toffee",
+    "doorStyle": "Oxford",
+    "color": "SW 3128 Toffee",
+    "woodSpecies": "Solid Birch",
+    "sample": "oxford-toffee-door_4753f522.jpg",
+    "thumb": "oxford-toffee-door-thumb.jpg"
+  },
+  {
+    "id": 30038,
+    "styleCode": "CG",
+    "ourName": "Prism Clear",
+    "doorStyle": "Slab",
+    "color": "N/A",
+    "woodSpecies": "Solid Birch",
+    "sample": "prism-clear-door_b3fb5bc4.webp",
+    "thumb": "prism-clear-door-thumb.jpg"
+  },
+  {
+    "id": 30018,
+    "styleCode": "LG",
+    "ourName": "Selene Gray",
+    "doorStyle": "Shaker",
+    "color": "SW 7016 Mindful Gray",
+    "woodSpecies": "Solid Birch",
+    "sample": "selene-gray-door_04d240fa.webp",
+    "thumb": "selene-gray-door-thumb.jpg"
+  },
+  {
+    "id": 30005,
+    "styleCode": "HS",
+    "ourName": "Silva Shaker",
+    "doorStyle": "Shaker",
+    "color": "SW 3123 Hickory",
+    "woodSpecies": "Solid Hickory",
+    "sample": "silva-shaker-door_cc0a2a03.jpg",
+    "thumb": "silva-shaker-door-thumb.jpg"
+  },
+  {
+    "id": 30045,
+    "styleCode": "SG",
+    "ourName": "Slate Core",
+    "doorStyle": "Shaker",
+    "color": "SW 7015 Repose Gray",
+    "woodSpecies": "HDF",
+    "sample": "slate-core-door_0ab17365.webp",
+    "thumb": "slate-core-door-thumb.jpg"
+  },
+  {
+    "id": 30007,
+    "styleCode": "NG",
+    "ourName": "Slate Echo",
+    "doorStyle": "Shaker",
+    "color": "SW 7018 Dovetail",
+    "woodSpecies": "Solid Maple / Birch",
+    "sample": "slate-echo-door_73d48770.jpg",
+    "thumb": "slate-echo-door-thumb.jpg"
+  },
+  {
+    "id": 30036,
+    "styleCode": "OB",
+    "ourName": "Solis Oak",
+    "doorStyle": "Slab",
+    "color": "SW 3124 Blonde",
+    "woodSpecies": "Solid Birch",
+    "sample": "solis-oak-door_93abeb7e.webp",
+    "thumb": "solis-oak-door-thumb.jpg"
+  },
+  {
+    "id": 30008,
+    "styleCode": "PS",
+    "ourName": "Sterling Pulse",
+    "doorStyle": "Shaker",
+    "color": "SW 7057 Silver Drop",
+    "woodSpecies": "Solid Maple / Birch",
+    "sample": "sterling-pulse-door_57b96c5c.jpg",
+    "thumb": "sterling-pulse-door-thumb.jpg"
+  },
+  {
+    "id": 30021,
+    "styleCode": "RW",
+    "ourName": "Sylvan Rust",
+    "doorStyle": "Shaker",
+    "color": "SW 3111 Rustic",
+    "woodSpecies": "Solid Birch",
+    "sample": "sylvan-rust-door_154eefcf.webp",
+    "thumb": "sylvan-rust-door-thumb.jpg"
+  },
+  {
+    "id": 30003,
+    "styleCode": "CS",
+    "ourName": "Terra Shaker",
+    "doorStyle": "Shaker",
+    "color": "SW 7732 Lemongrass",
+    "woodSpecies": "Solid Maple / Birch",
+    "sample": "terra-shaker-door_2bed649f.jpg",
+    "thumb": "terra-shaker-door-thumb.jpg"
+  },
+  {
+    "id": 30037,
+    "styleCode": "OS",
+    "ourName": "Umbra Oak",
+    "doorStyle": "Slab",
+    "color": "SW 3126 Shade",
+    "woodSpecies": "Solid Birch",
+    "sample": "umbra-oak-door_a245b4b7.webp",
+    "thumb": "umbra-oak-door-thumb.jpg"
+  },
+  {
+    "id": 30013,
+    "styleCode": "SE",
+    "ourName": "Umbra Shaker",
+    "doorStyle": "Shaker",
+    "color": "SW 2750 Espresso",
+    "woodSpecies": "Solid Birch",
+    "sample": "umbra-shaker-door_f630cfed.gif",
+    "thumb": "umbra-shaker-door-thumb.jpg"
+  },
+  {
+    "id": 30035,
+    "styleCode": "MI",
+    "ourName": "Vellum Crema",
+    "doorStyle": "Slab",
+    "color": "SW 7012 Creamy",
+    "woodSpecies": "Solid Birch",
+    "sample": "vellum-crema-door_03c54dc4.webp",
+    "thumb": "vellum-crema-door-thumb.jpg"
+  },
+  {
+    "id": 30034,
+    "styleCode": "MB",
+    "ourName": "Vellum Noir",
+    "doorStyle": "Slab",
+    "color": "SW 6258 Tricorn Black",
+    "woodSpecies": "Solid Birch",
+    "sample": "vellum-noir-door_27d22c64.webp",
+    "thumb": "vellum-noir-door-thumb.jpg"
+  },
+  {
+    "id": 30017,
+    "styleCode": "SA",
+    "ourName": "Vesper Ash",
+    "doorStyle": "Shaker",
+    "color": "SW 7017 Dorian Gray",
+    "woodSpecies": "Solid Birch",
+    "sample": "vesper-ash-door_677fd5f8.webp",
+    "thumb": "vesper-ash-door-thumb.jpg"
+  },
+  {
+    "id": 30015,
+    "styleCode": "AG",
+    "ourName": "Virid Echo",
+    "doorStyle": "Shaker",
+    "color": "SW 6194 Basil",
+    "woodSpecies": "Solid Birch",
+    "sample": "virid-echo-door_895e7dc9.jpg",
+    "thumb": "virid-echo-door-thumb.jpg"
+  },
+  {
+    "id": 30004,
+    "styleCode": "FS",
+    "ourName": "Zenith Sage",
+    "doorStyle": "Shaker",
+    "color": "SW 2860 Sage",
+    "woodSpecies": "Solid Maple / Birch",
+    "sample": "zenith-sage-door_647c8ab3.png",
+    "thumb": "zenith-sage-door-thumb.jpg"
+  },
+  {
+    "id": 30019,
+    "styleCode": "SB",
+    "ourName": "Zephyr Sage",
+    "doorStyle": "Shaker",
+    "color": "SW 6191 Rosemary",
+    "woodSpecies": "Solid Birch",
+    "sample": "zephyr-sage-door_4d87c5cb.webp",
+    "thumb": "zephyr-sage-door-thumb.jpg"
+  }
+]

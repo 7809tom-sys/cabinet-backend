@@ -38,6 +38,10 @@ export function canonicalize(code: string): string {
 //   LS   = Lazy Susan                   -> LSB (base easy-reach lazy susan)
 //   HB   = (Full) Height Base           -> BFH (base full height)
 //   TFHB = Tall Full Height Base roller -> BFH (base full height)
+//   WP   = Wall Pantry / tall utility   -> U  (tall utility/pantry, e.g. U-24-96-24)
+//   PC   = Pantry Cabinet               -> U
+//   TUC  = Tall Utility Cabinet         -> U
+//   PAN  = Pantry                       -> U
 // RS (Roll Out Shelf) already matches the catalog RS prefix, so no alias needed.
 export const PREFIX_ALIASES: Record<string, string> = {
   RW: "AW",
@@ -46,6 +50,10 @@ export const PREFIX_ALIASES: Record<string, string> = {
   LS: "LSB",
   HB: "BFH",
   TFHB: "BFH",
+  WP: "U",
+  PC: "U",
+  TUC: "U",
+  PAN: "U",
 };
 
 // Directional / handedness suffixes that describe orientation, not a different

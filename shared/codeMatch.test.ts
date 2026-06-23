@@ -18,6 +18,7 @@ const RECORDS: CabinetCodeRecord[] = [
   { id: 5, masterCode: "SB-36", description: '36" Sink Base', category: "Base" },
   { id: 6, masterCode: "DB-24-3", description: '24" 3-Drawer Base', category: "Base" },
   { id: 7, masterCode: "ADA-B-24", description: 'ADA 24" Base', category: "ADA" },
+  { id: 8, masterCode: "U-24-96-24", description: '24" x 96" Double Door Tall Utility Cabinet', category: "Tall" },
 ];
 
 describe("canonicalize", () => {
@@ -45,6 +46,21 @@ describe("normalizeCode", () => {
   });
   it("keeps trailing alpha suffix attached", () => {
     expect(normalizeCode("W3030GD")).toBe("W-30-30GD");
+  });
+});
+
+describe("pantry / tall-utility prefix aliases", () => {
+  const index = buildCodeIndex(RECORDS);
+  it("resolves a WP wall-pantry shorthand to the U tall-utility family", () => {
+    // "WP2496" -> alias WP->U -> U2496 (prefix of unique U-24-96-24).
+    const m = matchCode("WP2496", index);
+    expect(m.matched).toBe(true);
+    expect(m.masterCode).toBe("U-24-96-24");
+  });
+  it("resolves a PC pantry-cabinet shorthand to the U tall-utility family", () => {
+    const m = matchCode("PC2496", index);
+    expect(m.matched).toBe(true);
+    expect(m.masterCode).toBe("U-24-96-24");
   });
 });
 
