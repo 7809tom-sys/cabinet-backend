@@ -69,7 +69,7 @@ export const distributorImportRouter = router({
     return { csv, filename: `cabinet-dealz-master-catalog-${date}.csv`, count: rows.length };
   }),
 
-  /** Active distributors (lines) for the import picker. */
+  /** Active distributors (lines) for the import picker + branding editor. */
   adminList: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
@@ -78,7 +78,12 @@ export const distributorImportRouter = router({
         id: distributors.id,
         code: distributors.code,
         name: distributors.name,
+        initials: distributors.initials,
         brandName: distributors.brandName,
+        brandInitials: distributors.brandInitials,
+        whiteLabel: distributors.whiteLabel,
+        displayMode: distributors.displayMode,
+        seriesName: distributors.seriesName,
         isActive: distributors.isActive,
         leadTimeDays: distributors.leadTimeDays,
         warehouseZips: distributors.warehouseZips,
@@ -86,6 +91,64 @@ export const distributorImportRouter = router({
       .from(distributors)
       .orderBy(distributors.name);
   }),
+
+  /**
+   * White-label a cabinet line from the Admin panel (no direct DB edits).
+   * Operator types the public-facing brand/label; we set the presentation
+   * fields accordingly. displayMode drives what members actually see:
+   *  - neutral : show `name`/`initials` (supplier identity hidden)
+   *  - branded : show the real `brandName`/`brandInitials`
+   *  - series  : show `seriesName` (e.g. "Cabinet Dealz Elegant Series")
+   */
+  setBranding: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number().int().positive(),
+        displayMode: z.enum(["neutral", "branded", "series"]),
+        // The public label the operator typed (meaning depends on displayMode).
+        label: z.string().trim().min(1).max(128),
+        initials: z.string().trim().max(8).optional(),
+        seriesName: z.string().trim().max(128).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+
+      const [row] = await db
+        .select({ id: distributors.id, name: distributors.name })
+        .from(distributors)
+        .where(eq(distributors.id, input.distributorId))
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Line not found" });
+
+      const initials =
+        (input.initials && input.initials.trim()) ||
+        input.label.trim().slice(0, 2).toUpperCase();
+
+      const patch: Partial<typeof distributors.$inferInsert> = {
+        displayMode: input.displayMode,
+      };
+
+      if (input.displayMode === "branded") {
+        // Show the real supplier identity.
+        patch.brandName = input.label.trim();
+        patch.brandInitials = initials;
+        patch.whiteLabel = false;
+      } else if (input.displayMode === "series") {
+        // Show a Cabinet Dealz series name; keep supplier hidden.
+        patch.seriesName = input.label.trim();
+        patch.whiteLabel = true;
+      } else {
+        // neutral: show a plain neutral label (e.g. "Line A").
+        patch.name = input.label.trim();
+        patch.initials = initials;
+        patch.whiteLabel = true;
+      }
+
+      await db.update(distributors).set(patch).where(eq(distributors.id, input.distributorId));
+      return { id: input.distributorId, ...patch };
+    }),
 
   /** Door styles for a given distributor (used to map pricing rows to a style). */
   adminStyles: adminProcedure

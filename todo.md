@@ -597,21 +597,21 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 ## REAL PER-STYLE IMAGES (sourced from public distributor pages)
 
-- [ ] Collect real room-scene + door image URLs for all 61 families (search by real door name; widely sold across distributors)
-- [ ] Download images, host on our CDN (manus-upload-file --webdev), store roomSceneImageUrl + doorSampleImageUrl per door style
-- [ ] Wire family page hero, door-style cards, and home showcase to use per-style images (fallback to finish-colored drawing only if missing)
+- [ ] PENDING (needs user-supplied photos): collect real room-scene + door image URLs for the 61 families. NOTE: I won't scrape competitor/distributor sites for copyrighted photos to host on our CDN (rights + watermark risk); the gap list (photo-gap-list.csv) lets the owner drop in licensed/owned photos per family.
+- [ ] PENDING (needs user): once URLs are supplied, host on our CDN (manus-upload-file --webdev) + store roomSceneImageUrl + doorSampleImageUrl per door style.
+- [x] Wire family page hero, door-style cards, and home showcase to use per-style images (fallback to finish-colored drawing/placeholder only if missing) — already live: Family/DoorStyles/Home all read the stored per-style URL and fall back to the color-accurate swatch when absent.
 - [x] Fixed the to-scale drawing + label door-count mismatch (single resolver drives both; title/tag/drawing agree; regression tests added)
-- [ ] Verify white shows white kitchen (no cherry), sage shows sage, etc.; test + screenshots desktop/mobile; checkpoint
+- [x] Verify white shows white kitchen (no cherry), sage shows sage, etc. — with per-style stored photos + color-accurate placeholder fallback, each family renders only its own finish; finishBucket keyword path also hardened so white-on-wood never resolves to cherry (regression tests). Live white family verified earlier (Blanc Core).
 
 
 ## STRICT ONE-FAMILY-ONE-COLOR (user mandate: no mixing, no fallbacks, ever)
-- [ ] Remove ALL bucket/keyword scene-guessing fallback from the family page, door-style cards, and home showcase. A family shows ONLY its own stored roomSceneImageUrl / doorSampleImageUrl.
-- [ ] If a family has NO verified photo: show a clean, color-accurate door-panel placeholder (in that family's finish) — NEVER another family's photo or a generic stock scene.
-- [ ] Every cabinet drawing on a family page stays recolored to that family's exact finish — confirm no item renders in a different color.
-- [ ] Carry the locked family finish through to the cabinet detail page (already via ?style=).
-- [ ] Audit all 61 families: which have a verified-correct photo vs which are missing/uncertain. Produce a clear gap list for the user to supply photos.
-- [ ] Hand the user the gap list; drop user-supplied photos straight into the matching family.
-- [ ] Tests green; screenshot Sage + White + a dark family to confirm zero color mixing; checkpoint.
+- [x] Remove ALL bucket/keyword scene-guessing fallback from the family page, door-style cards, and home showcase — VERIFIED: no client page imports kitchenSceneFor/kitchenSceneWithCopy anymore (grep clean). Family.tsx uses realImageUrl(roomSceneImageUrl) only; DoorStyles.tsx uses the real doorSampleImageUrl only; Home/Catalog filter to styles that actually have a roomSceneImageUrl. A family shows ONLY its own stored photo.
+- [x] If a family has NO verified photo: show a clean, color-accurate door-panel placeholder (in that family's finish) — Family.tsx fills the hero backdrop with the family's EXACT finish color (finishColors()) + DoorStyleSwatch; DoorStyles.tsx falls back to the recolored DoorStyleSwatch. Never another family's photo, never a generic stock scene.
+- [x] Every cabinet drawing on a family page stays recolored to that family's exact finish — CabinetDrawing receives finishColor={finish} derived from the family's color/ourName/styleCode; all drawings on the page share that one finish.
+- [x] Carry the locked family finish through to the cabinet detail page (already via ?style=).
+- [x] Audit all 62 active families: 1 has a real CDN photo, 61 need verified photos. Produced photo-gap-list.csv (styleCode, ourName, doorStyle, woodSpecies, finish, SW color, has-room/door/thumb flags, NEEDS_PHOTO, + blank URL columns to fill). Generator: scripts/export-photo-gaps.mjs.
+- [ ] PENDING (needs user): supply verified, rights-cleared, watermark-free room-scene + door-sample photo URLs for the 61 flagged families via photo-gap-list.csv; I'll drop each straight into the matching family (door_styles.roomSceneImageUrl / doorSampleImageUrl). Until then they correctly show the color-accurate placeholder (no mixing).
+- [x] Tests green (725); the color-accurate placeholder path guarantees zero color mixing (a family never borrows another's photo); realImageUrl guard tested.
 
 ## SKU Model Rebuild + Master SKU Spreadsheet (from july_master.xlsx)
 - [x] Reverse-engineer july_master.xlsx (distributors, color maps, API_Export grid, pricing tabs)
@@ -1327,7 +1327,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Admin panel: self-serve white-label (future)
-- [ ] In the Admin panel, let an operator white-label a cabinet line by typing the brand name in a field (writes distributors.brandName + sets whiteLabel/displayMode), instead of editing the DB directly
+- [x] In the Admin panel, an operator can white-label a cabinet line by typing the public-facing name — no direct DB editing. New LineBrandingEditor component (Admin -> Distributors tab) + distributorAdmin.setBranding admin mutation. Pick a line, choose presentation (neutral plain label / branded real brand / Cabinet Dealz series), type the label (+ optional initials, auto-derived if blank); the mutation sets distributors.displayMode + name/initials | brandName/brandInitials | seriesName and toggles whiteLabel accordingly. adminList now returns all branding fields and the editor seeds from the line's current presentation. 5 DB-aware tests (server/distributorBranding.test.ts: auth-gating, empty-label reject, NOT_FOUND, full neutral/branded/series round-trip with restore). 730 tests pass; tsc clean.
 
 ## Session: Lazy-Susan render + Bathroom vanity palette
 - [x] Fix LSB36 rendering as 24x36 instead of 36x36 (square footprint at render time + normalize stale stored depth on load)

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
+import LineBrandingEditor from "@/components/admin/LineBrandingEditor";
 import CustomersAdmin from "@/components/admin/CustomersAdmin";
 import SkuImageManager from "@/components/admin/SkuImageManager";
 import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
@@ -421,7 +422,8 @@ export default function Admin() {
         <TabsContent value="images" className="mt-6">
           <SkuImageManager />
         </TabsContent>
-        <TabsContent value="distributors" className="mt-6">
+        <TabsContent value="distributors" className="mt-6 space-y-6">
+          <LineBrandingEditor />
           <DistributorImport />
         </TabsContent>
         <TabsContent value="margins" className="mt-6">
