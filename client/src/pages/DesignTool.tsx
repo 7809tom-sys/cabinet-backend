@@ -525,6 +525,12 @@ export default function DesignTool() {
     () => doorStyles?.find((s) => s.id === styleId) ?? null,
     [doorStyles, styleId]
   );
+  // Small finish swatch shown on each palette tile so the chosen finish is
+  // visible while browsing cabinets. Empty until a door style is selected.
+  const paletteFinishSwatch = useMemo<string | null>(
+    () => (activeStyle as { doorSampleImageUrl?: string | null } | null)?.doorSampleImageUrl ?? null,
+    [activeStyle]
+  );
   // Auto-suggested Hickory finished-end skins, one per exposed cabinet end.
   // Empty unless the selected finish is Hickory. NOTE: the real skin SKU/price
   // is pending owner confirmation, so these carry pendingSku=true.
@@ -2162,6 +2168,15 @@ export default function DesignTool() {
                         <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
                         <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {dim(c.height, 0) > 0 ? `${dim(c.height, 0)}"H` : "—"}</div>
                       </div>
+                      {paletteFinishSwatch && (
+                        <img
+                          src={paletteFinishSwatch}
+                          alt={activeStyleName ? `${activeStyleName} finish` : "selected finish"}
+                          title={activeStyleName ?? undefined}
+                          loading="lazy"
+                          className="h-7 w-7 rounded-sm object-cover border border-[#a07d4a]/40 shrink-0"
+                        />
+                      )}
                       <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
                     </button>
                     );

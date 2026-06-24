@@ -20,6 +20,7 @@ import {
 import {
   CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil,
 } from "lucide-react";
+import { CabinetImage } from "@/components/CabinetImage";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -548,10 +549,25 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
             {pricedLines.map((l, idx) => (
               <TableRow key={`${l.rawCode}-${idx}`} className={!l.matched ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}>
                 <TableCell className="font-mono text-sm font-semibold">
-                  {l.masterCode ?? l.rawCode}
-                  {l.matched && l.masterCode && l.rawCode && l.masterCode.toUpperCase() !== l.rawCode.toUpperCase() && (
-                    <span className="block text-[10px] font-normal text-muted-foreground">from "{l.rawCode}"</span>
-                  )}
+                  <div className="flex items-center gap-2.5">
+                    {/* Shared cabinet artwork — same CabinetImage used in the catalog,
+                        detail page, cart, and Design Tool palette. Falls back to an
+                        accurate to-scale drawing when no catalog image is mapped. */}
+                    {l.matched && (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted/40">
+                        <CabinetImage
+                          cabinet={{ masterCode: l.masterCode ?? l.rawCode, description: l.description }}
+                          className="h-full w-auto max-w-full"
+                        />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      {l.masterCode ?? l.rawCode}
+                      {l.matched && l.masterCode && l.rawCode && l.masterCode.toUpperCase() !== l.rawCode.toUpperCase() && (
+                        <span className="block text-[10px] font-normal text-muted-foreground">from "{l.rawCode}"</span>
+                      )}
+                    </div>
+                  </div>
                 </TableCell>
                 <TableCell className="text-sm">
                   {l.description ?? <span className="text-muted-foreground italic">Unrecognized code</span>}

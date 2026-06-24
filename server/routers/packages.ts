@@ -45,11 +45,16 @@ interface PricedPackage {
   cornerUpgrade?: KitchenPackage["cornerUpgrade"];
   room: KitchenPackage["room"];
   layout: KitchenPackage["layout"];
+  styleId: number | null; // door style these prices were resolved in (null = white-shaker default)
+  unavailableCount: number; // BOM lines with no SKU in the chosen style
 }
 
-// Build a map of masterCode -> lowest white-shaker yourCost across all lines.
+// Build a map of masterCode -> lowest yourCost across the given style ids.
+// When styleIds is the white-shaker default, this is the catalog "from" price;
+// when a specific door style is passed, lines are priced in that exact style.
 async function lowestCostByCode(
-  codes: string[]
+  codes: string[],
+  styleIds: number[] = WHITE_SHAKER_STYLE_IDS
 ): Promise<Map<string, number>> {
   const db = await getDb();
   const out = new Map<string, number>();
@@ -75,7 +80,9 @@ async function lowestCostByCode(
     .where(
       and(
         inArray(distributorSkus.cabinetId, ids),
-        inArray(distributorSkus.styleId, WHITE_SHAKER_STYLE_IDS)
+        styleIds.length > 0
+          ? inArray(distributorSkus.styleId, styleIds)
+          : inArray(distributorSkus.styleId, WHITE_SHAKER_STYLE_IDS)
       )
     );
 
@@ -90,9 +97,15 @@ async function lowestCostByCode(
   return out;
 }
 
-async function pricePackage(pkg: KitchenPackage): Promise<PricedPackage> {
+async function pricePackage(
+  pkg: KitchenPackage,
+  styleId?: number
+): Promise<PricedPackage> {
   const codes = Array.from(new Set(pkg.bom.map((b) => b.masterCode)));
-  const costMap = await lowestCostByCode(codes);
+  const costMap = await lowestCostByCode(
+    codes,
+    styleId != null ? [styleId] : WHITE_SHAKER_STYLE_IDS
+  );
 
   const lines: PricedLine[] = pkg.bom.map((b) => {
     const unit = costMap.get(b.masterCode) ?? null;
@@ -142,6 +155,8 @@ async function pricePackage(pkg: KitchenPackage): Promise<PricedPackage> {
     cornerUpgrade: pkg.cornerUpgrade,
     room: pkg.room,
     layout: pkg.layout,
+    styleId: styleId ?? null,
+    unavailableCount: lines.filter((l) => !l.available).length,
   };
 }
 
@@ -151,11 +166,11 @@ export const packagesRouter = router({
   }),
 
   bySlug: publicProcedure
-    .input(z.object({ slug: z.string() }))
+    .input(z.object({ slug: z.string(), styleId: z.number().int().optional() }))
     .query(async ({ input }) => {
       const pkg = getPackage(input.slug);
       if (!pkg) return null;
-      return pricePackage(pkg);
+      return pricePackage(pkg, input.styleId);
     }),
 
   // Resolve a package layout into placeable cabinets (with cabinetId + real

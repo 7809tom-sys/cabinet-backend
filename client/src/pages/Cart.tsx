@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/contexts/CartContext";
+import { CabinetImage } from "@/components/CabinetImage";
 import { trpc } from "@/lib/trpc";
 import { normalizeZip } from "@shared/availability";
 import { toast } from "sonner";
@@ -178,6 +179,15 @@ export default function Cart() {
                 key={`${item.masterCode}-${item.styleId}-${item.tier}`}
                 className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center"
               >
+                {/* Shared cabinet artwork — same CabinetImage used in the catalog,
+                    detail page, and Design Tool palette (falls back to an accurate
+                    to-scale drawing when no catalog image is mapped). */}
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/40">
+                  <CabinetImage
+                    cabinet={{ masterCode: item.masterCode, description: item.name }}
+                    className="h-full w-auto max-w-full"
+                  />
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm font-semibold">{item.masterCode}</span>

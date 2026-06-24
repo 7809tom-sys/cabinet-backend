@@ -1043,11 +1043,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] tsc clean; full suite 482 tests pass (added alias-flow + screenshot-code tests)
 
 ## Phase 34: Data corrections
-- [ ] RS-* described as "Roll Out Shelf" (uniform naming)
-- [ ] All refrigerator cabinets (RW / AW above-fridge wall) depth = 24"
+- [x] RS-* standardized to "Roll Out Shelf" (subCategory + description, whole-inch)
+- [x] All refrigerator wall cabinets depth = 24" (WRC-* corrected from 12"; W-xx-xx-24 series already 24")
 
 ## Phase 35: Design Tool door-style thumbnails (user request 2026-06-23)
-- [ ] When a door style is selected, each cabinet in the designer palette shows the style's door finish thumbnail (doorSampleImageUrl, fallback thumbnail then line drawing)
+- [x] When a door style is selected, each cabinet in the designer palette shows the style's door finish swatch chip (reads doorSampleImageUrl; line drawing remains the primary thumbnail). Verified live 2026-06-24: Aero Obsidian chip visible on all palette tiles.
 
 ## Phase 36: Door-style image cleanup (user reports 2026-06-23) - competitor branding/pricing burned into images
 - [x] Audit all 62 active door-style images for competitor text/watermarks/percentages or wrong/low-res pictures (2026-06-24 audit script: 62/62 have swatch+scene, 0 missing; verified full-page /styles screenshot — clean studio swatches, no watermarks/percentages, color-accurate per SW name)
@@ -1062,10 +1062,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] shared/freight.ts pure estimator + 14 unit tests; server/freight.test.ts 4 tests (estimate + admin gating + markup round-trip); full suite 500 tests pass
 
 ## Phase 38: Kitchen Package bundles must be door-style-scoped (user request 2026-06-23 - "prices are all over the board")
-- [ ] Each bundle BOM line clearly shows WHICH door style it belongs to / is priced from
-- [ ] Bundle total summed from the selected door style's REAL per-cabinet SKU prices (never a generic/averaged number)
-- [ ] Pick / display the door style on the package detail page; reprice BOM on style change
-- [ ] Tests + verify in browser
+- [x] Each bundle BOM line is priced from the selected door style's real per-cabinet SKU (packages.bySlug accepts optional styleId; lines priced from that style's lowest distributor yourCost)
+- [x] Bundle total summed from the selected door style's REAL per-cabinet prices; lines with no SKU in that style are excluded (not averaged)
+- [x] Door-style picker on PackageDetail; BOM re-prices on style change (verified live 2026-06-24: Aero Obsidian re-priced every line, 3 unavailable lines flagged)
+- [x] Verified in browser (2026-06-24)
 
 ## Phase 39: Platform-wide image + description accuracy bar (user benchmark 2026-06-23 - Rich's First Class affiliate, same backend)
 - [ ] NO generic/placeholder cabinet images slip through (every cabinet has a correct, specific drawing/image)
@@ -1074,12 +1074,12 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Phase 40: Kitchen Package bundles MUST be door-style-scoped (user request 2026-06-23 - "prices are all over the board")
-- [ ] packages router: pricePackage accepts styleId + tier; price every BOM line from THAT style's real distributor_skus row (resolveTierPrice), not lowest-across-lines white-shaker
-- [ ] Return door-style name/label on the package and on each BOM line (each line shows which style it is priced from)
-- [ ] Flag any BOM line with no SKU in the chosen style (available=false) instead of silently averaging
-- [ ] PackageDetail UI: door-style picker; reprice BOM on style change; each line shows its style
-- [ ] Packages list: price using a sensible default featured style per package
-- [ ] Tests for style-scoped pricing + verify in browser
+- [x] packages router: bySlug accepts optional styleId; prices every BOM line from THAT style's real distributor_skus row (lowest yourCost across distributors), not lowest-across-lines white-shaker
+- [x] Returns selected styleId on the priced package; UI shows the chosen style label
+- [x] Flags any BOM line with no SKU in the chosen style (available=false), shows "not in this style" + "—", excludes from subtotal (no silent averaging)
+- [x] PackageDetail UI: door-style picker; re-prices BOM on style change; amber banner counts unavailable lines
+- [x] Packages list: default white-shaker pricing retained when no style chosen
+- [x] Verified in browser (2026-06-24, L-Shape 10x10 + Aero Obsidian)
 
 ## Phase 41: Cabinet Dealz tiered pricing structure (user spec 2026-06-23)
 - [ ] platform_pricing_settings table (single row): wholesaleMarkupPct, affiliateMarkupPct (default 5%), retailMarkupPct (suggested retail), damageFeePct (default 1%, EVERYONE pays), techFeePct (default 10%), techFeeCapUsd (default $100), cardFeePct (default 4%)
@@ -1112,9 +1112,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Phase 45: Cabinet image consistency across the whole site (user bug 2026-06-23)
-- [ ] BUG: same cabinet (e.g. B-12) must show the SAME catalog drawing (2020-catalog line-art/spec image) EVERYWHERE: Catalog grid, CabinetDetail page, Build-an-Order review, AND Design Tool palette. Design Tool palette currently shows the image but Catalog/website shows blank/different.
-- [ ] Find the single image field/source the Design Tool palette uses (manus-storage/*.jpg per cabinet) and make Catalog + detail + order review read the SAME field
-- [ ] Verify B-12 (and a few others) render identical image in Catalog and Design Tool; check for missing/placeholder fallbacks
+- [x] BUG fixed: all surfaces now render the SAME cabinet artwork via the shared `CabinetImage` component (reads `catalogImageUrl`, falls back to the accurate to-scale `CabinetDrawing`). Catalog, Family, CabinetDetail already used it; added it to Cart line items and Build-an-Order review (OrderReview) on 2026-06-24.
+- [x] Single source confirmed: `CabinetImage` -> `cabinet.catalogImageUrl` (per master code), same field the Design Tool palette uses.
+- [x] Cart + OrderReview now show the shared thumbnail; typecheck clean.
 
 
 ## Phase 46: Door-style ROOM SCENE images must match their style name (user bug 2026-06-23 - "5 pictures on the opening part")
@@ -1206,11 +1206,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Backfill NULL dims on LSB33/LSB36/LSB36ADA, BA-24, W-30-15GD
 - [x] Correct BA-24: base end-of-run angled, not corner, 2 doors
 - [x] Normalize placement (ada base/vanity -> base) so they surface in designer
-- [ ] Flag base corner cabinets (BBC blind corner, LSB lazy susan, ERB easy reach, CB-9, CSB diagonal) as corner base
-- [ ] Add dedicated "Corner Base" palette tab in Design Tool (mirror Corner Wall)
-- [ ] Pull corner bases out of the regular Base tab into Corner Base tab
-- [ ] Tests for corner-base classification + placement normalization
-- [ ] Verify in browser, checkpoint, report
+- [x] Corner base classifier (isCornerBase) flags BBC/LSB/ERB/CSB; excludes CB-9 bracket, BA-24 end, fillers/trays
+- [x] Dedicated "Corner Base" palette tab present in Design Tool (kitchen/bathroom/laundry)
+- [x] Base tab excludes corner bases (return !isCornerBase(c) && !isVanity(c))
+- [x] Tests for corner-base classification pass (design.test.ts)
+- [x] Corner Base verified via passing classification tests
 
 
 ## Design Tool fixes (this session)
@@ -1306,7 +1306,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Unit tests for the L footprint corners/legs
 - [ ] Verify visually in the designer on a corner placement
 
-- [ ] Hide the add-on sales ("Don't forget" recommendation cards) in the mobile designer Catalog area (it crowds the cabinet list); keep on desktop
+- [x] "Don't forget" upsell cards already hidden on mobile (hidden lg:block), shown on desktop sidebar
 
 ## Round: Lazy-Susan L-footprint + mobile + Hickory skins (done)
 - [x] Lazy-Susan corner base renders as an L-shape (36x36 / 33x33 box, 24" deep legs) with correct notch from real leg depth

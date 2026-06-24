@@ -1,11 +1,15 @@
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   ArrowLeft, Check, Hammer, Truck, Package as PackageIcon,
-  PencilRuler, TrendingUp, Sparkles,
+  PencilRuler, TrendingUp, Sparkles, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 
 function usd(n: number | null) {
@@ -18,7 +22,19 @@ function usd0(n: number) {
 
 export default function PackageDetail({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
-  const { data: pkg, isLoading, isError, refetch } = trpc.packages.bySlug.useQuery({ slug });
+  const [styleId, setStyleId] = useState<number | null>(null);
+  const { data: pkg, isLoading, isError, refetch } = trpc.packages.bySlug.useQuery({
+    slug,
+    ...(styleId != null ? { styleId } : {}),
+  });
+
+  const { data: styles } = trpc.doorStyles.list.useQuery();
+  const styleOptions = useMemo(() => {
+    type S = { id: number; styleCode: string; ourName: string | null };
+    return ((styles ?? []) as S[])
+      .map((s) => ({ id: s.id, label: s.ourName || s.styleCode }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [styles]);
 
   if (isLoading) {
     return (
@@ -108,12 +124,48 @@ export default function PackageDetail({ slug }: { slug: string }) {
         <div className="lg:col-span-2">
           <div className="rounded-2xl border border-border bg-white p-6">
             <h2 className="font-serif text-xl font-bold text-[var(--color-navy)] mb-1">Bill of Materials</h2>
-            <p className="text-sm text-muted-foreground mb-5">
-              The complete cabinet set for this layout. Unit cost reflects the best available network
-              line in white shaker, priced to match the same budget configuration the major sellers
-              advertise. Available assembled or flat-pack (RTA) — flat-pack ships denser with lower
-              damage risk and freight; assembled saves on-site install labor.
+            <p className="text-sm text-muted-foreground mb-4">
+              The complete cabinet set for this layout. Pick a door style below to price every line
+              in that exact finish; with no style selected, unit cost reflects the best available
+              white-shaker network line. Available assembled or flat-pack (RTA) — flat-pack ships
+              denser with lower damage risk and freight; assembled saves on-site install labor.
             </p>
+
+            {/* Door-style scoped pricing selector */}
+            <div className="mb-5 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Price in door style
+              </span>
+              <Select
+                value={styleId != null ? String(styleId) : "default"}
+                onValueChange={(v) => setStyleId(v === "default" ? null : Number(v))}
+              >
+                <SelectTrigger className="h-8 w-[260px] text-sm">
+                  <SelectValue placeholder="White Shaker (default)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">White Shaker (default — lowest network line)</SelectItem>
+                  {styleOptions.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {pkg.unavailableCount > 0 && (
+              <div className="mb-5 flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50/60 p-4 dark:bg-amber-950/20">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div className="text-sm">
+                  <div className="font-medium text-amber-800 dark:text-amber-300">
+                    {pkg.unavailableCount} {pkg.unavailableCount === 1 ? "line is" : "lines are"} not carried in this door style
+                  </div>
+                  <div className="text-amber-700/80 dark:text-amber-300/80">
+                    Those lines show “—” below and are excluded from the subtotal. Choose another style
+                    or swap those cabinets in the Design Tool.
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -127,8 +179,13 @@ export default function PackageDetail({ slug }: { slug: string }) {
                 </thead>
                 <tbody>
                   {pkg.lines.map((l, i) => (
-                    <tr key={`${l.masterCode}-${i}`} className="border-b border-border/60">
-                      <td className="py-2.5 pr-3 font-mono text-xs font-semibold text-[var(--color-navy)]">{l.masterCode}</td>
+                    <tr key={`${l.masterCode}-${i}`} className={`border-b border-border/60 ${!l.available ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}`}>
+                      <td className="py-2.5 pr-3 font-mono text-xs font-semibold text-[var(--color-navy)]">
+                        {l.masterCode}
+                        {!l.available && (
+                          <span className="ml-2 align-middle text-[10px] font-normal text-amber-700">not in this style</span>
+                        )}
+                      </td>
                       <td className="py-2.5 pr-3 text-muted-foreground">{l.role}</td>
                       <td className="py-2.5 pr-3 text-center">{l.qty}</td>
                       <td className="py-2.5 pr-3 text-right tabular-nums">{usd(l.unitCost)}</td>
