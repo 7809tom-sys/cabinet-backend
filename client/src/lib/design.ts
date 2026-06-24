@@ -287,6 +287,39 @@ export function rotatedSize(p: PlacedCabinet): { w: number; d: number } {
   return { w: p.width, d: p.depth };
 }
 
+// Rotation-aware RENDER footprint for a placed cabinet. This is what the canvas
+// should draw. For an L-shaped corner cabinet the plan bounding box is ALWAYS a
+// square (side = the cabinet's nominal width), with the corner notch cut by the
+// clip-path. Older saved placements may carry a stale shallow depth (e.g. a 36"
+// lazy-Susan stored as 36x24); squaring here makes both old and new placements
+// render correctly without a data migration. Non-corner cabinets fall back to
+// the plain rotated size.
+export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
+  if (isLCornerCabinet(p.masterCode, p.description)) {
+    const side = (p.width > 0 ? p.width : (p.depth > 0 ? p.depth : 24));
+    return { w: side, d: side };
+  }
+  return rotatedSize(p);
+}
+
+// One-time normalization for placed cabinets coming from a saved design / restore.
+// Older saves stored L-shaped corner cabinets with a shallow depth (e.g. a 36"
+// lazy-Susan as 36x24). The current model treats their plan footprint as a
+// SQUARE (depth == width) with the leg notch cut by the clip-path. Rewriting the
+// stored depth here means every downstream consumer (snapping, collision,
+// front view, BOM) sees the correct square footprint without a DB migration.
+export function normalizeLCornerDepths(placed: PlacedCabinet[]): PlacedCabinet[] {
+  let changed = false;
+  const next = placed.map((p) => {
+    if (!isLCornerCabinet(p.masterCode, p.description)) return p;
+    const side = p.width > 0 ? p.width : (p.depth > 0 ? p.depth : 24);
+    if (p.depth === side && p.width === side) return p;
+    changed = true;
+    return { ...p, width: side, depth: side };
+  });
+  return changed ? next : placed;
+}
+
 // Format an inch value without trailing zeros (34.5 -> "34.5", 24 -> "24").
 export function fmtIn(n: number): string {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);

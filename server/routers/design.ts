@@ -7,6 +7,13 @@ import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, co
 import { notifyOwner } from "../_core/notification";
 import { invokeLLM } from "../_core/llm";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
+import { resolveTierPrice } from "../../shared/pricingTier";
+import {
+  relevantCategories,
+  selectRecommendations,
+  type CrossSellCategory,
+  type CrossSellItem,
+} from "../../shared/crossSell";
 
 export const designRouter = router({
   placeableCabinets: publicProcedure
@@ -764,5 +771,132 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         await db.update(countertopQuotes).set(patch).where(eq(countertopQuotes.id, input.id));
       }
       return { id: input.id };
+    }),
+
+  // ─── Checkout cross-sell ──────────────────────────────────────────────────
+  // Given the cabinets in the cart + the locked door style + tier, recommend
+  // relevant accessories (roll-out trays, end panels, crown molding, fillers,
+  // touch-up kit) that are actually buyable in that style, priced in the
+  // caller's tier, and excluding anything already in the cart.
+  crossSell: publicProcedure
+    .input(
+      z.object({
+        styleId: z.number(),
+        tier: z.enum(["homeowner", "contractor", "wholesale"]).default("contractor"),
+        codes: z.array(z.string()).max(200),
+      }),
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || input.codes.length === 0) return { items: [] as CrossSellItem[] };
+
+      // Resolve placement + door count for the cart's cabinets so relevance is
+      // based on real catalog data, not client-supplied hints.
+      const cartCabRows = await db
+        .select({
+          masterCode: cabinets.masterCode,
+          placementType: cabinets.placementType,
+          category: cabinets.category,
+          numberOfDoors: cabinets.numberOfDoors,
+          isCornerCabinet: cabinets.isCornerCabinet,
+        })
+        .from(cabinets)
+        .where(inArray(cabinets.masterCode, input.codes));
+
+      const lines = cartCabRows.map((r) => {
+        let placement = (r.placementType || "").toLowerCase();
+        if (!placement) {
+          const cat = (r.category || "").toLowerCase();
+          if (cat.includes("wall")) placement = "wall";
+          else if (cat.includes("tall")) placement = "tall";
+          else placement = "base";
+        }
+        return {
+          masterCode: r.masterCode,
+          placement,
+          numberOfDoors: r.numberOfDoors,
+          isCornerCabinet: !!r.isCornerCabinet,
+        };
+      });
+
+      const relevant = relevantCategories(lines);
+      if (relevant.length === 0) return { items: [] as CrossSellItem[] };
+
+      // Pull candidate accessory SKUs buyable in the chosen style, with the
+      // tier price columns needed to resolve a unit price.
+      const rows = await db
+        .select({
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          subCategory: cabinets.subCategory,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          listPrice: distributorSkus.listPrice,
+        })
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(
+          and(
+            eq(cabinets.isActive, true),
+            notInConflict(),
+            eq(cabinets.category, "Accessory"),
+            eq(distributorSkus.styleId, input.styleId),
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true),
+          ),
+        );
+
+      // Map an accessory subCategory → a cross-sell category + reason.
+      const classify = (
+        sub: string | null,
+        code: string,
+      ): { category: CrossSellCategory; reason: string } | null => {
+        const s = (sub || "").toLowerCase();
+        const c = code.toUpperCase();
+        if (c === "TUK" || s.includes("touch")) {
+          return { category: "touchUpKit", reason: "Match factory finish for field cuts and nicks" };
+        }
+        if (s.includes("roll-out") || s.includes("tray")) {
+          return { category: "rollOutTray", reason: "Add pull-out access inside base cabinets" };
+        }
+        if (s.includes("end panel") || s.includes("skin") || s.includes("full height panel")) {
+          return { category: "endPanel", reason: "Finish an exposed cabinet side in your door style" };
+        }
+        if (s.includes("molding") || s.includes("trim") || c.startsWith("CM-")) {
+          return { category: "crownMolding", reason: "Crown the top of wall cabinets" };
+        }
+        if (s.includes("filler") || c.startsWith("FILL") || c.includes("FILLER")) {
+          return { category: "filler", reason: "Close gaps against walls and between cabinets" };
+        }
+        return null;
+      };
+
+      const candidates: CrossSellItem[] = [];
+      for (const r of rows) {
+        const cls = classify(r.subCategory, r.masterCode);
+        if (!cls) continue;
+        const unitPrice = resolveTierPrice(input.tier, {
+          wholesalePrice: r.wholesalePrice,
+          contractorPrice: r.contractorPrice,
+          homeownerPrice: r.homeownerPrice,
+          adjustedListPrice: r.adjustedListPrice,
+          listPrice: r.listPrice,
+        });
+        candidates.push({
+          category: cls.category,
+          masterCode: r.masterCode,
+          name: r.description || r.masterCode,
+          unitPrice,
+          reason: cls.reason,
+        });
+      }
+
+      const items = selectRecommendations(candidates, input.codes, relevant, {
+        perCategory: 2,
+        max: 6,
+      });
+      return { items };
     }),
 });

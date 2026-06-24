@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
-  PlacedCabinet, RoomData, rotatedSize, snapPosition, hasCollision,
+  PlacedCabinet, RoomData, rotatedSize, placedFootprint, snapPosition, hasCollision,
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
@@ -712,7 +712,7 @@ export function PlanCanvas({
         {cabinets
           .filter((c) => (showWallLayer ? true : c.placement !== "wall"))
           .map((p) => {
-            const { w, d } = rotatedSize(p);
+            const { w, d } = placedFootprint(p);
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const isCorner = isCornerCabinet(p.masterCode, p.description);

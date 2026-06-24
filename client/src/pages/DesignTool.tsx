@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight,
+  normalizeLCornerDepths,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
   blindCornerAutoFiller,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
@@ -178,7 +179,7 @@ export default function DesignTool() {
 
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "cornerbase" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "cornerbase" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts">("base");
   // Room type: kitchen cabinets (default), bathroom, laundry, closet parts, or other.
   const [roomType, setRoomType] = useState<RoomType>("kitchen");
 
@@ -204,7 +205,7 @@ export default function DesignTool() {
         placement:
           paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts"
             ? "base"
-            : paletteType === "cornerbase"
+            : paletteType === "cornerbase" || paletteType === "vanity"
             ? "base"
             : paletteType === "wallht" || paletteType === "cornerwall"
             ? "wall"
@@ -261,6 +262,18 @@ export default function DesignTool() {
     return looksCorner;
   }, []);
 
+  // Detect a bathroom VANITY cabinet (category=Vanity) so it can be grouped
+  // under the dedicated bathroom "Vanity" tab instead of being mixed into the
+  // generic Base list. Vanity sink/drawer/full-height bases are all floor
+  // (base-placement) cabinets, so without this they'd clutter the Base tab.
+  const isVanity = useCallback((c: DesignCabinet) => {
+    const cat = (c.category || "").toLowerCase();
+    if (cat === "vanity") return true;
+    const sub = (c.subCategory || "").toLowerCase();
+    const desc = (c.description || "").toLowerCase();
+    return sub.includes("vanity") || desc.includes("vanity");
+  }, []);
+
   // Doors & windows handlers.
   const addOpening = useCallback((def: OpeningDef) => {
     setOpenings((prev) => {
@@ -315,13 +328,16 @@ export default function DesignTool() {
         if (paletteType === "cornerwall") return isCornerWall(c);
         if (paletteType === "cornerbase") return isCornerBase(c);
         if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
-        // Plain "Base" excludes corner bases so they live only under "Corner Base".
-        if (paletteType === "base") return !isCornerBase(c);
+        // The dedicated "Vanity" tab shows ONLY vanity-category cabinets.
+        if (paletteType === "vanity") return isVanity(c);
+        // Plain "Base" excludes corner bases (own tab) AND vanities (own Vanity
+        // tab in bathroom mode) so they don't duplicate across tabs.
+        if (paletteType === "base") return !isCornerBase(c) && !isVanity(c);
         return true;
       })
       .filter((c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
       .slice(0, 80);
-  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, closetGroups]);
+  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
 
   // Group the palette by cabinet height so wall cabinets (and others) are easy
   // to find by size — mirrors how pros scan 2020's catalog by height.
@@ -478,7 +494,7 @@ export default function DesignTool() {
   const loadSavedDesign = useCallback(
     (d: { room: RoomData; placed: PlacedCabinet[]; styleId: number | null; roomType?: string | null }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
-      setPlaced(Array.isArray(d.placed) ? d.placed : []);
+      setPlaced(normalizeLCornerDepths(Array.isArray(d.placed) ? d.placed : []));
       setStyleId(d.styleId ?? null);
       if (d.roomType && ["kitchen", "bathroom", "laundry", "closet", "other"].includes(d.roomType)) {
         setRoomType(d.roomType as RoomType);
@@ -1320,7 +1336,7 @@ export default function DesignTool() {
       rotation: it.rotation,
       catalogImageUrl: it.catalogImageUrl ?? null,
     }));
-    setPlaced(items);
+    setPlaced(normalizeLCornerDepths(items));
     setSelectedUid(null);
     toast.success(`Loaded "${packageLayout.name}" — edit, swap styles, and re-price.`);
   }, [packageLayout]);
@@ -1421,7 +1437,7 @@ export default function DesignTool() {
         const d = JSON.parse(raw);
         if (d && typeof d === "object") {
           if (d.room) setRoom(d.room);
-          if (Array.isArray(d.placed)) setPlaced(d.placed);
+          if (Array.isArray(d.placed)) setPlaced(normalizeLCornerDepths(d.placed));
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);
           setStyleId(d.styleId ?? null);
@@ -1938,7 +1954,9 @@ export default function DesignTool() {
                     setPaletteType(
                       rt.value === "closet"
                         ? "closetparts"
-                        : rt.value === "bathroom" || rt.value === "laundry"
+                        : rt.value === "bathroom"
+                        ? "vanity"
+                        : rt.value === "laundry"
                         ? "appliance"
                         : "base",
                     );
@@ -1962,7 +1980,9 @@ export default function DesignTool() {
             <div className="flex lg:flex-wrap overflow-x-auto no-scrollbar rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
                 ? (["closetparts", "base", "wall", "tall", "opening"] as const)
-                : roomType === "bathroom" || roomType === "laundry"
+                : roomType === "bathroom"
+                ? (["vanity", "appliance", "base", "cornerbase", "wall", "wallht", "tall", "opening"] as const)
+                : roomType === "laundry"
                 ? (["appliance", "base", "cornerbase", "wall", "wallht", "tall", "opening"] as const)
                 : (["base", "cornerbase", "wall", "wallht", "cornerwall", "tall", "appliance", "opening"] as const)
               ).map((t) => (
@@ -1983,6 +2003,8 @@ export default function DesignTool() {
                     ? "Corner Wall"
                     : t === "cornerbase"
                     ? "Corner Base"
+                    : t === "vanity"
+                    ? "Vanity"
                     : t === "closetparts"
                     ? "Closet"
                     : t}

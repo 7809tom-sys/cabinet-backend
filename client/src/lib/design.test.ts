@@ -20,7 +20,7 @@ import {
   blindCornerAutoFiller,
   isStacker,
   isDiagonalCorner, footprintDepth,
-  isLCornerCabinet, cornerLegRatioForPlaced,
+  isLCornerCabinet, cornerLegRatioForPlaced, placedFootprint, normalizeLCornerDepths,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
@@ -1312,5 +1312,48 @@ describe("lazy-Susan / L-corner footprint", () => {
     expect(points).toHaveLength(6);
     // The notch keep-percentage should appear as ~67%.
     expect(path).toContain("67%");
+  });
+
+  it("placedFootprint squares an OLD lazy-Susan stored with a shallow depth", () => {
+    // Regression: a saved LSB36 with the legacy 36x24 box must render as 36x36.
+    const old = cab({ masterCode: "LSB36", description: '36" Base Lazy Susan Cabinet', width: 36, depth: 24, rotation: 0 });
+    const fp = placedFootprint(old);
+    expect(fp.w).toBe(36);
+    expect(fp.d).toBe(36); // squared, NOT the stale 24
+  });
+
+  it("placedFootprint keeps a rotated L-corner square (rotation is irrelevant for a square)", () => {
+    const rotated = cab({ masterCode: "LSB33", description: '33" Base Lazy Susan Cabinet', width: 33, depth: 24, rotation: 90 });
+    const fp = placedFootprint(rotated);
+    expect(fp.w).toBe(33);
+    expect(fp.d).toBe(33);
+  });
+
+  it("placedFootprint leaves ordinary cabinets as their rotated size", () => {
+    const base = cab({ masterCode: "B-24", description: "Base 24", width: 24, depth: 24, rotation: 0 });
+    expect(placedFootprint(base)).toEqual({ w: 24, d: 24 });
+    const wall = cab({ masterCode: "W-3030", description: "Wall 30", width: 30, depth: 12, rotation: 90 });
+    // Rotated 90deg: width/depth swap for a normal cabinet.
+    expect(placedFootprint(wall)).toEqual({ w: 12, d: 30 });
+  });
+
+  it("normalizeLCornerDepths rewrites stale L-corner depth to a square box", () => {
+    const input = [
+      cab({ masterCode: "LSB36", description: '36" Base Lazy Susan Cabinet', width: 36, depth: 24 }),
+      cab({ masterCode: "B-24", description: "Base 24", width: 24, depth: 24 }),
+    ];
+    const out = normalizeLCornerDepths(input);
+    expect(out[0].width).toBe(36);
+    expect(out[0].depth).toBe(36); // fixed
+    // The ordinary cabinet is untouched.
+    expect(out[1].depth).toBe(24);
+  });
+
+  it("normalizeLCornerDepths returns the SAME array reference when nothing changes", () => {
+    const input = [
+      cab({ masterCode: "LSB36", description: '36" Base Lazy Susan Cabinet', width: 36, depth: 36 }),
+      cab({ masterCode: "B-24", description: "Base 24", width: 24, depth: 24 }),
+    ];
+    expect(normalizeLCornerDepths(input)).toBe(input);
   });
 });

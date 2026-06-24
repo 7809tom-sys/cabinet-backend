@@ -1316,3 +1316,26 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Mobile: hid the "Don't forget" add-on upsell cards in the Catalog area (desktop keeps them)
 - [x] Hickory exposed-end skin auto-suggest engine (hickorySkins.ts) + tests; wired into BOM build sheet + pricing-panel notice (placeholder SKU, conflict-flagged, pending real SKU/pricing)
 - [x] All 553 tests pass
+
+
+## Checkout cross-sell / upsell step (in progress)
+- [ ] Cart-aware accessory recommendation engine (suggest trays, end panels/skins, molding, hardware, fillers based on cart families)
+- [ ] Only recommend within the same cabinet family/door style as cart items
+- [ ] Present recommendations on a dedicated checkout step (not bottom "Shop Buy" area)
+- [ ] One-click add-to-cart from recommendation, multiples collapse to a single line item
+- [ ] Tests for recommendation engine
+- [ ] Verify in browser + checkpoint
+
+
+## Admin panel: self-serve white-label (future)
+- [ ] In the Admin panel, let an operator white-label a cabinet line by typing the brand name in a field (writes distributors.brandName + sets whiteLabel/displayMode), instead of editing the DB directly
+
+## Session: Lazy-Susan render + Bathroom vanity palette
+- [x] Fix LSB36 rendering as 24x36 instead of 36x36 (square footprint at render time + normalize stale stored depth on load)
+- [x] placedFootprint() squares L-corner cabinets; PlanCanvas uses it for the render box
+- [x] normalizeLCornerDepths() applied on saved-design load, package load, and localStorage draft restore
+- [x] Regression tests for placedFootprint + normalizeLCornerDepths
+- [x] Bathroom palette: add a dedicated "Vanity" tab (category=Vanity) so bathroom vanities are grouped there instead of mixed into Base
+- [x] Vanity tab only appears in Bathroom room type; route Vanity-category cabinets to it and exclude them from the Base tab
+- [x] Bathroom defaults to the Vanity tab on room switch; vanities reuse existing base placement query
+- [x] Verified in browser: Vanity tab lists 41 vanity cabinets (VB/VS/VDB/V-/BFH/ADA-V), Base tab no longer shows them
