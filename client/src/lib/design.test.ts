@@ -1380,3 +1380,29 @@ describe("lazy-Susan / L-corner footprint", () => {
     expect(normalizeLCornerDepths(input)).toBe(input);
   });
 });
+
+
+describe("corner cabinet routing (keep Corner Base & Corner Wall separate, none in plain Base/Wall)", () => {
+  // Representative real catalog corner codes by family.
+  const baseCorners = ["BBC-36", "BBC-39", "BBC-42", "BBC-45", "ERB-33", "ERB-36", "LSB33", "LSB36", "LSB36ADA"];
+  const wallCorners = ["DCW2430", "WDC2430", "WER-24"];
+
+  it("classifies every base + wall corner code as a corner cabinet", () => {
+    for (const code of [...baseCorners, ...wallCorners]) {
+      expect(isCornerCabinet(code), `${code} should be a corner cabinet`).toBe(true);
+    }
+  });
+
+  it("treats L-corner base cabinets (blind/lazy-susan/easy-reach) as L (not diagonal)", () => {
+    for (const code of ["BBC-36", "ERB-33", "LSB33", "LSB36", "LSB36ADA"]) {
+      expect(isLCornerCabinet(code), `${code} should be an L-corner`).toBe(true);
+      expect(isDiagonalCorner(code), `${code} should NOT be diagonal`).toBe(false);
+    }
+  });
+
+  it("does NOT classify ordinary base/wall cabinets as corner cabinets", () => {
+    for (const code of ["B-12", "B-24", "B-36", "SB-30", "DB-24-2", "W-2430", "W-3030"]) {
+      expect(isCornerCabinet(code), `${code} should not be a corner cabinet`).toBe(false);
+    }
+  });
+});

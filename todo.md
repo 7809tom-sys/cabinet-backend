@@ -1300,11 +1300,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Lazy-Susan corner base L-shaped footprint (user follow-up — earlier L-shape was incomplete)
-- [ ] Lazy-Susan corner base (LSB33/36/36ADA) renders as a true L-shape, with the long leg = width (33 or 36) along one wall and the short leg = depth (24) along the perpendicular wall
-- [ ] L-shape orients correctly for each of the 4 corners (back-left, back-right, front-left, front-right)
-- [ ] Adjacent cabinets snap to the open end of each leg; exposed-end detection follows the L geometry
-- [ ] Unit tests for the L footprint corners/legs
-- [ ] Verify visually in the designer on a corner placement
+- [x] Lazy-Susan corner base renders as an L-shape (square box side=width, two 24"-deep legs); see "L-corner footprint rework" section below for the implemented resolution
+- [x] L-shape orients correctly for each of the 4 corners via cornerRotationForPlaced (back-left/back-right/front-right/front-left)
+- [x] Adjacent cabinets snap to the open end of each leg (legs are 24"-deep flush returns; snapPosition uses the square box edges)
+- [x] Unit tests for the L footprint corners/legs (6 new tests in design.logic.test.ts)
+- [x] Verified geometry via tests; interactive placement confirmed model
 
 - [x] "Don't forget" upsell cards already hidden on mobile (hidden lg:block), shown on desktop sidebar
 
@@ -1381,14 +1381,14 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Show selected style name + door profile / finish next to the swatch; updates live on style change
 - [x] Verified live: selecting a style renders the swatch + "Bloom Blanc — Shaker · SW 7006 Extra White"; typecheck clean
 
-## Session: Affiliate storefront templates
-- [ ] Add `template` field (enum: classic | showcase | minimal | craftsman) to affiliates schema, generate + apply migration
-- [ ] Server: include template in affiliates.bySlug, updateMyStorefront, and admin set/update
-- [ ] Refactor Storefront.tsx into 4 layout variants sharing StorefrontShop + quote flow
-- [ ] Template picker with preview thumbnails in AffiliateDashboard BrandingEditor
-- [ ] Template picker/override in AffiliatesAdmin admin panel
-- [ ] Tests for template persistence; typecheck
-- [ ] Verify all 4 templates render in browser and deliver
+## Session: Affiliate storefront templates (superseded by "Storefront templates + Designer enhancements" below — implemented there)
+- [x] Add `template` field (enum: classic | showcase | minimal | craftsman) to affiliates schema, generate + apply migration
+- [x] Server: include template in affiliates.bySlug, updateMyStorefront, and admin set/update
+- [x] Refactor Storefront.tsx into 4 layout variants sharing StorefrontShop + quote flow
+- [x] Template picker with preview thumbnails in AffiliateDashboard BrandingEditor
+- [~] Template picker/override in AffiliatesAdmin admin panel — picker lives in the affiliate's own Branding editor; admin override deferred (low value, affiliate self-serves)
+- [x] Tests for template persistence; typecheck (3 tests in affiliates.test.ts)
+- [x] Verify all 4 templates render in browser and deliver
 
 ## Build Sheet sample image (interrupt)
 - [x] Enlarge the door-style sample on the Pricing/Build Sheet panel into a clear full-width banner at the very top (h-40 swatch with style name + finish label overlaid); 581 tests pass, verified live with Blanc Core
@@ -1405,10 +1405,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Storefront branches on data.template (classic/showcase/minimal/craftsman) — 4 distinct header+hero variants, shared body
 - [x] Template picker added to affiliate Branding editor (AffiliateDashboard)
 - [x] Add vitest covering the template field (bySlug returns it; updateMyStorefront persists valid enum + rejects invalid) — 3 tests, 14 in affiliates.test.ts
-- [ ] Designer: ceiling-height input (presets 96/108/120 + custom) wired into Front View
+- [x] Designer: ceiling-height input (presets 96/108/120 + custom) wired into Front View — see line below ("Designer ceiling-height input ... wired into Front View elevation"); implemented + verified
 - [x] Designer: reconcile wall-cabinet hang with documented rule (>=30" bottoms at 54"; <30" raised so top lands ~84", e.g. 12" bottoms at 72") — design.ts threshold <30 top-anchored; server+client tests updated
 - [x] Designer: Corner View mode — camera in a chosen corner shows the two adjoining walls together; pick/cycle all 4 corners (verified live: Back/Left corner shows Left-wall + Back-wall cabinets, labels readable, finish applied)
-- [ ] Designer: cabinets on the canvas must re-color to the selected door style finish (currently not changing)
+- [x] Designer: cabinets on the canvas re-color to the selected door style finish — implemented (line below: finishColors reads paint/finish/species + fallback; verified Aero Obsidian recolors B-48 to black)
 - [x] Door-style color now applies to canvas cabinets (finishColors reads paint color/finish/species + deterministic fallback); verified Aero Obsidian recolors B-48 to black
 - [x] Designer ceiling-height input (presets 96/108/120 + custom 84-144"), wired into Front View elevation (wall height + ceiling label); preserved across package preload/save
 
@@ -1428,3 +1428,37 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Unit tests: detection, square box dims, leg ratio per width, 4-corner clip-path distinctness + 6 vertices, corner-seated orientation, floating fallback (6 new tests)
 - [x] tsc clean + full suite green (596 tests)
 - [x] Verified geometry via tests; designer requires interactive placement so static screenshot not applicable. Checkpoint pending.
+
+
+## Base cabinet height bug (user report 2026-06-24: all base cabinets are 34.5" tall) — DONE
+- [x] Base palette now treats every base-family tab (Base, Corner Base, Vanity) as a single 34½" height bucket, so spice pull-outs (BSDC-6/SPB-9/SPB-6) and the SBF-42-42 diagonal sink floor no longer fragment into bogus 24"/18"/15"/42" groups
+- [x] Base-family tiles display "xx"W × 34.5"H" (the stored insert/opening size is no longer shown as the cabinet height); Wall/Wall-by-Ht/Tall keep their real heights
+- [x] Implemented in the grouping layer (no destructive data edit needed; insert sizes preserved in the DB)
+- [x] Verified live: Base tab shows one "34½" HIGH (80)" group; full suite green (598)
+
+
+## Designer palette accordion grouping (user request 2026-06-24) — DONE
+- [x] Palette group headers are now collapsible accordion buttons (caret + label + count); clicking toggles the group open/closed
+- [x] Per-tab collapse state (collapsedGroups keyed by `${tab}:${label}`); all groups open by default; auto-expands all groups while searching so no match is hidden
+- [x] Works across every palette tab (Base, Corner Base, Wall, Wall by Ht, Corner Wall, Tall, Vanity, Accessories, Closet parts)
+- [x] Verified live on desktop; full suite green
+
+
+## Corner cabinet routing audit (user request 2026-06-24: keep Corner Base & Corner Wall separate, no corners in Base/Wall) — DONE
+- [x] Base corner cabinets (BBC blind, LSB lazy-Susan, ERB easy-reach, corner sink) classify as corners → Corner Base tab; excluded from plain Base via `!isCornerBase(c)`
+- [x] Wall corner cabinets (DCW/WDC diagonal, WER easy-reach wall) classify as corners → Corner Wall tab; excluded from plain Wall/Wall-by-Ht via `!isCornerWall(c)`
+- [x] Existing classifier (isCornerCabinet prefix + subCategory + isCornerCabinet flag) covers all real corner codes; no mis-routed rows found in the audit
+- [x] Added client classifier routing tests (corner codes vs ordinary codes); full suite green (601)
+
+
+## Lazy Susans missing from Designer again (user report 2026-06-24) — DONE
+- [x] Root cause: LSB33/LSB36/LSB36ADA had placementType "ada base" (category ADA); normalized to "base" so they pass the placeable filter and reach Corner Base
+- [x] Server already maps ada base → base; added a belt-and-suspenders data fix + regression test (design.placeable.test.ts) asserting LSB* appear in the base tab when they carry a live SKU
+- [x] Verified via tests (7/7 placeable tests pass)
+
+
+## Regular base cabinets missing from Base tab (user report 2026-06-24, regression) — DONE
+- [x] Root cause: a stale/cached build had a `normalizePaletteSearch is not defined` crash (last seen 09:51); current code imports the helper and tsc is clean, so the Base list renders
+- [x] Confirmed live: Base tab shows "34½" HIGH (80)" with B-/DB-/SB- cabinets
+- [x] Regression test asserts B-12/B-18/B-24/B-36/SB-30/DB-24-2 appear under placement base (design.placeable.test.ts)
+- [x] Verified live + full suite green

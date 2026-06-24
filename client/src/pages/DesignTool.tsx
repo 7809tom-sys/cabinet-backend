@@ -185,6 +185,19 @@ export default function DesignTool() {
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<"base" | "vanity" | "cornerbase" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts" | "accessory">("base");
+  // Accordion: which palette group headers the user has explicitly collapsed.
+  // Keyed by `${paletteType}:${groupLabel}` so collapse state is per-tab. By
+  // default every group is OPEN; toggling adds/removes the key here. While
+  // searching we force all groups open (handled in render) so no match hides.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
+  const toggleGroup = useCallback((key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
   // Room type: kitchen cabinets (default), bathroom, laundry, closet parts, or other.
   const [roomType, setRoomType] = useState<RoomType>("kitchen");
 
@@ -379,13 +392,21 @@ export default function DesignTool() {
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([label, items]) => ({ label, items }));
     }
-    // Group by EXACT height (not rounded) so 34.5" drawer/base cabinets keep
-    // their own "34½\" High" bucket instead of being rounded up into a
-    // misleading "35\" High" group that hides them from anyone scanning for the
-    // 34½\" bases.
+    // Every floor-standing BASE cabinet is a standard 34½" tall (the toe-kick +
+    // box + countertop reveal is fixed); the stored "height" on some SKUs (spice
+    // pull-outs like BSDC-6/SPB-9/SPB-6, diagonal sink floors) is actually the
+    // insert/opening size, NOT the cabinet height. So for the base-family tabs we
+    // force a single 34½" bucket instead of fragmenting them into bogus 24"/18"/
+    // 15"/42" groups. Wall / Wall-by-Height / Tall tabs keep their real heights
+    // because grouping by height is meaningful there.
+    const isBaseFamilyTab =
+      paletteType === "base" ||
+      paletteType === "cornerbase" ||
+      paletteType === "vanity";
+    const BASE_STD_HEIGHT = 34.5;
     const groups = new Map<number, DesignCabinet[]>();
     for (const c of filteredPalette) {
-      const h = dim(c.height, 0);
+      const h = isBaseFamilyTab ? BASE_STD_HEIGHT : dim(c.height, 0);
       const arr = groups.get(h);
       if (arr) arr.push(c);
       else groups.set(h, [c]);
@@ -2115,13 +2136,28 @@ export default function DesignTool() {
             ) : paletteLoading ? (
               Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)
             ) : (
-              groupedPalette.map((group) => (
+              groupedPalette.map((group) => {
+                // Accordion: each height/category group collapses. Keyed per-tab.
+                // Force-open while searching so no matching item is ever hidden.
+                const groupKey = `${paletteType}:${group.label}`;
+                const searching = normalizePaletteSearch(paletteSearch).length > 0;
+                const open = searching || !collapsedGroups.has(groupKey);
+                return (
                 <div key={group.label} className="space-y-1.5">
-                  <div className="sticky top-0 z-10 -mx-1 px-2 py-1 bg-background/95 backdrop-blur text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
-                    {group.label}
-                    <span className="ml-1 font-normal normal-case">({group.items.length})</span>
-                  </div>
-                  {group.items.map((c) => {
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(groupKey)}
+                    aria-expanded={open}
+                    className="sticky top-0 z-10 -mx-1 w-[calc(100%+0.5rem)] flex items-center gap-1.5 px-2 py-1.5 bg-background/95 backdrop-blur text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border hover:text-foreground transition-colors"
+                  >
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
+                      style={{ transitionTimingFunction: "cubic-bezier(0.23,1,0.32,1)" }}
+                    />
+                    <span className="flex-1 text-left">{group.label}</span>
+                    <span className="font-normal normal-case">({group.items.length})</span>
+                  </button>
+                  {open && group.items.map((c) => {
                     // Accessories & Trim are added to the bill of materials as
                     // quantity line items (via addAddOn), not dragged onto the
                     // canvas. Everything else is a placeable cabinet box.
@@ -2166,7 +2202,7 @@ export default function DesignTool() {
                       <div className="min-w-0 flex-1">
                         <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
                         <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                        <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {dim(c.height, 0) > 0 ? `${dim(c.height, 0)}"H` : "—"}</div>
+                        <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {(paletteType === "base" || paletteType === "cornerbase" || paletteType === "vanity") ? "34.5" : (dim(c.height, 0) > 0 ? dim(c.height, 0) : null) ?? "—"}{((paletteType === "base" || paletteType === "cornerbase" || paletteType === "vanity") || dim(c.height, 0) > 0) ? "\"H" : ""}</div>
                       </div>
                       {paletteFinishSwatch && (
                         <img
@@ -2182,7 +2218,8 @@ export default function DesignTool() {
                     );
                   })}
                 </div>
-              ))
+                );
+              })
             )}
             {paletteType !== "opening" && !paletteLoading && filteredPalette.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">

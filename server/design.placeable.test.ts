@@ -152,6 +152,78 @@ describe("design.placeableCabinets availability filter", () => {
     }
   });
 
+  it("surfaces the Lazy-Susan corner bases (LSB33/LSB36/LSB36ADA) in the base tab even though they are ADA placement", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+    const base = await caller.design.placeableCabinets({ placement: "base" });
+    const codes = new Set(base.map((c) => c.masterCode));
+
+    // Only assert for LSB codes that actually carry a live (published+available)
+    // SKU in this environment — otherwise the availability gate legitimately
+    // hides them and the assertion would be a false negative.
+    for (const code of ["LSB33", "LSB36", "LSB36ADA"]) {
+      const row = await db
+        .select({ id: cabinets.id })
+        .from(cabinets)
+        .where(and(eq(cabinets.isActive, true), eq(cabinets.masterCode, code)))
+        .limit(1);
+      if (row.length === 0) continue;
+      const hasSku = await db
+        .select({ id: distributorSkus.id })
+        .from(distributorSkus)
+        .where(
+          and(
+            eq(distributorSkus.cabinetId, row[0].id),
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true)
+          )
+        )
+        .limit(1);
+      if (hasSku.length === 0) continue;
+      expect(codes.has(code), `${code} must appear in the base placement tab`).toBe(true);
+    }
+  });
+
+  it("surfaces ordinary (non-corner) base cabinets in the base tab", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+    const base = await caller.design.placeableCabinets({ placement: "base" });
+    const codes = new Set(base.map((c) => c.masterCode));
+
+    // The base tab must never come back empty of plain base boxes. Assert that a
+    // representative spread of standard base SKUs is present (guards against a
+    // classifier/filter regression silently emptying the Base list).
+    let asserted = 0;
+    for (const code of ["B-12", "B-18", "B-24", "B-36", "SB-30", "DB-24-2"]) {
+      const row = await db
+        .select({ id: cabinets.id })
+        .from(cabinets)
+        .where(and(eq(cabinets.isActive, true), eq(cabinets.masterCode, code)))
+        .limit(1);
+      if (row.length === 0) continue;
+      const hasSku = await db
+        .select({ id: distributorSkus.id })
+        .from(distributorSkus)
+        .where(
+          and(
+            eq(distributorSkus.cabinetId, row[0].id),
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true)
+          )
+        )
+        .limit(1);
+      if (hasSku.length === 0) continue;
+      expect(codes.has(code), `${code} must appear in the base placement tab`).toBe(true);
+      asserted++;
+    }
+    // At least one standard base SKU should have been verifiable in this catalog.
+    expect(asserted).toBeGreaterThan(0);
+  });
+
   it("narrows the palette when a distributor + style is provided", async () => {
     const db = await getDb();
     if (!db) return;
