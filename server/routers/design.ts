@@ -65,7 +65,18 @@ export const designRouter = router({
       const availableCabinetIds = new Set(availableSkuRows.map((r) => r.cabinetId));
       const availableRows = rows.filter((r) => availableCabinetIds.has(r.id));
 
-      const withPlacement = availableRows.map((r) => {
+      // Accessories/trim (countertop support brackets, hardware, fillers, glass
+      // doors sold separately, decorative legs, etc.) are NOT placeable cabinet
+      // boxes — they belong to the accessory area (storefront / add-on flow),
+      // never the drag-and-drop placement palette. Exclude them up front so they
+      // can't leak into a Base/Corner Base tab via the base-bucket fallback.
+      const placeableRows = availableRows.filter((r) => {
+        const pt = (r.placementType || "").toLowerCase();
+        if (pt.includes("accessory") || pt.includes("trim")) return false;
+        return true;
+      });
+
+      const withPlacement = placeableRows.map((r) => {
         let placement = r.placementType;
         if (!placement) {
           const cat = (r.category || "").toLowerCase();

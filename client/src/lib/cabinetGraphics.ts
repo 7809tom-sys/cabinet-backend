@@ -255,7 +255,17 @@ export function cabinetAltText(cab: CabinetLike): string {
     "glass-door": "glass-front wall cabinet",
   };
 
-  const detail = detailMap[type];
+  let detail = detailMap[type];
+  // Corner cabinets share one L-shaped drawing, but the accessible label should
+  // reflect the actual mechanism (lazy-Susan / easy-reach / corner sink) rather
+  // than always saying "blind corner cabinet".
+  if (type === "blind-corner") {
+    const hay = `${cab.description ?? ""} ${cab.subCategory ?? ""} ${cab.masterCode ?? ""}`.toLowerCase();
+    if (/lazy susan|lazy-susan|\blsb\b/.test(hay)) detail = "lazy-Susan corner base cabinet";
+    else if (/easy reach|easy-reach|\berb\b/.test(hay)) detail = "easy-reach corner base cabinet";
+    else if (/corner sink|sink/.test(hay)) detail = "corner sink base cabinet";
+    else if (/diagonal/.test(hay)) detail = "diagonal corner cabinet";
+  }
   const codePart = code ? `(${code})` : "";
   return [head, codePart, "—", detail].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 }

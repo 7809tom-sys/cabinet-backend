@@ -1266,3 +1266,15 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Frontend: "View project total" expander under each project group in the My Designs dialog — per-room subtotals + project grand total (lazy-loaded)
 - [x] Combined project CSV export (room / type / door style / cabinet count / subtotal + project total row)
 - [x] Tests (server/design.projectSummary.test.ts: grouping, owner isolation, grand-total sum, myProjects count); 534 tests pass; tsc clean; /design renders clean
+
+## Catalog categorization audit (2026-06-24)
+
+- [x] Recategorize CB-9 as Accessory / Countertop Support Bracket (placementType accessory/trim, corner=0) — it's a countertop support bracket, not a cabinet
+- [x] Exclude accessory/trim items from the placeable Designer palette (server: design.placeableCabinets) so they can't leak into Base/Corner Base
+- [x] Fix 3 base cabinets miscategorized as accessory/trim -> placementType=base (BFH-21, BFH-24, BT-09)
+- [x] Fix 9 tall utility cabinets miscategorized as accessory/trim -> placementType=tall (U-18/24/30 x 84/90/96)
+- [x] Flag 6 easy-reach wall cabinets as corner so they route to Corner Wall tab (WER-24-12GD/15GD/18GD, WER-24-30/36/42)
+- [x] Refine corner alt text (lazy-Susan / easy-reach / corner sink) instead of generic "blind corner cabinet"
+- [x] Verify category vs placementType consistency across full catalog (no remaining contradictions)
+- [x] Add regression test: accessory/trim items never appear in placeable palette
+- [x] All 230 vitest tests pass

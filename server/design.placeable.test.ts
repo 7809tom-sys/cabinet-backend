@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { distributorSkus } from "../drizzle/schema";
+import { cabinets, distributorSkus } from "../drizzle/schema";
 import { and, eq, inArray } from "drizzle-orm";
 
 function publicCtx(): TrpcContext {
@@ -47,6 +47,37 @@ describe("design.placeableCabinets availability filter", () => {
     // All base-tier results are classified as base placement.
     for (const c of base) {
       expect((c as { placement: string }).placement).toBe("base");
+    }
+  });
+
+  it("never surfaces accessory/trim items (e.g. countertop support brackets) in the placeable palette", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+    // Pull the whole placeable palette (all three buckets) with no style gate.
+    const all = (
+      await Promise.all([
+        caller.design.placeableCabinets({ placement: "base" }),
+        caller.design.placeableCabinets({ placement: "wall" }),
+        caller.design.placeableCabinets({ placement: "tall" }),
+      ])
+    ).flat();
+    const paletteIds = new Set(all.map((c) => c.id));
+
+    // Any cabinet whose placementType is accessory/trim is an accessory area item
+    // (brackets, hardware, fillers, separately-sold glass doors) and must NOT
+    // appear in the drag-and-drop placement palette.
+    const accessoryRows = await db
+      .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+      .from(cabinets)
+      .where(and(eq(cabinets.isActive, true), eq(cabinets.placementType, "accessory/trim")));
+
+    for (const a of accessoryRows) {
+      expect(
+        paletteIds.has(a.id),
+        `${a.masterCode} (accessory/trim) must be excluded from the placeable palette`
+      ).toBe(false);
     }
   });
 

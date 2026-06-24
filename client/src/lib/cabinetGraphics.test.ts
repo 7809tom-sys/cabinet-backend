@@ -166,6 +166,33 @@ describe("cabinetAltText", () => {
     };
     expect(cabinetAltText(cab)).toContain("sink base cabinet");
   });
+
+  it("labels a lazy-Susan corner base by its mechanism, not 'blind corner'", () => {
+    const cab: CabinetLike = {
+      masterCode: "LSB36",
+      description: '36" Base Easy Reach with Lazy Susan Cabinet',
+      category: "Base",
+      subCategory: "ADA Lazy Susan Base",
+      width: "36",
+      isCornerCabinet: true,
+    };
+    const alt = cabinetAltText(cab);
+    expect(alt).toContain("LSB36");
+    expect(alt).toContain("lazy-Susan corner base cabinet");
+    expect(alt).not.toContain("blind corner cabinet");
+  });
+
+  it("labels an easy-reach corner base distinctly", () => {
+    const cab: CabinetLike = {
+      masterCode: "ERB-33",
+      description: '33" Base Easy Reach Cabinet',
+      category: "Base",
+      subCategory: "Easy Reach Corner Base",
+      width: "33",
+      isCornerCabinet: true,
+    };
+    expect(cabinetAltText(cab)).toContain("easy-reach corner base cabinet");
+  });
 });
 
 describe("cabinetDrawingType — real cabinet families never become accessory strips", () => {

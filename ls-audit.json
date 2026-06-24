@@ -1,0 +1,455 @@
+{
+  "lazySusan": [
+    {
+      "masterCode": "LSB33",
+      "description": "33\" Base Easy Reach with Lazy Susan Cabinet",
+      "category": "ADA",
+      "subCategory": "ADA Lazy Susan Base",
+      "width": "33.00",
+      "depth": "24.00",
+      "isCornerCabinet": 1,
+      "cornerSide": "left",
+      "placementType": "ada base",
+      "fillerRequired": 1,
+      "isActive": 1
+    },
+    {
+      "masterCode": "LSB36",
+      "description": "36\" Base Easy Reach with Lazy Susan Cabinet",
+      "category": "ADA",
+      "subCategory": "ADA Lazy Susan Base",
+      "width": "36.00",
+      "depth": "24.00",
+      "isCornerCabinet": 1,
+      "cornerSide": "left",
+      "placementType": "ada base",
+      "fillerRequired": 1,
+      "isActive": 1
+    },
+    {
+      "masterCode": "LSB36ADA",
+      "description": "36\" Base Easy Reach Lazy Susan ADA Cabinet",
+      "category": "ADA",
+      "subCategory": "ADA Lazy Susan Base",
+      "width": "36.00",
+      "depth": "24.00",
+      "isCornerCabinet": 1,
+      "cornerSide": "left",
+      "placementType": "ada base",
+      "fillerRequired": 1,
+      "isActive": 1
+    }
+  ],
+  "cornerCabs": [
+    {
+      "masterCode": "ADA-BT-09",
+      "description": "9\" ADA Tray Base Cabinet",
+      "category": "ADA",
+      "width": "9.00",
+      "depth": "24.00",
+      "cornerSide": null,
+      "placementType": "ada base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "BBC-36",
+      "description": "36\" Blind Corner Base Cabinet",
+      "category": "Base",
+      "width": "33.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "BBC-39",
+      "description": "39\" Blind Corner Base Cabinet",
+      "category": "Base",
+      "width": "36.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "BBC-42",
+      "description": "42\" Blind Corner Base Cabinet",
+      "category": "Base",
+      "width": "39.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "BBC-45",
+      "description": "45\" Blind Corner Base Cabinet",
+      "category": "Base",
+      "width": "45.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "BBFBP-48-96",
+      "description": "48\" Blind Corner Full Base Panel",
+      "category": "Accessory",
+      "width": "15.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "accessory/trim",
+      "isActive": 1
+    },
+    {
+      "masterCode": "BCM-8",
+      "description": "Decorative Base Crown Molding (BCM-8): 96\" long with a 3-5/8\" high x 3-17/32\" deep profile. Larger decorative crown that installs at the top of wall and tall cabinets to finish them to the ceiling line. Mitered at corners; sold in 96\" sticks and cut to length on site.",
+      "category": "Accessory",
+      "width": "96.00",
+      "depth": "3.53",
+      "cornerSide": "left",
+      "placementType": "accessory/trim",
+      "isActive": 1
+    },
+    {
+      "masterCode": "CB-9",
+      "description": "9\" Corner Base Cabinet",
+      "category": "Base",
+      "width": "36.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "CBT",
+      "description": "3\" x 6\" Corner Base Trim",
+      "category": "Accessory",
+      "width": "3.00",
+      "depth": "6.00",
+      "cornerSide": "left",
+      "placementType": "accessory/trim",
+      "isActive": 1
+    },
+    {
+      "masterCode": "CSB-36",
+      "description": "36\" Corner Sink Base Cabinet",
+      "category": "Base",
+      "width": "36.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCSF-42",
+      "description": "42\" Diagonal Corner Sink Floor",
+      "category": "Accessory",
+      "width": "26.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "accessory/trim",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-24-12GD",
+      "description": "24x12 Diagonal Corner Stacker Wall Cabinet with Glass Door",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-24-15GD",
+      "description": "24x15 Diagonal Corner Stacker Wall Cabinet with Glass Door",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-24-18GD",
+      "description": "24x18 Diagonal Corner Stacker Wall Cabinet with Glass Door",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-24-30",
+      "description": "24x30 Diagonal Corner Wall Cabinet with 2 Adjustable Shelves",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-24-30GD",
+      "description": "24\" Diagonal Corner Wall Cabinet with Glass Door",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-24-36",
+      "description": "24x36 Diagonal Corner Wall Cabinet with 3 Adjustable Shelves",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-24-36GD",
+      "description": "24\" Diagonal Corner Wall Cabinet with Glass Door",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-24-42",
+      "description": "24x42 Diagonal Corner Wall Cabinet with 4 Adjustable Shelves",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-24-42GD",
+      "description": "24\" Diagonal Corner Wall Cabinet with Glass Door",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-27-12GD",
+      "description": "27\" Diagonal Corner Wall Cabinet with Glass Door",
+      "category": "Wall",
+      "width": "27.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-27-36",
+      "description": "27\" Diagonal Corner Wall Cabinet",
+      "category": "Wall",
+      "width": "27.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "DCW-27-42",
+      "description": "27\" Diagonal Corner Wall Cabinet",
+      "category": "Wall",
+      "width": "27.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "ERB-33",
+      "description": "33\" Base Easy Reach Cabinet",
+      "category": "Base",
+      "width": "33.00",
+      "depth": "24.00",
+      "cornerSide": null,
+      "placementType": "base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "ERB-36",
+      "description": "36\" Base Easy Reach Cabinet",
+      "category": "Base",
+      "width": "36.00",
+      "depth": "24.00",
+      "cornerSide": null,
+      "placementType": "base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "OCM-8",
+      "description": "8\" Outside Corner Molding - 96\"L",
+      "category": "Accessory",
+      "width": "96.00",
+      "depth": "0.75",
+      "cornerSide": "left",
+      "placementType": "accessory/trim",
+      "isActive": 1
+    },
+    {
+      "masterCode": "RHC-06-30",
+      "description": "6\" Range Hood Corner Cabinet",
+      "category": "Wall",
+      "width": "6.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WBC-24-30",
+      "description": "24\" Blind Corner Wall Cabinet",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WBC-24-42",
+      "description": "24\" Blind Corner Wall Cabinet",
+      "category": "Wall",
+      "width": "24.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WBC-27-30",
+      "description": "27x30 Blind Corner Wall Cabinet with 2 Adjustable Shelves",
+      "category": "Wall",
+      "width": "27.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WBC-27-36",
+      "description": "27x36 Blind Corner Wall Cabinet with 3 Adjustable Shelves",
+      "category": "Wall",
+      "width": "27.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WBC-27-42",
+      "description": "27x42 Blind Corner Wall Cabinet with 4 Adjustable Shelves",
+      "category": "Wall",
+      "width": "27.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WBC-36-30",
+      "description": "36\" Blind Corner Wall Cabinet",
+      "category": "Wall",
+      "width": "36.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WBC-36-42",
+      "description": "36\" Blind Corner Wall Cabinet",
+      "category": "Wall",
+      "width": "27.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WD-18-48",
+      "description": "18\" Diagonal Corner Wall Cabinet",
+      "category": "Wall",
+      "width": "18.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WD-18-54",
+      "description": "18\" Diagonal Corner Wall Cabinet",
+      "category": "Wall",
+      "width": "18.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "WD-18-60",
+      "description": "18\" Diagonal Corner Wall Cabinet",
+      "category": "Wall",
+      "width": "18.00",
+      "depth": "12.00",
+      "cornerSide": "left",
+      "placementType": "wall",
+      "isActive": 1
+    },
+    {
+      "masterCode": "UV-SBF4242",
+      "description": "42\" Diagonal Corner Sink Floor",
+      "category": "Base",
+      "width": "42.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "LSB33",
+      "description": "33\" Base Easy Reach with Lazy Susan Cabinet",
+      "category": "ADA",
+      "width": "33.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "ada base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "LSB36",
+      "description": "36\" Base Easy Reach with Lazy Susan Cabinet",
+      "category": "ADA",
+      "width": "36.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "ada base",
+      "isActive": 1
+    },
+    {
+      "masterCode": "LSB36ADA",
+      "description": "36\" Base Easy Reach Lazy Susan ADA Cabinet",
+      "category": "ADA",
+      "width": "36.00",
+      "depth": "24.00",
+      "cornerSide": "left",
+      "placementType": "ada base",
+      "isActive": 1
+    }
+  ]
+}
