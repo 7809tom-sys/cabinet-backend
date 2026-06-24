@@ -1157,3 +1157,44 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Updated door_styles.doorSampleImageUrl + thumbnailImageUrl for all 61
 - [x] Redesigned DoorStyles grid + dialog to use door sample as primary visual
 - [x] Verified Family hero uses new door sample; typecheck + 509 tests pass
+
+## Design Tool correctness pass (user request 2026-06-24: make designing software work perfectly, esp. wall cabinets + all types)
+- [ ] Audit Design Tool code (wall selection, placement, sizing, pricing, persistence)
+- [ ] Base cabinets start at 0" (ground); single-click ground placement
+- [ ] Wall cabinets start at 54" high; if <30" tall, raise bottom accordingly (12" tall -> 70")
+- [ ] Wall cabinets keep min 3" from windows and doors
+- [ ] Select/highlight any wall and add cabinets/items to it
+- [ ] Doors and windows are size-adjustable
+- [ ] Blind corner cabinets include a corner filler
+- [ ] Filler next to oven/range when in a corner (handle clearance)
+- [ ] Oven cabinets not shown with glass doors
+- [ ] Default cabinet depth 12"; refrigerator cabinets 24" deep
+- [ ] Countertop visible, color options, add faucet/sink
+- [ ] Pricing correct for wall + all other cabinet types in designer
+- [ ] Verify end-to-end in browser, add/adjust tests, checkpoint
+
+## Hickory unfinished-exterior skin rule (user request 2026-06-24)
+- Rule: ALL Hickory cabinets ship unfinished on the exterior (and interior). Every EXPOSED visible side must order a matching Hickory skin panel. Applies to BOTH Hickory styles: HS "Silva Shaker" (30005) AND RH "Sylvan Rust"/"Rustic Hickory" (30062). Keep skins as a separate finishing product (not lumped in with wall cabinets).
+- [ ] Reclassify WS-12-42 from "12" Single Door Wall Cabinet" -> "12" x 42" Wall Skin / End Panel (1/4" cut-to-fit)"; category Accessory/Skin Panel, depth 0.25", 0 doors, accessory-strip graphic
+- [ ] Audit & confirm skin family: WSV-24/30/36/42 (wall), BSV (base/island), S-24-96/USV-24-96/FPV-42-96 (full/tall/island)
+- [ ] Ensure Hickory skin SKUs exist (HS 30005 + RH 30062) for each skin product, under Clark & Son (distributor 2), with correct pricing
+- [ ] Build shared exposed-side detection (which sides of a placed cabinet are visible/exposed) + helper to pick the matching skin by placement + height
+- [ ] Server: endpoint to resolve required Hickory skins for a cabinet/exposed-side set
+- [ ] Design Tool: when a Hickory cabinet has exposed sides, prompt/recommend matching skin(s); reflect in BOM
+- [ ] Order Review: when ordering a Hickory cabinet, require/auto-suggest matching Hickory skin(s) for exposed sides (keep as separate line items, finish must match)
+- [ ] vitest coverage for skin pairing/exposed-side logic; run full suite
+- [ ] Verify in browser; checkpoint; report
+
+## Conflict-status back office (done)
+
+- [x] Add conflictStatus / conflictReason / conflictedAt columns to cabinets (migration applied)
+- [x] Flag 9 uncertain skin/panel products into conflict status (prices preserved): WSV-24/30/36/42, WS-12-42, BSV, S-24-96, USV-24-96, FPV-42-96
+- [x] Add notInConflict() predicate and apply to public catalog, storefront, design palette, ocr, orders, pantry queries
+- [x] Add Admin "Conflicts" tab listing held items with distributor + door style + reason + Clear action
+- [x] Vitest coverage (server/conflictStatus.test.ts) + full suite (513 passing)
+- [x] Verified: skins hidden from public catalog + design palette; visible in admin conflicts
+
+## Deferred (pending user review with the book)
+
+- [ ] Confirm what WSV / skin family actually is, then reclassify WS-12-42 correctly
+- [ ] Hickory unfinished-exterior rule: require matching Hickory skin for every exposed side (HS + RH) — blocked until skins are verified and Hickory skin SKUs exist

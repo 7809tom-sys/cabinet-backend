@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, and, inArray, desc, like } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
-import { getDb } from "../db";
+import { getDb, notInConflict } from "../db";
 import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { invokeLLM } from "../_core/llm";
@@ -41,7 +41,7 @@ export const designRouter = router({
           catalogImageUrl: cabinets.catalogImageUrl,
         })
         .from(cabinets)
-        .where(eq(cabinets.isActive, true));
+        .where(and(eq(cabinets.isActive, true), notInConflict()));
 
       // Availability gate: a cabinet is only offered in the designer if it has
       // at least one published + available distributor SKU. If a specific
@@ -116,6 +116,7 @@ export const designRouter = router({
       };
       const availabilityGate = and(
         eq(cabinets.isActive, true),
+        notInConflict(),
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true)
@@ -385,7 +386,7 @@ export const designRouter = router({
           catalogImageUrl: cabinets.catalogImageUrl,
         })
         .from(cabinets)
-        .where(eq(cabinets.isActive, true));
+        .where(and(eq(cabinets.isActive, true), notInConflict()));
 
       const skuConditions = [
         eq(distributorSkus.isAvailable, true),

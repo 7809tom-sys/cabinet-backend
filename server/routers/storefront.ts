@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
-import { getDb } from "../db";
+import { getDb, notInConflict } from "../db";
 import {
   cabinets,
   distributors,
@@ -207,6 +207,7 @@ export const storefrontRouter = router({
         .where(
           and(
             eq(cabinets.isActive, true),
+            notInConflict(),
             eq(distributorSkus.styleId, input.styleId),
             eq(distributorSkus.isAvailable, true),
             eq(distributorSkus.isPublished, true)
@@ -235,6 +236,7 @@ export const storefrontRouter = router({
           .where(
             and(
               eq(cabinets.isActive, true),
+              notInConflict(),
               eq(cabinets.category, "Accessory"),
               eq(distributorSkus.styleId, input.styleId),
               eq(distributorSkus.isAvailable, true),
@@ -258,6 +260,7 @@ export const storefrontRouter = router({
         .where(
           and(
             eq(cabinets.isActive, true),
+            notInConflict(),
             eq(cabinets.category, input.category),
             eq(distributorSkus.styleId, input.styleId),
             eq(distributorSkus.isAvailable, true),
@@ -289,6 +292,7 @@ export const storefrontRouter = router({
 
       const conditions = [
         eq(cabinets.isActive, true),
+        notInConflict(),
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
@@ -422,6 +426,7 @@ export const storefrontRouter = router({
 
       const baseConditions = [
         eq(cabinets.isActive, true),
+        notInConflict(),
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
@@ -512,6 +517,7 @@ export const storefrontRouter = router({
         .where(
           and(
             eq(cabinets.isActive, true),
+            notInConflict(),
             eq(cabinets.masterCode, candidate),
             eq(cabinets.category, "Wall"),
             eq(distributorSkus.styleId, input.styleId),

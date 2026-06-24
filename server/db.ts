@@ -1,8 +1,16 @@
 import crypto from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, cabinets } from "../drizzle/schema";
 import { ENV } from './_core/env';
+
+// Shared predicate: exclude products held in admin "conflict" (Needs Review)
+// status from every public-facing query (catalog, storefront, Design Tool
+// palette, order/ocr code matching). Conflict items live only in the admin
+// back office until an admin reviews and clears them.
+export function notInConflict() {
+  return ne(cabinets.conflictStatus, "conflict");
+}
 
 let _db: ReturnType<typeof drizzle> | null = null;
 

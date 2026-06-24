@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { and, eq, inArray } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
-import { getDb } from "../db";
+import { getDb, notInConflict } from "../db";
 import { cabinets, distributorSkus, pantryBundles } from "../../drizzle/schema";
 
 // ─── Split Pantry pairing ──────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export const pantryRouter = router({
         width: cabinets.width,
       })
       .from(cabinets)
-      .where(and(eq(cabinets.subCategory, SUB_CATEGORY), eq(cabinets.isActive, true)));
+      .where(and(eq(cabinets.subCategory, SUB_CATEGORY), eq(cabinets.isActive, true), notInConflict()));
     return rows
       .filter((r) => /^UCB\d+54$/.test(r.masterCode)) // bottoms only (…54 = 54"H)
       .map((r) => ({

@@ -134,6 +134,13 @@ export const cabinets = mysqlTable("cabinets", {
   pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
   pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
   isActive: boolean("isActive").default(true).notNull(),
+  // Conflict / Needs-Review status. When 'conflict', the product is held in the
+  // admin back office only and hidden from the public catalog, storefront and
+  // the Design Tool palette until an admin reviews and clears it. Used for
+  // products whose identity/spec we are unsure about (e.g. skin/panel SKUs).
+  conflictStatus: varchar("conflictStatus", { length: 16 }).default("none").notNull(), // none | conflict
+  conflictReason: text("conflictReason"),
+  conflictedAt: timestamp("conflictedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

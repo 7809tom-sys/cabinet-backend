@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
-import { getDb } from "../db";
+import { getDb, notInConflict } from "../db";
 import {
   cabinets,
   distributorSkus,
@@ -48,7 +48,7 @@ async function loadCodeRecords(): Promise<CabinetCodeRecord[]> {
       category: cabinets.category,
     })
     .from(cabinets)
-    .where(eq(cabinets.isActive, true));
+    .where(and(eq(cabinets.isActive, true), notInConflict()));
   return rows;
 }
 

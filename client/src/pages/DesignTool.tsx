@@ -657,10 +657,22 @@ export default function DesignTool() {
         if (x != null && y != null) {
           spot = { x, y, rotation: 0 };
         } else {
-          // Center the cabinet's footprint in the room, clamped in-bounds.
-          const cx = Math.max(0, Math.min(room.width / 2 - width / 2, Math.max(0, room.width - width)));
-          const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
-          spot = { x: cx, y: cy, rotation: 0 };
+          // Seat the cabinet flush against the ACTIVE wall at the first free
+          // segment so it appears immediately on that wall in both Bird's-Eye
+          // and Front View (and is correctly attributed for molding/pricing).
+          // The user can still drag it anywhere afterward. Fall back to the
+          // room center only if the active wall has no free run left.
+          const segs = freeSegmentsOnWall(activeWall, room, prev, openings, Math.min(width, 9));
+          const fit = segs.find((s) => s.length >= width) ?? segs[0];
+          if (fit) {
+            const along = fit.start;
+            spot = wallPlacementAt(along, width, depth, activeWall, room);
+          } else {
+            // Wall is full: center the footprint in the room, clamped in-bounds.
+            const cx = Math.max(0, Math.min(room.width / 2 - width / 2, Math.max(0, room.width - width)));
+            const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
+            spot = { x: cx, y: cy, rotation: 0 };
+          }
         }
         const newCab: PlacedCabinet = {
           uid: makeUid(),
@@ -699,7 +711,7 @@ export default function DesignTool() {
         return [...prev, newCab];
       });
     },
-    [room, activeWall]
+    [room, activeWall, openings]
   );
 
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe

@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
-import { getDb } from "../db";
+import { getDb, notInConflict } from "../db";
 import { cabinets } from "../../drizzle/schema";
 import { invokeLLM } from "../_core/llm";
 import { storagePut } from "../storage";
@@ -125,7 +125,7 @@ export const ocrRouter = router({
           category: cabinets.category,
         })
         .from(cabinets)
-        .where(eq(cabinets.isActive, true));
+        .where(and(eq(cabinets.isActive, true), notInConflict()));
 
       const catalog: CatalogEntry[] = catRows.map((c) => ({
         id: c.id,

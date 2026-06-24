@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, and, like, inArray, isNotNull, sql, desc, asc } from "drizzle-orm";
 import { publicProcedure, adminProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
-import { getDb } from "../db";
+import { getDb, notInConflict } from "../db";
 import {
   cabinets,
   distributors,
@@ -278,7 +278,8 @@ export const doorStylesRouter = router({
             eq(distributorSkus.styleId, input.styleId),
             eq(distributorSkus.isAvailable, true),
             eq(distributorSkus.isPublished, true),
-            eq(cabinets.isActive, true)
+            eq(cabinets.isActive, true),
+            notInConflict()
           )
         );
 
@@ -325,7 +326,7 @@ export const cabinetsRouter = router({
       const db = await getDb();
       if (!db) return { items: [], total: 0 };
 
-      const conditions = [eq(cabinets.isActive, true)];
+      const conditions = [eq(cabinets.isActive, true), notInConflict()];
       if (input?.category) {
         conditions.push(eq(cabinets.category, input.category));
       }
@@ -396,6 +397,7 @@ export const cabinetsRouter = router({
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
         eq(cabinets.isActive, true),
+        notInConflict(),
       ];
       if (input.category) conds.push(eq(cabinets.category, input.category));
       if (input.subCategory) conds.push(eq(cabinets.subCategory, input.subCategory));
@@ -446,7 +448,7 @@ export const cabinetsRouter = router({
     const rows = await db
       .selectDistinct({ category: cabinets.category })
       .from(cabinets)
-      .where(eq(cabinets.isActive, true));
+      .where(and(eq(cabinets.isActive, true), notInConflict()));
     return rows.map((r) => r.category).filter(Boolean);
   }),
 
@@ -461,6 +463,7 @@ export const cabinetsRouter = router({
         .where(
           and(
             eq(cabinets.isActive, true),
+            notInConflict(),
             eq(cabinets.category, input.category),
             isNotNull(cabinets.subCategory)
           )
@@ -476,7 +479,7 @@ export const cabinetsRouter = router({
       const rows = await db
         .select()
         .from(cabinets)
-        .where(eq(cabinets.id, input.id))
+        .where(and(eq(cabinets.id, input.id), notInConflict()))
         .limit(1);
       return rows[0] ? scrubCabinet(rows[0]) : null;
     }),
@@ -489,9 +492,121 @@ export const cabinetsRouter = router({
       const rows = await db
         .select()
         .from(cabinets)
-        .where(eq(cabinets.masterCode, input.masterCode))
+        .where(and(eq(cabinets.masterCode, input.masterCode), notInConflict()))
         .limit(1);
       return rows[0] ? scrubCabinet(rows[0]) : null;
+    }),
+
+  // ── Admin: Conflict / Needs-Review back office ───────────────────────────
+  // Lists every product currently held in conflict status, together with the
+  // info we DO know: distributor name(s) and door style(s) it is carried under
+  // (resolved from its SKUs). Admin-only — supplier identity is allowed here.
+  conflicts: adminProcedure.query(async () => {
+    type ConflictItem = {
+      id: number;
+      masterCode: string;
+      description: string;
+      category: string;
+      subCategory: string | null;
+      width: string | null;
+      height: string | null;
+      depth: string | null;
+      conflictReason: string | null;
+      conflictedAt: Date | null;
+      skuCount: number;
+      distributorNames: string[];
+      doorStyleNames: string[];
+    };
+    const db = await getDb();
+    if (!db) return [] as ConflictItem[];
+    const items = await db
+      .select()
+      .from(cabinets)
+      .where(eq(cabinets.conflictStatus, "conflict"))
+      .orderBy(asc(cabinets.masterCode));
+    if (items.length === 0) return [];
+    const ids = items.map((c) => c.id);
+    // Resolve the distributor names + door styles each conflict item is
+    // carried under, so the admin can identify it against the catalog book.
+    const skuRows = await db
+      .select({
+        cabinetId: distributorSkus.cabinetId,
+        distributorName: distributors.name,
+        styleName: doorStyles.ourName,
+        styleCode: doorStyles.styleCode,
+        distributorSku: distributorSkus.distributorSku,
+        platformSku: distributorSkus.platformSku,
+        listPrice: distributorSkus.listPrice,
+      })
+      .from(distributorSkus)
+      .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+      .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+      .where(inArray(distributorSkus.cabinetId, ids));
+    const byCab = new Map<number, typeof skuRows>();
+    for (const r of skuRows) {
+      const arr = byCab.get(r.cabinetId) ?? [];
+      arr.push(r);
+      byCab.set(r.cabinetId, arr);
+    }
+    const result: ConflictItem[] = items.map((c) => {
+      const skus = byCab.get(c.id) ?? [];
+      const distributorNames = Array.from(
+        new Set(skus.map((s) => s.distributorName).filter((v): v is string => Boolean(v)))
+      );
+      const doorStyleNames = Array.from(
+        new Set(
+          skus
+            .map((s) => (s.styleName ? `${s.styleName}${s.styleCode ? ` (${s.styleCode})` : ""}` : null))
+            .filter((v): v is string => Boolean(v))
+        )
+      );
+      return {
+        id: c.id,
+        masterCode: c.masterCode,
+        description: c.description,
+        category: c.category,
+        subCategory: c.subCategory,
+        width: c.width,
+        height: c.height,
+        depth: c.depth,
+        conflictReason: c.conflictReason,
+        conflictedAt: c.conflictedAt,
+        skuCount: skus.length,
+        distributorNames,
+        doorStyleNames,
+      };
+    });
+    return result;
+  }),
+
+  // Admin: flag a product into conflict status (hold in back office).
+  setConflict: adminProcedure
+    .input(z.object({ id: z.number(), reason: z.string().optional() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await db
+        .update(cabinets)
+        .set({
+          conflictStatus: "conflict",
+          conflictReason: input.reason ?? "Flagged for review by admin.",
+          conflictedAt: new Date(),
+        })
+        .where(eq(cabinets.id, input.id));
+      return { ok: true };
+    }),
+
+  // Admin: clear a conflict once reviewed, returning the product to live status.
+  clearConflict: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await db
+        .update(cabinets)
+        .set({ conflictStatus: "none", conflictReason: null, conflictedAt: null })
+        .where(eq(cabinets.id, input.id));
+      return { ok: true };
     }),
 });
 
@@ -538,7 +653,8 @@ export const pricingRouter = router({
             eq(distributorSkus.isAvailable, true),
             eq(distributorSkus.isPublished, true),
             eq(doorStyles.isActive, true),
-            eq(distributors.isActive, true)
+            eq(distributors.isActive, true),
+            notInConflict()
           )
         );
 
