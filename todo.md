@@ -1150,3 +1150,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] pantry router: listBottoms + pairForBottom (same width, same finish; 18" excluded)
 - [x] OrderReview auto-adds matching top on bottom; re-prices with door style; qty lock-step; cascade delete; top locked (no swap/delete)
 - [x] vitest pantry.test.ts (4 tests) + full suite 509 passing
+
+## Phase 47: Consistent door swatches (DONE)
+- [x] Generated 61 consistent studio door-sample images (same angle/light/framing, exact finish per style)
+- [x] Uploaded all 61 via webdev uploader; mapped styleId -> /manus-storage URL
+- [x] Updated door_styles.doorSampleImageUrl + thumbnailImageUrl for all 61
+- [x] Redesigned DoorStyles grid + dialog to use door sample as primary visual
+- [x] Verified Family hero uses new door sample; typecheck + 509 tests pass

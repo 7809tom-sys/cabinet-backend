@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
-import { RoomScenePreview } from "@/components/RoomScenePreview";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -32,9 +31,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
   // When there's no real photo, fall back to the color-accurate swatch/preview
   // (recolored to THIS style's exact finish) — never a generic stock door or
   // another family's scene.
-  const realScene = style.roomSceneImageUrl || null;
   const realDoor = style.doorSampleImageUrl || null;
-  const familyPhoto = realDoor;
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -42,43 +39,23 @@ function StyleCard({ style }: { style: DoorStyle }) {
           type="button"
           className="cabinet-card group rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          {/* Room scene backdrop + the door profile sample on top + true-color chip */}
-          <div className="h-40 flex items-center justify-center border-b border-border overflow-hidden relative">
-            {/* Per-style kitchen room scene — real distributor photo when available */}
-            {realScene ? (
+          {/* Clean studio door sample as the primary visual on a neutral ground */}
+          <div className="h-48 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
+            {realDoor ? (
               <img
-                src={realScene}
-                alt={`${style.ourName || style.styleCode} kitchen`}
+                src={realDoor}
+                alt={`${style.ourName || style.styleCode} door sample`}
                 loading="lazy"
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <RoomScenePreview
-                style={style}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            )}
-            {/* Soft scrim so the door sample reads clearly against the scene */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
-            {familyPhoto ? (
-              <img
-                src={familyPhoto}
-                alt={`${style.doorStyle || "Door"} panel profile sample`}
-                loading="lazy"
-                className="relative h-28 w-auto object-contain drop-shadow-lg group-hover:scale-105 transition-transform duration-300"
+                className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
             ) : (
               <DoorStyleSwatch
                 style={style}
-                className="relative h-28 w-auto drop-shadow-lg group-hover:scale-105 transition-transform duration-300"
+                className="relative h-32 w-auto drop-shadow-lg group-hover:scale-105 transition-transform duration-300"
               />
             )}
-            {/* true-color chip so the realistic profile + exact finish are both shown */}
-            <span className="absolute top-2 left-2 rounded-md bg-background/90 p-0.5 shadow-sm ring-1 ring-border">
-              <DoorStyleSwatch style={style} className="h-9 w-auto" />
-            </span>
             <span className="absolute bottom-2 right-2 text-[10px] font-medium text-white bg-black/55 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-              View in kitchen
+              View details
             </span>
           </div>
 
@@ -117,31 +94,23 @@ function StyleCard({ style }: { style: DoorStyle }) {
           </DialogTitle>
         </DialogHeader>
 
-        {/* Room scene — real distributor photo of this finish when available */}
-        <div className="rounded-lg overflow-hidden border border-border">
-          {realScene ? (
+        {/* Primary: the clean studio door sample for this finish */}
+        <div className="rounded-lg overflow-hidden border border-border bg-gradient-to-b from-muted/40 to-muted/70">
+          {realDoor ? (
             <img
-              src={realScene}
-              alt={`${style.ourName || style.styleCode} kitchen`}
+              src={realDoor}
+              alt={`${style.ourName || style.styleCode} door sample`}
               className="w-full h-auto block"
             />
           ) : (
-            <RoomScenePreview style={style} className="w-full h-auto block" />
+            <DoorStyleSwatch style={style} className="w-full h-auto block" />
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
           <div className="flex items-center gap-2">
-            {familyPhoto ? (
-              <img
-                src={familyPhoto}
-                alt={`${style.doorStyle || "Door"} panel profile sample`}
-                loading="lazy"
-                className="h-16 w-auto object-contain rounded"
-              />
-            ) : null}
             <DoorStyleSwatch style={style} className="h-12 w-auto" />
-            <div className="text-xs text-muted-foreground">Profile &amp; true color</div>
+            <div className="text-xs text-muted-foreground">True color</div>
           </div>
           <div className="space-y-0.5">
             {style.doorStyle && <p className="text-xs"><span className="text-muted-foreground">Style:</span> {style.doorStyle}</p>}
@@ -150,11 +119,6 @@ function StyleCard({ style }: { style: DoorStyle }) {
             {style.color && <p className="text-xs"><span className="text-muted-foreground">Color:</span> {style.color}</p>}
           </div>
         </div>
-        {!realScene && (
-          <p className="text-[11px] text-muted-foreground">
-            Scene is a rendered illustration of this finish across upper and base cabinets.
-          </p>
-        )}
 
         {/* Primary path into shopping: see EVERY cabinet available in this family */}
         <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
