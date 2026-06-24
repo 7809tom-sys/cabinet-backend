@@ -53,6 +53,39 @@ describe("kitchenSceneFor", () => {
     expect(kitchenSceneFor({ doorStyle: "Pearl White Raised Panel" })).toBe(KITCHEN_SCENES["shaker-white"]);
     expect(kitchenSceneFor({ doorStyle: "Slate Gray Raised Panel" })).toBe(KITCHEN_SCENES["shaker-gray"]);
   });
+
+  // Regression: a WHITE paint named on a wood species (maple/birch/oak) must read
+  // as a white kitchen, NEVER the cherry/lightwood scene. (paint color wins)
+  it("a white paint on a wood species shows a white kitchen, never cherry", () => {
+    const whiteScene = KITCHEN_SCENES["shaker-white"];
+    for (const ds of [
+      "Maple · SW 7006 Extra White",
+      "Solid Birch · Snowbound",
+      "Oak Shaker · Alabaster",
+      "Hickory · Pure White",
+      "Maple Raised Panel · Chantilly Lace",
+    ]) {
+      const url = kitchenSceneFor({ doorStyle: ds });
+      expect(url, ds).toBe(whiteScene);
+      expect(url, ds).not.toBe(KITCHEN_SCENES["raised-cherry"]);
+    }
+  });
+
+  // Regression: an explicit dark/gray paint on a wood species wins over the species.
+  it("dark/gray paint on a wood species wins over the species", () => {
+    expect(kitchenSceneFor({ doorStyle: "Solid Birch · SW 6258 Tricorn Black Shaker" })).toBe(
+      KITCHEN_SCENES["shaker-espresso"],
+    );
+    expect(kitchenSceneFor({ doorStyle: "Maple Shaker · Dorian Gray" })).toBe(
+      KITCHEN_SCENES["shaker-gray"],
+    );
+  });
+
+  // A true wood-stain (no paint color named) still routes by species.
+  it("a true cherry stain (no paint color) still gets the cherry scene", () => {
+    expect(kitchenSceneFor({ doorStyle: "Cherry Raised Panel" })).toBe(KITCHEN_SCENES["raised-cherry"]);
+    expect(kitchenSceneFor({ doorStyle: "Natural Maple Shaker" })).toBe(KITCHEN_SCENES["slab-natural"]);
+  });
 });
 
 import { cabinetProductPhoto, kitchenSceneWithCopy } from "./doorFamilyPhotos";

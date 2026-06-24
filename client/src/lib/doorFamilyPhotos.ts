@@ -69,23 +69,37 @@ export const KITCHEN_SCENES: Record<KitchenSceneKey, string> = {
 // have photography for.
 type FinishBucket = "white" | "gray" | "dark" | "warmwood" | "lightwood";
 
+// Keyword groups. PAINT COLOR is what the eye reads, so an explicit white /
+// off-white paint name MUST win even when the door is built on a wood species
+// (e.g. "Maple · SW 7006 Extra White" or "Solid Birch · Snowbound" is a WHITE
+// kitchen, not a maple/birch "lightwood" one). Likewise an explicit dark or gray
+// PAINT wins over the species. Only when no paint color is named do we fall back
+// to the wood-species buckets (warm vs light wood). This ordering is what keeps a
+// white cabinet from ever rendering the cherry scene.
+const WHITE_RE =
+  /\bwhite\b|snow|arctic|alpine|pearl|cream|almond|biscuit|linen|marshmallow|snowbound|alabaster|blanc|chantilly|frost|cotton|ivory|antique white|off[- ]?white/;
+const DARK_RE =
+  /black|obsidian|onyx|carbon|tricorn|caviar|iron ore|espresso|java|mocha|coffee|chocolate|ebony/;
+const GRAY_RE =
+  /grey|gray|graphite|pewter|charcoal|slate|fog|grizzle|repose|dovetail|mindful|dorian|gauntlet|navy|blue|indigo|ocean|abyss|cobalt/;
+const WARMWOOD_RE =
+  /cherry|mahogany|chestnut|cinnamon|spice|saddle|rust|autumn|toffee|amber|nutmeg|ginger/;
+const LIGHTWOOD_RE =
+  /oak|honey|natural|maple|birch|wheat|blonde|gold|hickory|shade|solstice/;
+
 function finishBucket(doorStyle?: string | null): FinishBucket {
   const s = (doorStyle ?? "").toLowerCase();
-  // Dark first — black/espresso must win even when paired with a wood species
-  // (e.g. "Solid Birch · SW 6258 Tricorn Black").
-  if (/black|obsidian|onyx|carbon|tricorn|caviar|iron ore|espresso|java|mocha|coffee|chocolate|ebony/.test(s))
-    return "dark";
-  if (/grey|gray|graphite|pewter|charcoal|slate|fog|grizzle|repose|dovetail|mindful|dorian|gauntlet|navy|blue|indigo|ocean|abyss|cobalt/.test(s))
-    return "gray";
-  // Warm woods (reddish/orange) → cherry scene.
-  if (/cherry|mahogany|chestnut|cinnamon|spice|saddle|rust|autumn|toffee|amber|nutmeg|ginger/.test(s))
-    return "warmwood";
-  // Light/natural woods → bright modern natural scene.
-  if (/oak|honey|natural|maple|birch|wheat|blonde|gold|hickory|shade|solstice/.test(s))
-    return "lightwood";
-  if (/white|snow|arctic|alpine|pearl|dove|cream|almond|biscuit|linen|sand|beige|tan|marshmallow|snowbound|extra white|alabaster|blanc/.test(s))
-    return "white";
-  return "white"; // most-requested default reads clean & bright
+  // 1) Explicit PAINT colors win over wood species, in this priority:
+  //    white → dark → gray. (A door is rarely two paint colors; if it somehow
+  //    names both, the lighter/cleaner read is the safer hero.)
+  if (WHITE_RE.test(s)) return "white";
+  if (DARK_RE.test(s)) return "dark";
+  if (GRAY_RE.test(s)) return "gray";
+  // 2) No paint color named → classify by wood species/tone.
+  if (WARMWOOD_RE.test(s)) return "warmwood";
+  if (LIGHTWOOD_RE.test(s)) return "lightwood";
+  // 3) Unknown → clean & bright default (never cherry).
+  return "white";
 }
 
 /**

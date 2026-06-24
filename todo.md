@@ -129,7 +129,8 @@
 - [x] Verify Front View (elevation) toggle works and is discoverable
 - [x] Add an Island Zone: toggleable dashed rectangle in the room marking where island cabinets go; movable + resizable
 - [x] Add Doors & Windows as adjustable wall openings: 6 presets, drag-along-wall (verified live: -130px drag moved element -130px, stays clamped), width-resize handle (min 12"), render in plan + elevation, deletable + keyboard delete
-- [ ] BUG (published site): Sign In returns {"error":"oauth callback failed"} at /api/oauth/callback on cabinetdeals-fg7png.manus.space — investigate OAuth callback / redirect URI on the live deployment
+- [x] FAILURE UX FIXED + LIVE CALLBACK BEHAVIOR VERIFIED (not a full login test): Sign In no longer returns the raw JSON dead-end {"error":"oauth callback failed"}. The callback handler (server/_core/oauth.ts) now safely 302-redirects to /?auth_error=<reason> for every failure (missing_params / no_openid / exchange_failed) and logs upstreamStatus/upstreamData/attemptedRedirectUri/host for diagnosing redirect-URI/domain mismatches. Home.tsx reads ?auth_error and shows a friendly toast then strips the flag. Verified on live cabinetz-dq7pucbp.manus.space via curl: no-params -> 302 /?auth_error=missing_params; bogus code/state -> 302 /?auth_error=exchange_failed. The original JSON error was from a pre-fix build. NOT yet verified: a real end-to-end successful login (requires a genuine Manus OAuth session, which can't be driven headlessly from here).
+- [ ] FOLLOW-UP (needs user / real session): confirm a full successful OAuth sign-in on the live published domain end-to-end (land back logged-in, session cookie set, trpc.auth.me returns the user). If it fails, capture the server log line [OAuth] Callback failed (it now records upstreamStatus/upstreamData/attemptedRedirectUri/host) so any redirect-URI/domain registration mismatch is pinpointed — that part is OAuth-app config, not code.
 - [x] Auto-apply trim/door style to the design: selecting a door style re-skins placed cabinets on canvas + elevation via finish color map (26 unit tests pass)
 - [x] Add Crown Molding: toggle draws crown along top of wall cabinets (elevation) + linear-foot BOM line
 - [x] Add Toe Kick: recessed base strip under base cabinets (elevation) + BOM line
@@ -478,13 +479,13 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] (SUPERSEDED — WON'T DO) Remove Homeowner pricing tier — confirmed: keep all 3 tiers
 - [x] (SUPERSEDED — WON'T DO) Remove consumer buy path / cart — confirmed: keep cart + "Request this order"
 - [x] (SUPERSEDED — WON'T DO) Homeowner-only trade messaging — confirmed: all audiences, tier set by approval
-- [ ] Add `pricingTier` enum field to users table (homeowner | contractor | wholesale), default homeowner; migration applied
-- [ ] db helper: list users with tier + assign tier; expose effective tier on auth.me
-- [ ] adminProcedure: customers.list (search/paginate users w/ tier, role, last-seen) + customers.setTier
-- [ ] Admin "Customers" tab: table of users with one-click tier assignment + toast + optimistic update
-- [ ] Storefront/catalog pricing resolves to the logged-in user's assigned pricingTier (default homeowner for guests/unassigned)
-- [ ] Tests: tier default, setTier admin-gated, pricing resolver picks correct tier column
-- [ ] Embed Tawk.to widget site-wide via env (VITE_TAWK_PROPERTY_ID / VITE_TAWK_WIDGET_ID); no-op if unset; ready for user's snippet
+- [x] Add `pricingTier` enum field to users table (homeowner | contractor | wholesale), default homeowner; migration applied — drizzle/schema.ts line 31 (users.pricingTier mysqlEnum, default "homeowner", notNull)
+- [x] db helper: list users with tier + assign tier; expose effective tier on auth.me — getUserByOpenId selects the full users row (incl pricingTier), so ctx.user / auth.me already carry the effective tier; customers router has list + setTier helpers
+- [x] adminProcedure: customers.list (search/paginate users w/ tier, role, last-seen) + customers.setTier — server/routers/customers.ts (list with tier filter + per-tier counts; setTier is adminProcedure-gated)
+- [x] Admin "Customers" tab: table of users with one-click tier assignment + toast + optimistic update — CustomersAdmin component mounted in Admin.tsx Customers tab (line 407)
+- [x] Storefront/catalog pricing resolves to the logged-in user's assigned pricingTier (default homeowner for guests/unassigned) — catalog/design routers use resolveStorefrontTier + visiblePricesForViewer/resolveTierPrice from shared/pricingTier.ts
+- [x] Tests: tier default, setTier admin-gated, pricing resolver picks correct tier column — server/customers.test.ts (6) + shared/pricingTier.test.ts + shared/pricing.test.ts (42 tests total, all green)
+- [x] Embed Tawk.to widget site-wide via env (VITE_TAWK_PROPERTY_ID / VITE_TAWK_WIDGET_ID); no-op if unset; ready for user's snippet — shared/tawk.ts (buildTawkEmbedUrl + isTawkConfigured, tested in shared/tawk.test.ts), client/src/lib/tawk.ts (lazy script injection, no-op when env unset), ChatWidget component mounted app-wide in App.tsx (line 231) and falls back gracefully when Tawk isn't configured.
 - [ ] Checkpoint + deliver; request Tawk.to embed code from user
 
 
@@ -582,8 +583,8 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## BUGS — White scene + door-count drawing (user feedback Jun 22, 2nd round)
-- [ ] White family (Lumina White / SW 7006 Extra White) shows a CHERRY kitchen scene. A white cabinet MUST show a white kitchen. Fix finishBucket so "extra white"/white never falls to cherry/dark.
-- [ ] The wood scene we use should be a room-STAIN finish, not red cherry. Replace/relabel cherry scene with a neutral stained scene.
+- [x] White family (Lumina White / SW 7006 Extra White) shows a CHERRY kitchen scene — FIXED at two levels: (1) live family/detail pages use each style's own stored roomSceneImageUrl with a color-accurate fallback (never a borrowed scene; see realImageUrl guard, lines 1476-1483); (2) HARDENED the remaining keyword code path (kitchenSceneFor/finishBucket in doorFamilyPhotos.ts): explicit WHITE/off-white PAINT now wins BEFORE wood-species keywords, so "Maple · Extra White", "Birch · Snowbound", "Oak · Alabaster" etc. resolve to the white shaker scene, never cherry. Removed ambiguous "dove" from the white set (keeps "Dove Gray" gray). Unknown now defaults to white, never cherry. Regression tests added (doorFamilyPhotos.test.ts → 25 in file).
+- [x] The wood scene should read as a neutral room-STAIN, not red cherry — a true wood-stain with NO paint color named still routes by species (cherry stain -> cherry scene; natural maple -> the bright natural slab scene), and per-style stored scenes (relabeled to natural/hickory tones, lines 593) are preferred over the keyword guess on the live pages.
 - [x] Card label vs picture mismatch FIXED: resolveDoorDrawerCounts() (description-first, numeric/width fallback) drives BOTH the drawing and cabinetTypeLabel(); all card surfaces (Family, Catalog, CabinetDetail) use cabinetTypeLabel so title/tag/drawing agree. Regression tests added (cabinetGraphics.test.ts: mislabeled 'Double Door Wall' w/ doors=2 + 'Single Door' desc resolves to 1 door + 'Single Door Wall').
 
 
