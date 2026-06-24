@@ -375,17 +375,30 @@ export default function DesignTool() {
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([label, items]) => ({ label, items }));
     }
+    // Group by EXACT height (not rounded) so 34.5" drawer/base cabinets keep
+    // their own "34½\" High" bucket instead of being rounded up into a
+    // misleading "35\" High" group that hides them from anyone scanning for the
+    // 34½\" bases.
     const groups = new Map<number, DesignCabinet[]>();
     for (const c of filteredPalette) {
-      const h = Math.round(dim(c.height, 0));
+      const h = dim(c.height, 0);
       const arr = groups.get(h);
       if (arr) arr.push(c);
       else groups.set(h, [c]);
     }
+    // Render a height as a clean label: whole inches stay plain (e.g. 42"),
+    // common half-inch cabinet heights use a ½ glyph (e.g. 34½").
+    const fmtHeight = (h: number) => {
+      const whole = Math.floor(h);
+      const frac = h - whole;
+      if (Math.abs(frac - 0.5) < 0.01) return `${whole}½`;
+      if (frac < 0.01) return `${whole}`;
+      return h.toFixed(2).replace(/\.?0+$/, "");
+    };
     // Tallest first; unknown height (0) sinks to the bottom.
     return Array.from(groups.entries())
       .sort((a, b) => (b[0] || -1) - (a[0] || -1))
-      .map(([height, items]) => ({ label: height ? `${height}\" High` : "Other", items }));
+      .map(([height, items]) => ({ label: height ? `${fmtHeight(height)}\" High` : "Other", items }));
   }, [filteredPalette, paletteType, paletteSearch, closetGroups]);
 
   // Pricing for placed cabinets + add-on accessories (appliances carry

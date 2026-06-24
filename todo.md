@@ -1347,3 +1347,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Tests: accessory tab returns accessories + crown/filler present; base/wall/tall still exclude them (5/5 placeable tests pass; full suite 571/571)
 - [x] Verified live: 64 accessories render grouped by subcategory; clicking CM-2 adds a BOM line with qty stepper + remove, palette item shows added check
 - [x] Verify in browser and checkpoint
+
+## Session: Drawer bases "missing" — palette height label fix
+- [x] Root cause: base palette grouped by Math.round(height), so 34.5" drawer/base cabinets landed in a "35\" High" bucket and looked missing when scanning for 34.5"
+- [x] Group base palette by EXACT height and render half-inches as "34½\" High" (whole inches unchanged, e.g. 42")
+- [x] Verified live: header now reads "34½\" High (58)" with all DB-12-3 … DB-36-3 drawer bases under it; no cabinets removed
+- [ ] FLAG (data, needs confirmation): 15" three-drawer base is coded BD-15-3 (should be DB-15-3); DB-33-3 has no live SKU so it stays hidden
