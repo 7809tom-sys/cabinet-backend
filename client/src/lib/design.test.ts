@@ -24,7 +24,7 @@ import {
   isLCornerCabinet, cornerLegRatioForPlaced, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
-  isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, dimLabel,
+  isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
 
@@ -1583,5 +1583,19 @@ describe("custom sizing (W/H/D)", () => {
   it("dimLabel appends a Custom marker when resized", () => {
     expect(dimLabel(cab({ width: 24, depth: 24, height: 34.5, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).not.toContain("Custom");
     expect(dimLabel(cab({ width: 30, depth: 24, height: 34.5, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).toContain("Custom");
+  });
+});
+
+describe("custom size fee ($100)", () => {
+  it("charges $0 for a stock (non-resized) cabinet", () => {
+    expect(customSizeFee(cab({ width: 24, depth: 24, height: 34.5, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).toBe(0);
+  });
+  it("charges a flat $100 once when any dimension is custom", () => {
+    expect(customSizeFee(cab({ width: 27, depth: 24, height: 34.5, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).toBe(CUSTOM_SIZE_FEE);
+    expect(customSizeFee(cab({ width: 27, depth: 30, height: 40, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).toBe(CUSTOM_SIZE_FEE);
+    expect(CUSTOM_SIZE_FEE).toBe(100);
+  });
+  it("does not charge when no nominal was captured (older designs)", () => {
+    expect(customSizeFee(cab({ width: 27, depth: 24 }))).toBe(0);
   });
 });

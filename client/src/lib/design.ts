@@ -219,6 +219,18 @@ export function isCustomSize(p: {
   return isCustomWidth(p) || isCustomHeight(p) || isCustomDepth(p);
 }
 
+// Flat surcharge applied ONCE to any cabinet that has been custom-resized in
+// any dimension. Covers the shop's manual size-adjustment labor.
+export const CUSTOM_SIZE_FEE = 100;
+
+// $100 if this cabinet is custom-sized, else 0.
+export function customSizeFee(p: {
+  width: number; depth: number; height?: number;
+  nominalWidth?: number | null; nominalHeight?: number | null; nominalDepth?: number | null;
+}): number {
+  return isCustomSize(p) ? CUSTOM_SIZE_FEE : 0;
+}
+
 // Compact note of the custom dims, e.g. "CUSTOM 27\"W × 36\"H" (only the changed
 // dims), for build-sheet descriptions. Returns "" when nothing is custom.
 export function customSizeNote(p: PlacedCabinet): string {

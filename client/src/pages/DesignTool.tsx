@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
-  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, customSizeNote,
+  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId,
@@ -581,6 +581,7 @@ export default function DesignTool() {
   const total = useMemo(
     () =>
       placed.reduce((sum, p) => sum + (unitPriceFor(p) ?? 0), 0) +
+      placed.reduce((sum, p) => sum + customSizeFee(p), 0) +
       addedAddOns.reduce((sum, a) => sum + addOnPriceFor(a.cabinetId) * a.qty, 0),
     [placed, addedAddOns, unitPriceFor, addOnPriceFor]
   );
@@ -745,6 +746,21 @@ export default function DesignTool() {
         });
     }
     rows.push(...Array.from(skinMap.values()));
+    // Custom size adjustment: flat $100 for each cabinet resized in any
+    // dimension. One aggregated, priced line so it shows on the build sheet.
+    const customCount = placed.filter((p) => isCustomSize(p)).length;
+    if (customCount > 0) {
+      rows.push({
+        code: "CUSTOM-ADJ",
+        description: `Custom size adjustment ($${CUSTOM_SIZE_FEE} per resized cabinet)`,
+        widthIn: 0,
+        heightIn: 0,
+        depthIn: 0,
+        placement: "accessory",
+        qty: customCount,
+        unitPrice: CUSTOM_SIZE_FEE,
+      });
+    }
     return rows;
   }, [placed, addedAddOns, priceMap, styleId, unitPriceFor, hickorySkins]);
   // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
@@ -2301,7 +2317,7 @@ export default function DesignTool() {
                 />
                 {(isCustomWidth(selectedCab) || isCustomHeight(selectedCab) || isCustomDepth(selectedCab)) && (
                   <>
-                    <Badge variant="secondary" className="text-[10px]">Custom</Badge>
+                    <Badge variant="secondary" className="text-[10px]">Custom +${CUSTOM_SIZE_FEE}</Badge>
                     <Button
                       variant="ghost"
                       size="sm"

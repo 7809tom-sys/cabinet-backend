@@ -460,6 +460,12 @@ export const designRouter = router({
         const placed = (Array.isArray(d.placedCabinets) ? d.placedCabinets : []) as {
           cabinetId?: number;
           qty?: number;
+          width?: number;
+          depth?: number;
+          height?: number;
+          nominalWidth?: number | null;
+          nominalHeight?: number | null;
+          nominalDepth?: number | null;
         }[];
         const styleId = d.selectedStyleId ?? null;
         let subtotal = 0;
@@ -500,6 +506,21 @@ export const designRouter = router({
             const unit = best.get(p.cabinetId) ?? 0;
             subtotal += unit * (p.qty ?? 1);
           }
+        }
+
+        // Custom size adjustment: flat $100 per cabinet resized in any dimension
+        // (matches the Design Tool). Applies regardless of whether a style is
+        // locked, since the surcharge is for manual sizing labor.
+        const CUSTOM_SIZE_FEE = 100;
+        const margin = 0.2; // inches; ignore sub-rounding drift
+        const isCustomDim = (live?: number, nominal?: number | null) =>
+          typeof live === "number" && typeof nominal === "number" && Math.abs(live - nominal) > margin;
+        for (const p of placed) {
+          const custom =
+            isCustomDim(p.width, p.nominalWidth) ||
+            isCustomDim(p.height, p.nominalHeight) ||
+            isCustomDim(p.depth, p.nominalDepth);
+          if (custom) subtotal += CUSTOM_SIZE_FEE * (p.qty ?? 1);
         }
 
         rooms.push({
