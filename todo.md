@@ -1590,7 +1590,7 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] vitest coverage (affiliates.branding.test.ts incl. no-cap + all-styles tests; affiliateBranding.test.ts precedence; storefront.branding.test.ts)
 
 ## Authorize.Net payments (priority 3)
-- [ ] Accept.js tokenized card entry (no card data on server) — PCI-friendly
-- [ ] Charge 100% upfront, AFTER live freight quote is attached (total includes shipping)
-- [ ] Admin Payments tab: secure credentials (API Login ID, Transaction Key, Client Key), sandbox/production toggle
-- [ ] Server payment + order capture + vitest
+- [x] Accept.js tokenized card entry (no card data on server) — PCI-friendly (PayWithCard.tsx loads env-specific Accept.js, tokenizes client-side, sends only the opaque nonce)
+- [x] Charge 100% upfront, AFTER live freight quote is attached (PayWithCard gates on a freight amount > 0; server recomputes the authoritative total = merchandise + fee stack + freight before charging)
+- [x] Admin Payments tab: secure credentials (API Login ID, Transaction Key, Client Key), sandbox/production toggle (PaymentsAdmin.tsx; transaction key is write-only, never returned to the client — only a hasTransactionKey flag)
+- [x] Server payment + order capture + vitest (authorizeNet.ts charge helper; payments router charge/adminGetSettings/adminSaveSettings/publicConfig/adminList; payment_settings + payments tables; approved charge marks the order confirmed; 13 tests in authorizeNet.test.ts + payments.test.ts)

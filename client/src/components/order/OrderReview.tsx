@@ -23,6 +23,7 @@ import {
   CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil, Lock,
 } from "lucide-react";
 import { CabinetImage } from "@/components/CabinetImage";
+import PayWithCard from "@/components/order/PayWithCard";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -555,6 +556,16 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
           <Button variant="outline" onClick={onReset}>
             Start another order
           </Button>
+        </div>
+
+        {/* Upfront card payment — only renders when payments are configured.
+            Gated on a freight amount being attached (see PayWithCard). */}
+        <div className="mt-8 text-left max-w-lg mx-auto">
+          <PayWithCard
+            orderRequestId={submittedId}
+            payerName={name || undefined}
+            payerEmail={email}
+          />
         </div>
       </div>
     );

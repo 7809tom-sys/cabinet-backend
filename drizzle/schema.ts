@@ -748,3 +748,64 @@ export const costChangeLog = mysqlTable("cost_change_log", {
 });
 
 export type CostChangeLogRow = typeof costChangeLog.$inferSelect;
+export type InsertCostChangeLog = typeof costChangeLog.$inferInsert;
+
+
+// ─── Authorize.Net payment settings ───────────────────────────────────────────
+// Single-row control center for the merchant's Authorize.Net credentials. Card
+// data NEVER touches our server: the browser tokenizes the card with Accept.js
+// using the public clientKey, and the server charges the resulting opaque
+// "payment nonce" with the apiLoginId + transactionKey. The environment toggle
+// selects the Authorize.Net sandbox vs production gateway endpoint.
+export const paymentSettings = mysqlTable("payment_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  provider: varchar("provider", { length: 32 }).default("authorizenet").notNull(),
+  enabled: boolean("enabled").default(false).notNull(),
+  environment: mysqlEnum("environment", ["sandbox", "production"]).default("sandbox").notNull(),
+  // API Login ID (public-ish merchant identifier).
+  apiLoginId: varchar("apiLoginId", { length: 64 }),
+  // Transaction Key — SECRET, server-side only, never returned to the client.
+  transactionKey: varchar("transactionKey", { length: 64 }),
+  // Public Client Key — safe to expose to the browser for Accept.js tokenization.
+  clientKey: varchar("clientKey", { length: 128 }),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedByOpenId: varchar("updatedByOpenId", { length: 64 }),
+});
+
+export type PaymentSettings = typeof paymentSettings.$inferSelect;
+export type InsertPaymentSettings = typeof paymentSettings.$inferInsert;
+
+// ─── Payment transactions ──────────────────────────────────────────────────────
+// One row per charge attempt against an order request. Charges happen ONLY after
+// a freight quote has been attached, so amountCents = merchandise + fees + freight
+// (the customer pays 100% upfront). We store the Authorize.Net transaction id and
+// the result, plus snapshot amounts, but never any raw card data (PCI-friendly).
+export const payments = mysqlTable("payments", {
+  id: int("id").autoincrement().primaryKey(),
+  orderRequestId: int("orderRequestId").notNull(),
+  requestNumber: varchar("requestNumber", { length: 64 }).notNull(),
+  provider: varchar("provider", { length: 32 }).default("authorizenet").notNull(),
+  environment: mysqlEnum("environment", ["sandbox", "production"]).default("sandbox").notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "declined", "error", "refunded"]).default("pending").notNull(),
+  // Amount actually charged (cents) and its component breakdown (snapshot).
+  amountCents: int("amountCents").notNull(),
+  merchandiseCents: int("merchandiseCents").default(0).notNull(),
+  feesCents: int("feesCents").default(0).notNull(),
+  freightCents: int("freightCents").default(0).notNull(),
+  // Authorize.Net response.
+  transactionId: varchar("transactionId", { length: 64 }), // gateway transId
+  authCode: varchar("authCode", { length: 32 }),
+  responseCode: varchar("responseCode", { length: 8 }), // 1=approved,2=declined,3=error,4=held
+  avsResultCode: varchar("avsResultCode", { length: 8 }),
+  cardLast4: varchar("cardLast4", { length: 4 }), // safe display only
+  cardType: varchar("cardType", { length: 24 }),
+  message: text("message"), // human-readable result / error text
+  // Who paid.
+  payerName: varchar("payerName", { length: 256 }),
+  payerEmail: varchar("payerEmail", { length: 320 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = typeof payments.$inferInsert;
