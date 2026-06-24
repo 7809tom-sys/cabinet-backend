@@ -278,3 +278,24 @@ export function kitchenSceneWithCopy(style: DoorFamilyLike): {
   const key = SCENE_BY_URL[image] ?? "shaker-white";
   return { image, ...SCENE_BLURBS[key] };
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Real-photo guard
+// The seed stores per-style image columns as RELATIVE placeholder paths
+// (e.g. "/room-scenes/aspen-white-room-scene.jpg") that are NOT actually served
+// — they 404. Treat those as "no photo" so the UI falls back to the
+// color-accurate DoorStyleSwatch instead of a broken image or a borrowed scene.
+//
+// A URL is considered a REAL photo only when it is an absolute http(s) URL
+// (our CDN) or an inline data URI. Anything else (relative placeholder, empty,
+// null) returns null.
+// ─────────────────────────────────────────────────────────────────────────────
+export function realImageUrl(url?: string | null): string | null {
+  if (!url) return null;
+  const u = url.trim();
+  if (!u) return null;
+  if (/^https?:\/\//i.test(u)) return u;
+  if (/^data:image\//i.test(u)) return u;
+  return null;
+}

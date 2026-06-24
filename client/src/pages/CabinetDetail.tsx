@@ -21,7 +21,7 @@ import {
 import { CabinetImage } from "@/components/CabinetImage";
 import { cabinetTypeLabel, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
-import { doorFamilyPhoto, kitchenSceneWithCopy } from "@/lib/doorFamilyPhotos";
+import { doorFamilyPhoto, realImageUrl } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
 import { useCart } from "@/contexts/CartContext";
 
@@ -256,30 +256,39 @@ export default function CabinetDetail({ masterCode }: Props) {
       </nav>
 
       {/* Kitchen-scene lead-in: sell the finished kitchen first.
-          Combine panel family + color + name so the scene matches the finish. */}
+          STRICT one-family-one-color: use THIS style's own verified room scene
+          when present; otherwise render a clean color-accurate band in the
+          style's exact finish (NEVER a keyword-guessed stock kitchen that could
+          show, e.g., a cherry room for a white finish). */}
       {(() => {
-        const sceneKey = selectedRow
-          ? [selectedRow.doorStyle, selectedRow.color, selectedRow.name]
-              .filter(Boolean)
-              .join(" ")
-          : null;
-        const scene = kitchenSceneWithCopy({ doorStyle: sceneKey });
+        const realScene = realImageUrl(selectedRow?.roomSceneImageUrl);
+        const styleLabel = selectedRow?.name || selectedRow?.doorStyle || "your finish";
         return (
           <div className="relative overflow-hidden rounded-2xl border border-border mb-8">
-            <img
-              src={scene.image}
-              alt={scene.title}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            {realScene ? (
+              <img
+                src={realScene}
+                alt={`${styleLabel} kitchen`}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <div
+                className="absolute inset-0"
+                style={{ backgroundColor: finishFace }}
+                aria-hidden
+              />
+            )}
             <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-navy)]/90 via-[var(--color-navy)]/65 to-transparent" />
             <div className="relative px-6 py-7 md:px-10 md:py-9 max-w-2xl">
               <p className="text-[var(--color-gold,#c9a14a)] text-xs font-semibold uppercase tracking-wider mb-1">
                 Build this look
               </p>
               <h2 className="font-serif text-xl md:text-2xl font-bold text-white">
-                {scene.title}
+                Design your kitchen in {styleLabel}
               </h2>
-              <p className="text-white/85 text-sm mt-2">{scene.blurb}</p>
+              <p className="text-white/85 text-sm mt-2">
+                Shop this cabinet and the full matching line — base, wall, tall, vanity and trim — all in this one finish, with member trade pricing built in.
+              </p>
             </div>
           </div>
         );

@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import { realImageUrl } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 
@@ -187,8 +188,8 @@ export default function Family({ styleCode }: { styleCode: string }) {
   // scene. When a family has no real photo yet, `realScene` stays null and the
   // header renders a clean color-accurate door panel (in this family's exact
   // finish) instead of a stock kitchen.
-  const realScene = s?.roomSceneImageUrl || null;
-  const realDoor = s?.doorSampleImageUrl || null;
+  const realScene = realImageUrl(s?.roomSceneImageUrl);
+  const realDoor = realImageUrl(s?.doorSampleImageUrl);
 
   if (styleLoading) {
     return (

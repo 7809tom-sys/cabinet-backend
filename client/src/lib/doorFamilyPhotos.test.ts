@@ -125,3 +125,34 @@ describe("kitchenSceneWithCopy", () => {
     expect(() => kitchenSceneWithCopy({ doorStyle: null })).not.toThrow();
   });
 });
+
+import { realImageUrl } from "./doorFamilyPhotos";
+
+describe("realImageUrl (strict one-family-one-color guard)", () => {
+  it("rejects the seeded relative placeholder paths so they never render", () => {
+    expect(realImageUrl("/room-scenes/aspen-white-room-scene.jpg")).toBeNull();
+    expect(realImageUrl("/door-samples/lumina-white-door.jpg")).toBeNull();
+    expect(realImageUrl("/thumbnails/oxford-sage-door-thumb.jpg")).toBeNull();
+  });
+
+  it("rejects empty / null / whitespace", () => {
+    expect(realImageUrl(null)).toBeNull();
+    expect(realImageUrl(undefined)).toBeNull();
+    expect(realImageUrl("")).toBeNull();
+    expect(realImageUrl("   ")).toBeNull();
+  });
+
+  it("accepts absolute http(s) CDN URLs and data URIs", () => {
+    expect(realImageUrl("https://cdn.example.com/scene.webp")).toBe(
+      "https://cdn.example.com/scene.webp",
+    );
+    expect(realImageUrl("http://example.com/x.jpg")).toBe("http://example.com/x.jpg");
+    expect(realImageUrl("data:image/png;base64,AAAA")).toBe("data:image/png;base64,AAAA");
+  });
+
+  it("trims surrounding whitespace on a valid URL", () => {
+    expect(realImageUrl("  https://cdn.example.com/a.webp  ")).toBe(
+      "https://cdn.example.com/a.webp",
+    );
+  });
+});

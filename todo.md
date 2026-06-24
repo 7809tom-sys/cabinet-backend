@@ -1472,3 +1472,19 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Persist lock with saved designs (selectedDistributorId column) AND the auto-save draft; restored on draft restore + saved-design load
 - [x] Tests: palette gated to a single distributor when locked (design.placeable.test.ts, 8/8)
 - [x] tsc clean; full suite green (602). Designer is behind an email gate so static screenshot capture isn't possible; verified via tests + type-check
+
+
+## Strict one-family-one-color: reject placeholder image URLs (root-cause of white-shows-cherry) (2026-06-24) — DONE
+- [x] Added realImageUrl() guard (doorFamilyPhotos.ts): accepts only absolute http(s) URLs or data: image URIs; rejects the seeded relative placeholders (/room-scenes/, /door-samples/, /thumbnails/) so a 404 placeholder never renders
+- [x] Family.tsx hero + door sample now use realImageUrl() → missing photos fall back to the color-accurate finish backdrop + DoorStyleSwatch (no borrowed scene, no broken img)
+- [x] CabinetDetail.tsx hero: replaced keyword-guessed kitchenSceneWithCopy() with the style's own real roomSceneImageUrl, else a color-accurate finish band (NEVER a cherry room for a white finish)
+- [x] Home/Catalog already filter to styles that actually have a roomSceneImageUrl; their generic landing collages are marketing (not tied to a specific family) so they stay. Storefront uses a per-store hero. Acceptable per the rule.
+- [x] Tests: realImageUrl rejects placeholders / accepts CDN+data URIs (4 tests, doorFamilyPhotos.test.ts → 22 in file); full suite green (608)
+- [x] Verified live: white family "Blanc Core" (SW 7006 Extra White) renders a light/white color-accurate hero + swatch, no cherry
+
+## Designer: Cased Opening / doorway / window tool (user request 2026-06-24)
+- [ ] Data model: per-wall openings with type (cased opening | door | window), width (inches, tape-measured / fully adjustable), offset-from-corner, and height/sill (for Front View). Persist with the design (draft + saved).
+- [ ] Place by selecting a wall, then entering width + offset (and height for door/window); fully adjustable sizes
+- [ ] Block or warn when a cabinet overlaps a cased opening or door (base cabinets can't cross a doorway); window blocks wall cabinets only
+- [ ] Render the opening as a gap in the top-down plan and in the Front View elevation (door = full-height gap, window = sill+head band, cased opening = full-height open)
+- [ ] Tests for overlap detection + persistence; verify in the designer; checkpoint
