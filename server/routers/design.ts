@@ -305,6 +305,139 @@ export const designRouter = router({
       return rows[0] ?? null;
     }),
 
+  // ─── Master Project roll-up ───────────────────────────────────────────────
+  // Combined bill of materials for a whole job: every saved room sharing the
+  // same projectName (owned by the caller) is priced with the SAME contractor
+  // price path the Designer uses, returning per-room subtotals + a grand total.
+  projectSummary: protectedProcedure
+    .input(z.object({ projectName: z.string().min(1).max(255) }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return { projectName: input.projectName, rooms: [], grandTotal: 0, roomCount: 0 };
+
+      const designs = await db
+        .select()
+        .from(kitchenDesigns)
+        .where(
+          and(
+            eq(kitchenDesigns.userId, ctx.user.id),
+            eq(kitchenDesigns.projectName, input.projectName),
+          ),
+        )
+        .orderBy(kitchenDesigns.createdAt);
+
+      // Look up the white-label style name for any styleId we encounter.
+      const styleIds = Array.from(
+        new Set(designs.map((d) => d.selectedStyleId).filter((x): x is number => !!x)),
+      );
+      const styleNameById = new Map<number, string>();
+      if (styleIds.length) {
+        const sRows = await db
+          .select({ id: doorStyles.id, ourName: doorStyles.ourName })
+          .from(doorStyles)
+          .where(inArray(doorStyles.id, styleIds));
+        for (const s of sRows) styleNameById.set(s.id, s.ourName);
+      }
+
+      const rooms: {
+        id: number;
+        name: string;
+        roomLabel: string | null;
+        roomType: string | null;
+        styleId: number | null;
+        styleName: string | null;
+        cabinetCount: number;
+        subtotal: number;
+      }[] = [];
+
+      for (const d of designs) {
+        const placed = (Array.isArray(d.placedCabinets) ? d.placedCabinets : []) as {
+          cabinetId?: number;
+          qty?: number;
+        }[];
+        const styleId = d.selectedStyleId ?? null;
+        let subtotal = 0;
+        let cabinetCount = 0;
+
+        // Count placed cabinets and price them (only when a style is locked, as
+        // pricing is door-style-specific — mirrors the Designer behavior).
+        const ids = placed
+          .map((p) => p.cabinetId)
+          .filter((x): x is number => typeof x === "number");
+        cabinetCount = ids.length;
+
+        if (styleId && ids.length) {
+          const skuRows = await db
+            .select({
+              cabinetId: distributorSkus.cabinetId,
+              wholesalePrice: distributorSkus.wholesalePrice,
+              contractorPrice: distributorSkus.contractorPrice,
+            })
+            .from(distributorSkus)
+            .where(
+              and(
+                inArray(distributorSkus.cabinetId, ids),
+                eq(distributorSkus.styleId, styleId),
+                eq(distributorSkus.isAvailable, true),
+              ),
+            );
+          // Cheapest contractor price per cabinet (matches priceForCabinets).
+          const best = new Map<number, number>();
+          for (const r of skuRows) {
+            const price = Number(r.contractorPrice ?? r.wholesalePrice ?? 0);
+            if (!price) continue;
+            const cur = best.get(r.cabinetId);
+            if (cur == null || price < cur) best.set(r.cabinetId, price);
+          }
+          for (const p of placed) {
+            if (typeof p.cabinetId !== "number") continue;
+            const unit = best.get(p.cabinetId) ?? 0;
+            subtotal += unit * (p.qty ?? 1);
+          }
+        }
+
+        rooms.push({
+          id: d.id,
+          name: d.name,
+          roomLabel: d.roomLabel,
+          roomType: d.roomType,
+          styleId,
+          styleName: styleId ? styleNameById.get(styleId) ?? null : null,
+          cabinetCount,
+          subtotal: Math.round(subtotal * 100) / 100,
+        });
+      }
+
+      const grandTotal =
+        Math.round(rooms.reduce((s, r) => s + r.subtotal, 0) * 100) / 100;
+      return { projectName: input.projectName, rooms, grandTotal, roomCount: rooms.length };
+    }),
+
+  // List the caller's distinct project names (for the project picker).
+  myProjects: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return [];
+    const rows = await db
+      .select()
+      .from(kitchenDesigns)
+      .where(eq(kitchenDesigns.userId, ctx.user.id));
+    const byProject = new Map<string, { projectName: string; roomCount: number; updatedAt: Date }>();
+    for (const r of rows) {
+      const p = (r.projectName ?? "").trim();
+      if (!p) continue;
+      const cur = byProject.get(p);
+      const u = new Date(r.updatedAt);
+      if (!cur) byProject.set(p, { projectName: p, roomCount: 1, updatedAt: u });
+      else {
+        cur.roomCount += 1;
+        if (u > cur.updatedAt) cur.updatedAt = u;
+      }
+    }
+    return Array.from(byProject.values()).sort(
+      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
+    );
+  }),
+
   // ─── Countertop quote requests ───────────────────────────────────────────
   // Countertops are not auto-priced. The contractor submits the design plus
   // measured square/linear footage and we (or a supplier) quote it back.

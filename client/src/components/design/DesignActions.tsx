@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, FolderOpen, Download, Loader2, Clock, Send } from "lucide-react";
+import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -162,6 +162,106 @@ interface ProjectGroup {
   key: string;
   projectName: string | null;
   rooms: SavedDesignRow[];
+}
+
+// Build + download a combined project CSV: one block per room + a grand total.
+function downloadProjectCsv(
+  projectName: string,
+  summary: {
+    rooms: { name: string; roomLabel: string | null; roomType: string | null; styleName: string | null; cabinetCount: number; subtotal: number }[];
+    grandTotal: number;
+  },
+) {
+  const esc = (v: string | number) => {
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines: string[] = [];
+  lines.push(`Project:,${esc(projectName)}`);
+  lines.push(`Rooms:,${summary.rooms.length}`);
+  lines.push("");
+  lines.push(["Room", "Type", "Door Style", "Cabinets", "Estimated Subtotal"].map(esc).join(","));
+  for (const r of summary.rooms) {
+    lines.push([
+      r.roomLabel || r.name,
+      r.roomType ?? "",
+      r.styleName ?? "(not selected)",
+      r.cabinetCount,
+      r.subtotal.toFixed(2),
+    ].map(esc).join(","));
+  }
+  lines.push("");
+  lines.push(["", "", "", "Project Total", summary.grandTotal.toFixed(2)].map(esc).join(","));
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `cabinet-dealz-project-${projectName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast.success("Project bill of materials exported", { description: `${summary.rooms.length} rooms` });
+}
+
+// Per-project totals expander used inside the My Designs dialog. Lazily queries
+// the roll-up only when opened.
+function ProjectTotals({ projectName }: { projectName: string }) {
+  const [open, setOpen] = useState(false);
+  const summary = trpc.design.projectSummary.useQuery(
+    { projectName },
+    { enabled: open },
+  );
+  return (
+    <div className="px-1 pb-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1 text-[10px] font-medium text-[#a87f33] hover:underline"
+      >
+        <Calculator className="h-3 w-3" /> {open ? "Hide" : "View"} project total
+      </button>
+      {open && (
+        <div className="mt-1.5 rounded-md bg-muted/40 p-2 text-[11px]">
+          {summary.isLoading ? (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Calculating…
+            </div>
+          ) : summary.data ? (
+            <>
+              <div className="space-y-0.5">
+                {summary.data.rooms.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between gap-2">
+                    <span className="truncate text-muted-foreground">
+                      {r.roomLabel || r.name}
+                    </span>
+                    <span className="tabular-nums">${r.subtotal.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1.5 flex items-center justify-between border-t border-border pt-1.5 font-semibold">
+                <span>Project total</span>
+                <span className="tabular-nums">${summary.data.grandTotal.toFixed(2)}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 h-7 w-full gap-1.5 text-[11px]"
+                onClick={() => downloadProjectCsv(projectName, summary.data!)}
+              >
+                <Download className="h-3 w-3" /> Download project CSV
+              </Button>
+              <p className="mt-1 text-[9px] leading-tight text-muted-foreground">
+                Estimated contractor pricing across all rooms. Countertops &amp; fixtures quoted separately.
+              </p>
+            </>
+          ) : (
+            <span className="text-muted-foreground">No totals available.</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Group saved designs by projectName. Designs without a project fall into a
@@ -405,6 +505,7 @@ export function DesignActions({
                       </span>
                     </div>
                   )}
+                  {group.projectName && <ProjectTotals projectName={group.projectName} />}
                   <div className={`space-y-1.5 ${group.projectName ? "pl-2 border-l-2 border-[#a87f33]/30" : ""}`}>
                     {group.rooms.map((d) => {
                       const items = Array.isArray(d.placedCabinets) ? d.placedCabinets.length : 0;

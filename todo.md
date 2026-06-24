@@ -1258,3 +1258,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Per-tier homeowner markup applied at storefront familyCatalog resolution (shared shared/margins.ts; 0% = unchanged)
 - [x] Tests: shared margin math (7 tests in server/margins.test.ts); 531 total pass
 - [x] Verified: tab renders in admin bar (authenticated screenshot); no devserver/console errors
+
+## Phase 49: Project-wide combined Bill of Materials (user request 2026-06-24)
+- [x] Backend: design.projectSummary(projectName) returns each room (id, name, roomLabel, roomType, styleName, cabinetCount, subtotal) + grandTotal + roomCount; owner-scoped
+- [x] Added design.myProjects (distinct projects for the caller with roomCount + latest updatedAt) for a project picker
+- [x] Reuses the same cheapest-contractor-price-per-cabinet path as priceForCabinets so per-room totals match the Designer
+- [x] Frontend: "View project total" expander under each project group in the My Designs dialog — per-room subtotals + project grand total (lazy-loaded)
+- [x] Combined project CSV export (room / type / door style / cabinet count / subtotal + project total row)
+- [x] Tests (server/design.projectSummary.test.ts: grouping, owner isolation, grand-total sum, myProjects count); 534 tests pass; tsc clean; /design renders clean
