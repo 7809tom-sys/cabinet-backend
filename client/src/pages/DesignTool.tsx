@@ -48,6 +48,12 @@ import {
   elevationBox,
 } from "@/lib/design";
 import { hickorySkinSuggestions, type HickorySkinSuggestion } from "@/lib/hickorySkins";
+import {
+  type HardwareStyleId,
+  DEFAULT_HARDWARE_STYLE_ID,
+  HARDWARE_STYLES,
+  hardwareSchedule,
+} from "@/lib/hardware";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
 import {
   closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
@@ -210,6 +216,10 @@ export default function DesignTool() {
   // to door styles within the same supply line (member can still change color,
   // but not jump to another distributor) unless they Unlock to override.
   const [lockedDistributorId, setLockedDistributorId] = useState<number | null>(null);
+  // Decorative hardware spec (knobs / pulls / cup pulls). A finishing choice,
+  // not a priced catalog SKU: it draws on the fronts and lists a piece count on
+  // the build sheet as a note. Defaults to "none".
+  const [hardwareStyleId, setHardwareStyleId] = useState<HardwareStyleId>(DEFAULT_HARDWARE_STYLE_ID);
 
   // Data — door-style-first: members pick a door style; the supply line behind
   // it is resolved server-side and never shown.
@@ -663,6 +673,12 @@ export default function DesignTool() {
     rows.push(...Array.from(skinMap.values()));
     return rows;
   }, [placed, addedAddOns, priceMap, styleId, unitPriceFor, hickorySkins]);
+  // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
+  // note for the build sheet — carries no price (hardware is not a catalog SKU).
+  const hwSchedule = useMemo(
+    () => hardwareSchedule(placed, hardwareStyleId),
+    [placed, hardwareStyleId]
+  );
   // Panel treatment for the placed cabinets' door fronts in the elevation view.
   const activePanelKind = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
@@ -843,8 +859,19 @@ export default function DesignTool() {
         detail: `${sinks.length} basin${sinks.length === 1 ? "" : "s"}${faucetCount > 0 ? ` + ${faucetCount} faucet${faucetCount === 1 ? "" : "s"}` : ""}`,
       });
     }
+    // Decorative hardware spec (finishing note, no price).
+    if (hwSchedule.total > 0) {
+      const parts: string[] = [];
+      if (hwSchedule.knobs > 0) parts.push(`${hwSchedule.knobs} knob${hwSchedule.knobs === 1 ? "" : "s"}`);
+      if (hwSchedule.barPulls > 0) parts.push(`${hwSchedule.barPulls} bar pull${hwSchedule.barPulls === 1 ? "" : "s"}`);
+      if (hwSchedule.cupPulls > 0) parts.push(`${hwSchedule.cupPulls} cup pull${hwSchedule.cupPulls === 1 ? "" : "s"}`);
+      out.push({
+        label: `HARDWARE (${hwSchedule.styleLabel})`,
+        detail: `${parts.join(", ")} — ${hwSchedule.total} pieces (supply separately)`,
+      });
+    }
     return out;
-  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, sinks]);
+  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, sinks, hwSchedule]);
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -1513,6 +1540,7 @@ export default function DesignTool() {
     layoutLocked,
     lockedWalls: Array.from(lockedWalls),
     lockedDistributorId,
+    hardwareStyleId,
   }));
 
   const writeDraft = usePersistFn(() => {
@@ -1565,6 +1593,7 @@ export default function DesignTool() {
           setLayoutLocked(!!d.layoutLocked);
           if (Array.isArray(d.lockedWalls)) setLockedWalls(new Set(d.lockedWalls as WallSide[]));
           if (typeof d.lockedDistributorId === "number") setLockedDistributorId(d.lockedDistributorId);
+          if (typeof d.hardwareStyleId === "string") setHardwareStyleId(d.hardwareStyleId as HardwareStyleId);
           if (Array.isArray(d.placed) && d.placed.length > 0) {
             toast.success("Restored your in-progress design.");
           }
@@ -1582,7 +1611,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -1813,6 +1842,18 @@ export default function DesignTool() {
               <DropdownMenuCheckboxItem checked={lightRail} onCheckedChange={() => setLightRail((l) => !l)}>Light rail</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={countertop} disabled={!countertop && !hasBaseRun} onCheckedChange={toggleCountertop}>Countertop</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
+              <DropdownMenuLabel>Hardware (knobs / pulls)</DropdownMenuLabel>
+              {HARDWARE_STYLES.map((h) => (
+                <DropdownMenuCheckboxItem
+                  key={h.id}
+                  checked={hardwareStyleId === h.id}
+                  onCheckedChange={() => setHardwareStyleId(h.id)}
+                  title={h.description}
+                >
+                  {h.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+              <DropdownMenuSeparator />
               <DropdownMenuItem disabled={layoutLocked} onClick={addManualFiller}>Add filler…</DropdownMenuItem>
               <DropdownMenuItem disabled={!selectedUid || measureMode} onClick={swingSelected}>Swing door</DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -1825,6 +1866,7 @@ export default function DesignTool() {
                   setSelectedUid(null);
                   setSelectedOpeningUid(null);
                   setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false);
+                  setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
                   clearDraft();
                   toast.success("Started a new design.");
                 }}
@@ -2350,6 +2392,7 @@ export default function DesignTool() {
               batten={batten}
               lightRail={lightRail}
               panelKind={activePanelKind}
+              hardwareStyleId={hardwareStyleId}
             />
           )}
           {viewMode === "corner" && (
@@ -2368,6 +2411,7 @@ export default function DesignTool() {
               batten={batten}
               lightRail={lightRail}
               panelKind={activePanelKind}
+              hardwareStyleId={hardwareStyleId}
             />
           )}
           {viewMode === "split" && (
@@ -2424,6 +2468,7 @@ export default function DesignTool() {
                   batten={batten}
                   lightRail={lightRail}
                   panelKind={activePanelKind}
+                  hardwareStyleId={hardwareStyleId}
                 />
               </div>
             </div>

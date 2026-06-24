@@ -4,6 +4,12 @@ import {
   type DoorPanelKind, type WallSide, cabinetWall, resolveSwing,
   countertopMaterial, roomCeiling,
 } from "@/lib/design";
+import {
+  type HardwareStyleId,
+  hardwareStyle as resolveHardwareStyle,
+  doorCountForCabinet,
+  drawerCountForCabinet,
+} from "@/lib/hardware";
 import { useRef, useEffect, useState } from "react";
 
 interface Props {
@@ -34,13 +40,18 @@ interface Props {
   // CornerView can show its own corner picker instead.
   mirror?: boolean;
   hideSwitcher?: boolean;
+  // Decorative hardware spec to draw on the fronts (knob / pull / cup). When
+  // omitted or "none", no hardware is drawn.
+  hardwareStyleId?: HardwareStyleId | null;
 }
 
 export function ElevationView({
   room, cabinets, selectedUid, onSelect, wall, onSelectWall, countertopMaterialId = null, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", mirror = false, hideSwitcher = false,
+  hardwareStyleId = null,
 }: Props) {
+  const hw = resolveHardwareStyle(hardwareStyleId);
   // Counter-flip transform for text so labels read correctly when this whole
   // elevation sits inside a scaleX(-1) container.
   const textFlip: React.CSSProperties | undefined = mirror ? { transform: "scaleX(-1)" } : undefined;
@@ -193,6 +204,18 @@ export function ElevationView({
                 {/* Door-style-specific front treatment (skipped for appliances) */}
                 {!isAppliance && (
                   <DoorFront kind={panelKind} edge={edgeColor} face={finish.face} />
+                )}
+                {/* Decorative hardware (knobs / pulls / cup pulls) reflecting the
+                    chosen hardware spec. Doors get the door piece; drawers get
+                    the drawer piece. Skipped for appliances and style "none". */}
+                {!isAppliance && hw.id !== "none" && (
+                  <HardwareOverlay
+                    doors={doorCountForCabinet(p)}
+                    drawers={drawerCountForCabinet(p)}
+                    doorPiece={hw.doorPiece}
+                    drawerPiece={hw.drawerPiece}
+                    accent="#1a2744"
+                  />
                 )}
                 {/* Hinge-side marker: a slim vertical bar on the hinge edge so the
                     shop reads Left vs Right swing on the elevation too. */}
@@ -422,6 +445,79 @@ export function ElevationView({
       )}
     </div>
   );
+}
+
+// Decorative-hardware overlay. Draws the chosen hardware on a single front box:
+// a door region (top) plus a stacked drawer region split into N equal drawers.
+// Pieces are tiny CSS shapes positioned by percentage so they scale with zoom.
+//   knob → small filled circle   pull → short horizontal bar   cup → half-moon
+function HardwareOverlay({
+  doors, drawers, doorPiece, drawerPiece, accent,
+}: {
+  doors: number;
+  drawers: number;
+  doorPiece: "knob" | "pull" | "none";
+  drawerPiece: "knob" | "pull" | "cup" | "none";
+  accent: string;
+}) {
+  const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number) => {
+    if (kind === "knob") {
+      return (
+        <div
+          key={key}
+          className="absolute rounded-full"
+          style={{ left: "50%", top: `${topPct}%`, width: 4, height: 4, marginLeft: -2, background: accent, zIndex: 8 }}
+        />
+      );
+    }
+    if (kind === "pull") {
+      return (
+        <div
+          key={key}
+          className="absolute rounded-full"
+          style={{ left: "30%", right: "30%", top: `${topPct}%`, height: 2.5, background: accent, zIndex: 8 }}
+        />
+      );
+    }
+    // cup pull: a small half-moon (rounded bottom) bin pull
+    return (
+      <div
+        key={key}
+        className="absolute"
+        style={{
+          left: "34%", right: "34%", top: `${topPct}%`, height: 4,
+          borderBottomLeftRadius: 6, borderBottomRightRadius: 6,
+          border: `1.5px solid ${accent}`, borderTop: "none", zIndex: 8,
+        }}
+      />
+    );
+  };
+
+  const pieces: React.ReactNode[] = [];
+  // Drawers stack from the top; doors fill the remainder below. When both are
+  // present we give the top portion to the drawer stack (typical drawer base).
+  const hasDrawers = drawers > 0 && drawerPiece !== "none";
+  const hasDoors = doors > 0 && doorPiece !== "none";
+  // Vertical share for the drawer band (rest goes to doors). All-drawer = 100%.
+  const drawerBand = hasDrawers ? (hasDoors ? 45 : 100) : 0;
+
+  if (hasDrawers) {
+    for (let i = 0; i < drawers; i++) {
+      // Center each drawer's pull within its slice of the drawer band.
+      const sliceH = drawerBand / drawers;
+      const center = sliceH * i + sliceH / 2;
+      pieces.push(piece(drawerPiece as "knob" | "pull" | "cup", `dr-${i}`, center));
+    }
+  }
+  if (hasDoors) {
+    // Knob/pull near the bottom inner corner of the door band.
+    const doorTop = drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.12 : 0.5);
+    for (let i = 0; i < Math.min(doors, 2); i++) {
+      pieces.push(piece(doorPiece as "knob" | "pull", `do-${i}`, doorTop));
+    }
+  }
+
+  return <>{pieces}</>;
 }
 
 // Lightweight door-front detail overlay that reflects the active door style so a

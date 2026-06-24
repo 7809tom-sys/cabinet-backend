@@ -924,7 +924,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] "Auto-Fill Wall" toolbar button (Wand2) fills the highlighted active wall, packing past existing cabinets/openings
 - [x] Placed items use nextFreeSpotOnWall geometry; fully movable/deletable; respects Lock Layout
 - [x] Browser verify: Auto-Fill Back wall -> toast "Auto-filled Back wall: 2 cabinets", B-48 + DB-24-2 packed flush past existing B-24; BOM updated 2->4 items
-- [ ] Polish (later): break the run around a door opening's actual position instead of just subtracting its width
+- [x] Polish: break the run around a door opening's actual position instead of just subtracting its width — freeSegmentsOnWall pushes blocked intervals at each opening's [offset, offset+width] (with clearance) and Auto-Fill tiles each free gap independently (verified in design.ts)
 
 ## Phase 22: Visible countertop + colors/materials + sink & faucet (user request)
 - [x] Countertop renders as an actual surface over base cabinets in PLAN view (slab overlay) — verified in browser
@@ -935,9 +935,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] FRONT/elevation view countertop band: thin colored slab drawn on top of the base run at the 36" counter line, colored by the selected material (ElevationView countertopMaterialId)
 - [x] Show countertop material + sinks on BOM/quote line items: COUNTERTOP line now names the material; SINK line lists basins + faucets; both flow into the exported CSV
 
-## Phase 23 (later): Cabinet hardware (knobs/pulls)
-- [ ] Hardware catalog (knobs, bar pulls, cup pulls) selectable per door/drawer or globally
-- [ ] Render hardware on cabinet fronts in elevation; show on BOM
+## Phase 23: Cabinet hardware (knobs/pulls) — DONE
+- [x] Hardware spec library (client/src/lib/hardware.ts): 5 styles (None, Knobs, Bar Pulls, Cup Pulls, Knobs+Pulls) chosen globally for the design; door/drawer piece mapping; doorCountForCabinet/drawerCountForCabinet inference (DB-24-3 → 3 drawers); hardwareForCabinet + hardwareSchedule aggregator. NOT a priced catalog SKU — recorded as a finishing spec only (content policy: no fabricated hardware SKUs/prices)
+- [x] Render hardware on cabinet fronts in Front View + Corner View (ElevationView HardwareOverlay: knob = dot, bar pull = bar, cup pull = half-moon; stacked drawers each get a pull; skips appliances/panels/style "none")
+- [x] Selector in the Designer trim/finishing dropdown ("Hardware (knobs / pulls)"); appears on the on-screen build sheet + exported build sheet as "HARDWARE (<style>): N knobs, N pulls — N pieces (supply separately)"; persisted in the autosave draft (snapshot + restore + deps); reset on Start-new-design
+- [x] 17 hardware unit tests (client/src/lib/hardware.test.ts); 632 tests pass; tsc clean; checkpoint
 
 ## Phase 24: Smart fillers + range/oven corner rule + appliance/closet sizing (user request)
 - [x] Varied auto-fill layouts: planVariedWidths mixes standard widths (e.g. 96"->36+30+24) instead of repeating the widest; tests added

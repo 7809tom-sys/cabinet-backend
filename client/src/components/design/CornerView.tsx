@@ -3,6 +3,7 @@ import {
   PlacedCabinet, RoomData, WallOpening, FinishColors, DEFAULT_FINISH_COLORS,
   type DoorPanelKind, type WallSide,
 } from "@/lib/design";
+import { type HardwareStyleId } from "@/lib/hardware";
 import { ElevationView } from "./ElevationView";
 
 // The four kitchen corners, each defined by the two walls that meet there.
@@ -36,19 +37,20 @@ interface Props {
   batten?: boolean;
   lightRail?: boolean;
   panelKind?: DoorPanelKind;
+  hardwareStyleId?: HardwareStyleId | null;
 }
 
 export function CornerView({
   room, cabinets, selectedUid, onSelect, corner, onCornerChange,
   countertopMaterialId = null, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
-  panelKind = "shaker",
+  panelKind = "shaker", hardwareStyleId = null,
 }: Props) {
   const { left, right } = CORNERS[corner];
 
   const sharedProps = {
     room, cabinets, selectedUid, onSelect,
-    countertopMaterialId, openings, finish, crown, toeKick, batten, lightRail, panelKind,
+    countertopMaterialId, openings, finish, crown, toeKick, batten, lightRail, panelKind, hardwareStyleId,
   };
 
   return (
