@@ -1358,3 +1358,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Rename mis-coded BD-15-3 -> DB-15-3 (cabinet id 2 masterCode + its 9 platform SKUs BD153-* -> DB153-*)
 - [x] Add 9 published distributor SKUs for DB-33-3 (cloned from DB-33-2 across all door styles; DB332-* -> DB333-*, *-2DB33 -> *-3DB33)
 - [x] Verified live: Base tab now shows DB-12-3, DB-15-3, … DB-33-2, DB-33-3, DB-36-3 contiguous; DB-15-3 has 9 live SKUs, DB-33-3 has 9 live SKUs
+
+## Session: Drawer-base SKU backfill across all door styles (user approved)
+- [x] Mapped missing (styleId x DB-*) pairs vs the full 14 DB-* lineup (was 742 missing across 62 active styles)
+- [x] Restricted backfill to the 14 true DB-* drawer bases (excluded BFH-*/DFB-* which share the Drawer Base subCategory)
+- [x] Mirrored pricing from fully-covered reference style 30002 (same distributor 2 as all active styles)
+- [x] Dry-run then applied: 742 SKUs inserted, 0 clashes; unique platformSku per (size,style) = DB<code>-S<styleId>-D<dist>; isPublished=1, isAvailable=1
+- [x] Verified: all 62 active styles now have full 14-drawer-base coverage (full=62, partial=0, zero=0)
+- [x] Verified style ASP/Lumina White (30001, previously 0 drawer bases) now returns all 14 via placeableCabinets
