@@ -48,6 +48,7 @@ import {
   elevationBox,
 } from "@/lib/design";
 import { hickorySkinSuggestions, type HickorySkinSuggestion } from "@/lib/hickorySkins";
+import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
 import {
   closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
 } from "@/lib/closet";
@@ -315,13 +316,13 @@ export default function DesignTool() {
     // cabinets/appliances/openings exactly as in kitchen mode, so a closet can
     // hold cabinets and doors too.
     if (paletteType === "closetparts") {
-      const s0 = paletteSearch.toLowerCase();
+      const s0 = normalizePaletteSearch(paletteSearch);
       const all = closetGroups.flatMap((g) => g.items);
-      return all.filter((c) => !s0 || c.masterCode.toLowerCase().includes(s0) || c.description.toLowerCase().includes(s0));
+      return all.filter((c) => matchesPaletteSearch(c, s0));
     }
     const source: DesignCabinet[] =
       paletteType === "appliance" ? appliancePalette : ((paletteCabinets as DesignCabinet[]) ?? []);
-    const s = paletteSearch.toLowerCase();
+    const s = normalizePaletteSearch(paletteSearch);
     return source
       .filter((c) => {
         // "Corner Wall" shows only diagonal/corner wall cabinets; "Wall by Ht"
@@ -341,8 +342,9 @@ export default function DesignTool() {
         if (paletteType === "base") return !isCornerBase(c) && !isVanity(c);
         return true;
       })
-      .filter((c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
-      .slice(0, paletteType === "accessory" ? 200 : 80);
+      .filter((c) => matchesPaletteSearch(c, s))
+      // While searching, lift the per-tab cap so no matching size is hidden.
+      .slice(0, s ? 500 : paletteType === "accessory" ? 200 : 80);
   }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
 
   // Group the palette by cabinet height so wall cabinets (and others) are easy
@@ -350,13 +352,11 @@ export default function DesignTool() {
   const groupedPalette = useMemo(() => {
     // The Closet-parts tab groups by part category (Panels, Shelves, Hanging…).
     if (paletteType === "closetparts") {
-      const s = paletteSearch.toLowerCase();
+      const s = normalizePaletteSearch(paletteSearch);
       return closetGroups
         .map((g) => ({
           label: g.category,
-          items: g.items.filter(
-            (c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s)
-          ),
+          items: g.items.filter((c) => matchesPaletteSearch(c, s)),
         }))
         .filter((g) => g.items.length > 0);
     }
@@ -2050,11 +2050,21 @@ export default function DesignTool() {
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder={roomType === "closet" ? "Search closet parts..." : "Search cabinets..."}
-                className="pl-8 h-8 text-xs"
+                placeholder={roomType === "closet" ? "Search parts by name or size..." : 'Search by name, code, or size (e.g. "DB-24" or 24")'}
+                className="pl-8 pr-7 h-8 text-xs"
                 value={paletteSearch}
                 onChange={(e) => setPaletteSearch(e.target.value)}
               />
+              {paletteSearch && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setPaletteSearch("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
 

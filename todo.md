@@ -1366,3 +1366,12 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Dry-run then applied: 742 SKUs inserted, 0 clashes; unique platformSku per (size,style) = DB<code>-S<styleId>-D<dist>; isPublished=1, isAvailable=1
 - [x] Verified: all 62 active styles now have full 14-drawer-base coverage (full=62, partial=0, zero=0)
 - [x] Verified style ASP/Lumina White (30001, previously 0 drawer bases) now returns all 14 via placeableCabinets
+
+## Session: Cabinet palette search bar
+- [x] Existing search bar enhanced (was code+description only) to also match width and height in inches
+- [x] Normalize inch tokens so `24"`, `24 in`, `24 inch` all match `24` (without stripping "in" inside words like basin)
+- [x] Pure-number queries match cabinet width/height; text+number queries (e.g. "db24") still rely on code/description
+- [x] Lifted the 80-item display cap while a search term is active so no matching size is hidden
+- [x] Added a clear (x) button and a size-aware placeholder
+- [x] Extracted pure helpers into client/src/lib/paletteSearch.ts; 10 unit tests pass
+- [x] Verified live: searching "24" surfaces all 24" cabinets across height groups (incl. BSDC-6 matched on 24" height, BS-24-35, BA-24, ADA-*-24)
