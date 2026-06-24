@@ -4,7 +4,7 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
-  ChevronUp, ChevronDown, ChevronsDown,
+  ChevronUp, ChevronDown, ChevronsDown, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -179,7 +179,7 @@ export default function DesignTool() {
 
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "cornerbase" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "cornerbase" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts" | "accessory">("base");
   // Room type: kitchen cabinets (default), bathroom, laundry, closet parts, or other.
   const [roomType, setRoomType] = useState<RoomType>("kitchen");
 
@@ -209,6 +209,8 @@ export default function DesignTool() {
             ? "base"
             : paletteType === "wallht" || paletteType === "cornerwall"
             ? "wall"
+            : paletteType === "accessory"
+            ? "accessory"
             : paletteType,
         // Narrow to the chosen line + style so only purchasable cabinets show.
         styleId: styleId ?? undefined,
@@ -330,13 +332,17 @@ export default function DesignTool() {
         if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
         // The dedicated "Vanity" tab shows ONLY vanity-category cabinets.
         if (paletteType === "vanity") return isVanity(c);
+        // The "Accessories & Trim" tab returns its own server-filtered list
+        // (crown/light-rail molding, fillers, end panels, roll-out trays, etc.),
+        // so every item passes through here unchanged.
+        if (paletteType === "accessory") return true;
         // Plain "Base" excludes corner bases (own tab) AND vanities (own Vanity
         // tab in bathroom mode) so they don't duplicate across tabs.
         if (paletteType === "base") return !isCornerBase(c) && !isVanity(c);
         return true;
       })
       .filter((c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
-      .slice(0, 80);
+      .slice(0, paletteType === "accessory" ? 200 : 80);
   }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
 
   // Group the palette by cabinet height so wall cabinets (and others) are easy
@@ -353,6 +359,21 @@ export default function DesignTool() {
           ),
         }))
         .filter((g) => g.items.length > 0);
+    }
+    // The Accessories & Trim tab groups by product subCategory (Trim & Molding,
+    // Decorative End Panels, Roll-Out Trays, Skin Panels, …) rather than by
+    // height, which is meaningless for loose trim/hardware.
+    if (paletteType === "accessory") {
+      const bySub = new Map<string, DesignCabinet[]>();
+      for (const c of filteredPalette) {
+        const label = (c.subCategory || "Other").trim() || "Other";
+        const arr = bySub.get(label);
+        if (arr) arr.push(c);
+        else bySub.set(label, [c]);
+      }
+      return Array.from(bySub.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([label, items]) => ({ label, items }));
     }
     const groups = new Map<number, DesignCabinet[]>();
     for (const c of filteredPalette) {
@@ -1979,12 +2000,12 @@ export default function DesignTool() {
                 cabinets and an entry door. Kitchen mode keeps its tab set. */}
             <div className="flex lg:flex-wrap overflow-x-auto no-scrollbar rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
-                ? (["closetparts", "base", "wall", "tall", "opening"] as const)
+                ? (["closetparts", "base", "wall", "tall", "opening", "accessory"] as const)
                 : roomType === "bathroom"
-                ? (["vanity", "appliance", "base", "cornerbase", "wall", "wallht", "tall", "opening"] as const)
+                ? (["vanity", "appliance", "base", "cornerbase", "wall", "wallht", "tall", "opening", "accessory"] as const)
                 : roomType === "laundry"
-                ? (["appliance", "base", "cornerbase", "wall", "wallht", "tall", "opening"] as const)
-                : (["base", "cornerbase", "wall", "wallht", "cornerwall", "tall", "appliance", "opening"] as const)
+                ? (["appliance", "base", "cornerbase", "wall", "wallht", "tall", "opening", "accessory"] as const)
+                : (["base", "cornerbase", "wall", "wallht", "cornerwall", "tall", "appliance", "opening", "accessory"] as const)
               ).map((t) => (
                 <button
                   key={t}
@@ -2007,6 +2028,8 @@ export default function DesignTool() {
                     ? "Vanity"
                     : t === "closetparts"
                     ? "Closet"
+                    : t === "accessory"
+                    ? "Accessories & Trim"
                     : t}
                 </button>
               ))}
@@ -2049,7 +2072,38 @@ export default function DesignTool() {
                     {group.label}
                     <span className="ml-1 font-normal normal-case">({group.items.length})</span>
                   </div>
-                  {group.items.map((c) => (
+                  {group.items.map((c) => {
+                    // Accessories & Trim are added to the bill of materials as
+                    // quantity line items (via addAddOn), not dragged onto the
+                    // canvas. Everything else is a placeable cabinet box.
+                    if (paletteType === "accessory") {
+                      const added = addedAddOnIds.has(c.id);
+                      return (
+                        <button
+                          key={c.masterCode}
+                          onClick={() => addAddOn(c)}
+                          className={`w-full text-left p-2 rounded-lg border transition-colors group flex items-center gap-2 ${
+                            added
+                              ? "border-primary/60 bg-primary/5"
+                              : "border-border hover:border-primary/50 hover:bg-muted/50"
+                          }`}
+                        >
+                          <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                            <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                          </div>
+                          {added ? (
+                            <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                          ) : (
+                            <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                          )}
+                        </button>
+                      );
+                    }
+                    return (
                     <button
                       key={c.masterCode}
                       draggable
@@ -2067,7 +2121,8 @@ export default function DesignTool() {
                       </div>
                       <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               ))
             )}
@@ -2083,9 +2138,14 @@ export default function DesignTool() {
             {paletteType === "opening" && (
               <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">Click to add, then drag along any wall and use the handle to resize the width.</p>
             )}
+            {paletteType === "accessory" && filteredPalette.length > 0 && (
+              <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">Click to add to your bill of materials. Adjust quantities in the Build Sheet panel.</p>
+            )}
           </div>
           <div className="p-2 border-t border-border text-[10px] text-muted-foreground text-center">
-            Click or drag to add · drag on canvas to snap
+            {paletteType === "accessory"
+              ? "Click to add accessories to your bill of materials"
+              : "Click or drag to add · drag on canvas to snap"}
           </div>
         </PaletteShell>
 

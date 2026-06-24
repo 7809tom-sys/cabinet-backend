@@ -1339,3 +1339,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Vanity tab only appears in Bathroom room type; route Vanity-category cabinets to it and exclude them from the Base tab
 - [x] Bathroom defaults to the Vanity tab on room switch; vanities reuse existing base placement query
 - [x] Verified in browser: Vanity tab lists 41 vanity cabinets (VB/VS/VDB/V-/BFH/ADA-V), Base tab no longer shows them
+
+## Session: Accessories & Trim tab in Design Tool
+- [x] Server: extend placeableCabinets to return accessory/trim items when placement="accessory" (category=Accessory or placementType accessory/trim), keep them out of base/wall/tall
+- [x] Client: add an "Accessories & Trim" palette tab (all room types) that queries placement="accessory"
+- [x] Accessories add to the design as BOM line items via addAddOn (not spatial canvas boxes); grouped by subCategory (Trim & Molding, Decorative End Panel, Roll-Out Tray, Floating Shelf, etc.)
+- [x] Tests: accessory tab returns accessories + crown/filler present; base/wall/tall still exclude them (5/5 placeable tests pass; full suite 571/571)
+- [x] Verified live: 64 accessories render grouped by subcategory; clicking CM-2 adds a BOM line with qty stepper + remove, palette item shows added check
+- [x] Verify in browser and checkpoint

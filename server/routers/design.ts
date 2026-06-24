@@ -19,7 +19,7 @@ export const designRouter = router({
   placeableCabinets: publicProcedure
     .input(
       z.object({
-        placement: z.enum(["base", "wall", "tall"]).optional(),
+        placement: z.enum(["base", "wall", "tall", "accessory"]).optional(),
         search: z.string().optional(),
         // When the user has chosen a line + door style, narrow the palette to
         // only the cabinets that are actually purchasable for THAT combination.
@@ -73,15 +73,36 @@ export const designRouter = router({
       const availableRows = rows.filter((r) => availableCabinetIds.has(r.id));
 
       // Accessories/trim (countertop support brackets, hardware, fillers, glass
-      // doors sold separately, decorative legs, etc.) are NOT placeable cabinet
-      // boxes — they belong to the accessory area (storefront / add-on flow),
-      // never the drag-and-drop placement palette. Exclude them up front so they
-      // can't leak into a Base/Corner Base tab via the base-bucket fallback.
-      const placeableRows = availableRows.filter((r) => {
+      // doors sold separately, decorative legs, crown/light-rail molding, end
+      // panels, roll-out trays, etc.) are NOT placeable cabinet boxes — they are
+      // bill-of-materials add-ons. They live in their own "Accessories & Trim"
+      // tab, never the drag-and-drop placement palette, so they can't leak into
+      // a Base/Wall/Tall tab via the base-bucket fallback below.
+      const isAccessory = (r: { category: string | null; placementType: string | null }) => {
         const pt = (r.placementType || "").toLowerCase();
-        if (pt.includes("accessory") || pt.includes("trim")) return false;
-        return true;
-      });
+        const cat = (r.category || "").toLowerCase();
+        return cat === "accessory" || pt.includes("accessory") || pt.includes("trim");
+      };
+
+      // Accessory tab: return ONLY accessory/trim items. These are added to the
+      // design as BOM line items rather than placed on the canvas, so they skip
+      // the base/wall/tall placement normalization entirely.
+      if (input?.placement === "accessory") {
+        let accessories = availableRows
+          .filter(isAccessory)
+          .map((r) => ({ ...r, placement: "accessory" as const }));
+        if (input?.search) {
+          const s = input.search.toLowerCase();
+          accessories = accessories.filter(
+            (r) =>
+              r.masterCode.toLowerCase().includes(s) ||
+              (r.description || "").toLowerCase().includes(s)
+          );
+        }
+        return accessories;
+      }
+
+      const placeableRows = availableRows.filter((r) => !isAccessory(r));
 
       const withPlacement = placeableRows.map((r) => {
         let placement = r.placementType;

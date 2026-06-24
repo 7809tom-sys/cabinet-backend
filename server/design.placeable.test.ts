@@ -81,6 +81,77 @@ describe("design.placeableCabinets availability filter", () => {
     }
   });
 
+  it("returns accessory/trim items in the dedicated accessory tab", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+    const accessories = await caller.design.placeableCabinets({ placement: "accessory" });
+
+    expect(Array.isArray(accessories)).toBe(true);
+    expect(accessories.length).toBeGreaterThan(0);
+
+    // Every returned item must be an accessory (category=Accessory or an
+    // accessory/trim placementType) and tagged with placement "accessory".
+    for (const a of accessories) {
+      const cat = ((a as { category: string | null }).category || "").toLowerCase();
+      const pt = ((a as { placementType: string | null }).placementType || "").toLowerCase();
+      const isAccessory = cat === "accessory" || pt.includes("accessory") || pt.includes("trim");
+      expect(isAccessory, `${a.masterCode} should be an accessory`).toBe(true);
+      expect((a as { placement: string }).placement).toBe("accessory");
+    }
+
+    // Accessory items must NOT appear in any of the placeable (base/wall/tall) tabs.
+    const placeable = (
+      await Promise.all([
+        caller.design.placeableCabinets({ placement: "base" }),
+        caller.design.placeableCabinets({ placement: "wall" }),
+        caller.design.placeableCabinets({ placement: "tall" }),
+      ])
+    ).flat();
+    const placeableIds = new Set(placeable.map((c) => c.id));
+    for (const a of accessories) {
+      expect(
+        placeableIds.has(a.id),
+        `${a.masterCode} (accessory) must not appear in base/wall/tall tabs`
+      ).toBe(false);
+    }
+  });
+
+  it("surfaces crown molding and fillers (Trim & Molding) in the accessory tab", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+    const accessories = await caller.design.placeableCabinets({ placement: "accessory" });
+    const codes = new Set(accessories.map((a) => a.masterCode));
+
+    // Representative trim/molding + filler codes that members must be able to add.
+    const expected = ["CM-8", "F-3-96"];
+    for (const code of expected) {
+      // Only assert if the catalog actually carries the code with a live SKU.
+      const present = await db
+        .select({ id: cabinets.id })
+        .from(cabinets)
+        .where(and(eq(cabinets.isActive, true), eq(cabinets.masterCode, code)))
+        .limit(1);
+      if (present.length === 0) continue;
+      const hasSku = await db
+        .select({ id: distributorSkus.id })
+        .from(distributorSkus)
+        .where(
+          and(
+            eq(distributorSkus.cabinetId, present[0].id),
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true)
+          )
+        )
+        .limit(1);
+      if (hasSku.length === 0) continue;
+      expect(codes.has(code), `${code} should be available in the accessory tab`).toBe(true);
+    }
+  });
+
   it("narrows the palette when a distributor + style is provided", async () => {
     const db = await getDb();
     if (!db) return;
