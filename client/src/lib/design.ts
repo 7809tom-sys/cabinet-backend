@@ -171,6 +171,23 @@ export interface PlacedCabinet {
   // so the administrator can enter the manufacturer's min/max pull.
   pullMin?: number | null;
   pullMax?: number | null;
+  // Per-cabinet finish/door-style override for TWO-TONE designs. When set, this
+  // cabinet uses this styleId instead of the design's default finish — e.g. a
+  // white perimeter with a contrasting island/uppers. Must belong to the same
+  // locked distributor family as the design. When null/undefined the cabinet
+  // inherits the design's default styleId (see effectiveStyleId).
+  styleId?: number | null;
+}
+
+// Resolve which door-style/finish a placed cabinet should actually use:
+// its own per-cabinet override when present, otherwise the design's default
+// finish. This is the single source of truth for both pricing and rendering so
+// two-tone designs price and draw each cabinet by its real finish.
+export function effectiveStyleId(
+  cab: { styleId?: number | null },
+  defaultStyleId: number | null
+): number | null {
+  return cab.styleId != null ? cab.styleId : defaultStyleId;
 }
 
 // True when a cabinet has a hinged door whose swing side is meaningful. A

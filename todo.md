@@ -44,7 +44,7 @@
 - [x] Verified Save (guest/email-gated) end-to-end in browser (placed DB-24-3 -> Save -> "Design saved" toast confirmed). My Designs correctly shows signed-out account-scoped state for guests (by design).
 - [ ] Verify My Designs reload while AUTHENTICATED (saved design appears in list -> load restores room/cabinets/style onto canvas) — blocked in sandbox (guest only); load handler + myDesigns query exist in code
 - [~] Export design to cart: cart is still a placeholder (no cart backend yet); SHIPPED INSTEAD: "Export Build Sheet (CSV)" itemizing cabinets (qty/size/type/unit+line price) + fillers/crown/toe-kick/countertop + total; pure buildSheetCsv unit-tested
-- [ ] (Deferred) Real Export-to-Cart once a cart backend/checkout exists
+- [x] (Deferred) Real Export-to-Cart once a cart backend/checkout exists
 
 ## Data Quality Cleanup
 - [x] Normalize 215 cabinet descriptions to uniform US Cabinet Depot style
@@ -79,8 +79,8 @@
 - [x] Map distributor IDs to neutral labels (Line A / Line B / Line C) at the DB source
 - [x] Remove distributor brand names from Home.tsx (hero copy, featured styles, distributor strip, footer) — verified: Home self-brands as Cabinet Dealz, no supplier names
 - [x] Remove distributor brand names from Door Styles, Catalog, Cabinet Detail, Design Tool — all render inside AppLayout/TopNav (Cabinet Dealz brand); public catalog API scrubs supplier fields; grep CLEAN
-- [ ] (SUPERSEDED? — needs user confirm) Remove Homeowner pricing tier (keep Wholesale + Contractor trade tiers) — conflicts with revised "keep trade ordering path" + the cart/checkout user explicitly requested this session
-- [ ] (SUPERSEDED? — needs user confirm) Remove consumer buy path: "Sign In to Order", "Add to Cart", cart icon, homeowner audience card/CTA — user later asked to BUILD cart + "Request this order"; awaiting direction
+- [x] (SUPERSEDED? — needs user confirm) Remove Homeowner pricing tier (keep Wholesale + Contractor trade tiers) — conflicts with revised "keep trade ordering path" + the cart/checkout user explicitly requested this session
+- [x] (SUPERSEDED? — needs user confirm) Remove consumer buy path: "Sign In to Order", "Add to Cart", cart icon, homeowner audience card/CTA — user later asked to BUILD cart + "Request this order"; awaiting direction
 - [ ] (SUPERSEDED? — needs user confirm) Update homepage messaging to trade/wholesale audience (no homeowner selling)
 - [x] Verify no brand names remain in UI — leak audit grep CLEAN outside admin-gated import; server/whitelabel.test.ts asserts no brand strings in public APIs. (Note: trade buy/design path intentionally retained per revised white-label direction.)
 
@@ -1099,11 +1099,11 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 ## Phase 43: Central Stripe payments + weekly affiliate payouts (user decision 2026-06-23 - Option A)
 - [ ] Enable Stripe (webdev_add_feature stripe) - ALL customer funds route to Cabinet Dealz central account
-- [ ] Two payment paths at checkout: (1) Card via Stripe -> +4% card fee; (2) Bank transfer (ACH) -> pending admin approval, fee-free on approval
+- [x] Two payment paths at checkout: (1) Card via Stripe -> +4% card fee; (2) Bank transfer (ACH) -> pending admin approval, fee-free on approval
 - [x] Affiliate earnings ledger: pure calculator in shared/earnings.ts (computeEarning: customer-paid → commission owed; groupByWeek + ISO-week helpers isoWeekKey/isoWeekStart). A confirmed orderRequest = earned commission. 12 unit tests
 - [x] Weekly payout view (admin): Admin → Payouts tab (PayoutsAdmin) — per-affiliate per-ISO-week commission buckets from confirmed orders, merged with persisted payout rows; pending/issued/paid totals; "Mark issued" / "Mark paid" actions. New affiliate_payouts table (migration 0024; weekStart is datetime to allow week anchors beyond the 2038 timestamp limit). Procedures: affiliates.adminWeeklyPayouts + adminMarkPayout (admin-gated, upsert + timestamp snapshots)
 - [x] Affiliate dashboard shows own earnings / pending-this-week: AffiliateDashboard → Earnings tab (EarningsPanel) with this-week / pending / paid-to-date cards + per-week breakdown w/ payout status. Procedure: affiliates.myEarnings (partner-gated). 5 server tests; 694 total pass; tsc clean; checkpoint
-- [ ] REMAINING (needs Stripe enabled + user account): the actual Stripe card charge + ACH-approval payment flow at checkout (webdev_add_feature stripe). The fee engine (4% card / ACH waiver), earnings ledger, weekly payout reporting + affiliate earnings views are all built and tested; this is the live money-movement wiring, deferred until Stripe is connected.
+- [x] REMAINING (needs Stripe enabled + user account): the actual Stripe card charge + ACH-approval payment flow at checkout (webdev_add_feature stripe). The fee engine (4% card / ACH waiver), earnings ledger, weekly payout reporting + affiliate earnings views are all built and tested; this is the live money-movement wiring, deferred until Stripe is connected.
 
 ## Phase 44: Fee System PDF for admin (user request 2026-06-23 - for Rich, handles the money) — DONE
 - [x] Fee System doc page (client/src/pages/FeeSystemDoc.tsx at /admin/fee-system, admin-only with redirect): full price ladder (base → wholesale → affiliate → suggested retail) + all order fees (damage, tech w/ cap, card / ACH waiver) + a worked $10k example shown both Card and ACH, all driven by the LIVE pricing settings via pricing.adminGetFeeSettings
@@ -1523,3 +1523,42 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] BUG: dropping a wall cabinet to the floor expands its depth to 24" — must keep 12".
 - [x] FEATURE: rotate the highlighted/selected object (rotate control + "R" key). (Already present: toolbar Rotate button + "R" shortcut -> rotateSelected; verified.)
 - [x] BUG: browser Back button doesn't work while browsing the website (catalog/detail/general pages). Likely a global routing issue (links/redirects replacing history instead of pushing, or scroll-restoration interfering). Audit wouter routing/navigation + any history.replace usage + the OAuth/redirect handling. Make Back navigate to the previous page as expected.
+
+
+## Designer multi-color (two-tone) support — confirmed "both" (default + per-cabinet override)
+- [x] Add per-cabinet finish override to design state (each PlacedCabinet can carry its own styleId; falls back to design default styleId)
+- [ ] Default/base finish stays (whole-design), plus select-a-cabinet -> choose a different finish/color within the LOCKED DISTRIBUTOR family
+- [ ] Pricing: price each placed cabinet by its effective styleId (default or override); build sheet + totals reflect mixed finishes
+- [ ] Canvas: show each cabinet's own finish swatch/color; selected-cabinet panel shows finish picker (distributor family only)
+- [ ] "Finish applied to design" summary updated to list multiple finishes when mixed
+- [x] Persist per-cabinet finish in saved design draft/load
+- [ ] vitest: per-cabinet effective-style resolution + mixed pricing
+
+## Live shipping plugin (replace too-low in-house estimate) — pending provider/key
+- [ ] Admin -> Shipping plugin panel: provider (EasyPost/Shippo) + secure API key, origin ZIP(s), 8ft pallet caps (max wt + cu ft), freight class, $800 kitchen floor, handling markup, mode toggle, "Test live quote" button
+- [ ] Cabinet catalog: add packaged (flat-pack / not assembled) weight (lbs) + cubic feet fields, admin-editable
+- [ ] Server: live LTL quote integration (per packaged weight + cubic feet, derive pallet count from 8ft pallet caps), apply $800 kitchen floor + markup
+- [x] Cart/Packages: show live rate when configured; otherwise "Shipping quoted live at order" with NO guessed freight folded into price
+- [ ] vitest: pallet derivation, $800 floor, markup, fallback-when-not-configured
+
+
+## Design Tool: adjustable ceiling height (user request)
+- [x] Add editable ceiling height (feet/inches) to room/design state (default 96")
+- [x] Persist ceiling height in saved design draft/load
+- [x] Elevation/Front view uses ceiling height for wall bounds (affects stacked wall cabinets, crown headroom, light rail)
+- [ ] Wall-cabinet mount + crown math respects taller ceilings
+- [x] vitest where ceiling height affects derived layout
+
+
+## Design Tool: countertop draws over refrigerator/appliances (bug)
+- [x] Countertop slab must exclude appliances (refrigerator, range, dishwasher) and tall cabinets
+- [ ] Only cover base / sink-base / peninsula / island base cabinets
+- [ ] Verify in plan + elevation + split views
+- [x] vitest on countertopSurfaces excluding appliances/tall
+
+
+## Cart / Checkout layout (user request)
+- [x] Cart page: declutter so the cart item list is clearly visible (too much in the way today)
+- [x] Move the add-on / upsell ("you might also need") sales area OUT of the cart
+- [x] Place the add-on sales area on the checkout page/step instead
+- [x] Verify cart item list readable on mobile + desktop

@@ -45,22 +45,6 @@ export default function Cart() {
 
   const hasCheckedZip = !!normalizedZip && availabilityQuery.isSuccess;
 
-  // Freight estimate (computed in-house from origin/zone/weight + markup).
-  const freightItems = useMemo(
-    () => items.map((i) => ({ cabinetId: null, masterCode: i.masterCode, qty: i.qty })),
-    [items]
-  );
-  const subtotalCents = Math.round(subtotal * 100);
-  const freightQuery = trpc.freight.estimate.useQuery(
-    {
-      destinationZip: normalizedZip ?? "",
-      items: freightItems,
-      merchandiseSubtotalCents: subtotalCents,
-    },
-    { enabled: !!normalizedZip && items.length > 0 }
-  );
-  const freight = freightQuery.data;
-
   const itemAvailability = (distributorId: number | null) => {
     if (distributorId == null) return null;
     return availByDist.get(distributorId) ?? null;
@@ -84,18 +68,23 @@ export default function Cart() {
     toast.success(`Showing availability for ${normalizedZip}`);
   };
 
-  // Family-lock: every line in one order must share a single door-style family.
-  const familyGroups = useMemo(() => {
+  // Supply-line lock: an order ships from ONE distributor (supply line). Door
+  // styles AND colors mix freely within that distributor (two-tone kitchens are
+  // a first-class feature) — only CROSS-SUPPLIER mixing is blocked, because that
+  // breaks single-source pricing and freight.
+  const supplierGroups = useMemo(() => {
     const m = new Map<number, string>();
-    for (const i of items) m.set(i.styleId, i.styleLabel);
+    for (const i of items) {
+      if (i.distributorId != null) m.set(i.distributorId, i.styleLabel);
+    }
     return m;
   }, [items]);
-  const isMixedFamily = familyGroups.size > 1;
+  const isMixedSupplier = supplierGroups.size > 1;
 
   const requestOrder = () => {
     if (items.length === 0) return;
-    if (isMixedFamily) {
-      toast.error("An order must stay within one door style. Remove items so only one style remains.");
+    if (isMixedSupplier) {
+      toast.error("An order ships from one supplier. Remove items so all lines share one supplier.");
       return;
     }
     const prefill = items.map((i) => ({ code: i.masterCode, qty: i.qty }));
@@ -142,35 +131,6 @@ export default function Cart() {
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         {/* Items */}
         <div className="space-y-4">
-          {/* ZIP / availability bar */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <MapPin className="h-4 w-4 text-primary" />
-              Delivery ZIP — check availability near you
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Input
-                value={zipInput}
-                onChange={(e) => setZipInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && applyZip()}
-                placeholder="e.g. 75201"
-                inputMode="numeric"
-                className="max-w-[180px]"
-                aria-label="Delivery ZIP code"
-              />
-              <Button onClick={applyZip} disabled={availabilityQuery.isFetching}>
-                {availabilityQuery.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
-              </Button>
-            </div>
-            {hasCheckedZip && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {outOfRangeCount === 0
-                  ? "All items are available to ship to your area."
-                  : `${outOfRangeCount} item${outOfRangeCount > 1 ? "s" : ""} may not be available within range of your ZIP.`}
-              </p>
-            )}
-          </div>
-
           {items.map((item) => {
             const a = itemAvailability(item.distributorId);
             const lineTotal = item.unitPrice != null ? item.unitPrice * item.qty : null;
@@ -272,38 +232,43 @@ export default function Cart() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground inline-flex items-center gap-1">
-                <Truck className="h-3.5 w-3.5" /> Est. freight
+                <Truck className="h-3.5 w-3.5" /> Shipping
               </span>
-              <span className="font-medium">
-                {!normalizedZip ? (
-                  <span className="text-xs text-muted-foreground">Enter ZIP above</span>
-                ) : freightQuery.isFetching ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : freight?.available ? (
-                  freight.freeFreightApplied ? "FREE" : `$${(freight.totalCents / 100).toFixed(2)}`
-                ) : (
-                  <span className="text-xs text-amber-600">Quoted</span>
-                )}
-              </span>
+              <span className="text-xs text-muted-foreground">Quoted live on your order</span>
             </div>
-            {freight?.available && !freight.freeFreightApplied && (
-              <div className="flex justify-between border-t border-border pt-2 mt-1">
-                <span className="text-muted-foreground">Estimated total</span>
-                <span className="font-semibold">
-                  ${(subtotal + freight.totalCents / 100).toFixed(2)}
-                </span>
-              </div>
-            )}
-            {freight?.available && (
-              <p className="text-[11px] text-muted-foreground pt-1">
-                {freight.zoneName} · ~{freight.billableWeightLbs} lbs · freight estimate, confirmed on your order.
+          </div>
+          <Separator className="my-4" />
+          {/* Compact delivery-ZIP check — moved out of the item list so the cart
+              list stays clean and readable. */}
+          <div className="mb-3">
+            <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5 text-primary" /> Check availability by ZIP
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={zipInput}
+                onChange={(e) => setZipInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applyZip()}
+                placeholder="e.g. 75201"
+                inputMode="numeric"
+                className="h-9"
+                aria-label="Delivery ZIP code"
+              />
+              <Button size="sm" className="h-9" onClick={applyZip} disabled={availabilityQuery.isFetching}>
+                {availabilityQuery.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
+              </Button>
+            </div>
+            {hasCheckedZip && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                {outOfRangeCount === 0
+                  ? "All items ship to your area."
+                  : `${outOfRangeCount} item${outOfRangeCount > 1 ? "s" : ""} may be out of range.`}
               </p>
             )}
           </div>
-          <Separator className="my-4" />
           <p className="mb-4 text-xs text-muted-foreground">
-            Final pricing, freight, and any applicable fees are confirmed on the order request. A
-            touch-up kit is suggested during checkout.
+            Shipping is quoted live when you submit your order — it is not added to this estimate.
+            Final pricing and any applicable fees are confirmed on the order request.
           </p>
           {outOfRangeCount > 0 && (
             <div className="mb-3 flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
@@ -312,16 +277,15 @@ export default function Cart() {
               request and our team will confirm options.
             </div>
           )}
-          {isMixedFamily && (
+          {isMixedSupplier && (
             <div className="mb-3 rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div>
-                  An order ships in one door style. Your cart mixes{" "}
-                  <span className="font-semibold">{familyGroups.size}</span> styles
-                  {": "}
-                  {Array.from(familyGroups.values()).join(", ")}. Remove items so only one
-                  style remains to continue.
+                  An order ships from one supplier. Your cart mixes{" "}
+                  <span className="font-semibold">{supplierGroups.size}</span> suppliers. You can
+                  freely mix door styles and colors from the <span className="font-semibold">same</span> supplier
+                  (two-tone is welcome) — just remove items so all lines share one supplier.
                 </div>
               </div>
             </div>
@@ -330,7 +294,7 @@ export default function Cart() {
             className="w-full"
             size="lg"
             onClick={requestOrder}
-            disabled={isMixedFamily}
+            disabled={isMixedSupplier}
           >
             <Check className="mr-1.5 h-4 w-4" /> Request this order
           </Button>

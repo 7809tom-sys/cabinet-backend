@@ -38,6 +38,10 @@ interface Props {
   onOpeningChange?: (opening: WallOpening) => void;
   onDeleteOpening?: (uid: string) => void;
   finish?: FinishColors;
+  // Optional per-cabinet finish resolver for TWO-TONE designs. When provided,
+  // each cabinet is drawn in its own finish; otherwise the single `finish`
+  // prop is used for every cabinet.
+  finishFor?: (cab: PlacedCabinet) => FinishColors;
   drawMode?: boolean;
   onDrawRoom?: (room: RoomData) => void;
   // Active-wall: the highlighted wall. Click a wall to select it; drag it to
@@ -72,6 +76,7 @@ export function PlanCanvas({
   activeWall, onSelectWall, onResizeWall, conflictUids,
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
+  finishFor,
 }: Props) {
   // A wall cannot be resized if the whole layout is locked or that wall is locked.
   const isWallLocked = (side: WallSide) => layoutLocked || !!lockedWalls?.has(side);
@@ -725,8 +730,9 @@ export function PlanCanvas({
             const isBlind = isBlindCorner(p.masterCode, p.description);
             const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
-            const faceFill = isAppliance ? "#b9bdc4" : finish.face;
-            const edgeColor = isAppliance ? "#8a8f96" : finish.edge;
+            const cabFinish = finishFor ? finishFor(p) : finish;
+            const faceFill = isAppliance ? "#b9bdc4" : cabFinish.face;
+            const edgeColor = isAppliance ? "#8a8f96" : cabFinish.edge;
             const collides = hasCollision(
               p,
               cabinets.filter((c) => c.placement === p.placement)
@@ -749,7 +755,7 @@ export function PlanCanvas({
                 }
                 className={`group absolute transition-shadow ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
-                } ${isSelected ? "z-20" : isWall ? "z-10" : "z-0"}`}
+                } ${isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-0"}`}
                 style={{
                   left: p.x * ppi,
                   top: p.y * ppi,

@@ -273,6 +273,67 @@ export const designRouter = router({
       return Array.from(best.values());
     }),
 
+  // Multi-style pricing for TWO-TONE designs: price a set of (cabinetId,
+  // styleId) pairs in one round-trip. Each placed cabinet may carry its own
+  // finish override (see effectiveStyleId on the client), so we need the price
+  // of each cabinet AT ITS OWN style. Returns one best (cheapest-contractor)
+  // priced row per (cabinetId, styleId) pair, tagged with styleId so the client
+  // can key its price map on cabinetId+styleId.
+  priceForCabinetsByStyles: publicProcedure
+    .input(
+      z.object({
+        pairs: z
+          .array(z.object({ cabinetId: z.number(), styleId: z.number() }))
+          .max(2000),
+        distributorId: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || input.pairs.length === 0) return [];
+
+      // Collect the distinct ids so we can fetch in a single IN-query, then
+      // filter back down to the exact requested pairs in memory.
+      const cabinetIds = Array.from(new Set(input.pairs.map((p) => p.cabinetId)));
+      const styleIds = Array.from(new Set(input.pairs.map((p) => p.styleId)));
+      const wanted = new Set(input.pairs.map((p) => `${p.cabinetId}:${p.styleId}`));
+
+      const conditions = [
+        inArray(distributorSkus.cabinetId, cabinetIds),
+        inArray(distributorSkus.styleId, styleIds),
+        eq(distributorSkus.isAvailable, true),
+      ];
+      if (input.distributorId) {
+        conditions.push(eq(distributorSkus.distributorId, input.distributorId));
+      }
+
+      const rows = await db
+        .select({
+          cabinetId: distributorSkus.cabinetId,
+          styleId: distributorSkus.styleId,
+          platformSku: distributorSkus.platformSku,
+          listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+        })
+        .from(distributorSkus)
+        .where(and(...conditions));
+
+      // Best (cheapest contractor) row per (cabinetId, styleId) pair, limited to
+      // the exact pairs that were requested.
+      const best = new Map<string, (typeof rows)[number]>();
+      for (const r of rows) {
+        const key = `${r.cabinetId}:${r.styleId}`;
+        if (!wanted.has(key)) continue;
+        const cur = best.get(key);
+        if (!cur) { best.set(key, r); continue; }
+        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+        const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
+        if (a < b) best.set(key, r);
+      }
+      return Array.from(best.values());
+    }),
+
   save: publicProcedure
     .input(
       z.object({

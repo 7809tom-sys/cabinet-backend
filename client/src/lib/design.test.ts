@@ -1523,3 +1523,27 @@ describe("wall cabinet dropped to floor keeps its own depth", () => {
     expect(footprintDepth({ placement: "base", width: "24", depth: null, masterCode: "B-24", description: "Base 24" })).toBe(STD.BASE_DEPTH);
   });
 });
+
+
+import { effectiveStyleId } from "./design";
+
+describe("effectiveStyleId (two-tone per-cabinet finish)", () => {
+  it("uses the per-cabinet override when present", () => {
+    expect(effectiveStyleId({ styleId: 42 }, 7)).toBe(42);
+  });
+  it("falls back to the design default when no override", () => {
+    expect(effectiveStyleId({ styleId: null }, 7)).toBe(7);
+    expect(effectiveStyleId({}, 7)).toBe(7);
+  });
+  it("allows two cabinets to resolve to different finishes (mix colors)", () => {
+    const def = 7;
+    const perimeter = effectiveStyleId({ styleId: null }, def); // default white
+    const island = effectiveStyleId({ styleId: 99 }, def); // contrasting island
+    expect(perimeter).toBe(7);
+    expect(island).toBe(99);
+    expect(perimeter).not.toBe(island);
+  });
+  it("returns null only when neither override nor default is set", () => {
+    expect(effectiveStyleId({ styleId: null }, null)).toBeNull();
+  });
+});

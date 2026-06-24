@@ -4,7 +4,7 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
-  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer,
+  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight,
   normalizeLCornerDepths,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
-  isSinkBaseCabinet, placedFootprint,
+  isSinkBaseCabinet, placedFootprint, effectiveStyleId,
   blindCornerAutoFiller,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -480,40 +480,68 @@ export default function DesignTool() {
       ),
     [placed, addedAddOns]
   );
-  const { data: priceRows } = trpc.design.priceForCabinets.useQuery(
-    {
-      cabinetIds: placedCabinetIds,
-      styleId: styleId ?? 0,
-    },
-    { enabled: placedCabinetIds.length > 0 && !!styleId }
+  // TWO-TONE pricing: price each cabinet at its EFFECTIVE finish (per-cabinet
+  // override, else the design default). Build the distinct (cabinetId, styleId)
+  // pairs the design actually uses so we fetch every needed price in one call.
+  // Add-ons always price at the design default finish.
+  const pricePairs = useMemo(() => {
+    if (!styleId) return [] as Array<{ cabinetId: number; styleId: number }>;
+    const seen = new Set<string>();
+    const pairs: Array<{ cabinetId: number; styleId: number }> = [];
+    const push = (cabinetId: number, sid: number) => {
+      if (cabinetId <= 0) return;
+      const key = `${cabinetId}:${sid}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      pairs.push({ cabinetId, styleId: sid });
+    };
+    placed.forEach((p) => push(p.cabinetId, effectiveStyleId(p, styleId) ?? styleId));
+    addedAddOns.forEach((a) => push(a.cabinetId, styleId));
+    return pairs;
+  }, [placed, addedAddOns, styleId]);
+
+  const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
+    { pairs: pricePairs },
+    { enabled: pricePairs.length > 0 && !!styleId }
   );
 
+  // Price map keyed on `cabinetId:styleId` so a cabinet can resolve to a
+  // different price under a different finish.
   const priceMap = useMemo(() => {
-    const m = new Map<number, number>();
-    priceRows?.forEach((r) => m.set(r.cabinetId, priceOf(r, tier)));
+    const m = new Map<string, number>();
+    priceRows?.forEach((r) => m.set(`${r.cabinetId}:${r.styleId}`, priceOf(r, tier)));
     return m;
   }, [priceRows, tier]);
 
-  // Resolve a placed item's unit price: closet parts carry id=0 (skipped by
-  // the cabinet pricing engine) so they price from the placeholder catalog;
-  // everything else prices from the DB price map.
+  // Resolve a placed item's unit price at its EFFECTIVE finish. Closet parts
+  // carry id=0 (skipped by the cabinet pricing engine) so they price from the
+  // placeholder catalog; everything else prices from the DB price map keyed by
+  // (cabinetId, effective styleId).
   const unitPriceFor = useCallback(
-    (p: { masterCode: string; cabinetId: number }): number | null => {
+    (p: { masterCode: string; cabinetId: number; styleId?: number | null }): number | null => {
       if (isClosetPart(p.masterCode)) return closetPartPrice(p.masterCode);
-      const v = priceMap.get(p.cabinetId);
+      if (!styleId) return null;
+      const sid = effectiveStyleId(p, styleId) ?? styleId;
+      const v = priceMap.get(`${p.cabinetId}:${sid}`);
       return v ?? null;
     },
-    [priceMap]
+    [priceMap, styleId]
+  );
+
+  // Add-on unit price (always at the design default finish).
+  const addOnPriceFor = useCallback(
+    (cabinetId: number): number => {
+      if (!styleId) return 0;
+      return priceMap.get(`${cabinetId}:${styleId}`) ?? 0;
+    },
+    [priceMap, styleId]
   );
 
   const total = useMemo(
     () =>
       placed.reduce((sum, p) => sum + (unitPriceFor(p) ?? 0), 0) +
-      addedAddOns.reduce(
-        (sum, a) => sum + (priceMap.get(a.cabinetId) ?? 0) * a.qty,
-        0
-      ),
-    [placed, addedAddOns, priceMap, unitPriceFor]
+      addedAddOns.reduce((sum, a) => sum + addOnPriceFor(a.cabinetId) * a.qty, 0),
+    [placed, addedAddOns, unitPriceFor, addOnPriceFor]
   );
 
   // ─── Add-on recommendations ("don't forget this") ──────────────────────────
@@ -650,7 +678,7 @@ export default function DesignTool() {
         depthIn: 0,
         placement: "accessory",
         qty: a.qty,
-        unitPrice: styleId ? priceMap.get(a.cabinetId) ?? null : null,
+        unitPrice: styleId ? addOnPriceFor(a.cabinetId) : null,
       });
     }
     // Hickory unfinished-end skins: one per exposed end, aggregated by
@@ -686,6 +714,41 @@ export default function DesignTool() {
     const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
     return doorPanelKind(s?.doorStyle ?? activeStyleName);
   }, [doorStyles, styleId, activeStyleName]);
+
+  // ─── TWO-TONE per-cabinet finish + door-panel resolvers ─────────────────────
+  // Each cabinet renders in its EFFECTIVE finish (per-cabinet override, else the
+  // design default). We memoize FinishColors / DoorPanelKind per styleId so the
+  // canvas + elevation can color each cabinet independently without recomputing.
+  const finishById = useMemo(() => {
+    const m = new Map<number, ReturnType<typeof finishColors>>();
+    doorStyles?.forEach((d) => {
+      const s = d as { id: number; ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null };
+      m.set(s.id, finishColors(s.ourName, s.color, s.finish, s.woodSpecies));
+    });
+    return m;
+  }, [doorStyles]);
+  const panelKindById = useMemo(() => {
+    const m = new Map<number, ReturnType<typeof doorPanelKind>>();
+    doorStyles?.forEach((d) => {
+      const s = d as { id: number; doorStyle?: string | null; ourName?: string | null };
+      m.set(s.id, doorPanelKind(s.doorStyle ?? s.ourName ?? undefined));
+    });
+    return m;
+  }, [doorStyles]);
+  const finishForCab = useCallback(
+    (cab: PlacedCabinet) => {
+      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      return (sid != null && finishById.get(sid)) || activeFinish;
+    },
+    [styleId, finishById, activeFinish]
+  );
+  const panelKindForCab = useCallback(
+    (cab: PlacedCabinet) => {
+      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      return (sid != null && panelKindById.get(sid)) || activePanelKind;
+    },
+    [styleId, panelKindById, activePanelKind]
+  );
 
   // Crown molding & toe kick for the BOM. Crown is grouped per wall with a 3"
   // miter allowance; both are ordered in whole standard sticks (96").
@@ -1389,6 +1452,16 @@ export default function DesignTool() {
     );
   }, [selectedUid]);
 
+  // Per-cabinet finish override (two-tone). Set the selected cabinet's styleId
+  // so it uses a different color/finish than the design default. Pass null to
+  // clear the override (cabinet falls back to the design's default finish).
+  const setCabinetStyle = useCallback((newStyleId: number | null) => {
+    if (!selectedUid) return;
+    setPlaced((prev) =>
+      prev.map((p) => (p.uid === selectedUid ? { ...p, styleId: newStyleId } : p))
+    );
+  }, [selectedUid]);
+
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(
     (side: WallSide) => {
@@ -2043,6 +2116,32 @@ export default function DesignTool() {
               </span>
               <div className="h-4 w-px bg-border" />
               <WallPicker onPick={snapSelectedToWall} />
+              {/* Per-cabinet finish (two-tone): give THIS cabinet a different
+                  color/finish than the design default, within the locked supply
+                  line. "Match design" clears the override. */}
+              {styleId && uniqueDoorStyles.length > 0 && (
+                <>
+                  <div className="h-4 w-px bg-border" />
+                  <div className="flex items-center gap-1">
+                    <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-[11px] text-muted-foreground mr-0.5">Finish</span>
+                    <Select
+                      value={selectedCab.styleId != null ? String(selectedCab.styleId) : "__match__"}
+                      onValueChange={(v) => setCabinetStyle(v === "__match__" ? null : Number(v))}
+                    >
+                      <SelectTrigger className="h-7 w-[150px] text-[11px]">
+                        <SelectValue placeholder="Match design" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__match__">Match design{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
+                        {uniqueDoorStyles.map((s) => (
+                          <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
               {selectedCab.placement === "wall" && (
                 <>
                   <div className="h-4 w-px bg-border" />
@@ -2412,6 +2511,7 @@ export default function DesignTool() {
               onSelectSink={setSelectedSinkUid}
               onMoveSink={moveSink}
               onDropToFloor={dropToFloor}
+              finishFor={finishForCab}
             />
           )}
           {viewMode === "elevation" && (
@@ -2431,6 +2531,8 @@ export default function DesignTool() {
               lightRail={lightRail}
               panelKind={activePanelKind}
               hardwareStyleId={hardwareStyleId}
+              finishFor={finishForCab}
+              panelKindFor={panelKindForCab}
             />
           )}
           {viewMode === "corner" && (
@@ -2450,6 +2552,8 @@ export default function DesignTool() {
               lightRail={lightRail}
               panelKind={activePanelKind}
               hardwareStyleId={hardwareStyleId}
+              finishFor={finishForCab}
+              panelKindFor={panelKindForCab}
             />
           )}
           {viewMode === "split" && (
@@ -2488,6 +2592,7 @@ export default function DesignTool() {
                   onSelectSink={setSelectedSinkUid}
                   onMoveSink={moveSink}
                   onDropToFloor={dropToFloor}
+                  finishFor={finishForCab}
                 />
               </div>
               <div className="flex-1 min-h-0">
@@ -2507,6 +2612,8 @@ export default function DesignTool() {
                   lightRail={lightRail}
                   panelKind={activePanelKind}
                   hardwareStyleId={hardwareStyleId}
+                  finishFor={finishForCab}
+                  panelKindFor={panelKindForCab}
                 />
               </div>
             </div>
@@ -2745,7 +2852,7 @@ export default function DesignTool() {
             {addedAddOns.length > 0 && (
               <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
                 {addedAddOns.map((a) => {
-                  const unit = priceMap.get(a.cabinetId);
+                  const unit = styleId ? addOnPriceFor(a.cabinetId) : null;
                   return (
                     <div key={a.cabinetId} className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-emerald-50 dark:bg-emerald-950/30">
                       <div className="min-w-0">

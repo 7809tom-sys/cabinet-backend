@@ -38,6 +38,8 @@ interface Props {
   lightRail?: boolean;
   panelKind?: DoorPanelKind;
   hardwareStyleId?: HardwareStyleId | null;
+  finishFor?: (cab: PlacedCabinet) => FinishColors;
+  panelKindFor?: (cab: PlacedCabinet) => DoorPanelKind;
 }
 
 export function CornerView({
@@ -45,12 +47,14 @@ export function CornerView({
   countertopMaterialId = null, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", hardwareStyleId = null,
+  finishFor, panelKindFor,
 }: Props) {
   const { left, right } = CORNERS[corner];
 
   const sharedProps = {
     room, cabinets, selectedUid, onSelect,
     countertopMaterialId, openings, finish, crown, toeKick, batten, lightRail, panelKind, hardwareStyleId,
+    finishFor, panelKindFor,
   };
 
   return (

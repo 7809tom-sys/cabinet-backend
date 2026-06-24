@@ -34,6 +34,11 @@ interface Props {
   batten?: boolean;
   lightRail?: boolean;
   panelKind?: DoorPanelKind;
+  // Optional per-cabinet finish + door-panel resolvers for TWO-TONE designs.
+  // When provided, each cabinet draws in its own finish/panel; otherwise the
+  // single `finish`/`panelKind` props apply to every cabinet.
+  finishFor?: (cab: PlacedCabinet) => FinishColors;
+  panelKindFor?: (cab: PlacedCabinet) => DoorPanelKind;
   // When this elevation is rendered inside a horizontally-mirrored container
   // (the left half of CornerView), set `mirror` so text labels are counter-
   // flipped to stay readable. `hideSwitcher` removes the inner wall picker so
@@ -50,6 +55,7 @@ export function ElevationView({
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
+  finishFor, panelKindFor,
 }: Props) {
   const hw = resolveHardwareStyle(hardwareStyleId);
   // Counter-flip transform for text so labels read correctly when this whole
@@ -133,37 +139,56 @@ export function ElevationView({
 
         {/* Countertop band: a thin colored slab sitting on top of the base run,
             its top edge on the 36" counter line, colored by the chosen material.
-            Spans the leftmost-to-rightmost base/appliance extent on this wall. */}
+            Drawn as one band PER CONTIGUOUS RUN of base cabinets only — appliances
+            (refrigerator, range, dishwasher) and tall cabinets are excluded so the
+            counter never appears to run through the fridge or bridge an appliance
+            gap. */}
         {countertopMaterialId && (() => {
-          const baseRun = sorted.filter(
-            (p) => p.placement === "base" || p.placement === "appliance"
-          );
-          if (baseRun.length === 0) return null;
-          const extents = baseRun.map((p) => {
-            const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
-            const posAlong = horizontal ? p.x : p.y;
-            return { start: posAlong, end: posAlong + sizeAlong };
-          });
-          const left = Math.min(...extents.map((e) => e.start));
-          const right = Math.max(...extents.map((e) => e.end));
           const mat = countertopMaterial(countertopMaterialId);
           const THICKNESS_IN = 1.5;
           const OVERHANG_IN = 0.75; // a little nosing past the cabinet faces
+          const TOL = 1.5; // inches: treat near-touching base cabinets as one run
+          // Base-cabinet spans along this wall, sorted by start position.
+          const spans = sorted
+            .filter((p) => p.placement === "base")
+            .map((p) => {
+              const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+              const posAlong = horizontal ? p.x : p.y;
+              return { start: posAlong, end: posAlong + sizeAlong };
+            })
+            .sort((a, b) => a.start - b.start);
+          if (spans.length === 0) return null;
+          // Merge adjacent/overlapping spans into contiguous runs; a gap larger
+          // than TOL (e.g. where the fridge sits) breaks the counter.
+          const runs: { start: number; end: number }[] = [];
+          for (const s of spans) {
+            const last = runs[runs.length - 1];
+            if (last && s.start <= last.end + TOL) {
+              last.end = Math.max(last.end, s.end);
+            } else {
+              runs.push({ start: s.start, end: s.end });
+            }
+          }
           return (
-            <div
-              className="absolute z-20 pointer-events-none rounded-[1px]"
-              style={{
-                left: (left - OVERHANG_IN) * ppi,
-                width: (right - left + OVERHANG_IN * 2) * ppi,
-                bottom: STD.COUNTERTOP_HEIGHT * ppi,
-                height: THICKNESS_IN * ppi,
-                background: mat.fill,
-                borderTop: `1px solid ${mat.edge}`,
-                borderBottom: `1px solid ${mat.edge}`,
-                boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
-              }}
-              title={`${mat.name} countertop`}
-            />
+            <>
+              {runs.map((r, i) => (
+                <div
+                  key={`ct${i}`}
+                  className="absolute z-20 pointer-events-none rounded-[1px]"
+                  style={{
+                    left: (r.start - OVERHANG_IN) * ppi,
+                    width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
+                    bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                    height: THICKNESS_IN * ppi,
+                    background: mat.fill,
+                    borderTop: `1px solid ${mat.edge}`,
+                    borderBottom: `1px solid ${mat.edge}`,
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
+                  }}
+                  title={`${mat.name} countertop`}
+                />
+              ))}
+            </>
           );
         })()}
 
@@ -174,10 +199,12 @@ export function ElevationView({
           const isWall = p.placement === "wall";
           const isAppliance = p.placement === "appliance";
           const isSelected = p.uid === selectedUid;
+          const cabFinish = finishFor ? finishFor(p) : finish;
+          const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
           const faceFill = isAppliance
             ? "linear-gradient(to bottom, #d9dee6 0%, #c2c9d4 100%)"
-            : finish.face;
-          const edgeColor = isAppliance ? "#6b7280" : finish.edge;
+            : cabFinish.face;
+          const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
 
           return (
             <div
@@ -203,7 +230,7 @@ export function ElevationView({
               <div className="w-full h-full relative">
                 {/* Door-style-specific front treatment (skipped for appliances) */}
                 {!isAppliance && (
-                  <DoorFront kind={panelKind} edge={edgeColor} face={finish.face} />
+                  <DoorFront kind={cabPanelKind} edge={edgeColor} face={cabFinish.face} />
                 )}
                 {/* Decorative hardware (knobs / pulls / cup pulls) reflecting the
                     chosen hardware spec. Doors get the door piece; drawers get
@@ -235,7 +262,7 @@ export function ElevationView({
                   );
                 })()}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : finish.label, ...textFlip }}>
+                  <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : cabFinish.label, ...textFlip }}>
                     {p.masterCode}
                   </span>
                 </div>
