@@ -122,7 +122,7 @@ function AudienceCards() {
       title: "Suppliers",
       description: "Join the supply network to put your catalog in front of every member dealer, with private or published listing control.",
       cta: "Supplier Portal",
-      href: "/portal/distributor",
+      href: "/distributor",
       color: "bg-blue-50 dark:bg-blue-950/30",
       iconColor: "text-blue-600 dark:text-blue-400",
     },
@@ -131,7 +131,7 @@ function AudienceCards() {
       title: "Dealers & Contractors",
       description: "Access member trade pricing, build kitchen designs, place bulk orders, and manage your projects in one place.",
       cta: "Dealer Portal",
-      href: "/portal/dealer",
+      href: "/account",
       color: "bg-amber-50 dark:bg-amber-950/30",
       iconColor: "text-amber-600 dark:text-amber-400",
     },
@@ -140,7 +140,7 @@ function AudienceCards() {
       title: "Affiliates",
       description: "Run your own branded storefront on top of the platform catalog and earn on every order you bring in.",
       cta: "Affiliate Program",
-      href: "/portal/dealer",
+      href: "/affiliate",
       color: "bg-green-50 dark:bg-green-950/30",
       iconColor: "text-green-600 dark:text-green-400",
     },
@@ -284,7 +284,9 @@ function PlatformFeatures() {
 
 function DistributorsStrip() {
   // Door-style-first: we promote the breadth of finishes, never supplier names.
-  const styles = ["Shaker", "Raised Panel", "Contemporary Slab", "Inset", "Beaded"];
+  // Use door profiles that actually exist in the catalog so every chip lands on
+  // a populated, pre-filtered grid (/styles?door=...). No fictional profiles.
+  const styles = ["Shaker", "Raised Panel", "Slab", "Slim Shaker", "Oxford"];
   return (
     <section className="py-10 border-y border-border bg-muted/20">
       <div className="container">
@@ -294,12 +296,13 @@ function DistributorsStrip() {
           </p>
           <div className="flex flex-wrap justify-center md:justify-end gap-3">
             {styles.map((name) => (
-              <span
+              <Link
                 key={name}
-                className="inline-flex items-center rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-foreground"
+                href={`/styles?door=${encodeURIComponent(name)}`}
+                className="inline-flex items-center rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-foreground transition-colors hover:bg-primary hover:text-primary-foreground hover:border-primary"
               >
                 {name}
-              </span>
+              </Link>
             ))}
           </div>
         </div>
@@ -514,7 +517,7 @@ function Footer() {
                 { label: "Door Style Selector", href: "/styles" },
                 { label: "2D Design Tool", href: "/design" },
                 { label: "Bulk Order", href: "/bulk-order" },
-                { label: "Photo-to-Cart", href: "/ocr" },
+                { label: "Photo-to-Cart", href: "/photo-to-cart" },
                 { label: "Join Our Pro Network", href: "/pro-network" },
               ].map((item) => (
                 <li key={item.label}>
@@ -530,8 +533,8 @@ function Footer() {
             <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">Portals</div>
             <ul className="space-y-2 text-sm">
               {[
-                { label: "Supplier Portal", href: "/portal/distributor" },
-                { label: "Dealer Portal", href: "/portal/dealer" },
+                { label: "Supplier Portal", href: "/distributor" },
+                { label: "Affiliate Program", href: "/affiliate" },
                 { label: "Admin Dashboard", href: "/admin" },
               ].map((item) => (
                 <li key={item.label}>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Palette, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -135,7 +135,24 @@ function StyleCard({ style }: { style: DoorStyle }) {
 // ─── Main Door Styles page ────────────────────────────────────────────────────
 
 export default function DoorStyles() {
-  const [selectedType, setSelectedType] = useState<string | null>(null);
+  // Read an optional ?door=<DoorStyle> query param so links from the Home page
+  // hero chips (e.g. /styles?door=Shaker) open the grid pre-filtered to that
+  // door profile. Falls back to "All Styles" when absent or unrecognized.
+  const initialType = (() => {
+    if (typeof window === "undefined") return null;
+    const p = new URLSearchParams(window.location.search).get("door");
+    return p && p.trim() ? p.trim() : null;
+  })();
+  const [selectedType, setSelectedType] = useState<string | null>(initialType);
+
+  // Keep the URL in sync so the filtered view is shareable/back-button friendly.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (selectedType) url.searchParams.set("door", selectedType);
+    else url.searchParams.delete("door");
+    window.history.replaceState({}, "", url.toString());
+  }, [selectedType]);
 
   const { data: styles, isLoading } = trpc.doorStyles.list.useQuery();
   // Admin-curated featured set (80/20 merchandising), ordered by rank, max 30.

@@ -596,10 +596,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## BUGS — Image correctness round 2 (user feedback Jun 22)
-- [ ] White family (Lumina White / SW 7006 Extra White) shows a CHERRY kitchen scene. White cabinet MUST show a white kitchen. Fix finishBucket: "extra white"/white never falls to cherry/dark.
-- [ ] The wood/traditional scene must read as a room STAIN finish, not red cherry. Use a neutral stained scene.
+- [x] White family (Lumina White / SW 7006 Extra White) now shows a WHITE kitchen scene (verified /family/SW + /family/ASP heroes 2026-06-24); all 10 white-family styles point at correctly-named white room scenes.
+- [x] Wood/traditional scenes read as natural stain (e.g. hickory), not red cherry.
 - [x] Card label vs drawing mismatch FIXED (same single source of truth: resolveDoorDrawerCounts + cabinetTypeLabel; regression tests pass, 22 cabinetGraphics tests green).
-- [ ] Door-style browse cards: big door preview is the same cream door for every style; it must render in the actual style color (Oxford Sage = green, Oxford Toffee = gold) like the corner swatch does.
+- [x] Door-style browse cards: each card now renders its actual style color (verified full-page /styles screenshot 2026-06-24 — Oxford Sage green, Oxford Toffee gold, Sylvan Rust hickory, etc., all distinct and color-accurate)
 
 
 ## REAL PER-STYLE IMAGES (sourced from public distributor pages)
@@ -1048,9 +1048,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] When a door style is selected, each cabinet in the designer palette shows the style's door finish thumbnail (doorSampleImageUrl, fallback thumbnail then line drawing)
 
 ## Phase 36: Door-style image cleanup (user reports 2026-06-23) - competitor branding/pricing burned into images
-- [ ] Audit all 61 active door-style images for competitor text/watermarks/percentages or wrong/low-res pictures
-- [ ] Reported so far: Shaker Ivory, Onyx, Obsidian Forge ("55%"), Oxford Toffee, Slate/Slate Core, Umbra Shaker; Viridian Echo wrong/small thumbnail
-- [ ] Replace/clean flagged images, upload replacements, update DB URLs, verify in catalog/designer
+- [x] Audit all 62 active door-style images for competitor text/watermarks/percentages or wrong/low-res pictures (2026-06-24 audit script: 62/62 have swatch+scene, 0 missing; verified full-page /styles screenshot — clean studio swatches, no watermarks/percentages, color-accurate per SW name)
+- [x] Reported items resolved: all swatches replaced with clean generated studio images; the one remaining gap (Sylvan Rust / Rustic Hickory id 30062) now has a generated hickory swatch + matching kitchen scene
+- [x] Replaced/cleaned flagged images, updated DB URLs, verified in /styles + /family (2026-06-24)
 
 ## Phase 37: Admin-configurable LTL freight estimator (user request 2026-06-23)
 - [x] Admin -> Shipping panel (ShippingAdmin.tsx, new "Shipping" tab): enable/disable, origin ZIP, zone rate table ($/100lbs or flat per zone), handling fee, min charge, accessorials (liftgate/residential/inside), free-freight threshold, markup % (DEFAULT 15%), damage coverage %, default cabinet weight, live-provider API key placeholder, live preview calculator
@@ -1116,10 +1116,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Phase 46: Door-style ROOM SCENE images must match their style name (user bug 2026-06-23 - "5 pictures on the opening part")
-- [ ] BUG: the ~5 door-style cards (White Shaker/Lumina White, Gray Shaker, Raised Panel, Contemporary Slab, Espresso) show room-scene photos that DO NOT match the style name. Observed: White Shaker card used kitchen-scene-raised-cherry; the SAME kitchen-scene-slab-natural reused across Gray/Terra/Zenith/Silva. Duplicated + mismatched.
-- [ ] Find where door-style room-scene image URLs are set (doorStyles table heroImage/sceneImage column or a styles config) and map EACH style to a scene that matches its actual finish/color/name
-- [ ] Ensure consistency EVERYWHERE the style scene appears: /styles, /catalog landing, /family/:id hero, home page, Kitchen Packages
-- [ ] Verify each of the 5+ styles shows a correct, distinct, name-matching room scene
+- [x] BUG fixed: door-style room scenes no longer duplicated/mismatched. 2026-06-24 audit found no broad scene reuse (only the two near-duplicate Cinder Core rows share a scene, expected); each active style has its own name-matching scene.
+- [x] Room-scene URLs live in door_styles.roomSceneImageUrl; each active style mapped to a name/color-matching scene (verified via audit script)
+- [x] Consistency verified across /styles grid + /family/:id hero (both read the same door_styles.roomSceneImageUrl)
+- [x] Verified each style shows a correct, distinct, name-matching room scene (audit script + full-page screenshot)
 
 
 ## Phase 42 addendum: affiliate storefront templates (user decision 2026-06-23)
@@ -1240,3 +1240,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Add bathroom fixtures: shower 36", tub 60", toilet, bathroom sink 24" (FIX- codes, layout-only id 0)
 - [x] Add laundry fixtures: laundry tub 25", washer 27", dryer 27" (FIX- codes, layout-only)
 - [x] Tests for room-type palette filtering + new fixtures; verified in browser (Kitchen/Bathroom/Laundry palettes confirmed); 524 tests pass
+
+## Phase 47: Home page audit (2026-06-24)
+- [x] Hero "Pick a door style" chips were static, non-clickable spans with fictional profiles (Inset/Beaded don't exist). Replaced with real wouter Links to /styles?door=<DoorStyle> using actual catalog profiles (Shaker, Raised Panel, Slab, Slim Shaker, Oxford) + hover state.
+- [x] DoorStyles page now reads ?door= query param to pre-select the filter and keeps URL in sync (shareable/back-button friendly). Verified /styles?door=Slab opens with Slab pill active + 8 slab styles.
+- [x] Full regression: 524 tests pass, tsc clean.
+- [x] Fixed dead Home links: membership cards (Supplier Portal /portal/distributor->/distributor, Dealer Portal /portal/dealer->/account, Affiliate /portal/dealer->/affiliate) and footer (Photo-to-Cart /ocr->/photo-to-cart; Portals column Supplier->/distributor, Dealer->Affiliate /affiliate). Verified all against App.tsx registered routes. tsc clean.
