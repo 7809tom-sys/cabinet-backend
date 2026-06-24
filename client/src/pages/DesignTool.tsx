@@ -46,6 +46,7 @@ import {
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
   elevationBox,
 } from "@/lib/design";
+import { hickorySkinSuggestions, type HickorySkinSuggestion } from "@/lib/hickorySkins";
 import {
   closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
 } from "@/lib/closet";
@@ -458,6 +459,21 @@ export default function DesignTool() {
   );
   const activeFinish = useMemo(() => finishColors(activeStyleName), [activeStyleName]);
 
+  // Full active door style (with woodSpecies) so we can apply the Hickory-only
+  // unfinished-end skin rule. Hickory cabinets ship with unfinished exposed
+  // sides, so any exposed end needs a matching Hickory skin panel.
+  const activeStyle = useMemo(
+    () => doorStyles?.find((s) => s.id === styleId) ?? null,
+    [doorStyles, styleId]
+  );
+  // Auto-suggested Hickory finished-end skins, one per exposed cabinet end.
+  // Empty unless the selected finish is Hickory. NOTE: the real skin SKU/price
+  // is pending owner confirmation, so these carry pendingSku=true.
+  const hickorySkins = useMemo<HickorySkinSuggestion[]>(
+    () => hickorySkinSuggestions(placed, room, activeStyle as never),
+    [placed, room, activeStyle]
+  );
+
   // Restore a saved design (room + placed cabinets + style) onto the canvas.
   const loadSavedDesign = useCallback(
     (d: { room: RoomData; placed: PlacedCabinet[]; styleId: number | null; roomType?: string | null }) => {
@@ -509,8 +525,28 @@ export default function DesignTool() {
         unitPrice: styleId ? priceMap.get(a.cabinetId) ?? null : null,
       });
     }
+    // Hickory unfinished-end skins: one per exposed end, aggregated by
+    // placeholder code + height. Price is null (SKU pending owner confirmation).
+    const skinMap = new Map<string, BuildSheetRow>();
+    for (const s of hickorySkins) {
+      const key = `${s.suggestCode}|${Math.round(s.height)}`;
+      const existing = skinMap.get(key);
+      if (existing) existing.qty += s.quantity;
+      else
+        skinMap.set(key, {
+          code: s.suggestCode,
+          description: `${s.description} — SKU pending confirmation`,
+          widthIn: 0,
+          heightIn: s.height,
+          depthIn: s.depth,
+          placement: "accessory",
+          qty: s.quantity,
+          unitPrice: null,
+        });
+    }
+    rows.push(...Array.from(skinMap.values()));
     return rows;
-  }, [placed, addedAddOns, priceMap, styleId, unitPriceFor]);
+  }, [placed, addedAddOns, priceMap, styleId, unitPriceFor, hickorySkins]);
   // Panel treatment for the placed cabinets' door fronts in the elevation view.
   const activePanelKind = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
@@ -2345,7 +2381,9 @@ export default function DesignTool() {
               .filter((c) => c.row && !addedAddOnIds.has(c.row!.id));
             if (cards.length === 0) return null;
             return (
-              <div className="px-3 pb-2 space-y-2">
+              // Hidden on mobile — these upsell cards crowd the cabinet list in
+              // the Catalog sheet. Shown only on the desktop sidebar (lg+).
+              <div className="hidden lg:block px-3 pb-2 space-y-2">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Don&apos;t forget
                 </div>
@@ -2434,6 +2472,14 @@ export default function DesignTool() {
                   style={{ background: activeFinish.face, borderColor: activeFinish.edge }}
                 />
                 Finish applied to design: <span className="font-medium text-foreground">{activeStyleName}</span>
+              </div>
+            )}
+            {hickorySkins.length > 0 && (
+              <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                <span>
+                  <strong>Hickory exposed ends:</strong> {hickorySkins.length} finished-end skin{hickorySkins.length > 1 ? "s" : ""} auto-added to your build sheet to cover the unfinished side{hickorySkins.length > 1 ? "s" : ""} of your Hickory cabinets. Skin pricing is confirmed by our team (SKU pending), so it is not included in the estimate yet.
+                </span>
               </div>
             )}
             <div className="flex items-center justify-between mb-3">

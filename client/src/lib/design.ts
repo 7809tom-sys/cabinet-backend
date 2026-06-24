@@ -264,6 +264,15 @@ export function footprintDepth(c: DesignCabinet): number {
     const w = dim(c.width, 24);
     return w > 0 ? w : 24;
   }
+  // An L-shaped corner cabinet (lazy-Susan / blind / easy-reach corner) runs the
+  // SAME length along both walls (e.g. a 36" lazy-Susan is 36" on each wall),
+  // so its plan bounding box is a square = width, with a notch cut at the inner
+  // corner. The actual leg depth (how far it projects from each wall) is the
+  // cabinet's stored depth (~24") and is handled by cornerLegDepth().
+  if (isLCornerCabinet(c.masterCode || "", c.description || undefined)) {
+    const w = dim(c.width, 24);
+    return w > 0 ? w : 24;
+  }
   if (c.placement === "wall") return dim(c.depth, STD.WALL_DEPTH);
   if (c.placement === "tall") return dim(c.depth, STD.TALL_DEPTH);
   if (c.placement === "appliance") return dim(c.depth, STD.BASE_DEPTH);
@@ -585,11 +594,58 @@ export function diagonalCornerClipPath(rotation: number, legRatio = 0.5): string
   }
 }
 
+// True for L-shaped corner cabinets (lazy-Susan, blind corner, easy-reach
+// corner). These are corner cabinets that are NOT diagonal — they form a square
+// footprint with an L-notch cut at the interior corner. We reuse isCornerCabinet
+// for detection and exclude the diagonal family.
+export function isLCornerCabinet(masterCode: string, description?: string): boolean {
+  if (isDiagonalCorner(masterCode, description)) return false;
+  return isCornerCabinet(masterCode, description);
+}
+
+// How far an L-shaped corner cabinet projects from each wall (its leg depth, in
+// inches). This is the cabinet's real stored depth (~24" base / ~12" wall),
+// NOT the square bounding-box side. Falls back to a standard depth by placement.
+export function cornerLegDepth(c: DesignCabinet): number {
+  const fallback = c.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
+  const d = dim(c.depth, fallback);
+  const w = dim(c.width, 24);
+  // The leg can never be deeper than the square box side; clamp for safety.
+  return Math.min(d > 0 ? d : fallback, w);
+}
+
+// The leg-keep ratio for the L clip-path of a corner cabinet: the fraction of
+// the square box side occupied by each leg (legDepth / boxWidth). For a 36"
+// lazy-Susan with 24" legs this is 24/36 = 0.667 (notch is the inner 12x12).
+export function cornerLegRatio(c: DesignCabinet): number {
+  const w = dim(c.width, 24);
+  if (w <= 0) return 0.667;
+  const leg = cornerLegDepth(c);
+  const ratio = leg / w;
+  // Keep within sane bounds so the polygon is always a valid L.
+  return Math.max(0.3, Math.min(0.95, ratio));
+}
+
+// Leg-keep ratio for a PLACED corner cabinet. After footprintDepth() squares the
+// bounding box (depth == width), the real leg depth is the standard run depth for
+// the placement bucket (24" base/tall, 12" wall). The notch = boxWidth - legDepth
+// on each side, so a 36" lazy-Susan with 24" legs keeps 24/36 = 0.667 and notches
+// the inner 12x12; a 33" unit keeps 24/33 = 0.727 (9x9 notch).
+export function cornerLegRatioForPlaced(p: {
+  width: number;
+  placement: Placement;
+}): number {
+  const box = p.width > 0 ? p.width : 24;
+  const legDepth = p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
+  const ratio = legDepth / box;
+  return Math.max(0.3, Math.min(0.95, ratio));
+}
+
 // Returns a CSS clip-path polygon describing an L-shape inscribed in the
 // cabinet's bounding box. The "notch" is cut from the corner pointing toward
 // the room interior, chosen from the cabinet's rotation so the two legs hug the
 // two adjacent walls. `legRatio` is the fraction of each side kept as a leg.
-export function cornerClipPath(rotation: number, legRatio = 0.55): string {
+export function cornerClipPath(rotation: number, legRatio = 0.667): string {
   const r = ((rotation % 360) + 360) % 360;
   const k = Math.round(legRatio * 100); // leg length as %
   // Default (rot 0): legs along top + left, notch cut from bottom-right (interior).

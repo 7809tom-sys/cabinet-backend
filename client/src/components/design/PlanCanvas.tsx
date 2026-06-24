@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, snapPosition, hasCollision,
-  isCornerCabinet, cornerClipPath, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner,
+  isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide, WALL_LABELS,
@@ -775,7 +775,7 @@ export function PlanCanvas({
                   clipPath: isDiagonal
                     ? diagonalCornerClipPath(p.rotation)
                     : isCorner
-                    ? cornerClipPath(p.rotation)
+                    ? cornerClipPath(p.rotation, cornerLegRatioForPlaced(p))
                     : undefined,
                 }}
                 title={`${p.masterCode} — ${p.description}`}

@@ -20,6 +20,7 @@ import {
   blindCornerAutoFiller,
   isStacker,
   isDiagonalCorner, footprintDepth,
+  isLCornerCabinet, cornerLegRatioForPlaced,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
@@ -1264,5 +1265,52 @@ describe("corner base palette classification", () => {
     expect(isCornerCabinet("DCFF42")).toBe(false); // diagonal corner FILLER (by code) is not a cabinet
     expect(isCornerCabinet("B-36", "Base 36 inch")).toBe(false); // ordinary base
     expect(isCornerCabinet("SB-30", "Sink Base 30")).toBe(false); // ordinary sink base
+  });
+});
+
+describe("lazy-Susan / L-corner footprint", () => {
+  it("classifies lazy-Susan, blind, and easy-reach corners as L-corner (not diagonal)", () => {
+    expect(isLCornerCabinet("LSB36")).toBe(true);
+    expect(isLCornerCabinet("LSB33")).toBe(true);
+    expect(isLCornerCabinet("BBC-45", "Blind Corner Base")).toBe(true);
+    expect(isLCornerCabinet("ERB-33", "Easy Reach Corner Base")).toBe(true);
+    // Diagonal corners are NOT L-corners (they get the angled-face clip instead).
+    expect(isLCornerCabinet("DCW-2424", "Diagonal Corner Wall")).toBe(false);
+    // Ordinary cabinets are never L-corners.
+    expect(isLCornerCabinet("B-24", "Base 24")).toBe(false);
+  });
+
+  it("gives a lazy-Susan corner base a SQUARE bounding box (depth == width)", () => {
+    const lsb36 = footprintDepth({
+      id: 1, masterCode: "LSB36", description: '36" Base Lazy Susan Cabinet',
+      category: "Base", subCategory: "Lazy Susan Base", width: "36", height: "34.5", depth: "24",
+      placement: "base", numberOfDoors: 2, numberOfDrawers: 0, isCornerCabinet: true,
+    });
+    expect(lsb36).toBe(36); // 36x36 square, NOT the 24" base depth
+
+    const lsb33 = footprintDepth({
+      id: 2, masterCode: "LSB33", description: '33" Base Lazy Susan Cabinet',
+      category: "Base", subCategory: "Lazy Susan Base", width: "33", height: "34.5", depth: "24",
+      placement: "base", numberOfDoors: 2, numberOfDrawers: 0, isCornerCabinet: true,
+    });
+    expect(lsb33).toBe(33); // 33x33 square
+  });
+
+  it("keeps a 24\" leg on each wall: notch ratio = legDepth / boxWidth", () => {
+    // 36" lazy-Susan: 24/36 = 0.667 -> inner 12x12 notch
+    expect(cornerLegRatioForPlaced({ width: 36, placement: "base" })).toBeCloseTo(24 / 36, 3);
+    // 33" lazy-Susan: 24/33 = 0.727 -> inner 9x9 notch
+    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 33, 3);
+    // Wall corner uses the 12" wall depth.
+    expect(cornerLegRatioForPlaced({ width: 24, placement: "wall" })).toBeCloseTo(12 / 24, 3);
+  });
+
+  it("L clip-path with a custom ratio still yields a valid 6-vertex L", () => {
+    const path = cornerClipPath(0, 24 / 36);
+    expect(path.startsWith("polygon(")).toBe(true);
+    const points = path.replace(/polygon\(|\)/g, "").split(",");
+    expect(points).toHaveLength(6);
+    // The notch keep-percentage should appear as ~67%.
+    expect(path).toContain("67%");
   });
 });

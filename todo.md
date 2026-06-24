@@ -1297,3 +1297,22 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 ## Checkout cross-sell / upsell page (user request 2026-06-24)
 - [ ] During checkout, show a dedicated "recommended add-ons / sales" page before order confirmation (accessories, skins/end panels, hardware, crown/toe-kick molding, glass doors) — scoped to the cart's door style/family; one-click add. (Future: tie into Hickory skin auto-suggest output.)
+
+
+## Lazy-Susan corner base L-shaped footprint (user follow-up — earlier L-shape was incomplete)
+- [ ] Lazy-Susan corner base (LSB33/36/36ADA) renders as a true L-shape, with the long leg = width (33 or 36) along one wall and the short leg = depth (24) along the perpendicular wall
+- [ ] L-shape orients correctly for each of the 4 corners (back-left, back-right, front-left, front-right)
+- [ ] Adjacent cabinets snap to the open end of each leg; exposed-end detection follows the L geometry
+- [ ] Unit tests for the L footprint corners/legs
+- [ ] Verify visually in the designer on a corner placement
+
+- [ ] Hide the add-on sales ("Don't forget" recommendation cards) in the mobile designer Catalog area (it crowds the cabinet list); keep on desktop
+
+## Round: Lazy-Susan L-footprint + mobile + Hickory skins (done)
+- [x] Lazy-Susan corner base renders as an L-shape (36x36 / 33x33 box, 24" deep legs) with correct notch from real leg depth
+- [x] footprintDepth returns a square bounding box for L-corner bases; cornerClipPath parameterized by real leg ratio
+- [x] Verified in designer: LSB36 placed + snapped to back wall shows correct L, pricing shows 36"D
+- [x] Mobile: palette tabs scroll in a single row (no wrapping); top toolbar wall/lock/auto-fill/consultant folded into More menu
+- [x] Mobile: hid the "Don't forget" add-on upsell cards in the Catalog area (desktop keeps them)
+- [x] Hickory exposed-end skin auto-suggest engine (hickorySkins.ts) + tests; wired into BOM build sheet + pricing-panel notice (placeholder SKU, conflict-flagged, pending real SKU/pricing)
+- [x] All 553 tests pass
