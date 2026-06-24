@@ -73,6 +73,22 @@ export const designRouter = router({
           else if (cat.includes("tall")) placement = "tall";
           else placement = "base";
         }
+        // Normalize placement into the three designer buckets (base/wall/tall).
+        // ADA bases, vanity bases, and other floor-standing variants all live on
+        // the floor, so they belong in the Base tab. Without this, items with a
+        // distinct placementType like "ada base" or "vanity" never surfaced in
+        // any palette tab (e.g. the corner Lazy Susan bases LSB33/LSB36).
+        const p = (placement || "").toLowerCase();
+        if (p === "base" || p === "wall" || p === "tall") {
+          placement = p;
+        } else if (p.includes("wall")) {
+          placement = "wall";
+        } else if (p.includes("tall") || p.includes("pantry") || p.includes("oven") || p.includes("utility")) {
+          placement = "tall";
+        } else {
+          // ada base, vanity, sink base, corner base, etc. → floor (base)
+          placement = "base";
+        }
         return { ...r, placement };
       });
 

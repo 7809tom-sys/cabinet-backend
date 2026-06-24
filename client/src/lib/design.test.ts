@@ -46,7 +46,7 @@ describe("corner cabinet detection", () => {
     expect(isCornerCabinet("BBC-36")).toBe(true); // blind corner base
     expect(isCornerCabinet("WBC-24-30")).toBe(true); // wall blind corner
     expect(isCornerCabinet("LSB36")).toBe(true); // lazy susan
-    expect(isCornerCabinet("BEC-24")).toBe(true); // base easy reach
+    expect(isCornerCabinet("BEC-24")).toBe(false); // base END cabinet, NOT a corner
     expect(isCornerCabinet("ERB-33")).toBe(true); // easy reach corner base
     expect(isCornerCabinet("BER-36")).toBe(true); // Skyline easy reach corner base alias
     expect(isCornerCabinet("BES-12")).toBe(false); // base end shelf is NOT a corner
@@ -852,6 +852,34 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     expect(segs[0]).toMatchObject({ start: 0, length: 40 });
     expect(segs[1]).toMatchObject({ start: 70, length: 50 });
   });
+
+  // Regression: wall cabinets hang ABOVE base cabinets, so a fully base-filled
+  // wall must still offer the whole run to a WALL cabinet. Previously the run
+  // was blocked by bases regardless of layer, stranding new wall cabinets in
+  // the room center (and dropping them from the Front-View elevation).
+  it("ignores base cabinets when tiling the WALL layer", () => {
+    const bases = [
+      cab({ placement: "base", x: 0, y: 0, width: 48, depth: 24 }),
+      cab({ placement: "base", x: 48, y: 0, width: 48, depth: 24 }),
+      cab({ placement: "base", x: 96, y: 0, width: 48, depth: 24 }),
+    ];
+    const segs = freeSegmentsOnWall("top", ROOM_12x10, bases, [], 9, 0, "wall");
+    expect(segs).toEqual([{ start: 0, length: 144 }]);
+  });
+
+  it("blocks the WALL layer only with other wall cabinets", () => {
+    const wallCab = cab({ placement: "wall", x: 0, y: 0, width: 30, depth: 12 });
+    const segs = freeSegmentsOnWall("top", ROOM_12x10, [wallCab], [], 9, 0, "wall");
+    expect(segs).toEqual([{ start: 30, length: 114 }]);
+  });
+
+  it("tall cabinets block BOTH layers (floor-to-ceiling)", () => {
+    const tall = cab({ placement: "tall", x: 0, y: 0, width: 24, depth: 24 });
+    const wallSegs = freeSegmentsOnWall("top", ROOM_12x10, [tall], [], 9, 0, "wall");
+    const baseSegs = freeSegmentsOnWall("top", ROOM_12x10, [tall], [], 9, 0, "base");
+    expect(wallSegs).toEqual([{ start: 24, length: 120 }]);
+    expect(baseSegs).toEqual([{ start: 24, length: 120 }]);
+  });
 });
 
 describe("wallPlacementAt", () => {
@@ -905,10 +933,22 @@ describe("wall cabinet elevation rules", () => {
     expect(box.height).toBe(30);
   });
 
-  it("a short 12in bridge wall cabinet hangs higher: bottom at 72in", () => {
+  it("a short 12in bridge wall cabinet keeps the 54in bottom (top at 66in)", () => {
     const box = elevationBox(cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "30x12 Bridge Wall Cabinet" }));
-    expect(box.bottom).toBe(72);
+    expect(box.bottom).toBe(54);
     expect(box.height).toBe(12);
+  });
+
+  it("a tall 36in wall cabinet grows upward from 54in (top at 90in)", () => {
+    const box = elevationBox(cab({ placement: "wall", width: 30, height: 36, masterCode: "W-30-36", description: "30x36 Wall Cabinet" }));
+    expect(box.bottom).toBe(54);
+    expect(box.bottom + box.height).toBe(90);
+  });
+
+  it("a 42in wall cabinet grows upward from 54in (top at 96in)", () => {
+    const box = elevationBox(cab({ placement: "wall", width: 30, height: 42, masterCode: "W-30-42", description: "30x42 Wall Cabinet" }));
+    expect(box.bottom).toBe(54);
+    expect(box.bottom + box.height).toBe(96);
   });
 
   it("a glass stacker sits ON TOP of the wall cabinet below (bottom at 84in)", () => {
@@ -1154,5 +1194,26 @@ describe("door swing (hinge side)", () => {
       expect(swingLabel(s)).toBe(short);
       expect(swingText(s)).toBe(full);
     }
+  });
+});
+
+
+describe("corner base palette classification", () => {
+  // The Design Tool's "Corner Base" tab uses isCornerCabinet (code/description)
+  // OR the DB isCornerCabinet flag. These assert the code-level detector keeps
+  // genuine corner bases in and end/filler/accessory items out.
+  it("includes genuine corner base families", () => {
+    expect(isCornerCabinet("BBC-45")).toBe(true); // blind corner base
+    expect(isCornerCabinet("LSB33")).toBe(true); // lazy susan base
+    expect(isCornerCabinet("ERB-36")).toBe(true); // easy reach corner base
+    expect(isCornerCabinet("CSB-36")).toBe(true); // diagonal corner sink base
+    expect(isCornerCabinet("CB-9", "Corner Base")).toBe(true); // corner base by desc
+  });
+  it("excludes end cabinets, fillers, and ordinary bases from corner base", () => {
+    expect(isCornerCabinet("BEC-24")).toBe(false); // base END cabinet
+    expect(isCornerCabinet("BA-24", "24in angled base end")).toBe(false); // end-of-run angled base
+    expect(isCornerCabinet("DCFF42")).toBe(false); // diagonal corner FILLER (by code) is not a cabinet
+    expect(isCornerCabinet("B-36", "Base 36 inch")).toBe(false); // ordinary base
+    expect(isCornerCabinet("SB-30", "Sink Base 30")).toBe(false); // ordinary sink base
   });
 });

@@ -1198,3 +1198,34 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 - [ ] Confirm what WSV / skin family actually is, then reclassify WS-12-42 correctly
 - [ ] Hickory unfinished-exterior rule: require matching Hickory skin for every exposed side (HS + RH) — blocked until skins are verified and Hickory skin SKUs exist
+
+
+## Corner Base palette grouping (user request)
+- [x] Backfill NULL dims on LSB33/LSB36/LSB36ADA, BA-24, W-30-15GD
+- [x] Correct BA-24: base end-of-run angled, not corner, 2 doors
+- [x] Normalize placement (ada base/vanity -> base) so they surface in designer
+- [ ] Flag base corner cabinets (BBC blind corner, LSB lazy susan, ERB easy reach, CB-9, CSB diagonal) as corner base
+- [ ] Add dedicated "Corner Base" palette tab in Design Tool (mirror Corner Wall)
+- [ ] Pull corner bases out of the regular Base tab into Corner Base tab
+- [ ] Tests for corner-base classification + placement normalization
+- [ ] Verify in browser, checkpoint, report
+
+
+## Design Tool fixes (this session)
+- [x] Wall cabinet mounting rule: bottom anchored at 54", grows upward (30"->84, 36"->90, 42"->96); updated elevationBox + tests
+- [x] Bug: wall cabinets stranded in room center / missing from Front View -> made freeSegmentsOnWall layer-aware (wall tiles vs wall, base vs base)
+- [x] Verified item breakdown (BOM) renders correctly (was empty only when no items placed / no door style)
+- [x] Backfilled NULL dimensions for corner bases (LSB33/36/36ADA, BA-24, W-30-15GD, CB-9, UV-SBF4242)
+- [x] Folded "ada base"/"vanity" placement into base bucket so Lazy Susans surface
+- [x] Corrected BA-24: base end-of-run angled cabinet, 2 doors, NOT a corner
+- [x] Added dedicated "Corner Base" palette tab (blind corner, lazy susan, easy reach grouped together)
+- [x] Pulled corner bases out of plain Base tab to avoid duplication
+- [x] Cleaned corner classification: excluded fillers/trays/molding/end panels (DCFF, BBC45-TRAY, BEC-24, BCM, CM)
+- [x] Verified live: Corner Base tab lists 13 genuine corner bases; LSB36 places + renders L-shape footprint + BOM line
+- [x] Full suite green: 520 tests / 49 files, tsc clean
+
+## Skin/panel conflict-status back office (this session)
+- [x] Added conflictStatus/conflictReason/conflictedAt to cabinets; flagged 9 skin/panel items (WSV-24/30/36/42, WS-12-42, BSV, S-24-96, USV-24-96, FPV-42-96)
+- [x] Hidden conflict items from public catalog, storefront, Design Tool palette, OCR/order matching (notInConflict helper)
+- [x] Admin Conflicts/Needs-Review tab (distributor label + door styles + reason, Clear action); prices preserved
+- [ ] (Deferred until user reviews skins with book) Reclassify WS-12-42 + verify WSV family; build Hickory "skin per exposed side" rule (HS 30005 + RH 30062)

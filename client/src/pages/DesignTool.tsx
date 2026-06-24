@@ -173,7 +173,7 @@ export default function DesignTool() {
 
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "cornerbase" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts">("base");
   // Room type: kitchen cabinets (default) or closet system parts.
   const [roomType, setRoomType] = useState<"kitchen" | "closet">("kitchen");
 
@@ -198,6 +198,8 @@ export default function DesignTool() {
       {
         placement:
           paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts"
+            ? "base"
+            : paletteType === "cornerbase"
             ? "base"
             : paletteType === "wallht" || paletteType === "cornerwall"
             ? "wall"
@@ -224,6 +226,34 @@ export default function DesignTool() {
       sub.includes("corner") ||
       isCornerCabinet(c.masterCode, c.description || undefined)
     );
+  }, []);
+
+  // Detect a corner BASE cabinet (blind corner BBC, lazy susan LSB, easy reach
+  // ERB/BER, diagonal corner sink CSB, corner base CB) for the dedicated
+  // "Corner Base" tab. Reuses the shared corner detector; within the base
+  // placement palette the wall-only corner codes are never present.
+  const isCornerBase = useCallback((c: DesignCabinet) => {
+    const sub = (c.subCategory || "").toLowerCase();
+    const code = (c.masterCode || "").toUpperCase();
+    const placement = (c.placement || "").toLowerCase();
+    // Only genuine, placeable corner BASE cabinets belong here. Exclude
+    // accessories/trim (crown, scribe, end panels, hardware), tiny filler/tray
+    // slivers, and the BA-24 end-of-run angled base (not a corner).
+    if (placement.includes("accessory") || placement.includes("trim")) return false;
+    if (/trim|molding|end panel|hardware|filler|tray|floor/.test(sub)) return false;
+    if (code.startsWith("BA-")) return false; // end-of-run angled base, not a corner
+    if (/TRAY|FILLER|-FILL|CBT|DCFF|^CM-|^BCM|^OCM|^ACM|^RCM|^COV/.test(code)) return false; // inserts/fillers/molding
+    // A real corner base cabinet has meaningful size (not a 3\"-4\" sliver).
+    const w = Number(c.width) || 0;
+    const h = Number(c.height) || 0;
+    if (w < 9 || h < 24) return false;
+    const looksCorner =
+      c.isCornerCabinet === true ||
+      sub.includes("corner") ||
+      sub.includes("lazy susan") ||
+      sub.includes("easy reach") ||
+      isCornerCabinet(c.masterCode, c.description || undefined);
+    return looksCorner;
   }, []);
 
   // Doors & windows handlers.
@@ -272,12 +302,15 @@ export default function DesignTool() {
         // and plain "Wall" show the rest of the wall cabinets (non-corner) so
         // the two tabs don't duplicate each other.
         if (paletteType === "cornerwall") return isCornerWall(c);
+        if (paletteType === "cornerbase") return isCornerBase(c);
         if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
+        // Plain "Base" excludes corner bases so they live only under "Corner Base".
+        if (paletteType === "base") return !isCornerBase(c);
         return true;
       })
       .filter((c) => !s || c.masterCode.toLowerCase().includes(s) || c.description.toLowerCase().includes(s))
       .slice(0, 80);
-  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, closetGroups]);
+  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, closetGroups]);
 
   // Group the palette by cabinet height so wall cabinets (and others) are easy
   // to find by size — mirrors how pros scan 2020's catalog by height.
@@ -662,7 +695,7 @@ export default function DesignTool() {
           // and Front View (and is correctly attributed for molding/pricing).
           // The user can still drag it anywhere afterward. Fall back to the
           // room center only if the active wall has no free run left.
-          const segs = freeSegmentsOnWall(activeWall, room, prev, openings, Math.min(width, 9));
+          const segs = freeSegmentsOnWall(activeWall, room, prev, openings, Math.min(width, 9), 0, c.placement);
           const fit = segs.find((s) => s.length >= width) ?? segs[0];
           if (fit) {
             const along = fit.start;
@@ -1848,7 +1881,7 @@ export default function DesignTool() {
             <div className="flex flex-wrap rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
                 ? (["closetparts", "base", "wall", "tall", "opening"] as const)
-                : (["base", "wall", "wallht", "cornerwall", "tall", "appliance", "opening"] as const)
+                : (["base", "cornerbase", "wall", "wallht", "cornerwall", "tall", "appliance", "opening"] as const)
               ).map((t) => (
                 <button
                   key={t}
@@ -1865,6 +1898,8 @@ export default function DesignTool() {
                     ? "Wall by Ht"
                     : t === "cornerwall"
                     ? "Corner Wall"
+                    : t === "cornerbase"
+                    ? "Corner Base"
                     : t === "closetparts"
                     ? "Closet"
                     : t}

@@ -5,6 +5,7 @@ import {
   standardHeight,
   elevationBox,
   WALL_CABINET_TOP,
+  WALL_MOUNT_BOTTOM,
   conflictingUids,
   isOnIsland,
   dimLabel,
@@ -50,20 +51,26 @@ describe("placedHeight / standardHeight", () => {
   });
 });
 
-describe("elevationBox — wall cabinets hang from the 84\" top line", () => {
-  it("a 42\" wall cabinet bottoms at 42\"", () => {
+describe("elevationBox — wall cabinets are bottom-anchored at 54\" and grow upward", () => {
+  // Rule: every wall cabinet bottoms at 54" (standard counter-to-upper
+  // clearance) and extends UP by its height. So a 30" tops at 84", a 36" at
+  // 90", a 42" at 96". (NOT top-aligned to a fixed 84" line.)
+  it("a 42\" wall cabinet bottoms at 54\" (tops at 96\")", () => {
     const box = elevationBox(mk({ uid: "a", placement: "wall", height: 42 }));
     expect(box.height).toBe(42);
-    expect(box.bottom).toBe(WALL_CABINET_TOP - 42); // 42
+    expect(box.bottom).toBe(WALL_MOUNT_BOTTOM); // 54
+    expect(box.bottom + box.height).toBe(96);
   });
-  it("a 30\" wall cabinet bottoms at 54\"", () => {
+  it("a 30\" wall cabinet bottoms at 54\" (tops at 84\")", () => {
     const box = elevationBox(mk({ uid: "a", placement: "wall", height: 30 }));
     expect(box.height).toBe(30);
-    expect(box.bottom).toBe(WALL_CABINET_TOP - 30); // 54
+    expect(box.bottom).toBe(WALL_MOUNT_BOTTOM); // 54
+    expect(box.bottom + box.height).toBe(84);
   });
-  it("a 36\" wall cabinet bottoms at 48\"", () => {
+  it("a 36\" wall cabinet bottoms at 54\" (tops at 90\")", () => {
     const box = elevationBox(mk({ uid: "a", placement: "wall", height: 36 }));
-    expect(box.bottom).toBe(WALL_CABINET_TOP - 36); // 48
+    expect(box.bottom).toBe(WALL_MOUNT_BOTTOM); // 54
+    expect(box.bottom + box.height).toBe(90);
   });
   it("two different wall cabinet heights do NOT render identically", () => {
     const tall = elevationBox(mk({ uid: "a", placement: "wall", height: 42 }));

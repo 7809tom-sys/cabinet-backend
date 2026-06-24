@@ -202,6 +202,9 @@ export function placedHeight(p: PlacedCabinet): number {
 // The standard line (inches from floor) that the TOP of wall cabinets aligns to
 // in a kitchen. Wall cabinets of different heights all hang from this top line.
 export const WALL_CABINET_TOP = STD.WALL_MOUNT_BOTTOM + STD.WALL_HEIGHT; // 84"
+// Fixed bottom line for every wall cabinet (standard counter-to-upper gap).
+// Wall cabinets bottom here and grow UPWARD by their height.
+export const WALL_MOUNT_BOTTOM = STD.WALL_MOUNT_BOTTOM; // 54"
 
 export interface RoomData {
   width: number;
@@ -446,9 +449,11 @@ export function elevationBox(p: PlacedCabinet): { bottom: number; height: number
     if (isStacker(p)) {
       return { bottom: WALL_CABINET_TOP, height: h };
     }
-    // 3) Standalone / bridge wall cabinets hang from the common 84" top line, so
-    //    a shorter cabinet's bottom moves UP (30" -> 54", 12" -> 72").
-    return { bottom: Math.max(0, WALL_CABINET_TOP - h), height: h };
+    // 3) Standalone / bridge wall cabinets are bottom-anchored at the standard
+    //    54" mount line and grow UPWARD, so taller boxes reach higher: a 30"
+    //    tops at 84", a 36" at 90", a 42" at 96". (The 54" counter-to-upper
+    //    clearance is fixed; cabinet height adds on top of it.)
+    return { bottom: STD.WALL_MOUNT_BOTTOM, height: h };
   }
   // Base, tall, vanity: the box always sits on the floor (bottom = 0).
   if (p.placement === "tall") {
@@ -502,7 +507,7 @@ export function isCornerCabinet(masterCode: string, description?: string): boole
   const code = (masterCode || "").toUpperCase();
   // ERB/BER are the easy-reach corner base codes (BER is the Skyline naming;
   // ERB is how the catalog stores the same cabinet). WER is the wall easy-reach.
-  if (/^(BBC|WBC|BLB|LSB|BEC|CSB|WLS|DCW|DCB|ER|ERB|BER|WER|AW-|AW\d|WDC|KWD|DCFF|AG-|AG\d|CAG)/.test(code)) return true;
+  if (/^(BBC|WBC|BLB|LSB|CSB|WLS|DCW|DCB|ER|ERB|BER|WER|AW-|AW\d|WDC|KWD|AG-|AG\d|CAG)/.test(code)) return true;
   if (/-CNR|CORNER/.test(code)) return true;
   const desc = (description || "").toLowerCase();
   return /corner|lazy susan|easy reach|blind|diagonal|angled (wall|corner)/.test(desc);
@@ -1421,7 +1426,11 @@ export function freeSegmentsOnWall(
   minLen = 9,
   // Extra clearance padded onto EACH side of every opening before computing
   // free segments. Pass WALL_OPENING_CLEARANCE_IN when tiling wall cabinets.
-  openingClearance = 0
+  openingClearance = 0,
+  // Which placement LAYER we're tiling. Items only block their own layer: wall
+  // cabinets hang ABOVE base cabinets, so a wall cabinet must tile against other
+  // wall cabinets only (and vice-versa). Defaults to "base" for back-compat.
+  layer: Placement = "base"
 ): WallSegment[] {
   const horizontal = side === "top" || side === "bottom";
   const wallLen = horizontal ? room.width : room.depth;
@@ -1429,9 +1438,16 @@ export function freeSegmentsOnWall(
   // Collect blocked [start, end] intervals along the run axis.
   const blocked: { s: number; e: number }[] = [];
 
-  // Base cabinets already flush on this wall.
+  // Only items on the SAME layer (wall vs floor) block this run. Tall cabinets
+  // span floor-to-ceiling, so they block BOTH the base and wall layers.
+  const blocksThisLayer = (pl: Placement): boolean => {
+    if (pl === "tall") return true;
+    if (layer === "wall") return pl === "wall";
+    // base/appliance share the floor layer
+    return pl === "base" || pl === "appliance";
+  };
   for (const p of placed) {
-    if (p.placement !== "base") continue;
+    if (!blocksThisLayer(p.placement)) continue;
     if (!isAgainstWall(p, side, room)) continue;
     const s = rotatedSize(p);
     const start = horizontal ? p.x : p.y;
