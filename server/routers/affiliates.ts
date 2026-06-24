@@ -40,6 +40,7 @@ function toPublicStorefront(a: typeof affiliates.$inferSelect) {
     facebookUrl: a.facebookUrl,
     instagramUrl: a.instagramUrl,
     storefrontEnabled: a.storefrontEnabled,
+    template: a.template,
   };
 }
 
@@ -74,6 +75,7 @@ const brandingInput = z.object({
   yearsInBusiness: z.number().int().min(0).max(200).nullable().optional(),
   facebookUrl: z.string().max(512).nullable().optional(),
   instagramUrl: z.string().max(512).nullable().optional(),
+  template: z.enum(["classic", "showcase", "minimal", "craftsman"]).optional(),
 });
 
 export const affiliatesRouter = router({
@@ -199,6 +201,7 @@ export const affiliatesRouter = router({
         yearsInBusiness: input.yearsInBusiness ?? null,
         facebookUrl: input.facebookUrl ?? null,
         instagramUrl: input.instagramUrl ?? null,
+        template: input.template ?? "classic",
         notes: input.notes ?? null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;

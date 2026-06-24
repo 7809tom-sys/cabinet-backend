@@ -4,7 +4,7 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
-  ChevronUp, ChevronDown, ChevronsDown, Check,
+  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,7 @@ import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
+import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { EmailGate } from "@/components/design/EmailGate";
 import { DesignActions, exportBuildSheet, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl } from "@/components/design/RoomSizeControl";
@@ -78,7 +79,7 @@ type ConsultPlanWall = {
   leftoverInches: number;
 };
 
-type ViewMode = "plan" | "elevation" | "split";
+type ViewMode = "plan" | "elevation" | "split" | "corner";
 type PricingTier = "Wholesale" | "Contractor";
 
 function priceOf(row: { wholesalePrice: string | null; contractorPrice: string | null }, tier: PricingTier): number {
@@ -139,8 +140,10 @@ export default function DesignTool() {
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const v = new URLSearchParams(window.location.search).get("view");
-    return v === "front" ? "elevation" : v === "split" ? "split" : "plan";
+    return v === "front" ? "elevation" : v === "split" ? "split" : v === "corner" ? "corner" : "plan";
   });
+  // Which corner the corner-view camera stands in.
+  const [corner, setCorner] = useState<CornerId>("top-left");
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
   // Island zone: an optional rectangular guide (inches) marking where island
@@ -508,7 +511,12 @@ export default function DesignTool() {
     () => doorStyles?.find((s) => s.id === styleId)?.ourName ?? null,
     [doorStyles, styleId]
   );
-  const activeFinish = useMemo(() => finishColors(activeStyleName), [activeStyleName]);
+  const activeFinish = useMemo(() => {
+    const s = doorStyles?.find((d) => d.id === styleId) as
+      | { ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null }
+      | undefined;
+    return finishColors(s?.ourName, s?.color, s?.finish, s?.woodSpecies);
+  }, [doorStyles, styleId]);
 
   // Full active door style (with woodSpecies) so we can apply the Hickory-only
   // unfinished-end skin rule. Hickory cabinets ship with unfinished exposed
@@ -1344,7 +1352,7 @@ export default function DesignTool() {
   useEffect(() => {
     if (!packageLayout || loadedPackageRef.current === packageLayout.slug) return;
     loadedPackageRef.current = packageLayout.slug;
-    setRoom({ width: packageLayout.room.width, depth: packageLayout.room.depth });
+    setRoom((prev) => ({ width: packageLayout.room.width, depth: packageLayout.room.depth, ceilingHeight: prev.ceilingHeight }));
     const items = (packageLayout.items as Array<{
       cabinetId: number; masterCode: string; description: string;
       placement: "base" | "wall" | "tall"; x: number; y: number; rotation: number;
@@ -1675,6 +1683,15 @@ export default function DesignTool() {
             }`}
           >
             <Columns3 className="h-3.5 w-3.5" /> Split
+          </button>
+          <button
+            onClick={() => setViewMode("corner")}
+            title="Corner view: see the two walls that meet at a corner together"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <ScanLine className="h-3.5 w-3.5" /> Corner
           </button>
         </div>
 
@@ -2229,6 +2246,24 @@ export default function DesignTool() {
               panelKind={activePanelKind}
             />
           )}
+          {viewMode === "corner" && (
+            <CornerView
+              room={room}
+              cabinets={placed}
+              selectedUid={selectedUid}
+              onSelect={setSelectedUid}
+              corner={corner}
+              onCornerChange={setCorner}
+              countertopMaterialId={countertop ? countertopMaterialId : null}
+              openings={openings}
+              finish={activeFinish}
+              crown={crown}
+              toeKick={toeKick}
+              batten={batten}
+              lightRail={lightRail}
+              panelKind={activePanelKind}
+            />
+          )}
           {viewMode === "split" && (
             <div className="flex flex-col h-full">
               <div className="flex-1 min-h-0 border-b border-border">
@@ -2289,7 +2324,7 @@ export default function DesignTool() {
           )}
 
           {/* Wall layer toggle (plan only) */}
-          {viewMode !== "elevation" && (
+          {viewMode !== "elevation" && viewMode !== "corner" && (
             <button
               onClick={() => setShowWallLayer((s) => !s)}
               className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-white/90 border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-white"
@@ -2307,32 +2342,30 @@ export default function DesignTool() {
           onOpenChange={(o) => setMobilePanel(o ? "cart" : null)}
         >
           <div className="p-3 border-b border-border space-y-2">
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pricing</div>
-
-            {/* Door-style preview: a larger sample of the selected finish so the
-                user can see the look while comparing styles (esp. on mobile). */}
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-2">
-              <div className="h-16 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-white shadow-sm">
-                {activeStyle ? (
-                  <DoorStyleSwatch style={activeStyle} className="h-full w-full" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-[9px] text-muted-foreground text-center px-1">
-                    No style
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Door style</div>
-                <div className="truncate text-sm font-semibold text-foreground">
+            {/* Door-style sample: a large, clear hero of the selected finish at the
+                very top of the build sheet so the look is obvious at a glance. */}
+            <div className="relative overflow-hidden rounded-lg border border-border bg-white shadow-sm">
+              {activeStyle ? (
+                <DoorStyleSwatch style={activeStyle} className="h-40 w-full object-contain" />
+              ) : (
+                <div className="flex h-40 w-full items-center justify-center text-xs text-muted-foreground">
+                  Select a door style to preview the finish
+                </div>
+              )}
+              {/* Label overlay */}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-3 pb-2 pt-8">
+                <div className="text-[10px] uppercase tracking-wider text-white/70">Door style sample</div>
+                <div className="truncate text-sm font-bold text-white">
                   {activeStyleName ?? "Select a door style"}
                 </div>
                 {activeStyle && (activeStyle.doorStyle || activeStyle.finish || activeStyle.color) && (
-                  <div className="truncate text-[11px] text-muted-foreground">
+                  <div className="truncate text-[11px] text-white/80">
                     {[activeStyle.doorStyle, activeStyle.color || activeStyle.finish].filter(Boolean).join(" \u00b7 ")}
                   </div>
                 )}
               </div>
             </div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">Pricing</div>
 
             <Select value={styleId ? String(styleId) : ""} onValueChange={(v) => setStyleId(Number(v))}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select door style" /></SelectTrigger>

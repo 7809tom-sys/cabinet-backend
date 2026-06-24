@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/popover";
 import {
   RoomData, inchesToFeetInches, parseLengthToInches, clampRoomInches,
+  roomCeiling, CEILING_HEIGHT_PRESETS, MIN_CEILING_HEIGHT, MAX_CEILING_HEIGHT,
 } from "@/lib/design";
 
 interface Props {
@@ -39,20 +40,29 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
   // sync whenever the room changes externally (mouse-draw / package preload).
   const [wStr, setWStr] = useState(() => toTapeString(room.width));
   const [dStr, setDStr] = useState(() => toTapeString(room.depth));
+  const [cStr, setCStr] = useState(() => toTapeString(roomCeiling(room)));
 
   useEffect(() => {
     setWStr(toTapeString(room.width));
     setDStr(toTapeString(room.depth));
-  }, [room.width, room.depth]);
+    setCStr(toTapeString(roomCeiling(room)));
+  }, [room.width, room.depth, room.ceilingHeight]);
 
   const wParsed = parseLengthToInches(wStr);
   const dParsed = parseLengthToInches(dStr);
+  const cParsed = parseLengthToInches(cStr);
   const wValid = wParsed != null;
   const dValid = dParsed != null;
+  const cValid =
+    cParsed != null && cParsed >= MIN_CEILING_HEIGHT && cParsed <= MAX_CEILING_HEIGHT;
 
   const apply = () => {
-    if (!wValid || !dValid) return;
-    onChange({ width: clampRoomInches(wParsed!), depth: clampRoomInches(dParsed!) });
+    if (!wValid || !dValid || !cValid) return;
+    onChange({
+      width: clampRoomInches(wParsed!),
+      depth: clampRoomInches(dParsed!),
+      ceilingHeight: Math.round(cParsed!),
+    });
     setOpen(false);
   };
 
@@ -99,6 +109,29 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
                 parsed={dParsed}
                 valid={dValid}
               />
+              <WallField
+                label="Ceiling height (floor to ceiling)"
+                value={cStr}
+                onChange={setCStr}
+                onEnter={apply}
+                parsed={cParsed}
+                valid={cValid}
+                hint={`Between ${MIN_CEILING_HEIGHT}" and ${MAX_CEILING_HEIGHT}"`}
+              />
+              <div className="flex flex-wrap gap-1">
+                {CEILING_HEIGHT_PRESETS.map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setCStr(toTapeString(h))}
+                    className={`rounded-md border px-2 py-1 text-[11px] transition-colors hover:bg-muted/60 ${
+                      Math.round(cParsed ?? -1) === h ? "border-[#1a2744] bg-[#1a2744]/5 font-medium" : "border-border"
+                    }`}
+                  >
+                    {h / 12}&apos; ({h}&quot;)
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div>
@@ -107,7 +140,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
                 {PRESETS.map((p) => (
                   <button
                     key={p.label}
-                    onClick={() => onChange({ width: p.width, depth: p.depth })}
+                    onClick={() => onChange({ width: p.width, depth: p.depth, ceilingHeight: roomCeiling(room) })}
                     className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/60 transition-colors"
                   >
                     {p.label} ft
@@ -118,7 +151,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
 
             <Button
               onClick={apply}
-              disabled={!wValid || !dValid}
+              disabled={!wValid || !dValid || !cValid}
               className="w-full h-9 bg-[#1a2744] text-white hover:bg-[#243456] gap-1.5"
             >
               <Check className="h-4 w-4" /> Apply room size
@@ -144,7 +177,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
 }
 
 function WallField({
-  label, value, onChange, onEnter, parsed, valid,
+  label, value, onChange, onEnter, parsed, valid, hint,
 }: {
   label: string;
   value: string;
@@ -152,6 +185,7 @@ function WallField({
   onEnter: () => void;
   parsed: number | null;
   valid: boolean;
+  hint?: string;
 }) {
   const showError = value.trim().length > 0 && !valid;
   return (
@@ -169,7 +203,7 @@ function WallField({
         {valid && parsed != null ? (
           <span className="text-emerald-600">= {Math.round(parsed * 100) / 100}" ({toTapeString(parsed)})</span>
         ) : showError ? (
-          <span className="text-red-500">Couldn't read that — try 10' 6" or 126"</span>
+          <span className="text-red-500">{hint ? hint : `Couldn't read that — try 10' 6" or 126"`}</span>
         ) : null}
       </div>
     </div>

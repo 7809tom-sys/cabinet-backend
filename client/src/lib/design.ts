@@ -233,20 +233,37 @@ export function placedHeight(p: PlacedCabinet): number {
   return standardHeight(p.placement);
 }
 
-// The standard line (inches from floor) that the TOP of wall cabinets aligns to
-// in a kitchen. Wall cabinets of different heights all hang from this top line.
+// The standard top line (inches from floor) used for stackers and short bridge
+// cabinets that hang from the ceiling/soffit line. A standard 30" wall cabinet
+// bottomed at 54" also tops out here (84").
 export const WALL_CABINET_TOP = STD.WALL_MOUNT_BOTTOM + STD.WALL_HEIGHT; // 84"
-// Bottom line for a STANDARD 30" wall cabinet (84" top - 30" height = 54").
-// Wall cabinets are top-anchored at WALL_CABINET_TOP, so only a 30" box
-// actually bottoms here; shorter bridges hang higher, taller boxes lower.
+// Standard mount line: the BOTTOM of a wall cabinet sits 54" above the floor
+// (18" above a 36" counter). Standard wall cabinets are bottom-anchored here,
+// so 30"/36"/42" boxes all start at 54" and rise higher as they get taller.
 export const WALL_MOUNT_BOTTOM = STD.WALL_MOUNT_BOTTOM; // 54"
 
 export interface RoomData {
   width: number;
   depth: number;
+  /** Floor-to-ceiling height in inches. Optional for back-compat; falls back to
+   *  DEFAULT_CEILING_HEIGHT when absent. Drives how much wall shows above the
+   *  upper cabinets in the elevation/Front View. */
+  ceilingHeight?: number;
 }
 
-export const DEFAULT_ROOM: RoomData = { width: 144, depth: 120 };
+// Standard US ceiling height. Common alternatives: 108" (9ft), 120" (10ft).
+export const DEFAULT_CEILING_HEIGHT = 96;
+export const CEILING_HEIGHT_PRESETS = [96, 108, 120] as const;
+export const MIN_CEILING_HEIGHT = 84;
+export const MAX_CEILING_HEIGHT = 144;
+export function roomCeiling(room: { ceilingHeight?: number } | null | undefined): number {
+  const h = room?.ceilingHeight;
+  return typeof h === "number" && h >= MIN_CEILING_HEIGHT && h <= MAX_CEILING_HEIGHT
+    ? h
+    : DEFAULT_CEILING_HEIGHT;
+}
+
+export const DEFAULT_ROOM: RoomData = { width: 144, depth: 120, ceilingHeight: DEFAULT_CEILING_HEIGHT };
 
 export function dim(value: string | null | undefined, fallback: number): number {
   if (!value) return fallback;
@@ -526,13 +543,20 @@ export function elevationBox(p: PlacedCabinet): { bottom: number; height: number
     if (isStacker(p)) {
       return { bottom: WALL_CABINET_TOP, height: h };
     }
-    // 3) Standalone / bridge wall cabinets are TOP-anchored at the standard 84"
-    //    line so every cabinet in a run seals at the same top: a 30" bottoms at
-    //    54", a 24" at 60", and a 12" bridge (over a fridge/range) bottoms at
-    //    72". Taller boxes simply hang lower. The bottom is clamped at 0 so an
-    //    oversized box never goes below the floor. Users who want a staggered
-    //    look set an explicit mountBottom (branch #1), which always wins.
-    return { bottom: Math.max(0, WALL_CABINET_TOP - h), height: h };
+    // 3) SHORT wall cabinets (under 30" tall — e.g. 12"/15"/18"/24" bridges and
+    //    over-appliance boxes) ride HIGH: they stay TOP-anchored at the 84" line
+    //    so their TOP finishes flush with standard 30" uppers and their bottom
+    //    moves UP the wall accordingly (a 12" bottoms at 72", a 24" at 60"). The
+    //    bottom is clamped at 0 so an oversized box never goes below the floor.
+    if (h < 30) {
+      return { bottom: Math.max(0, WALL_CABINET_TOP - h), height: h };
+    }
+    // 4) Standard/tall wall cabinets (30"+) are BOTTOM-anchored at the standard
+    //    54" mount line (18" above a 36" counter), so 30", 36" and 42" boxes all
+    //    start their bottom at 54" and simply rise higher toward the ceiling as
+    //    they get taller (a 30" tops at 84", a 42" tops at 96"). Users who want a
+    //    different position set an explicit mountBottom (branch #1), which wins.
+    return { bottom: WALL_MOUNT_BOTTOM, height: h };
   }
   // Base, tall, vanity: the box always sits on the floor (bottom = 0).
   if (p.placement === "tall") {
@@ -798,19 +822,53 @@ export interface FinishColors {
   label: string; // text color that stays legible on the face
 }
 
+// Keyword table. Order matters — the FIRST regex that matches the combined
+// style text wins. We match against the brand name AND the underlying paint
+// color / finish / wood species, so e.g. "Aero Obsidian (SW 6258 Tricorn Black)"
+// resolves to the black finish even though the brand word isn't "black".
 const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: string }[] = [
-  { match: /white|snow|arctic|alpine|pearl|dove/, face: "#f3f1ec", edge: "#cfc9bf", label: "#3a3a3a" },
-  { match: /grey|gray|stone|pewter|graphite|slate|fog/, face: "#9aa0a6", edge: "#6f747a", label: "#1f2937" },
-  { match: /navy|blue|indigo|ocean/, face: "#3b4d63", edge: "#26354a", label: "#f8fafc" },
-  { match: /green|sage|forest|hunter/, face: "#566f5a", edge: "#3c4f40", label: "#f8fafc" },
-  { match: /black|onyx|carbon|espresso|java/, face: "#2b2b2e", edge: "#161618", label: "#f5f5f5" },
-  { match: /cherry|mahogany|chestnut|cinnamon|spice/, face: "#7a4a32", edge: "#5a3422", label: "#fbeee6" },
-  { match: /honey|oak|natural|maple|wheat|amber|toffee/, face: "#c08a4e", edge: "#9a6a36", label: "#3a2410" },
-  { match: /walnut|mocha|coffee|chocolate|brown/, face: "#6b4a32", edge: "#4c3422", label: "#fbeee6" },
-  { match: /cream|almond|biscuit|linen|sand|beige|tan/, face: "#e6dcc6", edge: "#c7b79a", label: "#3a3526" },
+  // WHITES
+  { match: /white|snow|arctic|alpine|pearl|dove(?!tail)|blanc|alba|marshmallow|extra white|snowbound|chantilly|frost(?!ed gray)|ivory|cotton/, face: "#f3f1ec", edge: "#cfc9bf", label: "#3a3a3a" },
+  // GREYS (incl. repose/dovetail/agreeable/mindful greige-leaning grays)
+  { match: /grey|gray|stone|pewter|graphite|slate|fog|cinder|relic|repose|dovetail|grizzle|greige|ash|smoke|nickel|harbor|mist|pebble|amberg/, face: "#9aa0a6", edge: "#6f747a", label: "#1f2937" },
+  // BLUES
+  { match: /navy|blue|indigo|ocean|naval|cobalt|abyss|cobblestone|denim|sapphire|marine|teal|peacock/, face: "#3b4d63", edge: "#26354a", label: "#f8fafc" },
+  // GREENS
+  { match: /green|sage|forest|hunter|olive|fern|moss|evergreen|basil|juniper/, face: "#566f5a", edge: "#3c4f40", label: "#f8fafc" },
+  // BLACKS / NEAR-BLACK
+  { match: /black|onyx|carbon|tricorn|obsidian|jet|raven|charcoal|iron ore|peppercorn|caviar/, face: "#2b2b2e", edge: "#161618", label: "#f5f5f5" },
+  // DARK BROWNS (espresso/walnut/mocha)
+  { match: /walnut|mocha|coffee|chocolate|brown|espresso|umbra|java|truffle|cocoa|bourbon/, face: "#6b4a32", edge: "#4c3422", label: "#fbeee6" },
+  // REDDISH WOODS
+  { match: /cherry|mahogany|chestnut|cinnamon|spice|sienna|russet|brick|garnet/, face: "#7a4a32", edge: "#5a3422", label: "#fbeee6" },
+  // MID WARM WOODS (oak/maple/honey/saddle/autumn)
+  { match: /honey|oak|natural|maple|wheat|amber|toffee|saddle|autumn|caramel|pecan|harvest|golden|butterscotch/, face: "#c08a4e", edge: "#9a6a36", label: "#3a2410" },
+  // CREAMS / WARM NEUTRALS
+  { match: /cream|almond|biscuit|linen|sand|beige|tan|creamy|manila|wicker|navajo|buttermilk|antique white|aged|saddle/, face: "#e6dcc6", edge: "#c7b79a", label: "#3a3526" },
 ];
 
-const DEFAULT_FINISH: FinishColors = { face: "#c79a63", edge: "#a07a45", label: "#3a2410" };
+// Deterministic distinct-color palette for styles whose text doesn't match any
+// keyword. A stable hash of the style name picks one of these, so two different
+// unmatched styles still look different (instead of all collapsing to one wood
+// tone) and the SAME style always renders the same color across renders.
+const FALLBACK_FINISHES: FinishColors[] = [
+  { face: "#c79a63", edge: "#a07a45", label: "#3a2410" }, // warm oak
+  { face: "#b78c64", edge: "#8f6a45", label: "#2e1c0e" }, // tan wood
+  { face: "#8a9a8e", edge: "#65756a", label: "#1f2a23" }, // muted sage
+  { face: "#7e8a99", edge: "#5a6675", label: "#f4f6fa" }, // blue-grey
+  { face: "#a98f7a", edge: "#806656", label: "#2c1d12" }, // taupe
+  { face: "#cdbfa6", edge: "#a99a7e", label: "#33301f" }, // greige
+];
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+const DEFAULT_FINISH: FinishColors = FALLBACK_FINISHES[0];
 export const DEFAULT_FINISH_COLORS = DEFAULT_FINISH;
 
 // Door-panel treatment derived from the door-style family name. Used to render
@@ -828,12 +886,17 @@ export function doorPanelKind(doorStyle?: string | null): DoorPanelKind {
   return "shaker";
 }
 
-export function finishColors(styleCodeOrName?: string | null): FinishColors {
-  const s = (styleCodeOrName || "").toLowerCase();
+// Accepts any combination of the style's brand name, paint color, finish text,
+// and wood species — all are scanned together so the most specific signal wins.
+// Falls back to a deterministic per-name color (never the same tone for every
+// style) when nothing matches.
+export function finishColors(...parts: (string | null | undefined)[]): FinishColors {
+  const s = parts.filter(Boolean).join(" ").toLowerCase();
   for (const f of FINISH_BY_KEYWORD) {
     if (f.match.test(s)) return { face: f.face, edge: f.edge, label: f.label };
   }
-  return DEFAULT_FINISH;
+  if (!s.trim()) return DEFAULT_FINISH;
+  return FALLBACK_FINISHES[hashString(s) % FALLBACK_FINISHES.length];
 }
 
 // ─── Crown molding & toe kick (design trim, rendered in elevation) ──────────

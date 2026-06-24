@@ -1380,3 +1380,34 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Add a larger door-style sample swatch (DoorStyleSwatch fed by activeStyle) in the Pricing/Build Sheet header
 - [x] Show selected style name + door profile / finish next to the swatch; updates live on style change
 - [x] Verified live: selecting a style renders the swatch + "Bloom Blanc — Shaker · SW 7006 Extra White"; typecheck clean
+
+## Session: Affiliate storefront templates
+- [ ] Add `template` field (enum: classic | showcase | minimal | craftsman) to affiliates schema, generate + apply migration
+- [ ] Server: include template in affiliates.bySlug, updateMyStorefront, and admin set/update
+- [ ] Refactor Storefront.tsx into 4 layout variants sharing StorefrontShop + quote flow
+- [ ] Template picker with preview thumbnails in AffiliateDashboard BrandingEditor
+- [ ] Template picker/override in AffiliatesAdmin admin panel
+- [ ] Tests for template persistence; typecheck
+- [ ] Verify all 4 templates render in browser and deliver
+
+## Build Sheet sample image (interrupt)
+- [x] Enlarge the door-style sample on the Pricing/Build Sheet panel into a clear full-width banner at the very top (h-40 swatch with style name + finish label overlaid); 581 tests pass, verified live with Blanc Core
+
+## Wall-cabinet 54" mount default (user bug report)
+- [x] Wall cabinets now bottom-anchored at 54" by default (short bridges <18" stay top-anchored); design tests updated, 168 design tests pass
+
+## Refrigerator wall cabinets missing from catalog (user bug report)
+- [x] Root cause: 24"-deep refrigerator wall cabinets (W-30/33/36-{12,15,18,24}-24) had SKUs in only ~29 styles vs 61 for anchors
+- [x] Backfilled 399 distributor SKUs (idempotent INSERT, pricing copied from same-width W-xx-30 anchor); all 12 fridge cabinets now 61/61 style coverage
+- [x] Verified live: Terra Shaker search "W-30-" now lists W-30-12-24 / -15-24 / -18-24 / -24-24 with images, 24" depth, View pricing
+
+## Storefront templates + Designer enhancements
+- [x] Storefront branches on data.template (classic/showcase/minimal/craftsman) — 4 distinct header+hero variants, shared body
+- [x] Template picker added to affiliate Branding editor (AffiliateDashboard)
+- [x] Add vitest covering the template field (bySlug returns it; updateMyStorefront persists valid enum + rejects invalid) — 3 tests, 14 in affiliates.test.ts
+- [ ] Designer: ceiling-height input (presets 96/108/120 + custom) wired into Front View
+- [x] Designer: reconcile wall-cabinet hang with documented rule (>=30" bottoms at 54"; <30" raised so top lands ~84", e.g. 12" bottoms at 72") — design.ts threshold <30 top-anchored; server+client tests updated
+- [x] Designer: Corner View mode — camera in a chosen corner shows the two adjoining walls together; pick/cycle all 4 corners (verified live: Back/Left corner shows Left-wall + Back-wall cabinets, labels readable, finish applied)
+- [ ] Designer: cabinets on the canvas must re-color to the selected door style finish (currently not changing)
+- [x] Door-style color now applies to canvas cabinets (finishColors reads paint color/finish/species + deterministic fallback); verified Aero Obsidian recolors B-48 to black
+- [x] Designer ceiling-height input (presets 96/108/120 + custom 84-144"), wired into Front View elevation (wall height + ceiling label); preserved across package preload/save

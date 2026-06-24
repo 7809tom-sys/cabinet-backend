@@ -2,7 +2,7 @@ import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
   type DoorPanelKind, type WallSide, cabinetWall, resolveSwing,
-  countertopMaterial,
+  countertopMaterial, roomCeiling,
 } from "@/lib/design";
 import { useRef, useEffect, useState } from "react";
 
@@ -28,17 +28,28 @@ interface Props {
   batten?: boolean;
   lightRail?: boolean;
   panelKind?: DoorPanelKind;
+  // When this elevation is rendered inside a horizontally-mirrored container
+  // (the left half of CornerView), set `mirror` so text labels are counter-
+  // flipped to stay readable. `hideSwitcher` removes the inner wall picker so
+  // CornerView can show its own corner picker instead.
+  mirror?: boolean;
+  hideSwitcher?: boolean;
 }
 
 export function ElevationView({
   room, cabinets, selectedUid, onSelect, wall, onSelectWall, countertopMaterialId = null, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
-  panelKind = "shaker",
+  panelKind = "shaker", mirror = false, hideSwitcher = false,
 }: Props) {
+  // Counter-flip transform for text so labels read correctly when this whole
+  // elevation sits inside a scaleX(-1) container.
+  const textFlip: React.CSSProperties | undefined = mirror ? { transform: "scaleX(-1)" } : undefined;
   const ref = useRef<HTMLDivElement>(null);
   const [ppi, setPpi] = useState(4);
   const PADDING = 40;
-  const WALL_TOTAL_HEIGHT = 96;
+  // Wall height shown in the elevation tracks the room's real ceiling height,
+  // so a 9ft/10ft ceiling shows more wall above the uppers than a standard 8ft.
+  const WALL_TOTAL_HEIGHT = roomCeiling(room);
 
   // Normalize legacy "front"/"back" to plan WallSide values.
   const side: WallSide =
@@ -66,7 +77,7 @@ export function ElevationView({
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [planSpan]);
+  }, [planSpan, WALL_TOTAL_HEIGHT]);
 
   const wallPxW = planSpan * ppi;
   const wallPxH = WALL_TOTAL_HEIGHT * ppi;
@@ -100,6 +111,10 @@ export function ElevationView({
         }}
       >
         <div className="absolute left-0 right-0 bottom-0 border-b-[3px] border-[#1a2744]" />
+        {/* Ceiling line label so the chosen ceiling height is visible at a glance. */}
+        <div className="absolute -top-[14px] right-0 text-[9px] font-medium text-[#1a2744]/70" style={textFlip}>
+          {`Ceiling ${Math.round(WALL_TOTAL_HEIGHT)}\"`}
+        </div>
         <div
           className="absolute left-0 right-0 border-b border-dashed border-[#b08d57]/40"
           style={{ bottom: STD.COUNTERTOP_HEIGHT * ppi }}
@@ -197,7 +212,7 @@ export function ElevationView({
                   );
                 })()}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : finish.label }}>
+                  <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : finish.label, ...textFlip }}>
                     {p.masterCode}
                   </span>
                 </div>
@@ -368,7 +383,7 @@ export function ElevationView({
 
       {/* Wall switcher: flip the displayed wall straight from the elevation
           panel. Falls back to a static label when no handler is provided. */}
-      {onSelectWall ? (
+      {hideSwitcher ? null : onSelectWall ? (
         <div
           className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/85 px-1.5 py-1 rounded-full shadow-sm"
           onClick={(e) => e.stopPropagation()}
@@ -396,7 +411,7 @@ export function ElevationView({
       )}
 
       {sorted.length === 0 && viewOpenings.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm text-center px-6">
+        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm text-center px-6" style={textFlip}>
           Nothing on the {WALL_LABELS[side].toLowerCase()} wall yet. Switch the active wall above, or place cabinets on this wall in the plan view.
         </div>
       )}

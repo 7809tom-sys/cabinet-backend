@@ -249,7 +249,15 @@ type AffiliateRow = {
   facebookUrl: string | null;
   instagramUrl: string | null;
   storefrontEnabled: boolean | null;
+  template: "classic" | "showcase" | "minimal" | "craftsman" | null;
 };
+
+const TEMPLATES: { id: "classic" | "showcase" | "minimal" | "craftsman"; name: string; desc: string }[] = [
+  { id: "classic", name: "Classic", desc: "Navy split hero with a lifestyle photo and serif headline." },
+  { id: "showcase", name: "Showcase", desc: "Full-bleed kitchen photo with overlaid headline and CTAs." },
+  { id: "minimal", name: "Minimal", desc: "Light, airy layout with thin rules and lots of whitespace." },
+  { id: "craftsman", name: "Craftsman", desc: "Warm, bold type on an accent block — no photo required." },
+];
 
 function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved: () => void }) {
   const [form, setForm] = useState({
@@ -263,6 +271,7 @@ function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSav
     facebookUrl: affiliate.facebookUrl ?? "",
     instagramUrl: affiliate.instagramUrl ?? "",
     storefrontEnabled: affiliate.storefrontEnabled ?? true,
+    template: (affiliate.template ?? "classic") as "classic" | "showcase" | "minimal" | "craftsman",
   });
 
   const utils = trpc.useUtils();
@@ -291,6 +300,7 @@ function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSav
       facebookUrl: form.facebookUrl || null,
       instagramUrl: form.instagramUrl || null,
       storefrontEnabled: form.storefrontEnabled,
+      template: form.template,
     });
   }
 
@@ -302,6 +312,32 @@ function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSav
           <div className="text-xs text-muted-foreground">Turn your public storefront on or off.</div>
         </div>
         <Switch checked={form.storefrontEnabled} onCheckedChange={(v) => set("storefrontEnabled", v)} />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Storefront template</Label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {TEMPLATES.map((tpl) => {
+            const active = form.template === tpl.id;
+            return (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => set("template", tpl.id)}
+                aria-pressed={active}
+                className={
+                  "text-left rounded-lg border p-3 transition-colors " +
+                  (active
+                    ? "border-primary ring-2 ring-primary/30 bg-primary/5"
+                    : "border-border hover:bg-muted")
+                }
+              >
+                <div className="font-semibold text-sm">{tpl.name}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{tpl.desc}</div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="space-y-1.5">

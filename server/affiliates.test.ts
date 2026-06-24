@@ -149,3 +149,43 @@ describe("partner dashboard", () => {
     expect(mine).toBeNull();
   });
 });
+
+describe("affiliate storefront template", () => {
+  it("bySlug returns a template value for the seeded storefront", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const store = await caller.affiliates.bySlug({ slug: "firstclass" });
+    expect(store).not.toBeNull();
+    // every storefront resolves to one of the four valid templates
+    expect(["classic", "showcase", "minimal", "craftsman"]).toContain(store?.template);
+  });
+
+  it("partner can persist a valid template via updateMyStorefront and it round-trips", async () => {
+    const partnerCaller = appRouter.createCaller(
+      userCtx("partner", { id: 99999, email: "firstclassfcd@yahoo.com" })
+    );
+
+    // capture the original so we can restore it after the test
+    const before = await partnerCaller.affiliates.myAffiliate();
+    const original = (before?.template as "classic" | "showcase" | "minimal" | "craftsman") ?? "classic";
+
+    try {
+      await partnerCaller.affiliates.updateMyStorefront({ template: "showcase" });
+      const publicCaller = appRouter.createCaller(publicCtx());
+      const store = await publicCaller.affiliates.bySlug({ slug: "firstclass" });
+      expect(store?.template).toBe("showcase");
+    } finally {
+      // restore to avoid leaking state into other tests / the live preview
+      await partnerCaller.affiliates.updateMyStorefront({ template: original });
+    }
+  });
+
+  it("rejects an invalid template value", async () => {
+    const partnerCaller = appRouter.createCaller(
+      userCtx("partner", { id: 99999, email: "firstclassfcd@yahoo.com" })
+    );
+    await expect(
+      // @ts-expect-error invalid enum value on purpose
+      partnerCaller.affiliates.updateMyStorefront({ template: "neon" })
+    ).rejects.toThrow();
+  });
+});

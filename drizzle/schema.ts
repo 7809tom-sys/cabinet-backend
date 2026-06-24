@@ -434,6 +434,8 @@ export const affiliates = mysqlTable("affiliates", {
   facebookUrl: varchar("facebookUrl", { length: 512 }),
   instagramUrl: varchar("instagramUrl", { length: 512 }),
   storefrontEnabled: boolean("storefrontEnabled").default(true).notNull(),
+  // Storefront layout template variant
+  template: mysqlEnum("template", ["classic", "showcase", "minimal", "craftsman"]).default("classic").notNull(),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

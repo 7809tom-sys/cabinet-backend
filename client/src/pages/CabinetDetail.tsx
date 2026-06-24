@@ -180,7 +180,10 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   // Recolor the to-scale drawing to the selected door style's real finish.
   const finishFace = finishColors(
-    selectedRow?.color || selectedRow?.name || selectedRow?.styleCode
+    selectedRow?.name,
+    selectedRow?.color,
+    selectedRow?.finish,
+    selectedRow?.styleCode
   ).face;
 
   const { addItem } = useCart();

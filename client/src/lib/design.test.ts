@@ -243,10 +243,25 @@ describe("finishColors", () => {
   it("maps grey styles to a grey face", () => {
     expect(finishColors("Pewter Grey").face.toLowerCase()).toBe("#9aa0a6");
   });
-  it("falls back to the default wood finish for unknown names", () => {
-    expect(finishColors("Mystery Style")).toEqual(DEFAULT_FINISH_COLORS);
+  it("derives the finish from the paint color even when the brand name is abstract", () => {
+    // "Aero Obsidian" brand word isn't a color, but its paint color is black.
+    expect(finishColors("Aero Obsidian", "SW 6258 Tricorn Black").face.toLowerCase()).toBe("#2b2b2e");
   });
-  it("handles null/empty input safely", () => {
+  it("returns a deterministic, non-default color for unmatched names", () => {
+    const a = finishColors("Zorptacular");
+    const b = finishColors("Zorptacular");
+    // Stable across calls for the same input.
+    expect(a).toEqual(b);
+    // Always a valid hex face.
+    expect(a.face).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+  it("gives two different unmatched names a chance to differ (no global collapse)", () => {
+    // Not a strict guarantee for every pair, but these two hash to different buckets.
+    const a = finishColors("Quibblefoo");
+    const b = finishColors("Wozzlebkdj");
+    expect(a.face === b.face && a.edge === b.edge).toBe(false);
+  });
+  it("handles null/empty input safely (returns the default finish)", () => {
     expect(finishColors(null)).toEqual(DEFAULT_FINISH_COLORS);
     expect(finishColors("")).toEqual(DEFAULT_FINISH_COLORS);
   });
@@ -989,16 +1004,16 @@ describe("wall cabinet elevation rules", () => {
     expect(box.bottom + box.height).toBe(84);
   });
 
-  it("a tall 36in wall cabinet hangs lower so its top stays at 84in (bottom 48)", () => {
+  it("a tall 36in wall cabinet is bottom-anchored at 54in (tops at 90)", () => {
     const box = elevationBox(cab({ placement: "wall", width: 30, height: 36, masterCode: "W-30-36", description: "30x36 Wall Cabinet" }));
-    expect(box.bottom).toBe(48);
-    expect(box.bottom + box.height).toBe(84);
+    expect(box.bottom).toBe(54);
+    expect(box.bottom + box.height).toBe(90);
   });
 
-  it("a 42in wall cabinet hangs lower so its top stays at 84in (bottom 42)", () => {
+  it("a 42in wall cabinet is bottom-anchored at 54in (tops at 96)", () => {
     const box = elevationBox(cab({ placement: "wall", width: 30, height: 42, masterCode: "W-30-42", description: "30x42 Wall Cabinet" }));
-    expect(box.bottom).toBe(42);
-    expect(box.bottom + box.height).toBe(84);
+    expect(box.bottom).toBe(54);
+    expect(box.bottom + box.height).toBe(96);
   });
 
   it("a glass stacker sits ON TOP of the wall cabinet below (bottom at 84in)", () => {
