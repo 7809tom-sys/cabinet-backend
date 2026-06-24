@@ -15,6 +15,13 @@ import {
   resolveSwing,
   cycleSwing,
   blindCornerViolations,
+  isLCornerCabinet,
+  isCornerCabinet,
+  cornerClipPath,
+  cornerLegRatioForPlaced,
+  cornerRotationForPlaced,
+  placedFootprint,
+  RoomData,
 } from "../client/src/lib/design";
 
 // Minimal factory for a placed item.
@@ -162,6 +169,66 @@ describe("diagonal corner wall cabinet", () => {
   it("footprint depth equals its width (square bounding box) so the angle reads", () => {
     const dcw = { masterCode: "DCW-24-30", description: "Diagonal Corner Wall", category: "Wall", subCategory: "Diagonal Corner Wall", width: "24", height: "30", depth: "12", placement: "wall" as const, numberOfDoors: 1, numberOfDrawers: 0, isCornerCabinet: true, id: 1 };
     expect(footprintDepth(dcw)).toBe(24);
+  });
+});
+
+describe("L-corner cabinet (lazy-Susan / blind / easy-reach) footprint", () => {
+  const room: RoomData = { width: 120, depth: 120, ceilingHeight: 96 };
+
+  it("detects LSB lazy-Susan and BBC blind-corner codes as L-corners (not diagonal)", () => {
+    expect(isLCornerCabinet("LSB36", "36\" Base Easy Reach with Lazy Susan")).toBe(true);
+    expect(isLCornerCabinet("LSB33", "33\" Base Easy Reach with Lazy Susan")).toBe(true);
+    expect(isLCornerCabinet("LSB36ADA", "36\" Lazy Susan ADA")).toBe(true);
+    expect(isLCornerCabinet("BBC-39", "39\" Blind Corner Base Cabinet")).toBe(true);
+    expect(isLCornerCabinet("ERB-36", "36\" Base Easy Reach Cabinet")).toBe(true);
+    // Diagonal corners are NOT L-corners
+    expect(isLCornerCabinet("DCW-24-30", "Diagonal Corner Wall")).toBe(false);
+    // Still recognized as a corner cabinet overall
+    expect(isCornerCabinet("LSB36", "")).toBe(true);
+  });
+
+  it("renders as a square bounding box (side = width) so both legs are 24\" deep", () => {
+    const lsb = mk({ uid: "ls", placement: "base", masterCode: "LSB36", description: "36\" Lazy Susan", width: 36, depth: 24 });
+    const fp = placedFootprint(lsb);
+    expect(fp.w).toBe(36);
+    expect(fp.d).toBe(36);
+  });
+
+  it("leg-keep ratio is 24/width so the notch grows with the box (36->0.667, 33->0.727)", () => {
+    expect(cornerLegRatioForPlaced({ width: 36, placement: "base" })).toBeCloseTo(24 / 36, 5);
+    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 33, 5);
+    // wall corners return 12" deep
+    expect(cornerLegRatioForPlaced({ width: 24, placement: "wall" })).toBeCloseTo(12 / 24, 5);
+  });
+
+  it("clip-path is a 6-point L polygon and differs for each of the 4 corners", () => {
+    const ratio = 24 / 36;
+    const set = new Set([0, 90, 180, 270].map((r) => cornerClipPath(r, ratio)));
+    expect(set.size).toBe(4);
+    for (const r of [0, 90, 180, 270]) {
+      const cp = cornerClipPath(r, ratio);
+      const inner = cp.replace(/^polygon\(/, "").replace(/\)$/, "");
+      expect(inner.split(",").length).toBe(6); // L = 6 vertices
+    }
+  });
+
+  it("orients the notch by which corner the cabinet is seated in", () => {
+    const side = 36;
+    const mkAt = (x: number, y: number) =>
+      mk({ uid: `c-${x}-${y}`, placement: "base", masterCode: "LSB36", description: "36\" Lazy Susan", width: side, depth: side, x, y });
+    // back-left corner -> rot 0
+    expect(cornerRotationForPlaced(mkAt(0, 0), room)).toBe(0);
+    // back-right corner -> rot 90
+    expect(cornerRotationForPlaced(mkAt(room.width - side, 0), room)).toBe(90);
+    // front-right corner -> rot 180
+    expect(cornerRotationForPlaced(mkAt(room.width - side, room.depth - side), room)).toBe(180);
+    // front-left corner -> rot 270
+    expect(cornerRotationForPlaced(mkAt(0, room.depth - side), room)).toBe(270);
+  });
+
+  it("falls back to the cabinet's own rotation when not seated in a corner", () => {
+    const floating = mk({ uid: "f", placement: "base", masterCode: "LSB36", description: "36\" Lazy Susan", width: 36, depth: 36, x: 50, y: 50, rotation: 90 });
+    expect(cornerRotationForPlaced(floating, room)).toBe(90);
   });
 });
 

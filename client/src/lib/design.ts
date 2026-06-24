@@ -724,6 +724,31 @@ export function cornerClipPath(rotation: number, legRatio = 0.667): string {
   }
 }
 
+// Which wall corner a placed L-corner cabinet sits in, derived from its position
+// in the room. The interior notch of the L must point AWAY from both walls
+// (toward the room interior), so the corner determines the clip-path rotation.
+//   back-left  (x≈0, y≈0)            → walls top+left   → notch bottom-right → rot 0
+//   back-right (x+w≈room.w, y≈0)       → walls top+right  → notch bottom-left  → rot 90
+//   front-right(x+w≈room.w, y+d≈room.d)→ walls bot+right  → notch top-left     → rot 180
+//   front-left (x≈0, y+d≈room.d)        → walls bot+left   → notch top-right    → rot 270
+// Falls back to the cabinet's own rotation when it is not seated in a corner.
+export function cornerRotationForPlaced(
+  p: PlacedCabinet,
+  room: RoomData,
+  tol = 2
+): number {
+  const { w, d } = placedFootprint(p);
+  const nearLeft = p.x <= tol;
+  const nearRight = Math.abs(p.x + w - room.width) <= tol;
+  const nearTop = p.y <= tol;
+  const nearBottom = Math.abs(p.y + d - room.depth) <= tol;
+  if (nearTop && nearLeft) return 0;
+  if (nearTop && nearRight) return 90;
+  if (nearBottom && nearRight) return 180;
+  if (nearBottom && nearLeft) return 270;
+  return ((p.rotation % 360) + 360) % 360;
+}
+
 // Center-to-center distance between two placed cabinets, in inches.
 export function centerDistance(a: PlacedCabinet, b: PlacedCabinet): number {
   const sa = rotatedSize(a);

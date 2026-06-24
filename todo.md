@@ -1414,3 +1414,17 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 ## Designer: floor-dropped wall cabinet toe-kick (user request)
 - [x] When a wall (upper) cabinet is dropped to the floor, its bottom should sit at the toe-kick height (4.5") not flat at 0"
+
+
+## L-corner footprint rework (user chose option 2 + 1, 2026-06-24)
+Resolved spec: a lazy-Susan/blind corner base spans BOTH walls equally, so the
+bounding box is square (side = width). Each leg is 24" deep (the "short" depth)
+and runs the full width along its wall (the "long" leg). The previous bug was the
+notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widths.
+- [x] L-corner cabinets (LSB33/36/36ADA + blind BBC* + ERB easy-reach) render a square box (side = width) with two 24"-deep legs; leg ratio now 24/width (33->0.727, 36->0.667) via cornerLegRatioForPlaced
+- [x] cornerClipPath carves the L for all 4 rotations (notch points to room interior); 6-vertex polygon verified distinct per corner
+- [x] Added cornerRotationForPlaced: derives the notch orientation from which physical corner (back-left/back-right/front-left/front-right) the cabinet is seated in
+- [x] PlanCanvas routes L-corners (and diagonal corners) through cornerRotationForPlaced so the L hugs the two real walls regardless of stored rotation
+- [x] Unit tests: detection, square box dims, leg ratio per width, 4-corner clip-path distinctness + 6 vertices, corner-seated orientation, floating fallback (6 new tests)
+- [x] tsc clean + full suite green (596 tests)
+- [x] Verified geometry via tests; designer requires interactive placement so static screenshot not applicable. Checkpoint pending.
