@@ -1462,3 +1462,13 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Confirmed live: Base tab shows "34½" HIGH (80)" with B-/DB-/SB- cabinets
 - [x] Regression test asserts B-12/B-18/B-24/B-36/SB-30/DB-24-2 appear under placement base (design.placeable.test.ts)
 - [x] Verified live + full suite green
+
+
+## Designer: Lock distributor to base cabinet (user request 2026-06-24)
+- [x] Added a "Lock supply line to this finish" button in the Designer pricing panel: once a door style is chosen, locking pins the design to that style's distributor (lockedDistributorId)
+- [x] While locked, the placeable palette (and Auto-Fill list) only offers cabinets from the locked distributor (placeableCabinets gated by distributorId); everything added shares the same supply line
+- [x] User can still CHANGE color/finish but only among door styles the LOCKED distributor offers (uniqueDoorStyles scoped to lockedDistributorId); distributor stays fixed
+- [x] "Supply line locked" badge + Unlock button restore the full cross-distributor palette; lock is per-design (not global). NOTE: distributor NAME never shown (door-style-first / white-label rule) — badge shows lock state only, not the supplier name
+- [x] Persist lock with saved designs (selectedDistributorId column) AND the auto-save draft; restored on draft restore + saved-design load
+- [x] Tests: palette gated to a single distributor when locked (design.placeable.test.ts, 8/8)
+- [x] tsc clean; full suite green (602). Designer is behind an email gate so static screenshot capture isn't possible; verified via tests + type-check

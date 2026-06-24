@@ -224,6 +224,50 @@ describe("design.placeableCabinets availability filter", () => {
     expect(asserted).toBeGreaterThan(0);
   });
 
+  it("locks the palette to a single distributor when distributorId is provided (Lock supply line)", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+
+    // Pick a real distributor that carries base cabinets.
+    const sample = await db
+      .select({ distributorId: distributorSkus.distributorId })
+      .from(distributorSkus)
+      .where(and(eq(distributorSkus.isAvailable, true), eq(distributorSkus.isPublished, true)))
+      .limit(1);
+    if (sample.length === 0) return;
+    const { distributorId } = sample[0];
+
+    // Locked palette: distributor only, no style gate (member can still change
+    // color within the locked line).
+    const locked = await caller.design.placeableCabinets({ placement: "base", distributorId });
+    expect(Array.isArray(locked)).toBe(true);
+    const ids = locked.map((c) => c.id);
+    if (ids.length === 0) return;
+
+    // Every cabinet in the locked palette must be carried by the locked
+    // distributor (no cabinet leaks in from another supply line).
+    const rows = await db
+      .select({ cabinetId: distributorSkus.cabinetId })
+      .from(distributorSkus)
+      .where(
+        and(
+          inArray(distributorSkus.cabinetId, ids),
+          eq(distributorSkus.distributorId, distributorId),
+          eq(distributorSkus.isAvailable, true),
+          eq(distributorSkus.isPublished, true)
+        )
+      );
+    const carriedByLocked = new Set(rows.map((r) => r.cabinetId));
+    for (const c of locked) {
+      expect(
+        carriedByLocked.has(c.id),
+        `${c.masterCode} must be carried by the locked distributor`
+      ).toBe(true);
+    }
+  });
+
   it("narrows the palette when a distributor + style is provided", async () => {
     const db = await getDb();
     if (!db) return;

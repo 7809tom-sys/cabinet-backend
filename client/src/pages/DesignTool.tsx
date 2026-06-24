@@ -204,19 +204,43 @@ export default function DesignTool() {
   // Pricing selectors
   const [styleId, setStyleId] = useState<number | null>(null);
   const [tier, setTier] = useState<PricingTier>("Contractor");
+  // Distributor lock: once the base cabinet's finish is chosen the member can
+  // "Lock" the design to that style's supply line. While locked, the palette
+  // only offers cabinets from that distributor and the finish picker is scoped
+  // to door styles within the same supply line (member can still change color,
+  // but not jump to another distributor) unless they Unlock to override.
+  const [lockedDistributorId, setLockedDistributorId] = useState<number | null>(null);
 
   // Data — door-style-first: members pick a door style; the supply line behind
   // it is resolved server-side and never shown.
   const { data: doorStyles } = trpc.doorStyles.list.useQuery();
+  // The distributor (supply line) behind the currently selected style.
+  const selectedStyleDistributorId = useMemo(() => {
+    const s = (doorStyles ?? []).find(
+      (d) => (d as { id: number }).id === styleId
+    ) as { distributorId?: number } | undefined;
+    return s?.distributorId ?? null;
+  }, [doorStyles, styleId]);
   // De-duplicate by display name so the same style isn't listed once per line.
+  // When locked, only offer styles from the locked distributor so changing the
+  // finish never silently switches supply lines.
   const uniqueDoorStyles = useMemo(() => {
     const map = new Map<string, { id: number; ourName: string | null }>();
-    for (const s of (doorStyles ?? []) as Array<{ id: number; ourName: string | null }>) {
+    const source = (doorStyles ?? []) as Array<{
+      id: number;
+      ourName: string | null;
+      distributorId?: number;
+    }>;
+    const scoped =
+      lockedDistributorId != null
+        ? source.filter((s) => s.distributorId === lockedDistributorId)
+        : source;
+    for (const s of scoped) {
       const key = (s.ourName || String(s.id)).toLowerCase();
       if (!map.has(key)) map.set(key, s);
     }
     return Array.from(map.values()).sort((a, b) => (a.ourName || "").localeCompare(b.ourName || ""));
-  }, [doorStyles]);
+  }, [doorStyles, lockedDistributorId]);
   const { data: paletteCabinets, isLoading: paletteLoadingRaw } =
     trpc.design.placeableCabinets.useQuery(
       {
@@ -232,6 +256,9 @@ export default function DesignTool() {
             : paletteType,
         // Narrow to the chosen line + style so only purchasable cabinets show.
         styleId: styleId ?? undefined,
+        // When the design is locked to a supply line, every added cabinet must
+        // come from that distributor (member can still change color within it).
+        distributorId: lockedDistributorId ?? undefined,
       },
       { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" }
     );
@@ -242,6 +269,7 @@ export default function DesignTool() {
   const { data: autoFillCabinets } = trpc.design.placeableCabinets.useQuery({
     placement: "base",
     styleId: styleId ?? undefined,
+    distributorId: lockedDistributorId ?? undefined,
   });
 
   // Detect a diagonal/corner WALL cabinet for the dedicated "Corner Wall" tab.
@@ -562,10 +590,12 @@ export default function DesignTool() {
 
   // Restore a saved design (room + placed cabinets + style) onto the canvas.
   const loadSavedDesign = useCallback(
-    (d: { room: RoomData; placed: PlacedCabinet[]; styleId: number | null; roomType?: string | null }) => {
+    (d: { room: RoomData; placed: PlacedCabinet[]; styleId: number | null; roomType?: string | null; distributorId?: number | null }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
       setPlaced(normalizeLCornerDepths(Array.isArray(d.placed) ? d.placed : []));
       setStyleId(d.styleId ?? null);
+      // Restore the supply-line lock if the saved design was pinned to one.
+      setLockedDistributorId(typeof d.distributorId === "number" ? d.distributorId : null);
       if (d.roomType && ["kitchen", "bathroom", "laundry", "closet", "other"].includes(d.roomType)) {
         setRoomType(d.roomType as RoomType);
       }
@@ -1423,6 +1453,7 @@ export default function DesignTool() {
       room: room ?? DEFAULT_ROOM,
       placed: Array.isArray(placedCabs) ? placedCabs : [],
       styleId: (savedDesign.selectedStyleId ?? null) as number | null,
+      distributorId: (savedDesign as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
       roomType: (savedDesign as { roomType?: string | null }).roomType ?? null,
     });
     toast.success(`Loaded "${savedDesign.name}" — edit, swap styles, and re-price.`);
@@ -1474,6 +1505,7 @@ export default function DesignTool() {
     activeWall,
     layoutLocked,
     lockedWalls: Array.from(lockedWalls),
+    lockedDistributorId,
   }));
 
   const writeDraft = usePersistFn(() => {
@@ -1525,6 +1557,7 @@ export default function DesignTool() {
           if (d.activeWall) setActiveWall(d.activeWall);
           setLayoutLocked(!!d.layoutLocked);
           if (Array.isArray(d.lockedWalls)) setLockedWalls(new Set(d.lockedWalls as WallSide[]));
+          if (typeof d.lockedDistributorId === "number") setLockedDistributorId(d.lockedDistributorId);
           if (Array.isArray(d.placed) && d.placed.length > 0) {
             toast.success("Restored your in-progress design.");
           }
@@ -1542,7 +1575,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -1883,6 +1916,7 @@ export default function DesignTool() {
             room={room}
             placed={placed}
             styleId={styleId}
+            lockedDistributorId={lockedDistributorId}
             styleName={activeStyleName}
             tier={tier}
             total={total}
@@ -2427,6 +2461,50 @@ export default function DesignTool() {
                 {uniqueDoorStyles.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>)}
               </SelectContent>
             </Select>
+
+            {/* Distributor lock: pin the design to the chosen base finish's supply
+                line. While locked, the palette + finish picker stay within that
+                line; member can still change color, but not jump supply lines. */}
+            {lockedDistributorId == null ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 w-full text-xs gap-1.5"
+                disabled={selectedStyleDistributorId == null}
+                onClick={() => {
+                  if (selectedStyleDistributorId == null) {
+                    toast.error("Pick a door style first, then lock it in.");
+                    return;
+                  }
+                  setLockedDistributorId(selectedStyleDistributorId);
+                  toast.success("Supply line locked — added cabinets will match this line. You can still change colors within it.");
+                }}
+              >
+                <Lock className="h-3.5 w-3.5" />
+                Lock supply line to this finish
+              </Button>
+            ) : (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary">
+                  <Lock className="h-3.5 w-3.5" />
+                  Supply line locked
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px]"
+                  onClick={() => {
+                    setLockedDistributorId(null);
+                    toast.success("Unlocked — all supply lines available again.");
+                  }}
+                >
+                  <LockOpen className="h-3 w-3 mr-1" />
+                  Unlock
+                </Button>
+              </div>
+            )}
 
             <Select value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>

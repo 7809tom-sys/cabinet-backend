@@ -60,6 +60,8 @@ interface Props {
   room: RoomData;
   placed: PlacedCabinet[];
   styleId: number | null;
+  // Locked supply line (distributor) for this design, or null when unlocked.
+  lockedDistributorId: number | null;
   styleName: string | null;
   tier: "Wholesale" | "Contractor";
   total: number;
@@ -75,6 +77,7 @@ interface Props {
     room: RoomData;
     placed: PlacedCabinet[];
     styleId: number | null;
+    distributorId?: number | null;
     roomType?: string | null;
   }) => void;
 }
@@ -292,7 +295,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, styleId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, onLoad,
+  room, placed, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const utils = trpc.useUtils();
@@ -354,6 +357,7 @@ export function DesignActions({
       roomData: room,
       placedCabinets: placed,
       selectedStyleId: styleId ?? undefined,
+      selectedDistributorId: lockedDistributorId ?? undefined,
       projectName: proj || undefined,
       roomLabel: rlabel || undefined,
       roomType: roomType || undefined,
@@ -520,6 +524,7 @@ export function DesignActions({
                               room: (d.roomData as RoomData) ?? room,
                               placed: (d.placedCabinets as PlacedCabinet[]) ?? [],
                               styleId: d.selectedStyleId ?? null,
+                              distributorId: (d as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
                               roomType: rType ?? null,
                             });
                             setLoadOpen(false);
