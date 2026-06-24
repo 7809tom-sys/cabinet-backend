@@ -230,3 +230,59 @@ export async function updatePricingSettings(
     await db.update(pricingSettings).set(values).where(eq(pricingSettings.id, rows[0].id));
   }
 }
+
+// ─── Platform fee system (price ladder + order fee stack) ──────────────────────
+import {
+  platformPricingSettings,
+  type PlatformPricingSettingsRow,
+} from "../drizzle/schema";
+import {
+  DEFAULT_PRICING_SETTINGS as DEFAULT_FEE_SETTINGS,
+  type PlatformPricingSettings,
+} from "../shared/pricing";
+
+type FeeSettingKeys =
+  | "wholesaleMarkupBps"
+  | "affiliateMarkupBps"
+  | "retailMarkupBps"
+  | "damageFeeBps"
+  | "techFeeBps"
+  | "techFeeCapCents"
+  | "cardFeeBps";
+
+// Read the single platform-fee-settings row, seeding defaults if empty. Falls
+// back to the in-memory engine defaults when no DB is configured (tests/tooling).
+export async function getPlatformPricingSettings(): Promise<PlatformPricingSettings> {
+  const db = await getDb();
+  if (!db) return { ...DEFAULT_FEE_SETTINGS };
+  const rows = await db.select().from(platformPricingSettings).limit(1);
+  if (rows.length === 0) {
+    await db.insert(platformPricingSettings).values({ ...DEFAULT_FEE_SETTINGS });
+    return { ...DEFAULT_FEE_SETTINGS };
+  }
+  const r = rows[0];
+  return {
+    wholesaleMarkupBps: r.wholesaleMarkupBps,
+    affiliateMarkupBps: r.affiliateMarkupBps,
+    retailMarkupBps: r.retailMarkupBps,
+    damageFeeBps: r.damageFeeBps,
+    techFeeBps: r.techFeeBps,
+    techFeeCapCents: r.techFeeCapCents,
+    cardFeeBps: r.cardFeeBps,
+  };
+}
+
+export async function updatePlatformPricingSettings(
+  patch: Partial<Pick<PlatformPricingSettingsRow, FeeSettingKeys>>,
+  updatedByOpenId?: string,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const rows = await db.select().from(platformPricingSettings).limit(1);
+  const values = { ...patch, updatedByOpenId: updatedByOpenId ?? null };
+  if (rows.length === 0) {
+    await db.insert(platformPricingSettings).values({ ...DEFAULT_FEE_SETTINGS, ...values });
+  } else {
+    await db.update(platformPricingSettings).set(values).where(eq(platformPricingSettings.id, rows[0].id));
+  }
+}

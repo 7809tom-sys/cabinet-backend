@@ -1084,15 +1084,15 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Verified in browser (2026-06-24, L-Shape 10x10 + Aero Obsidian)
 
 ## Phase 41: Cabinet Dealz tiered pricing structure (user spec 2026-06-23)
-- [ ] platform_pricing_settings table (single row): wholesaleMarkupPct, affiliateMarkupPct (default 5%), retailMarkupPct (suggested retail), damageFeePct (default 1%, EVERYONE pays), techFeePct (default 10%), techFeeCapUsd (default $100), cardFeePct (default 4%)
-- [ ] Price ladder derived from base cost: base cost (internal) -> Wholesale (+wholesale%) -> Affiliate (+~5%) -> Suggested Retail (customer-facing fallback)
-- [ ] Damage fee 1% on cabinet subtotal - applied to EVERY order, all tiers
-- [ ] Tech/technology fee 10% capped at $100 per transaction (on cabinet subtotal)
-- [ ] Credit card fee 4% on the FINAL total (cabinets + freight + damage + tech) - CARD payments only
-- [ ] Bank-to-bank (ACH) transfer: if approved through our system, NO 4% card fee
-- [ ] Admin pricing panel to edit all percentages/caps; defaults as above
-- [ ] OWNER-ONLY dual cost: when owner/admin logged in, every cabinet line + bundle BOM shows "My Cost" (base/platform) AND "Your Cost" (affiliate cost) side by side; affiliates/customers never see base cost
-- [ ] shared/pricing fee engine (pure, unit-tested): computes the full fee stack deterministically (damage, tech cap, conditional card fee)
+- [x] platform_pricing_settings table (single row): wholesaleMarkupBps, affiliateMarkupBps (default 5%=500bps), retailMarkupBps, damageFeeBps (default 1%=100bps, EVERYONE pays), techFeeBps (default 10%=1000bps), techFeeCapCents (default $100=10000c), cardFeeBps (default 4%=400bps); migration 0021 applied + seeded id=1
+- [x] Price ladder derived from base cost: priceLadder() compounds base -> Wholesale (+wholesale%) -> Affiliate (+~5%) -> Suggested Retail (customer-facing fallback) in shared/pricing.ts
+- [x] Damage fee 1% on cabinet subtotal - applied to EVERY order, all tiers (computeFeeStack damageFeeCents)
+- [x] Tech/technology fee 10% capped at $100 per transaction on cabinet subtotal (techFeeCents + techFeeCapped flag)
+- [x] Credit card fee 4% on the FINAL total (cabinets + freight + damage + tech) - CARD payments only (cardFeeCents on preCardTotalCents)
+- [x] Bank-to-bank (ACH) transfer: approved ACH waives the 4% card fee (achApproved -> cardFeeCents=0); unapproved ACH still pays until approved
+- [x] Admin pricing panel to edit all percentages/caps; defaults as above (FeeSystemAdmin card in the Pricing & Margins tab, with live ladder + card/ACH order preview); pricing.adminGetFeeSettings/adminUpdateFeeSettings procedures
+- [x] shared/pricing fee engine (pure, unit-tested): computes the full fee stack deterministically (damage, tech cap, conditional card fee); 13 tests in shared/pricing.test.ts; 645 total pass; tsc clean; checkpoint
+- [ ] OWNER-ONLY dual cost: when owner/admin logged in, every cabinet line + bundle BOM shows "My Cost" (base/platform) AND "Your Cost" (affiliate cost) side by side; affiliates/customers never see base cost (deferred to the BOM/quote UI pass; engine + ladder ready)
 
 ## Phase 42: Affiliate white-label + markup section (user request 2026-06-23 - ~5 new affiliates signing up)
 - [ ] Affiliate dashboard "My Catalog / Branding" section: browse ALL cabinets organized by door style
@@ -1490,3 +1490,12 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Block or warn when a base/tall cabinet overlaps a cased opening or door (baseOpeningOverlaps + blocksFloorRun: door & opening block the floor run, window does not); wired into conflictUids in DesignTool
 - [x] Render the opening as a gap: PlanCanvas draws cased opening with dashed casing + light fill + "OPEN" label; ElevationView renders it as a full-height open gap (light recessed gradient, dashed casing, no slab/glazing)
 - [x] Tests for overlap detection + presets (7 new tests in design.test.ts: blocksFloorRun, base crossing flagged, wall not flagged, window not blocking base, clear cabinet not flagged, preset shape, makeOpening kind); 615 tests pass; tsc clean; checkpoint
+
+
+## Phase 45: Designer role — CRM-only admin access (user request 2026-06-24)
+- [ ] Add "designer" to the user role enum (drizzle schema + migration via webdev_execute_sql)
+- [ ] A designer can log into the admin backend but ONLY sees the CRM tab — no catalog, pricing/margins, distributors, fee system, orders, customers, etc.
+- [ ] Server: a designerOrAdminProcedure (or role check) so CRM procedures accept admin + designer, while all other admin procedures stay admin-only
+- [ ] Admin.tsx: when role === "designer", render only the CRM tab (hide every other TabsTrigger + panel; default the active tab to CRM)
+- [ ] Route guard: designer landing on /admin goes straight to CRM; blocked from other admin sub-views
+- [ ] Tests for the role gate (designer allowed on CRM, forbidden elsewhere; admin allowed everywhere); verify; checkpoint

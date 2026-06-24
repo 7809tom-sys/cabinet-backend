@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, and, like, inArray, isNotNull, sql, desc, asc } from "drizzle-orm";
 import { publicProcedure, adminProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
-import { getDb, notInConflict, getPricingSettings, updatePricingSettings } from "../db";
+import { getDb, notInConflict, getPricingSettings, updatePricingSettings, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import {
   cabinets,
   distributors,
@@ -733,6 +733,30 @@ export const pricingRouter = router({
     .mutation(async ({ ctx, input }) => {
       await updatePricingSettings(input, ctx.user?.openId);
       return await getPricingSettings();
+    }),
+
+  // ─── Platform fee system (price ladder + order fee stack) ────────────────
+  // Single source of truth for the Cabinet Dealz fee stack: ladder markups +
+  // damage / tech / card fees. All values basis points except techFeeCapCents.
+  adminGetFeeSettings: adminProcedure.query(async () => {
+    return await getPlatformPricingSettings();
+  }),
+
+  adminUpdateFeeSettings: adminProcedure
+    .input(
+      z.object({
+        wholesaleMarkupBps: z.number().int().min(0).max(1000000).optional(),
+        affiliateMarkupBps: z.number().int().min(0).max(1000000).optional(),
+        retailMarkupBps: z.number().int().min(0).max(1000000).optional(),
+        damageFeeBps: z.number().int().min(0).max(100000).optional(),
+        techFeeBps: z.number().int().min(0).max(100000).optional(),
+        techFeeCapCents: z.number().int().min(0).max(100000000).optional(),
+        cardFeeBps: z.number().int().min(0).max(100000).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await updatePlatformPricingSettings(input, ctx.user?.openId);
+      return await getPlatformPricingSettings();
     }),
 
   // Per-distributor markup override. Reuses the distributor.markupPercent lever

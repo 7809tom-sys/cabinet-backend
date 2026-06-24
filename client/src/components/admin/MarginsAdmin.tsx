@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import FeeSystemAdmin from "./FeeSystemAdmin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -90,6 +91,7 @@ export default function MarginsAdmin() {
 
   return (
     <div className="space-y-6">
+      <FeeSystemAdmin />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

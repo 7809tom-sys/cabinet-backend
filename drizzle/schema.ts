@@ -629,3 +629,26 @@ export const pricingSettings = mysqlTable("pricing_settings", {
 
 export type PricingSettings = typeof pricingSettings.$inferSelect;
 export type InsertPricingSettings = typeof pricingSettings.$inferInsert;
+
+// ─── Platform fee system (price ladder + order fee stack) ──────────────────────
+// Single-row control center for the Cabinet Dealz fee stack — distinct from
+// pricing_settings (which holds per-tier multipliers). This drives shared/pricing.ts:
+// the price ladder markups + the damage / tech / card fees applied to an order.
+// All percentages are basis points (500 = 5%); caps are whole cents.
+export const platformPricingSettings = mysqlTable("platform_pricing_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  // Price ladder markups (compound up from internal base cost).
+  wholesaleMarkupBps: int("wholesaleMarkupBps").default(1500).notNull(), // base → wholesale
+  affiliateMarkupBps: int("affiliateMarkupBps").default(500).notNull(), // wholesale → affiliate (~5%)
+  retailMarkupBps: int("retailMarkupBps").default(2500).notNull(), // affiliate → suggested retail
+  // Order fee stack.
+  damageFeeBps: int("damageFeeBps").default(100).notNull(), // 1% of cabinet subtotal, every order
+  techFeeBps: int("techFeeBps").default(1000).notNull(), // 10% of cabinet subtotal
+  techFeeCapCents: int("techFeeCapCents").default(10000).notNull(), // capped at $100
+  cardFeeBps: int("cardFeeBps").default(400).notNull(), // 4% on final total, card only (ACH waives)
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedByOpenId: varchar("updatedByOpenId", { length: 64 }),
+});
+
+export type PlatformPricingSettingsRow = typeof platformPricingSettings.$inferSelect;
+export type InsertPlatformPricingSettings = typeof platformPricingSettings.$inferInsert;
