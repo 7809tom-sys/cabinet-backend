@@ -14,7 +14,9 @@ interface Props {
 // in addition to dragging the resize handle on the canvas. Doors keep a fixed
 // 80" tall standard, so only windows expose a height field.
 export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) {
-  const isWindow = opening.kind === "window";
+  // Windows and cased openings expose Height + Sill (sizeable like a doorway);
+  // doors stay a standard 80" tall so only their width is editable.
+  const showHeightSill = opening.kind === "window" || opening.kind === "opening";
   const maxW = Math.round(wallLength(opening.side, room));
 
   // Local text state so the user can clear/retype without the value snapping
@@ -82,7 +84,7 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
         />
         <span className="text-foreground/60">in</span>
       </label>
-      {isWindow && (
+      {showHeightSill && (
         <>
           <label className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
             Height

@@ -21,6 +21,7 @@ import {
   isStacker,
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedFootprint, normalizeLCornerDepths,
+  baseOpeningOverlaps, blocksFloorRun,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
@@ -222,6 +223,71 @@ describe("wall openings (doors & windows)", () => {
     const door = OPENINGS.find((o) => o.kind === "door")!;
     expect(win.sill).toBeGreaterThan(0);
     expect(door.sill).toBe(0);
+  });
+});
+
+describe("cased openings (pass-through / doorway, no door)", () => {
+  const room: RoomData = { width: 120, depth: 96 };
+
+  it("OPENINGS includes at least one cased 'opening' kind with floor-level sill", () => {
+    const cased = OPENINGS.filter((o) => o.kind === "opening");
+    expect(cased.length).toBeGreaterThanOrEqual(1);
+    const floorCased = cased.find((o) => o.sill === 0);
+    expect(floorCased).toBeTruthy();
+    // a cased opening is a full-height pass-through: tall and reasonably wide
+    expect(floorCased!.height).toBeGreaterThanOrEqual(78);
+    expect(floorCased!.width).toBeGreaterThanOrEqual(30);
+  });
+
+  it("makeOpening preserves the 'opening' kind and its dimensions", () => {
+    const def = OPENINGS.find((o) => o.kind === "opening" && o.sill === 0)!;
+    const o = makeOpening(def, "bottom", room);
+    expect(o.kind).toBe("opening");
+    expect(o.height).toBe(def.height);
+    expect(o.sill).toBe(0);
+  });
+
+  it("blocksFloorRun: doors and cased openings block the floor run, windows do not", () => {
+    expect(blocksFloorRun("door")).toBe(true);
+    expect(blocksFloorRun("opening")).toBe(true);
+    expect(blocksFloorRun("window")).toBe(false);
+  });
+
+  it("flags a base cabinet that crosses a cased opening on the same wall", () => {
+    // Base cabinet on the bottom wall, run-axis [40, 64].
+    const base = cab({ placement: "base", x: 40, y: room.depth - 24, width: 24, depth: 24 });
+    const opening: WallOpening = {
+      uid: "op1", kind: "opening", side: "bottom", offset: 50, width: 48, height: 80, sill: 0, label: "Cased Opening",
+    };
+    const bad = baseOpeningOverlaps([base], [opening], room);
+    expect(bad.has(base.uid)).toBe(true);
+  });
+
+  it("does NOT flag a wall cabinet hung above a cased opening", () => {
+    const wall = cab({ uid: "w1", placement: "wall", x: 50, y: room.depth - 12, width: 24, depth: 12 });
+    const opening: WallOpening = {
+      uid: "op2", kind: "opening", side: "bottom", offset: 50, width: 48, height: 80, sill: 0, label: "Cased Opening",
+    };
+    const bad = baseOpeningOverlaps([wall], [opening], room);
+    expect(bad.has("w1")).toBe(false);
+  });
+
+  it("does NOT flag a base cabinet sitting under a window (windows don't block the floor)", () => {
+    const base = cab({ uid: "b1", placement: "base", x: 40, y: room.depth - 24, width: 24, depth: 24 });
+    const win: WallOpening = {
+      uid: "win1", kind: "window", side: "bottom", offset: 40, width: 36, height: 36, sill: 42, label: "Window",
+    };
+    const bad = baseOpeningOverlaps([base], [win], room);
+    expect(bad.has("b1")).toBe(false);
+  });
+
+  it("does NOT flag a base cabinet clear of the opening (no run-axis overlap)", () => {
+    const base = cab({ uid: "b2", placement: "base", x: 0, y: room.depth - 24, width: 24, depth: 24 });
+    const opening: WallOpening = {
+      uid: "op3", kind: "opening", side: "bottom", offset: 60, width: 48, height: 80, sill: 0, label: "Cased Opening",
+    };
+    const bad = baseOpeningOverlaps([base], [opening], room);
+    expect(bad.has("b2")).toBe(false);
   });
 });
 

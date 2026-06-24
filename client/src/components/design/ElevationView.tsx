@@ -349,6 +349,9 @@ export function ElevationView({
         {/* Doors & windows on this wall, drawn at their sill height */}
         {viewOpenings.map((o) => {
           const isDoor = o.kind === "door";
+          const isOpening = o.kind === "opening";
+          // A cased opening is a hole in the wall: render it as an open gap
+          // (light recessed fill, dashed casing) with no door slab or glazing.
           return (
             <div
               key={`ev-${o.uid}`}
@@ -360,21 +363,23 @@ export function ElevationView({
                 height: o.height * ppi,
                 background: isDoor
                   ? "linear-gradient(to bottom, #b07f4d 0%, #8a5f33 100%)"
+                  : isOpening
+                  ? "linear-gradient(to bottom, #f3f4f6 0%, #e2e5e9 100%)"
                   : "linear-gradient(to bottom, rgba(160,205,235,0.85) 0%, rgba(126,180,214,0.85) 100%)",
-                border: "2px solid #1a2744",
+                border: isOpening ? "2px dashed #5a6770" : "2px solid #1a2744",
                 borderRadius: 2,
                 zIndex: 5,
               }}
               title={`${o.label} (${Math.round(o.width)}" × ${Math.round(o.height)}")`}
             >
-              {!isDoor && (
+              {o.kind === "window" && (
                 <div className="absolute inset-1 border border-[#1a2744]/40">
                   <div className="absolute left-1/2 top-0 bottom-0 w-px bg-[#1a2744]/40" />
                   <div className="absolute top-1/2 left-0 right-0 h-px bg-[#1a2744]/40" />
                 </div>
               )}
-              <span className="relative text-[8px] font-bold text-white drop-shadow">
-                {isDoor ? "DOOR" : "WINDOW"}
+              <span className={`relative text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}>
+                {isDoor ? "DOOR" : isOpening ? "OPEN" : "WINDOW"}
               </span>
             </div>
           );

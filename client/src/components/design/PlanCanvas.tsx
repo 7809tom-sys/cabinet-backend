@@ -639,6 +639,7 @@ export function PlanCanvas({
           const horizontal = o.side === "top" || o.side === "bottom";
           const isSel = o.uid === selectedOpeningUid;
           const isDoor = o.kind === "door";
+          const isOpening = o.kind === "opening";
           // Wall band thickness in px (how far the opening graphic extends into the room).
           const band = 10;
           const lenPx = o.width * ppi;
@@ -665,18 +666,22 @@ export function PlanCanvas({
               className={`group absolute z-[15] flex items-center justify-center ${onOpeningChange ? "cursor-move" : ""}`}
               style={{
                 ...style,
-                background: isDoor ? "#9b6a3c" : "#7fb4d6",
-                border: isSel ? "2px solid #1a2744" : "1px solid rgba(0,0,0,0.35)",
+                background: isDoor ? "#9b6a3c" : isOpening ? "#e8eaed" : "#7fb4d6",
+                border: isSel
+                  ? "2px solid #1a2744"
+                  : isOpening
+                  ? "1px dashed rgba(90,103,112,0.85)"
+                  : "1px solid rgba(0,0,0,0.35)",
                 boxShadow: isSel ? "0 0 0 3px rgba(212,167,90,0.5)" : undefined,
                 borderRadius: 2,
               }}
               title={`${o.label} (${Math.round(o.width)}" wide) — drag to move`}
             >
               <span
-                className="pointer-events-none whitespace-nowrap text-[8px] font-bold text-white drop-shadow"
+                className={`pointer-events-none whitespace-nowrap text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}
                 style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
               >
-                {isDoor ? "DOOR" : "WIN"} {Math.round(o.width)}"
+                {isDoor ? "DOOR" : isOpening ? "OPEN" : "WIN"} {Math.round(o.width)}"
               </span>
               {/* width-resize handle at the far end */}
               {onOpeningChange && (

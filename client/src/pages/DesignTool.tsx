@@ -44,7 +44,7 @@ import {
   addOnRecommendations,
   freeSegmentsOnWall, wallPlacementAt, cabinetWall,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
-  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
+  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox,
 } from "@/lib/design";
 import { hickorySkinSuggestions, type HickorySkinSuggestion } from "@/lib/hickorySkins";
@@ -735,6 +735,11 @@ export default function DesignTool() {
     () => wallOpeningClearanceViolations(placed, openings, room),
     [placed, openings, room]
   );
+  // Base/tall cabinets must not sit ACROSS a door or cased opening (pass-through).
+  const baseOpeningUids = useMemo(
+    () => baseOpeningOverlaps(placed, openings, room),
+    [placed, openings, room]
+  );
   // Blind corner manufacturer pull spec: missing spec OR installed pull out of
   // the [min,max] range. Missing spec must be resolved by the administrator.
   const blindSpecIssues = useMemo(() => blindCornerSpecViolations(placed), [placed]);
@@ -747,10 +752,12 @@ export default function DesignTool() {
     rangeClearanceUids.forEach((uid: string) => set.add(uid));
     // Wall cabinet too close to a door/window opening.
     wallOpeningUids.forEach((uid: string) => set.add(uid));
+    // Base/tall cabinet sitting across a doorway or cased opening.
+    baseOpeningUids.forEach((uid: string) => set.add(uid));
     // Blind corner pull spec issues (missing spec or out-of-range).
     blindSpecIssues.forEach((_issue, uid) => set.add(uid));
     return set;
-  }, [placed, rangeClearanceUids, wallOpeningUids, blindSpecIssues]);
+  }, [placed, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues]);
   const hasConflicts = conflictUids.size > 0;
   // Blind corner violations specifically, for a tailored warning message.
   const blindViolationUids = useMemo(() => blindCornerViolations(placed), [placed]);
@@ -2168,8 +2175,8 @@ export default function DesignTool() {
                   onClick={() => addOpening(o)}
                   className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                 >
-                  <div className={`h-9 w-9 rounded border flex items-center justify-center shrink-0 ${o.kind === "door" ? "bg-[#9b6a3c]/30 border-[#9b6a3c]/50" : "bg-[#7fb4d6]/30 border-[#7fb4d6]/60"}`}>
-                    {o.kind === "door" ? <PanelTop className="h-4 w-4 text-[#8a5f33]" /> : <Square className="h-4 w-4 text-[#3f7da6]" />}
+                  <div className={`h-9 w-9 rounded border flex items-center justify-center shrink-0 ${o.kind === "door" ? "bg-[#9b6a3c]/30 border-[#9b6a3c]/50" : o.kind === "opening" ? "bg-[#8a8f98]/20 border-dashed border-[#8a8f98]/70" : "bg-[#7fb4d6]/30 border-[#7fb4d6]/60"}`}>
+                    {o.kind === "door" ? <PanelTop className="h-4 w-4 text-[#8a5f33]" /> : o.kind === "opening" ? <DoorOpen className="h-4 w-4 text-[#5b6770]" /> : <Square className="h-4 w-4 text-[#3f7da6]" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-semibold text-foreground truncate">{o.label}</div>

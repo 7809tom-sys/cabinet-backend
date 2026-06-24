@@ -775,7 +775,17 @@ export function formatInches(inches: number): string {
 // elevation, sillHeight is inches from floor to the bottom of the opening and
 // height is the vertical size. Doors typically sit on the floor (sill 0).
 export type WallSide = "top" | "bottom" | "left" | "right";
-export type OpeningKind = "door" | "window";
+// "opening" = a cased opening / pass-through (a doorway WITH NO DOOR). Like a
+// door it breaks the floor run (no base cabinet can cross it) and renders as a
+// full-height open gap in the elevation; unlike a window it sits on the floor.
+export type OpeningKind = "door" | "window" | "opening";
+
+// Openings that break the BASE (floor) run: a person/traffic passes through, so
+// no base cabinet may sit across them. Windows do NOT (a base cabinet can sit
+// under a window). Used by base-overlap detection.
+export function blocksFloorRun(kind: OpeningKind): boolean {
+  return kind === "door" || kind === "opening";
+}
 
 export interface OpeningDef {
   key: string;
@@ -793,6 +803,11 @@ export const OPENINGS: OpeningDef[] = [
   { key: "window-std", kind: "window", label: 'Window 36"', width: 36, height: 36, sill: 42 },
   { key: "window-wide", kind: "window", label: 'Window 60"', width: 60, height: 36, sill: 42 },
   { key: "window-over-sink", kind: "window", label: 'Over-Sink Window 30"', width: 30, height: 30, sill: 44 },
+  // Cased openings / pass-throughs (no door). Width is fully adjustable after
+  // placing — measure with a tape and type the exact inches.
+  { key: "cased-opening", kind: "opening", label: 'Cased Opening 36"', width: 36, height: 80, sill: 0 },
+  { key: "cased-opening-wide", kind: "opening", label: 'Wide Opening 60"', width: 60, height: 84, sill: 0 },
+  { key: "pass-through", kind: "opening", label: 'Pass-Through 48"', width: 48, height: 36, sill: 40 },
 ];
 
 export interface WallOpening {
@@ -1616,6 +1631,42 @@ export function wallOpeningClearanceViolations(
       // Negative gap means they overlap; positive means a clear distance.
       const gap = Math.max(oStart - cEnd, cStart - oEnd);
       if (gap < clearance - 0.01) {
+        bad.add(p.uid);
+        break;
+      }
+    }
+  }
+  return bad;
+}
+
+// Base (and tall/appliance) cabinets must not sit ACROSS a floor-blocking
+// opening (a door or a cased pass-through). Returns the uids of floor-layer
+// cabinets whose run-axis extent overlaps any door/opening on the SAME wall.
+// Windows are ignored (a base cabinet can sit under a window). Pure +
+// deterministic so it can be unit-tested.
+export function baseOpeningOverlaps(
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  room: RoomData
+): Set<string> {
+  const bad = new Set<string>();
+  const floorOpenings = openings.filter((o) => blocksFloorRun(o.kind));
+  if (floorOpenings.length === 0) return bad;
+  for (const p of placed) {
+    // Floor layer = base + appliance; tall spans the floor too.
+    if (p.placement === "wall") continue;
+    const side = cabinetWall(p, room);
+    const horizontal = side === "top" || side === "bottom";
+    const ps = rotatedSize(p);
+    const cStart = horizontal ? p.x : p.y;
+    const cEnd = cStart + (horizontal ? ps.w : ps.d);
+    for (const o of floorOpenings) {
+      if (o.side !== side) continue;
+      const oStart = o.offset;
+      const oEnd = o.offset + o.width;
+      // Any positive overlap along the run axis is a conflict.
+      const overlap = Math.min(cEnd, oEnd) - Math.max(cStart, oStart);
+      if (overlap > 0.01) {
         bad.add(p.uid);
         break;
       }

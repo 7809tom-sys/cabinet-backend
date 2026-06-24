@@ -1483,8 +1483,8 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Verified live: white family "Blanc Core" (SW 7006 Extra White) renders a light/white color-accurate hero + swatch, no cherry
 
 ## Designer: Cased Opening / doorway / window tool (user request 2026-06-24)
-- [ ] Data model: per-wall openings with type (cased opening | door | window), width (inches, tape-measured / fully adjustable), offset-from-corner, and height/sill (for Front View). Persist with the design (draft + saved).
-- [ ] Place by selecting a wall, then entering width + offset (and height for door/window); fully adjustable sizes
-- [ ] Block or warn when a cabinet overlaps a cased opening or door (base cabinets can't cross a doorway); window blocks wall cabinets only
-- [ ] Render the opening as a gap in the top-down plan and in the Front View elevation (door = full-height gap, window = sill+head band, cased opening = full-height open)
-- [ ] Tests for overlap detection + persistence; verify in the designer; checkpoint
+- [x] Data model: added "opening" to OpeningKind (door | window | opening); 3 cased-opening presets in OPENINGS (Cased 36", Wide 60", Pass-Through 48"); width/offset/height/sill fully adjustable; persisted with existing openings draft + saved-design plumbing
+- [x] Place by selecting a wall, then entering width + offset; OpeningSizeEditor now exposes Height + Sill for the "opening" kind (like windows); width fully adjustable after placement
+- [x] Block or warn when a base/tall cabinet overlaps a cased opening or door (baseOpeningOverlaps + blocksFloorRun: door & opening block the floor run, window does not); wired into conflictUids in DesignTool
+- [x] Render the opening as a gap: PlanCanvas draws cased opening with dashed casing + light fill + "OPEN" label; ElevationView renders it as a full-height open gap (light recessed gradient, dashed casing, no slab/glazing)
+- [x] Tests for overlap detection + presets (7 new tests in design.test.ts: blocksFloorRun, base crossing flagged, wall not flagged, window not blocking base, clear cabinet not flagged, preset shape, makeOpening kind); 615 tests pass; tsc clean; checkpoint
