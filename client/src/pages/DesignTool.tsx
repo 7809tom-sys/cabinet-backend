@@ -53,6 +53,7 @@ import {
   DEFAULT_HARDWARE_STYLE_ID,
   HARDWARE_STYLES,
   hardwareSchedule,
+  hardwarePlacementNote,
 } from "@/lib/hardware";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
 import {
@@ -869,9 +870,20 @@ export default function DesignTool() {
         label: `HARDWARE (${hwSchedule.styleLabel})`,
         detail: `${parts.join(", ")} — ${hwSchedule.total} pieces (supply separately)`,
       });
+      // Placement spec (framed vs slab) — installer guidance, also fed to the AI
+      // kitchen-preview prompt so renders place hardware realistically.
+      const placementDoorStyle =
+        (activeStyle as { doorStyle?: string | null } | null)?.doorStyle ?? activeStyleName;
+      const placementNote = hardwarePlacementNote(hwSchedule.styleId, placementDoorStyle);
+      if (placementNote) {
+        out.push({
+          label: "HARDWARE PLACEMENT",
+          detail: placementNote.replace(/^Hardware placement — /, ""),
+        });
+      }
     }
     return out;
-  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, sinks, hwSchedule]);
+  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, sinks, hwSchedule, activeStyle, activeStyleName]);
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 

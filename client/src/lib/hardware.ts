@@ -226,3 +226,89 @@ export function hardwareScheduleNote(schedule: HardwareSchedule): string | null 
   if (schedule.cupPulls > 0) parts.push(`${schedule.cupPulls} cup pull${schedule.cupPulls === 1 ? "" : "s"}`);
   return `Hardware (${schedule.styleLabel}): ${parts.join(", ")} — ${schedule.total} pieces total`;
 }
+
+// ─── Hardware placement spec (framed vs slab doors) ──────────────────────
+// Where the knob/pull physically sits on a door or drawer face. This drives BOTH
+// the AI kitchen-preview rendering prompt (so generated images place hardware
+// realistically) and the installer note on the build sheet.
+//
+// Convention captured from the shop:
+//   FRAMED doors (Shaker, Slim Shaker, raised/recessed panel — anything with a
+//   stile/rail frame around a center panel):
+//     • Horizontal: center the hardware's center point in the middle of the ~3"
+//       vertical stile on the latch (handle) side — NOT on the flat center panel.
+//     • Vertical, BASE doors: 2.5–3" UP from the inside edge of the bottom rail.
+//     • Vertical, WALL/UPPER doors: 2.5–3" DOWN from the inside edge of the top
+//       rail (mirror of the base rule, so pairs read symmetrically across a run).
+//   SLAB / flat doors (no frame): inset ~1.5" from the latch-side edge and ~2.5–3"
+//     from the near horizontal edge (bottom for base, top for upper).
+//   DRAWERS: pull centered both horizontally and vertically on the drawer face.
+// All distances are to the hardware's CENTER POINT.
+
+export type DoorConstruction = "framed" | "slab";
+
+/** Default stile width (inches) used to center hardware on framed doors. */
+export const FRAMED_STILE_WIDTH_IN = 3;
+/** Hardware center offset from the near rail (inches), as a range. */
+export const RAIL_OFFSET_MIN_IN = 2.5;
+export const RAIL_OFFSET_MAX_IN = 3;
+
+/**
+ * Classify a door style string as framed vs slab. Shaker, slim shaker, and any
+ * raised/recessed/panel door is framed; "slab", "flat", or "euro" is slab.
+ * Defaults to framed (the most common case in this catalog).
+ */
+export function doorConstruction(doorStyle: string | null | undefined): DoorConstruction {
+  const s = (doorStyle ?? "").toLowerCase();
+  if (/\bslab\b|\bflat\b|\beuro\b|full overlay flat/.test(s)) return "slab";
+  return "framed";
+}
+
+export interface HardwarePlacementSpec {
+  construction: DoorConstruction;
+  /** Plain-English placement instruction for installers + AI render prompts. */
+  doorRule: string;
+  drawerRule: string;
+}
+
+/**
+ * Produce the placement spec for a given door style. Pure + deterministic.
+ */
+export function hardwarePlacementSpec(
+  doorStyle: string | null | undefined,
+): HardwarePlacementSpec {
+  const construction = doorConstruction(doorStyle);
+  const offset = `${RAIL_OFFSET_MIN_IN}–${RAIL_OFFSET_MAX_IN}"`;
+  if (construction === "framed") {
+    return {
+      construction,
+      doorRule:
+        `Framed door: center the knob/pull on the ~${FRAMED_STILE_WIDTH_IN}" latch-side stile ` +
+        `(centered within the frame, not on the center panel). Base doors: ${offset} up from the ` +
+        `bottom rail; wall/upper doors: ${offset} down from the top rail.`,
+      drawerRule: "Drawer: pull centered horizontally and vertically on the drawer face.",
+    };
+  }
+  return {
+    construction,
+    doorRule:
+      `Slab door: inset the knob/pull ~1.5" from the latch-side edge and ${offset} from the ` +
+      `near horizontal edge (bottom for base, top for upper).`,
+    drawerRule: "Drawer: pull centered horizontally and vertically on the drawer face.",
+  };
+}
+
+/**
+ * Build the build-sheet / render-prompt placement note for a layout, given its
+ * hardware style and door style. Returns null when there is no hardware (style
+ * "none") so callers can skip it.
+ */
+export function hardwarePlacementNote(
+  styleId: HardwareStyleId | null | undefined,
+  doorStyle: string | null | undefined,
+): string | null {
+  const style = hardwareStyle(styleId);
+  if (style.id === "none") return null;
+  const spec = hardwarePlacementSpec(doorStyle);
+  return `Hardware placement — ${spec.doorRule} ${spec.drawerRule}`;
+}

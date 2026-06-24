@@ -8,6 +8,9 @@ import {
   hardwareForCabinet,
   hardwareSchedule,
   hardwareScheduleNote,
+  doorConstruction,
+  hardwarePlacementSpec,
+  hardwarePlacementNote,
 } from "./hardware";
 import type { PlacedCabinet } from "./design";
 
@@ -140,5 +143,41 @@ describe("hardware schedule aggregation", () => {
     expect(note).toContain("1 knob");
     expect(note).toContain("3 cup pulls");
     expect(note).toContain("4 pieces total");
+  });
+});
+
+describe("hardware placement spec", () => {
+  it("classifies framed vs slab door styles", () => {
+    expect(doorConstruction("Shaker")).toBe("framed");
+    expect(doorConstruction("Slim Shaker")).toBe("framed");
+    expect(doorConstruction("Raised Panel")).toBe("framed");
+    expect(doorConstruction(null)).toBe("framed"); // default
+    expect(doorConstruction("Slab")).toBe("slab");
+    expect(doorConstruction("Flat Panel")).toBe("slab");
+    expect(doorConstruction("Euro")).toBe("slab");
+  });
+
+  it("framed spec centers on the stile and offsets from the rail", () => {
+    const spec = hardwarePlacementSpec("Shaker");
+    expect(spec.construction).toBe("framed");
+    expect(spec.doorRule).toMatch(/stile/i);
+    expect(spec.doorRule).toMatch(/2\.5–3"/);
+    expect(spec.doorRule).toMatch(/bottom rail/i);
+    expect(spec.doorRule).toMatch(/top rail/i);
+    expect(spec.drawerRule).toMatch(/centered/i);
+  });
+
+  it("slab spec insets from the edges", () => {
+    const spec = hardwarePlacementSpec("Slab");
+    expect(spec.construction).toBe("slab");
+    expect(spec.doorRule).toMatch(/inset/i);
+    expect(spec.doorRule).toMatch(/edge/i);
+  });
+
+  it("placement note is null when no hardware, present otherwise", () => {
+    expect(hardwarePlacementNote("none", "Shaker")).toBeNull();
+    const note = hardwarePlacementNote("knob", "Shaker");
+    expect(note).toMatch(/Hardware placement/);
+    expect(note).toMatch(/stile/i);
   });
 });
