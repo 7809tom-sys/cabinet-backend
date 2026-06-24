@@ -335,7 +335,7 @@
 - [ ] Present recommendation for user approval BEFORE changing live pricing
 
 ## Phase 8 (planned, per user preferences): Spanish-language storefront + CRM boards
-- [ ] Spanish-language storefront option (prioritize Spanish-speaking customers) — i18n toggle on /store/:slug
+- [x] Spanish-language storefront option (prioritize Spanish-speaking customers) — i18n toggle on /store/:slug. DONE (superseded by Phase 9): useStorefrontLang (lib/storefrontI18n) persists the choice; EN/ES LangToggle button (Languages icon) in every storefront header; lang threads into StorefrontShop + all templates; full ES dictionary live in Storefront.tsx.
 - [x] Admin CRM task/force board for sales (kanban New->Contacted->Qualified->Quoted + Won/Lost closed lane); drag-to-move, deal drawer w/ activity timeline, stat chips, Import Leads (pro apps + order requests), New Deal dialog
 - [x] Affiliate CRM board inside the affiliate dashboard (per-affiliate scoped pipeline, same CrmBoard component; affiliate sees only their own deals + their referred order requests as importable leads)
 - [x] CRM bilingual EN/ES labels + per-deal customer-language flag (supports Spanish-speaking customers); crm_deals + crm_activities tables; role-aware scoping (admin=house, partner=own affiliate); 193 tests pass; browser-verified
@@ -1085,7 +1085,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Admin pricing panel to edit all percentages/caps; defaults as above (FeeSystemAdmin card in the Pricing & Margins tab, with live ladder + card/ACH order preview); pricing.adminGetFeeSettings/adminUpdateFeeSettings procedures
 - [x] shared/pricing fee engine (pure, unit-tested): computes the full fee stack deterministically (damage, tech cap, conditional card fee); 13 tests in shared/pricing.test.ts; 645 total pass; tsc clean; checkpoint
 - [x] OWNER-ONLY dual cost (cabinet detail): ownerCostBreakdown() helper (My Cost = wholesale floor, Sells-At = viewer tier, Margin $ + %); admin-only "Owner view" row on the CabinetDetail PriceCard (gated on user.role==="admin", never rendered for affiliates/customers); 6 tests in shared/pricingTier.test.ts; 653 total pass; tsc clean; checkpoint
-- [ ] OWNER-ONLY dual cost (remaining surfaces): extend the same My-Cost/Margin row to the bundle/BOM build sheet + quote/order review (helper is ready; just needs wiring where those line items render)
+- [x] OWNER-ONLY dual cost (order/quote review surface): orders.priceLines now also returns a per-line `myCost` (wholesale floor) but ONLY when ctx.user.role === "admin" (null for anonymous/non-admin, so base cost never leaves the server). OrderReview rolls these up into an admin-only "Owner view" box (My cost / Gross margin $ / Margin %) under the estimated total, gated on user.role === "admin" and only shown when at least one priced line has cost. New gating test in server/orders.test.ts (anon+user get null, admin gets a positive cost ≤ sell price). tsc clean.
 - [x] SECURITY: pricing.stylesForCabinet now gates price columns server-side via visiblePricesForViewer(row, viewerTier, isAdmin) — admin sees all; wholesale pro sees all trade columns; contractor loses wholesale/base; homeowner/guest gets ONLY homeowner + list refs (wholesale & contractor nulled before leaving the server). 5 tests in shared/pricingTier.test.ts; 658 total pass; tsc clean; checkpoint
 
 ## Phase 42: Affiliate white-label + markup section (user request 2026-06-23 - ~5 new affiliates signing up)

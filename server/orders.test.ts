@@ -65,6 +65,32 @@ describe("orders.touchUpKit", () => {
     expect(row?.unitPrice).not.toBeNull();
     expect(row!.unitPrice!).toBeGreaterThan(0);
   });
+
+  it("returns owner-only myCost (wholesale floor) ONLY to admins", async () => {
+    const pub = appRouter.createCaller(publicCtx());
+    const kit = await pub.orders.touchUpKit();
+    expect(kit).not.toBeNull();
+    const styles = await pub.orders.stylesForCabinets({ cabinetIds: [kit!.id] });
+    expect(styles.length).toBeGreaterThan(0);
+    const styleId = styles[0].styleId;
+
+    // Anonymous / non-admin: myCost must be null (base cost never leaves the server).
+    const anon = await pub.orders.priceLines({ cabinetIds: [kit!.id], styleId, tier: "Contractor" });
+    expect(anon.prices[0]?.myCost ?? null).toBeNull();
+
+    const userOnly = appRouter.createCaller(userCtx("user"));
+    const asUser = await userOnly.orders.priceLines({ cabinetIds: [kit!.id], styleId, tier: "Contractor" });
+    expect(asUser.prices[0]?.myCost ?? null).toBeNull();
+
+    // Admin: myCost present and positive (wholesale floor).
+    const adminCaller = appRouter.createCaller(userCtx("admin"));
+    const asAdmin = await adminCaller.orders.priceLines({ cabinetIds: [kit!.id], styleId, tier: "Contractor" });
+    const arow = asAdmin.prices.find((p) => p.cabinetId === kit!.id);
+    expect(arow?.myCost).not.toBeNull();
+    expect(arow!.myCost!).toBeGreaterThan(0);
+    // The wholesale floor must not exceed the contractor sell price.
+    expect(arow!.myCost!).toBeLessThanOrEqual(arow!.unitPrice!);
+  });
 });
 
 describe("orders.recommendAddOns", () => {

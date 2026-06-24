@@ -18,7 +18,7 @@ import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from "@/components/ui/tabs";
 import {
-  CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil,
+  CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil, Lock,
 } from "lucide-react";
 import { CabinetImage } from "@/components/CabinetImage";
 
@@ -374,17 +374,32 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
     (priceQuery.data?.prices ?? []).forEach((p) => m.set(p.cabinetId, p.unitPrice));
     return m;
   }, [priceQuery.data]);
+  // Owner-only wholesale-floor cost per cabinet (server returns null for non-admins).
+  const costMap = useMemo(() => {
+    const m = new Map<number, number | null>();
+    (priceQuery.data?.prices ?? []).forEach((p) => m.set(p.cabinetId, p.myCost));
+    return m;
+  }, [priceQuery.data]);
 
   const pricedLines = useMemo(() => {
     return lines.map((l) => {
       const unit =
         l.matched && l.cabinetId != null ? priceMap.get(l.cabinetId) ?? null : null;
       const linePrice = unit != null ? Number((unit * l.qty).toFixed(2)) : null;
-      return { ...l, unitPrice: unit, linePrice };
+      const unitCost =
+        l.matched && l.cabinetId != null ? costMap.get(l.cabinetId) ?? null : null;
+      const lineCost = unitCost != null ? Number((unitCost * l.qty).toFixed(2)) : null;
+      return { ...l, unitPrice: unit, linePrice, unitCost, lineCost };
     });
-  }, [lines, priceMap]);
+  }, [lines, priceMap, costMap]);
 
   const total = pricedLines.reduce((sum, l) => sum + (l.linePrice ?? 0), 0);
+  // Owner-only roll-up: total cost + gross margin across all priced lines.
+  const isOwner = user?.role === "admin";
+  const ownerCost = pricedLines.reduce((sum, l) => sum + (l.lineCost ?? 0), 0);
+  const ownerHasCost = isOwner && pricedLines.some((l) => l.lineCost != null);
+  const ownerMargin = Number((total - ownerCost).toFixed(2));
+  const ownerMarginPct = total > 0 ? Math.round((ownerMargin / total) * 1000) / 10 : null;
   const itemCount = lines.reduce((sum, l) => sum + l.qty, 0);
   const matchedCount = lines.filter((l) => l.matched).length;
   const unmatchedCount = lines.length - matchedCount;
@@ -809,6 +824,29 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
           {total > 0 ? `$${total.toFixed(2)}` : "—"}
         </p>
       </div>
+
+      {/* Owner-only cost & margin (never shown to non-admins) */}
+      {ownerHasCost && (
+        <div className="rounded-lg border border-dashed border-amber-500/50 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-500">
+            <Lock className="h-3 w-3" /> Owner view · not shown to customers
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-3 text-sm">
+            <div>
+              <p className="text-muted-foreground">My cost</p>
+              <p className="font-semibold tabular-nums">${ownerCost.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Gross margin</p>
+              <p className="font-semibold tabular-nums">${ownerMargin.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Margin %</p>
+              <p className="font-semibold tabular-nums">{ownerMarginPct != null ? `${ownerMarginPct}%` : "—"}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contact + submit */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">

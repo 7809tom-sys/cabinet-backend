@@ -411,10 +411,13 @@ export const ordersRouter = router({
         tier: tierEnum.default("Contractor"),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      // Owner/admin gets the wholesale floor ("My Cost") per line for margin
+      // tooling; this column is NEVER returned to anyone else.
+      const isAdmin = ctx.user?.role === "admin";
       const db = await getDb();
       if (!db || input.cabinetIds.length === 0) {
-        return { prices: [] as { cabinetId: number; unitPrice: number | null }[] };
+        return { prices: [] as { cabinetId: number; unitPrice: number | null; myCost: number | null }[] };
       }
       const rows = await db
         .select({
@@ -434,20 +437,32 @@ export const ordersRouter = router({
 
       // Best (lowest) price per cabinet for the chosen tier.
       const best = new Map<number, number>();
+      // Best (lowest) WHOLESALE floor per cabinet — owner-only "My Cost".
+      const bestCost = new Map<number, number>();
       for (const r of rows) {
         const price = Number(
           input.tier === "Wholesale"
             ? r.wholesalePrice ?? r.contractorPrice
             : r.contractorPrice ?? r.wholesalePrice
         );
-        if (!Number.isFinite(price)) continue;
-        const cur = best.get(r.cabinetId);
-        if (cur === undefined || price < cur) best.set(r.cabinetId, price);
+        if (Number.isFinite(price)) {
+          const cur = best.get(r.cabinetId);
+          if (cur === undefined || price < cur) best.set(r.cabinetId, price);
+        }
+        if (isAdmin) {
+          const cost = Number(r.wholesalePrice ?? r.contractorPrice);
+          if (Number.isFinite(cost)) {
+            const curC = bestCost.get(r.cabinetId);
+            if (curC === undefined || cost < curC) bestCost.set(r.cabinetId, cost);
+          }
+        }
       }
       return {
         prices: input.cabinetIds.map((id) => ({
           cabinetId: id,
           unitPrice: best.has(id) ? best.get(id)! : null,
+          // Only the owner/admin ever receives a non-null cost.
+          myCost: isAdmin && bestCost.has(id) ? bestCost.get(id)! : null,
         })),
       };
     }),
