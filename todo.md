@@ -1492,10 +1492,10 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Tests for overlap detection + presets (7 new tests in design.test.ts: blocksFloorRun, base crossing flagged, wall not flagged, window not blocking base, clear cabinet not flagged, preset shape, makeOpening kind); 615 tests pass; tsc clean; checkpoint
 
 
-## Phase 45: Designer role — CRM-only admin access (user request 2026-06-24)
-- [ ] Add "designer" to the user role enum (drizzle schema + migration via webdev_execute_sql)
-- [ ] A designer can log into the admin backend but ONLY sees the CRM tab — no catalog, pricing/margins, distributors, fee system, orders, customers, etc.
-- [ ] Server: a designerOrAdminProcedure (or role check) so CRM procedures accept admin + designer, while all other admin procedures stay admin-only
-- [ ] Admin.tsx: when role === "designer", render only the CRM tab (hide every other TabsTrigger + panel; default the active tab to CRM)
-- [ ] Route guard: designer landing on /admin goes straight to CRM; blocked from other admin sub-views
-- [ ] Tests for the role gate (designer allowed on CRM, forbidden elsewhere; admin allowed everywhere); verify; checkpoint
+## Phase 45: Designer role — CRM-only admin access (user request 2026-06-24) — DONE
+- [x] Added "designer" to the user role enum (schema + migration 0022 applied via webdev_execute_sql)
+- [x] A designer logs into the admin backend but ONLY sees the Sales CRM — Admin.tsx short-circuits to a CRM-only view for role==="designer" (no Tabs, no catalog/pricing/distributors/fee system/orders/customers)
+- [x] Server gate: CRM procedures are protectedProcedure scoped via resolveScope, which now returns the HOUSE board for admin OR designer; all other admin surfaces stay adminProcedure-only (designer is rejected)
+- [x] Admin.tsx: designer short-circuit renders only <CrmBoard>; TopNav shows a "CRM" button (instead of "Admin") for designers on desktop + mobile
+- [x] Owner can grant/revoke the role: customers.setRole mutation (user<->designer only; refuses to touch admin/distributor/partner) + "Make Designer / Designer ✓" toggle in the Customers admin panel
+- [x] Tests: server/crm.designerRole.test.ts (designer gets house board + can manage deals; designer FORBIDDEN from adminGetMargins / adminGetFeeSettings / customers.list); 647 total pass; tsc clean; checkpoint

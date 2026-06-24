@@ -102,13 +102,13 @@ export function TopNav() {
           {user ? (
             <div className="hidden md:flex items-center gap-2">
               <span className="text-sm text-muted-foreground">{user.name || user.email}</span>
-              {user.role === "admin" && (
+              {(user.role === "admin" || user.role === "designer") && (
                 <Link href="/admin">
                   <Button
                     size="sm"
                     className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90"
                   >
-                    Admin
+                    {user.role === "designer" ? "CRM" : "Admin"}
                   </Button>
                 </Link>
               )}
@@ -170,10 +170,10 @@ export function TopNav() {
               </Link>
             ))}
             <div className="border-t border-border my-2" />
-            {user?.role === "admin" && (
+            {(user?.role === "admin" || user?.role === "designer") && (
               <Link href="/admin" onClick={() => setMobileOpen(false)} className="px-3">
                 <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
-                  Admin
+                  {user?.role === "designer" ? "CRM" : "Admin"}
                 </Button>
               </Link>
             )}

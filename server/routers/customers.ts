@@ -111,4 +111,37 @@ export const customersRouter = router({
 
       return { ok: true, userId: input.userId, tier: input.tier };
     }),
+
+  // Grant / revoke the CRM-only "designer" role. Designers are internal sales
+  // staff who can log into the admin backend but ONLY see the Sales CRM. The
+  // owner never demotes an existing admin through here (guarded below).
+  setRole: adminProcedure
+    .input(z.object({ userId: z.number().int(), role: z.enum(["user", "designer"]) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [target] = await db
+        .select({ id: users.id, role: users.role })
+        .from(users)
+        .where(eq(users.id, input.userId))
+        .limit(1);
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+      // Never repurpose an admin/distributor/partner account from this control.
+      if (target.role !== "user" && target.role !== "designer") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Cannot change role for a ${target.role} account here.`,
+        });
+      }
+
+      await db
+        .update(users)
+        .set({ role: input.role })
+        .where(eq(users.id, input.userId));
+
+      return { ok: true, userId: input.userId, role: input.role };
+    }),
 });

@@ -155,6 +155,13 @@
       "when": 1782313101859,
       "tag": "0021_steep_ultimatum",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1782313678760,
+      "tag": "0022_perfect_freak",
+      "breakpoints": true
     }
   ]
 }

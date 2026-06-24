@@ -41,14 +41,15 @@ async function resolveMyAffiliateId(ctx: Ctx): Promise<number | null> {
 
 /**
  * Returns the scope for the caller:
- *  - admin → { kind: "house" } (affiliateId IS NULL deals)
+ *  - admin or designer → { kind: "house" } (affiliateId IS NULL deals)
+ *    (designer = internal sales staff with CRM-only admin access)
  *  - partner with an affiliate → { kind: "affiliate", affiliateId }
- * Throws FORBIDDEN if a non-admin caller has no affiliate.
+ * Throws FORBIDDEN if a non-house caller has no affiliate.
  */
 async function resolveScope(
   ctx: Ctx,
 ): Promise<{ kind: "house" } | { kind: "affiliate"; affiliateId: number }> {
-  if (ctx.user.role === "admin") return { kind: "house" };
+  if (ctx.user.role === "admin" || ctx.user.role === "designer") return { kind: "house" };
   const affiliateId = await resolveMyAffiliateId(ctx);
   if (affiliateId == null) {
     throw new TRPCError({

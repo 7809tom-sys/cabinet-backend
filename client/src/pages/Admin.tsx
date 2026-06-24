@@ -348,13 +348,28 @@ export default function Admin() {
     );
   }
 
-  if (user.role !== "admin") {
+  // Designers are internal sales staff: they may enter the admin backend but
+  // ONLY get the Sales CRM — every other admin surface is hidden + server-gated.
+  const isDesigner = user.role === "designer";
+  if (user.role !== "admin" && !isDesigner) {
     return (
       <div className="container max-w-md py-20 text-center">
         <h1 className="font-serif text-2xl font-bold mb-3">Access Restricted</h1>
         <p className="text-muted-foreground">
           This area is for platform administrators only.
         </p>
+      </div>
+    );
+  }
+
+  if (isDesigner) {
+    return (
+      <div className="container py-10">
+        <h1 className="font-serif text-3xl font-bold mb-1">Sales CRM</h1>
+        <p className="text-muted-foreground mb-8">
+          Track your leads and deals through each stage.
+        </p>
+        <CrmBoard lang="en" />
       </div>
     );
   }

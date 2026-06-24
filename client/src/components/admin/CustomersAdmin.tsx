@@ -51,6 +51,18 @@ export default function CustomersAdmin() {
     onError: (e) => toast.error("Could not update tier", { description: e.message }),
   });
 
+  const setRole = trpc.customers.setRole.useMutation({
+    onSuccess: (res) => {
+      utils.customers.list.invalidate();
+      toast.success(
+        res.role === "designer"
+          ? "Granted CRM-only Designer access"
+          : "Removed Designer access",
+      );
+    },
+    onError: (e) => toast.error("Could not update role", { description: e.message }),
+  });
+
   const counts = query.data?.counts ?? {};
   const total = query.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -138,7 +150,24 @@ export default function CustomersAdmin() {
                       )}
                     </div>
                   </div>
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex items-center gap-2">
+                    {(u.role === "user" || u.role === "designer") && (
+                      <Button
+                        variant={u.role === "designer" ? "default" : "outline"}
+                        size="sm"
+                        className="h-9"
+                        disabled={setRole.isPending}
+                        onClick={() =>
+                          setRole.mutate({
+                            userId: u.id,
+                            role: u.role === "designer" ? "user" : "designer",
+                          })
+                        }
+                        title="Designers can log into the admin backend but only see the Sales CRM"
+                      >
+                        {u.role === "designer" ? "Designer ✓" : "Make Designer"}
+                      </Button>
+                    )}
                     <Select
                       value={u.pricingTier}
                       onValueChange={(v) => setTier.mutate({ userId: u.id, tier: v as Tier })}
