@@ -727,3 +727,24 @@ export const affiliatePayouts = mysqlTable("affiliate_payouts", {
 });
 export type AffiliatePayout = typeof affiliatePayouts.$inferSelect;
 export type InsertAffiliatePayout = typeof affiliatePayouts.$inferInsert;
+
+
+// ─── Cost / Price change audit log ─────────────────────────────────────────────
+// Every admin correction made through the Cost Lookup / Verify tool is recorded
+// here so price changes are traceable (who changed what, old -> new, when). One
+// row per field changed per save. Values are stored as strings to mirror the
+// decimal columns they came from (null = field was blank/unset).
+export const costChangeLog = mysqlTable("cost_change_log", {
+  id: int("id").autoincrement().primaryKey(),
+  skuId: int("skuId").notNull(), // distributor_skus.id that was edited
+  cabinetId: int("cabinetId").notNull(),
+  masterCode: varchar("masterCode", { length: 64 }).notNull(), // snapshot for easy reading
+  field: varchar("field", { length: 32 }).notNull(), // yourCost | listPrice | wholesalePrice | contractorPrice | homeownerPrice
+  oldValue: varchar("oldValue", { length: 32 }), // previous value (null if unset)
+  newValue: varchar("newValue", { length: 32 }), // new value (null if cleared)
+  changedByOpenId: varchar("changedByOpenId", { length: 64 }),
+  changedByName: varchar("changedByName", { length: 128 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CostChangeLogRow = typeof costChangeLog.$inferSelect;

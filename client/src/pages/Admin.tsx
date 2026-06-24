@@ -30,6 +30,7 @@ import ShippingAdmin from "@/components/admin/ShippingAdmin";
 import MarginsAdmin from "@/components/admin/MarginsAdmin";
 import ConflictsAdmin from "@/components/admin/ConflictsAdmin";
 import PayoutsAdmin from "@/components/admin/PayoutsAdmin";
+import CostLookupAdmin from "@/components/admin/CostLookupAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -395,6 +396,7 @@ export default function Admin() {
           <TabsTrigger value="distributors">Distributors</TabsTrigger>
           <TabsTrigger value="images">Product Images</TabsTrigger>
           <TabsTrigger value="margins">Pricing & Margins</TabsTrigger>
+          <TabsTrigger value="cost-lookup">Cost Lookup</TabsTrigger>
           <TabsTrigger value="shipping">Shipping</TabsTrigger>
           <TabsTrigger value="conflicts">Conflicts</TabsTrigger>
         </TabsList>
@@ -428,6 +430,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="margins" className="mt-6">
           <MarginsAdmin />
+        </TabsContent>
+        <TabsContent value="cost-lookup" className="mt-6">
+          <CostLookupAdmin />
         </TabsContent>
         <TabsContent value="shipping" className="mt-6">
           <ShippingAdmin />

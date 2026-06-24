@@ -8,6 +8,7 @@ import {
   distributors,
   doorStyles,
   distributorSkus,
+  costChangeLog,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
@@ -790,5 +791,192 @@ export const pricingRouter = router({
         .set({ markupPercent: String(input.markupPercent) })
         .where(eq(distributors.id, input.distributorId));
       return { success: true } as const;
+    }),
+
+  // ─── Cost Lookup / Verify & Correct (admin / owner) ──────────────────────────
+  // Search a cabinet number (masterCode) and see every stored SKU across lines /
+  // door styles with the full price ladder, so the owner can compare what's in
+  // the system against the real distributor paperwork and correct any field
+  // inline. Every correction is written to cost_change_log for traceability.
+  // OWNER-ONLY: this exposes raw cost (yourCost / wholesale floor) and supplier
+  // identity, so it is gated behind adminProcedure and never reachable publicly.
+  adminLookupCost: adminProcedure
+    .input(z.object({ query: z.string().trim().min(1).max(64) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { cabinets: [] as unknown[] };
+      const raw = input.query.trim();
+      const upper = raw.toUpperCase();
+      // Match a cabinet by masterCode: exact first, then partial (LIKE).
+      const matched = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+        })
+        .from(cabinets)
+        .where(like(cabinets.masterCode, `%${upper}%`))
+        .orderBy(
+          // Exact match floats to the top.
+          sql`CASE WHEN UPPER(${cabinets.masterCode}) = ${upper} THEN 0 ELSE 1 END`,
+          asc(cabinets.masterCode),
+        )
+        .limit(25);
+
+      if (matched.length === 0) return { cabinets: [] as unknown[] };
+
+      const cabinetIds = matched.map((c) => c.id);
+      const skuRows = await db
+        .select({
+          skuId: distributorSkus.id,
+          cabinetId: distributorSkus.cabinetId,
+          distributorId: distributorSkus.distributorId,
+          styleId: distributorSkus.styleId,
+          platformSku: distributorSkus.platformSku,
+          distributorSku: distributorSkus.distributorSku,
+          supplierCabinetName: distributorSkus.supplierCabinetName,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          yourCost: distributorSkus.yourCost,
+          listPrice: distributorSkus.listPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          distributorName: distributors.name,
+          distributorBrandName: distributors.brandName,
+          styleOurName: doorStyles.ourName,
+          styleCode: doorStyles.styleCode,
+          styleDistributorName: doorStyles.distributorName,
+        })
+        .from(distributorSkus)
+        .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+        .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(inArray(distributorSkus.cabinetId, cabinetIds))
+        .orderBy(asc(distributorSkus.cabinetId), asc(doorStyles.ourName));
+
+      const skusByCabinet = new Map<number, typeof skuRows>();
+      for (const r of skuRows) {
+        const list = skusByCabinet.get(r.cabinetId) ?? ([] as unknown as typeof skuRows);
+        (list as unknown[]).push(r);
+        skusByCabinet.set(r.cabinetId, list);
+      }
+
+      return {
+        cabinets: matched.map((c) => ({
+          ...c,
+          skus: (skusByCabinet.get(c.id) ?? []) as typeof skuRows,
+        })),
+      };
+    }),
+
+  // Update one or more price-ladder fields on a single SKU. Writes one audit row
+  // per actually-changed field (old -> new) tagged with the admin who did it.
+  adminUpdateSkuCost: adminProcedure
+    .input(
+      z.object({
+        skuId: z.number().int(),
+        yourCost: z.number().min(0).max(1000000).nullable().optional(),
+        listPrice: z.number().min(0).max(1000000).nullable().optional(),
+        wholesalePrice: z.number().min(0).max(1000000).nullable().optional(),
+        contractorPrice: z.number().min(0).max(1000000).nullable().optional(),
+        homeownerPrice: z.number().min(0).max(1000000).nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+
+      const existingRows = await db
+        .select({
+          id: distributorSkus.id,
+          cabinetId: distributorSkus.cabinetId,
+          yourCost: distributorSkus.yourCost,
+          listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          masterCode: cabinets.masterCode,
+        })
+        .from(distributorSkus)
+        .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(eq(distributorSkus.id, input.skuId))
+        .limit(1);
+      const existing = existingRows[0];
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "SKU not found" });
+
+      // Normalize a decimal db value to a canonical string for comparison.
+      const norm = (v: string | null | undefined): string | null => {
+        if (v === null || v === undefined) return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? String(n) : null;
+      };
+      const fields = [
+        "yourCost",
+        "listPrice",
+        "wholesalePrice",
+        "contractorPrice",
+        "homeownerPrice",
+      ] as const;
+      type Field = (typeof fields)[number];
+
+      const set: Record<string, string | null> = {};
+      const auditRows: (typeof costChangeLog.$inferInsert)[] = [];
+      for (const f of fields) {
+        if (!(f in input)) continue; // field not part of this update
+        const incoming = input[f as Field];
+        const newVal = incoming === null || incoming === undefined ? null : String(incoming);
+        const oldVal = norm(existing[f as Field] as string | null);
+        if (norm(newVal) === oldVal) continue; // unchanged
+        set[f] = newVal;
+        auditRows.push({
+          skuId: existing.id,
+          cabinetId: existing.cabinetId,
+          masterCode: existing.masterCode ?? "",
+          field: f,
+          oldValue: oldVal,
+          newValue: norm(newVal),
+          changedByOpenId: ctx.user?.openId ?? null,
+          changedByName: ctx.user?.name ?? null,
+        });
+      }
+
+      if (Object.keys(set).length === 0) {
+        return { success: true, changed: 0 } as const;
+      }
+
+      await db.update(distributorSkus).set(set).where(eq(distributorSkus.id, input.skuId));
+      if (auditRows.length > 0) await db.insert(costChangeLog).values(auditRows);
+      return { success: true, changed: auditRows.length } as const;
+    }),
+
+  // Recent audit rows for a SKU or a cabinet number, newest first.
+  adminCostHistory: adminProcedure
+    .input(
+      z
+        .object({
+          skuId: z.number().int().optional(),
+          masterCode: z.string().trim().max(64).optional(),
+          limit: z.number().int().min(1).max(200).optional(),
+        })
+        .refine((v) => v.skuId !== undefined || (v.masterCode && v.masterCode.length > 0), {
+          message: "Provide skuId or masterCode",
+        }),
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [] as (typeof costChangeLog.$inferSelect)[];
+      const conds = [] as ReturnType<typeof eq>[];
+      if (input.skuId !== undefined) conds.push(eq(costChangeLog.skuId, input.skuId));
+      if (input.masterCode)
+        conds.push(eq(costChangeLog.masterCode, input.masterCode.trim().toUpperCase()));
+      return db
+        .select()
+        .from(costChangeLog)
+        .where(conds.length === 1 ? conds[0] : and(...conds))
+        .orderBy(desc(costChangeLog.createdAt))
+        .limit(input.limit ?? 50);
     }),
 });

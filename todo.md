@@ -1573,3 +1573,24 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Cart: no guessed freight; "Shipping quoted live on your order"
 - [x] Full suite green (786 tests), tsc clean
 - [ ] Connect live EasyPost API key (awaiting user account) + run live test quote
+
+## Admin Cost Lookup / Verify & Correct (priority 1)
+- [x] Search a cabinet by number/SKU (optionally narrow by door style/line)
+- [x] Show current stored cost (per door style/line where price varies) + full price ladder (list/wholesale/contractor/homeowner)
+- [x] Inline edit/correct the cost; save back to catalog immediately
+- [x] Audit/change log: who, old -> new, when (cost_change_log table + History panel)
+- [x] Admin-only procedures (adminLookupCost/adminUpdateSkuCost/adminCostHistory) + vitest (6 tests)
+
+## Affiliate white-label + per-door-style markup (priority 2)
+- [ ] Schema: per-affiliate branding (name/logo/accent) + per-door-style optional markup % overrides
+- [ ] Blank style % = fall back to default multiplier (Multiplier tab); affiliates can set any % (no caps)
+- [ ] Pricing resolver applies affiliate per-style % (fallback default) across catalog/design/cart
+- [ ] Affiliate portal + Admin UI to edit branding + per-style markup table (all door styles)
+- [ ] White-label storefront via affiliate referral link (branding + affiliate pricing)
+- [ ] vitest coverage
+
+## Authorize.Net payments (priority 3)
+- [ ] Accept.js tokenized card entry (no card data on server) — PCI-friendly
+- [ ] Charge 100% upfront, AFTER live freight quote is attached (total includes shipping)
+- [ ] Admin Payments tab: secure credentials (API Login ID, Transaction Key, Client Key), sandbox/production toggle
+- [ ] Server payment + order capture + vitest

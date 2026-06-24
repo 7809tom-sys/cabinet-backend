@@ -190,6 +190,13 @@
       "when": 1782334233503,
       "tag": "0026_sour_sir_ram",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1782337428425,
+      "tag": "0027_chemical_meteorite",
+      "breakpoints": true
     }
   ]
 }
