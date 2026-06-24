@@ -62,22 +62,32 @@ describe("validateFamilyLock", () => {
   });
 });
 
-describe("canAddToCart (add-time lock)", () => {
-  it("accepts any item into an empty cart (sets the lock)", () => {
+describe("canAddToCart (add-time lock = DISTRIBUTOR scope, colors mix freely)", () => {
+  it("accepts any item into an empty cart (sets the distributor lock)", () => {
     expect(canAddToCart(null, 5)).toEqual({ ok: true, blockedByLock: false });
     expect(canAddToCart(undefined, 5)).toEqual({ ok: true, blockedByLock: false });
   });
 
-  it("accepts an item from the SAME family", () => {
+  it("accepts an item from the SAME distributor", () => {
     expect(canAddToCart(5, 5)).toEqual({ ok: true, blockedByLock: false });
   });
 
-  it("rejects an item from a DIFFERENT family", () => {
+  it("ALLOWS mixing colors/styles within the same distributor (two-tone)", () => {
+    // Same distributor (1), different door-style/color rows still go in: the
+    // lock is by distributor, not by style/color, so two-tone designs work.
+    expect(canAddToCart(1, 1)).toEqual({ ok: true, blockedByLock: false });
+  });
+
+  it("rejects an item from a DIFFERENT distributor", () => {
     expect(canAddToCart(5, 8)).toEqual({ ok: false, blockedByLock: true });
   });
 
+  it("allows an item with an unknown (null) distributor", () => {
+    expect(canAddToCart(5, null)).toEqual({ ok: true, blockedByLock: false });
+    expect(canAddToCart(5, undefined)).toEqual({ ok: true, blockedByLock: false });
+  });
+
   it("coerces numeric-string ids consistently", () => {
-    // styleId values always arrive as numbers in practice, but guard anyway.
     expect(canAddToCart(5, Number("5"))).toEqual({ ok: true, blockedByLock: false });
     expect(canAddToCart(5, Number("9"))).toEqual({ ok: false, blockedByLock: true });
   });

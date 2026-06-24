@@ -227,7 +227,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     selectedRow?.styleCode
   ).face;
 
-  const { addItem, lockedStyleId, lockedStyleLabel, clear } = useCart();
+  const { addItem, lockedDistributorId, lockedStyleLabel, clear } = useCart();
 
   // Add a specific style row to the cart (used directly and after an auto-switch).
   const addRow = (row: StyleRow) => {
@@ -255,27 +255,29 @@ export default function CabinetDetail({ masterCode }: Props) {
     const res = addRow(selectedRow);
     if (res.ok) return;
 
-    // Family-locked: the cart already holds a different door style. Every order
-    // ships from ONE family, so we cannot mix. Recover gracefully:
-    //   1) If this cabinet is also offered in the locked family, offer to switch
-    //      the selection to that family and add it (keeps the single-shipment lock).
-    //   2) Otherwise, this cabinet isn't available in the locked family — offer to
-    //      clear the cart and start a new family with it.
-    const lockedRow = styleRows.find((s) => s.styleId === res.lockedStyleId) ?? null;
-    if (lockedRow) {
-      toast.warning(`Your cart is locked to ${res.lockedStyleLabel}`, {
-        description: `Orders ship in one door style. Add this cabinet in ${res.lockedStyleLabel} instead?`,
+    // Distributor-locked: the cart already holds items from a DIFFERENT supply
+    // line. Colors/styles mix freely WITHIN a distributor, but cross-distributor
+    // mixing breaks pricing/freight, so we cannot combine them. Recover
+    // gracefully:
+    //   1) If this cabinet is also offered by the locked distributor, offer to
+    //      switch the selection to a row from that distributor and add it.
+    //   2) Otherwise offer to clear the cart and start fresh with this item.
+    const sameDistRow =
+      styleRows.find((s) => (s.distributorId ?? null) === res.lockedDistributorId) ?? null;
+    if (sameDistRow) {
+      toast.warning(`Your cart is from another supplier`, {
+        description: `Orders ship from one supplier. Add this cabinet in ${sameDistRow.name} (same supplier) instead?`,
         action: {
-          label: `Add in ${res.lockedStyleLabel}`,
+          label: `Add in ${sameDistRow.name}`,
           onClick: () => {
-            setSelectedStyleId(lockedRow.styleId);
-            addRow(lockedRow);
+            setSelectedStyleId(sameDistRow.styleId);
+            addRow(sameDistRow);
           },
         },
       });
     } else {
-      toast.warning(`Your cart is locked to ${res.lockedStyleLabel}`, {
-        description: `${masterCode} isn't offered in ${res.lockedStyleLabel}. Clear the cart to start a new order in ${selectedRow.name}?`,
+      toast.warning(`Your cart is from another supplier`, {
+        description: `${masterCode} (${selectedRow.name}) is from a different supplier than what's in your cart. Clear the cart to start a new order with it?`,
         action: {
           label: "Clear cart & add",
           onClick: () => {
@@ -580,14 +582,19 @@ export default function CabinetDetail({ masterCode }: Props) {
                 </Button>
               </div>
 
-              {/* Family-lock hint: the cart can only hold ONE door style (single
-                  shipment). Surface the active lock so it's not a surprise. */}
-              {lockedStyleId != null && selectedRow && lockedStyleId !== selectedRow.styleId && (
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
-                  <Lock className="h-3 w-3 shrink-0" />
-                  Your cart is locked to {lockedStyleLabel}. Adding this will offer to switch styles or start a new cart.
-                </p>
-              )}
+              {/* Supplier-lock hint: colors & door styles mix freely within one
+                  supplier (two-tone is welcome). We only warn when the selected
+                  row is from a DIFFERENT supplier than the cart. */}
+              {lockedDistributorId != null &&
+                selectedRow &&
+                (selectedRow.distributorId ?? null) !== lockedDistributorId && (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
+                    <Lock className="h-3 w-3 shrink-0" />
+                    Your cart is from another supplier. Adding this will offer to switch to
+                    the same supplier or start a new cart. (You can freely mix colors within
+                    one supplier.)
+                  </p>
+                )}
             </div>
           )}
 

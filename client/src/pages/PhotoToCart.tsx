@@ -53,7 +53,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export default function PhotoToCart() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [, navigate] = useLocation();
-  const { addItem, lockedStyleId, lockedStyleLabel, clear } = useCart();
+  const { addItem, lockedDistributorId, clear } = useCart();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [preview, setPreview] = useState<string | null>(null);
@@ -142,12 +142,14 @@ export default function PhotoToCart() {
       toast.error("Nothing matched to add yet.");
       return;
     }
-    // Family-lock: the cart can only hold ONE door style. If it already holds a
-    // different family, adding would be rejected line-by-line, so prompt to
-    // clear-and-add instead of silently dropping everything.
-    if (lockedStyleId != null && lockedStyleId !== selectedStyle.id) {
-      toast.warning(`Your cart is locked to ${lockedStyleLabel}`, {
-        description: `Clear the cart to start a new order in ${selectedStyle.label}?`,
+    // Supplier-lock: colors/styles mix freely, but the cart must stay within one
+    // supplier. Photo-to-Cart lines carry distributorId = null (unresolved at
+    // OCR time), so they're never blocked by the distributor lock; however if
+    // the cart already holds items from a known supplier we still surface a
+    // clear-and-restart option so the user can choose a clean slate.
+    if (lockedDistributorId != null) {
+      toast.warning(`Your cart already has items`, {
+        description: `Clear the cart to start a new order with ${selectedStyle.label}, or keep adding to the current one?`,
         action: {
           label: "Clear cart & add",
           onClick: () => {

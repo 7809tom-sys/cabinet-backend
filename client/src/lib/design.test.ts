@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isCornerCabinet, cornerClipPath, centerDistance, formatInches,
   isApplianceCode, applianceAsDesignCabinet, elevationBox, APPLIANCES,
+  conflictingUids, isSinkBaseCabinet, isSinkAppliance, STD,
   appliancesForRoom, ROOM_TYPES,
   makeOpening, clampOpening, wallLength, OPENINGS,
   snapToWall, feetInchesToInches, inchesToFeetInches, clampRoomInches,
@@ -1470,5 +1471,55 @@ describe("corner cabinet routing (keep Corner Base & Corner Wall separate, none 
     for (const code of ["B-12", "B-24", "B-36", "SB-30", "DB-24-2", "W-2430", "W-3030"]) {
       expect(isCornerCabinet(code), `${code} should not be a corner cabinet`).toBe(false);
     }
+  });
+});
+
+describe("sink base + sink fixture handling (Design Tool fixes)", () => {
+  it("detects a sink base by master code and by description/subCategory", () => {
+    expect(isSinkBaseCabinet({ masterCode: "SB-36", description: "Sink Base 36" })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "SB36" })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "B-24", subCategory: "Sink Base" })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "B-24", description: "Base 24" })).toBe(false);
+    expect(isSinkBaseCabinet({ masterCode: "DB-24-3", description: "Drawer Base" })).toBe(false);
+  });
+
+  it("detects the sink appliance/fixture", () => {
+    expect(isSinkAppliance({ masterCode: "SINK-33", description: 'Sink 33"' })).toBe(true);
+    expect(isSinkAppliance({ masterCode: "RANGE-30", description: "Range 30" })).toBe(false);
+  });
+
+  it("does NOT flag a sink appliance sitting over a sink base as a conflict", () => {
+    // Sink drops INTO the sink base — this is the intended layout.
+    const sb = cab({ uid: "sb", masterCode: "SB-36", description: "Sink Base 36", placement: "base", x: 0, y: 0, width: 36, depth: 24 });
+    const sink = cab({ uid: "snk", masterCode: "SINK-33", description: 'Sink 33"', placement: "appliance", x: 1, y: 1, width: 33, depth: 22 });
+    const conflicts = conflictingUids([sb, sink]);
+    expect(conflicts.has("sb")).toBe(false);
+    expect(conflicts.has("snk")).toBe(false);
+  });
+
+  it("STILL flags a range appliance overlapping an ordinary base cabinet", () => {
+    // Regression guard: the exemption must NOT disable real appliance conflicts.
+    const base = cab({ uid: "b", masterCode: "B-24", description: "Base 24", placement: "base", x: 0, y: 0, width: 24, depth: 24 });
+    const range = cab({ uid: "r", masterCode: "RANGE-30", description: "Range 30", placement: "appliance", x: 1, y: 1, width: 30, depth: 25 });
+    const conflicts = conflictingUids([base, range]);
+    expect(conflicts.has("b")).toBe(true);
+    expect(conflicts.has("r")).toBe(true);
+  });
+});
+
+describe("wall cabinet dropped to floor keeps its own depth", () => {
+  it("a 12-inch wall cabinet stays 12 inches deep after the dropToFloor depth rule", () => {
+    // dropToFloor() now flips placement to "base" WITHOUT overriding depth.
+    // footprintDepth() must therefore return the cabinet's stored 12", not 24".
+    const droppedAsBase = {
+      placement: "base" as const,
+      width: "30",
+      depth: "12", // original wall depth preserved
+      masterCode: "W-30-30",
+      description: "Wall 30x30",
+    };
+    expect(footprintDepth(droppedAsBase)).toBe(12);
+    // Sanity: an ordinary base with no explicit depth still falls back to 24".
+    expect(footprintDepth({ placement: "base", width: "24", depth: null, masterCode: "B-24", description: "Base 24" })).toBe(STD.BASE_DEPTH);
   });
 });

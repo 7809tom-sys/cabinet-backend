@@ -29,6 +29,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight,
   normalizeLCornerDepths,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
+  isSinkBaseCabinet, placedFootprint,
   blindCornerAutoFiller,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -937,6 +938,28 @@ export default function DesignTool() {
           pullMax: c.pullMax ?? null,
         };
         setSelectedUid(newCab.uid);
+        // Sink-base auto-fixture: dropping a sink base (SB-*) means there's a
+        // sink there, so auto-place a default single-bowl sink WITH a faucet
+        // (makeSink defaults faucet=true) centered over the cabinet footprint.
+        // The sink is a separate fixture (not a placed cabinet/appliance), so it
+        // never triggers a layout conflict and the user can still drag/remove it.
+        if (isSinkBaseCabinet(newCab)) {
+          const fp = placedFootprint(newCab);
+          const preset = SINK_PRESETS["single"];
+          const sx = Math.max(
+            0,
+            Math.min(newCab.x + fp.w / 2 - preset.width / 2, room.width - preset.width)
+          );
+          const sy = Math.max(
+            0,
+            Math.min(newCab.y + fp.d / 2 - preset.depth / 2, room.depth - preset.depth)
+          );
+          const autoSink = makeSink("single", sx, sy);
+          setSinks((prevSinks) => [...prevSinks, autoSink]);
+          setSelectedSinkUid(autoSink.uid);
+          setCountertop(true); // a sink implies a counter
+          toast.success("Sink base added — dropped a sink + faucet over it.");
+        }
         // Blind corner trade rule: when a blind corner cabinet is dropped flush
         // in a room corner, auto-snap a 3" filler on the side OPPOSITE the pull
         // and let the cabinet project its full corner return. If we can't tell
@@ -955,7 +978,7 @@ export default function DesignTool() {
         return [...prev, newCab];
       });
     },
-    [room, activeWall, openings]
+    [room, activeWall, openings, setSinks, setSelectedSinkUid, setCountertop]
   );
 
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
@@ -1403,7 +1426,10 @@ export default function DesignTool() {
         return {
           ...p,
           placement: "base",
-          depth: STD.BASE_DEPTH,
+          // Keep the wall cabinet's OWN depth (e.g. a 12" upper stays 12" when
+          // dropped to the floor) instead of forcing it to the 24" base depth.
+          // footprintDepth() resolves dim(p.depth, ...) so the stored depth wins.
+          // (No depth override here.)
           // Box height: keep the cabinet's own height if it has one, otherwise
           // fall back to the standard base box height.
           height: p.height && p.height > 0 ? p.height : STD.BASE_HEIGHT,

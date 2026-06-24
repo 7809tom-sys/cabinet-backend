@@ -19,18 +19,26 @@ export type CartItem = {
   qty: number;
 };
 
-// Result of an addItem attempt. The cart is family-locked: every line must
-// share ONE door-style family (styleId). The first item added sets the lock;
-// later items from a different family are rejected so the lock is enforced at
-// the point of adding (not silently allowed and only caught at checkout).
+// Result of an addItem attempt. The cart is locked to ONE DISTRIBUTOR (supply
+// line) — NOT one door style/color. Colors and door styles mix freely within a
+// distributor (two-tone kitchens are a first-class feature). The first item
+// added sets the distributor lock; later items from a DIFFERENT distributor are
+// rejected at add time (cross-distributor mixing breaks pricing/freight).
 export type AddItemResult =
   | { ok: true }
-  | { ok: false; reason: "family_locked"; lockedStyleId: number; lockedStyleLabel: string };
+  | {
+      ok: false;
+      reason: "distributor_locked";
+      lockedDistributorId: number;
+      lockedStyleLabel: string;
+    };
 
 type CartState = {
   items: CartItem[];
   zip: string | null;
-  /** The door-style family the cart is currently locked to (null when empty). */
+  /** The distributor (supply line) the cart is currently locked to (null when empty). */
+  lockedDistributorId: number | null;
+  /** The door-style family of the FIRST item, kept only for friendly messages. */
   lockedStyleId: number | null;
   lockedStyleLabel: string | null;
   addItem: (item: CartItem) => AddItemResult;
@@ -85,23 +93,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [zip]);
 
-  // The cart's locked family is simply the styleId of whatever is already in it.
+  // The cart's lock is the DISTRIBUTOR of whatever is already in it. Style/color
+  // are kept only for friendly messaging — they do NOT constrain adds.
+  const lockedDistributorId = items.length > 0 ? items[0].distributorId : null;
   const lockedStyleId = items.length > 0 ? items[0].styleId : null;
   const lockedStyleLabel = items.length > 0 ? items[0].styleLabel : null;
 
   const api = useMemo<CartState>(() => {
     const addItem = (item: CartItem): AddItemResult => {
-      // Family-lock enforcement (pure rule in shared/familyLock.ts): if the cart
-      // already holds a different door-style family, reject the add. Caller
-      // decides how to recover (switch style or start a new cart). An empty cart
-      // accepts anything (and sets the lock).
+      // Distributor-lock enforcement (pure rule in shared/familyLock.ts): colors
+      // and door styles mix freely, but every line must come from the SAME
+      // distributor. Reject only when the incoming item is from a DIFFERENT
+      // distributor than what's already in the cart.
       const current = items[0];
-      const decision = canAddToCart(current ? current.styleId : null, item.styleId);
-      if (!decision.ok && current) {
+      const decision = canAddToCart(
+        current ? current.distributorId : null,
+        item.distributorId
+      );
+      if (!decision.ok && current && current.distributorId != null) {
         return {
           ok: false,
-          reason: "family_locked",
-          lockedStyleId: current.styleId,
+          reason: "distributor_locked",
+          lockedDistributorId: current.distributorId,
           lockedStyleLabel: current.styleLabel,
         };
       }
@@ -136,6 +149,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return {
       items,
       zip,
+      lockedDistributorId,
       lockedStyleId,
       lockedStyleLabel,
       addItem,
@@ -146,7 +160,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       count,
       subtotal,
     };
-  }, [items, zip, lockedStyleId, lockedStyleLabel]);
+  }, [items, zip, lockedDistributorId, lockedStyleId, lockedStyleLabel]);
 
   return <CartContext.Provider value={api}>{children}</CartContext.Provider>;
 }

@@ -1502,3 +1502,24 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 
 ## Feature (user request 2026-06-24): Shaker/framed-door hardware placement spec
 - [x] Hardware placement rule for framed (Shaker) vs slab doors. New pure helpers in client/src/lib/hardware.ts: doorConstruction(doorStyle) (framed default; slab for slab/flat/euro), hardwarePlacementSpec(doorStyle) and hardwarePlacementNote(styleId, doorStyle). FRAMED rule: center the knob/pull on the ~3" latch-side stile (within the frame, not the center panel); base doors 2.5–3" up from the bottom rail, wall/upper doors 2.5–3" down from the top rail; drawers centered both ways. SLAB rule: ~1.5" from the latch edge, 2.5–3" from the near horizontal edge. Surfaced as a "HARDWARE PLACEMENT" finishing note on the Design Tool build sheet (only when a hardware style is chosen). 21 hardware tests (10 new); 722 total pass; tsc clean. NOTE: Design Tool visuals are deterministic 2D elevations (no AI photoreal render prompt exists), so the spec drives the installer note; constants (stile width, rail offset) are exported for easy tuning.
+
+
+## BUG + FEATURE (user report 2026-06-24): Sink base (SB) in Design Tool
+- [ ] BUG: placing a sink base (SB) cabinet in the design plan should NOT raise a conflict / conflict-status flag. Reproduce + root-cause the conflict logic for SB cabinets and fix so sink bases place cleanly.
+- [ ] FEATURE: when an SB (sink base) is placed in the plan, auto-place a default sink + faucet on/in that cabinet (visible in the elevation/plan + reflected on the build sheet). Should be sensible default, user can keep it.
+- [ ] Tests for both (SB places without conflict; SB placement yields a default sink+faucet); checkpoint.
+- [ ] BUG: dropping/dragging a WALL cabinet down to the floor (base zone) in the Design Tool increases its depth. Its depth must stay the wall depth (12") regardless of vertical position; a wall cabinet placed at floor level keeps 12" depth (do not snap to base 24"). Root-cause the depth resolver (placement vs zone) and fix.
+- [x] FEATURE: when an object (cabinet/appliance/fixture) is highlighted/selected in the Design Tool, the user should be able to rotate it (visible rotate control on/near the selected item + "R" keyboard shortcut to rotate 90 degrees). Confirm rotation persists + redraws + respects room clamping.
+
+## Color-mixing correction (user clarified this session)
+- [x] CHANGE: "Lock" semantics corrected. Lock means "I'm done with this color" — it commits the current color and frees the user to pick ANOTHER color for the next cabinets. Mixing colors in one design/order is a first-class, popular feature (two-tone kitchens: white perimeter + contrasting island, etc.). Do NOT block adding a cabinet just because its color differs from an already-added item.
+- [x] Remove/relax the family-lock add-time block so it does NOT prevent mixing colors. Keep integrity within a single distributor (cross-distributor mixing still disallowed for pricing/ordering). Door style remains freely selectable within the distributor family.
+- [x] Update CartContext.canAddToCart + addItem and CabinetDetail / PhotoToCart lock-aware UI so color differences are allowed; "lock" becomes a commit-and-continue action rather than a restriction.
+- [x] Update/replace the family-lock vitest tests to assert color-mixing is allowed within a distributor while cross-distributor is still blocked.
+
+## Design Tool batch (user request this session)
+- [x] BUG: placing an SB (sink base) cabinet triggers a conflict — suppress.
+- [x] FEATURE: when an SB is dropped, auto-place a default sink + faucet centered over it.
+- [x] BUG: dropping a wall cabinet to the floor expands its depth to 24" — must keep 12".
+- [x] FEATURE: rotate the highlighted/selected object (rotate control + "R" key). (Already present: toolbar Rotate button + "R" shortcut -> rotateSelected; verified.)
+- [ ] BUG: browser Back button doesn't work while browsing the website (catalog/detail/general pages). Likely a global routing issue (links/redirects replacing history instead of pushing, or scroll-restoration interfering). Audit wouter routing/navigation + any history.replace usage + the OAuth/redirect handling. Make Back navigate to the previous page as expected.

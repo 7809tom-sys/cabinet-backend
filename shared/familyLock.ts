@@ -87,23 +87,37 @@ export function validateFamilyLock(
 // ─────────────────────────────────────────────────────────────────────────────
 // Add-time family-lock decision (pure, testable).
 //
-// The cart is locked to ONE door-style family: the styleId of whatever is
-// already in it. This helper decides whether a new item may be added. An empty
-// cart (lockedStyleId == null) accepts anything and sets the lock; a non-empty
-// cart only accepts items from the same family.
+// SCOPE = DISTRIBUTOR (supply line), NOT a single door style/color.
+//
+// Mixing colors (and door styles) in one design/order is a first-class feature:
+// two-tone kitchens (e.g. a white perimeter + a contrasting island, or a
+// completely different color on the wall cabinets than the base cabinets) are
+// very common. So the cart must NOT block an item just because its color/style
+// differs from what's already in it. "Lock" in the UI means "I'm done with this
+// color, let me pick another" — a commit-and-continue action, not a restriction.
+//
+// The ONE thing we still enforce is that every line comes from the SAME
+// distributor (supply line); cross-distributor mixing would break pricing,
+// freight and ordering, so that is rejected. An empty cart (lockedDistributorId
+// == null) accepts anything and sets the lock; once set, only items from that
+// same distributor are accepted. Items with an unknown distributor (null) are
+// always allowed (they carry no constraint).
 // ─────────────────────────────────────────────────────────────────────────────
 export interface CanAddResult {
   ok: boolean;
-  /** True only when the cart already holds a DIFFERENT family. */
+  /** True only when the cart already holds a DIFFERENT distributor. */
   blockedByLock: boolean;
 }
 
 export function canAddToCart(
-  lockedStyleId: number | null | undefined,
-  incomingStyleId: number
+  lockedDistributorId: number | null | undefined,
+  incomingDistributorId: number | null | undefined
 ): CanAddResult {
-  if (lockedStyleId == null) return { ok: true, blockedByLock: false };
-  if (Number(lockedStyleId) === Number(incomingStyleId)) {
+  // Cart empty / no lock yet — anything is allowed and sets the lock.
+  if (lockedDistributorId == null) return { ok: true, blockedByLock: false };
+  // Incoming item has no distributor constraint — always allowed.
+  if (incomingDistributorId == null) return { ok: true, blockedByLock: false };
+  if (Number(lockedDistributorId) === Number(incomingDistributorId)) {
     return { ok: true, blockedByLock: false };
   }
   return { ok: false, blockedByLock: true };

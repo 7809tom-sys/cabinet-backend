@@ -457,6 +457,32 @@ export function isOnIsland(
   );
 }
 
+// A sink BASE cabinet (e.g. SB-36, "Sink Base 36"). Detected from
+// subCategory / description / masterCode so it works for placed items and
+// catalog rows alike.
+export function isSinkBaseCabinet(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  const code = (c.masterCode ?? "").toUpperCase();
+  if (/^SB[-_ ]?\d/.test(code) || /^B?SB\b/.test(code)) return true;
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
+  return /\bsink\s*base\b/.test(hay);
+}
+
+// A sink FIXTURE placed as an appliance (the SINK-33 palette entry). The kitchen
+// sink naturally sits INSIDE the sink-base cabinet, so a sink appliance over a
+// sink base is expected — never a conflict.
+export function isSinkAppliance(c: {
+  description?: string | null;
+  masterCode?: string | null;
+}): boolean {
+  const code = (c.masterCode ?? "").toUpperCase();
+  if (code.startsWith("SINK")) return true;
+  return /\bsink\b/.test((c.description ?? "").toLowerCase());
+}
+
 export function conflictingUids(placed: PlacedCabinet[]): Set<string> {
   const conflicts = new Set<string>();
   for (let i = 0; i < placed.length; i++) {
@@ -468,6 +494,13 @@ export function conflictingUids(placed: PlacedCabinet[]): Set<string> {
       if (!oneAppliance) continue;
       // Don't flag two appliances against each other (e.g. hood over range).
       if (a.placement === "appliance" && b.placement === "appliance") continue;
+      // EXEMPTION: a sink appliance sitting over a sink-base cabinet is the
+      // intended layout (the sink drops INTO the sink base), so it must never be
+      // flagged as a conflict.
+      const sinkOverSinkBase =
+        (isSinkAppliance(a) && isSinkBaseCabinet(b)) ||
+        (isSinkAppliance(b) && isSinkBaseCabinet(a));
+      if (sinkOverSinkBase) continue;
       // Only items sharing the same vertical zone can truly collide.
       if (occupiesUpperZone(a) !== occupiesUpperZone(b)) continue;
       if (footprintsOverlap(a, b)) {
