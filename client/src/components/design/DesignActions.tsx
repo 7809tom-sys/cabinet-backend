@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, FolderOpen, Download, Loader2, Clock } from "lucide-react";
+import { Save, FolderOpen, Download, Loader2, Clock, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,6 +68,9 @@ interface Props {
   buildRows: BuildSheetRow[];
   // Current room context for Master Project grouping.
   roomType: string;
+  // Contact email for the designer (from the email gate / signed-in user). Used
+  // to pre-fill a CRM quote request.
+  contactEmail?: string | null;
   onLoad: (d: {
     room: RoomData;
     placed: PlacedCabinet[];
@@ -189,7 +192,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, styleId, styleName, tier, total, extraLines, buildRows, roomType, onLoad,
+  room, placed, styleId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const utils = trpc.useUtils();
@@ -200,13 +203,35 @@ export function DesignActions({
   // Master Project grouping (optional): a job name + a room label.
   const [projectName, setProjectName] = useState("");
   const [roomLabel, setRoomLabel] = useState("");
+  // When checked, after saving we create a CRM lead (house deal) for the team.
+  const [requestQuote, setRequestQuote] = useState(false);
+
+  const quoteMutation = trpc.crm.requestQuoteFromDesign.useMutation({
+    onSuccess: (r) => {
+      toast.success(
+        r.reused ? "Already sent to your rep" : "Sent to a Cabinet Dealz rep",
+        { description: "A specialist will follow up with your quote." },
+      );
+    },
+    onError: (e) =>
+      toast.error("Saved, but could not request a quote", { description: e.message }),
+  });
 
   const saveMutation = trpc.design.save.useMutation({
-    onSuccess: () => {
+    onSuccess: (res) => {
       toast.success("Design saved", { description: name || "Untitled kitchen" });
       setSaveOpen(false);
       setName("");
       utils.design.myDesigns.invalidate();
+      // Optionally route this saved design to the sales pipeline.
+      if (requestQuote && res?.id) {
+        quoteMutation.mutate({
+          designId: res.id,
+          contactEmail: contactEmail ?? null,
+          estimatedValue: total > 0 ? total : null,
+        });
+      }
+      setRequestQuote(false);
     },
     onError: (e) => toast.error("Could not save design", { description: e.message }),
   });
@@ -298,9 +323,32 @@ export function DesignActions({
                 </div>
               </div>
             </div>
+            {isAuthenticated && (
+              <label
+                htmlFor="request-quote"
+                className="flex items-start gap-2 rounded-lg border border-border p-2.5 cursor-pointer hover:bg-muted/30 transition-colors"
+              >
+                <input
+                  id="request-quote"
+                  type="checkbox"
+                  checked={requestQuote}
+                  onChange={(e) => setRequestQuote(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <span className="text-[11px] leading-snug">
+                  <span className="font-semibold text-foreground flex items-center gap-1">
+                    <Send className="h-3 w-3" /> Send to a Cabinet Dealz rep for a quote
+                  </span>
+                  <span className="text-muted-foreground">
+                    Creates a follow-up in our sales pipeline with this design attached
+                    {total > 0 ? ` (est. $${total.toLocaleString()})` : ""}.
+                  </span>
+                </span>
+              </label>
+            )}
             {!isAuthenticated && (
               <p className="text-[11px] text-muted-foreground">
-                Tip: sign in to see all your saved designs under “My Designs” on any device.
+                Tip: sign in to see all your saved designs under “My Designs” on any device, and to request a quote from a rep.
               </p>
             )}
           </div>

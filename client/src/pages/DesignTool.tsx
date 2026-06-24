@@ -1730,6 +1730,7 @@ export default function DesignTool() {
             extraLines={extraLines}
             buildRows={buildRows}
             roomType={roomType}
+            contactEmail={verifiedEmail}
             onLoad={loadSavedDesign}
           />
           <div className="h-5 w-px bg-border" />

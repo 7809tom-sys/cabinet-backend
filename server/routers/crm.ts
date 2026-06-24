@@ -446,6 +446,92 @@ export const crmRouter = router({
       });
       return { id: (res as unknown as [{ insertId: number }])[0].insertId };
     }),
+
+  // ── Request a quote from a saved design (member-facing) ──────────────────────
+  // Creates a HOUSE deal (affiliateId NULL) so the Cabinet Dealz sales team picks
+  // it up, then links the saved design. Usable by ANY logged-in member regardless
+  // of affiliate scope (does NOT call resolveScope). Idempotent-ish: if the design
+  // is already linked to an open house deal, it reuses that deal.
+  requestQuoteFromDesign: protectedProcedure
+    .input(
+      z.object({
+        designId: z.number().int(),
+        contactName: z.string().max(256).nullable().optional(),
+        contactEmail: z.string().max(320).nullable().optional(),
+        contactPhone: z.string().max(32).nullable().optional(),
+        estimatedValue: z.number().min(0).nullable().optional(),
+        notes: z.string().max(8000).nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      // The design must belong to the caller.
+      const dRows = await db
+        .select()
+        .from(kitchenDesigns)
+        .where(and(eq(kitchenDesigns.id, input.designId), eq(kitchenDesigns.userId, ctx.user.id)))
+        .limit(1);
+      const design = dRows[0];
+      if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+
+      // If this design is already linked to a house deal, reuse it.
+      const links = await db
+        .select()
+        .from(crmDealDesigns)
+        .where(eq(crmDealDesigns.designId, design.id));
+      for (const link of links) {
+        const existingDeal = await db
+          .select()
+          .from(crmDeals)
+          .where(and(eq(crmDeals.id, link.dealId), isNull(crmDeals.affiliateId)))
+          .limit(1);
+        if (existingDeal[0]) {
+          await db
+            .update(crmDeals)
+            .set({ updatedAt: new Date() })
+            .where(eq(crmDeals.id, existingDeal[0].id));
+          return { id: existingDeal[0].id, reused: true };
+        }
+      }
+
+      // Build a sensible title from the project/room/design name.
+      const job = design.projectName?.trim();
+      const room = design.roomLabel?.trim();
+      const who = (input.contactName ?? "").trim();
+      const baseLabel = job
+        ? `${job}${room ? ` — ${room}` : ""}`
+        : design.name;
+      const title = who ? `${baseLabel} — ${who}` : baseLabel;
+
+      const res = await db.insert(crmDeals).values({
+        affiliateId: null, // house deal
+        ownerUserId: ctx.user.id,
+        title: title.slice(0, 256),
+        stage: "new",
+        priority: "medium",
+        contactName: input.contactName ?? null,
+        contactEmail: input.contactEmail ?? ctx.user.email ?? null,
+        contactPhone: input.contactPhone ?? null,
+        company: design.projectName ?? null,
+        estimatedValue: input.estimatedValue != null ? String(input.estimatedValue) : null,
+        source: "storefront",
+        notes:
+          input.notes ??
+          `Quote requested from the Design Tool. Room type: ${design.roomType ?? "kitchen"}.`,
+      });
+      const dealId = (res as unknown as [{ insertId: number }])[0].insertId;
+
+      await db.insert(crmDealDesigns).values({
+        dealId,
+        designId: design.id,
+        designName: design.name,
+        linkedByUserId: ctx.user.id,
+      });
+
+      return { id: dealId, reused: false };
+    }),
 });
 
 // (exported helpers kept internal; inArray imported for potential batch ops)

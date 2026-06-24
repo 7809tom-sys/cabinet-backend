@@ -996,11 +996,13 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Tier resolution covered by tests (guest->homeowner, pro->assigned); 463 tests pass + typecheck clean; verified in browser; checkpointed
 
 ## Phase 29: Save designs + attach to CRM (user request 2026-06-23)
-- [ ] Ensure designs are saved with a NAME (saveDesign already takes name) and listable
-- [ ] CRM deal: "Linked Designs" section with a drop-down of saved designs (by name) to attach
-- [ ] Persist deal<->design link (new table or column); show linked design name on the deal
-- [ ] Confirm scope: all my designs vs filtered to the deal's customer (asked user)
-- [ ] Tests + verify; checkpoint
+- [x] Ensure designs are saved with a NAME (saveDesign takes name) and listable (myDesigns)
+- [x] CRM deal: "Linked Designs" section with a drop-down of saved designs to attach (crm.linkDesign/unlinkDesign/linkableDesigns + deal detail; pre-existing, verified)
+- [x] Persist deal<->design link via crm_deal_designs table; linked design name shown on the deal
+- [x] Scope: linkableDesigns returns the caller's own designs (owner-scoped)
+- [x] NEW member-facing bridge: crm.requestQuoteFromDesign creates a HOUSE deal (affiliateId NULL, source "storefront") from a saved design + links it, usable by ANY logged-in member; reuses an existing house deal if already linked (idempotent)
+- [x] Designer UI: "Send to a Cabinet Dealz rep for a quote" checkbox in the Save dialog — on save it creates the CRM lead with the design's BOM total as estimatedValue and the gate email as contact
+- [x] Tests (server/crm.requestQuote.test.ts: house-deal creation+link+dedupe, foreign-design rejection); 533 tests pass; /design renders clean
 
 ## Phase 30: BUG - drawer base cabinets missing from Design Tool palette (user report 2026-06-23)
 - [x] Reproduced + root-caused: the Design Tool palette is correctly gated by the selected door style; drawer bases only appear for styles that publish DB-* SKUs.
