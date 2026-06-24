@@ -26,6 +26,7 @@ import CustomersAdmin from "@/components/admin/CustomersAdmin";
 import SkuImageManager from "@/components/admin/SkuImageManager";
 import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
 import ShippingAdmin from "@/components/admin/ShippingAdmin";
+import MarginsAdmin from "@/components/admin/MarginsAdmin";
 import ConflictsAdmin from "@/components/admin/ConflictsAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
@@ -375,6 +376,7 @@ export default function Admin() {
           <TabsTrigger value="featured">Featured Styles</TabsTrigger>
           <TabsTrigger value="distributors">Distributors</TabsTrigger>
           <TabsTrigger value="images">Product Images</TabsTrigger>
+          <TabsTrigger value="margins">Pricing & Margins</TabsTrigger>
           <TabsTrigger value="shipping">Shipping</TabsTrigger>
           <TabsTrigger value="conflicts">Conflicts</TabsTrigger>
         </TabsList>
@@ -401,6 +403,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="distributors" className="mt-6">
           <DistributorImport />
+        </TabsContent>
+        <TabsContent value="margins" className="mt-6">
+          <MarginsAdmin />
         </TabsContent>
         <TabsContent value="shipping" className="mt-6">
           <ShippingAdmin />

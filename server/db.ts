@@ -170,3 +170,63 @@ export async function setPasswordHash(userId: number, passwordHash: string): Pro
   if (!db) return;
   await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
 }
+
+// ─── Pricing & Margins ────────────────────────────────────────────────────────
+import { pricingSettings, type PricingSettings } from "../drizzle/schema";
+
+const DEFAULT_PRICING_SETTINGS = {
+  globalMarkupBps: 10000,
+  homeownerMarkupBps: 10000,
+  contractorMarkupBps: 10000,
+  wholesaleMarkupBps: 10000,
+};
+
+// Read the single pricing-settings row, seeding defaults if the table is empty.
+// Falls back to in-memory defaults when no DB is configured (local tooling/tests).
+export async function getPricingSettings(): Promise<
+  Pick<
+    PricingSettings,
+    | "globalMarkupBps"
+    | "homeownerMarkupBps"
+    | "contractorMarkupBps"
+    | "wholesaleMarkupBps"
+  >
+> {
+  const db = await getDb();
+  if (!db) return { ...DEFAULT_PRICING_SETTINGS };
+  const rows = await db.select().from(pricingSettings).limit(1);
+  if (rows.length === 0) {
+    await db.insert(pricingSettings).values({ ...DEFAULT_PRICING_SETTINGS });
+    return { ...DEFAULT_PRICING_SETTINGS };
+  }
+  const r = rows[0];
+  return {
+    globalMarkupBps: r.globalMarkupBps,
+    homeownerMarkupBps: r.homeownerMarkupBps,
+    contractorMarkupBps: r.contractorMarkupBps,
+    wholesaleMarkupBps: r.wholesaleMarkupBps,
+  };
+}
+
+export async function updatePricingSettings(
+  patch: Partial<
+    Pick<
+      PricingSettings,
+      | "globalMarkupBps"
+      | "homeownerMarkupBps"
+      | "contractorMarkupBps"
+      | "wholesaleMarkupBps"
+    >
+  >,
+  updatedByOpenId?: string,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const rows = await db.select().from(pricingSettings).limit(1);
+  const values = { ...patch, updatedByOpenId: updatedByOpenId ?? null };
+  if (rows.length === 0) {
+    await db.insert(pricingSettings).values({ ...DEFAULT_PRICING_SETTINGS, ...values });
+  } else {
+    await db.update(pricingSettings).set(values).where(eq(pricingSettings.id, rows[0].id));
+  }
+}

@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
-import { getDb, notInConflict } from "../db";
+import { getDb, notInConflict, getPricingSettings } from "../db";
+import { applyTierMarkup } from "@shared/margins";
 import {
   cabinets,
   distributors,
@@ -343,8 +344,17 @@ export const storefrontRouter = router({
         const grouped = allRows.filter(
           (r) => accessoryGroupFor(r) === input.subCategory
         );
+        const psAcc = await getPricingSettings();
+        const pricedAcc = grouped
+          .slice(input.offset, input.offset + input.limit)
+          .map((r) => ({
+            ...r,
+            homeownerPrice:
+              applyTierMarkup(r.homeownerPrice, psAcc, "homeowner")?.toFixed(2) ??
+              r.homeownerPrice,
+          }));
         return {
-          items: grouped.slice(input.offset, input.offset + input.limit),
+          items: pricedAcc,
           total: grouped.length,
         };
       }
@@ -364,8 +374,18 @@ export const storefrontRouter = router({
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(...conditions));
 
+      // Apply the platform homeowner tier markup so the displayed retail price
+      // reflects the admin's Pricing & Margins setting (0% => unchanged).
+      const ps = await getPricingSettings();
+      const priced = rows.map((r) => ({
+        ...r,
+        homeownerPrice:
+          applyTierMarkup(r.homeownerPrice, ps, "homeowner")?.toFixed(2) ??
+          r.homeownerPrice,
+      }));
+
       return {
-        items: rows,
+        items: priced,
         total: Number(countRows[0]?.count ?? 0),
       };
     }),

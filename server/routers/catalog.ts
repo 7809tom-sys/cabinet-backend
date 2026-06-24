@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, and, like, inArray, isNotNull, sql, desc, asc } from "drizzle-orm";
 import { publicProcedure, adminProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
-import { getDb, notInConflict } from "../db";
+import { getDb, notInConflict, getPricingSettings, updatePricingSettings } from "../db";
 import {
   cabinets,
   distributors,
@@ -695,5 +695,57 @@ export const pricingRouter = router({
           distributorId: r.distributorId,
         }))
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    }),
+
+  // ── Margins control center (admin) ────────────────────────────────────────
+  // Single source of truth for the platform-wide selling margins surfaced in
+  // the "Pricing & Margins" admin tab. globalMarkupBps is guidance/default for
+  // supply lines; the per-tier bps nudge a whole tier up/down. 10000 = no change.
+  adminGetMargins: adminProcedure.query(async () => {
+    const s = await getPricingSettings();
+    const distRows = await (async () => {
+      const db = await getDb();
+      if (!db) return [] as { id: number; name: string | null; markupPercent: string | null; displayMode: string | null; seriesName: string | null }[];
+      return db
+        .select({
+          id: distributors.id,
+          name: distributors.name,
+          markupPercent: distributors.markupPercent,
+          displayMode: distributors.displayMode,
+          seriesName: distributors.seriesName,
+        })
+        .from(distributors)
+        .where(eq(distributors.isActive, true))
+        .orderBy(asc(distributors.name));
+    })();
+    return { settings: s, distributors: distRows };
+  }),
+
+  adminUpdateMargins: adminProcedure
+    .input(
+      z.object({
+        globalMarkupBps: z.number().int().min(0).max(110000).optional(),
+        homeownerMarkupBps: z.number().int().min(0).max(110000).optional(),
+        contractorMarkupBps: z.number().int().min(0).max(110000).optional(),
+        wholesaleMarkupBps: z.number().int().min(0).max(110000).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await updatePricingSettings(input, ctx.user?.openId);
+      return await getPricingSettings();
+    }),
+
+  // Per-distributor markup override. Reuses the distributor.markupPercent lever
+  // (decimal fraction, e.g. 0.15 = +15%) so the margins tab can edit it inline.
+  adminSetDistributorMarkup: adminProcedure
+    .input(z.object({ distributorId: z.number().int(), markupPercent: z.number().min(0).max(10) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      await db
+        .update(distributors)
+        .set({ markupPercent: String(input.markupPercent) })
+        .where(eq(distributors.id, input.distributorId));
+      return { success: true } as const;
     }),
 });

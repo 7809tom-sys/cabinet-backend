@@ -1246,3 +1246,13 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] DoorStyles page now reads ?door= query param to pre-select the filter and keeps URL in sync (shareable/back-button friendly). Verified /styles?door=Slab opens with Slab pill active + 8 slab styles.
 - [x] Full regression: 524 tests pass, tsc clean.
 - [x] Fixed dead Home links: membership cards (Supplier Portal /portal/distributor->/distributor, Dealer Portal /portal/dealer->/account, Affiliate /portal/dealer->/affiliate) and footer (Photo-to-Cart /ocr->/photo-to-cart; Portals column Supplier->/distributor, Dealer->Affiliate /affiliate). Verified all against App.tsx registered routes. tsc clean.
+
+## Phase 48: Consolidated Pricing & Margins admin tab (user request 2026-06-24, option C)
+- [x] New `pricing_settings` table (single row): globalMarkupBps + per-tier markup bps (homeowner/contractor/wholesale), updatedAt/updatedByOpenId (migration 0019, seeded neutral 10000)
+- [x] db helpers: getPricingSettings (seed defaults if missing), updatePricingSettings
+- [x] adminProcedure: pricing.adminGetMargins + adminUpdateMargins + adminSetDistributorMarkup (bps range-validated)
+- [x] New Admin tab "Pricing & Margins" (MarginsAdmin.tsx): global default markup %, per-tier markup %, per-supply-line override table, live $100 preview per tier
+- [x] Per-distributor overrides: editable grid bound to distributor.markupPercent; save via adminSetDistributorMarkup
+- [x] Per-tier homeowner markup applied at storefront familyCatalog resolution (shared shared/margins.ts; 0% = unchanged)
+- [x] Tests: shared margin math (7 tests in server/margins.test.ts); 531 total pass
+- [x] Verified: tab renders in admin bar (authenticated screenshot); no devserver/console errors

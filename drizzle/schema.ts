@@ -604,3 +604,26 @@ export const freightZones = mysqlTable("freight_zones", {
 
 export type FreightZone = typeof freightZones.$inferSelect;
 export type InsertFreightZone = typeof freightZones.$inferInsert;
+
+// ─── Pricing & Margins ────────────────────────────────────────────────────────
+// Single-row control center for platform-wide selling margins. The base tier
+// prices (wholesale/contractor/homeowner) are stored per distributor SKU; these
+// settings let the owner nudge a whole tier up/down with one global markup,
+// plus a global default markup used as guidance for new supply lines. All
+// markups are in basis points (10000 = 0%/no change; 11500 = +15%).
+export const pricingSettings = mysqlTable("pricing_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  // Platform default markup applied to a distributor line that has no explicit
+  // per-distributor override (guidance + applied to series/neutral lines).
+  globalMarkupBps: int("globalMarkupBps").default(10000).notNull(),
+  // Per-tier multiplier applied on top of the stored base tier price at
+  // resolution time. 10000 = leave price unchanged.
+  homeownerMarkupBps: int("homeownerMarkupBps").default(10000).notNull(),
+  contractorMarkupBps: int("contractorMarkupBps").default(10000).notNull(),
+  wholesaleMarkupBps: int("wholesaleMarkupBps").default(10000).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedByOpenId: varchar("updatedByOpenId", { length: 64 }),
+});
+
+export type PricingSettings = typeof pricingSettings.$inferSelect;
+export type InsertPricingSettings = typeof pricingSettings.$inferInsert;
