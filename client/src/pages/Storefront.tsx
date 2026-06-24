@@ -68,6 +68,14 @@ export default function Storefront({ slug }: { slug: string }) {
   }
 
   const template = (data.template ?? "classic") as TemplateId;
+  // Language-aware hero copy: prefer the affiliate's Spanish copy when the
+  // visitor is viewing in ES and a non-empty ES value exists; otherwise fall
+  // back to the default (EN) copy so nothing goes blank.
+  const localizedData = {
+    ...data,
+    tagline: lang === "es" && data.taglineEs?.trim() ? data.taglineEs : data.tagline,
+    aboutText: lang === "es" && data.aboutTextEs?.trim() ? data.aboutTextEs : data.aboutText,
+  };
   const ref = data.referralCode;
   const withRef = (path: string) => `${path}${path.includes("?") ? "&" : "?"}ref=${encodeURIComponent(ref)}`;
   const heroImg = data.heroImageUrl || KITCHEN_SCENES["shaker-white"];
@@ -127,16 +135,16 @@ export default function Storefront({ slug }: { slug: string }) {
     <div className="min-h-screen flex flex-col bg-background">
       {/* ─── Header + Hero (varies by template) ──────────────────────────── */}
       {template === "classic" && (
-        <ClassicHeader {...{ data, brand, t, withRef, headlineFont, LangToggle, Logo }} />
+        <ClassicHeader {...{ data: localizedData, brand, t, withRef, headlineFont, LangToggle, Logo }} />
       )}
       {template === "showcase" && (
-        <ShowcaseHero {...{ data, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }} />
+        <ShowcaseHero {...{ data: localizedData, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }} />
       )}
       {template === "minimal" && (
-        <MinimalHero {...{ data, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }} />
+        <MinimalHero {...{ data: localizedData, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }} />
       )}
       {template === "craftsman" && (
-        <CraftsmanHero {...{ data, brand, t, withRef, headlineFont, LangToggle, Logo }} />
+        <CraftsmanHero {...{ data: localizedData, brand, t, withRef, headlineFont, LangToggle, Logo }} />
       )}
 
       <main className="flex-1">
@@ -201,7 +209,7 @@ export default function Storefront({ slug }: { slug: string }) {
           <div className="grid gap-8 md:grid-cols-3">
             <div>
               <div className={`${headlineFont} text-xl font-bold text-white mb-3`}>{data.storeName}</div>
-              {data.aboutText && <p className="text-sm leading-relaxed mb-4">{data.aboutText}</p>}
+              {localizedData.aboutText && <p className="text-sm leading-relaxed mb-4">{localizedData.aboutText}</p>}
               <div className="flex gap-3">
                 {data.facebookUrl && (
                   <a href={data.facebookUrl} target="_blank" rel="noreferrer" className="hover:text-white">

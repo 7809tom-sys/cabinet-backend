@@ -429,7 +429,9 @@ export const affiliates = mysqlTable("affiliates", {
   accentColor: varchar("accentColor", { length: 16 }), // hex, e.g. "#c79a4b"
   heroImageUrl: varchar("heroImageUrl", { length: 512 }),
   tagline: varchar("tagline", { length: 256 }), // hero subheading
+  taglineEs: varchar("taglineEs", { length: 256 }), // optional Spanish hero subheading
   aboutText: text("aboutText"), // "about this store" blurb on storefront
+  aboutTextEs: text("aboutTextEs"), // optional Spanish "about this store" blurb
   serviceArea: varchar("serviceArea", { length: 256 }), // e.g. "Sarasota County & surrounding"
   yearsInBusiness: int("yearsInBusiness"),
   facebookUrl: varchar("facebookUrl", { length: 512 }),

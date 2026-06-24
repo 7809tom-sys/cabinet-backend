@@ -533,7 +533,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] QA storefront experience: branding + kitchen photos load, full cabinet-line grid, catalog category tiles; EN + ES verified. ES string table complete (72/72 keys)
 - [x] QA responsive/mobile: home + storefront verified at 375px (hero stacks, nav collapses, CTAs reachable, ES toggle visible)
 - [x] ENHANCEMENT: storefront auto-detects browser language + honors ?lang= deep link (campaign links can target Spanish) — 5 tests
-- [ ] KNOWN LIMITATION (not blocking): affiliate's custom hero headline + description are single-language brand copy and do NOT translate to ES; platform UI strings do. Future: add per-affiliate Spanish copy fields
+- [x] RESOLVED: affiliate's custom hero headline + description now translate to ES. Added affiliates.taglineEs + aboutTextEs columns (migration 0025, applied); affiliates.bySlug + brandingInput + create defaults carry them; updateMyStorefront persists them. Storefront builds a language-aware localizedData (prefers ES copy when the visitor toggles to Spanish, falls back to the EN copy if the ES field is blank) and feeds it into all 4 hero templates + the footer about blurb. AffiliateDashboard branding editor gained optional "Spanish" tagline + about fields with helper text. 2 DB-aware tests (server/affiliates.spanishCopy.test.ts); 732 total pass; tsc clean.
 - [x] Verified key pages render with loading/empty handling; door swatch remains fallback if a kitchen scene image fails
 - [x] Full automated suite green: 301 tests / 33 files pass; typecheck clean. Added 8 tests (3 OAuth callback + 5 language detection)
 - [ ] Final checkpoint + launch-readiness report (in progress)
@@ -1124,7 +1124,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Phase 42 addendum: affiliate storefront templates (user decision 2026-06-23)
-- [ ] Provide 4-5 ready-made affiliate storefront templates (layout/color/hero theme) for affiliates to pick from (NOT a full custom builder); affiliate then layers white-label brand names + markup on top
+- [x] Provide ready-made affiliate storefront templates (layout/color/hero theme) for affiliates to pick from — DONE: affiliates.template enum (classic | showcase | minimal | craftsman) with 4 distinct hero layouts (ClassicHeader / ShowcaseHero / MinimalHero / CraftsmanHero in Storefront.tsx) + template-dependent typography; affiliate's primaryColor/accentColor/logo/hero layer on top. AffiliateDashboard has a visual template PICKER (TEMPLATES array w/ name+desc, click-to-select, persisted via affiliates update mutation which accepts template). White-label names + markup apply on top via the branding system (useStorefrontBranding).
 
 
 ## Phase 47: Clean door-swatch thumbnails for all 61 styles (user chose Option 1, 2026-06-23)

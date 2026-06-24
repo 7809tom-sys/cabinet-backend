@@ -250,7 +250,9 @@ export default function AffiliateDashboard() {
 // The affiliate row shape (subset of fields used by the editor).
 type AffiliateRow = {
   tagline: string | null;
+  taglineEs: string | null;
   aboutText: string | null;
+  aboutTextEs: string | null;
   primaryColor: string | null;
   accentColor: string | null;
   logoUrl: string | null;
@@ -272,7 +274,9 @@ const TEMPLATES: { id: "classic" | "showcase" | "minimal" | "craftsman"; name: s
 function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved: () => void }) {
   const [form, setForm] = useState({
     tagline: affiliate.tagline ?? "",
+    taglineEs: affiliate.taglineEs ?? "",
     aboutText: affiliate.aboutText ?? "",
+    aboutTextEs: affiliate.aboutTextEs ?? "",
     primaryColor: affiliate.primaryColor ?? "",
     accentColor: affiliate.accentColor ?? "",
     logoUrl: affiliate.logoUrl ?? "",
@@ -301,7 +305,9 @@ function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSav
   function handleSave() {
     save.mutate({
       tagline: form.tagline || null,
+      taglineEs: form.taglineEs || null,
       aboutText: form.aboutText || null,
+      aboutTextEs: form.aboutTextEs || null,
       primaryColor: form.primaryColor || null,
       accentColor: form.accentColor || null,
       logoUrl: form.logoUrl || null,
@@ -351,12 +357,22 @@ function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSav
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="tagline">Headline / tagline</Label>
+        <Label htmlFor="tagline">Headline / tagline (English)</Label>
         <Input id="tagline" value={form.tagline} onChange={(e) => set("tagline", e.target.value)} placeholder="Beautiful Kitchens, Built Around You." />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="about">About your store</Label>
+        <Label htmlFor="taglineEs">Headline / tagline (Spanish, optional)</Label>
+        <Input id="taglineEs" value={form.taglineEs} onChange={(e) => set("taglineEs", e.target.value)} placeholder="Hermosas cocinas, hechas para usted." />
+        <p className="text-xs text-muted-foreground">Shown when a visitor switches your storefront to Spanish. Leave blank to reuse the English headline.</p>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="about">About your store (English)</Label>
         <Textarea id="about" rows={3} value={form.aboutText} onChange={(e) => set("aboutText", e.target.value)} placeholder="Tell customers about your business…" />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="aboutEs">About your store (Spanish, optional)</Label>
+        <Textarea id="aboutEs" rows={3} value={form.aboutTextEs} onChange={(e) => set("aboutTextEs", e.target.value)} placeholder="Cuéntele a los clientes sobre su negocio…" />
+        <p className="text-xs text-muted-foreground">Optional Spanish version of your store blurb. Leave blank to reuse the English text.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
