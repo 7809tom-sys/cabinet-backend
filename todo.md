@@ -1352,4 +1352,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Root cause: base palette grouped by Math.round(height), so 34.5" drawer/base cabinets landed in a "35\" High" bucket and looked missing when scanning for 34.5"
 - [x] Group base palette by EXACT height and render half-inches as "34½\" High" (whole inches unchanged, e.g. 42")
 - [x] Verified live: header now reads "34½\" High (58)" with all DB-12-3 … DB-36-3 drawer bases under it; no cabinets removed
-- [ ] FLAG (data, needs confirmation): 15" three-drawer base is coded BD-15-3 (should be DB-15-3); DB-33-3 has no live SKU so it stays hidden
+- [x] FLAG resolved (user approved): BD-15-3 renamed to DB-15-3; DB-33-3 given live SKUs (see next section)
+
+## Session: Drawer-base catalog data fixes (user approved)
+- [x] Rename mis-coded BD-15-3 -> DB-15-3 (cabinet id 2 masterCode + its 9 platform SKUs BD153-* -> DB153-*)
+- [x] Add 9 published distributor SKUs for DB-33-3 (cloned from DB-33-2 across all door styles; DB332-* -> DB333-*, *-2DB33 -> *-3DB33)
+- [x] Verified live: Base tab now shows DB-12-3, DB-15-3, … DB-33-2, DB-33-3, DB-36-3 contiguous; DB-15-3 has 9 live SKUs, DB-33-3 has 9 live SKUs
