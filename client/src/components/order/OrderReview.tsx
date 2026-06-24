@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { readReferralCode } from "@/hooks/useReferral";
@@ -32,6 +32,10 @@ export type ReviewLine = {
   description: string | null;
   matched: boolean;
   confidence: "exact" | "normalized" | "fuzzy" | "none";
+  // Split-pantry auto-pairing: when set, this line is the TOP auto-added for the
+  // split-pantry BOTTOM at the given cabinetId. Used to keep the pair in sync.
+  pantryTopFor?: number | null;
+  pantryTotalHeight?: 84 | 90 | 96 | null;
 };
 
 type StyleOption = {
@@ -245,6 +249,76 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
 
   const selectedStyle = styleOptions.find((s) => s.styleId === styleId) ?? null;
 
+  // ─── Split-pantry auto-pairing ────────────────────────────────────────────
+  // Faircrest split pantries are two pieces: a 54" bottom (UCBxx54) + a matching
+  // same-width top (Wxx..24). When a bottom is in the order, auto-add its top in
+  // the SAME door style. Removing the bottom removes its auto-added top.
+  const bottomsQuery = trpc.pantry.listBottoms.useQuery(undefined, { retry: false });
+  const bottomIdSet = useMemo(
+    () => new Set((bottomsQuery.data ?? []).map((b) => b.cabinetId)),
+    [bottomsQuery.data]
+  );
+  const reconciling = useRef(false);
+  useEffect(() => {
+    if (reconciling.current) return;
+    if (styleId == null) return;
+    if (bottomIdSet.size === 0) return;
+
+    // Bottom lines currently in the order (matched split-pantry bottoms).
+    const bottomLines = lines.filter(
+      (l) => l.matched && l.cabinetId != null && bottomIdSet.has(l.cabinetId)
+    );
+    const bottomIds = new Set(bottomLines.map((l) => l.cabinetId as number));
+
+    // Remove orphaned auto-tops whose bottom is gone.
+    const orphanIdx = lines.findIndex(
+      (l) => l.pantryTopFor != null && !bottomIds.has(l.pantryTopFor)
+    );
+    if (orphanIdx !== -1) {
+      onLinesChange(lines.filter((_, i) => i !== orphanIdx));
+      return;
+    }
+
+    // Find a bottom that still needs its top added.
+    const needs = bottomLines.find(
+      (b) => !lines.some((l) => l.pantryTopFor === (b.cabinetId as number))
+    );
+    if (!needs) return;
+
+    reconciling.current = true;
+    const totalHeight = (needs.pantryTotalHeight ?? 84) as 84 | 90 | 96;
+    utils.pantry.pairForBottom
+      .fetch({ bottomCabinetId: needs.cabinetId as number, totalHeight, styleId })
+      .then((top) => {
+        if (top) {
+          const topLine: ReviewLine = {
+            rawCode: top.masterCode,
+            normalized: top.masterCode,
+            qty: needs.qty,
+            cabinetId: top.cabinetId,
+            masterCode: top.masterCode,
+            description: top.description,
+            matched: true,
+            confidence: "exact",
+            pantryTopFor: needs.cabinetId as number,
+            pantryTotalHeight: totalHeight,
+          };
+          // Insert the top right after its bottom for readability.
+          const idx = lines.findIndex((l) => l.cabinetId === needs.cabinetId);
+          const next = [...lines];
+          next.splice(idx + 1, 0, topLine);
+          onLinesChange(next);
+          toast.success("Split pantry completed", {
+            description: `Added the matching ${top.width}" top (${top.masterCode}) to reach ${top.totalHeight}".`,
+          });
+        }
+      })
+      .finally(() => {
+        reconciling.current = false;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, bottomIdSet, styleId]);
+
   // Live pricing for the matched cabinets under the chosen style + tier.
   const priceQuery = trpc.orders.priceLines.useQuery(
     { cabinetIds: stableCabinetIds, styleId: styleId ?? 0, tier },
@@ -276,10 +350,31 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
     onLinesChange(lines.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   }
   function removeLine(idx: number) {
+    const removed = lines[idx];
+    // Removing a split-pantry bottom also removes its auto-added top.
+    if (removed?.cabinetId != null) {
+      const bid = removed.cabinetId;
+      onLinesChange(
+        lines.filter((l, i) => i !== idx && l.pantryTopFor !== bid)
+      );
+      return;
+    }
     onLinesChange(lines.filter((_, i) => i !== idx));
   }
   function setQty(idx: number, qty: number) {
-    updateLine(idx, { qty: Math.max(1, Math.min(999, Math.round(qty || 1))) });
+    const clamped = Math.max(1, Math.min(999, Math.round(qty || 1)));
+    const line = lines[idx];
+    // Keep a split-pantry top's qty in lock-step with its bottom.
+    if (line?.cabinetId != null) {
+      const bid = line.cabinetId;
+      onLinesChange(
+        lines.map((l, i) =>
+          i === idx || l.pantryTopFor === bid ? { ...l, qty: clamped } : l
+        )
+      );
+      return;
+    }
+    updateLine(idx, { qty: clamped });
   }
 
   // ─── Submit ───────────────────────────────────────────────────────────────
@@ -460,6 +555,11 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                 </TableCell>
                 <TableCell className="text-sm">
                   {l.description ?? <span className="text-muted-foreground italic">Unrecognized code</span>}
+                  {l.pantryTopFor != null && (
+                    <Badge variant="secondary" className="ml-2 text-[10px] align-middle">
+                      Split-pantry top (auto-added)
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   {fixingIndex === idx ? null : confidenceBadge(l)}
@@ -473,7 +573,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                       <Pencil className="h-3 w-3 mr-1" /> Fix
                     </Button>
                   )}
-                  {l.matched && fixingIndex !== idx && (
+                  {l.matched && fixingIndex !== idx && l.pantryTopFor == null && (
                     <Button
                       variant="link"
                       size="sm"
@@ -482,6 +582,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                     >
                       swap
                     </Button>
+                  )}
+                  {l.pantryTopFor != null && (
+                    <span className="block text-[10px] text-muted-foreground">Controlled by its pantry base</span>
                   )}
                   {fixingIndex === idx && (
                     <div className="mt-1">
@@ -538,7 +641,14 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                   {l.linePrice != null ? `$${l.linePrice.toFixed(2)}` : <span className="text-muted-foreground">—</span>}
                 </TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeLine(idx)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive disabled:opacity-30"
+                    disabled={l.pantryTopFor != null}
+                    title={l.pantryTopFor != null ? "Remove the pantry base to remove this top" : "Remove"}
+                    onClick={() => removeLine(idx)}
+                  >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </TableCell>

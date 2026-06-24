@@ -1135,3 +1135,18 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 ## Phase 33b: Build-an-Order Fix picker selection bug
 - [x] Fix W2496 -> U-24-96-24 selection: picker result buttons defaulted to type="submit" and an overlay intercepted pointer hit-tests at the button center; added type="button" + preventDefault/stopPropagation, and gave the result list relative z-20/bg-popover with each row relative z-10. Selection now closes the picker, updates the line, and saves the alias. Verified live (W2496 resolves to U-24-96-24 pantry, priced $1189.20). 505 tests pass.
+
+## Phase 47: Consistent generated door-sample images for all 61 styles (user: option 1)
+- [ ] Generate one consistent studio door-sample image per style (same angle/lighting/framing, exact finish color, no watermark/text), driven by family panel profile + SW color
+- [ ] Upload all via manus-upload-file --webdev, keep originals in /home/ubuntu/webdev-static-assets/
+- [ ] Update door_styles.doorSampleImageUrl for all 61 styles to the new consistent set
+- [ ] Standardize Door Styles grid + Family + Cabinet Detail to use the new images consistently
+- [ ] Verify in browser (grid uniform, colors accurate) + tests pass + checkpoint
+
+## Faircrest Split-Pantry Auto-Pairing (DONE)
+- [x] Seed split-pantry cabinets (UCB2454/3054/3654 bottoms + 9 W...24 tops) under Clark & Son (distributor 2)
+- [x] Create Clark & Son "Rustic Hickory" (RH) door style; display name Sylvan Rust
+- [x] Seed 108 per-finish SKUs (skip ASP N/A) + 81 pantry_bundles
+- [x] pantry router: listBottoms + pairForBottom (same width, same finish; 18" excluded)
+- [x] OrderReview auto-adds matching top on bottom; re-prices with door style; qty lock-step; cascade delete; top locked (no swap/delete)
+- [x] vitest pantry.test.ts (4 tests) + full suite 509 passing

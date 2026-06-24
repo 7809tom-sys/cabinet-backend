@@ -24,6 +24,7 @@ import { assistantRouter } from "./routers/assistant";
 import { skuImagesRouter } from "./routers/skuImages";
 import { emailAuthRouter } from "./routers/emailAuth";
 import { freightRouter } from "./routers/freight";
+import { pantryRouter } from "./routers/pantry";
 
 export const appRouter = router({
   system: systemRouter,
@@ -58,6 +59,7 @@ export const appRouter = router({
   skuImages: skuImagesRouter,
   emailAuth: emailAuthRouter,
   freight: freightRouter,
+  pantry: pantryRouter,
 });
 
 export type AppRouter = typeof appRouter;
