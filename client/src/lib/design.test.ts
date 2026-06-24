@@ -24,6 +24,7 @@ import {
   isLCornerCabinet, cornerLegRatioForPlaced, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
+  isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, dimLabel,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
 
@@ -1545,5 +1546,42 @@ describe("effectiveStyleId (two-tone per-cabinet finish)", () => {
   });
   it("returns null only when neither override nor default is set", () => {
     expect(effectiveStyleId({ styleId: null }, null)).toBeNull();
+  });
+});
+
+describe("custom sizing (W/H/D)", () => {
+  it("flags width as custom only when it differs from the captured nominal", () => {
+    expect(isCustomWidth(cab({ width: 24, nominalWidth: 24 }))).toBe(false);
+    expect(isCustomWidth(cab({ width: 27, nominalWidth: 24 }))).toBe(true);
+    // No nominal captured (older designs) => never custom.
+    expect(isCustomWidth(cab({ width: 27 }))).toBe(false);
+    // Within rounding margin => not custom.
+    expect(isCustomWidth(cab({ width: 24.1, nominalWidth: 24 }))).toBe(false);
+  });
+
+  it("flags height and depth independently", () => {
+    expect(isCustomHeight(cab({ height: 34.5, nominalHeight: 34.5 }))).toBe(false);
+    expect(isCustomHeight(cab({ height: 40, nominalHeight: 34.5 }))).toBe(true);
+    expect(isCustomDepth(cab({ depth: 24, nominalDepth: 24 }))).toBe(false);
+    expect(isCustomDepth(cab({ depth: 30, nominalDepth: 24 }))).toBe(true);
+  });
+
+  it("isCustomSize is true when ANY dimension is custom", () => {
+    expect(isCustomSize(cab({ width: 24, depth: 24, height: 34.5, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).toBe(false);
+    expect(isCustomSize(cab({ width: 24, depth: 30, height: 34.5, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).toBe(true);
+  });
+
+  it("customSizeNote lists only the changed dimensions", () => {
+    expect(customSizeNote(cab({ width: 24, depth: 24, height: 34.5, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).toBe("");
+    const note = customSizeNote(cab({ width: 27, depth: 24, height: 40, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }));
+    expect(note).toContain("CUSTOM");
+    expect(note).toContain('27"W');
+    expect(note).toContain('40"H');
+    expect(note).not.toContain('"D');
+  });
+
+  it("dimLabel appends a Custom marker when resized", () => {
+    expect(dimLabel(cab({ width: 24, depth: 24, height: 34.5, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).not.toContain("Custom");
+    expect(dimLabel(cab({ width: 30, depth: 24, height: 34.5, nominalWidth: 24, nominalDepth: 24, nominalHeight: 34.5 }))).toContain("Custom");
   });
 });

@@ -24,9 +24,10 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
-  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth,
+  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, customSizeNote,
   normalizeLCornerDepths,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId,
@@ -93,6 +94,46 @@ type PricingTier = "Wholesale" | "Contractor";
 function priceOf(row: { wholesalePrice: string | null; contractorPrice: string | null }, tier: PricingTier): number {
   const v = tier === "Wholesale" ? row.wholesalePrice : row.contractorPrice;
   return v ? parseFloat(v) : 0;
+}
+
+// Compact inch stepper for one cabinet dimension (W/H/D). Shows the dimension
+// letter, −/+ buttons (1" step), and an exact field; the value turns gold +
+// bold when it's a custom size. Used in the selected-cabinet toolbar.
+function DimStepper({
+  label, value, custom, min, max, onStep, onSet,
+}: {
+  label: string;
+  value: number;
+  custom: boolean;
+  min: number;
+  max: number;
+  onStep: (delta: number) => void;
+  onSet: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5" title={`${label === "W" ? "Width" : label === "H" ? "Height" : "Depth"} (inches)`}>
+      <span className={cn("text-[11px] mr-0.5", custom ? "font-bold text-[var(--color-gold,#c89b3c)]" : "text-muted-foreground")}>{label}</span>
+      <Button variant="outline" size="sm" className="h-7 w-6 p-0" title={`Decrease ${label} 1 inch`} onClick={() => onStep(-1)}>
+        <Minus className="h-3 w-3" />
+      </Button>
+      <Input
+        type="number"
+        step="0.25"
+        min={min}
+        max={max}
+        value={value}
+        className={cn("h-7 w-14 text-[11px] text-center px-1", custom && "font-semibold text-[var(--color-gold,#c89b3c)]")}
+        onChange={(e) => {
+          const v = Number(e.target.value);
+          if (Number.isFinite(v) && v > 0) onSet(v);
+        }}
+        aria-label={`Custom ${label} in inches`}
+      />
+      <Button variant="outline" size="sm" className="h-7 w-6 p-0" title={`Increase ${label} 1 inch`} onClick={() => onStep(1)}>
+        <Plus className="h-3 w-3" />
+      </Button>
+    </div>
+  );
 }
 
 export default function DesignTool() {
@@ -649,8 +690,8 @@ export default function DesignTool() {
     const map = new Map<string, BuildSheetRow>();
     for (const p of placed) {
       const sw = resolveSwing(p);
-      const custom = isCustomWidth(p);
-      const key = `${p.masterCode}|${Math.round(p.width)}|${sw}`;
+      const sizeNote = customSizeNote(p);
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -658,8 +699,8 @@ export default function DesignTool() {
       else
         map.set(key, {
           code: p.masterCode,
-          description: custom
-            ? `${p.description} — CUSTOM ${Math.round(p.width * 10) / 10}\"W`
+          description: sizeNote
+            ? `${p.description} — ${sizeNote}`
             : p.description,
           widthIn: rotatedSize(p).w,
           heightIn: placedHeight(p),
@@ -996,7 +1037,9 @@ export default function DesignTool() {
           width,
           nominalWidth: width,
           depth,
+          nominalDepth: depth,
           height,
+          nominalHeight: height,
           rotation: spot.rotation,
           numberOfDoors: c.numberOfDoors,
           numberOfDrawers: c.numberOfDrawers,
@@ -1501,6 +1544,61 @@ export default function DesignTool() {
     if (!cur || typeof cur.nominalWidth !== "number") return;
     setCustomWidth(cur.nominalWidth);
   }, [selectedUid, placed, setCustomWidth]);
+
+  // Custom HEIGHT (inches, 6–96"). Height doesn't affect the plan footprint /
+  // snapping, so we just set it. Front View reflects the new height.
+  const setCustomHeight = useCallback((nextRaw: number) => {
+    if (!selectedUid) return;
+    const MIN_H = 6;
+    const MAX_H = 96;
+    const next = Math.max(MIN_H, Math.min(MAX_H, Math.round(nextRaw * 10) / 10));
+    setPlaced((prev) => prev.map((p) => (p.uid === selectedUid ? { ...p, height: next } : p)));
+  }, [selectedUid]);
+
+  const adjustHeight = useCallback((deltaIn: number) => {
+    if (!selectedUid) return;
+    const cur = placed.find((p) => p.uid === selectedUid);
+    if (!cur) return;
+    setCustomHeight(placedHeight(cur) + deltaIn);
+  }, [selectedUid, placed, setCustomHeight]);
+
+  const resetHeight = useCallback(() => {
+    if (!selectedUid) return;
+    const cur = placed.find((p) => p.uid === selectedUid);
+    if (!cur || typeof cur.nominalHeight !== "number") return;
+    setCustomHeight(cur.nominalHeight);
+  }, [selectedUid, placed, setCustomHeight]);
+
+  // Custom DEPTH (inches, 6–36"). Depth changes the plan footprint, so re-snap
+  // the cabinet to keep it seated in-bounds.
+  const setCustomDepth = useCallback((nextRaw: number) => {
+    if (!selectedUid) return;
+    const MIN_D = 6;
+    const MAX_D = 36;
+    setPlaced((prev) =>
+      prev.map((p) => {
+        if (p.uid !== selectedUid) return p;
+        const next = Math.max(MIN_D, Math.min(MAX_D, Math.round(nextRaw * 10) / 10));
+        const resized = { ...p, depth: next };
+        const snapped = snapPosition(resized, room, prev.filter((c) => c.uid !== p.uid));
+        return { ...resized, x: snapped.x, y: snapped.y };
+      })
+    );
+  }, [selectedUid, room]);
+
+  const adjustDepth = useCallback((deltaIn: number) => {
+    if (!selectedUid) return;
+    const cur = placed.find((p) => p.uid === selectedUid);
+    if (!cur) return;
+    setCustomDepth(cur.depth + deltaIn);
+  }, [selectedUid, placed, setCustomDepth]);
+
+  const resetDepth = useCallback(() => {
+    if (!selectedUid) return;
+    const cur = placed.find((p) => p.uid === selectedUid);
+    if (!cur || typeof cur.nominalDepth !== "number") return;
+    setCustomDepth(cur.nominalDepth);
+  }, [selectedUid, placed, setCustomDepth]);
 
   // Per-cabinet finish override (two-tone). Set the selected cabinet's styleId
   // so it uses a different color/finish than the design default. Pass null to
@@ -2166,55 +2264,50 @@ export default function DesignTool() {
               </span>
               <div className="h-4 w-px bg-border" />
               <WallPicker onPick={snapSelectedToWall} />
-              {/* Custom sizing: increase/decrease this cabinet's width to order it
-                  as a custom-size piece. −/+ step by 1"; the field accepts an exact
-                  value. A "Custom" badge + Reset appear once the width differs from
-                  the catalog size. */}
+              {/* Custom sizing: resize this cabinet's Width, Height and Depth to
+                  order it as a custom-size piece. Each dimension has −/+ (1")
+                  steppers and an exact field; a dimension turns gold + bold when
+                  it differs from the catalog size, and a single Reset restores
+                  all three to the catalog values. */}
               <div className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <Ruler className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[11px] text-muted-foreground mr-0.5">Width</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  title="Decrease width 1 inch"
-                  onClick={() => adjustWidth(-1)}
-                >
-                  <Minus className="h-3.5 w-3.5" />
-                </Button>
-                <Input
-                  type="number"
-                  step="0.25"
+                <DimStepper
+                  label="W"
+                  value={Math.round(selectedCab.width * 10) / 10}
+                  custom={isCustomWidth(selectedCab)}
                   min={6}
                   max={48}
-                  value={Math.round(selectedCab.width * 10) / 10}
-                  className="h-7 w-16 text-[11px] text-center"
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    if (Number.isFinite(v) && v > 0) setCustomWidth(v);
-                  }}
-                  aria-label="Custom cabinet width in inches"
+                  onStep={adjustWidth}
+                  onSet={setCustomWidth}
                 />
-                <span className="text-[11px] text-muted-foreground">in</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  title="Increase width 1 inch"
-                  onClick={() => adjustWidth(1)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-                {isCustomWidth(selectedCab) && (
+                <DimStepper
+                  label="H"
+                  value={Math.round(placedHeight(selectedCab) * 10) / 10}
+                  custom={isCustomHeight(selectedCab)}
+                  min={6}
+                  max={96}
+                  onStep={adjustHeight}
+                  onSet={setCustomHeight}
+                />
+                <DimStepper
+                  label="D"
+                  value={Math.round(selectedCab.depth * 10) / 10}
+                  custom={isCustomDepth(selectedCab)}
+                  min={6}
+                  max={36}
+                  onStep={adjustDepth}
+                  onSet={setCustomDepth}
+                />
+                {(isCustomWidth(selectedCab) || isCustomHeight(selectedCab) || isCustomDepth(selectedCab)) && (
                   <>
                     <Badge variant="secondary" className="text-[10px]">Custom</Badge>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-[11px] text-muted-foreground"
-                      title={`Reset to catalog width (${selectedCab.nominalWidth}″)`}
-                      onClick={resetWidth}
+                      title="Reset all dimensions to the catalog size"
+                      onClick={() => { resetWidth(); resetHeight(); resetDepth(); }}
                     >
                       Reset
                     </Button>

@@ -1602,3 +1602,6 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 ## More UI requests (2026-06-24 batch 2)
 - [x] Remove the add-on / recommended sales section ("recommendGroups" + fallback touch-up-kit suggestion) from the design/order review area
 - [x] Customer custom-sizing feature: Design Tool selected-cabinet Width stepper (−/+ & exact input, 6–48″), captures nominalWidth, flags "Custom" on canvas/dimLabel + build sheet description ("— CUSTOM N″W"), with Reset to catalog width
+
+## Resize extended (2026-06-24 batch 3)
+- [x] Extend custom-sizing in Design Tool: customer can resize WIDTH, HEIGHT and DEPTH (DimStepper W/H/D, −/+ & exact field; W 6–48", H 6–96", D 6–36"); captures nominalHeight/nominalDepth, per-dim Custom highlight + customSizeNote on build sheet ("— CUSTOM 27"W × 40"H"), single Reset restores all; build-sheet grouping keyed by W|H|D; 5 vitest cases

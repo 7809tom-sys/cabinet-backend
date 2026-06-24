@@ -182,14 +182,51 @@ export interface PlacedCabinet {
   // nominalWidth the cabinet is a CUSTOM size and is flagged on the build sheet
   // and order. Optional for backward-compat with older saved designs.
   nominalWidth?: number | null;
+  // Original catalog HEIGHT and DEPTH (inches) captured when placed. Live
+  // height/depth are what the customer edits; when they differ from these the
+  // cabinet is flagged CUSTOM. Optional for backward-compat with older designs.
+  nominalHeight?: number | null;
+  nominalDepth?: number | null;
+}
+
+// Generic "is this live dimension custom?" check: true when a captured nominal
+// value exists and the live value differs by more than a rounding margin.
+export function isCustomDim(live: number, nominal?: number | null): boolean {
+  if (typeof nominal !== "number" || nominal <= 0) return false;
+  return Math.abs(live - nominal) >= 0.25;
 }
 
 // True when the placed cabinet has been resized to a custom width (its live
 // width differs from the catalog nominal width by more than a rounding margin).
 // Falls back to false when no nominal width was captured (older designs).
 export function isCustomWidth(p: { width: number; nominalWidth?: number | null }): boolean {
-  if (typeof p.nominalWidth !== "number" || p.nominalWidth <= 0) return false;
-  return Math.abs(p.width - p.nominalWidth) >= 0.25;
+  return isCustomDim(p.width, p.nominalWidth);
+}
+
+export function isCustomHeight(p: { height?: number; nominalHeight?: number | null }): boolean {
+  return typeof p.height === "number" && isCustomDim(p.height, p.nominalHeight);
+}
+
+export function isCustomDepth(p: { depth: number; nominalDepth?: number | null }): boolean {
+  return isCustomDim(p.depth, p.nominalDepth);
+}
+
+// True when ANY of width/height/depth has been customized.
+export function isCustomSize(p: {
+  width: number; depth: number; height?: number;
+  nominalWidth?: number | null; nominalHeight?: number | null; nominalDepth?: number | null;
+}): boolean {
+  return isCustomWidth(p) || isCustomHeight(p) || isCustomDepth(p);
+}
+
+// Compact note of the custom dims, e.g. "CUSTOM 27\"W × 36\"H" (only the changed
+// dims), for build-sheet descriptions. Returns "" when nothing is custom.
+export function customSizeNote(p: PlacedCabinet): string {
+  const parts: string[] = [];
+  if (isCustomWidth(p)) parts.push(`${fmtIn(Math.round(p.width * 10) / 10)}\"W`);
+  if (isCustomHeight(p)) parts.push(`${fmtIn(Math.round(placedHeight(p) * 10) / 10)}\"H`);
+  if (isCustomDepth(p)) parts.push(`${fmtIn(Math.round(p.depth * 10) / 10)}\"D`);
+  return parts.length ? `CUSTOM ${parts.join(" × ")}` : "";
 }
 
 // Resolve which door-style/finish a placed cabinet should actually use:
@@ -379,7 +416,7 @@ export function dimLabel(p: PlacedCabinet): string {
   const { w, d } = rotatedSize(p);
   const h = placedHeight(p);
   const base = `${fmtIn(w)}\"W \u00d7 ${fmtIn(h)}\"H \u00d7 ${fmtIn(d)}\"D`;
-  return isCustomWidth(p) ? `${base} \u00b7 Custom` : base;
+  return isCustomSize(p) ? `${base} \u00b7 Custom` : base;
 }
 
 export function snapPosition(
