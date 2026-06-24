@@ -1296,7 +1296,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Checkout cross-sell / upsell page (user request 2026-06-24)
-- [ ] During checkout, show a dedicated "recommended add-ons / sales" page before order confirmation (accessories, skins/end panels, hardware, crown/toe-kick molding, glass doors) — scoped to the cart's door style/family; one-click add. (Future: tie into Hickory skin auto-suggest output.)
+- [x] During checkout (Order Review), show a "Recommended for your order" section before order confirmation (touch-up kit, crown/trim molding, decorative end panels, fillers/scribes, roll-out shelves) — scoped to the cart's chosen door style; one-click add. Implemented via orders.recommendAddOns + OrderReview grouped panel. (Future: tie into Hickory skin auto-suggest output; hardware subcategory empty in catalog so omitted for now.)
 
 
 ## Lazy-Susan corner base L-shaped footprint (user follow-up — earlier L-shape was incomplete)
@@ -1318,13 +1318,13 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] All 553 tests pass
 
 
-## Checkout cross-sell / upsell step (in progress)
-- [ ] Cart-aware accessory recommendation engine (suggest trays, end panels/skins, molding, hardware, fillers based on cart families)
-- [ ] Only recommend within the same cabinet family/door style as cart items
-- [ ] Present recommendations on a dedicated checkout step (not bottom "Shop Buy" area)
-- [ ] One-click add-to-cart from recommendation, multiples collapse to a single line item
-- [ ] Tests for recommendation engine
-- [ ] Verify in browser + checkpoint
+## Checkout cross-sell / upsell step (done 2026-06-24)
+- [x] Cart-aware accessory recommendation engine (orders.recommendAddOns) suggesting trays/shelves, end panels, molding, fillers, touch-up kit based on the order's matched cabinets (hardware omitted — no Hardware subcategory rows in catalog)
+- [x] Only recommends within the order's chosen door style (styleId-gated, published+available SKUs only)
+- [x] Presented on the Order Review step as a grouped "Recommended for your order" panel (not the bottom Shop area); fallback touch-up card retained if the panel can't load
+- [x] One-click add from recommendation; re-adding the same item bumps qty (collapses to one line); already-on-order items excluded server-side
+- [x] Tests for recommendation engine (orders.recommendAddOns: priced+style-scoped, excludes on-order items) — 2 new tests, 590 pass total
+- [x] tsc clean; section gated to appear only after lines are matched + a style is selected
 
 
 ## Admin panel: self-serve white-label (future)

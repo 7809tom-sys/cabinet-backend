@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, or, desc, inArray, like, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
@@ -25,6 +25,17 @@ import {
 import { invokeLLM } from "../_core/llm";
 
 // ─── Shared types surfaced to the client ───────────────────────────────────────
+export type RecAddOn = {
+  id: number;
+  masterCode: string;
+  description: string;
+  subCategory: string | null;
+  width: number | null;
+  height: number | null;
+  depth: number | null;
+  unitPrice: number | null;
+};
+
 export type ExtractedLine = {
   rawCode: string;
   normalized: string;
@@ -251,6 +262,123 @@ export const ordersRouter = router({
       description: kit.description ?? "Touch-Up Kit",
     };
   }),
+
+  // ─── Checkout recommendation engine ───────────────────────────────────────
+  // Cart/order-aware accessory recommendations, strictly scoped to the order's
+  // chosen door style (so we never suggest an item that isn't buyable in that
+  // family). Returns priced groups the Order Review step can offer as one-click
+  // adds. cabinetIds are the lines already on the order; recommendations that are
+  // already on the order are filtered out so we don't suggest duplicates.
+  recommendAddOns: publicProcedure
+    .input(
+      z.object({
+        styleId: z.number(),
+        cabinetIds: z.array(z.number()).max(500).default([]),
+        tier: tierEnum.default("Contractor"),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const empty = {
+        touchUpKit: [] as RecAddOn[],
+        rollOutTrays: [] as RecAddOn[],
+        endPanels: [] as RecAddOn[],
+        molding: [] as RecAddOn[],
+        fillers: [] as RecAddOn[],
+      };
+      if (!db) return empty;
+
+      const priceCol =
+        input.tier === "Wholesale"
+          ? distributorSkus.wholesalePrice
+          : distributorSkus.contractorPrice;
+      const cols = {
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        unitPrice: priceCol,
+        contractorPrice: distributorSkus.contractorPrice,
+        wholesalePrice: distributorSkus.wholesalePrice,
+      };
+      const gate = and(
+        eq(cabinets.isActive, true),
+        notInConflict(),
+        eq(distributorSkus.styleId, input.styleId),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true)
+      );
+
+      const runQuery = async (extra: ReturnType<typeof and> | undefined) => {
+        const rows = await db
+          .select(cols)
+          .from(cabinets)
+          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+          .where(extra ? and(gate, extra) : gate)
+          .orderBy(cabinets.masterCode);
+        return rows;
+      };
+
+      // Collapse the (cabinet x distributor) rows to one cheapest-priced entry per
+      // cabinet, dropping any cabinet that is already on the order.
+      const onOrder = new Set(input.cabinetIds);
+      const collapse = (rows: Awaited<ReturnType<typeof runQuery>>): RecAddOn[] => {
+        const best = new Map<number, RecAddOn>();
+        for (const r of rows) {
+          if (onOrder.has(r.id)) continue;
+          const price = Number(
+            input.tier === "Wholesale"
+              ? r.wholesalePrice ?? r.contractorPrice
+              : r.contractorPrice ?? r.wholesalePrice
+          );
+          const unitPrice = Number.isFinite(price) ? price : null;
+          const existing = best.get(r.id);
+          if (
+            !existing ||
+            (unitPrice !== null && (existing.unitPrice === null || unitPrice < existing.unitPrice))
+          ) {
+            best.set(r.id, {
+              id: r.id,
+              masterCode: r.masterCode,
+              description: r.description ?? r.masterCode,
+              subCategory: r.subCategory ?? null,
+              width: r.width != null ? Number(r.width) : null,
+              height: r.height != null ? Number(r.height) : null,
+              depth: r.depth != null ? Number(r.depth) : null,
+              unitPrice,
+            });
+          }
+        }
+        return Array.from(best.values()).sort((a, b) => a.masterCode.localeCompare(b.masterCode));
+      };
+
+      const [tuk, trays, panels, molding, fillers] = await Promise.all([
+        runQuery(eq(cabinets.masterCode, "TUK")).then(collapse),
+        // Roll-out shelves/trays: the live catalog uses subCategory "Roll Out Shelf".
+        runQuery(eq(cabinets.subCategory, "Roll Out Shelf")).then(collapse),
+        runQuery(eq(cabinets.subCategory, "Decorative End Panel")).then(collapse),
+        runQuery(eq(cabinets.subCategory, "Trim & Molding")).then(collapse),
+        // Fillers/scribe strips: F-* codes OR anything described as a filler.
+        runQuery(
+          or(
+            like(cabinets.masterCode, "F-%"),
+            sql`LOWER(${cabinets.description}) LIKE '%filler%'`
+          )
+        ).then(collapse),
+      ]);
+
+      return {
+        touchUpKit: tuk,
+        rollOutTrays: trays,
+        endPanels: panels,
+        molding,
+        fillers,
+      };
+    }),
 
   // ─── Manual / typed code matching ──────────────────────────────────────────
   matchCodes: publicProcedure

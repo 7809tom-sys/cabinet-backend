@@ -67,6 +67,68 @@ describe("orders.touchUpKit", () => {
   });
 });
 
+describe("orders.recommendAddOns", () => {
+  it("returns style-scoped accessory recommendations with prices", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    // Pick a style that can fulfill the touch-up kit so we know the style is real.
+    const kit = await caller.orders.touchUpKit();
+    expect(kit).not.toBeNull();
+    const styles = await caller.orders.stylesForCabinets({ cabinetIds: [kit!.id] });
+    expect(styles.length).toBeGreaterThan(0);
+    const styleId = styles[0].styleId;
+
+    const rec = await caller.orders.recommendAddOns({ styleId, cabinetIds: [], tier: "Contractor" });
+    // Shape: every group is an array.
+    expect(Array.isArray(rec.touchUpKit)).toBe(true);
+    expect(Array.isArray(rec.rollOutTrays)).toBe(true);
+    expect(Array.isArray(rec.endPanels)).toBe(true);
+    expect(Array.isArray(rec.molding)).toBe(true);
+    expect(Array.isArray(rec.fillers)).toBe(true);
+
+    // The catalog has crown molding + fillers in every active style, so at least
+    // one of those groups must resolve to a buyable, priced item.
+    const all = [
+      ...rec.touchUpKit,
+      ...rec.rollOutTrays,
+      ...rec.endPanels,
+      ...rec.molding,
+      ...rec.fillers,
+    ];
+    expect(all.length).toBeGreaterThan(0);
+    const priced = all.filter((r) => r.unitPrice !== null);
+    expect(priced.length).toBeGreaterThan(0);
+    priced.forEach((r) => expect(r.unitPrice!).toBeGreaterThan(0));
+  });
+
+  it("excludes items already on the order from the recommendations", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const kit = await caller.orders.touchUpKit();
+    const styles = await caller.orders.stylesForCabinets({ cabinetIds: [kit!.id] });
+    const styleId = styles[0].styleId;
+
+    const before = await caller.orders.recommendAddOns({ styleId, cabinetIds: [], tier: "Contractor" });
+    const beforeIds = new Set(
+      [...before.touchUpKit, ...before.molding, ...before.fillers, ...before.endPanels, ...before.rollOutTrays].map(
+        (r) => r.id
+      )
+    );
+    expect(beforeIds.size).toBeGreaterThan(0);
+    const someId = Array.from(beforeIds)[0];
+
+    const after = await caller.orders.recommendAddOns({
+      styleId,
+      cabinetIds: [someId],
+      tier: "Contractor",
+    });
+    const afterIds = new Set(
+      [...after.touchUpKit, ...after.molding, ...after.fillers, ...after.endPanels, ...after.rollOutTrays].map(
+        (r) => r.id
+      )
+    );
+    expect(afterIds.has(someId)).toBe(false);
+  });
+});
+
 describe("orders.matchCodes", () => {
   it("matches manual shorthand codes", async () => {
     const caller = appRouter.createCaller(publicCtx());

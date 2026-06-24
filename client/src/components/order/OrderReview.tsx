@@ -233,6 +233,31 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
     [matchedCabinetIds]
   );
 
+  // Add (or bump the qty of) a recommended accessory as a normal review line so
+  // it prices, totals, and submits like any other item.
+  function addRecommended(rec: { id: number; masterCode: string; description: string }) {
+    const existingIdx = lines.findIndex((l) => l.cabinetId === rec.id);
+    if (existingIdx !== -1) {
+      onLinesChange(
+        lines.map((l, i) => (i === existingIdx ? { ...l, qty: l.qty + 1 } : l))
+      );
+      toast.success(`Added another ${rec.masterCode} (qty ${lines[existingIdx].qty + 1}).`);
+      return;
+    }
+    const recLine: ReviewLine = {
+      rawCode: rec.masterCode,
+      normalized: rec.masterCode,
+      qty: 1,
+      cabinetId: rec.id,
+      masterCode: rec.masterCode,
+      description: rec.description,
+      matched: true,
+      confidence: "exact",
+    };
+    onLinesChange([...lines, recLine]);
+    toast.success(`${rec.masterCode} added to your order.`);
+  }
+
   // Door styles that can fulfill the matched cabinets.
   const stylesQuery = trpc.orders.stylesForCabinets.useQuery(
     { cabinetIds: stableCabinetIds },
@@ -249,6 +274,25 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
   }, [styleOptions, styleId]);
 
   const selectedStyle = styleOptions.find((s) => s.styleId === styleId) ?? null;
+
+  // ─── Checkout recommendations (style-scoped accessories) ──────────────────
+  // Cart-aware accessory suggestions for the chosen door style. Items already on
+  // the order are excluded server-side so we never duplicate-suggest.
+  const recommendQuery = trpc.orders.recommendAddOns.useQuery(
+    { styleId: styleId ?? 0, cabinetIds: stableCabinetIds, tier },
+    { enabled: styleId != null && stableCabinetIds.length > 0, retry: false }
+  );
+  const recommendGroups = useMemo(() => {
+    const d = recommendQuery.data;
+    if (!d) return [] as { key: string; label: string; blurb: string; items: NonNullable<typeof recommendQuery.data>["molding"] }[];
+    return [
+      { key: "touchUpKit", label: "Touch-up kit", blurb: "Finish-matched kit for nicks & scratches during install.", items: d.touchUpKit },
+      { key: "molding", label: "Crown & trim molding", blurb: "Finish wall & tall cabinets to the ceiling line.", items: d.molding },
+      { key: "endPanels", label: "Decorative end panels", blurb: "Cover exposed cabinet sides in the matching finish.", items: d.endPanels },
+      { key: "fillers", label: "Fillers & scribes", blurb: "Close gaps at walls and between cabinets.", items: d.fillers },
+      { key: "rollOutTrays", label: "Roll-out shelves", blurb: "Add pull-out shelves inside base cabinets.", items: d.rollOutTrays },
+    ].filter((g) => g.items.length > 0);
+  }, [recommendQuery.data]);
 
   // ─── Split-pantry auto-pairing ────────────────────────────────────────────
   // Faircrest split pantries are two pieces: a 54" bottom (UCBxx54) + a matching
@@ -674,8 +718,60 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
         </Table>
       </div>
 
-      {/* Touch-up kit checkout suggestion — always offered, one-click add */}
-      {touchUpKit && hasMatchedCabinet && !hasTouchUpKit && (
+      {/* Recommended for your order — style-scoped accessory cross-sell, one-click add */}
+      {hasMatchedCabinet && selectedStyle && recommendGroups.length > 0 && (
+        <div className="rounded-xl border border-[var(--color-gold)]/50 bg-[var(--color-gold)]/[0.06] p-5 space-y-4">
+          <div>
+            <h3 className="font-serif text-lg font-semibold text-foreground">Recommended for your order</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Finishing touches available in {selectedStyle.name}. One click adds them to your order.
+            </p>
+          </div>
+          {recommendGroups.map((group) => (
+            <div key={group.key} className="space-y-2">
+              <div>
+                <p className="text-sm font-semibold text-foreground">{group.label}</p>
+                <p className="text-xs text-muted-foreground">{group.blurb}</p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {group.items.slice(0, 6).map((item) => {
+                  const onOrderQty = lines.find((l) => l.cabinetId === item.id)?.qty ?? 0;
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground" title={item.description}>
+                          <span className="font-semibold">{item.masterCode}</span>
+                          <span className="text-muted-foreground"> · {item.description}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {item.unitPrice != null ? `$${item.unitPrice.toFixed(2)}` : "Price on request"}
+                          {onOrderQty > 0 && (
+                            <span className="ml-2 text-[var(--color-gold)]">In order × {onOrderQty}</span>
+                          )}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 gap-1.5 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 border-transparent"
+                        onClick={() => addRecommended(item)}
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Fallback touch-up kit suggestion when the richer panel can't load yet */}
+      {touchUpKit && hasMatchedCabinet && !hasTouchUpKit && recommendGroups.length === 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed border-[var(--color-gold)]/60 bg-[var(--color-gold)]/10 px-4 py-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold)]/20">
             <Plus className="h-4 w-4 text-[var(--color-navy)]" />
