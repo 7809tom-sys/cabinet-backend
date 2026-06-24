@@ -1278,3 +1278,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Verify category vs placementType consistency across full catalog (no remaining contradictions)
 - [x] Add regression test: accessory/trim items never appear in placeable palette
 - [x] All 230 vitest tests pass
+
+## Published-site Sign In / OAuth (2026-06-24)
+
+- [x] Verify OAuth callback no longer returns raw JSON dead-end on live site (now 302 -> /?auth_error=...)
+- [x] Confirm login URL is origin-relative (works on *.manus.space and custom domains without code change)
+- [x] Verify frontend surfaces auth_error as a friendly toast and cleans the URL flag
+- [x] End-to-end live test: account creation set a session, redirected to /account, "Signed in successfully" (test account removed)
