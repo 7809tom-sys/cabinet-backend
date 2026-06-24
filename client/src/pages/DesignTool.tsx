@@ -65,6 +65,7 @@ import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { CabinetImage } from "@/components/CabinetImage";
+import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 
 // One wall's worth of a consultant plan (mirrors the server `consult` output).
 type ConsultPlanWall = {
@@ -2307,6 +2308,31 @@ export default function DesignTool() {
         >
           <div className="p-3 border-b border-border space-y-2">
             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pricing</div>
+
+            {/* Door-style preview: a larger sample of the selected finish so the
+                user can see the look while comparing styles (esp. on mobile). */}
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-2">
+              <div className="h-16 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-white shadow-sm">
+                {activeStyle ? (
+                  <DoorStyleSwatch style={activeStyle} className="h-full w-full" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[9px] text-muted-foreground text-center px-1">
+                    No style
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Door style</div>
+                <div className="truncate text-sm font-semibold text-foreground">
+                  {activeStyleName ?? "Select a door style"}
+                </div>
+                {activeStyle && (activeStyle.doorStyle || activeStyle.finish || activeStyle.color) && (
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {[activeStyle.doorStyle, activeStyle.color || activeStyle.finish].filter(Boolean).join(" \u00b7 ")}
+                  </div>
+                )}
+              </div>
+            </div>
 
             <Select value={styleId ? String(styleId) : ""} onValueChange={(v) => setStyleId(Number(v))}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select door style" /></SelectTrigger>

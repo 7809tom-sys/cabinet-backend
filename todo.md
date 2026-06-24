@@ -1375,3 +1375,8 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Added a clear (x) button and a size-aware placeholder
 - [x] Extracted pure helpers into client/src/lib/paletteSearch.ts; 10 unit tests pass
 - [x] Verified live: searching "24" surfaces all 24" cabinets across height groups (incl. BSDC-6 matched on 24" height, BS-24-35, BA-24, ADA-*-24)
+
+## Session: Door-style sample preview in pricing panel
+- [x] Add a larger door-style sample swatch (DoorStyleSwatch fed by activeStyle) in the Pricing/Build Sheet header
+- [x] Show selected style name + door profile / finish next to the swatch; updates live on style change
+- [x] Verified live: selecting a style renders the swatch + "Bloom Blanc — Shaker · SW 7006 Extra White"; typecheck clean
