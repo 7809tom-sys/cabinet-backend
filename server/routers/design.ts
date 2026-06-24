@@ -14,6 +14,12 @@ import {
   type CrossSellCategory,
   type CrossSellItem,
 } from "../../shared/crossSell";
+import {
+  matchingSkinsForCabinet,
+  normalizeSkinPlacement,
+  requiresMandatorySkin,
+  type ExposedSides,
+} from "../../shared/skinMatch";
 
 export const designRouter = router({
   placeableCabinets: publicProcedure
@@ -919,5 +925,128 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         max: 6,
       });
       return { items };
+    }),
+
+  // ── Resolve required skins / decorative end panels for exposed cabinet sides ──
+  // Given placed cabinets (each with its exposed sides) and the chosen door
+  // style, return the matching skin product(s) per cabinet, whether that skin is
+  // actually buyable in the chosen style (priced SKU exists), and a clear
+  // "mandatory" flag for unfinished-exterior lines (Hickory). The pricing/
+  // buyability lookup means the BOM lights up automatically once the missing
+  // Hickory skin SKUs are loaded — no code change needed.
+  resolveSkins: publicProcedure
+    .input(
+      z.object({
+        styleId: z.number(),
+        items: z
+          .array(
+            z.object({
+              cabinetId: z.number(),
+              exposedLeft: z.boolean().optional(),
+              exposedRight: z.boolean().optional(),
+              exposedBack: z.boolean().optional(),
+              qty: z.number().int().positive().optional(),
+            }),
+          )
+          .max(200),
+      }),
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || input.items.length === 0) {
+        return { mandatory: false, styleCode: null as string | null, lines: [] };
+      }
+
+      const styleRow = (
+        await db
+          .select({ id: doorStyles.id, styleCode: doorStyles.styleCode, ourName: doorStyles.ourName })
+          .from(doorStyles)
+          .where(eq(doorStyles.id, input.styleId))
+          .limit(1)
+      )[0];
+      const styleCode = styleRow?.styleCode ?? null;
+      const mandatory = requiresMandatorySkin(styleCode);
+
+      // Look up placement + width for the placed cabinets.
+      const cabIds = Array.from(new Set(input.items.map((i) => i.cabinetId)));
+      const cabRows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          placementType: cabinets.placementType,
+          category: cabinets.category,
+          width: cabinets.width,
+        })
+        .from(cabinets)
+        .where(inArray(cabinets.id, cabIds));
+      const cabById = new Map(cabRows.map((c) => [c.id, c]));
+
+      // Which skin masterCodes are buyable (priced) in this style?
+      const requiredSkinCodes = new Set<string>();
+      const computed = input.items.map((item) => {
+        const cab = cabById.get(item.cabinetId);
+        const placement = normalizeSkinPlacement(cab?.placementType || cab?.category);
+        const exposed: ExposedSides = {
+          left: item.exposedLeft,
+          right: item.exposedRight,
+          back: item.exposedBack,
+        };
+        const reqs = matchingSkinsForCabinet({
+          placement,
+          exposed,
+          widthIn: cab?.width ? Number(cab.width) : 0,
+        }).map((r) => ({ ...r, qty: r.qty * (item.qty ?? 1) }));
+        reqs.forEach((r) => requiredSkinCodes.add(r.skinCode));
+        return { cabinetId: item.cabinetId, cabinetCode: cab?.masterCode ?? null, reqs };
+      });
+
+      // Buyable skin SKUs for the required codes in this style.
+      const buyable = new Map<string, { wholesalePrice: string | null; homeownerPrice: string | null }>();
+      if (requiredSkinCodes.size > 0) {
+        const skinCabs = await db
+          .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+          .from(cabinets)
+          .where(inArray(cabinets.masterCode, Array.from(requiredSkinCodes)));
+        const skinCabIdToCode = new Map(skinCabs.map((c) => [c.id, c.masterCode]));
+        if (skinCabs.length > 0) {
+          const skuRows = await db
+            .select({
+              cabinetId: distributorSkus.cabinetId,
+              wholesalePrice: distributorSkus.wholesalePrice,
+              homeownerPrice: distributorSkus.homeownerPrice,
+            })
+            .from(distributorSkus)
+            .where(
+              and(
+                inArray(distributorSkus.cabinetId, skinCabs.map((c) => c.id)),
+                eq(distributorSkus.styleId, input.styleId),
+                eq(distributorSkus.isPublished, true),
+              ),
+            );
+          for (const s of skuRows) {
+            const code = skinCabIdToCode.get(s.cabinetId);
+            if (code && !buyable.has(code)) {
+              buyable.set(code, { wholesalePrice: s.wholesalePrice, homeownerPrice: s.homeownerPrice });
+            }
+          }
+        }
+      }
+
+      const lines = computed
+        .filter((c) => c.reqs.length > 0)
+        .map((c) => ({
+          cabinetId: c.cabinetId,
+          cabinetCode: c.cabinetCode,
+          skins: c.reqs.map((r) => ({
+            skinCode: r.skinCode,
+            qty: r.qty,
+            reason: r.reason,
+            available: buyable.has(r.skinCode),
+            wholesalePrice: buyable.get(r.skinCode)?.wholesalePrice ?? null,
+            homeownerPrice: buyable.get(r.skinCode)?.homeownerPrice ?? null,
+          })),
+        }));
+
+      return { mandatory, styleCode, lines };
     }),
 });

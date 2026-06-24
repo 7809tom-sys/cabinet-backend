@@ -3,6 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { readReferralCode, setReferralCode as persistReferralCode } from "@/hooks/useReferral";
 import { requiresFinishMatch, finishMatchLabel, finishMatchOrderNote } from "@shared/finishMatch";
+import { isUnfinishedExteriorStyleName, unfinishedExteriorSkinNote } from "@shared/skinMatch";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -491,7 +492,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       })),
       selectedStyle?.name ?? null,
     );
-    const composedNotes = [notes.trim(), finishNote].filter(Boolean).join("\n\n");
+    const hickoryNote = unfinishedExteriorSkinNote(selectedStyle?.name ?? null);
+    const composedNotes = [notes.trim(), finishNote, hickoryNote].filter(Boolean).join("\n\n");
     createReq.mutate({
       originatorName: name || undefined,
       originatorEmail: email,
@@ -603,6 +605,14 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                 ))}
               </SelectContent>
             </Select>
+          )}
+          {isUnfinishedExteriorStyleName(selectedStyle?.name ?? null) && (
+            <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                <strong>{selectedStyle?.name}</strong> ships unfinished on all exposed exteriors. Every visible/exposed cabinet side needs a matching Hickory skin / end panel in the same finish, added as a <strong>separate line item</strong>. We&rsquo;ll flag this on your quote so exposed sides are confirmed before production.
+              </span>
+            </div>
           )}
         </div>
         <div className="space-y-1.5">
