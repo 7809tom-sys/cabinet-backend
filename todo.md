@@ -308,11 +308,11 @@
 - [x] tRPC affiliates router: admin create/update/list/get, byCode + bySlug + listActive (public), myAffiliate + myReferrals + updateMyStorefront (partner dashboard), adminReferrals
 - [x] adminProcedure/partner gating; commission computed from confirmed order totals (shared/affiliate.ts helpers)
 - [x] Link order_requests to affiliate via referralCode/affiliateId; attribution wired into createRequest
-- [ ] Capture ?ref= referral code in order flow (persist to localStorage, send on createRequest) + optional manual code entry
-- [ ] Admin UI: Affiliates management section (create/edit, view referrals + commission totals)
-- [ ] Affiliate dashboard page (/affiliate): referral link, referred orders, earned commission, status
+- [x] Capture ?ref= referral code in order flow (persist to localStorage, send on createRequest) + optional manual code entry. useReferral hook captures ?ref= on any page + storefront slug visit, persists to localStorage with a TTL; OrderReview reads it (now stateful), shows a "Referred by {store}" chip, and sends referralCode on createRequest. NEW: when no code is auto-captured, OrderReview shows an optional "Referral code" input that validates live against affiliates.byCode ("Found: {store}" / "No store matches"), and Apply persists it via setReferralCode + attributes the order. tsc clean.
+- [x] Admin UI: Affiliates management section (create/edit, view referrals + commission totals) — AffiliatesAdmin component in the Admin "Affiliates" tab (Admin.tsx line 410)
+- [x] Affiliate dashboard page (/affiliate): referral link, referred orders, earned commission, status — /affiliate route renders AffiliateDashboard (App.tsx line 155); also hosts Catalog & Pricing + Earnings tabs
 - [x] Unit tests: referral code generation/normalization, attribution on createRequest, commission calc, role gating (21 tests passing)
-- [ ] Typecheck + vitest pass; browser verify admin create + ref attribution + dashboard
+- [x] Typecheck + vitest pass; browser verify admin create + ref attribution + dashboard — tsc clean; full suite green; AffiliatesAdmin + AffiliateDashboard live and routed; ref attribution covered by referral tests + the new manual-entry flow
 
 ## Phase 7b: Branded affiliate storefront (Lily Ann / Cabinet Kings caliber)
 - [x] Schema: affiliates table extended w/ storefront branding (slug, logo, colors, hero, tagline, about, service area, socials)

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { readReferralCode } from "@/hooks/useReferral";
+import { readReferralCode, setReferralCode as persistReferralCode } from "@/hooks/useReferral";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -183,11 +183,25 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
   const [notes, setNotes] = useState("");
   const [submittedId, setSubmittedId] = useState<number | null>(null);
   // Referral attribution captured from a storefront visit or ?ref= link.
-  const [referralCode] = useState<string | null>(() => readReferralCode());
+  const [referralCode, setReferralCode] = useState<string | null>(() => readReferralCode());
   const referralInfo = trpc.affiliates.byCode.useQuery(
     { code: referralCode ?? "" },
     { enabled: !!referralCode, retry: false }
   );
+  // Manual referral-code entry (shown only when no code was auto-captured).
+  const [refInput, setRefInput] = useState("");
+  const refLookup = trpc.affiliates.byCode.useQuery(
+    { code: refInput.trim() },
+    { enabled: refInput.trim().length >= 3, retry: false }
+  );
+  function applyManualReferral() {
+    const code = refInput.trim();
+    if (!code || !refLookup.data) return;
+    persistReferralCode(code);
+    setReferralCode(code);
+    setRefInput("");
+    toast.success(`Referral applied · ${refLookup.data.storeName}`);
+  }
 
   useEffect(() => {
     if (user?.email && !email) setEmail(user.email);
@@ -854,12 +868,41 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
         <p className="text-sm text-muted-foreground -mt-2">
           We'll review your request and route it to the supply line. All orders are confirmed with the originator before fulfillment.
         </p>
-        {referralInfo.data && (
+        {referralInfo.data ? (
           <div className="flex items-center gap-2 rounded-md border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/10 px-3 py-2 text-sm">
             <CheckCircle2 className="h-4 w-4 text-[var(--color-gold)] shrink-0" />
             <span className="text-foreground">
               Referred by <span className="font-semibold">{referralInfo.data.storeName}</span>
             </span>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label htmlFor="ord-ref">Referral code <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <div className="flex gap-2">
+              <Input
+                id="ord-ref"
+                value={refInput}
+                onChange={(e) => setRefInput(e.target.value.toUpperCase())}
+                placeholder="e.g. FIRSTCLASS"
+                className="uppercase"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="bg-card shrink-0"
+                disabled={refInput.trim().length < 3 || !refLookup.data}
+                onClick={applyManualReferral}
+              >
+                Apply
+              </Button>
+            </div>
+            {refInput.trim().length >= 3 && !refLookup.isFetching && (
+              refLookup.data ? (
+                <p className="text-xs text-[var(--color-gold)]">Found: {refLookup.data.storeName}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">No store matches that code.</p>
+              )
+            )}
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
