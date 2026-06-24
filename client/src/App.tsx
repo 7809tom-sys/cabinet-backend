@@ -27,6 +27,7 @@ const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
 const SignIn = lazy(() => import("@/pages/SignIn"));
 const Account = lazy(() => import("@/pages/Account"));
 const PlanSheet = lazy(() => import("@/pages/PlanSheet"));
+const FeeSystemDoc = lazy(() => import("@/pages/FeeSystemDoc"));
 
 function PageLoader() {
   return (
@@ -211,6 +212,13 @@ export default function App() {
         <Route path="/plan-sheet">
           <Suspense fallback={<PageLoader />}>
             <PlanSheet />
+          </Suspense>
+        </Route>
+
+        {/* Admin-only Fee System reference sheet — print/PDF, no app chrome */}
+        <Route path="/admin/fee-system">
+          <Suspense fallback={<PageLoader />}>
+            <FeeSystemDoc />
           </Suspense>
         </Route>
 

@@ -1111,9 +1111,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Weekly payout view (admin): what each affiliate is owed this week, mark paid/issued, log payout (weekly checks)
 - [ ] Affiliate dashboard shows own earnings / pending-this-week
 
-## Phase 44: Fee System PDF for admin (user request 2026-06-23 - for Rich, handles the money)
-- [ ] Write Cabinet Dealz Fee System doc: full price ladder + all fees (wholesale%, affiliate 5%, suggested retail, 1% damage, 10% tech cap $100, 4% card / ACH waiver), worked example
-- [ ] Generate PDF; downloadable from the admin panel so Rich can review
+## Phase 44: Fee System PDF for admin (user request 2026-06-23 - for Rich, handles the money) — DONE
+- [x] Fee System doc page (client/src/pages/FeeSystemDoc.tsx at /admin/fee-system, admin-only with redirect): full price ladder (base → wholesale → affiliate → suggested retail) + all order fees (damage, tech w/ cap, card / ACH waiver) + a worked $10k example shown both Card and ACH, all driven by the LIVE pricing settings via pricing.adminGetFeeSettings
+- [x] "Print / Save as PDF" via the browser print pattern (matches PlanSheet); dedicated print stylesheet (US-Letter, no app chrome). Opened from a "Print / PDF" button in Admin → Pricing & Margins → Fee System card. tsc clean; 677 tests pass; checkpoint
 
 
 ## Phase 45: Cabinet image consistency across the whole site (user bug 2026-06-23)

@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
-import { Percent, Save, Receipt } from "lucide-react";
+import { Percent, Save, Receipt, FileText } from "lucide-react";
+import { Link } from "wouter";
 import {
   computeFeeStack,
   priceLadder,
@@ -124,14 +125,23 @@ export default function FeeSystemAdmin() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Receipt className="h-5 w-5" /> Fee System (price ladder + order fees)
-        </CardTitle>
-        <CardDescription>
-          The platform price ladder and the order fee stack. The damage fee applies to{" "}
-          <strong>every</strong> order; the tech fee is capped; the card fee applies to card
-          payments only (an approved bank/ACH transfer waives it).
-        </CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            <CardTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" /> Fee System (price ladder + order fees)
+            </CardTitle>
+            <CardDescription>
+              The platform price ladder and the order fee stack. The damage fee applies to{" "}
+              <strong>every</strong> order; the tech fee is capped; the card fee applies to card
+              payments only (an approved bank/ACH transfer waives it).
+            </CardDescription>
+          </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0 bg-background">
+            <Link href="/admin/fee-system">
+              <FileText className="mr-1.5 h-4 w-4" /> Print / PDF
+            </Link>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <div>
