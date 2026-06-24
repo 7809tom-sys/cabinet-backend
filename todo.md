@@ -1411,3 +1411,6 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [ ] Designer: cabinets on the canvas must re-color to the selected door style finish (currently not changing)
 - [x] Door-style color now applies to canvas cabinets (finishColors reads paint color/finish/species + deterministic fallback); verified Aero Obsidian recolors B-48 to black
 - [x] Designer ceiling-height input (presets 96/108/120 + custom 84-144"), wired into Front View elevation (wall height + ceiling label); preserved across package preload/save
+
+## Designer: floor-dropped wall cabinet toe-kick (user request)
+- [x] When a wall (upper) cabinet is dropped to the floor, its bottom should sit at the toe-kick height (4.5") not flat at 0"

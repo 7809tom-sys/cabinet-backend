@@ -1287,9 +1287,10 @@ export default function DesignTool() {
   }, []);
 
   // Right-click a WALL cabinet -> drop it to the floor as an island/peninsula
-  // base. It keeps its width but becomes a floor-standing box, so its TOP lands
-  // at the standard base box height (34.5"): bottom = 0. A 30" wall cabinet on
-  // the floor therefore tops out at 34.5", matching base/counter height.
+  // base. It keeps its width but becomes a floor-standing box that stands on a
+  // standard 4.5" toe kick (mountBottom = TOE_KICK), so it reads like a real
+  // cabinet on a toe-kick base rather than sitting flat on the slab. A 30" box
+  // therefore spans 4.5"-34.5".
   const dropToFloor = useCallback((uid: string) => {
     if (layoutLocked) { toast.info("Unlock the layout to drop a cabinet to the floor."); return; }
     setPlaced((prev) =>
@@ -1303,12 +1304,13 @@ export default function DesignTool() {
           // Box height: keep the cabinet's own height if it has one, otherwise
           // fall back to the standard base box height.
           height: p.height && p.height > 0 ? p.height : STD.BASE_HEIGHT,
-          // Sits on the floor as an island base; clear any wall-mount override.
-          mountBottom: undefined,
+          // Stands on a standard 4.5" toe kick (not flat on the slab), so a
+          // floor-dropped upper reads like a real cabinet on a toe-kick base.
+          mountBottom: STD.TOE_KICK,
         };
       })
     );
-    toast.success("Dropped to floor as an island base (top at 34.5\").");
+    toast.success("Dropped to floor on a 4.5\" toe kick.");
   }, [layoutLocked]);
 
   // Remove ONE instance from a consolidated panel group (decrement qty).

@@ -558,7 +558,13 @@ export function elevationBox(p: PlacedCabinet): { bottom: number; height: number
     //    different position set an explicit mountBottom (branch #1), which wins.
     return { bottom: WALL_MOUNT_BOTTOM, height: h };
   }
-  // Base, tall, vanity: the box always sits on the floor (bottom = 0).
+  // Base, tall, vanity: the box normally sits on the floor (bottom = 0). One
+  // exception: a wall (upper) cabinet that was "dropped to the floor" is stood
+  // on a standard 4.5" toe kick — it carries an explicit mountBottom so it reads
+  // like a real cabinet on a toe-kick base rather than sitting flat on the slab.
+  if (typeof p.mountBottom === "number" && p.mountBottom > 0) {
+    return { bottom: p.mountBottom, height: placedHeight(p) };
+  }
   if (p.placement === "tall") {
     return { bottom: 0, height: placedHeight(p) };
   }

@@ -1031,6 +1031,14 @@ describe("wall cabinet elevation rules", () => {
     expect(elevationBox(cab({ placement: "base", width: 24, height: 34.5 })).bottom).toBe(0);
   });
 
+  it("a floor-dropped wall cabinet (base + mountBottom 4.5) stands on the toe kick", () => {
+    // dropToFloor converts a wall cabinet to a base and stores mountBottom = 4.5,
+    // so the box sits on a standard toe kick instead of flat on the slab.
+    const box = elevationBox(cab({ placement: "base", width: 30, height: 30, mountBottom: 4.5 }));
+    expect(box.bottom).toBe(4.5);
+    expect(box.bottom + box.height).toBe(34.5);
+  });
+
   it("isStacker detects stacker cabinets and ignores plain wall cabinets", () => {
     expect(isStacker({ description: "30x12 Stacker Wall Cabinet with Glass Door" })).toBe(true);
     expect(isStacker({ description: "30\" x 12\" Bridge Wall Cabinet" })).toBe(false);
