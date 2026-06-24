@@ -4,6 +4,7 @@ import {
   mysqlTable,
   text,
   timestamp,
+  datetime,
   varchar,
   decimal,
   boolean,
@@ -675,3 +676,29 @@ export const platformPricingSettings = mysqlTable("platform_pricing_settings", {
 
 export type PlatformPricingSettingsRow = typeof platformPricingSettings.$inferSelect;
 export type InsertPlatformPricingSettings = typeof platformPricingSettings.$inferInsert;
+
+
+// ─── Affiliate payouts (weekly batches) ───────────────────────────────────────
+// Each row is one weekly payout batch for one affiliate. The admin "Payouts"
+// view groups confirmed order requests by ISO week (see shared/earnings.ts),
+// shows what each affiliate is owed, and lets the team mark a week issued/paid.
+// amountCents is the commission owed for that week, snapshotted at creation so
+// later order edits don't retroactively change a settled payout.
+export const affiliatePayouts = mysqlTable("affiliate_payouts", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  weekKey: varchar("weekKey", { length: 12 }).notNull(), // ISO week, e.g. "2026-W26"
+  weekStart: datetime("weekStart").notNull(), // Monday 00:00 UTC of the ISO week (datetime: supports far-future week anchors beyond the 2038 timestamp limit)
+  amountCents: int("amountCents").notNull(), // commission owed for the week
+  orderCount: int("orderCount").default(0).notNull(),
+  status: mysqlEnum("status", ["pending", "issued", "paid"]).default("pending").notNull(),
+  method: varchar("method", { length: 32 }), // e.g. "check", "ach"
+  reference: varchar("reference", { length: 128 }), // check #, ACH ref, etc.
+  note: text("note"),
+  issuedAt: timestamp("issuedAt"),
+  paidAt: timestamp("paidAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AffiliatePayout = typeof affiliatePayouts.$inferSelect;
+export type InsertAffiliatePayout = typeof affiliatePayouts.$inferInsert;

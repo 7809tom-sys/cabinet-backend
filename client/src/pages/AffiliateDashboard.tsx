@@ -170,6 +170,7 @@ export default function AffiliateDashboard() {
         <TabsList>
           <TabsTrigger value="crm">My CRM</TabsTrigger>
           <TabsTrigger value="orders">Referred Orders</TabsTrigger>
+          <TabsTrigger value="earnings">Earnings</TabsTrigger>
           <TabsTrigger value="catalog">My Catalog &amp; Pricing</TabsTrigger>
           <TabsTrigger value="branding">Storefront Branding</TabsTrigger>
         </TabsList>
@@ -224,6 +225,10 @@ export default function AffiliateDashboard() {
               </Table>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="earnings" className="mt-6">
+          <EarningsPanel />
         </TabsContent>
 
         <TabsContent value="catalog" className="mt-6">
@@ -660,5 +665,103 @@ function StyleBrandingRow({
         </Button>
       </TableCell>
     </TableRow>
+  );
+}
+
+
+function money(cents: number) {
+  return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+function EarningsPanel() {
+  const { data, isLoading } = trpc.affiliates.myEarnings.useQuery();
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner className="h-6 w-6 text-primary" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
+        No affiliate account is linked to you yet.
+      </div>
+    );
+  }
+
+  const statusClass: Record<string, string> = {
+    pending: "border-amber-400/60 text-amber-700 bg-amber-50",
+    issued: "border-blue-400/60 text-blue-700 bg-blue-50",
+    paid: "border-emerald-400/60 text-emerald-700 bg-emerald-50",
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <DollarSign className="h-4 w-4" /> This week ({data.thisWeekKey})
+          </div>
+          <div className="mt-1 text-2xl font-semibold tabular-nums">{money(data.thisWeekCents)}</div>
+        </div>
+        <div className="rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Package className="h-4 w-4" /> Pending (unpaid)
+          </div>
+          <div className="mt-1 text-2xl font-semibold tabular-nums">{money(data.pendingCents)}</div>
+        </div>
+        <div className="rounded-xl border border-border p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4" /> Paid to date
+          </div>
+          <div className="mt-1 text-2xl font-semibold tabular-nums">{money(data.paidCents)}</div>
+        </div>
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        Commission is earned when a referred order is <strong>confirmed</strong>, calculated at{" "}
+        {(data.commissionRate * 100).toFixed(1)}% and grouped by week (Mon–Sun). Payouts are
+        issued weekly; status updates here once the team marks a week issued or paid.
+      </p>
+
+      {data.weeks.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
+          No confirmed referred orders yet.
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Week</TableHead>
+                <TableHead className="text-right">Orders</TableHead>
+                <TableHead className="text-right">Commission</TableHead>
+                <TableHead>Payout status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.weeks.map((w) => {
+                const status = w.payout?.status ?? "pending";
+                return (
+                  <TableRow key={w.weekKey}>
+                    <TableCell className="font-mono text-xs">{w.weekKey}</TableCell>
+                    <TableCell className="text-right tabular-nums">{w.count}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">
+                      {money(w.totalCommissionCents)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={statusClass[status]}>{status}</Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   );
 }

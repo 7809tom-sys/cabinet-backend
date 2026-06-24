@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, desc, or } from "drizzle-orm";
+import { eq, desc, or, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   publicProcedure,
@@ -8,7 +8,8 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, orderRequests, affiliateStyleBranding, doorStyles } from "../../drizzle/schema";
+import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts } from "../../drizzle/schema";
+import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
   slugify,
@@ -401,5 +402,166 @@ export const affiliatesRouter = router({
         rate
       );
       return { affiliate: a, orders, summary, commissionRate: rate };
+    }),
+
+  // ─── Partner: my earnings, grouped by ISO week ─────────────────────────────
+  // A confirmed order request is "earned". We group earned commission by week,
+  // surface the current week's running total, and attach any payout rows so the
+  // partner can see issued/paid status.
+  myEarnings: partnerProcedure.query(async ({ ctx }) => {
+    const mine = await resolveMyAffiliate(ctx);
+    if (!mine) return null;
+    const db = await getDb();
+    if (!db) return null;
+    const rate = Number(mine.commissionRate);
+    const orders = await db
+      .select()
+      .from(orderRequests)
+      .where(and(eq(orderRequests.affiliateId, mine.id), eq(orderRequests.status, "confirmed")))
+      .orderBy(desc(orderRequests.confirmedAt));
+    const items = orders.map((o) => {
+      const at = o.confirmedAt ?? o.updatedAt ?? o.createdAt;
+      const customerTotalCents = dollarsToCents(o.totalAmount);
+      const earning = computeEarning({ customerTotalCents, commissionRate: rate });
+      return { at, commissionCents: earning.commissionCents };
+    });
+    const weeks = groupByWeek(items);
+    const payoutRows = await db
+      .select()
+      .from(affiliatePayouts)
+      .where(eq(affiliatePayouts.affiliateId, mine.id));
+    const payoutByWeek = new Map(payoutRows.map((p) => [p.weekKey, p]));
+    const thisWeekKey = isoWeekKey(new Date());
+    const lifetimeCents = weeks.reduce((s, w) => s + w.totalCommissionCents, 0);
+    const thisWeekCents = weeks.find((w) => w.weekKey === thisWeekKey)?.totalCommissionCents ?? 0;
+    const paidCents = payoutRows
+      .filter((p) => p.status === "paid")
+      .reduce((s, p) => s + p.amountCents, 0);
+    return {
+      affiliateId: mine.id,
+      commissionRate: rate,
+      thisWeekKey,
+      thisWeekCents,
+      lifetimeCents,
+      paidCents,
+      pendingCents: Math.max(0, lifetimeCents - paidCents),
+      weeks: weeks.map((w) => ({ ...w, payout: payoutByWeek.get(w.weekKey) ?? null })),
+    };
+  }),
+
+  // ─── Admin: weekly payout report across all affiliates ─────────────────────
+  // Builds per-affiliate, per-week commission buckets from confirmed orders and
+  // merges them with persisted payout rows so settled weeks show their status.
+  adminWeeklyPayouts: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { weeks: [] as unknown[] };
+    const affRows = await db.select().from(affiliates);
+    const affById = new Map(affRows.map((a) => [a.id, a]));
+    const orders = await db
+      .select()
+      .from(orderRequests)
+      .where(eq(orderRequests.status, "confirmed"));
+    const payoutRows = await db.select().from(affiliatePayouts);
+    const payoutByKey = new Map(payoutRows.map((p) => [`${p.affiliateId}::${p.weekKey}`, p]));
+    // bucket key = affiliateId::weekKey
+    type Bucket = { affiliateId: number; weekKey: string; weekStart: Date; orderCount: number; amountCents: number };
+    const buckets = new Map<string, Bucket>();
+    for (const o of orders) {
+      if (!o.affiliateId) continue;
+      const aff = affById.get(o.affiliateId);
+      if (!aff) continue;
+      const at = o.confirmedAt ?? o.updatedAt ?? o.createdAt;
+      const weekKey = isoWeekKey(at);
+      const earning = computeEarning({
+        customerTotalCents: dollarsToCents(o.totalAmount),
+        commissionRate: Number(aff.commissionRate),
+      });
+      const key = `${o.affiliateId}::${weekKey}`;
+      const b = buckets.get(key);
+      if (b) {
+        b.orderCount += 1;
+        b.amountCents += earning.commissionCents;
+      } else {
+        buckets.set(key, { affiliateId: o.affiliateId, weekKey, weekStart: isoWeekStart(at), orderCount: 1, amountCents: earning.commissionCents });
+      }
+    }
+    const rows = Array.from(buckets.values()).map((b) => {
+      const aff = affById.get(b.affiliateId);
+      const payout = payoutByKey.get(`${b.affiliateId}::${b.weekKey}`) ?? null;
+      return {
+        affiliateId: b.affiliateId,
+        affiliateName: aff?.storeName ?? `#${b.affiliateId}`,
+        weekKey: b.weekKey,
+        weekStart: b.weekStart,
+        orderCount: b.orderCount,
+        amountCents: b.amountCents,
+        status: payout?.status ?? "pending",
+        method: payout?.method ?? null,
+        reference: payout?.reference ?? null,
+        paidAt: payout?.paidAt ?? null,
+        issuedAt: payout?.issuedAt ?? null,
+      };
+    });
+    rows.sort((a, b) => (a.weekKey < b.weekKey ? 1 : a.weekKey > b.weekKey ? -1 : a.affiliateName.localeCompare(b.affiliateName)));
+    return { weeks: rows };
+  }),
+
+  // ─── Admin: mark a (affiliate, week) payout issued / paid ───────────────────
+  adminMarkPayout: adminProcedure
+    .input(z.object({
+      affiliateId: z.number().int(),
+      weekKey: z.string().regex(/^\d{4}-W\d{2}$/),
+      amountCents: z.number().int().min(0),
+      orderCount: z.number().int().min(0).default(0),
+      status: z.enum(["pending", "issued", "paid"]),
+      method: z.string().max(32).optional(),
+      reference: z.string().max(128).optional(),
+      note: z.string().max(2000).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const aff = (await db.select().from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1))[0];
+      if (!aff) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      // Compute the Monday of the actual ISO week from the key (year + week number).
+      const wkYear = Number(input.weekKey.slice(0, 4));
+      const wkNum = Number(input.weekKey.slice(6));
+      // Jan 4th is always in ISO week 1; step forward (wkNum-1) weeks, then snap to Monday.
+      const jan4 = new Date(Date.UTC(wkYear, 0, 4));
+      const approx = new Date(jan4.getTime() + (wkNum - 1) * 7 * 86400000);
+      const weekStart = isoWeekStart(approx);
+      const existing = (await db.select().from(affiliatePayouts)
+        .where(and(eq(affiliatePayouts.affiliateId, input.affiliateId), eq(affiliatePayouts.weekKey, input.weekKey)))
+        .limit(1))[0];
+      const now = new Date();
+      const issuedAt = input.status === "issued" || input.status === "paid" ? (existing?.issuedAt ?? now) : null;
+      const paidAt = input.status === "paid" ? (existing?.paidAt ?? now) : null;
+      if (existing) {
+        await db.update(affiliatePayouts).set({
+          amountCents: input.amountCents,
+          orderCount: input.orderCount,
+          status: input.status,
+          method: input.method ?? existing.method,
+          reference: input.reference ?? existing.reference,
+          note: input.note ?? existing.note,
+          issuedAt,
+          paidAt,
+        }).where(eq(affiliatePayouts.id, existing.id));
+        return { id: existing.id, status: input.status };
+      }
+      const inserted = await db.insert(affiliatePayouts).values({
+        affiliateId: input.affiliateId,
+        weekKey: input.weekKey,
+        weekStart,
+        amountCents: input.amountCents,
+        orderCount: input.orderCount,
+        status: input.status,
+        method: input.method ?? null,
+        reference: input.reference ?? null,
+        note: input.note ?? null,
+        issuedAt,
+        paidAt,
+      });
+      return { id: (inserted as unknown as { insertId?: number }).insertId ?? null, status: input.status };
     }),
 });

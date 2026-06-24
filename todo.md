@@ -1107,9 +1107,10 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 ## Phase 43: Central Stripe payments + weekly affiliate payouts (user decision 2026-06-23 - Option A)
 - [ ] Enable Stripe (webdev_add_feature stripe) - ALL customer funds route to Cabinet Dealz central account
 - [ ] Two payment paths at checkout: (1) Card via Stripe -> +4% card fee; (2) Bank transfer (ACH) -> pending admin approval, fee-free on approval
-- [ ] Affiliate earnings ledger: each paid order records affiliate, customer-paid amount, my cost, affiliate margin owed
-- [ ] Weekly payout view (admin): what each affiliate is owed this week, mark paid/issued, log payout (weekly checks)
-- [ ] Affiliate dashboard shows own earnings / pending-this-week
+- [x] Affiliate earnings ledger: pure calculator in shared/earnings.ts (computeEarning: customer-paid → commission owed; groupByWeek + ISO-week helpers isoWeekKey/isoWeekStart). A confirmed orderRequest = earned commission. 12 unit tests
+- [x] Weekly payout view (admin): Admin → Payouts tab (PayoutsAdmin) — per-affiliate per-ISO-week commission buckets from confirmed orders, merged with persisted payout rows; pending/issued/paid totals; "Mark issued" / "Mark paid" actions. New affiliate_payouts table (migration 0024; weekStart is datetime to allow week anchors beyond the 2038 timestamp limit). Procedures: affiliates.adminWeeklyPayouts + adminMarkPayout (admin-gated, upsert + timestamp snapshots)
+- [x] Affiliate dashboard shows own earnings / pending-this-week: AffiliateDashboard → Earnings tab (EarningsPanel) with this-week / pending / paid-to-date cards + per-week breakdown w/ payout status. Procedure: affiliates.myEarnings (partner-gated). 5 server tests; 694 total pass; tsc clean; checkpoint
+- [ ] REMAINING (needs Stripe enabled + user account): the actual Stripe card charge + ACH-approval payment flow at checkout (webdev_add_feature stripe). The fee engine (4% card / ACH waiver), earnings ledger, weekly payout reporting + affiliate earnings views are all built and tested; this is the live money-movement wiring, deferred until Stripe is connected.
 
 ## Phase 44: Fee System PDF for admin (user request 2026-06-23 - for Rich, handles the money) — DONE
 - [x] Fee System doc page (client/src/pages/FeeSystemDoc.tsx at /admin/fee-system, admin-only with redirect): full price ladder (base → wholesale → affiliate → suggested retail) + all order fees (damage, tech w/ cap, card / ACH waiver) + a worked $10k example shown both Card and ACH, all driven by the LIVE pricing settings via pricing.adminGetFeeSettings

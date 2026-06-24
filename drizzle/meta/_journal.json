@@ -169,6 +169,13 @@
       "when": 1782315205285,
       "tag": "0023_flashy_infant_terrible",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1782316420353,
+      "tag": "0024_closed_legion",
+      "breakpoints": true
     }
   ]
 }

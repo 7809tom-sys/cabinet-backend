@@ -28,6 +28,7 @@ import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
 import ShippingAdmin from "@/components/admin/ShippingAdmin";
 import MarginsAdmin from "@/components/admin/MarginsAdmin";
 import ConflictsAdmin from "@/components/admin/ConflictsAdmin";
+import PayoutsAdmin from "@/components/admin/PayoutsAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -386,6 +387,7 @@ export default function Admin() {
           <TabsTrigger value="crm">Sales CRM</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
+          <TabsTrigger value="payouts">Payouts</TabsTrigger>
           <TabsTrigger value="pros">Pro Applications</TabsTrigger>
           <TabsTrigger value="quotes">Countertop Quotes</TabsTrigger>
           <TabsTrigger value="featured">Featured Styles</TabsTrigger>
@@ -397,6 +399,9 @@ export default function Admin() {
         </TabsList>
         <TabsContent value="crm" className="mt-6">
           <CrmBoard lang="en" />
+        </TabsContent>
+        <TabsContent value="payouts" className="mt-6">
+          <PayoutsAdmin />
         </TabsContent>
         <TabsContent value="customers" className="mt-6">
           <CustomersAdmin />
