@@ -1522,4 +1522,4 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] FEATURE: when an SB is dropped, auto-place a default sink + faucet centered over it.
 - [x] BUG: dropping a wall cabinet to the floor expands its depth to 24" — must keep 12".
 - [x] FEATURE: rotate the highlighted/selected object (rotate control + "R" key). (Already present: toolbar Rotate button + "R" shortcut -> rotateSelected; verified.)
-- [ ] BUG: browser Back button doesn't work while browsing the website (catalog/detail/general pages). Likely a global routing issue (links/redirects replacing history instead of pushing, or scroll-restoration interfering). Audit wouter routing/navigation + any history.replace usage + the OAuth/redirect handling. Make Back navigate to the previous page as expected.
+- [x] BUG: browser Back button doesn't work while browsing the website (catalog/detail/general pages). Likely a global routing issue (links/redirects replacing history instead of pushing, or scroll-restoration interfering). Audit wouter routing/navigation + any history.replace usage + the OAuth/redirect handling. Make Back navigate to the previous page as expected.

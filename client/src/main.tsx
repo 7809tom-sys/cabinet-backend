@@ -1,31 +1,28 @@
 import { trpc } from "@/lib/trpc";
-import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CartProvider } from "@/contexts/CartContext";
-import { httpBatchLink, TRPCClientError } from "@trpc/client";
+import { httpBatchLink } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { getLoginUrl } from "./const";
+import { shouldRedirectToLoginOnError } from "./lib/authRedirect";
 import "./index.css";
 
 const queryClient = new QueryClient();
 
-const redirectToLoginIfUnauthorized = (error: unknown) => {
-  if (!(error instanceof TRPCClientError)) return;
+const goToLogin = () => {
   if (typeof window === "undefined") return;
-
-  const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
-
-  if (!isUnauthorized) return;
-
   window.location.href = getLoginUrl();
 };
 
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
-    redirectToLoginIfUnauthorized(error);
+    // Background QUERY errors NEVER force a redirect (see authRedirect.ts): a
+    // guest browsing public pages can trigger a protected query that 401s, and
+    // redirecting mid-browse corrupts history so the browser Back button breaks.
+    if (shouldRedirectToLoginOnError(error, "query")) goToLogin();
     console.error("[API Query Error]", error);
   }
 });
@@ -33,7 +30,9 @@ queryClient.getQueryCache().subscribe(event => {
 queryClient.getMutationCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.mutation.state.error;
-    redirectToLoginIfUnauthorized(error);
+    // Only a deliberate ACTION (mutation) that fails with "unauthorized" sends
+    // the user to log in — an expired session on submit/save/checkout.
+    if (shouldRedirectToLoginOnError(error, "mutation")) goToLogin();
     console.error("[API Mutation Error]", error);
   }
 });
