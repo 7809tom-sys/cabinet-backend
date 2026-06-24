@@ -1582,12 +1582,12 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Admin-only procedures (adminLookupCost/adminUpdateSkuCost/adminCostHistory) + vitest (6 tests)
 
 ## Affiliate white-label + per-door-style markup (priority 2)
-- [ ] Schema: per-affiliate branding (name/logo/accent) + per-door-style optional markup % overrides
-- [ ] Blank style % = fall back to default multiplier (Multiplier tab); affiliates can set any % (no caps)
-- [ ] Pricing resolver applies affiliate per-style % (fallback default) across catalog/design/cart
-- [ ] Affiliate portal + Admin UI to edit branding + per-style markup table (all door styles)
-- [ ] White-label storefront via affiliate referral link (branding + affiliate pricing)
-- [ ] vitest coverage
+- [x] Schema: per-affiliate branding (name/logo/accent/hero/tagline+ES) + per-door-style optional markup % overrides (affiliate_style_branding)
+- [x] Blank style % = fall back to category then default; affiliates can set any % (no caps — relaxed to a sanity-only 1,000,000 bps)
+- [x] Pricing resolver applies affiliate per-style % (style > category > global precedence) across storefront catalog (shared/affiliateBranding.ts + useStorefrontBranding)
+- [x] Affiliate portal (AffiliateDashboard “My Catalog & Pricing”) per-style markup table covering ALL active door styles + Admin AffiliatesAdmin
+- [x] White-label storefront via affiliate referral link (branding + affiliate pricing on /store/:slug)
+- [x] vitest coverage (affiliates.branding.test.ts incl. no-cap + all-styles tests; affiliateBranding.test.ts precedence; storefront.branding.test.ts)
 
 ## Authorize.Net payments (priority 3)
 - [ ] Accept.js tokenized card entry (no card data on server) — PCI-friendly

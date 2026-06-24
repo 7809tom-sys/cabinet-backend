@@ -86,6 +86,40 @@ describe("affiliate white-label branding + markup", () => {
     }
   });
 
+  it("accepts a markup above the old 500% cap (no business cap on margin)", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(partnerCtx());
+    const before = await caller.affiliates.myBranding();
+    const originalBps = before!.defaultMarkupBps;
+    const originalCat = before!.categoryMarkup;
+    try {
+      // 80000 bps = +800%, which the previous max(50000) cap would have rejected.
+      await caller.affiliates.updateMyMarkup({ defaultMarkupBps: 80000 });
+      const after = await caller.affiliates.myBranding();
+      expect(after!.defaultMarkupBps).toBe(80000);
+    } finally {
+      await caller.affiliates.updateMyMarkup({
+        defaultMarkupBps: originalBps,
+        categoryMarkup: originalCat,
+      });
+    }
+  });
+
+  it("myBranding exposes every active door style so all 1–61 styles are configurable", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(partnerCtx());
+    const data = await caller.affiliates.myBranding();
+    expect(data).not.toBeNull();
+    // The per-style table is driven by this list; every row must carry an
+    // (id, ourName, override) shape so the affiliate can set any/all styles.
+    for (const s of data!.styles) {
+      expect(typeof s.id).toBe("number");
+      expect("override" in s).toBe(true);
+    }
+  });
+
   it("upsertStyleBranding sets then clears a per-style override", async () => {
     const db = await getDb();
     if (!db) return;

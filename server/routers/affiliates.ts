@@ -339,8 +339,11 @@ export const affiliatesRouter = router({
 
   updateMyMarkup: partnerProcedure
     .input(z.object({
-      defaultMarkupBps: z.number().int().min(0).max(50000).optional(),
-      categoryMarkup: z.record(z.string(), z.number().int().min(0).max(50000)).optional(),
+      // No business cap on markup per requirement — an affiliate sets whatever
+      // margin they want. We keep a large sanity bound (1,000,000 bps = 10,000%)
+      // only to prevent integer overflow / nonsense input.
+      defaultMarkupBps: z.number().int().min(0).max(1000000).optional(),
+      categoryMarkup: z.record(z.string(), z.number().int().min(0).max(1000000)).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const mine = await resolveMyAffiliate(ctx);
@@ -362,7 +365,8 @@ export const affiliatesRouter = router({
     .input(z.object({
       styleId: z.number().int(),
       brandName: z.string().max(256).nullable().optional(),
-      markupBps: z.number().int().min(0).max(50000).nullable().optional(),
+      // No business cap on per-style markup (blank/null = fall back to default).
+      markupBps: z.number().int().min(0).max(1000000).nullable().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const mine = await resolveMyAffiliate(ctx);
