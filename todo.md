@@ -1092,7 +1092,9 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Bank-to-bank (ACH) transfer: approved ACH waives the 4% card fee (achApproved -> cardFeeCents=0); unapproved ACH still pays until approved
 - [x] Admin pricing panel to edit all percentages/caps; defaults as above (FeeSystemAdmin card in the Pricing & Margins tab, with live ladder + card/ACH order preview); pricing.adminGetFeeSettings/adminUpdateFeeSettings procedures
 - [x] shared/pricing fee engine (pure, unit-tested): computes the full fee stack deterministically (damage, tech cap, conditional card fee); 13 tests in shared/pricing.test.ts; 645 total pass; tsc clean; checkpoint
-- [ ] OWNER-ONLY dual cost: when owner/admin logged in, every cabinet line + bundle BOM shows "My Cost" (base/platform) AND "Your Cost" (affiliate cost) side by side; affiliates/customers never see base cost (deferred to the BOM/quote UI pass; engine + ladder ready)
+- [x] OWNER-ONLY dual cost (cabinet detail): ownerCostBreakdown() helper (My Cost = wholesale floor, Sells-At = viewer tier, Margin $ + %); admin-only "Owner view" row on the CabinetDetail PriceCard (gated on user.role==="admin", never rendered for affiliates/customers); 6 tests in shared/pricingTier.test.ts; 653 total pass; tsc clean; checkpoint
+- [ ] OWNER-ONLY dual cost (remaining surfaces): extend the same My-Cost/Margin row to the bundle/BOM build sheet + quote/order review (helper is ready; just needs wiring where those line items render)
+- [ ] SECURITY (pre-existing, not from this change): pricing.stylesForCabinet is a publicProcedure returning wholesale/contractor/homeowner columns to ALL clients; the UI hides trade tiers from non-pros but the wholesale cost is on the wire. Gate trade-price columns server-side by viewer role/tier so base cost is never sent to customers/affiliates.
 
 ## Phase 42: Affiliate white-label + markup section (user request 2026-06-23 - ~5 new affiliates signing up)
 - [ ] Affiliate dashboard "My Catalog / Branding" section: browse ALL cabinets organized by door style

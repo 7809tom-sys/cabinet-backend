@@ -5,6 +5,7 @@ import {
   tierLabel,
   DEFAULT_PRICING_TIER,
   PRICING_TIERS,
+  ownerCostBreakdown,
 } from "./pricingTier";
 
 describe("normalizeTier", () => {
@@ -81,5 +82,54 @@ describe("resolveTierPrice", () => {
     for (const t of PRICING_TIERS) {
       expect(resolveTierPrice(t, full)).toBeTypeOf("number");
     }
+  });
+});
+
+describe("ownerCostBreakdown (owner-only cost vs sell)", () => {
+  const full = {
+    wholesalePrice: 100,
+    contractorPrice: 120,
+    homeownerPrice: 160,
+    adjustedListPrice: 200,
+    listPrice: 220,
+  };
+
+  it("myCost is always the wholesale floor regardless of sell tier", () => {
+    expect(ownerCostBreakdown(full, "homeowner").myCost).toBe(100);
+    expect(ownerCostBreakdown(full, "contractor").myCost).toBe(100);
+    expect(ownerCostBreakdown(full, "wholesale").myCost).toBe(100);
+  });
+
+  it("sellPrice follows the supplied tier", () => {
+    expect(ownerCostBreakdown(full, "homeowner").sellPrice).toBe(160);
+    expect(ownerCostBreakdown(full, "contractor").sellPrice).toBe(120);
+    expect(ownerCostBreakdown(full, "wholesale").sellPrice).toBe(100);
+  });
+
+  it("computes margin dollars and percent for a homeowner sale", () => {
+    const b = ownerCostBreakdown(full, "homeowner");
+    expect(b.marginDollars).toBe(60); // 160 - 100
+    expect(b.marginPct).toBe(37.5); // 60 / 160
+  });
+
+  it("a wholesale-to-wholesale sale has zero margin", () => {
+    const b = ownerCostBreakdown(full, "wholesale");
+    expect(b.marginDollars).toBe(0);
+    expect(b.marginPct).toBe(0);
+  });
+
+  it("returns nulls when cost or sell price is unknown", () => {
+    expect(ownerCostBreakdown({}, "homeowner")).toEqual({
+      myCost: null,
+      sellPrice: null,
+      marginDollars: null,
+      marginPct: null,
+    });
+  });
+
+  it("marginPct is null when sellPrice is 0 (avoids divide-by-zero)", () => {
+    const b = ownerCostBreakdown({ wholesalePrice: 0, homeownerPrice: 0 }, "homeowner");
+    expect(b.marginDollars).toBe(0);
+    expect(b.marginPct).toBeNull();
   });
 });

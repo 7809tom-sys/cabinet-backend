@@ -17,6 +17,7 @@ import {
   resolveTierPrice,
   compareAtPrice,
   tierLabel,
+  ownerCostBreakdown,
 } from "@shared/pricingTier";
 import { CabinetImage } from "@/components/CabinetImage";
 import { cabinetTypeLabel, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
@@ -75,9 +76,18 @@ function priceForTier(row: StyleRow, tier: PricingTier): string {
 
 // ─── Price card (tier price + homeowner "Compare at" strike-through) ─────────
 
-function PriceCard({ row, tier }: { row: StyleRow; tier: PricingTier }) {
+function PriceCard({
+  row,
+  tier,
+  isOwner = false,
+}: {
+  row: StyleRow;
+  tier: PricingTier;
+  isOwner?: boolean;
+}) {
   const price = priceNumberForTier(row, tier);
   const compareAt = compareAtPrice(tier, row);
+  const owner = isOwner ? ownerCostBreakdown(row, tier) : null;
   const savePct =
     compareAt != null && price != null && compareAt > price
       ? Math.round(((compareAt - price) / compareAt) * 100)
@@ -110,6 +120,34 @@ function PriceCard({ row, tier }: { row: StyleRow; tier: PricingTier }) {
           {row.leadTimeDays != null && <div>Lead time: ~{row.leadTimeDays} days</div>}
         </div>
       </div>
+
+      {owner && owner.myCost != null && (
+        <div className="mt-3 pt-3 border-t border-dashed border-amber-500/60 rounded-md bg-amber-500/5 px-3 py-2">
+          <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-1">
+            <span>Owner view · not shown to customers</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <div>
+              <div className="text-xs text-muted-foreground">My Cost</div>
+              <div className="font-semibold text-foreground">${owner.myCost.toFixed(2)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Sells At ({tierLabel(tier)})</div>
+              <div className="font-semibold text-foreground">
+                {owner.sellPrice == null ? "—" : `$${owner.sellPrice.toFixed(2)}`}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Margin</div>
+              <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {owner.marginDollars == null
+                  ? "—"
+                  : `$${owner.marginDollars.toFixed(2)}${owner.marginPct != null ? ` (${owner.marginPct}%)` : ""}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
         <span>{row.name}</span>
@@ -151,7 +189,10 @@ export default function CabinetDetail({ masterCode }: Props) {
   // Pros (assigned a trade tier) may switch between homeowner/contractor/
   // wholesale to compare; pure homeowners/guests only ever see retail.
   const isPro = viewerTier !== "homeowner";
-  const visibleTiers: PricingTier[] = isPro
+  // Owner/admin sees an extra "My Cost / Margin" row on the price card. This is
+  // NEVER shown to affiliates or customers.
+  const isOwner = user?.role === "admin";
+  const visibleTiers: PricingTier[] = isPro || isOwner
     ? ["homeowner", "contractor", "wholesale"]
     : ["homeowner"];
   const [qty, setQty] = useState(1);
@@ -461,12 +502,12 @@ export default function CabinetDetail({ masterCode }: Props) {
 
                   {visibleTiers.map((t) => (
                     <TabsContent key={t} value={t} className="mt-3">
-                      <PriceCard row={selectedRow} tier={t} />
+                      <PriceCard row={selectedRow} tier={t} isOwner={isOwner} />
                     </TabsContent>
                   ))}
                 </Tabs>
               ) : (
-                <PriceCard row={selectedRow} tier="homeowner" />
+                <PriceCard row={selectedRow} tier="homeowner" isOwner={isOwner} />
               )}
 
               {/* Qty + Add to Cart */}

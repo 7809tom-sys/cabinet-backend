@@ -115,3 +115,45 @@ export function compareAtPrice(
   if (live === null || compare === null) return null;
   return compare > live ? compare : null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OWNER-ONLY cost intelligence
+// When the platform owner/admin is logged in, the price card shows what they
+// pay (the wholesale/platform "My Cost") next to what the viewer's tier sells
+// at ("Your Cost" / list), plus the gross margin between them. This is NEVER
+// exposed to affiliates or customers — gate the UI on role === "admin".
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface OwnerCostBreakdown {
+  /** The owner's base/platform cost (lowest tier = wholesale). Null if unknown. */
+  myCost: number | null;
+  /** The price the current viewer tier sells at. Null if unknown. */
+  sellPrice: number | null;
+  /** sellPrice - myCost (gross profit in dollars). Null if either is unknown. */
+  marginDollars: number | null;
+  /** marginDollars / sellPrice as a percentage (0-100). Null if not computable. */
+  marginPct: number | null;
+}
+
+/**
+ * Compute the owner's cost-vs-sell breakdown for a SKU at the viewer's tier.
+ * `myCost` is the wholesale (platform) price — the cheapest the owner pays.
+ * `sellPrice` is the price the supplied `sellTier` is quoted at.
+ */
+export function ownerCostBreakdown(
+  prices: TierPrices,
+  sellTier: PricingTier,
+): OwnerCostBreakdown {
+  // Owner's cost is always the wholesale floor (fall back up the ladder).
+  const myCost = resolveTierPrice("wholesale", prices);
+  const sellPrice = resolveTierPrice(sellTier, prices);
+  let marginDollars: number | null = null;
+  let marginPct: number | null = null;
+  if (myCost != null && sellPrice != null) {
+    marginDollars = Math.round((sellPrice - myCost) * 100) / 100;
+    if (sellPrice > 0) {
+      marginPct = Math.round((marginDollars / sellPrice) * 1000) / 10;
+    }
+  }
+  return { myCost, sellPrice, marginDollars, marginPct };
+}
