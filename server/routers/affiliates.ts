@@ -8,7 +8,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, orderRequests } from "../../drizzle/schema";
+import { affiliates, orderRequests, affiliateStyleBranding, doorStyles } from "../../drizzle/schema";
 import {
   normalizeReferralCode,
   slugify,
@@ -295,6 +295,91 @@ export const affiliatesRouter = router({
       commissionRate: rate,
     };
   }),
+
+  // ─── Partner: white-label branding + markup ────────────────────────────────
+  // Returns the affiliate's markup config + their per-style overrides joined to
+  // the central active door styles (so the UI can show "central name → my name").
+  myBranding: partnerProcedure.query(async ({ ctx }) => {
+    const mine = await resolveMyAffiliate(ctx);
+    if (!mine) return null;
+    const db = await getDb();
+    if (!db) return null;
+    const styles = await db
+      .select({ id: doorStyles.id, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+      .from(doorStyles)
+      .where(eq(doorStyles.isActive, true));
+    const overrides = await db
+      .select()
+      .from(affiliateStyleBranding)
+      .where(eq(affiliateStyleBranding.affiliateId, mine.id));
+    const byStyle = new Map(overrides.map((o) => [o.styleId, o]));
+    let categoryMarkup: Record<string, number> = {};
+    try {
+      if (mine.categoryMarkupJson) categoryMarkup = JSON.parse(mine.categoryMarkupJson);
+    } catch { categoryMarkup = {}; }
+    return {
+      affiliateId: mine.id,
+      defaultMarkupBps: mine.defaultMarkupBps,
+      categoryMarkup,
+      styles: styles
+        .map((s) => ({
+          ...s,
+          override: byStyle.get(s.id) ?? null,
+        }))
+        .sort((a, b) => (a.ourName || "").localeCompare(b.ourName || "")),
+    };
+  }),
+
+  updateMyMarkup: partnerProcedure
+    .input(z.object({
+      defaultMarkupBps: z.number().int().min(0).max(50000).optional(),
+      categoryMarkup: z.record(z.string(), z.number().int().min(0).max(50000)).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const set: Record<string, unknown> = {};
+      if (input.defaultMarkupBps !== undefined) set.defaultMarkupBps = input.defaultMarkupBps;
+      if (input.categoryMarkup !== undefined) set.categoryMarkupJson = JSON.stringify(input.categoryMarkup);
+      if (Object.keys(set).length > 0) {
+        await db.update(affiliates).set(set).where(eq(affiliates.id, mine.id));
+      }
+      return { id: mine.id };
+    }),
+
+  // Upsert (or clear) one per-style override. Pass brandName=null & markupBps=null
+  // to reset a style back to central name + default markup.
+  upsertStyleBranding: partnerProcedure
+    .input(z.object({
+      styleId: z.number().int(),
+      brandName: z.string().max(256).nullable().optional(),
+      markupBps: z.number().int().min(0).max(50000).nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const existing = await db
+        .select()
+        .from(affiliateStyleBranding)
+        .where(eq(affiliateStyleBranding.affiliateId, mine.id));
+      const row = existing.find((r) => r.styleId === input.styleId);
+      const brandName = input.brandName === undefined ? row?.brandName ?? null : (input.brandName?.trim() || null);
+      const markupBps = input.markupBps === undefined ? row?.markupBps ?? null : input.markupBps;
+      if (row) {
+        await db.update(affiliateStyleBranding)
+          .set({ brandName, markupBps })
+          .where(eq(affiliateStyleBranding.id, row.id));
+      } else {
+        await db.insert(affiliateStyleBranding).values({
+          affiliateId: mine.id, styleId: input.styleId, brandName, markupBps,
+        });
+      }
+      return { styleId: input.styleId, brandName, markupBps };
+    }),
 
   // ─── Admin: referrals for one affiliate ────────────────────────────────────
   adminReferrals: adminProcedure

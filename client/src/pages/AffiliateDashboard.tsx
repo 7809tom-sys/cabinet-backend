@@ -170,6 +170,7 @@ export default function AffiliateDashboard() {
         <TabsList>
           <TabsTrigger value="crm">My CRM</TabsTrigger>
           <TabsTrigger value="orders">Referred Orders</TabsTrigger>
+          <TabsTrigger value="catalog">My Catalog &amp; Pricing</TabsTrigger>
           <TabsTrigger value="branding">Storefront Branding</TabsTrigger>
         </TabsList>
 
@@ -223,6 +224,10 @@ export default function AffiliateDashboard() {
               </Table>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="catalog" className="mt-6">
+          <CatalogBrandingEditor />
         </TabsContent>
 
         <TabsContent value="branding" className="mt-6">
@@ -400,5 +405,260 @@ function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSav
         Save storefront
       </Button>
     </div>
+  );
+}
+
+
+// ─── My Catalog & Pricing: white-label door-style names + markup ──────────────
+const CATEGORY_KEYS: { key: string; label: string }[] = [
+  { key: "base", label: "Base cabinets" },
+  { key: "wall", label: "Wall cabinets" },
+  { key: "tall", label: "Tall / pantry" },
+  { key: "vanity", label: "Vanity" },
+];
+
+function bpsToPct(bps: number): string {
+  return (bps / 100).toFixed(bps % 100 === 0 ? 0 : 2);
+}
+function pctToBps(pct: string): number {
+  const n = Number(pct);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n * 100);
+}
+
+function CatalogBrandingEditor() {
+  const { data, isLoading } = trpc.affiliates.myBranding.useQuery();
+  const utils = trpc.useUtils();
+
+  const [defaultPct, setDefaultPct] = useState<string | null>(null);
+  const [catPct, setCatPct] = useState<Record<string, string>>({});
+
+  const saveMarkup = trpc.affiliates.updateMyMarkup.useMutation({
+    onSuccess: () => {
+      toast.success("Pricing updated");
+      utils.affiliates.myBranding.invalidate();
+    },
+    onError: (e) => toast.error("Could not save", { description: e.message }),
+  });
+  const saveStyle = trpc.affiliates.upsertStyleBranding.useMutation({
+    onSuccess: () => {
+      toast.success("Style saved");
+      utils.affiliates.myBranding.invalidate();
+    },
+    onError: (e) => toast.error("Could not save", { description: e.message }),
+  });
+
+  if (isLoading) {
+    return <div className="flex justify-center py-12"><Spinner /></div>;
+  }
+  if (!data) {
+    return (
+      <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
+        No affiliate account linked to you yet.
+      </div>
+    );
+  }
+
+  const defaultBps = data.defaultMarkupBps;
+  const effectiveDefaultPct = defaultPct ?? bpsToPct(defaultBps);
+
+  function saveDefault() {
+    const categoryMarkup: Record<string, number> = {};
+    for (const c of CATEGORY_KEYS) {
+      const raw = catPct[c.key];
+      const existing = data!.categoryMarkup[c.key];
+      if (raw !== undefined && raw !== "") categoryMarkup[c.key] = pctToBps(raw);
+      else if (existing != null) categoryMarkup[c.key] = existing;
+    }
+    saveMarkup.mutate({
+      defaultMarkupBps: pctToBps(effectiveDefaultPct),
+      categoryMarkup,
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Markup controls */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+        <div>
+          <h3 className="font-semibold text-lg">Your markup</h3>
+          <p className="text-sm text-muted-foreground">
+            Your retail prices are your affiliate cost plus this markup. Set a default for the whole
+            catalog, then optionally override it per category or per door style below.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="defmarkup">Default markup %</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="defmarkup"
+                type="number"
+                min={0}
+                step="0.5"
+                value={effectiveDefaultPct}
+                onChange={(e) => setDefaultPct(e.target.value)}
+                className="max-w-[140px] tabular-nums"
+              />
+              <span className="text-muted-foreground">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Per-category overrides (optional)</Label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {CATEGORY_KEYS.map((c) => {
+              const current = catPct[c.key] ?? (data.categoryMarkup[c.key] != null ? bpsToPct(data.categoryMarkup[c.key]) : "");
+              return (
+                <div key={c.key} className="flex items-center gap-2">
+                  <span className="text-sm w-32 shrink-0">{c.label}</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.5"
+                    placeholder={`default (${effectiveDefaultPct}%)`}
+                    value={current}
+                    onChange={(e) => setCatPct((m) => ({ ...m, [c.key]: e.target.value }))}
+                    className="max-w-[140px] tabular-nums"
+                  />
+                  <span className="text-muted-foreground text-sm">%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <Button onClick={saveDefault} disabled={saveMarkup.isPending} className="gap-2">
+          {saveMarkup.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save pricing
+        </Button>
+      </div>
+
+      {/* Per-style branding table */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div>
+          <h3 className="font-semibold text-lg">Door-style brand names</h3>
+          <p className="text-sm text-muted-foreground">
+            Rename any door style for your storefront. Leave blank to use the catalog name.
+            An optional per-style markup overrides everything above for that style.
+          </p>
+        </div>
+        <StyleBrandingTable
+          styles={data.styles}
+          defaultBps={pctToBps(effectiveDefaultPct)}
+          onSave={(styleId, brandName, markupBps) => saveStyle.mutate({ styleId, brandName, markupBps })}
+          saving={saveStyle.isPending}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface BrandingStyle {
+  id: number;
+  ourName: string | null;
+  styleCode: string | null;
+  doorStyle: string | null;
+  color: string | null;
+  thumbnailImageUrl: string | null;
+  override: { brandName: string | null; markupBps: number | null } | null;
+}
+
+function StyleBrandingTable({
+  styles,
+  defaultBps,
+  onSave,
+  saving,
+}: {
+  styles: BrandingStyle[];
+  defaultBps: number;
+  onSave: (styleId: number, brandName: string | null, markupBps: number | null) => void;
+  saving: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Catalog name</TableHead>
+            <TableHead>Your brand name</TableHead>
+            <TableHead className="text-right">Markup % (optional)</TableHead>
+            <TableHead className="w-20"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {styles.map((s) => (
+            <StyleBrandingRow key={s.id} style={s} defaultBps={defaultBps} onSave={onSave} saving={saving} />
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function StyleBrandingRow({
+  style,
+  defaultBps,
+  onSave,
+  saving,
+}: {
+  style: BrandingStyle;
+  defaultBps: number;
+  onSave: (styleId: number, brandName: string | null, markupBps: number | null) => void;
+  saving: boolean;
+}) {
+  const [brand, setBrand] = useState(style.override?.brandName ?? "");
+  const [markup, setMarkup] = useState(
+    style.override?.markupBps != null ? bpsToPct(style.override.markupBps) : ""
+  );
+  const dirty =
+    brand !== (style.override?.brandName ?? "") ||
+    markup !== (style.override?.markupBps != null ? bpsToPct(style.override.markupBps) : "");
+
+  const effectiveBps = markup !== "" ? pctToBps(markup) : defaultBps;
+
+  return (
+    <TableRow>
+      <TableCell className="text-sm">
+        <div className="font-medium">{style.ourName}</div>
+        {style.color && <div className="text-xs text-muted-foreground">{style.color}</div>}
+      </TableCell>
+      <TableCell>
+        <Input
+          value={brand}
+          onChange={(e) => setBrand(e.target.value)}
+          placeholder={style.ourName ?? ""}
+          className="min-w-[160px]"
+        />
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          <Input
+            type="number"
+            min={0}
+            step="0.5"
+            value={markup}
+            onChange={(e) => setMarkup(e.target.value)}
+            placeholder={bpsToPct(defaultBps)}
+            className="max-w-[100px] tabular-nums text-right"
+          />
+          <span className="text-muted-foreground text-sm">%</span>
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-1">
+          effective {bpsToPct(effectiveBps)}%
+        </div>
+      </TableCell>
+      <TableCell>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!dirty || saving}
+          onClick={() => onSave(style.id, brand.trim() || null, markup !== "" ? pctToBps(markup) : null)}
+        >
+          Save
+        </Button>
+      </TableCell>
+    </TableRow>
   );
 }

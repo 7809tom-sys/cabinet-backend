@@ -436,6 +436,12 @@ export const affiliates = mysqlTable("affiliates", {
   storefrontEnabled: boolean("storefrontEnabled").default(true).notNull(),
   // Storefront layout template variant
   template: mysqlEnum("template", ["classic", "showcase", "minimal", "craftsman"]).default("classic").notNull(),
+  // White-label markup: default % (bps) this affiliate adds on top of their
+  // affiliate cost to produce the customer-facing retail price. Per-style and
+  // per-category overrides live in affiliateStyleBranding / as JSON below.
+  defaultMarkupBps: int("defaultMarkupBps").default(2000).notNull(), // 20% default
+  // Optional per-category markup overrides, JSON: { "base": 2500, "wall": 1500 }
+  categoryMarkupJson: text("categoryMarkupJson"),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -443,6 +449,23 @@ export const affiliates = mysqlTable("affiliates", {
 
 export type Affiliate = typeof affiliates.$inferSelect;
 export type InsertAffiliate = typeof affiliates.$inferInsert;
+
+// ─── Affiliate white-label per-door-style overrides ────────────────────────────
+// One row per (affiliate, door style) the affiliate has customized. brandName
+// renames the style on their storefront; markupBps (nullable) overrides their
+// default markup for that style. Absence of a row = central name + default markup.
+export const affiliateStyleBranding = mysqlTable("affiliate_style_branding", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  styleId: int("styleId").notNull(),
+  brandName: varchar("brandName", { length: 256 }),
+  markupBps: int("markupBps"), // null = use affiliate default / category
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AffiliateStyleBranding = typeof affiliateStyleBranding.$inferSelect;
+export type InsertAffiliateStyleBranding = typeof affiliateStyleBranding.$inferInsert;
 
 // ─── CRM: Sales pipeline (admin) + affiliate pipeline ──────────────────────────
 // A lightweight task-board / pipeline over leads & deals. A deal with

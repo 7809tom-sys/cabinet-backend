@@ -1097,11 +1097,12 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] SECURITY: pricing.stylesForCabinet now gates price columns server-side via visiblePricesForViewer(row, viewerTier, isAdmin) — admin sees all; wholesale pro sees all trade columns; contractor loses wholesale/base; homeowner/guest gets ONLY homeowner + list refs (wholesale & contractor nulled before leaving the server). 5 tests in shared/pricingTier.test.ts; 658 total pass; tsc clean; checkpoint
 
 ## Phase 42: Affiliate white-label + markup section (user request 2026-06-23 - ~5 new affiliates signing up)
-- [ ] Affiliate dashboard "My Catalog / Branding" section: browse ALL cabinets organized by door style
-- [ ] Affiliate sets own white-label brand names for door styles (per-affiliate layer over central ourName)
-- [ ] Affiliate sets markup %: global default + optional per-door-style / per-category overrides, applied on top of affiliate cost
-- [ ] Live preview of resulting customer retail price
-- [ ] Persist per-affiliate branding + markup (schema + migration)
+- [x] Affiliate dashboard "My Catalog & Pricing" tab (CatalogBrandingEditor): lists ALL active door styles for the affiliate to brand/price
+- [x] Affiliate sets own white-label brand names for door styles (per-affiliate layer over central ourName via affiliate_style_branding.brandName; resolveBrandName falls back to the catalog name)
+- [x] Affiliate sets markup %: global default (affiliates.defaultMarkupBps) + optional per-category (categoryMarkupJson) + per-door-style (affiliate_style_branding.markupBps) overrides; precedence style > category > global in shared/affiliateBranding.ts (resolveMarkupBps)
+- [x] Live "effective %" preview per style row in the editor; resolveAffiliateRetail computes cost->retail->profit (unit-tested)
+- [x] Persist per-affiliate branding + markup (migration 0023: affiliate_style_branding table + affiliates.defaultMarkupBps/categoryMarkupJson; applied). Procedures: affiliates.myBranding/updateMyMarkup/upsertStyleBranding (partner-gated). 19 tests (shared/affiliateBranding.test.ts + server/affiliates.branding.test.ts); 677 total pass; tsc clean; checkpoint
+- [ ] FOLLOW-UP (storefront application): thread the affiliate's white-label NAMES + marked-up retail through the customer-facing catalog when browsing under /store/:slug (needs an affiliate-context provider + a branded styles/prices endpoint). Editor + resolver + persistence are done; this is the read-side wiring.
 
 ## Phase 43: Central Stripe payments + weekly affiliate payouts (user decision 2026-06-23 - Option A)
 - [ ] Enable Stripe (webdev_add_feature stripe) - ALL customer funds route to Cabinet Dealz central account

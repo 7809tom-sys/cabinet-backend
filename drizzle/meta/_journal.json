@@ -162,6 +162,13 @@
       "when": 1782313678760,
       "tag": "0022_perfect_freak",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1782315205285,
+      "tag": "0023_flashy_infant_terrible",
+      "breakpoints": true
     }
   ]
 }
