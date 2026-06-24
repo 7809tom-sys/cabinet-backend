@@ -31,7 +31,7 @@ import {
   blindCornerAutoFiller,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
-  APPLIANCES, applianceAsDesignCabinet,
+  APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches,
@@ -174,8 +174,8 @@ export default function DesignTool() {
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<"base" | "cornerbase" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts">("base");
-  // Room type: kitchen cabinets (default) or closet system parts.
-  const [roomType, setRoomType] = useState<"kitchen" | "closet">("kitchen");
+  // Room type: kitchen cabinets (default), bathroom, laundry, closet parts, or other.
+  const [roomType, setRoomType] = useState<RoomType>("kitchen");
 
   // Pricing selectors
   const [styleId, setStyleId] = useState<number | null>(null);
@@ -273,10 +273,16 @@ export default function DesignTool() {
     setSelectedOpeningUid((cur) => (cur === uid ? null : cur));
   }, []);
 
-  // Appliances are a synthetic, client-side catalog (no DB rows).
+  // Appliances/fixtures are a synthetic, client-side catalog (no DB rows),
+  // filtered to the current room type (kitchen appliances vs bath/laundry
+  // fixtures). Falls back to all appliances for rooms with no fixture set.
   const appliancePalette = useMemo<DesignCabinet[]>(
-    () => APPLIANCES.map(applianceAsDesignCabinet),
-    []
+    () => {
+      const forRoom = appliancesForRoom(roomType);
+      const set = forRoom.length > 0 ? forRoom : APPLIANCES;
+      return set.map(applianceAsDesignCabinet);
+    },
+    [roomType]
   );
 
   // Closet parts palette (placeholder products), grouped by category.
@@ -450,10 +456,13 @@ export default function DesignTool() {
 
   // Restore a saved design (room + placed cabinets + style) onto the canvas.
   const loadSavedDesign = useCallback(
-    (d: { room: RoomData; placed: PlacedCabinet[]; styleId: number | null }) => {
+    (d: { room: RoomData; placed: PlacedCabinet[]; styleId: number | null; roomType?: string | null }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
       setPlaced(Array.isArray(d.placed) ? d.placed : []);
       setStyleId(d.styleId ?? null);
+      if (d.roomType && ["kitchen", "bathroom", "laundry", "closet", "other"].includes(d.roomType)) {
+        setRoomType(d.roomType as RoomType);
+      }
       setSelectedUid(null);
     },
     []
@@ -1286,6 +1295,7 @@ export default function DesignTool() {
       room: room ?? DEFAULT_ROOM,
       placed: Array.isArray(placedCabs) ? placedCabs : [],
       styleId: (savedDesign.selectedStyleId ?? null) as number | null,
+      roomType: (savedDesign as { roomType?: string | null }).roomType ?? null,
     });
     toast.success(`Loaded "${savedDesign.name}" — edit, swap styles, and re-price.`);
   }, [loadDesignId, savedDesign, loadSavedDesign]);
@@ -1719,6 +1729,7 @@ export default function DesignTool() {
             total={total}
             extraLines={extraLines}
             buildRows={buildRows}
+            roomType={roomType}
             onLoad={loadSavedDesign}
           />
           <div className="h-5 w-px bg-border" />
@@ -1851,22 +1862,29 @@ export default function DesignTool() {
           onOpenChange={(o) => setMobilePanel(o ? "catalog" : null)}
         >
           <div className="p-3 border-b border-border">
-            {/* Room type: Kitchen cabinets vs Closet system parts */}
-            <div className="flex rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
-              {(["kitchen", "closet"] as const).map((rt) => (
+            {/* Room type: drives the palette (Kitchen appliances vs bath/laundry
+                fixtures vs Closet modular parts). */}
+            <div className="grid grid-cols-5 gap-0.5 rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
+              {ROOM_TYPES.map((rt) => (
                 <button
-                  key={rt}
+                  key={rt.value}
                   onClick={() => {
-                    setRoomType(rt);
+                    setRoomType(rt.value);
                     // Pick a sensible starting tab for the chosen room type
                     // without forbidding the others.
-                    setPaletteType(rt === "closet" ? "closetparts" : "base");
+                    setPaletteType(
+                      rt.value === "closet"
+                        ? "closetparts"
+                        : rt.value === "bathroom" || rt.value === "laundry"
+                        ? "appliance"
+                        : "base",
+                    );
                   }}
-                  className={`flex-1 py-1.5 rounded-md text-[11px] font-semibold capitalize transition-colors ${
-                    roomType === rt ? "bg-[#a87f33] text-white" : "text-muted-foreground hover:text-foreground"
+                  className={`py-1.5 rounded-md text-[10px] font-semibold transition-colors ${
+                    roomType === rt.value ? "bg-[#a87f33] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {rt}
+                  {rt.label}
                 </button>
               ))}
             </div>
@@ -1881,6 +1899,8 @@ export default function DesignTool() {
             <div className="flex flex-wrap rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
                 ? (["closetparts", "base", "wall", "tall", "opening"] as const)
+                : roomType === "bathroom" || roomType === "laundry"
+                ? (["appliance", "base", "cornerbase", "wall", "wallht", "tall", "opening"] as const)
                 : (["base", "cornerbase", "wall", "wallht", "cornerwall", "tall", "appliance", "opening"] as const)
               ).map((t) => (
                 <button
@@ -1891,7 +1911,7 @@ export default function DesignTool() {
                   }`}
                 >
                   {t === "appliance"
-                    ? "Appli."
+                    ? (roomType === "bathroom" || roomType === "laundry" ? "Fixtures" : "Appli.")
                     : t === "opening"
                     ? "Door/Win"
                     : t === "wallht"

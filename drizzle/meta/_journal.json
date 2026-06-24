@@ -127,6 +127,13 @@
       "when": 1782265264860,
       "tag": "0017_greedy_purifiers",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1782270968632,
+      "tag": "0018_simple_marvel_boy",
+      "breakpoints": true
     }
   ]
 }

@@ -238,6 +238,10 @@ export const designRouter = router({
         placedCabinets: z.any(),
         selectedStyleId: z.number().optional(),
         selectedDistributorId: z.number().optional(),
+        // Master Project grouping (all optional / backward-compatible).
+        projectName: z.string().max(255).optional(),
+        roomLabel: z.string().max(255).optional(),
+        roomType: z.string().max(32).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -255,6 +259,9 @@ export const designRouter = router({
             placedCabinets: input.placedCabinets,
             selectedStyleId: input.selectedStyleId,
             selectedDistributorId: input.selectedDistributorId,
+            projectName: input.projectName ?? null,
+            roomLabel: input.roomLabel ?? null,
+            roomType: input.roomType ?? null,
           })
           .where(eq(kitchenDesigns.id, input.id));
         return { id: input.id };
@@ -267,6 +274,9 @@ export const designRouter = router({
         placedCabinets: input.placedCabinets,
         selectedStyleId: input.selectedStyleId,
         selectedDistributorId: input.selectedDistributorId,
+        projectName: input.projectName ?? null,
+        roomLabel: input.roomLabel ?? null,
+        roomType: input.roomType ?? null,
       });
       // mysql2 returns a tuple: [ResultSetHeader, ...]; insertId lives on the header.
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
@@ -375,7 +385,7 @@ export const designRouter = router({
           )
           .min(1)
           .max(8),
-        roomType: z.enum(["kitchen", "closet"]).default("kitchen"),
+        roomType: z.enum(["kitchen", "bathroom", "laundry", "closet", "other"]).default("kitchen"),
         styleId: z.number().nullish(),
         distributorId: z.number().nullish(),
       }),

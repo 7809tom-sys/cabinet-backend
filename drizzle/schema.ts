@@ -252,6 +252,12 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId"),
   name: varchar("name", { length: 256 }).notNull(),
+  // Master Project grouping: several rooms (kitchen + baths + laundry) can share
+  // one projectName, becoming a single job. roomLabel names the room within the
+  // project ("Master Bath"), roomType drives its designer palette.
+  projectName: varchar("projectName", { length: 256 }),
+  roomLabel: varchar("roomLabel", { length: 256 }),
+  roomType: varchar("roomType", { length: 32 }),
   roomData: json("roomData").$type<object>(), // walls, dimensions
   placedCabinets: json("placedCabinets").$type<object[]>(), // [{cabinetId, x, y, rotation, styleId}]
   selectedStyleId: int("selectedStyleId"),

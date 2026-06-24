@@ -66,10 +66,13 @@ interface Props {
   // Extra non-cabinet lines (fillers, crown, toe kick, countertop) for export.
   extraLines: { label: string; detail: string }[];
   buildRows: BuildSheetRow[];
+  // Current room context for Master Project grouping.
+  roomType: string;
   onLoad: (d: {
     room: RoomData;
     placed: PlacedCabinet[];
     styleId: number | null;
+    roomType?: string | null;
   }) => void;
 }
 
@@ -138,8 +141,55 @@ export function exportBuildSheet(args: BuildSheetArgs): boolean {
   return true;
 }
 
+// A saved design row as returned by trpc.design.myDesigns (loosely typed here
+// since only a subset of fields is used in the picker).
+type SavedDesignRow = {
+  id: number;
+  name: string;
+  updatedAt: string | number | Date;
+  placedCabinets?: unknown;
+  roomData?: unknown;
+  selectedStyleId?: number | null;
+  projectName?: string | null;
+  roomLabel?: string | null;
+  roomType?: string | null;
+};
+
+interface ProjectGroup {
+  key: string;
+  projectName: string | null;
+  rooms: SavedDesignRow[];
+}
+
+// Group saved designs by projectName. Designs without a project fall into a
+// single trailing "ungrouped" bucket (projectName = null). Project order follows
+// the most-recently-updated room within each project.
+export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
+  const groups = new Map<string, ProjectGroup>();
+  for (const r of rows) {
+    const proj = (r.projectName ?? "").trim();
+    const key = proj ? `p:${proj}` : "__ungrouped__";
+    let g = groups.get(key);
+    if (!g) {
+      g = { key, projectName: proj || null, rooms: [] };
+      groups.set(key, g);
+    }
+    g.rooms.push(r);
+  }
+  const ts = (r: SavedDesignRow) => new Date(r.updatedAt).getTime();
+  const arr = Array.from(groups.values());
+  for (const g of arr) g.rooms.sort((a, b) => ts(b) - ts(a));
+  arr.sort((a, b) => {
+    // Ungrouped bucket always last; otherwise newest project first.
+    if (a.projectName === null) return 1;
+    if (b.projectName === null) return -1;
+    return ts(b.rooms[0]) - ts(a.rooms[0]);
+  });
+  return arr;
+}
+
 export function DesignActions({
-  room, placed, styleId, styleName, tier, total, extraLines, buildRows, onLoad,
+  room, placed, styleId, styleName, tier, total, extraLines, buildRows, roomType, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const utils = trpc.useUtils();
@@ -147,6 +197,9 @@ export function DesignActions({
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
   const [name, setName] = useState("");
+  // Master Project grouping (optional): a job name + a room label.
+  const [projectName, setProjectName] = useState("");
+  const [roomLabel, setRoomLabel] = useState("");
 
   const saveMutation = trpc.design.save.useMutation({
     onSuccess: () => {
@@ -169,11 +222,16 @@ export function DesignActions({
       toast.error("Add cabinets before saving.");
       return;
     }
+    const proj = projectName.trim();
+    const rlabel = roomLabel.trim();
     saveMutation.mutate({
-      name: name.trim() || "Untitled kitchen",
+      name: name.trim() || rlabel || proj || "Untitled design",
       roomData: room,
       placedCabinets: placed,
       selectedStyleId: styleId ?? undefined,
+      projectName: proj || undefined,
+      roomLabel: rlabel || undefined,
+      roomType: roomType || undefined,
     });
   };
 
@@ -198,16 +256,48 @@ export function DesignActions({
               Name this layout so you can reopen and re-price it later.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="design-name" className="text-sm">Design name</Label>
-            <Input
-              id="design-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Maple Street kitchen"
-              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
-              autoFocus
-            />
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="design-name" className="text-sm">Design name</Label>
+              <Input
+                id="design-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Maple Street kitchen"
+                onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+                autoFocus
+              />
+            </div>
+            <div className="rounded-lg border border-dashed border-border p-3 space-y-2.5 bg-muted/20">
+              <p className="text-[11px] font-semibold text-foreground">
+                Master Project <span className="font-normal text-muted-foreground">(optional)</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground -mt-1">
+                Group several rooms (kitchen, baths, laundry) under one job to get a combined bill of materials.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="project-name" className="text-[11px]">Project / job</Label>
+                  <Input
+                    id="project-name"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    placeholder="123 Oak St — Whole Home"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="room-label" className="text-[11px]">Room in project</Label>
+                  <Input
+                    id="room-label"
+                    value={roomLabel}
+                    onChange={(e) => setRoomLabel(e.target.value)}
+                    placeholder="Master Bath"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
             {!isAuthenticated && (
               <p className="text-[11px] text-muted-foreground">
                 Tip: sign in to see all your saved designs under “My Designs” on any device.
@@ -253,34 +343,61 @@ export function DesignActions({
               No saved designs yet.
             </div>
           ) : (
-            <div className="max-h-72 overflow-y-auto space-y-1.5">
-              {myDesigns.data.map((d) => {
-                const items = Array.isArray(d.placedCabinets) ? d.placedCabinets.length : 0;
-                return (
-                  <button
-                    key={d.id}
-                    className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                    onClick={() => {
-                      onLoad({
-                        room: (d.roomData as RoomData) ?? room,
-                        placed: (d.placedCabinets as PlacedCabinet[]) ?? [],
-                        styleId: d.selectedStyleId ?? null,
-                      });
-                      setLoadOpen(false);
-                      toast.success(`Loaded "${d.name}"`);
-                    }}
-                  >
-                    <div className="font-medium text-sm">{d.name}</div>
-                    <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                      <span>{items} item{items === 1 ? "" : "s"}</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(d.updatedAt).toLocaleDateString()}
+            <div className="max-h-80 overflow-y-auto space-y-3">
+              {groupByProject(myDesigns.data).map((group) => (
+                <div key={group.key}>
+                  {group.projectName && (
+                    <div className="flex items-center gap-1.5 px-1 pb-1">
+                      <FolderOpen className="h-3.5 w-3.5 text-[#a87f33]" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
+                        {group.projectName}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {group.rooms.length} room{group.rooms.length === 1 ? "" : "s"}
                       </span>
                     </div>
-                  </button>
-                );
-              })}
+                  )}
+                  <div className={`space-y-1.5 ${group.projectName ? "pl-2 border-l-2 border-[#a87f33]/30" : ""}`}>
+                    {group.rooms.map((d) => {
+                      const items = Array.isArray(d.placedCabinets) ? d.placedCabinets.length : 0;
+                      const rType = (d as { roomType?: string | null }).roomType;
+                      const rLabel = (d as { roomLabel?: string | null }).roomLabel;
+                      return (
+                        <button
+                          key={d.id}
+                          className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            onLoad({
+                              room: (d.roomData as RoomData) ?? room,
+                              placed: (d.placedCabinets as PlacedCabinet[]) ?? [],
+                              styleId: d.selectedStyleId ?? null,
+                              roomType: rType ?? null,
+                            });
+                            setLoadOpen(false);
+                            toast.success(`Loaded "${d.name}"`);
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{rLabel || d.name}</span>
+                            {rType && (
+                              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase text-muted-foreground">
+                                {rType}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                            <span>{items} item{items === 1 ? "" : "s"}</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(d.updatedAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </DialogContent>

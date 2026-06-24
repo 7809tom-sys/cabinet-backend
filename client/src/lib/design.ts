@@ -31,6 +31,19 @@ export type Placement = "base" | "wall" | "tall" | "appliance";
 // so they carry id = 0 and are skipped by the pricing engine. Dimensions are in
 // inches; `elevHeight` and `elevBottom` describe how they sit on the wall in the
 // front elevation view.
+// A design room type. Each drives a room-specific palette of cabinets +
+// fixtures. "closet" keeps its modular-parts behavior; "other" is a generic
+// catch-all that shows the full cabinet set.
+export type RoomType = "kitchen" | "bathroom" | "laundry" | "closet" | "other";
+
+export const ROOM_TYPES: { value: RoomType; label: string }[] = [
+  { value: "kitchen", label: "Kitchen" },
+  { value: "bathroom", label: "Bathroom" },
+  { value: "laundry", label: "Laundry" },
+  { value: "closet", label: "Closet" },
+  { value: "other", label: "Other" },
+];
+
 export interface ApplianceDef {
   key: string;
   masterCode: string;
@@ -39,19 +52,40 @@ export interface ApplianceDef {
   depth: number;
   elevBottom: number; // inches from floor
   elevHeight: number; // visible height in elevation
+  // Which room types this fixture/appliance shows up in. Kitchen items default
+  // to ["kitchen"]; shared items (e.g. a sink) can list multiple rooms.
+  rooms: RoomType[];
 }
 
 export const APPLIANCES: ApplianceDef[] = [
-  { key: "range", masterCode: "RANGE-30", description: 'Range / Stove 30"', width: 30, depth: 25, elevBottom: 0, elevHeight: 36 },
-  { key: "fridge", masterCode: "FRIDGE-36", description: 'Refrigerator 36"', width: 36, depth: 30, elevBottom: 0, elevHeight: 70 },
-  { key: "dishwasher", masterCode: "DW-24", description: 'Dishwasher 24"', width: 24, depth: 24, elevBottom: 0, elevHeight: 34.5 },
-  { key: "sink", masterCode: "SINK-33", description: 'Sink 33"', width: 33, depth: 22, elevBottom: 30, elevHeight: 6 },
-  { key: "hood", masterCode: "HOOD-30", description: 'Range Hood 30"', width: 30, depth: 18, elevBottom: 66, elevHeight: 18 },
-  { key: "microwave", masterCode: "MW-30", description: 'Over-Range Microwave 30"', width: 30, depth: 15, elevBottom: 54, elevHeight: 17 },
+  // ── Kitchen ──────────────────────────────────────────────────────────────
+  { key: "range", masterCode: "RANGE-30", description: 'Range / Stove 30"', width: 30, depth: 25, elevBottom: 0, elevHeight: 36, rooms: ["kitchen"] },
+  { key: "fridge30", masterCode: "FRIDGE-30", description: 'Refrigerator 30"', width: 30, depth: 30, elevBottom: 0, elevHeight: 70, rooms: ["kitchen"] },
+  { key: "fridge", masterCode: "FRIDGE-36", description: 'Refrigerator 36"', width: 36, depth: 30, elevBottom: 0, elevHeight: 70, rooms: ["kitchen"] },
+  { key: "dishwasher", masterCode: "DW-24", description: 'Dishwasher 24"', width: 24, depth: 24, elevBottom: 0, elevHeight: 34.5, rooms: ["kitchen"] },
+  { key: "sink", masterCode: "SINK-33", description: 'Sink 33"', width: 33, depth: 22, elevBottom: 30, elevHeight: 6, rooms: ["kitchen"] },
+  { key: "hood", masterCode: "HOOD-30", description: 'Range Hood 30"', width: 30, depth: 18, elevBottom: 66, elevHeight: 18, rooms: ["kitchen"] },
+  { key: "microwave", masterCode: "MW-30", description: 'Over-Range Microwave 30"', width: 30, depth: 15, elevBottom: 54, elevHeight: 17, rooms: ["kitchen"] },
+  // ── Bathroom fixtures (layout-only props, quoted separately) ──────────────
+  { key: "shower", masterCode: "FIX-SHOWER-36", description: 'Shower 36"', width: 36, depth: 36, elevBottom: 0, elevHeight: 78, rooms: ["bathroom"] },
+  { key: "tub", masterCode: "FIX-TUB-60", description: 'Bathtub 60"', width: 60, depth: 30, elevBottom: 0, elevHeight: 20, rooms: ["bathroom"] },
+  { key: "toilet", masterCode: "FIX-TOILET", description: "Toilet", width: 20, depth: 28, elevBottom: 0, elevHeight: 30, rooms: ["bathroom"] },
+  { key: "bathsink", masterCode: "FIX-BATHSINK-24", description: 'Bathroom Sink 24"', width: 24, depth: 21, elevBottom: 30, elevHeight: 6, rooms: ["bathroom"] },
+  // ── Laundry fixtures (layout-only props, quoted separately) ───────────────
+  { key: "washer", masterCode: "FIX-WASHER-27", description: 'Washer 27"', width: 27, depth: 30, elevBottom: 0, elevHeight: 38, rooms: ["laundry"] },
+  { key: "dryer", masterCode: "FIX-DRYER-27", description: 'Dryer 27"', width: 27, depth: 30, elevBottom: 0, elevHeight: 38, rooms: ["laundry"] },
+  { key: "laundrytub", masterCode: "FIX-LAUNDRYTUB-25", description: 'Laundry Tub 25"', width: 25, depth: 22, elevBottom: 0, elevHeight: 34.5, rooms: ["laundry"] },
 ];
 
 export function isApplianceCode(masterCode: string): boolean {
-  return /^(RANGE|FRIDGE|DW|SINK|HOOD|MW)-/.test((masterCode || "").toUpperCase());
+  return /^(RANGE|FRIDGE|DW|SINK|HOOD|MW|FIX)-/.test((masterCode || "").toUpperCase());
+}
+
+// Appliances/fixtures available for a given room type. Kitchen shows the kitchen
+// appliance set; bathroom/laundry show their fixtures. Closet/other show none
+// (closet uses modular parts; other relies on cabinets only).
+export function appliancesForRoom(roomType: RoomType): ApplianceDef[] {
+  return APPLIANCES.filter((a) => a.rooms.includes(roomType));
 }
 
 // Convert an appliance definition into a DesignCabinet-like object so it flows

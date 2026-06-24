@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isCornerCabinet, cornerClipPath, centerDistance, formatInches,
   isApplianceCode, applianceAsDesignCabinet, elevationBox, APPLIANCES,
+  appliancesForRoom, ROOM_TYPES,
   makeOpening, clampOpening, wallLength, OPENINGS,
   snapToWall, feetInchesToInches, inchesToFeetInches, clampRoomInches,
   ROOM_MIN_IN, ROOM_MAX_IN,
@@ -86,16 +87,64 @@ describe("appliances", () => {
   it("defines the core kitchen appliances", () => {
     const codes = APPLIANCES.map((a) => a.masterCode);
     expect(codes).toContain("RANGE-30");
+    expect(codes).toContain("FRIDGE-30");
     expect(codes).toContain("FRIDGE-36");
     expect(codes).toContain("DW-24");
     expect(codes).toContain("SINK-33");
     expect(codes).toContain("HOOD-30");
   });
 
-  it("detects appliance master codes", () => {
+  it("offers both a 30in and a 36in refrigerator, each 30in deep", () => {
+    const f30 = APPLIANCES.find((a) => a.masterCode === "FRIDGE-30")!;
+    const f36 = APPLIANCES.find((a) => a.masterCode === "FRIDGE-36")!;
+    expect(f30.width).toBe(30);
+    expect(f36.width).toBe(36);
+    expect(f30.depth).toBe(30);
+    expect(f36.depth).toBe(30);
+  });
+
+  it("detects appliance + fixture master codes", () => {
     expect(isApplianceCode("RANGE-30")).toBe(true);
     expect(isApplianceCode("FRIDGE-36")).toBe(true);
+    expect(isApplianceCode("FIX-WASHER-27")).toBe(true);
+    expect(isApplianceCode("FIX-TOILET")).toBe(true);
     expect(isApplianceCode("B-24")).toBe(false);
+  });
+
+  it("filters appliances/fixtures by room type", () => {
+    const kitchen = appliancesForRoom("kitchen").map((a) => a.masterCode);
+    expect(kitchen).toContain("RANGE-30");
+    expect(kitchen).toContain("FRIDGE-30");
+    expect(kitchen).not.toContain("FIX-TOILET");
+
+    const bath = appliancesForRoom("bathroom").map((a) => a.masterCode);
+    expect(bath).toContain("FIX-SHOWER-36");
+    expect(bath).toContain("FIX-TUB-60");
+    expect(bath).toContain("FIX-TOILET");
+    expect(bath).not.toContain("RANGE-30");
+
+    const laundry = appliancesForRoom("laundry").map((a) => a.masterCode);
+    expect(laundry).toContain("FIX-WASHER-27");
+    expect(laundry).toContain("FIX-DRYER-27");
+    expect(laundry).toContain("FIX-LAUNDRYTUB-25");
+
+    // Closet and Other have no fixtures of their own.
+    expect(appliancesForRoom("closet")).toHaveLength(0);
+    expect(appliancesForRoom("other")).toHaveLength(0);
+  });
+
+  it("exposes five room types", () => {
+    expect(ROOM_TYPES.map((r) => r.value)).toEqual([
+      "kitchen", "bathroom", "laundry", "closet", "other",
+    ]);
+  });
+
+  it("gives bath/laundry fixtures a usable elevation box", () => {
+    for (const code of ["FIX-SHOWER-36", "FIX-TUB-60", "FIX-WASHER-27"]) {
+      const fx: PlacedCabinet = cab({ masterCode: code, placement: "appliance", cabinetId: 0 });
+      const box = elevationBox(fx);
+      expect(box.height).toBeGreaterThan(0);
+    }
   });
 
   it("converts an appliance to a placeable design cabinet with id 0", () => {

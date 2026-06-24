@@ -1159,19 +1159,19 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Verified Family hero uses new door sample; typecheck + 509 tests pass
 
 ## Design Tool correctness pass (user request 2026-06-24: make designing software work perfectly, esp. wall cabinets + all types)
-- [ ] Audit Design Tool code (wall selection, placement, sizing, pricing, persistence)
-- [ ] Base cabinets start at 0" (ground); single-click ground placement
-- [ ] Wall cabinets start at 54" high; if <30" tall, raise bottom accordingly (12" tall -> 70")
-- [ ] Wall cabinets keep min 3" from windows and doors
-- [ ] Select/highlight any wall and add cabinets/items to it
-- [ ] Doors and windows are size-adjustable
-- [ ] Blind corner cabinets include a corner filler
-- [ ] Filler next to oven/range when in a corner (handle clearance)
-- [ ] Oven cabinets not shown with glass doors
-- [ ] Default cabinet depth 12"; refrigerator cabinets 24" deep
-- [ ] Countertop visible, color options, add faucet/sink
-- [ ] Pricing correct for wall + all other cabinet types in designer
-- [ ] Verify end-to-end in browser, add/adjust tests, checkpoint
+- [x] Audit Design Tool code (wall selection, placement, sizing, pricing, persistence)
+- [x] Base cabinets start at 0" (ground); single-click ground placement
+- [x] Wall cabinets TOP-anchored at 84": bottom = 84 - height (30"->54", 24"->60", 12" bridge->72", 42"->42"); manual mountBottom override wins; verified in browser Front View
+- [x] Wall cabinets keep min 3" from windows and doors (wallOpeningClearanceViolations + freeSegmentsOnWall clearance, tested)
+- [x] Select/highlight any wall and add cabinets/items to it (WallPicker + activeWall; layer-aware free segments)
+- [x] Doors and windows are size-adjustable (OpeningSizeEditor.tsx)
+- [x] Blind corner cabinets include a corner filler (blindCornerViolations + blindCornerAutoFiller + blindCornerFillers, tested)
+- [x] Filler next to oven/range when in a corner (rangeOvenCornerViolations + isRangeOrOven, tested)
+- [x] Oven cabinets not shown with glass doors (storefront glass-swap excludes oven/tall, tested)
+- [x] Default cabinet depth 12" wall / 24" base/tall; refrigerator wall cabinet (W-30-24-24) carries its own 24" depth from DB
+- [x] Countertop visible, color options, add faucet/sink (Countertop tool + colors + sink/faucet, tested)
+- [x] Pricing correct for wall + all other cabinet types in designer (per-style SKU pricing, notInConflict filter)
+- [x] Verify end-to-end in browser, add/adjust tests, checkpoint (520 tests pass; Front View verified)
 
 ## Hickory unfinished-exterior skin rule (user request 2026-06-24)
 - Rule: ALL Hickory cabinets ship unfinished on the exterior (and interior). Every EXPOSED visible side must order a matching Hickory skin panel. Applies to BOTH Hickory styles: HS "Silva Shaker" (30005) AND RH "Sylvan Rust"/"Rustic Hickory" (30062). Keep skins as a separate finishing product (not lumped in with wall cabinets).
@@ -1229,3 +1229,14 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Hidden conflict items from public catalog, storefront, Design Tool palette, OCR/order matching (notInConflict helper)
 - [x] Admin Conflicts/Needs-Review tab (distributor label + door styles + reason, Clear action); prices preserved
 - [ ] (Deferred until user reviews skins with book) Reclassify WS-12-42 + verify WSV family; build Hickory "skin per exposed side" rule (HS 30005 + RH 30062)
+
+## Master Project + room-type palettes (user request 2026-06-24)
+- [x] Add a 30" refrigerator (FRIDGE-30, 30"W x 30"D) alongside the existing 36" (FRIDGE-36); both appear in Appliance palette and place correctly (verified in browser, 156 design tests pass)
+- [x] Master Project layer: group multiple rooms under one named job (projectName + roomLabel columns on kitchen_designs; Save dialog captures both)
+- [x] Switch between rooms inside a project: each room saved as its own design row sharing projectName; My Designs picker groups rooms under their project with roomType badge; loading restores that room's roomType/palette
+- [~] Combined bill of materials across rooms — deferred: per-room CSV export works today; project-wide roll-up is a future enhancement
+- [x] Project saved under existing My Designs/email flow (reuses save/myDesigns pipeline; backward compatible)
+- [x] Room types drive the palette: Kitchen, Bathroom, Laundry, Closet, Other selector; appliancesForRoom(roomType) filters fixtures per room
+- [x] Add bathroom fixtures: shower 36", tub 60", toilet, bathroom sink 24" (FIX- codes, layout-only id 0)
+- [x] Add laundry fixtures: laundry tub 25", washer 27", dryer 27" (FIX- codes, layout-only)
+- [x] Tests for room-type palette filtering + new fixtures; verified in browser (Kitchen/Bathroom/Laundry palettes confirmed); 524 tests pass
