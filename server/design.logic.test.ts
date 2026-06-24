@@ -51,26 +51,27 @@ describe("placedHeight / standardHeight", () => {
   });
 });
 
-describe("elevationBox — wall cabinets are bottom-anchored at 54\" and grow upward", () => {
-  // Rule: every wall cabinet bottoms at 54" (standard counter-to-upper
-  // clearance) and extends UP by its height. So a 30" tops at 84", a 36" at
-  // 90", a 42" at 96". (NOT top-aligned to a fixed 84" line.)
-  it("a 42\" wall cabinet bottoms at 54\" (tops at 96\")", () => {
-    const box = elevationBox(mk({ uid: "a", placement: "wall", height: 42 }));
-    expect(box.height).toBe(42);
-    expect(box.bottom).toBe(WALL_MOUNT_BOTTOM); // 54
-    expect(box.bottom + box.height).toBe(96);
-  });
-  it("a 30\" wall cabinet bottoms at 54\" (tops at 84\")", () => {
+describe("elevationBox — wall cabinets are TOP-anchored at 84\" by default", () => {
+  // Rule: every wall cabinet's TOP seals at the standard 84" line so a run
+  // reads as one clean line across the top. Bottom = 84 - height. A 30"
+  // bottoms at 54", a 24" at 60", and a 12" bridge (over a fridge/range)
+  // bottoms at 72". A staggered look is achieved via an explicit mountBottom.
+  it("a 30\" wall cabinet tops at 84\" (bottoms at 54\")", () => {
     const box = elevationBox(mk({ uid: "a", placement: "wall", height: 30 }));
     expect(box.height).toBe(30);
-    expect(box.bottom).toBe(WALL_MOUNT_BOTTOM); // 54
-    expect(box.bottom + box.height).toBe(84);
+    expect(box.bottom + box.height).toBe(WALL_CABINET_TOP); // 84
+    expect(box.bottom).toBe(54);
   });
-  it("a 36\" wall cabinet bottoms at 54\" (tops at 90\")", () => {
-    const box = elevationBox(mk({ uid: "a", placement: "wall", height: 36 }));
-    expect(box.bottom).toBe(WALL_MOUNT_BOTTOM); // 54
-    expect(box.bottom + box.height).toBe(90);
+  it("a 12\" bridge wall cabinet tops at 84\" (bottoms at 72\")", () => {
+    const box = elevationBox(mk({ uid: "a", placement: "wall", height: 12 }));
+    expect(box.height).toBe(12);
+    expect(box.bottom + box.height).toBe(WALL_CABINET_TOP); // 84
+    expect(box.bottom).toBe(72);
+  });
+  it("a 24\" wall cabinet tops at 84\" (bottoms at 60\")", () => {
+    const box = elevationBox(mk({ uid: "a", placement: "wall", height: 24 }));
+    expect(box.bottom + box.height).toBe(WALL_CABINET_TOP); // 84
+    expect(box.bottom).toBe(60);
   });
   it("two different wall cabinet heights do NOT render identically", () => {
     const tall = elevationBox(mk({ uid: "a", placement: "wall", height: 42 }));

@@ -202,8 +202,9 @@ export function placedHeight(p: PlacedCabinet): number {
 // The standard line (inches from floor) that the TOP of wall cabinets aligns to
 // in a kitchen. Wall cabinets of different heights all hang from this top line.
 export const WALL_CABINET_TOP = STD.WALL_MOUNT_BOTTOM + STD.WALL_HEIGHT; // 84"
-// Fixed bottom line for every wall cabinet (standard counter-to-upper gap).
-// Wall cabinets bottom here and grow UPWARD by their height.
+// Bottom line for a STANDARD 30" wall cabinet (84" top - 30" height = 54").
+// Wall cabinets are top-anchored at WALL_CABINET_TOP, so only a 30" box
+// actually bottoms here; shorter bridges hang higher, taller boxes lower.
 export const WALL_MOUNT_BOTTOM = STD.WALL_MOUNT_BOTTOM; // 54"
 
 export interface RoomData {
@@ -449,11 +450,13 @@ export function elevationBox(p: PlacedCabinet): { bottom: number; height: number
     if (isStacker(p)) {
       return { bottom: WALL_CABINET_TOP, height: h };
     }
-    // 3) Standalone / bridge wall cabinets are bottom-anchored at the standard
-    //    54" mount line and grow UPWARD, so taller boxes reach higher: a 30"
-    //    tops at 84", a 36" at 90", a 42" at 96". (The 54" counter-to-upper
-    //    clearance is fixed; cabinet height adds on top of it.)
-    return { bottom: STD.WALL_MOUNT_BOTTOM, height: h };
+    // 3) Standalone / bridge wall cabinets are TOP-anchored at the standard 84"
+    //    line so every cabinet in a run seals at the same top: a 30" bottoms at
+    //    54", a 24" at 60", and a 12" bridge (over a fridge/range) bottoms at
+    //    72". Taller boxes simply hang lower. The bottom is clamped at 0 so an
+    //    oversized box never goes below the floor. Users who want a staggered
+    //    look set an explicit mountBottom (branch #1), which always wins.
+    return { bottom: Math.max(0, WALL_CABINET_TOP - h), height: h };
   }
   // Base, tall, vanity: the box always sits on the floor (bottom = 0).
   if (p.placement === "tall") {

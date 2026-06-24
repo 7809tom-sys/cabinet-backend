@@ -927,28 +927,28 @@ describe("rangeOvenClearanceViolations (corner filler rule)", () => {
 });
 
 describe("wall cabinet elevation rules", () => {
-  it("a standard 30in wall cabinet bottoms at 54in (top line 84)", () => {
+  it("a standard 30in wall cabinet tops at 84in (bottom 54)", () => {
     const box = elevationBox(cab({ placement: "wall", width: 30, height: 30 }));
     expect(box.bottom).toBe(54);
-    expect(box.height).toBe(30);
+    expect(box.bottom + box.height).toBe(84);
   });
 
-  it("a short 12in bridge wall cabinet keeps the 54in bottom (top at 66in)", () => {
+  it("a short 12in bridge wall cabinet tops at 84in (bottom 72)", () => {
     const box = elevationBox(cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "30x12 Bridge Wall Cabinet" }));
-    expect(box.bottom).toBe(54);
-    expect(box.height).toBe(12);
+    expect(box.bottom).toBe(72);
+    expect(box.bottom + box.height).toBe(84);
   });
 
-  it("a tall 36in wall cabinet grows upward from 54in (top at 90in)", () => {
+  it("a tall 36in wall cabinet hangs lower so its top stays at 84in (bottom 48)", () => {
     const box = elevationBox(cab({ placement: "wall", width: 30, height: 36, masterCode: "W-30-36", description: "30x36 Wall Cabinet" }));
-    expect(box.bottom).toBe(54);
-    expect(box.bottom + box.height).toBe(90);
+    expect(box.bottom).toBe(48);
+    expect(box.bottom + box.height).toBe(84);
   });
 
-  it("a 42in wall cabinet grows upward from 54in (top at 96in)", () => {
+  it("a 42in wall cabinet hangs lower so its top stays at 84in (bottom 42)", () => {
     const box = elevationBox(cab({ placement: "wall", width: 30, height: 42, masterCode: "W-30-42", description: "30x42 Wall Cabinet" }));
-    expect(box.bottom).toBe(54);
-    expect(box.bottom + box.height).toBe(96);
+    expect(box.bottom).toBe(42);
+    expect(box.bottom + box.height).toBe(84);
   });
 
   it("a glass stacker sits ON TOP of the wall cabinet below (bottom at 84in)", () => {
