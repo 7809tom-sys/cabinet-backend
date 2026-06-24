@@ -6,6 +6,7 @@ import {
   DEFAULT_PRICING_TIER,
   PRICING_TIERS,
   ownerCostBreakdown,
+  visiblePricesForViewer,
 } from "./pricingTier";
 
 describe("normalizeTier", () => {
@@ -131,5 +132,47 @@ describe("ownerCostBreakdown (owner-only cost vs sell)", () => {
     const b = ownerCostBreakdown({ wholesalePrice: 0, homeownerPrice: 0 }, "homeowner");
     expect(b.marginDollars).toBe(0);
     expect(b.marginPct).toBeNull();
+  });
+});
+
+describe("visiblePricesForViewer (server-side column gating)", () => {
+  const row = {
+    listPrice: 220,
+    adjustedListPrice: 200,
+    wholesalePrice: 100,
+    contractorPrice: 120,
+    homeownerPrice: 160,
+  };
+
+  it("admin sees every column (clone, not mutated)", () => {
+    const out = visiblePricesForViewer(row, "homeowner", true);
+    expect(out).toEqual(row);
+    expect(out).not.toBe(row);
+  });
+
+  it("homeowner never sees wholesale or contractor cost", () => {
+    const out = visiblePricesForViewer(row, "homeowner", false);
+    expect(out.wholesalePrice).toBeNull();
+    expect(out.contractorPrice).toBeNull();
+    expect(out.homeownerPrice).toBe(160);
+    expect(out.listPrice).toBe(220);
+  });
+
+  it("contractor sees contractor + homeowner but NOT wholesale base", () => {
+    const out = visiblePricesForViewer(row, "contractor", false);
+    expect(out.wholesalePrice).toBeNull();
+    expect(out.contractorPrice).toBe(120);
+    expect(out.homeownerPrice).toBe(160);
+  });
+
+  it("wholesale pro sees all trade columns", () => {
+    const out = visiblePricesForViewer(row, "wholesale", false);
+    expect(out.wholesalePrice).toBe(100);
+    expect(out.contractorPrice).toBe(120);
+  });
+
+  it("does not mutate the input row", () => {
+    visiblePricesForViewer(row, "homeowner", false);
+    expect(row.wholesalePrice).toBe(100);
   });
 });

@@ -10,6 +10,7 @@ import {
   distributorSkus,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
+import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 
 // ─── Supplier-identity scrubbing ───────────────────────────────────────────────
 // Cabinet Dealz never exposes the underlying supplier. These helpers strip any
@@ -620,9 +621,14 @@ export const pricingRouter = router({
   // leaves the server, so the UI can present purely by door style.
   stylesForCabinet: publicProcedure
     .input(z.object({ cabinetId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
+      // Price-column entitlement: never ship a trade/base cost to a viewer who
+      // isn't entitled to it. Admin/owner sees all; everyone else is gated by
+      // their assigned tier (guests default to homeowner/retail).
+      const viewerTier = resolveStorefrontTier(ctx.user);
+      const isAdmin = ctx.user?.role === "admin";
       const rows = await db
         .select({
           styleId: distributorSkus.styleId,
@@ -674,26 +680,39 @@ export const pricingRouter = router({
       }
 
       return Array.from(byStyle.values())
-        .map((r) => ({
-          styleId: r.styleId,
-          styleCode: r.styleCode,
-          name: r.ourName,
-          doorStyle: r.doorStyle,
-          finish: r.finish,
-          color: r.color,
-          doorSampleImageUrl: r.doorSampleImageUrl,
-          roomSceneImageUrl: r.roomSceneImageUrl,
-          thumbnailImageUrl: r.thumbnailImageUrl,
-          listPrice: r.listPrice,
-          adjustedListPrice: r.adjustedListPrice,
-          wholesalePrice: r.wholesalePrice,
-          contractorPrice: r.contractorPrice,
-          homeownerPrice: r.homeownerPrice,
-          platformSku: r.platformSku,
-          skuImageUrl: r.skuImageUrl,
-          leadTimeDays: r.leadTimeDays,
-          distributorId: r.distributorId,
-        }))
+        .map((r) => {
+          const gated = visiblePricesForViewer(
+            {
+              listPrice: r.listPrice,
+              adjustedListPrice: r.adjustedListPrice,
+              wholesalePrice: r.wholesalePrice,
+              contractorPrice: r.contractorPrice,
+              homeownerPrice: r.homeownerPrice,
+            },
+            viewerTier,
+            isAdmin,
+          );
+          return {
+            styleId: r.styleId,
+            styleCode: r.styleCode,
+            name: r.ourName,
+            doorStyle: r.doorStyle,
+            finish: r.finish,
+            color: r.color,
+            doorSampleImageUrl: r.doorSampleImageUrl,
+            roomSceneImageUrl: r.roomSceneImageUrl,
+            thumbnailImageUrl: r.thumbnailImageUrl,
+            listPrice: gated.listPrice,
+            adjustedListPrice: gated.adjustedListPrice,
+            wholesalePrice: gated.wholesalePrice,
+            contractorPrice: gated.contractorPrice,
+            homeownerPrice: gated.homeownerPrice,
+            platformSku: r.platformSku,
+            skuImageUrl: r.skuImageUrl,
+            leadTimeDays: r.leadTimeDays,
+            distributorId: r.distributorId,
+          };
+        })
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }),
 

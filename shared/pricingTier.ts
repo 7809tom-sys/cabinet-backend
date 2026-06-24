@@ -157,3 +157,54 @@ export function ownerCostBreakdown(
   }
   return { myCost, sellPrice, marginDollars, marginPct };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVER-SIDE price-column gating
+// Never ship a price column the viewer isn't entitled to. The wholesale/base
+// cost must NOT travel to customers or affiliates — only to the owner/admin and
+// (for their own tier) approved pros.
+//
+//   admin/owner → every column (needs My Cost for margin tools)
+//   wholesale   → wholesale + contractor + homeowner + list refs
+//   contractor  → contractor + homeowner + list refs (no wholesale/base)
+//   homeowner   → homeowner + list refs ONLY (no trade columns at all)
+//
+// Fields not entitled are set to null so existing resolvers degrade gracefully.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface FullPriceRow {
+  listPrice?: number | string | null;
+  adjustedListPrice?: number | string | null;
+  wholesalePrice?: number | string | null;
+  contractorPrice?: number | string | null;
+  homeownerPrice?: number | string | null;
+}
+
+/**
+ * Redact the price columns a viewer is not entitled to see. `isAdmin` overrides
+ * everything (owner sees all). Otherwise gate strictly by the viewer's tier so
+ * the wholesale/base cost never leaves the server for customers/affiliates.
+ */
+export function visiblePricesForViewer<T extends FullPriceRow>(
+  row: T,
+  viewerTier: PricingTier,
+  isAdmin: boolean,
+): T {
+  if (isAdmin) return { ...row };
+  const out: T = { ...row };
+  // List/adjusted-list references are public (used as MSRP/compare-at).
+  switch (viewerTier) {
+    case "wholesale":
+      // sees all trade columns
+      break;
+    case "contractor":
+      out.wholesalePrice = null;
+      break;
+    case "homeowner":
+    default:
+      out.wholesalePrice = null;
+      out.contractorPrice = null;
+      break;
+  }
+  return out;
+}
