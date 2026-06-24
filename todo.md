@@ -1285,3 +1285,15 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Confirm login URL is origin-relative (works on *.manus.space and custom domains without code change)
 - [x] Verify frontend surfaces auth_error as a friendly toast and cleans the URL flag
 - [x] End-to-end live test: account creation set a session, redirected to /account, "Signed in successfully" (test account removed)
+
+
+## Design Tool mobile palette compaction (user report 2026-06-24: not enough space on mobile to view the list)
+- [x] Inspect Designer on a mobile viewport (375px) — identify wasted space around palette tabs + cabinet list
+- [x] Compact the palette tab row on mobile (scrollable/condensed instead of wrapping into many rows)
+- [x] Make the cabinet list space-efficient on mobile (denser rows / collapsible controls / more list height)
+- [x] Verify on mobile (375px) + desktop; no regressions to canvas/toolbar; run vitest
+- [x] Checkpoint + report
+
+
+## Checkout cross-sell / upsell page (user request 2026-06-24)
+- [ ] During checkout, show a dedicated "recommended add-ons / sales" page before order confirmation (accessories, skins/end panels, hardware, crown/toe-kick molding, glass doors) — scoped to the cart's door style/family; one-click add. (Future: tie into Hickory skin auto-suggest output.)

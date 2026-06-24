@@ -123,7 +123,11 @@ export default function DesignTool() {
   // the single-column UI with the bottom toolbar + drawers (never the cramped
   // 3-column desktop view).
   const isMobile = useIsMobile(1024);
-  const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart">(null);
+  const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart">(() => {
+    if (typeof window === "undefined") return null;
+    const p = new URLSearchParams(window.location.search).get("panel");
+    return p === "catalog" || p === "cart" ? p : null;
+  });
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
@@ -1458,7 +1462,10 @@ export default function DesignTool() {
       {/* Toolbar */}
       <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-wrap shrink-0">
         <div className="flex items-center gap-2">
-          <h1 className="font-serif text-lg font-bold text-foreground">Kitchen Designer</h1>
+          <h1 className="font-serif text-base lg:text-lg font-bold text-foreground">
+            <span className="lg:hidden">Designer</span>
+            <span className="hidden lg:inline">Kitchen Designer</span>
+          </h1>
           <Badge variant="secondary" className="text-xs">{placed.length} items</Badge>
         </div>
 
@@ -1479,11 +1486,12 @@ export default function DesignTool() {
           />
         </div>
 
-        <div className="h-5 w-px bg-border" />
+        <div className="hidden lg:block h-5 w-px bg-border" />
 
         {/* Active wall selector: highlights a wall; new items drop on it and it
-            can be dragged on the canvas to resize the room on that side. */}
-        <div className="flex items-center gap-1.5">
+            can be dragged on the canvas to resize the room on that side.
+            Desktop-only — on mobile these live in the "More" menu to save space. */}
+        <div className="hidden lg:flex items-center gap-1.5">
           <span className="text-[11px] font-medium text-muted-foreground">Wall:</span>
           <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
             {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => {
@@ -1553,7 +1561,7 @@ export default function DesignTool() {
           </button>
         </div>
 
-        <div className="h-5 w-px bg-border" />
+        <div className="hidden lg:block h-5 w-px bg-border" />
 
         {/* View toggle — ONE CLICK */}
         <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
@@ -1591,7 +1599,25 @@ export default function DesignTool() {
                 <MoreHorizontal className="h-4 w-4" /> More
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Active wall</DropdownMenuLabel>
+              <div className="grid grid-cols-4 gap-1 px-2 pb-1.5">
+                {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => { setActiveWall(w); setDrawMode(false); }}
+                    className={`rounded-md py-1 text-[11px] font-medium transition-colors ${
+                      activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/40 text-muted-foreground"
+                    }`}
+                  >
+                    {WALL_LABELS[w]}
+                  </button>
+                ))}
+              </div>
+              <DropdownMenuItem disabled={layoutLocked} onClick={autoFillActiveWall}>Auto-fill active wall</DropdownMenuItem>
+              <DropdownMenuCheckboxItem checked={layoutLocked} onCheckedChange={() => { setLayoutLocked((v) => !v); setDrawMode(false); }}>Lock layout</DropdownMenuCheckboxItem>
+              <DropdownMenuItem onClick={() => setConsultOpen((o) => !o)}>Design consultant…</DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuLabel>Tools</DropdownMenuLabel>
               <DropdownMenuCheckboxItem checked={measureMode} onCheckedChange={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}>Measure</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={!!island} onCheckedChange={() => setIsland((cur) => cur ? null : { width: Math.min(48, room.width - 24), depth: Math.min(24, room.depth - 24), x: Math.max(0, room.width / 2 - 24), y: Math.max(0, room.depth / 2 - 12) })}>Island zone</DropdownMenuCheckboxItem>
@@ -1897,7 +1923,7 @@ export default function DesignTool() {
             {/* Catalog tabs. Closet mode leads with the Closet parts tab but
                 still exposes cabinets + the Door/Win tool so a closet can hold
                 cabinets and an entry door. Kitchen mode keeps its tab set. */}
-            <div className="flex flex-wrap rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
+            <div className="flex lg:flex-wrap overflow-x-auto no-scrollbar rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
                 ? (["closetparts", "base", "wall", "tall", "opening"] as const)
                 : roomType === "bathroom" || roomType === "laundry"
@@ -1907,7 +1933,7 @@ export default function DesignTool() {
                 <button
                   key={t}
                   onClick={() => setPaletteType(t)}
-                  className={`flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
+                  className={`shrink-0 whitespace-nowrap px-2.5 lg:px-1 lg:flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
                     paletteType === t ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
