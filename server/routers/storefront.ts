@@ -8,6 +8,8 @@ import {
   distributors,
   doorStyles,
   distributorSkus,
+  affiliates,
+  affiliateStyleBranding,
 } from "../../drizzle/schema";
 
 // ─── Family-locked storefront browsing ─────────────────────────────────────────
@@ -548,5 +550,59 @@ export const storefrontRouter = router({
         .limit(1);
 
       return rows[0] ?? null;
+    }),
+
+  // ─── Affiliate white-label branding for a storefront ──────────────────────
+  // Public read-side companion to the partner-only myBranding editor. Given a
+  // storefront slug, returns the affiliate's per-door-style brand-name overrides
+  // and markup config (global + per-category + per-style, all basis points) so
+  // the /store/:slug catalog can render the affiliate's OWN names and marked-up
+  // retail prices. Returns null when the slug has no active storefront. Never
+  // exposes affiliate cost or the central supplier identity.
+  brandingForSlug: publicProcedure
+    .input(z.object({ slug: z.string().min(1).max(64) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const aRows = await db
+        .select()
+        .from(affiliates)
+        .where(eq(affiliates.slug, input.slug.toLowerCase()))
+        .limit(1);
+      const a = aRows[0];
+      if (!a || !a.storefrontEnabled || a.status === "inactive") return null;
+
+      const brandRows = await db
+        .select({
+          styleId: affiliateStyleBranding.styleId,
+          brandName: affiliateStyleBranding.brandName,
+          markupBps: affiliateStyleBranding.markupBps,
+        })
+        .from(affiliateStyleBranding)
+        .where(eq(affiliateStyleBranding.affiliateId, a.id));
+
+      // styleId -> brand name override (blank entries omitted)
+      const styleNames: Record<number, string> = {};
+      // styleId -> per-style markup bps override
+      const styleMarkupBps: Record<number, number> = {};
+      for (const r of brandRows) {
+        const nm = (r.brandName ?? "").trim();
+        if (nm) styleNames[r.styleId] = nm;
+        if (typeof r.markupBps === "number") styleMarkupBps[r.styleId] = r.markupBps;
+      }
+
+      let categoryMarkupBps: Record<string, number> = {};
+      try {
+        if (a.categoryMarkupJson) categoryMarkupBps = JSON.parse(a.categoryMarkupJson);
+      } catch {
+        categoryMarkupBps = {};
+      }
+
+      return {
+        globalMarkupBps: a.defaultMarkupBps ?? 0,
+        categoryMarkupBps,
+        styleMarkupBps,
+        styleNames,
+      };
     }),
 });

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { useFamilyLock, type LockedFamily } from "@/hooks/useFamilyLock";
+import { useStorefrontBranding, type StorefrontBranding } from "@/hooks/useStorefrontBranding";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import {
   STOREFRONT_STRINGS,
@@ -95,9 +96,10 @@ export function StorefrontShop({
   withRef: (path: string) => string;
 }) {
   const { family, lock, clear } = useFamilyLock(slug);
+  const branding = useStorefrontBranding(slug);
 
   if (!family) {
-    return <FamilyPicker brand={brand} lang={lang} onPick={lock} />;
+    return <FamilyPicker brand={brand} lang={lang} onPick={lock} branding={branding} />;
   }
   return (
     <LockedCatalog
@@ -106,6 +108,7 @@ export function StorefrontShop({
       lang={lang}
       withRef={withRef}
       onSwitch={clear}
+      branding={branding}
     />
   );
 }
@@ -115,10 +118,12 @@ function FamilyPicker({
   brand,
   lang,
   onPick,
+  branding,
 }: {
   brand: Brand;
   lang: Lang;
   onPick: (f: LockedFamily) => void;
+  branding: StorefrontBranding;
 }) {
   const { data, isLoading } = trpc.storefront.families.useQuery();
 
@@ -246,13 +251,17 @@ function LockedCatalog({
   lang,
   withRef,
   onSwitch,
+  branding,
 }: {
   family: LockedFamily;
   brand: Brand;
   lang: Lang;
   withRef: (path: string) => string;
   onSwitch: () => void;
+  branding: StorefrontBranding;
 }) {
+  // The affiliate's white-label name for this line (falls back to central name).
+  const displayName = branding.brandName(family.styleId, family.name);
   const [category, setCategory] = useState<string | null>(null);
   const [subGroup, setSubGroup] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -298,10 +307,10 @@ function LockedCatalog({
         <div className="relative mb-4 overflow-hidden rounded-2xl">
           <FamilyCardImage
             src={family.roomSceneImageUrl}
-            alt={`${family.name} kitchen`}
+            alt={`${displayName} kitchen`}
             style={{
-              ourName: family.name,
-              name: family.name,
+              ourName: displayName,
+              name: displayName,
               doorStyle: family.doorStyle,
               color: family.color,
               finish: family.finish,
@@ -315,7 +324,7 @@ function LockedCatalog({
               <Lock className="h-3 w-3" /> {t(lang, "family_locked_label")}
             </div>
             <h2 className="font-serif text-2xl font-bold text-white drop-shadow sm:text-3xl">
-              {family.name}
+              {displayName}
             </h2>
             {[family.finish, family.color].filter(Boolean).length > 0 && (
               <p className="text-sm text-white/85">
@@ -332,10 +341,10 @@ function LockedCatalog({
           <div className="flex items-center gap-3">
             <FamilyCardImage
               src={family.thumbnailImageUrl || family.roomSceneImageUrl}
-              alt={family.name}
+              alt={displayName}
               style={{
-                ourName: family.name,
-                name: family.name,
+                ourName: displayName,
+                name: displayName,
                 doorStyle: family.doorStyle,
                 color: family.color,
                 finish: family.finish,
@@ -348,7 +357,7 @@ function LockedCatalog({
                 <Lock className="h-3 w-3" /> {t(lang, "family_locked_label")}
               </div>
               <div className="font-serif text-lg font-bold leading-tight" style={{ color: brand.primary }}>
-                {family.name}
+                {displayName}
               </div>
             </div>
           </div>
@@ -365,7 +374,7 @@ function LockedCatalog({
         </p>
 
         {/* AI recommender */}
-        <Recommender family={family} brand={brand} lang={lang} />
+        <Recommender family={family} brand={brand} lang={lang} branding={branding} />
 
         {/* Category tabs + search */}
         <div className="mt-8 mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -453,6 +462,7 @@ function LockedCatalog({
                 styleId={family.styleId}
                 brand={brand}
                 lang={lang}
+                branding={branding}
               />
             ))}
           </div>
@@ -488,11 +498,13 @@ function CatalogCard({
   styleId,
   brand,
   lang,
+  branding,
 }: {
   item: CatalogItem;
   styleId: number;
   brand: Brand;
   lang: Lang;
+  branding: StorefrontBranding;
 }) {
   const [glass, setGlass] = useState(false);
 
@@ -509,7 +521,11 @@ function CatalogCard({
   const showing = glass && upsell ? upsell : item;
   const code = showing.masterCode;
   const description = showing.description;
-  const price = showing.homeownerPrice;
+  // Apply the affiliate's white-label markup to the platform homeowner price.
+  const price = branding.applyMarkup(showing.homeownerPrice, {
+    styleId,
+    category: showing.category,
+  });
 
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card p-4">
@@ -552,10 +568,12 @@ function Recommender({
   family,
   brand,
   lang,
+  branding,
 }: {
   family: LockedFamily;
   brand: Brand;
   lang: Lang;
+  branding: StorefrontBranding;
 }) {
   const [intent, setIntent] = useState("");
   const [submitted, setSubmitted] = useState<string | null>(null);
@@ -602,13 +620,13 @@ function Recommender({
             <p className="text-sm text-muted-foreground">{t(lang, "rec_empty")}</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {(data.items as Array<{ id: number; masterCode: string; description: string | null; homeownerPrice: unknown }>).map((it) => (
+              {(data.items as Array<{ id: number; masterCode: string; description: string | null; category?: string | null; homeownerPrice: unknown }>).map((it) => (
                 <div key={it.id} className="rounded-lg border border-border bg-card p-3">
                   <span className="font-mono text-xs font-semibold" style={{ color: brand.primary }}>
                     {it.masterCode}
                   </span>
                   <p className="line-clamp-2 text-xs text-muted-foreground">{it.description}</p>
-                  <div className="mt-1 text-sm font-bold">{money(it.homeownerPrice)}</div>
+                  <div className="mt-1 text-sm font-bold">{money(branding.applyMarkup(it.homeownerPrice, { styleId: family.styleId, category: it.category }))}</div>
                 </div>
               ))}
             </div>

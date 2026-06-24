@@ -342,15 +342,7 @@
 - [x] Printable graph-paper design tool with Cabinet Dealz logo + QR code to site — /plan-sheet standalone print-optimized page: CabinetDealz brand mark, Kitchen Design Worksheet header, Name/Date/Phone/Email/Project fields, ¼" SVG grid with bold 1-ft lines + scale key, QR (qrcode pkg) linking to the live /design tool, sketching tips, print stylesheet (US-Letter, hides chrome). "Print Sheet" link added to the Designer toolbar. qr.ts helper + 2 tests; tsc clean; verified live
 
 ## Phase 9: RTA-style storefront + Spanish toggle
-- [ ] Storefront i18n: EN/ES dictionary + language toggle (English default, persists choice)
-- [ ] Spanish translations for all storefront UI strings + First Class copy
-- [ ] RTA-Store-style hero (full-width, headline, subhead, dual CTA Buy/Design)
-- [ ] Shop-by-category tiles (Base, Wall, Tall, Vanity, Accessories)
-- [ ] Featured door-styles section (cards with swatch + name)
-- [ ] Package/kitchen deals section (reuse packages data)
-- [ ] Value-prop strip (free design, all-plywood/soft-close, fast quote)
-- [ ] Quote/Design CTAs carry referral code; SEO meta per storefront (no SKU counts)
-- [ ] Typecheck + tests pass; browser-verify EN/ES + sections; checkpoint
+- [x] (DONE in Phase 9, lines 358-375) Storefront i18n EN/ES dictionary + persisted toggle, Spanish UI strings, RTA-style hero, shop-by-category, featured door styles, value strip, referral-carrying CTAs — all live in Storefront.tsx (useStorefrontLang, ShowcaseHero/MinimalHero/CraftsmanHero, valueProps, withRef()). This block duplicated Phase 9; superseded.
 
 
 ## Phase 9: RTA-style storefront + family-lock + i18n (user request)
@@ -1102,7 +1094,7 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 - [x] Affiliate sets markup %: global default (affiliates.defaultMarkupBps) + optional per-category (categoryMarkupJson) + per-door-style (affiliate_style_branding.markupBps) overrides; precedence style > category > global in shared/affiliateBranding.ts (resolveMarkupBps)
 - [x] Live "effective %" preview per style row in the editor; resolveAffiliateRetail computes cost->retail->profit (unit-tested)
 - [x] Persist per-affiliate branding + markup (migration 0023: affiliate_style_branding table + affiliates.defaultMarkupBps/categoryMarkupJson; applied). Procedures: affiliates.myBranding/updateMyMarkup/upsertStyleBranding (partner-gated). 19 tests (shared/affiliateBranding.test.ts + server/affiliates.branding.test.ts); 677 total pass; tsc clean; checkpoint
-- [ ] FOLLOW-UP (storefront application): thread the affiliate's white-label NAMES + marked-up retail through the customer-facing catalog when browsing under /store/:slug (needs an affiliate-context provider + a branded styles/prices endpoint). Editor + resolver + persistence are done; this is the read-side wiring.
+- [x] FOLLOW-UP (storefront application): white-label NAMES + marked-up retail now thread through the customer-facing catalog under /store/:slug. New public endpoint storefront.brandingForSlug (returns styleNames + globalMarkupBps + categoryMarkupBps + styleMarkupBps for a slug; null for unknown/disabled/inactive). New useStorefrontBranding(slug) hook exposes brandName(styleId,fallback) + applyMarkup(dollars,{styleId,category}) (style>category>global precedence; identity when unconfigured). StorefrontShop threads `branding` through FamilyPicker/LockedCatalog/CatalogCard/Recommender: family + card names use the affiliate's white-label name, all displayed prices are marked up. 5 DB-aware tests in server/storefront.branding.test.ts; 703 total pass; tsc clean; checkpoint.
 
 ## Phase 43: Central Stripe payments + weekly affiliate payouts (user decision 2026-06-23 - Option A)
 - [ ] Enable Stripe (webdev_add_feature stripe) - ALL customer funds route to Cabinet Dealz central account
