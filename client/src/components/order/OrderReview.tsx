@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { readReferralCode, setReferralCode as persistReferralCode } from "@/hooks/useReferral";
+import { requiresFinishMatch, finishMatchLabel, finishMatchOrderNote } from "@shared/finishMatch";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -479,6 +480,18 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       toast.error("Enter a valid email so we can confirm your order.");
       return;
     }
+    // Carry the finish-match rule through to the order: skins & decorative end
+    // panels must be finished to the chosen door style. Append an explicit note
+    // so the supplier sees it on the quote/order.
+    const finishNote = finishMatchOrderNote(
+      pricedLines.map((l) => ({
+        masterCode: l.masterCode,
+        description: l.description,
+        subCategory: (l as { subCategory?: string | null }).subCategory ?? null,
+      })),
+      selectedStyle?.name ?? null,
+    );
+    const composedNotes = [notes.trim(), finishNote].filter(Boolean).join("\n\n");
     createReq.mutate({
       originatorName: name || undefined,
       originatorEmail: email,
@@ -488,7 +501,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       styleId: selectedStyle?.styleId ?? null,
       styleName: selectedStyle?.name ?? null,
       tier,
-      notes: notes || undefined,
+      notes: composedNotes || undefined,
       referralCode: referralCode ?? undefined,
       submit: true,
       lineItems: pricedLines.map((l) => ({
@@ -649,6 +662,20 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                       Split-pantry top (auto-added)
                     </Badge>
                   )}
+                  {l.matched &&
+                    requiresFinishMatch({ description: l.description ?? l.masterCode }) &&
+                    (() => {
+                      const label = finishMatchLabel(selectedStyle?.name);
+                      return (
+                        <Badge
+                          variant="outline"
+                          className="ml-2 text-[10px] align-middle border-[var(--color-gold)]/50 text-[var(--color-gold)]"
+                          title="Skins & decorative end panels are finished to match the cabinet door style."
+                        >
+                          {label ?? "Finish to match door style"}
+                        </Badge>
+                      );
+                    })()}
                 </TableCell>
                 <TableCell>
                   {fixingIndex === idx ? null : confidenceBadge(l)}

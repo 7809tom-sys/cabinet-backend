@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useSearch } from "wouter";
 import {
   ChevronLeft, Package, Palette, DollarSign,
-  ShoppingCart, Info, Check
+  ShoppingCart, Info, Check, Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -227,24 +227,65 @@ export default function CabinetDetail({ masterCode }: Props) {
     selectedRow?.styleCode
   ).face;
 
-  const { addItem } = useCart();
+  const { addItem, lockedStyleId, lockedStyleLabel, clear } = useCart();
 
-  const handleAddToCart = () => {
-    if (!selectedRow) return;
-    const unitPrice = priceNumberForTier(selectedRow, tier);
-    addItem({
+  // Add a specific style row to the cart (used directly and after an auto-switch).
+  const addRow = (row: StyleRow) => {
+    const unitPrice = priceNumberForTier(row, tier);
+    const res = addItem({
       masterCode,
-      name: cabinet?.description ?? selectedRow.name,
-      styleId: selectedRow.styleId,
-      styleLabel: selectedRow.name,
-      distributorId: selectedRow.distributorId ?? null,
+      name: cabinet?.description ?? row.name,
+      styleId: row.styleId,
+      styleLabel: row.name,
+      distributorId: row.distributorId ?? null,
       tier,
       unitPrice: unitPrice != null && !isNaN(unitPrice) ? unitPrice : null,
       qty,
     });
-    toast.success(`Added ${qty}\u00d7 ${masterCode} to cart`, {
-      description: `${selectedRow.name} \u00b7 ${tierLabel(tier)} pricing`,
-    });
+    if (res.ok) {
+      toast.success(`Added ${qty}\u00d7 ${masterCode} to cart`, {
+        description: `${row.name} \u00b7 ${tierLabel(tier)} pricing`,
+      });
+    }
+    return res;
+  };
+
+  const handleAddToCart = () => {
+    if (!selectedRow) return;
+    const res = addRow(selectedRow);
+    if (res.ok) return;
+
+    // Family-locked: the cart already holds a different door style. Every order
+    // ships from ONE family, so we cannot mix. Recover gracefully:
+    //   1) If this cabinet is also offered in the locked family, offer to switch
+    //      the selection to that family and add it (keeps the single-shipment lock).
+    //   2) Otherwise, this cabinet isn't available in the locked family — offer to
+    //      clear the cart and start a new family with it.
+    const lockedRow = styleRows.find((s) => s.styleId === res.lockedStyleId) ?? null;
+    if (lockedRow) {
+      toast.warning(`Your cart is locked to ${res.lockedStyleLabel}`, {
+        description: `Orders ship in one door style. Add this cabinet in ${res.lockedStyleLabel} instead?`,
+        action: {
+          label: `Add in ${res.lockedStyleLabel}`,
+          onClick: () => {
+            setSelectedStyleId(lockedRow.styleId);
+            addRow(lockedRow);
+          },
+        },
+      });
+    } else {
+      toast.warning(`Your cart is locked to ${res.lockedStyleLabel}`, {
+        description: `${masterCode} isn't offered in ${res.lockedStyleLabel}. Clear the cart to start a new order in ${selectedRow.name}?`,
+        action: {
+          label: "Clear cart & add",
+          onClick: () => {
+            clear();
+            // Cart is async-cleared via state; add on next tick.
+            setTimeout(() => addRow(selectedRow), 0);
+          },
+        },
+      });
+    }
   };
 
   if (cabinetLoading) {
@@ -538,6 +579,15 @@ export default function CabinetDetail({ masterCode }: Props) {
                   Add to Cart
                 </Button>
               </div>
+
+              {/* Family-lock hint: the cart can only hold ONE door style (single
+                  shipment). Surface the active lock so it's not a surprise. */}
+              {lockedStyleId != null && selectedRow && lockedStyleId !== selectedRow.styleId && (
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
+                  <Lock className="h-3 w-3 shrink-0" />
+                  Your cart is locked to {lockedStyleLabel}. Adding this will offer to switch styles or start a new cart.
+                </p>
+              )}
             </div>
           )}
 

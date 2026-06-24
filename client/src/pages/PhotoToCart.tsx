@@ -53,7 +53,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export default function PhotoToCart() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [, navigate] = useLocation();
-  const { addItem } = useCart();
+  const { addItem, lockedStyleId, lockedStyleLabel, clear } = useCart();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [preview, setPreview] = useState<string | null>(null);
@@ -140,6 +140,39 @@ export default function PhotoToCart() {
     }
     if (matched.length === 0) {
       toast.error("Nothing matched to add yet.");
+      return;
+    }
+    // Family-lock: the cart can only hold ONE door style. If it already holds a
+    // different family, adding would be rejected line-by-line, so prompt to
+    // clear-and-add instead of silently dropping everything.
+    if (lockedStyleId != null && lockedStyleId !== selectedStyle.id) {
+      toast.warning(`Your cart is locked to ${lockedStyleLabel}`, {
+        description: `Clear the cart to start a new order in ${selectedStyle.label}?`,
+        action: {
+          label: "Clear cart & add",
+          onClick: () => {
+            clear();
+            setTimeout(() => {
+              for (const r of matched) {
+                addItem({
+                  masterCode: r.masterCode!,
+                  name: r.description ?? r.masterCode!,
+                  styleId: selectedStyle.id,
+                  styleLabel: selectedStyle.label,
+                  distributorId: null,
+                  tier,
+                  unitPrice: null,
+                  qty: r.quantity,
+                });
+              }
+              toast.success(`Added ${matched.length} item${matched.length === 1 ? "" : "s"} to cart`, {
+                description: `Door style: ${selectedStyle.label}`,
+              });
+              navigate("/cart");
+            }, 0);
+          },
+        },
+      });
       return;
     }
     for (const r of matched) {

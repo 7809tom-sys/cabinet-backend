@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { canAddToCart } from "@shared/familyLock";
 
 export type CartItem = {
   masterCode: string;
@@ -18,10 +19,21 @@ export type CartItem = {
   qty: number;
 };
 
+// Result of an addItem attempt. The cart is family-locked: every line must
+// share ONE door-style family (styleId). The first item added sets the lock;
+// later items from a different family are rejected so the lock is enforced at
+// the point of adding (not silently allowed and only caught at checkout).
+export type AddItemResult =
+  | { ok: true }
+  | { ok: false; reason: "family_locked"; lockedStyleId: number; lockedStyleLabel: string };
+
 type CartState = {
   items: CartItem[];
   zip: string | null;
-  addItem: (item: CartItem) => void;
+  /** The door-style family the cart is currently locked to (null when empty). */
+  lockedStyleId: number | null;
+  lockedStyleLabel: string | null;
+  addItem: (item: CartItem) => AddItemResult;
   removeItem: (masterCode: string, styleId: number, tier: CartItem["tier"]) => void;
   setQty: (masterCode: string, styleId: number, tier: CartItem["tier"], qty: number) => void;
   clear: () => void;
@@ -73,8 +85,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [zip]);
 
+  // The cart's locked family is simply the styleId of whatever is already in it.
+  const lockedStyleId = items.length > 0 ? items[0].styleId : null;
+  const lockedStyleLabel = items.length > 0 ? items[0].styleLabel : null;
+
   const api = useMemo<CartState>(() => {
-    const addItem = (item: CartItem) => {
+    const addItem = (item: CartItem): AddItemResult => {
+      // Family-lock enforcement (pure rule in shared/familyLock.ts): if the cart
+      // already holds a different door-style family, reject the add. Caller
+      // decides how to recover (switch style or start a new cart). An empty cart
+      // accepts anything (and sets the lock).
+      const current = items[0];
+      const decision = canAddToCart(current ? current.styleId : null, item.styleId);
+      if (!decision.ok && current) {
+        return {
+          ok: false,
+          reason: "family_locked",
+          lockedStyleId: current.styleId,
+          lockedStyleLabel: current.styleLabel,
+        };
+      }
       setItems((prev) => {
         const k = lineKey(item);
         const existing = prev.find((p) => lineKey(p) === k);
@@ -83,6 +113,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
         return [...prev, item];
       });
+      return { ok: true };
     };
     const removeItem: CartState["removeItem"] = (masterCode, styleId, tier) => {
       const k = lineKey({ masterCode, styleId, tier });
@@ -102,8 +133,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const count = items.reduce((n, i) => n + i.qty, 0);
     const subtotal = items.reduce((s, i) => s + (i.unitPrice ?? 0) * i.qty, 0);
 
-    return { items, zip, addItem, removeItem, setQty, clear, setZip, count, subtotal };
-  }, [items, zip]);
+    return {
+      items,
+      zip,
+      lockedStyleId,
+      lockedStyleLabel,
+      addItem,
+      removeItem,
+      setQty,
+      clear,
+      setZip,
+      count,
+      subtotal,
+    };
+  }, [items, zip, lockedStyleId, lockedStyleLabel]);
 
   return <CartContext.Provider value={api}>{children}</CartContext.Provider>;
 }

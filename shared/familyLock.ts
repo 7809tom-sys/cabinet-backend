@@ -83,3 +83,28 @@ export function validateFamilyLock(
 
   return { ok: true, styleId: single, distinctStyleIds: distinct };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add-time family-lock decision (pure, testable).
+//
+// The cart is locked to ONE door-style family: the styleId of whatever is
+// already in it. This helper decides whether a new item may be added. An empty
+// cart (lockedStyleId == null) accepts anything and sets the lock; a non-empty
+// cart only accepts items from the same family.
+// ─────────────────────────────────────────────────────────────────────────────
+export interface CanAddResult {
+  ok: boolean;
+  /** True only when the cart already holds a DIFFERENT family. */
+  blockedByLock: boolean;
+}
+
+export function canAddToCart(
+  lockedStyleId: number | null | undefined,
+  incomingStyleId: number
+): CanAddResult {
+  if (lockedStyleId == null) return { ok: true, blockedByLock: false };
+  if (Number(lockedStyleId) === Number(incomingStyleId)) {
+    return { ok: true, blockedByLock: false };
+  }
+  return { ok: false, blockedByLock: true };
+}

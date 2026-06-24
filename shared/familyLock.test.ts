@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateFamilyLock } from "./familyLock";
+import { validateFamilyLock, canAddToCart } from "./familyLock";
 
 describe("validateFamilyLock", () => {
   it("passes when all priced lines share one style", () => {
@@ -59,5 +59,26 @@ describe("validateFamilyLock", () => {
     const r = validateFamilyLock([]);
     expect(r.ok).toBe(true);
     expect(r.styleId).toBeNull();
+  });
+});
+
+describe("canAddToCart (add-time lock)", () => {
+  it("accepts any item into an empty cart (sets the lock)", () => {
+    expect(canAddToCart(null, 5)).toEqual({ ok: true, blockedByLock: false });
+    expect(canAddToCart(undefined, 5)).toEqual({ ok: true, blockedByLock: false });
+  });
+
+  it("accepts an item from the SAME family", () => {
+    expect(canAddToCart(5, 5)).toEqual({ ok: true, blockedByLock: false });
+  });
+
+  it("rejects an item from a DIFFERENT family", () => {
+    expect(canAddToCart(5, 8)).toEqual({ ok: false, blockedByLock: true });
+  });
+
+  it("coerces numeric-string ids consistently", () => {
+    // styleId values always arrive as numbers in practice, but guard anyway.
+    expect(canAddToCart(5, Number("5"))).toEqual({ ok: true, blockedByLock: false });
+    expect(canAddToCart(5, Number("9"))).toEqual({ ok: false, blockedByLock: true });
   });
 });
