@@ -100,7 +100,7 @@ export function ChatWidget() {
         aria-label={open ? "Close chat" : "Open chat"}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full",
+          "fixed top-20 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full",
           "bg-[var(--color-navy,#1a2740)] text-white shadow-lg",
           "transition-transform duration-200 ease-out hover:scale-105 active:scale-95",
         )}
@@ -113,11 +113,11 @@ export function ChatWidget() {
       {open && (
         <div
           className={cn(
-            "fixed bottom-24 right-5 z-50 w-[min(380px,calc(100vw-2.5rem))]",
+            "fixed top-36 right-5 z-50 w-[min(380px,calc(100vw-2.5rem))]",
             "rounded-xl border border-border bg-card text-card-foreground shadow-2xl overflow-hidden",
             "flex flex-col",
           )}
-          style={{ maxHeight: "min(620px, calc(100vh - 8rem))" }}
+          style={{ maxHeight: "min(620px, calc(100vh - 11rem))" }}
         >
           <div className="flex items-center justify-between gap-2 border-b border-border bg-[var(--color-navy,#1a2740)] px-4 py-3 text-white">
             <div className="flex items-center gap-2">

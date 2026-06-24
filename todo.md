@@ -1594,3 +1594,11 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Charge 100% upfront, AFTER live freight quote is attached (PayWithCard gates on a freight amount > 0; server recomputes the authoritative total = merchandise + fee stack + freight before charging)
 - [x] Admin Payments tab: secure credentials (API Login ID, Transaction Key, Client Key), sandbox/production toggle (PaymentsAdmin.tsx; transaction key is write-only, never returned to the client — only a hasTransactionKey flag)
 - [x] Server payment + order capture + vitest (authorizeNet.ts charge helper; payments router charge/adminGetSettings/adminSaveSettings/publicConfig/adminList; payment_settings + payments tables; approved charge marks the order confirmed; 13 tests in authorizeNet.test.ts + payments.test.ts)
+
+## UI fixes (2026-06-24 user request)
+- [ ] Order review / line items: only one line item is visible — must show ALL line items (at least 10 visible, no truncation/scroll-hiding)
+- [x] Move the chat widget from the bottom-right corner to the top-right corner (ChatWidget launcher + panel now anchored top-20/top-36 right-5)
+
+## More UI requests (2026-06-24 batch 2)
+- [x] Remove the add-on / recommended sales section ("recommendGroups" + fallback touch-up-kit suggestion) from the design/order review area
+- [x] Customer custom-sizing feature: Design Tool selected-cabinet Width stepper (−/+ & exact input, 6–48″), captures nominalWidth, flags "Custom" on canvas/dimLabel + build sheet description ("— CUSTOM N″W"), with Reset to catalog width

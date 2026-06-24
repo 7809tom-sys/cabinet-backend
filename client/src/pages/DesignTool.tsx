@@ -4,7 +4,7 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
-  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette,
+  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
-  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight,
+  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth,
   normalizeLCornerDepths,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId,
@@ -649,6 +649,7 @@ export default function DesignTool() {
     const map = new Map<string, BuildSheetRow>();
     for (const p of placed) {
       const sw = resolveSwing(p);
+      const custom = isCustomWidth(p);
       const key = `${p.masterCode}|${Math.round(p.width)}|${sw}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
@@ -657,7 +658,9 @@ export default function DesignTool() {
       else
         map.set(key, {
           code: p.masterCode,
-          description: p.description,
+          description: custom
+            ? `${p.description} — CUSTOM ${Math.round(p.width * 10) / 10}\"W`
+            : p.description,
           widthIn: rotatedSize(p).w,
           heightIn: placedHeight(p),
           depthIn: rotatedSize(p).d,
@@ -991,6 +994,7 @@ export default function DesignTool() {
           x: spot.x,
           y: spot.y,
           width,
+          nominalWidth: width,
           depth,
           height,
           rotation: spot.rotation,
@@ -1451,6 +1455,52 @@ export default function DesignTool() {
       prev.map((p) => (p.uid === selectedUid ? { ...p, [field]: value } : p))
     );
   }, [selectedUid]);
+
+  // ─── Custom sizing ─────────────────────────────────────────────────────────
+  // Resize the selected cabinet's WIDTH to a custom value. The customer grabs a
+  // placed cabinet and increases/decreases its width; the live width changes
+  // (clamped to a sane 6"–48" range and to the room width) and the cabinet is
+  // re-snapped so it stays seated against its wall. When the width differs from
+  // the captured nominalWidth, isCustomWidth() flags it "Custom" on the canvas,
+  // build sheet, and order. Width is the dimension that matters for cabinet
+  // sizing; height/depth follow the standard for the placement bucket.
+  const setCustomWidth = useCallback((nextWidthRaw: number) => {
+    if (!selectedUid) return;
+    const MIN_W = 6;
+    const MAX_W = 48;
+    setPlaced((prev) =>
+      prev.map((p) => {
+        if (p.uid !== selectedUid) return p;
+        const roomMax = p.placement === "wall" || p.placement === "base" || p.placement === "tall"
+          ? Math.max(MIN_W, Math.min(MAX_W, room.width))
+          : MAX_W;
+        const next = Math.max(MIN_W, Math.min(roomMax, Math.round(nextWidthRaw * 10) / 10));
+        const resized = { ...p, width: next };
+        // Re-seat against the wall so the new width sits cleanly in-bounds.
+        const snapped = snapPosition(
+          resized,
+          room,
+          prev.filter((c) => c.uid !== p.uid)
+        );
+        return { ...resized, x: snapped.x, y: snapped.y };
+      })
+    );
+  }, [selectedUid, room]);
+
+  const adjustWidth = useCallback((deltaIn: number) => {
+    if (!selectedUid) return;
+    const cur = placed.find((p) => p.uid === selectedUid);
+    if (!cur) return;
+    setCustomWidth(cur.width + deltaIn);
+  }, [selectedUid, placed, setCustomWidth]);
+
+  // Clear the custom size: restore the cabinet's catalog (nominal) width.
+  const resetWidth = useCallback(() => {
+    if (!selectedUid) return;
+    const cur = placed.find((p) => p.uid === selectedUid);
+    if (!cur || typeof cur.nominalWidth !== "number") return;
+    setCustomWidth(cur.nominalWidth);
+  }, [selectedUid, placed, setCustomWidth]);
 
   // Per-cabinet finish override (two-tone). Set the selected cabinet's styleId
   // so it uses a different color/finish than the design default. Pass null to
@@ -2116,6 +2166,61 @@ export default function DesignTool() {
               </span>
               <div className="h-4 w-px bg-border" />
               <WallPicker onPick={snapSelectedToWall} />
+              {/* Custom sizing: increase/decrease this cabinet's width to order it
+                  as a custom-size piece. −/+ step by 1"; the field accepts an exact
+                  value. A "Custom" badge + Reset appear once the width differs from
+                  the catalog size. */}
+              <div className="h-4 w-px bg-border" />
+              <div className="flex items-center gap-1">
+                <Ruler className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] text-muted-foreground mr-0.5">Width</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  title="Decrease width 1 inch"
+                  onClick={() => adjustWidth(-1)}
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </Button>
+                <Input
+                  type="number"
+                  step="0.25"
+                  min={6}
+                  max={48}
+                  value={Math.round(selectedCab.width * 10) / 10}
+                  className="h-7 w-16 text-[11px] text-center"
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v) && v > 0) setCustomWidth(v);
+                  }}
+                  aria-label="Custom cabinet width in inches"
+                />
+                <span className="text-[11px] text-muted-foreground">in</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  title="Increase width 1 inch"
+                  onClick={() => adjustWidth(1)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+                {isCustomWidth(selectedCab) && (
+                  <>
+                    <Badge variant="secondary" className="text-[10px]">Custom</Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-[11px] text-muted-foreground"
+                      title={`Reset to catalog width (${selectedCab.nominalWidth}″)`}
+                      onClick={resetWidth}
+                    >
+                      Reset
+                    </Button>
+                  </>
+                )}
+              </div>
               {/* Per-cabinet finish (two-tone): give THIS cabinet a different
                   color/finish than the design default, within the locked supply
                   line. "Match design" clears the override. */}

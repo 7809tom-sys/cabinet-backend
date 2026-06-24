@@ -795,79 +795,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
         </Table>
       </div>
 
-      {/* Recommended for your order — style-scoped accessory cross-sell, one-click add */}
-      {hasMatchedCabinet && selectedStyle && recommendGroups.length > 0 && (
-        <div className="rounded-xl border border-[var(--color-gold)]/50 bg-[var(--color-gold)]/[0.06] p-5 space-y-4">
-          <div>
-            <h3 className="font-serif text-lg font-semibold text-foreground">Recommended for your order</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Finishing touches available in {selectedStyle.name}. One click adds them to your order.
-            </p>
-          </div>
-          {recommendGroups.map((group) => (
-            <div key={group.key} className="space-y-2">
-              <div>
-                <p className="text-sm font-semibold text-foreground">{group.label}</p>
-                <p className="text-xs text-muted-foreground">{group.blurb}</p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {group.items.slice(0, 6).map((item) => {
-                  const onOrderQty = lines.find((l) => l.cabinetId === item.id)?.qty ?? 0;
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground" title={item.description}>
-                          <span className="font-semibold">{item.masterCode}</span>
-                          <span className="text-muted-foreground"> · {item.description}</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground tabular-nums">
-                          {item.unitPrice != null ? `$${item.unitPrice.toFixed(2)}` : "Price on request"}
-                          {onOrderQty > 0 && (
-                            <span className="ml-2 text-[var(--color-gold)]">In order × {onOrderQty}</span>
-                          )}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0 gap-1.5 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 border-transparent"
-                        onClick={() => addRecommended(item)}
-                      >
-                        <Plus className="h-3.5 w-3.5" /> Add
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Fallback touch-up kit suggestion when the richer panel can't load yet */}
-      {touchUpKit && hasMatchedCabinet && !hasTouchUpKit && recommendGroups.length === 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-dashed border-[var(--color-gold)]/60 bg-[var(--color-gold)]/10 px-4 py-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-gold)]/20">
-            <Plus className="h-4 w-4 text-[var(--color-navy)]" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-foreground">Don&apos;t forget a touch-up kit</p>
-            <p className="text-xs text-muted-foreground">
-              A finish-matched touch-up kit handles nicks &amp; scratches during install — we recommend adding one to every order.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            onClick={addTouchUpKit}
-            className="shrink-0 gap-1.5 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add {touchUpKit.masterCode}
-          </Button>
-        </div>
-      )}
+      {/* Add-on / recommended-accessory cross-sell removed per request — the
+          design/order review no longer up-sells finishing accessories or a
+          touch-up kit. (recommendAddOns query + addRecommended/addTouchUpKit
+          handlers are retained but unused so the feature can be restored.) */}
 
       {/* Total */}
       <div className="flex items-center justify-between rounded-lg border border-border bg-card px-5 py-4">

@@ -177,6 +177,19 @@ export interface PlacedCabinet {
   // locked distributor family as the design. When null/undefined the cabinet
   // inherits the design's default styleId (see effectiveStyleId).
   styleId?: number | null;
+  // Original catalog width (inches) captured when the cabinet was placed. The
+  // live `width` is what the customer sees/edits; when it differs from
+  // nominalWidth the cabinet is a CUSTOM size and is flagged on the build sheet
+  // and order. Optional for backward-compat with older saved designs.
+  nominalWidth?: number | null;
+}
+
+// True when the placed cabinet has been resized to a custom width (its live
+// width differs from the catalog nominal width by more than a rounding margin).
+// Falls back to false when no nominal width was captured (older designs).
+export function isCustomWidth(p: { width: number; nominalWidth?: number | null }): boolean {
+  if (typeof p.nominalWidth !== "number" || p.nominalWidth <= 0) return false;
+  return Math.abs(p.width - p.nominalWidth) >= 0.25;
 }
 
 // Resolve which door-style/finish a placed cabinet should actually use:
@@ -365,7 +378,8 @@ export function fmtIn(n: number): string {
 export function dimLabel(p: PlacedCabinet): string {
   const { w, d } = rotatedSize(p);
   const h = placedHeight(p);
-  return `${fmtIn(w)}\"W \u00d7 ${fmtIn(h)}\"H \u00d7 ${fmtIn(d)}\"D`;
+  const base = `${fmtIn(w)}\"W \u00d7 ${fmtIn(h)}\"H \u00d7 ${fmtIn(d)}\"D`;
+  return isCustomWidth(p) ? `${base} \u00b7 Custom` : base;
 }
 
 export function snapPosition(
