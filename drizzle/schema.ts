@@ -606,10 +606,33 @@ export const shippingSettings = mysqlTable("shipping_settings", {
   defaultCabinetWeightLbs: decimal("defaultCabinetWeightLbs", { precision: 6, scale: 2 })
     .default("45")
     .notNull(),
-  // Placeholder for a future live carrier/broker API key (e.g. Freightquote / C.H.
-  // Robinson). When set + provider!="estimator", the live provider is used.
-  liveProvider: varchar("liveProvider", { length: 64 }).default("estimator").notNull(),
+  // Live carrier/broker API key (e.g. EasyPost / Shippo). When quoteMode="live"
+  // and a key is present, freight is fetched live from the carrier instead of the
+  // in-house estimator.
+  liveProvider: varchar("liveProvider", { length: 64 }).default("estimator").notNull(), // estimator | easypost | shippo
   liveApiKey: varchar("liveApiKey", { length: 255 }),
+  // Quote mode. "estimator" = in-house zone math (legacy). "live" = call the
+  // carrier API for a real LTL rate; if the live call fails, freight is reported
+  // as unavailable ("quoted on your order") rather than guessed.
+  quoteMode: mysqlEnum("quoteMode", ["estimator", "live"]).default("estimator").notNull(),
+  // Minimum freight charged for a KITCHEN-scale order (cents). A live rate that
+  // comes back below this floor is raised to it. Default $800.
+  kitchenFreightFloorCents: int("kitchenFreightFloorCents").default(80000).notNull(),
+  // What counts as a "kitchen" for the floor: any order at/above this many
+  // cabinet line-units. Small parts orders below this are NOT forced to the floor.
+  kitchenMinCabinets: int("kitchenMinCabinets").default(6).notNull(),
+  // 8 ft freight pallet model. Cabinets ship flat-pack, so we cube the order by
+  // PACKAGED weight + cubic feet and split into pallets using these caps.
+  palletLengthIn: decimal("palletLengthIn", { precision: 6, scale: 2 }).default("96").notNull(),
+  palletWidthIn: decimal("palletWidthIn", { precision: 6, scale: 2 }).default("40").notNull(),
+  palletHeightIn: decimal("palletHeightIn", { precision: 6, scale: 2 }).default("60").notNull(),
+  palletMaxWeightLbs: decimal("palletMaxWeightLbs", { precision: 8, scale: 2 }).default("1200").notNull(),
+  palletMaxCubicFt: decimal("palletMaxCubicFt", { precision: 8, scale: 2 }).default("100").notNull(),
+  palletTareLbs: decimal("palletTareLbs", { precision: 6, scale: 2 }).default("50").notNull(),
+  // LTL freight class used for the live quote (cabinets are typically 150–250).
+  freightClass: varchar("freightClass", { length: 8 }).default("175").notNull(),
+  // Fallback PACKAGED cubic feet per cabinet when its pkg dims are missing.
+  defaultCabinetCubicFt: decimal("defaultCabinetCubicFt", { precision: 6, scale: 2 }).default("8").notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 

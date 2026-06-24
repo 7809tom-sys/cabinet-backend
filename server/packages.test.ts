@@ -26,17 +26,18 @@ describe("packages router", () => {
         expect(line.lineTotal).toBeCloseTo((line.unitCost ?? 0) * line.qty, 2);
       }
 
-      // Landed cost = cabinet subtotal + assembly + est freight.
+      // Landed cost = cabinet subtotal + assembly only. Freight is no longer
+      // guessed in package pricing — it is quoted live (LTL) at order time.
       const expectedLanded = Number(
-        (p.cabinetSubtotal + p.assemblyFee + p.estFreight).toFixed(2)
+        (p.cabinetSubtotal + p.assemblyFee).toFixed(2)
       );
       expect(p.landedCost).toBeCloseTo(expectedLanded, 2);
 
       // Assembly fee is $30 per cabinet.
       expect(p.assemblyFee).toBe(p.cabinetCount * 30);
 
-      // Freight is ~8% of cabinet subtotal.
-      expect(p.estFreight).toBeCloseTo(p.cabinetSubtotal * 0.08, 1);
+      // Freight is excluded from package pricing (live-quoted at order).
+      expect(p.estFreight).toBe(0);
 
       // Suggested retail sits below the competitor average, and we still profit.
       expect(p.suggestedRetail).toBeLessThan(p.competitorAvg);

@@ -95,7 +95,7 @@ export default function PackageDetail({ slug }: { slug: string }) {
               <p className="mt-3 text-white/75">{pkg.blurb}</p>
               <div className="mt-5 flex flex-wrap gap-5 text-sm text-white/80">
                 <span className="flex items-center gap-1.5"><Hammer className="h-4 w-4 text-[var(--color-gold)]" /> Assembled or flat-pack (RTA)</span>
-                <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-[var(--color-gold)]" /> Regional freight included (est.)</span>
+                <span className="flex items-center gap-1.5"><Truck className="h-4 w-4 text-[var(--color-gold)]" /> Shipping quoted live at order</span>
                 <span className="flex items-center gap-1.5"><PackageIcon className="h-4 w-4 text-[var(--color-gold)]" /> Complete cabinet set</span>
               </div>
             </div>
@@ -203,11 +203,11 @@ export default function PackageDetail({ slug }: { slug: string }) {
                     <td className="py-1 text-right tabular-nums font-medium">{usd(pkg.assemblyFee)}</td>
                   </tr>
                   <tr className="text-sm">
-                    <td colSpan={4} className="py-1 pr-3 text-right text-muted-foreground">Est. regional freight (~8%)</td>
-                    <td className="py-1 text-right tabular-nums font-medium">{usd(pkg.estFreight)}</td>
+                    <td colSpan={4} className="py-1 pr-3 text-right text-muted-foreground">Freight</td>
+                    <td className="py-1 text-right tabular-nums text-muted-foreground">Quoted live at order</td>
                   </tr>
                   <tr className="border-t-2 border-[var(--color-navy)]/20">
-                    <td colSpan={4} className="py-2.5 pr-3 text-right font-bold text-[var(--color-navy)]">Total landed cost</td>
+                    <td colSpan={4} className="py-2.5 pr-3 text-right font-bold text-[var(--color-navy)]">Cabinets + assembly</td>
                     <td className="py-2.5 text-right tabular-nums font-bold text-[var(--color-navy)]">{usd(pkg.landedCost)}</td>
                   </tr>
                 </tfoot>

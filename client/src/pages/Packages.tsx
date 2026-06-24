@@ -54,7 +54,7 @@ export default function Packages() {
               <Hammer className="h-4 w-4 text-[var(--color-gold)]" /> Assembled or flat-pack — your choice
             </div>
             <div className="flex items-center gap-2 text-white/80">
-              <Truck className="h-4 w-4 text-[var(--color-gold)]" /> Low regional freight from network hubs
+              <Truck className="h-4 w-4 text-[var(--color-gold)]" /> Shipping quoted live at order from network hubs
             </div>
           </div>
         </div>
@@ -153,7 +153,8 @@ export default function Packages() {
         <p className="mt-10 text-center text-xs text-muted-foreground max-w-2xl mx-auto">
           Competitor figures are assembled white-shaker package prices captured as a planning
           benchmark; sellers run frequent sales, so treat these as guidance rather than a live
-          quote. Freight is estimated for a job near a regional network warehouse.
+          quote. Cabinet pricing shown excludes freight — shipping is quoted live (LTL carrier)
+          at order time.
         </p>
       </section>
     </div>

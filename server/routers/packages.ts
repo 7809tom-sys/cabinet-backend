@@ -123,9 +123,12 @@ async function pricePackage(
     lines.reduce((s, l) => s + (l.lineTotal ?? 0), 0).toFixed(2)
   );
   const assemblyFee = pkg.cabinetCount * ASSEMBLY_PER_CABINET;
-  const estFreight = Number((cabinetSubtotal * EST_FREIGHT_RATE).toFixed(2));
+  // Freight is no longer estimated/guessed in package pricing — it is quoted live
+  // (LTL carrier) at order time, with an $800 kitchen minimum. We keep the field
+  // at 0 for back-compat so the landed cost reflects only cabinets + assembly.
+  const estFreight = 0;
   const landedCost = Number(
-    (cabinetSubtotal + assemblyFee + estFreight).toFixed(2)
+    (cabinetSubtotal + assemblyFee).toFixed(2)
   );
 
   const avg = Number(competitorAvg(pkg).toFixed(2));

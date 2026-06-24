@@ -1562,3 +1562,14 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Move the add-on / upsell ("you might also need") sales area OUT of the cart
 - [x] Place the add-on sales area on the checkout page/step instead
 - [x] Verify cart item list readable on mobile + desktop
+
+## Live shipping quote + Admin shipping plugin (done)
+- [x] Schema: extend shipping_settings (quoteMode, liveProvider, liveApiKey, $800 kitchen floor, kitchenMinCabinets, 8ft pallet caps, freightClass, defaultCabinetCubicFt); migrate
+- [x] Pure pallet builder + $800 kitchen floor logic (shared/liveFreight.ts) + unit tests
+- [x] EasyPost LTL provider client (server/_core/easypost.ts) + unit tests (injected fetch)
+- [x] freight router: live-quote path (pallets, markup, $800 floor), estimator fallback, testLiveQuote admin procedure
+- [x] Admin Shipping panel rebuilt: mode toggle, provider, write-only API key, origin ZIP, freight class, $800 floor, kitchen min, handling markup, 8ft pallet caps, default cube/weight, Test live quote button
+- [x] Remove guessed freight from package landed cost (estFreight=0); storefront shows "Shipping quoted live at order"
+- [x] Cart: no guessed freight; "Shipping quoted live on your order"
+- [x] Full suite green (786 tests), tsc clean
+- [ ] Connect live EasyPost API key (awaiting user account) + run live test quote
