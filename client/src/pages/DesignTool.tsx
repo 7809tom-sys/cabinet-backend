@@ -4,7 +4,7 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
-  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine,
+  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1756,6 +1756,17 @@ export default function DesignTool() {
             <ScanLine className="h-3.5 w-3.5" /> Corner
           </button>
         </div>
+
+        {/* Printable graph-paper worksheet */}
+        <a
+          href="/plan-sheet"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open a printable graph-paper worksheet (with QR to this designer)"
+          className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+        >
+          <Printer className="h-3.5 w-3.5" /> Print Sheet
+        </a>
 
         {/* Mobile: compact "More" menu with the toggles that live in the desktop toolbar */}
         <div className="ml-auto flex items-center gap-2 lg:hidden">

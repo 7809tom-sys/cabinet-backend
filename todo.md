@@ -339,7 +339,7 @@
 - [x] Admin CRM task/force board for sales (kanban New->Contacted->Qualified->Quoted + Won/Lost closed lane); drag-to-move, deal drawer w/ activity timeline, stat chips, Import Leads (pro apps + order requests), New Deal dialog
 - [x] Affiliate CRM board inside the affiliate dashboard (per-affiliate scoped pipeline, same CrmBoard component; affiliate sees only their own deals + their referred order requests as importable leads)
 - [x] CRM bilingual EN/ES labels + per-deal customer-language flag (supports Spanish-speaking customers); crm_deals + crm_activities tables; role-aware scoping (admin=house, partner=own affiliate); 193 tests pass; browser-verified
-- [ ] Printable graph-paper design tool with Cabinet Dealz logo + QR code to site
+- [x] Printable graph-paper design tool with Cabinet Dealz logo + QR code to site — /plan-sheet standalone print-optimized page: CabinetDealz brand mark, Kitchen Design Worksheet header, Name/Date/Phone/Email/Project fields, ¼" SVG grid with bold 1-ft lines + scale key, QR (qrcode pkg) linking to the live /design tool, sketching tips, print stylesheet (US-Letter, hides chrome). "Print Sheet" link added to the Designer toolbar. qr.ts helper + 2 tests; tsc clean; verified live
 
 ## Phase 9: RTA-style storefront + Spanish toggle
 - [ ] Storefront i18n: EN/ES dictionary + language toggle (English default, persists choice)

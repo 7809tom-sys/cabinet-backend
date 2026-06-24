@@ -26,6 +26,7 @@ const DistributorPortal = lazy(() => import("@/pages/DistributorPortal"));
 const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
 const SignIn = lazy(() => import("@/pages/SignIn"));
 const Account = lazy(() => import("@/pages/Account"));
+const PlanSheet = lazy(() => import("@/pages/PlanSheet"));
 
 function PageLoader() {
   return (
@@ -204,6 +205,13 @@ export default function App() {
               <PhotoToCart />
             </Suspense>
           </AppLayout>
+        </Route>
+
+        {/* Printable graph-paper plan sheet — standalone, print-optimized, no app chrome */}
+        <Route path="/plan-sheet">
+          <Suspense fallback={<PageLoader />}>
+            <PlanSheet />
+          </Suspense>
         </Route>
 
         <Route>
