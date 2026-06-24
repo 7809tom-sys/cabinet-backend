@@ -720,13 +720,13 @@ Direction confirmed: KEEP all 3 tiers (Homeowner/Contractor/Wholesale) + KEEP ca
 
 
 ## Email/password login (alongside Manus OAuth)
-- [ ] Add passwordHash + email (unique) columns to user table; generate + apply migration
-- [ ] DB helpers: getUserByEmail, createEmailUser, setPasswordHash
-- [ ] Auth procedures: emailSignup, emailLogin, emailLogout (bcrypt hashing, issues same session cookie)
-- [ ] Rate limiting / lockout on login attempts
-- [ ] Promote 7809tom@gmail.com to admin on signup with that email
-- [ ] Login/Signup UI alongside Manus sign-in (toggle)
-- [ ] Vitest coverage for signup/login/wrong-password/lockout
+- [x] passwordHash + emailLower(unique) + failedLoginAttempts + lockedUntil + loginMethod columns on users (in schema, applied)
+- [x] DB helpers: getUserByEmailLower, createEmailUser (owner email auto-promoted to admin), recordLoginResult, setPasswordHash (server/db.ts)
+- [x] Auth procedures: emailAuth.signup / login / logout (bcryptjs hashing, issues the same JWT session cookie as OAuth) — server/routers/emailAuth.ts
+- [x] Rate limiting / lockout: 5 failed attempts → 15-min lock (computeLockout/isLocked in emailAuth.logic.ts); uniform "Invalid email or password" + constant-time compare to avoid user enumeration
+- [x] Promote 7809tom@gmail.com to admin on signup (ENV.ownerEmail check in createEmailUser)
+- [x] Login/Signup UI alongside Manus sign-in (toggle) — client/src/pages/SignIn.tsx
+- [x] Vitest: emailAuth.test.ts (validation, lockout math, hashing, logout) + emailAuth.flow.test.ts (DB-aware signup+hash, duplicate rejection, login correct/wrong, lockout). All pass
 
 ## Email / Password Auth
 - [x] Schema: emailLower (unique), passwordHash, failedLoginAttempts, lockedUntil on users
