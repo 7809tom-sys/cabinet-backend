@@ -46,7 +46,7 @@ import {
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   addOnRecommendations,
   freeSegmentsOnWall, wallPlacementAt, cabinetWall,
-  rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
+  rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox,
 } from "@/lib/design";
@@ -1345,57 +1345,10 @@ export default function DesignTool() {
     if (bad.size === 0) { toast.info("No range/oven corner clearance issues to fix."); return; }
     const W = RANGE_CLEARANCE_FILLER_IN;
     setPlaced((prev) => {
-      let working = [...prev];
-      let added = 0;
-      for (const range of prev) {
-        if (!bad.has(range.uid)) continue;
-        const side = cabinetWall(range, room);
-        const horizontal = side === "top" || side === "bottom";
-        const rs = rotatedSize(range);
-        const start = horizontal ? range.x : range.y;
-        const end = start + (horizontal ? rs.w : rs.d);
-        const atStartCorner = Math.abs(start - 0) <= 1.0;
-        // Interior edge is the end facing into the run.
-        const interiorEdge = atStartCorner ? end : start;
-        const dir = atStartCorner ? 1 : -1; // push neighbors away from the corner
-        // Shift every base/tall cabinet beyond the interior edge outward by W.
-        working = working.map((p) => {
-          if (p.uid === range.uid) return p;
-          if (p.placement !== "base" && p.placement !== "tall") return p;
-          if (cabinetWall(p, room) !== side) return p;
-          const ps = rotatedSize(p);
-          const pStart = horizontal ? p.x : p.y;
-          const pEnd = pStart + (horizontal ? ps.w : ps.d);
-          const beyond = dir > 0 ? pStart >= interiorEdge - 1.0 : pEnd <= interiorEdge + 1.0;
-          if (!beyond) return p;
-          if (horizontal) return { ...p, x: p.x + dir * W };
-          return { ...p, y: p.y + dir * W };
-        });
-        // Drop the filler exactly in the gap that opened up at the interior edge.
-        const along = dir > 0 ? interiorEdge : interiorEdge - W;
-        const fillerDef = makeFiller(W, "base");
-        const spot = wallPlacementAt(along, W, footprintDepth(fillerDef), side, room);
-        working.push({
-          uid: makeUid(),
-          cabinetId: 0,
-          masterCode: fillerDef.masterCode,
-          description: `${W}\" Range/Oven Clearance Filler`,
-          placement: "base",
-          x: spot.x,
-          y: spot.y,
-          width: W,
-          depth: footprintDepth(fillerDef),
-          height: dim(fillerDef.height, standardHeight("base")),
-          rotation: spot.rotation,
-          numberOfDoors: 0,
-          numberOfDrawers: 0,
-          catalogImageUrl: null,
-        });
-        added++;
-      }
-      if (added === 0) { toast.info("Couldn't place a clearance filler automatically — try nudging the cabinet manually."); return prev; }
-      toast.success(`Added ${added} clearance filler${added === 1 ? "" : "s"} (${W}\" each) next to the range/oven.`);
-      return working;
+      const { placed: next, added } = autoPlaceRangeFillers(prev, room, W, makeUid);
+      if (added.length === 0) { toast.info("Couldn't place a clearance filler automatically — try nudging the cabinet manually."); return prev; }
+      toast.success(`Added ${added.length} clearance filler${added.length === 1 ? "" : "s"} (${W}\" each) next to the range/oven.`);
+      return next;
     });
   }, [layoutLocked, placed, room]);
 

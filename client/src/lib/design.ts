@@ -1854,6 +1854,116 @@ export function rangeOvenClearanceViolations(
   return bad;
 }
 
+// Result of an auto-filler pass: the (possibly extended) placed array plus the
+// uids of the fillers that were inserted, so the UI can report how many were
+// added and the caller can decide whether anything changed.
+export interface RangeFillerResult {
+  placed: PlacedCabinet[];
+  added: PlacedCabinet[];
+}
+
+// Auto-place the required clearance filler(s) next to any range/oven that sits
+// at a wall corner directly against a cabinet (the violations reported by
+// rangeOvenClearanceViolations). For each violating appliance we insert a
+// `fillerIn`-wide (default 3") filler on the INTERIOR side of the appliance —
+// the side that faces away from the corner and toward the adjacent cabinet —
+// and shift that neighboring cabinet (and any cabinets further down the run on
+// the same wall, on the appliance's interior side) outward by the filler width
+// so the filler has room. This gives the range handle and the cabinet door/
+// drawer handle clearance to operate without colliding.
+export function autoPlaceRangeFillers(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  fillerIn = RANGE_CLEARANCE_FILLER_IN,
+  makeUidFn: () => string = makeUid
+): RangeFillerResult {
+  const violations = rangeOvenClearanceViolations(placed, room, fillerIn);
+  if (violations.size === 0) return { placed, added: [] };
+
+  // Work on a shallow copy so callers get a new array only when something
+  // changed; individual cabinets we shift are replaced with new objects.
+  const next = placed.slice();
+  const added: PlacedCabinet[] = [];
+
+  for (const uid of Array.from(violations)) {
+    const idx = next.findIndex((p) => p.uid === uid);
+    if (idx < 0) continue;
+    const range = next[idx];
+    const side = cabinetWall(range, room);
+    const horizontal = side === "top" || side === "bottom";
+    const wallLen = horizontal ? room.width : room.depth;
+    const rs = rotatedSize(range);
+    const start = horizontal ? range.x : range.y;
+    const end = start + (horizontal ? rs.w : rs.d);
+    const atStartCorner = Math.abs(start - 0) <= 1.0;
+
+    // The interior end is the end facing away from the corner. The filler sits
+    // just past that interior end; everything on the run beyond it gets nudged.
+    // atStartCorner  -> corner at `start`, interior end is `end`, filler to the
+    //                   right/down; shift cabinets with run-start >= end.
+    // atEndCorner    -> corner at `end`, interior end is `start`, filler to the
+    //                   left/up; shift cabinets with run-end <= start.
+    const fillerAlong = atStartCorner ? end : start - fillerIn;
+
+    const fillerDepth = STD.BASE_DEPTH;
+    const fillerHeight = STD.BASE_HEIGHT;
+    let fx: number, fy: number, fw: number, fd: number;
+    if (horizontal) {
+      fx = fillerAlong;
+      fy = side === "top" ? 0 : Math.max(0, room.depth - fillerDepth);
+      fw = fillerIn;
+      fd = fillerDepth;
+    } else {
+      fy = fillerAlong;
+      fx = side === "left" ? 0 : Math.max(0, room.width - fillerDepth);
+      fw = fillerDepth;
+      fd = fillerIn;
+    }
+
+    // Shift neighbor cabinets on the interior side outward by fillerIn so the
+    // new filler has room. Only same-wall base/tall cabinets are moved.
+    for (let i = 0; i < next.length; i++) {
+      const o = next[i];
+      if (o.uid === range.uid) continue;
+      if (o.placement !== "base" && o.placement !== "tall") continue;
+      if (cabinetWall(o, room) !== side) continue;
+      const os = rotatedSize(o);
+      const oStart = horizontal ? o.x : o.y;
+      const oEnd = oStart + (horizontal ? os.w : os.d);
+      const onInterior = atStartCorner ? oStart >= end - 1.0 : oEnd <= start + 1.0;
+      if (!onInterior) continue;
+      const delta = atStartCorner ? fillerIn : -fillerIn;
+      next[i] = horizontal
+        ? { ...o, x: clampInRoom(o.x + delta, 0, wallLen - os.w) }
+        : { ...o, y: clampInRoom(o.y + delta, 0, wallLen - os.d) };
+    }
+
+    const filler: PlacedCabinet = {
+      uid: makeUidFn(),
+      cabinetId: 0,
+      masterCode: `FILL-${fillerIn}`,
+      description: `${fillerIn}" Range/Oven Clearance Filler`,
+      placement: "base",
+      x: fx,
+      y: fy,
+      width: fw,
+      depth: fd,
+      height: fillerHeight,
+      rotation: horizontal ? 0 : 90,
+    };
+    next.push(filler);
+    added.push(filler);
+  }
+
+  return { placed: next, added };
+}
+
+// Clamp a run-axis position into [lo, hi], tolerating hi < lo (returns lo).
+function clampInRoom(v: number, lo: number, hi: number): number {
+  if (hi < lo) return lo;
+  return Math.max(lo, Math.min(v, hi));
+}
+
 // Wall cabinets must keep at least this clearance (inches) from doors and
 // windows on both sides of the opening. Base cabinets are exempt (counters/
 // fillers can run beneath a window), so this buffer is only applied when

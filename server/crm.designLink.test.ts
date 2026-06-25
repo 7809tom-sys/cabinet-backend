@@ -75,6 +75,47 @@ describe("crm router — design linking", () => {
     }
   });
 
+  it("saves a named design, retrieves it by id, and renames it on re-save (Save as / update)", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(adminCtx());
+
+    // Save a NAMED design.
+    const saved = await caller.design.save({
+      name: "Lakeview Kitchen v1",
+      roomData: { width: 144, depth: 120 },
+      placedCabinets: [{ cabinetId: 1, x: 0, y: 0, rotation: 0 }],
+      projectName: "Lakeview Remodel",
+      roomLabel: "Kitchen",
+      roomType: "kitchen",
+    });
+    expect(saved.id).toBeGreaterThan(0);
+
+    try {
+      // Retrievable by id with the stored name + project grouping intact.
+      const byId = await caller.design.byId({ id: saved.id });
+      expect(byId?.name).toBe("Lakeview Kitchen v1");
+      expect(byId?.projectName).toBe("Lakeview Remodel");
+      expect(byId?.roomLabel).toBe("Kitchen");
+
+      // Appears in the owner's named list (used by My Designs + CRM linkable).
+      const mine = await caller.design.myDesigns();
+      expect(mine.some((d) => d.id === saved.id && d.name === "Lakeview Kitchen v1")).toBe(true);
+
+      // Re-saving with the same id renames it (rename / Save over existing).
+      await caller.design.save({
+        id: saved.id,
+        name: "Lakeview Kitchen FINAL",
+        roomData: { width: 144, depth: 120 },
+        placedCabinets: [{ cabinetId: 1, x: 0, y: 0, rotation: 0 }],
+      });
+      const renamed = await caller.design.byId({ id: saved.id });
+      expect(renamed?.name).toBe("Lakeview Kitchen FINAL");
+    } finally {
+      await cleanup(0, [saved.id]);
+    }
+  });
+
   it("rejects linking a design the caller does not own", async () => {
     const db = await getDb();
     if (!db) return;

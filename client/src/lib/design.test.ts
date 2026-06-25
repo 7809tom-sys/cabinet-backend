@@ -16,7 +16,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine,
   freeSegmentsOnWall, wallPlacementAt,
-  rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
+  rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
   blindCornerSpecViolations, blindPullRange,
   blindCornerAutoFiller,
@@ -220,6 +220,24 @@ describe("wall openings (doors & windows)", () => {
     const o = makeOpening(def, "left", room);
     const wide = clampOpening({ ...o, width: 500 }, room);
     expect(wide.width).toBeLessThanOrEqual(wallLength("left", room));
+  });
+
+  it("keeps a custom width within bounds and re-clamps offset to fit (resize editor path)", () => {
+    const def = OPENINGS.find((o) => o.key === "window-std")!;
+    const o = makeOpening(def, "top", room); // centered 36" window on a 120" wall
+    // User types a wider 84" width: width is accepted (<= wall) and the offset
+    // is pulled back so left+width still fits inside the wall.
+    const resized = clampOpening({ ...o, width: 84 }, room);
+    expect(resized.width).toBe(84);
+    expect(resized.offset).toBeLessThanOrEqual(room.width - resized.width);
+    expect(resized.offset).toBeGreaterThanOrEqual(0);
+  });
+
+  it("floors opening width at the 6in minimum", () => {
+    const def = OPENINGS.find((o) => o.key === "interior-door")!;
+    const o = makeOpening(def, "top", room);
+    const tiny = clampOpening({ ...o, width: 1 }, room);
+    expect(tiny.width).toBe(6);
   });
 
   it("windows have a non-zero sill height; doors sit on the floor", () => {
@@ -1094,6 +1112,58 @@ describe("rangeOvenClearanceViolations (corner filler rule)", () => {
 
   it("exposes a 3\" standard clearance filler width", () => {
     expect(RANGE_CLEARANCE_FILLER_IN).toBe(3);
+  });
+});
+
+describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
+  it("inserts a 3\" filler between a corner range and the adjacent cabinet", () => {
+    const range = cab({ uid: "r", masterCode: "RANGE-30", placement: "appliance", x: 0, y: 0, width: 30, depth: 25 });
+    const base = cab({ uid: "b", masterCode: "B-24", placement: "base", x: 30, y: 0, width: 24, depth: 24 });
+    const { placed, added } = autoPlaceRangeFillers([range, base], ROOM_12x10);
+    expect(added).toHaveLength(1);
+    const filler = added[0];
+    expect(filler.width).toBe(RANGE_CLEARANCE_FILLER_IN);
+    expect(filler.placement).toBe("base");
+    // The filler sits at the range's interior end (x = 30).
+    expect(filler.x).toBe(30);
+    // The previously-touching base was pushed out by 3".
+    const movedBase = placed.find((p) => p.uid === "b")!;
+    expect(movedBase.x).toBe(33);
+    // The result no longer violates the clearance rule.
+    expect(rangeOvenClearanceViolations(placed, ROOM_12x10).size).toBe(0);
+  });
+
+  it("handles a range at the far (end) corner, placing the filler on the interior side", () => {
+    // Range at the right corner of a 144" wall (ends at x=144); cabinet to its left.
+    const range = cab({ uid: "r", masterCode: "RANGE-30", placement: "appliance", x: 114, y: 0, width: 30, depth: 25 });
+    const base = cab({ uid: "b", masterCode: "B-24", placement: "base", x: 90, y: 0, width: 24, depth: 24 });
+    const { placed, added } = autoPlaceRangeFillers([range, base], ROOM_12x10);
+    expect(added).toHaveLength(1);
+    // Interior end of the range is x=114; filler sits just before it (114 - 3).
+    expect(added[0].x).toBe(111);
+    // The adjacent base was pulled left by 3" to open the gap.
+    expect(placed.find((p) => p.uid === "b")!.x).toBe(87);
+    expect(rangeOvenClearanceViolations(placed, ROOM_12x10).size).toBe(0);
+  });
+
+  it("is a no-op (same array reference) when there are no violations", () => {
+    const range = cab({ uid: "r", masterCode: "RANGE-30", placement: "appliance", x: 0, y: 0, width: 30, depth: 25 });
+    const base = cab({ uid: "b", masterCode: "B-24", placement: "base", x: 33, y: 0, width: 24, depth: 24 });
+    const input = [range, base];
+    const { placed, added } = autoPlaceRangeFillers(input, ROOM_12x10);
+    expect(added).toHaveLength(0);
+    expect(placed).toBe(input);
+  });
+
+  it("places a filler for each of two corner ranges on different walls", () => {
+    // One range in the top-left corner, one in the left-wall top corner.
+    const r1 = cab({ uid: "r1", masterCode: "RANGE-30", placement: "appliance", x: 0, y: 0, width: 30, depth: 25 });
+    const b1 = cab({ uid: "b1", masterCode: "B-24", placement: "base", x: 30, y: 0, width: 24, depth: 24 });
+    const r2 = cab({ uid: "r2", masterCode: "RANGE-30", placement: "appliance", x: 0, y: 0, width: 25, depth: 30, rotation: 90 });
+    const b2 = cab({ uid: "b2", masterCode: "B-24", placement: "base", x: 0, y: 30, width: 24, depth: 24, rotation: 90 });
+    const { placed, added } = autoPlaceRangeFillers([r1, b1, r2, b2], ROOM_12x10);
+    expect(added).toHaveLength(2);
+    expect(rangeOvenClearanceViolations(placed, ROOM_12x10).size).toBe(0);
   });
 });
 

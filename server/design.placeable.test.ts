@@ -268,6 +268,57 @@ describe("design.placeableCabinets availability filter", () => {
     }
   });
 
+  it("gates the palette to the SELECTED door style alone (excludes cabinets carried only under a different style)", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+
+    // Find two distinct styleIds that each have at least one live SKU.
+    const styleRows = await db
+      .selectDistinct({ styleId: distributorSkus.styleId })
+      .from(distributorSkus)
+      .where(and(eq(distributorSkus.isAvailable, true), eq(distributorSkus.isPublished, true)))
+      .limit(10);
+    const styleIds = styleRows
+      .map((r) => r.styleId)
+      .filter((s): s is number => typeof s === "number");
+    if (styleIds.length < 2) return; // need two styles to compare
+
+    const [styleA] = styleIds;
+
+    // The palette for styleA must contain ONLY cabinets that have a live SKU
+    // under styleA — never a cabinet that exists solely under styleB.
+    const paletteA = (
+      await Promise.all([
+        caller.design.placeableCabinets({ placement: "base", styleId: styleA }),
+        caller.design.placeableCabinets({ placement: "wall", styleId: styleA }),
+        caller.design.placeableCabinets({ placement: "tall", styleId: styleA }),
+      ])
+    ).flat();
+    const idsA = paletteA.map((c) => c.id);
+    if (idsA.length === 0) return;
+
+    const liveForA = await db
+      .select({ cabinetId: distributorSkus.cabinetId })
+      .from(distributorSkus)
+      .where(
+        and(
+          inArray(distributorSkus.cabinetId, idsA),
+          eq(distributorSkus.styleId, styleA),
+          eq(distributorSkus.isAvailable, true),
+          eq(distributorSkus.isPublished, true)
+        )
+      );
+    const carriedByA = new Set(liveForA.map((r) => r.cabinetId));
+    for (const c of paletteA) {
+      expect(
+        carriedByA.has(c.id),
+        `${c.masterCode} appears for style ${styleA} but has no live SKU for that style`
+      ).toBe(true);
+    }
+  });
+
   it("narrows the palette when a distributor + style is provided", async () => {
     const db = await getDb();
     if (!db) return;
