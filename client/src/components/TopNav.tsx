@@ -5,12 +5,17 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useCart } from "@/contexts/CartContext";
 
-const NAV_LINKS = [
+// Primary links shown inline on desktop
+const PRIMARY_LINKS = [
   { label: "Shop by Style", href: "/styles" },
   { label: "Kitchen Packages", href: "/packages" },
   { label: "All Cabinets", href: "/catalog" },
   { label: "Countertops", href: "/countertops" },
   { label: "Design Tool", href: "/design" },
+];
+
+// Secondary links folded into the "More" dropdown on desktop
+const MORE_LINKS = [
   { label: "Build an Order", href: "/order/new" },
   { label: "Photo to Cart", href: "/photo-to-cart" },
   { label: "Pro Network", href: "/pro-network" },
@@ -22,16 +27,22 @@ const PORTAL_LINKS = [
   { label: "Affiliate Portal", href: "/affiliate" },
 ];
 
+// All links flattened for the mobile menu
+const ALL_LINKS = [...PRIMARY_LINKS, ...MORE_LINKS];
+
 export function TopNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [portalsOpen, setPortalsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [location] = useLocation();
   const { user } = useAuth();
   const { count: cartCount } = useCart();
 
+  const isActive = (href: string) => location.startsWith(href);
+  const moreActive = [...MORE_LINKS, ...PORTAL_LINKS].some((l) => isActive(l.href));
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-16 items-center justify-between gap-2">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-navy)] text-white font-bold text-sm">
@@ -43,13 +54,13 @@ export function TopNav() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1">
-          {NAV_LINKS.map((link) => (
+        <nav className="hidden lg:flex items-center gap-0.5">
+          {PRIMARY_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
-                location.startsWith(link.href)
+              className={`px-2.5 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
+                isActive(link.href)
                   ? "bg-primary/10 text-primary"
                   : "text-foreground/70 hover:text-foreground hover:bg-muted"
               }`}
@@ -58,26 +69,52 @@ export function TopNav() {
             </Link>
           ))}
 
-          {/* Portals dropdown */}
+          {/* More dropdown (secondary links + portals) */}
           <div className="relative">
             <button
-              onClick={() => setPortalsOpen(!portalsOpen)}
-              className="flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted transition-colors duration-150"
+              onClick={() => setMoreOpen(!moreOpen)}
+              className={`flex items-center gap-1 px-2.5 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-150 ${
+                moreActive
+                  ? "bg-primary/10 text-primary"
+                  : "text-foreground/70 hover:text-foreground hover:bg-muted"
+              }`}
             >
-              Portals
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-150 ${portalsOpen ? "rotate-180" : ""}`} />
+              More
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-150 ${moreOpen ? "rotate-180" : ""}`} />
             </button>
-            {portalsOpen && (
+            {moreOpen && (
               <div
-                className="absolute right-0 top-full mt-1 w-48 rounded-lg border border-border bg-popover shadow-lg py-1 fade-in"
-                onMouseLeave={() => setPortalsOpen(false)}
+                className="absolute right-0 top-full mt-1 w-52 rounded-lg border border-border bg-popover shadow-lg py-1 fade-in"
+                onMouseLeave={() => setMoreOpen(false)}
               >
+                {MORE_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMoreOpen(false)}
+                    className={`block px-4 py-2 text-sm transition-colors ${
+                      isActive(link.href)
+                        ? "bg-primary/10 text-primary"
+                        : "text-popover-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                <div className="my-1 border-t border-border" />
+                <div className="px-4 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Portals
+                </div>
                 {PORTAL_LINKS.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    onClick={() => setPortalsOpen(false)}
-                    className="block px-4 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
+                    onClick={() => setMoreOpen(false)}
+                    className={`block px-4 py-2 text-sm transition-colors ${
+                      isActive(link.href)
+                        ? "bg-primary/10 text-primary"
+                        : "text-popover-foreground hover:bg-muted"
+                    }`}
                   >
                     {link.label}
                   </Link>
@@ -88,7 +125,7 @@ export function TopNav() {
         </nav>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" size="icon" asChild className="relative">
             <Link href="/cart" aria-label="Shopping cart">
               <ShoppingCart className="h-5 w-5" />
@@ -101,8 +138,8 @@ export function TopNav() {
           </Button>
 
           {user ? (
-            <div className="hidden md:flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{user.name || user.email}</span>
+            <div className="hidden lg:flex items-center gap-2">
+              <span className="hidden xl:inline text-sm text-muted-foreground max-w-[140px] truncate">{user.name || user.email}</span>
               {(user.role === "admin" || user.role === "designer") && (
                 <Link href="/admin">
                   <Button
@@ -121,7 +158,7 @@ export function TopNav() {
             <Link href="/signin">
               <Button
                 size="sm"
-                className="hidden md:flex bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
+                className="hidden lg:flex bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
               >
                 Sign In
               </Button>
@@ -132,7 +169,7 @@ export function TopNav() {
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="lg:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
@@ -143,15 +180,15 @@ export function TopNav() {
 
       {/* Mobile nav */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-border bg-background slide-up">
+        <div className="lg:hidden border-t border-border bg-background slide-up">
           <nav className="container py-4 flex flex-col gap-1">
-            {NAV_LINKS.map((link) => (
+            {ALL_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
                 className={`px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                  location.startsWith(link.href)
+                  isActive(link.href)
                     ? "bg-primary/10 text-primary"
                     : "text-foreground/70 hover:text-foreground hover:bg-muted"
                 }`}

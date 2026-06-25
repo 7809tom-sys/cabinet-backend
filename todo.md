@@ -1712,3 +1712,5 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] DP4: Shopping — "Match a Door from a Photo": upload/take photo -> vision model (doorStyles.matchFromPhoto) ranks top 3 catalog styles with confidence -> tap to shop. Surfaced on the Door Styles page (DoorPhotoMatchWidget)
 - [x] DP5: Tests (rankDoorMatches normalization/dedupe/cap) + full suite green (897 passed) + type-check clean + checkpoint
 - [x] ADMIN: Featured Door Styles panel flags every unverified door with an amber "Wrong door? Upload the correct photo" marker + a green check once verified, plus a summary badge counting how many need the correct photo
+
+- [x] Responsive nav: top nav overflowed/clipped on tablet (768) and laptop (1024–1440). Restructured into 5 primary inline links + consolidated "More" dropdown (Build an Order, Photo to Cart, Pro Network, Portals); hamburger now handles <1024. Verified at 768/1024/1280/1440. Tests 897 pass, tsc clean.
