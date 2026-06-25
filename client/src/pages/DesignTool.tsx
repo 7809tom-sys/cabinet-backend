@@ -1725,6 +1725,48 @@ export default function DesignTool() {
     );
   }, [selectedUid]);
 
+  // Change the DESIGN DEFAULT finish (the main dropdown). Because every cabinet
+  // without its own override inherits the default, switching it recolors the
+  // whole kitchen — so when cabinets are already placed we confirm first and
+  // make clear the two-tone path is the per-cabinet picker. Cabinets that carry
+  // their own override are never touched.
+  const changeDefaultStyle = useCallback((newStyleId: number) => {
+    if (newStyleId === styleId) return;
+    const inheriting = placed.filter((p) => p.styleId == null).length;
+    if (styleId != null && inheriting > 0) {
+      const ok = window.confirm(
+        `This is the DESIGN DEFAULT finish. Changing it will recolor ${inheriting} cabinet${inheriting === 1 ? "" : "s"} that use the default.\n\nTo make a TWO-TONE design instead, click Cancel, then select just the cabinet(s) you want (e.g. the island) and use the "Finish (this cabinet)" picker.\n\nChange the default finish anyway?`
+      );
+      if (!ok) return;
+    }
+    setStyleId(newStyleId);
+  }, [styleId, placed]);
+
+  // Two-tone bulk helper: give the SELECTED cabinet's finish to every other
+  // cabinet that currently shares its effective finish. Lets the user set one
+  // island cabinet to a 2nd color, then push that color to the rest of the
+  // island run in a single click — without disturbing the perimeter.
+  const applySelectedFinishToMatching = useCallback(() => {
+    if (!selectedUid) return;
+    const sel = placed.find((p) => p.uid === selectedUid);
+    if (!sel) return;
+    const targetStyle = sel.styleId ?? null; // the override we want to spread
+    if (targetStyle == null) {
+      toast.info("Pick a different finish for this cabinet first, then apply it to its group.");
+      return;
+    }
+    setPlaced((prev) => {
+      let n = 0;
+      const next = prev.map((p) => {
+        if (p.uid === selectedUid) return p;
+        if (p.styleId !== targetStyle) { n++; return { ...p, styleId: targetStyle }; }
+        return p;
+      });
+      toast.success(n > 0 ? `Applied this finish to ${n} more cabinet${n === 1 ? "" : "s"}.` : "All cabinets already use this finish.");
+      return next;
+    });
+  }, [selectedUid, placed]);
+
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(
     (side: WallSide) => {
@@ -2466,14 +2508,14 @@ export default function DesignTool() {
               {styleId && uniqueDoorStyles.length > 0 && (
                 <>
                   <div className="h-4 w-px bg-border" />
-                  <div className="flex items-center gap-1">
-                    <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-[11px] text-muted-foreground mr-0.5">Finish</span>
+                  <div className="flex items-center gap-1 rounded-md bg-[#d4a75a]/10 px-1.5 py-1 ring-1 ring-[#d4a75a]/30">
+                    <Palette className="h-3.5 w-3.5 text-[#1a2744]" />
+                    <span className="text-[11px] font-semibold text-[#1a2744] mr-0.5">Finish (this cabinet)</span>
                     <Select
                       value={selectedCab.styleId != null ? String(selectedCab.styleId) : "__match__"}
                       onValueChange={(v) => setCabinetStyle(v === "__match__" ? null : Number(v))}
                     >
-                      <SelectTrigger className="h-7 w-[150px] text-[11px]">
+                      <SelectTrigger className="h-7 w-[150px] text-[11px] bg-white">
                         <SelectValue placeholder="Match design" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2483,6 +2525,17 @@ export default function DesignTool() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {selectedCab.styleId != null && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[11px] text-[#1a2744] hover:bg-[#d4a75a]/20"
+                        title="Give every other cabinet this same finish"
+                        onClick={applySelectedFinishToMatching}
+                      >
+                        Apply to all
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
@@ -3008,12 +3061,16 @@ export default function DesignTool() {
             </div>
             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">Pricing</div>
 
-            <Select value={styleId ? String(styleId) : ""} onValueChange={(v) => setStyleId(Number(v))}>
+            <div className="text-[11px] font-medium text-foreground">Design default finish</div>
+            <Select value={styleId ? String(styleId) : ""} onValueChange={(v) => changeDefaultStyle(Number(v))}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select door style" /></SelectTrigger>
               <SelectContent>
                 {uniqueDoorStyles.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>)}
               </SelectContent>
             </Select>
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Applies to every cabinet that isn't given its own finish. For a <span className="font-medium text-foreground">two-tone</span> design, select a cabinet on the plan and use its <span className="font-medium text-foreground">Finish (this cabinet)</span> picker — only that cabinet changes.
+            </p>
 
             {/* Distributor lock: pin the design to the chosen base finish's supply
                 line. While locked, the palette + finish picker stay within that

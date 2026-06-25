@@ -1695,6 +1695,57 @@ describe("mixed-finish pricing keys on the EFFECTIVE styleId", () => {
   });
 });
 
+describe("two-tone state updates (DesignTool behavior, pure replicas)", () => {
+  type Cab = { uid: string; styleId?: number | null };
+  // Replica of effectiveStyleId render resolution.
+  const eff = (c: Cab, def: number | null) => (c.styleId != null ? c.styleId : def);
+
+  it("changing the DESIGN DEFAULT recolors only cabinets WITHOUT an override", () => {
+    const cabs: Cab[] = [
+      { uid: "a", styleId: null }, // perimeter, inherits default
+      { uid: "b", styleId: null }, // perimeter, inherits default
+      { uid: "c", styleId: 99 },   // island, explicit override
+    ];
+    const oldDefault = 7;
+    const newDefault = 12;
+    // Render finishes BEFORE the change.
+    expect(cabs.map((c) => eff(c, oldDefault))).toEqual([7, 7, 99]);
+    // Default change does NOT mutate per-cabinet styleId; only the default arg.
+    expect(cabs.map((c) => eff(c, newDefault))).toEqual([12, 12, 99]);
+    // The overridden island cabinet stayed navy through the default swap.
+    expect(eff(cabs[2], newDefault)).toBe(99);
+  });
+
+  it("setting ONE cabinet's finish (override) does not touch the others", () => {
+    const before: Cab[] = [
+      { uid: "a", styleId: null },
+      { uid: "b", styleId: null },
+      { uid: "c", styleId: null },
+    ];
+    const selectedUid = "b";
+    const after = before.map((p) => (p.uid === selectedUid ? { ...p, styleId: 99 } : p));
+    expect(after.map((c) => eff(c, 7))).toEqual([7, 99, 7]);
+  });
+
+  it("'Apply to all' spreads the selected override to every OTHER cabinet", () => {
+    const placed: Cab[] = [
+      { uid: "a", styleId: null },
+      { uid: "b", styleId: 99 }, // selected with a navy override
+      { uid: "c", styleId: null },
+      { uid: "d", styleId: 12 },
+    ];
+    const selectedUid = "b";
+    const sel = placed.find((p) => p.uid === selectedUid)!;
+    const target = sel.styleId!;
+    const after = placed.map((p) =>
+      p.uid === selectedUid ? p : p.styleId !== target ? { ...p, styleId: target } : p
+    );
+    // Every cabinet now resolves to the navy override (one design, one color
+    // again — the inverse operation of going two-tone).
+    expect(after.map((c) => eff(c, 7))).toEqual([99, 99, 99, 99]);
+  });
+});
+
 describe("custom sizing (W/H/D)", () => {
   it("flags width as custom only when it differs from the captured nominal", () => {
     expect(isCustomWidth(cab({ width: 24, nominalWidth: 24 }))).toBe(false);

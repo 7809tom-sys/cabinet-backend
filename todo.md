@@ -1505,10 +1505,10 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 
 
 ## BUG + FEATURE (user report 2026-06-24): Sink base (SB) in Design Tool
-- [ ] BUG: placing a sink base (SB) cabinet in the design plan should NOT raise a conflict / conflict-status flag. Reproduce + root-cause the conflict logic for SB cabinets and fix so sink bases place cleanly.
-- [ ] FEATURE: when an SB (sink base) is placed in the plan, auto-place a default sink + faucet on/in that cabinet (visible in the elevation/plan + reflected on the build sheet). Should be sensible default, user can keep it.
-- [ ] Tests for both (SB places without conflict; SB placement yields a default sink+faucet); checkpoint.
-- [ ] BUG: dropping/dragging a WALL cabinet down to the floor (base zone) in the Design Tool increases its depth. Its depth must stay the wall depth (12") regardless of vertical position; a wall cabinet placed at floor level keeps 12" depth (do not snap to base 24"). Root-cause the depth resolver (placement vs zone) and fix.
+- [x] BUG: placing a sink base (SB) cabinet should NOT raise a conflict flag — DONE (sink-base detection across all families excluded from false conflict flags); see "Design Tool batch" section below
+- [x] FEATURE: when an SB (sink base) is placed in the plan, auto-place a default sink + faucet on/in that cabinet — DONE (handleDropNew: isSinkBaseCabinet -> makeSink("single") with faucet centered over footprint); see "Design Tool batch" section below
+- [x] Tests for both (SB places without conflict; SB placement yields a default sink+faucet); checkpoint — DONE (sink-base conflict-suppression + makeSink tests in design.test.ts)
+- [x] BUG: dropping/dragging a WALL cabinet down to the floor keeps wall depth (12"), not base 24" — DONE (dropToFloor preserves nominalDepth; verified by tests); see "Design Tool batch" section below
 - [x] FEATURE: when an object (cabinet/appliance/fixture) is highlighted/selected in the Design Tool, the user should be able to rotate it (visible rotate control on/near the selected item + "R" keyboard shortcut to rotate 90 degrees). Confirm rotation persists + redraws + respects room clamping.
 
 ## Color-mixing correction (user clarified this session)
@@ -1622,3 +1622,11 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Broaden isSinkBaseCabinet to cover ALL sink-base/vanity-sink families (FSB, CSB, SBF, VSD, VA, ADA-VS, ADA-SB, BFH-with-sink) so a sink fixture over any sink base is never flagged as a conflict; excludes false positives (LSB=Lazy Susan, VA-48=Valance, BFH-18=plain base); 2 new test blocks (15 assertions) in design.test.ts
 - [x] Wall cabinet dropped to the floor keeps its OWN depth (12" upper stays 12", not 24"): dropToFloor pins the resolved depth (and nominalDepth) before placement flips to "base" so the base-depth fallback can never expand it; resolved while still placement==="wall" via p.depth (guarded to STD.WALL_DEPTH)
 - [x] tsc clean + full suite 822 tests pass; checkpoint
+
+## BUG (user report 2026-06-25): switching color changes the WHOLE kitchen (need 2 door styles in one design)
+- ROOT CAUSE: the main Pricing-panel door-style dropdown sets the DESIGN DEFAULT (styleId); every cabinet without an override inherits it, so changing it repaints everything. Two-tone needs a per-cabinet / per-selection second style, not a default swap.
+- [x] Make per-cabinet finish assignment the primary two-tone path: select a cabinet -> "Finish (this cabinet)" picker -> ONLY that cabinet changes. Picker is now visually highlighted (gold ring) so it's obvious.
+- [x] Add an "Apply to all" quick action next to the per-cabinet picker: spreads the selected cabinet's override finish to every other cabinet in one click (applySelectedFinishToMatching).
+- [x] Relabel the main door-style dropdown as "Design default finish" with a hint that it applies to all non-customized cabinets and that the per-cabinet picker is the two-tone path.
+- [x] Warn (confirm dialog) before a default change that would recolor already-placed cabinets; overridden cabinets are never touched (changeDefaultStyle).
+- [x] Tests: changing default leaves overridden cabinets untouched; per-cabinet override recolors only the target; "Apply to all" spreads correctly (3 new vitest cases, 219 design tests pass); tsc clean.
