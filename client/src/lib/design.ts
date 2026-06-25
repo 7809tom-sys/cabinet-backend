@@ -252,6 +252,33 @@ export function effectiveStyleId(
   return cab.styleId != null ? cab.styleId : defaultStyleId;
 }
 
+// The set of distinct EFFECTIVE finish styleIds used across a design, in first-
+// seen order. The design default (if set) is always first so the primary finish
+// leads the summary; per-cabinet overrides that differ follow. Returns [] when
+// there is no default and no cabinet carries a style. Used to drive the
+// "Finish applied to design" summary so two-tone designs list every finish.
+export function distinctStyleIds(
+  cabs: Array<{ styleId?: number | null }>,
+  defaultStyleId: number | null
+): number[] {
+  const seen: number[] = [];
+  const add = (id: number | null) => {
+    if (id != null && !seen.includes(id)) seen.push(id);
+  };
+  add(defaultStyleId);
+  for (const c of cabs) add(effectiveStyleId(c, defaultStyleId));
+  return seen;
+}
+
+// True when a design uses more than one finish (i.e. at least one per-cabinet
+// override resolves to a styleId different from the others) — a two-tone design.
+export function isMixedFinish(
+  cabs: Array<{ styleId?: number | null }>,
+  defaultStyleId: number | null
+): boolean {
+  return distinctStyleIds(cabs, defaultStyleId).length > 1;
+}
+
 // True when a cabinet has a hinged door whose swing side is meaningful. A
 // drawer-only base, an appliance, an open cabinet, or a panel has no swing.
 export function hasDoorSwing(p: { placement: Placement; numberOfDoors?: number | null; numberOfDrawers?: number | null; description?: string | null; masterCode?: string | null; subCategory?: string | null }): boolean {

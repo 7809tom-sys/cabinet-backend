@@ -1527,12 +1527,12 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 
 ## Designer multi-color (two-tone) support — confirmed "both" (default + per-cabinet override)
 - [x] Add per-cabinet finish override to design state (each PlacedCabinet can carry its own styleId; falls back to design default styleId)
-- [ ] Default/base finish stays (whole-design), plus select-a-cabinet -> choose a different finish/color within the LOCKED DISTRIBUTOR family
-- [ ] Pricing: price each placed cabinet by its effective styleId (default or override); build sheet + totals reflect mixed finishes
-- [ ] Canvas: show each cabinet's own finish swatch/color; selected-cabinet panel shows finish picker (distributor family only)
-- [ ] "Finish applied to design" summary updated to list multiple finishes when mixed
+- [x] Default/base finish stays (whole-design), plus select-a-cabinet -> choose a different finish/color within the LOCKED DISTRIBUTOR family — selected-cabinet toolbar finish picker (Match design + uniqueDoorStyles, scoped to lockedDistributorId)
+- [x] Pricing: price each placed cabinet by its effective styleId (default or override); build sheet + totals reflect mixed finishes — priceMap keyed on cabinetId:styleId, unitPriceFor uses effectiveStyleId; vitest confirms same model prices differently per finish
+- [x] Canvas: show each cabinet's own finish swatch/color; selected-cabinet panel shows finish picker (distributor family only) — finishFor/panelKindFor (effectiveStyleId) passed to PlanCanvas + ElevationView + CornerView + split view
+- [x] "Finish applied to design" summary updated to list multiple finishes when mixed — new distinctStyleIds/isMixedFinish drive a "Two-tone design — N finishes" list with per-finish swatch + name (design default first); single-finish designs keep the original one-line summary
 - [x] Persist per-cabinet finish in saved design draft/load
-- [ ] vitest: per-cabinet effective-style resolution + mixed pricing
+- [x] vitest: per-cabinet effective-style resolution + mixed pricing — effectiveStyleId, distinctStyleIds, isMixedFinish, and price-map keying (216 design tests pass)
 
 ## Live shipping plugin (replace too-low in-house estimate) — pending provider/key
 - [ ] Admin -> Shipping plugin panel: provider (EasyPost/Shippo) + secure API key, origin ZIP(s), 8ft pallet caps (max wt + cu ft), freight class, $800 kitchen floor, handling markup, mode toggle, "Test live quote" button

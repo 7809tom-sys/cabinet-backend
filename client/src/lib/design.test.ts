@@ -1628,7 +1628,7 @@ describe("wall cabinet dropped to floor keeps its own depth", () => {
 });
 
 
-import { effectiveStyleId } from "./design";
+import { effectiveStyleId, distinctStyleIds, isMixedFinish } from "./design";
 
 describe("effectiveStyleId (two-tone per-cabinet finish)", () => {
   it("uses the per-cabinet override when present", () => {
@@ -1648,6 +1648,50 @@ describe("effectiveStyleId (two-tone per-cabinet finish)", () => {
   });
   it("returns null only when neither override nor default is set", () => {
     expect(effectiveStyleId({ styleId: null }, null)).toBeNull();
+  });
+});
+
+describe("distinctStyleIds + isMixedFinish (two-tone summary)", () => {
+  it("lists just the default when no cabinet overrides", () => {
+    const cabs = [{ styleId: null }, {}, { styleId: 7 }];
+    expect(distinctStyleIds(cabs, 7)).toEqual([7]);
+    expect(isMixedFinish(cabs, 7)).toBe(false);
+  });
+  it("puts the design default first, then distinct overrides in first-seen order", () => {
+    const cabs = [{ styleId: null }, { styleId: 99 }, { styleId: 99 }, { styleId: 12 }];
+    expect(distinctStyleIds(cabs, 7)).toEqual([7, 99, 12]);
+    expect(isMixedFinish(cabs, 7)).toBe(true);
+  });
+  it("is mixed when overrides differ even if some match the default", () => {
+    const cabs = [{ styleId: 7 }, { styleId: 99 }];
+    expect(isMixedFinish(cabs, 7)).toBe(true);
+    expect(distinctStyleIds(cabs, 7)).toEqual([7, 99]);
+  });
+  it("with no default, only cabinet styles count", () => {
+    expect(distinctStyleIds([{ styleId: 5 }, { styleId: null }], null)).toEqual([5]);
+    expect(distinctStyleIds([], null)).toEqual([]);
+    expect(isMixedFinish([{ styleId: null }], null)).toBe(false);
+  });
+});
+
+describe("mixed-finish pricing keys on the EFFECTIVE styleId", () => {
+  // Mirrors the DesignTool price map keyed on `cabinetId:styleId`. A two-tone
+  // design must price each cabinet by its resolved finish, not the default.
+  it("resolves a different price-map key for an island override vs the perimeter", () => {
+    const DEFAULT_STYLE = 7;
+    const priceMap = new Map<string, number>([
+      ["100:7", 200],   // cabinet 100 in white (default)
+      ["100:99", 260],  // cabinet 100 in contrasting navy
+      ["200:7", 150],
+    ]);
+    const perimeter = { cabinetId: 100, styleId: null };
+    const island = { cabinetId: 100, styleId: 99 };
+    const keyOf = (p: { cabinetId: number; styleId?: number | null }) =>
+      `${p.cabinetId}:${effectiveStyleId(p, DEFAULT_STYLE)}`;
+    expect(priceMap.get(keyOf(perimeter))).toBe(200);
+    expect(priceMap.get(keyOf(island))).toBe(260);
+    // The two finishes of the SAME cabinet model price differently.
+    expect(priceMap.get(keyOf(perimeter))).not.toBe(priceMap.get(keyOf(island)));
   });
 });
 

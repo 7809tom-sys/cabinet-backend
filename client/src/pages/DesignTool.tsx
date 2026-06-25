@@ -30,7 +30,7 @@ import {
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
-  isSinkBaseCabinet, placedFootprint, effectiveStyleId,
+  isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
   blindCornerAutoFiller,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -863,6 +863,29 @@ export default function DesignTool() {
       return (sid != null && panelKindById.get(sid)) || activePanelKind;
     },
     [styleId, panelKindById, activePanelKind]
+  );
+
+  // Distinct finishes actually used across the design (default + per-cabinet
+  // overrides), each with its display name + swatch, so the summary can list
+  // every finish on a two-tone design instead of just the default.
+  const styleNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    doorStyles?.forEach((d) => {
+      const s = d as { id: number; ourName?: string | null };
+      m.set(s.id, s.ourName ?? `Style #${s.id}`);
+    });
+    return m;
+  }, [doorStyles]);
+  const finishSummary = useMemo(() => {
+    if (!styleId) return [] as Array<{ id: number; name: string; face: string; edge: string }>;
+    return distinctStyleIds(placed, styleId).map((id) => {
+      const f = finishById.get(id) ?? activeFinish;
+      return { id, name: styleNameById.get(id) ?? `Style #${id}`, face: f.face, edge: f.edge };
+    });
+  }, [placed, styleId, finishById, activeFinish, styleNameById]);
+  const designIsMixedFinish = useMemo(
+    () => isMixedFinish(placed, styleId),
+    [placed, styleId]
   );
 
   // Crown molding & toe kick for the BOM. Crown is grouped per wall with a 3"
@@ -3291,13 +3314,32 @@ export default function DesignTool() {
             {!styleId && placed.length > 0 && (
               <p className="text-[10px] text-amber-600 mb-2">Select a door style to see pricing.</p>
             )}
-            {styleId && activeStyleName && (
+            {styleId && activeStyleName && !designIsMixedFinish && (
               <div className="flex items-center gap-2 mb-2 text-[11px] text-muted-foreground">
                 <span
                   className="inline-block h-3.5 w-3.5 rounded-sm border"
                   style={{ background: activeFinish.face, borderColor: activeFinish.edge }}
                 />
                 Finish applied to design: <span className="font-medium text-foreground">{activeStyleName}</span>
+              </div>
+            )}
+            {styleId && designIsMixedFinish && finishSummary.length > 0 && (
+              <div className="mb-2 text-[11px] text-muted-foreground">
+                <div className="mb-1">
+                  Two-tone design — <span className="font-medium text-foreground">{finishSummary.length} finishes</span>:
+                </div>
+                <div className="flex flex-col gap-1">
+                  {finishSummary.map((f, i) => (
+                    <div key={f.id} className="flex items-center gap-2">
+                      <span
+                        className="inline-block h-3.5 w-3.5 rounded-sm border"
+                        style={{ background: f.face, borderColor: f.edge }}
+                      />
+                      <span className="font-medium text-foreground">{f.name}</span>
+                      {i === 0 && <span className="text-[10px] text-muted-foreground">(design default)</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {hickorySkins.length > 0 && (
