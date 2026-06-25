@@ -244,7 +244,7 @@ export default function DesignTool() {
 
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "cornerbase" | "wall" | "wallht" | "cornerwall" | "tall" | "appliance" | "opening" | "closetparts" | "accessory">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory">("base");
   // Accordion: which palette group headers the user has explicitly collapsed.
   // Keyed by `${paletteType}:${groupLabel}` so collapse state is per-tab. By
   // default every group is OPEN; toggling adds/removes the key here. While
@@ -323,9 +323,9 @@ export default function DesignTool() {
         placement:
           paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts"
             ? "base"
-            : paletteType === "cornerbase" || paletteType === "vanity"
+            : paletteType === "corner" || paletteType === "vanity"
             ? "base"
-            : paletteType === "wallht" || paletteType === "cornerwall"
+            : paletteType === "wallht"
             ? "wall"
             : paletteType === "accessory"
             ? "accessory"
@@ -347,6 +347,20 @@ export default function DesignTool() {
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
   });
+
+  // The unified "Corner" tab shows BOTH corner base AND corner wall cabinets in
+  // one place (grouped into two sections). The base-placement corner cabinets
+  // come from the main paletteCabinets query above (placement "base"); this
+  // extra query pulls the WALL-placement cabinets so corner WALL cabinets can be
+  // merged in. Only runs while the Corner tab is open.
+  const { data: cornerWallCabinets } = trpc.design.placeableCabinets.useQuery(
+    {
+      placement: "wall",
+      styleId: styleId ?? undefined,
+      distributorId: lockedDistributorId ?? undefined,
+    },
+    { enabled: paletteType === "corner" }
+  );
 
   // Detect a diagonal/corner WALL cabinet for the dedicated "Corner Wall" tab.
   const isCornerWall = useCallback((c: DesignCabinet) => {
@@ -441,16 +455,33 @@ export default function DesignTool() {
       const all = closetGroups.flatMap((g) => g.items);
       return all.filter((c) => matchesPaletteSearch(c, s0));
     }
+    // The unified "Corner" tab merges corner BASE cabinets (from the base-
+    // placement query) with corner WALL cabinets (from the dedicated wall query),
+    // de-duplicated by id, so every corner cabinet lives under one tab.
     const source: DesignCabinet[] =
-      paletteType === "appliance" ? appliancePalette : ((paletteCabinets as DesignCabinet[]) ?? []);
+      paletteType === "appliance"
+        ? appliancePalette
+        : paletteType === "corner"
+        ? (() => {
+            const merged = [
+              ...(((paletteCabinets as DesignCabinet[]) ?? []).filter(isCornerBase)),
+              ...(((cornerWallCabinets as DesignCabinet[]) ?? []).filter(isCornerWall)),
+            ];
+            const seen = new Set<number>();
+            return merged.filter((c) => {
+              const id = Number(c.id);
+              if (seen.has(id)) return false;
+              seen.add(id);
+              return true;
+            });
+          })()
+        : ((paletteCabinets as DesignCabinet[]) ?? []);
     const s = normalizePaletteSearch(paletteSearch);
     return source
       .filter((c) => {
-        // "Corner Wall" shows only diagonal/corner wall cabinets; "Wall by Ht"
-        // and plain "Wall" show the rest of the wall cabinets (non-corner) so
-        // the two tabs don't duplicate each other.
-        if (paletteType === "cornerwall") return isCornerWall(c);
-        if (paletteType === "cornerbase") return isCornerBase(c);
+        // The unified Corner tab already merged the right items above; let them
+        // all through here (group split happens in groupedPalette).
+        if (paletteType === "corner") return true;
         if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
         // The dedicated "Vanity" tab shows ONLY vanity-category cabinets.
         if (paletteType === "vanity") return isVanity(c);
@@ -466,7 +497,7 @@ export default function DesignTool() {
       .filter((c) => matchesPaletteSearch(c, s))
       // While searching, lift the per-tab cap so no matching size is hidden.
       .slice(0, s ? 500 : paletteType === "accessory" ? 200 : 80);
-  }, [paletteCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
+  }, [paletteCabinets, cornerWallCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
 
   // Group the palette by cabinet height so wall cabinets (and others) are easy
   // to find by size — mirrors how pros scan 2020's catalog by height.
@@ -496,6 +527,17 @@ export default function DesignTool() {
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([label, items]) => ({ label, items }));
     }
+    // The unified Corner tab splits into two fixed sections — Corner Base
+    // Cabinets and Corner Wall Cabinets — so every corner type lives under one
+    // tab but stays organized by where it mounts.
+    if (paletteType === "corner") {
+      const cornerBases = filteredPalette.filter((c) => isCornerBase(c));
+      const cornerWalls = filteredPalette.filter((c) => !isCornerBase(c));
+      const sections: { label: string; items: DesignCabinet[] }[] = [];
+      if (cornerBases.length > 0) sections.push({ label: "Corner Base Cabinets", items: cornerBases });
+      if (cornerWalls.length > 0) sections.push({ label: "Corner Wall Cabinets", items: cornerWalls });
+      return sections;
+    }
     // Every floor-standing BASE cabinet is a standard 34½" tall (the toe-kick +
     // box + countertop reveal is fixed); the stored "height" on some SKUs (spice
     // pull-outs like BSDC-6/SPB-9/SPB-6, diagonal sink floors) is actually the
@@ -505,7 +547,6 @@ export default function DesignTool() {
     // because grouping by height is meaningful there.
     const isBaseFamilyTab =
       paletteType === "base" ||
-      paletteType === "cornerbase" ||
       paletteType === "vanity";
     const BASE_STD_HEIGHT = 34.5;
     const groups = new Map<number, DesignCabinet[]>();
@@ -538,7 +579,7 @@ export default function DesignTool() {
           : "Other",
         items,
       }));
-  }, [filteredPalette, paletteType, paletteSearch, closetGroups]);
+  }, [filteredPalette, paletteType, paletteSearch, closetGroups, isCornerBase]);
 
   // Pricing for placed cabinets + add-on accessories (appliances carry
   // cabinetId 0 and are unpriced).
@@ -2573,6 +2614,35 @@ export default function DesignTool() {
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-white p-0.5">
                 <CabinetImage cabinet={selectedCab} className="h-full w-auto max-w-full" />
               </div>
+              {/* Door-style thumbnail: shows a picture of the selected door's
+                  face/finish so the member sees the actual door look while
+                  editing the cabinet. Falls back to a color chip from the
+                  finish palette when the style has no sample photo. */}
+              {(paletteFinishSwatch || styleId) && (
+                <div
+                  className="flex items-center gap-1.5 shrink-0"
+                  title={`Door style: ${activeStyleName || "selected style"}`}
+                >
+                  {paletteFinishSwatch ? (
+                    <img
+                      src={paletteFinishSwatch}
+                      alt={`${activeStyleName || "Door"} door sample`}
+                      className="h-9 w-9 rounded border border-border object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span
+                      className="flex h-9 w-9 items-center justify-center rounded border text-[8px] font-semibold"
+                      style={{ backgroundColor: activeFinish.face, borderColor: activeFinish.edge, color: activeFinish.label }}
+                    >
+                      Door
+                    </span>
+                  )}
+                  <span className="hidden md:inline text-[10px] leading-tight text-muted-foreground">
+                    Door<br /><span className="font-medium text-foreground/80">{activeStyleName || "—"}</span>
+                  </span>
+                </div>
+              )}
               <span className="text-[11px] text-muted-foreground">
                 Selected <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
                 <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
@@ -2817,10 +2887,10 @@ export default function DesignTool() {
               {(roomType === "closet"
                 ? (["closetparts", "base", "wall", "tall", "opening", "accessory"] as const)
                 : roomType === "bathroom"
-                ? (["vanity", "appliance", "base", "cornerbase", "wall", "wallht", "tall", "opening", "accessory"] as const)
+                ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "opening", "accessory"] as const)
                 : roomType === "laundry"
-                ? (["appliance", "base", "cornerbase", "wall", "wallht", "tall", "opening", "accessory"] as const)
-                : (["base", "cornerbase", "wall", "wallht", "cornerwall", "tall", "appliance", "opening", "accessory"] as const)
+                ? (["appliance", "base", "corner", "wall", "wallht", "tall", "opening", "accessory"] as const)
+                : (["base", "corner", "wall", "wallht", "tall", "appliance", "opening", "accessory"] as const)
               ).map((t) => (
                 <button
                   key={t}
@@ -2835,10 +2905,8 @@ export default function DesignTool() {
                     ? "Door/Win"
                     : t === "wallht"
                     ? "Wall by Ht"
-                    : t === "cornerwall"
-                    ? "Corner Wall"
-                    : t === "cornerbase"
-                    ? "Corner Base"
+                    : t === "corner"
+                    ? "Corner"
                     : t === "vanity"
                     ? "Vanity"
                     : t === "closetparts"
@@ -2981,7 +3049,21 @@ export default function DesignTool() {
                       <div className="min-w-0 flex-1">
                         <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
                         <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                        <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {(paletteType === "base" || paletteType === "cornerbase" || paletteType === "vanity") ? "34.5" : (dim(c.height, 0) > 0 ? dim(c.height, 0) : null) ?? "—"}{((paletteType === "base" || paletteType === "cornerbase" || paletteType === "vanity") || dim(c.height, 0) > 0) ? "\"H" : ""}</div>
+                        {(() => {
+                          // A base-family box (Base/Vanity tab, or a corner BASE
+                          // cabinet inside the unified Corner tab) is always the
+                          // standard 34.5" tall; wall/tall/corner-wall boxes use
+                          // their real catalog height.
+                          const isBaseBox =
+                            paletteType === "base" ||
+                            paletteType === "vanity" ||
+                            (paletteType === "corner" && isCornerBase(c));
+                          const hVal = isBaseBox ? "34.5" : (dim(c.height, 0) > 0 ? String(dim(c.height, 0)) : null) ?? "—";
+                          const showH = isBaseBox || dim(c.height, 0) > 0;
+                          return (
+                            <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {hVal}{showH ? "\"H" : ""}</div>
+                          );
+                        })()}
                       </div>
                       {paletteFinishSwatch && (
                         <img
