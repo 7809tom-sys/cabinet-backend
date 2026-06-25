@@ -378,7 +378,7 @@ export const orderRequests = mysqlTable("order_requests", {
   originatorEmail: varchar("originatorEmail", { length: 320 }),
   originatorPhone: varchar("originatorPhone", { length: 32 }),
   zip: varchar("zip", { length: 16 }), // for future location-based availability
-  source: mysqlEnum("source", ["ocr", "csv", "design", "manual"]).default("manual").notNull(),
+  source: mysqlEnum("source", ["ocr", "csv", "design", "manual", "barcode"]).default("manual").notNull(),
   status: mysqlEnum("status", ["draft", "submitted", "confirmed", "cancelled"]).default("draft").notNull(),
   styleId: int("styleId"), // default door style applied across lines
   styleName: varchar("styleName", { length: 128 }),

@@ -552,7 +552,7 @@ export const ordersRouter = router({
         originatorEmail: z.string().email().max(320).optional(),
         originatorPhone: z.string().max(32).optional(),
         zip: z.string().max(16).optional(),
-        source: z.enum(["ocr", "csv", "design", "manual"]).default("manual"),
+        source: z.enum(["ocr", "csv", "design", "manual", "barcode"]).default("manual"),
         styleId: z.number().nullable().optional(),
         styleName: z.string().max(128).nullable().optional(),
         tier: tierEnum.default("Contractor"),

@@ -56,7 +56,7 @@ type Tier = "Wholesale" | "Contractor";
 
 interface Props {
   lines: ReviewLine[];
-  source: "ocr" | "csv" | "design" | "manual";
+  source: "ocr" | "csv" | "design" | "manual" | "barcode";
   onLinesChange: (next: ReviewLine[]) => void;
   onReset: () => void;
 }

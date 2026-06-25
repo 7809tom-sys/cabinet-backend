@@ -7,12 +7,13 @@ import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from "@/components/ui/tabs";
 import {
-  Camera, FileSpreadsheet, Keyboard, Loader2, Upload, ImageIcon, X,
+  Camera, FileSpreadsheet, Keyboard, Loader2, Upload, ImageIcon, X, Barcode,
 } from "lucide-react";
 import { OrderReview, type ReviewLine } from "@/components/order/OrderReview";
+import { BarcodeScanTab } from "@/components/order/BarcodeScanTab";
 import { CART_PREFILL_KEY } from "@/pages/Cart";
 
-type Source = "ocr" | "csv" | "manual";
+type Source = "ocr" | "csv" | "manual" | "barcode";
 
 // Read a File into a base64 data URL the vision model can ingest directly.
 function fileToDataUrl(file: File): Promise<string> {
@@ -98,9 +99,12 @@ export default function OrderBuilder() {
 
       {!hasLines && (
         <Tabs value={source} onValueChange={(v) => setSource(v as Source)} className="mb-2">
-          <TabsList className="grid w-full grid-cols-3 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
             <TabsTrigger value="ocr" className="flex-col gap-1 py-3">
               <Camera className="h-4 w-4" /> Scan a Photo
+            </TabsTrigger>
+            <TabsTrigger value="barcode" className="flex-col gap-1 py-3">
+              <Barcode className="h-4 w-4" /> Scan Barcode
             </TabsTrigger>
             <TabsTrigger value="csv" className="flex-col gap-1 py-3">
               <FileSpreadsheet className="h-4 w-4" /> Import CSV
@@ -112,6 +116,9 @@ export default function OrderBuilder() {
 
           <TabsContent value="ocr" className="mt-6">
             <ScanTab onResult={(r) => ingest(r, "ocr")} />
+          </TabsContent>
+          <TabsContent value="barcode" className="mt-6">
+            <BarcodeScanTab onResult={(r) => ingest(r as { lines: ReviewLine[]; matchedCount: number; unmatchedCount: number }, "barcode")} />
           </TabsContent>
           <TabsContent value="csv" className="mt-6">
             <CsvTab onResult={(r) => ingest(r, "csv")} />

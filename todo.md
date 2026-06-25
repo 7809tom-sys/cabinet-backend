@@ -1699,3 +1699,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] CT2: DONE — built-in quote form reuses design.requestCountertopQuote (email required + validated; name/phone/zip/material/sqft/notes; success state with reset)
 - [x] CT3: DONE — added Countertops to shared NAV_LINKS (TopNav desktop+mobile) + /countertops route in App.tsx; hero + form CTAs link into /design to measure. Added dependency-free useSeo hook for title/meta. Type-check clean
 - [x] CT4: DONE — shared/countertops.test.ts (4 tests: ids synced to design.ts render materials, every material has name/blurb/2+ highlights, lookup helper, names match). Type-check clean; full suite 883 tests / 79 files pass
+
+## Barcode-scan ordering (Build an Order)
+- [x] BC1: DONE — BarcodeScanTab.tsx live camera scanner (native BarcodeDetector, environment camera, scan reticle overlay, 1.5s debounce, haptic buzz), accumulates a running scan list (dedupe+qty bump), graceful fallback message + disabled state when BarcodeDetector unsupported or camera denied.
+- [x] BC2: DONE — added as 4th OrderBuilder tab (Scan a Photo / Scan Barcode / Import CSV / Type Codes); scan list supports manual add (Enter key), qty edit, remove, clear-all; "Match N codes" feeds orders.matchCodes -> OrderReview. Added "barcode" to OrderReview source union, server createRequest enum, and order_requests.source DB enum (migration 0031).
+- [x] BC3: DONE — client/src/lib/scanList.ts pure helpers (addScan dedupe+bump, setScanQty clamp 1..999, removeScan, totalScanQty, normalizeScanCode) with 9 passing tests. Type-check + checkpoint after UI wiring.

@@ -1,0 +1,1 @@
+ALTER TABLE `order_requests` MODIFY COLUMN `source` enum('ocr','csv','design','manual','barcode') NOT NULL DEFAULT 'manual';
