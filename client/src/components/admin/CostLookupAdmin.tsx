@@ -9,7 +9,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Search, Save, History, ShieldCheck, X } from "lucide-react";
+import { Search, Save, History, ShieldCheck, X, BadgeCheck, CircleAlert } from "lucide-react";
 
 // Editable price-ladder fields, in display order.
 const FIELDS = [
@@ -173,6 +173,69 @@ function AuditTrail({ masterCode, onClose }: { masterCode: string; onClose: () =
   );
 }
 
+// Per-cabinet "audited against my price list" control + badge.
+function VerifyButton({
+  cabinetId,
+  verified,
+  verifiedAt,
+  verifiedByName,
+  onChanged,
+}: {
+  cabinetId: number;
+  verified: boolean;
+  verifiedAt?: string | Date | null;
+  verifiedByName?: string | null;
+  onChanged: () => void;
+}) {
+  const setVerified = trpc.pricing.adminSetPriceVerified.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.verified ? "Marked price verified" : "Cleared verification");
+      onChanged();
+    },
+    onError: (e) => toast.error(e.message || "Update failed"),
+  });
+
+  if (verified) {
+    const when = verifiedAt ? new Date(verifiedAt).toLocaleDateString() : null;
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <Badge className="bg-emerald-600 hover:bg-emerald-600">
+          <BadgeCheck className="mr-1 size-3.5" /> Price verified
+        </Badge>
+        <span className="text-[10px] text-muted-foreground">
+          {verifiedByName ? `by ${verifiedByName}` : ""}{when ? ` · ${when}` : ""}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-[11px] text-muted-foreground"
+          disabled={setVerified.isPending}
+          onClick={() => setVerified.mutate({ cabinetId, verified: false })}
+        >
+          {setVerified.isPending ? <Spinner className="size-3" /> : "Clear"}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Badge variant="outline" className="border-amber-500 text-amber-700">
+        <CircleAlert className="mr-1 size-3.5" /> Not audited
+      </Badge>
+      <Button
+        size="sm"
+        className="bg-emerald-600 hover:bg-emerald-700"
+        disabled={setVerified.isPending}
+        onClick={() => setVerified.mutate({ cabinetId, verified: true })}
+      >
+        {setVerified.isPending ? <Spinner className="size-4" /> : <BadgeCheck className="size-4" />}
+        <span className="ml-1">Mark price verified</span>
+      </Button>
+    </div>
+  );
+}
+
 export default function CostLookupAdmin() {
   const [term, setTerm] = useState("");
   const [submitted, setSubmitted] = useState<string>("");
@@ -187,7 +250,7 @@ export default function CostLookupAdmin() {
   const doSearch = () => {
     const q = term.trim();
     if (!q) {
-      toast.error("Enter a cabinet number to search");
+      toast.error("Enter a queue number or model code to search");
       return;
     }
     setSubmitted(q);
@@ -205,6 +268,10 @@ export default function CostLookupAdmin() {
     description: string;
     category: string;
     subCategory: string | null;
+    conflictStatus?: string;
+    priceVerified?: boolean;
+    priceVerifiedAt?: string | Date | null;
+    priceVerifiedByName?: string | null;
     skus: Sku[];
   };
   const results = (data?.cabinets ?? []) as CabinetResult[];
@@ -215,12 +282,15 @@ export default function CostLookupAdmin() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldCheck className="size-5 text-emerald-600" />
-            Cost Lookup &amp; Verify
+            Cost Lookup &amp; Price Audit
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Owner-only. Search a cabinet number to see every stored SKU across
-            lines and door styles, compare against your paperwork, and correct
-            any price inline. Every change is logged.
+            Owner-only. Look up an item by its <strong>queue number</strong> (e.g.
+            <code className="mx-1 rounded bg-muted px-1">#123</code>) or by its
+            <strong> model / cabinet code</strong> to see every stored SKU across
+            lines and door styles. Compare each price against your master price
+            list, correct any field inline, then hit <strong>Mark price
+            verified</strong>. Every change is logged.
           </p>
         </CardHeader>
         <CardContent>
@@ -229,7 +299,7 @@ export default function CostLookupAdmin() {
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
-                placeholder="Cabinet number, e.g. B24, DB-24-3, SB36"
+                placeholder="Queue number (#123) or model code, e.g. B24, DB-24-3"
                 value={term}
                 onChange={(e) => setTerm(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") doSearch(); }}
@@ -265,14 +335,23 @@ export default function CostLookupAdmin() {
                 {cab.category}{cab.subCategory ? ` · ${cab.subCategory}` : ""} · {cab.skus.length} SKU{cab.skus.length === 1 ? "" : "s"}
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAuditFor(auditFor === cab.masterCode ? null : cab.masterCode)}
-            >
-              <History className="size-4" />
-              <span className="ml-1">History</span>
-            </Button>
+            <div className="flex flex-col items-end gap-2">
+              <VerifyButton
+                cabinetId={cab.id}
+                verified={!!cab.priceVerified}
+                verifiedAt={cab.priceVerifiedAt}
+                verifiedByName={cab.priceVerifiedByName}
+                onChanged={refetchAll}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAuditFor(auditFor === cab.masterCode ? null : cab.masterCode)}
+              >
+                <History className="size-4" />
+                <span className="ml-1">History</span>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {cab.skus.length === 0 ? (

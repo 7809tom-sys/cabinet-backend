@@ -1730,10 +1730,10 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 
 ## Session: Affiliate PDF + Price Audit
 - [x] Sales-rep commission + membership-term unit tests (shared/salesPrograms.test.ts, 10 tests); full suite green 915
-- [ ] Checkpoint after pro-designer + sales-rep + affiliate-invoice features
-- [ ] "Benefits of Being an Affiliate" PDF: about the store, co-op purchasing, what membership means, $1,195/year, white-label storefront + 4 templates, markup control, CRM, AND a how-to section on using the Design Tool + all its features
-- [ ] Admin Price Audit tab: look up item by queue number OR model/master code -> show system price -> verify vs owner's price list -> flag/correct mismatch
-- [ ] Final tests, type-check, verify, checkpoint, deliver
+- [x] Checkpoint after pro-designer + sales-rep + affiliate-invoice features (a6f7b27e)
+- [x] "Benefits of Being an Affiliate" PDF (assets/Cabinet-Dealz-Affiliate-Benefits.pdf, 5pp): store overview + 60+ door styles, co-op/buying-group purchasing, membership meaning, $1,195/year, white-label storefront + 4 templates, markup control, CRM, AND step-by-step how-to for the Design Tool + Get-a-Professional-Designer/share-live
+- [x] Admin Price Audit tab (renamed Cost Lookup -> "Price Audit"): look up by queue number (#id) OR model/master code -> full price ladder across lines/styles -> correct any field inline (audit-logged) -> "Mark price verified" button + Audited/Not-audited badge with verifier name + date. Shared parsePriceAuditQuery helper, unit-tested (6 tests)
+- [x] Final tests (921 pass), type-check clean, Price Audit tab verified in preview, checkpoint
 
 ## Spanish localization (deep)
 - [ ] Full Spanish must reach granular product detail, not just headlines: cabinet/door long descriptions AND spec phrases ("one shelf" -> "un entrepaño", "two doors" -> "dos puertas", "soft-close", "adjustable shelf", dimension wording). Decide approach for long-form: (1) auto-translate at display time vs (2) stored Spanish description column. Short structured spec phrases -> fixed Spanish phrase map regardless. AWAITING owner choice on long-form approach.

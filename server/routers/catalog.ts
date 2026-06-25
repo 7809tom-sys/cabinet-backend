@@ -16,6 +16,7 @@ import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { invokeLLM } from "../_core/llm";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
+import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 
 // ─── Supplier-identity scrubbing ───────────────────────────────────────────────
 // Cabinet Dealz never exposes the underlying supplier. These helpers strip any
@@ -1207,25 +1208,41 @@ export const pricingRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { cabinets: [] as unknown[] };
-      const raw = input.query.trim();
-      const upper = raw.toUpperCase();
-      // Match a cabinet by masterCode: exact first, then partial (LIKE).
-      const matched = await db
-        .select({
-          id: cabinets.id,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          subCategory: cabinets.subCategory,
-        })
-        .from(cabinets)
-        .where(like(cabinets.masterCode, `%${upper}%`))
-        .orderBy(
-          // Exact match floats to the top.
-          sql`CASE WHEN UPPER(${cabinets.masterCode}) = ${upper} THEN 0 ELSE 1 END`,
-          asc(cabinets.masterCode),
-        )
-        .limit(25);
+      // A queue number is the cabinet's own record id. Accept either a bare
+      // number ("123") or a hash-prefixed queue number ("#123") and resolve it
+      // directly by id; otherwise treat the term as a model / master code.
+      const parsed = parsePriceAuditQuery(input.query);
+      if (!parsed) return { cabinets: [] as unknown[] };
+      const asId = parsed.kind === "id" ? parsed.id : null;
+      const upper = parsed.kind === "code" ? parsed.code : "";
+
+      const selectCols = {
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        conflictStatus: cabinets.conflictStatus,
+        priceVerified: cabinets.priceVerified,
+        priceVerifiedAt: cabinets.priceVerifiedAt,
+        priceVerifiedByName: cabinets.priceVerifiedByName,
+      };
+
+      // Match a cabinet by queue number (id) when numeric, else by masterCode:
+      // exact first, then partial (LIKE).
+      const matched =
+        asId !== null
+          ? await db.select(selectCols).from(cabinets).where(eq(cabinets.id, asId)).limit(25)
+          : await db
+              .select(selectCols)
+              .from(cabinets)
+              .where(like(cabinets.masterCode, `%${upper}%`))
+              .orderBy(
+                // Exact match floats to the top.
+                sql`CASE WHEN UPPER(${cabinets.masterCode}) = ${upper} THEN 0 ELSE 1 END`,
+                asc(cabinets.masterCode),
+              )
+              .limit(25);
 
       if (matched.length === 0) return { cabinets: [] as unknown[] };
 
@@ -1352,6 +1369,25 @@ export const pricingRouter = router({
       await db.update(distributorSkus).set(set).where(eq(distributorSkus.id, input.skuId));
       if (auditRows.length > 0) await db.insert(costChangeLog).values(auditRows);
       return { success: true, changed: auditRows.length } as const;
+    }),
+
+  // Mark a cabinet's prices as audited (or clear the audit). Set true once the
+  // owner has compared the system prices to the master price list and confirmed
+  // they are correct; this drives the "Audited" badge in the Price Audit tool.
+  adminSetPriceVerified: adminProcedure
+    .input(z.object({ cabinetId: z.number().int(), verified: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      await db
+        .update(cabinets)
+        .set({
+          priceVerified: input.verified,
+          priceVerifiedAt: input.verified ? new Date() : null,
+          priceVerifiedByName: input.verified ? (ctx.user?.name ?? null) : null,
+        })
+        .where(eq(cabinets.id, input.cabinetId));
+      return { success: true, verified: input.verified } as const;
     }),
 
   // Recent audit rows for a SKU or a cabinet number, newest first.

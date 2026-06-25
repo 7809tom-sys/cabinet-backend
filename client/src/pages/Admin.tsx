@@ -453,7 +453,7 @@ export default function Admin() {
           <TabsTrigger value="distributors">Distributors</TabsTrigger>
           <TabsTrigger value="images">Product Images</TabsTrigger>
           <TabsTrigger value="margins">Pricing & Margins</TabsTrigger>
-          <TabsTrigger value="cost-lookup">Cost Lookup</TabsTrigger>
+          <TabsTrigger value="cost-lookup">Price Audit</TabsTrigger>
           <TabsTrigger value="shipping">Shipping</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="conflicts">Conflicts</TabsTrigger>

@@ -145,6 +145,12 @@ export const cabinets = mysqlTable("cabinets", {
   conflictStatus: varchar("conflictStatus", { length: 16 }).default("none").notNull(), // none | conflict
   conflictReason: text("conflictReason"),
   conflictedAt: timestamp("conflictedAt"),
+  // Price Audit: set true once the owner has checked this item's prices against
+  // the master price list and confirmed they are correct. Drives the audited
+  // badge in the Cost Lookup / Price Audit tool.
+  priceVerified: boolean("priceVerified").default(false).notNull(),
+  priceVerifiedAt: timestamp("priceVerifiedAt"),
+  priceVerifiedByName: varchar("priceVerifiedByName", { length: 128 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
