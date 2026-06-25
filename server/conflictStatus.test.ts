@@ -44,3 +44,67 @@ describe("conflict-status schema contract", () => {
     expect(cabinets.conflictStatus.name).toBe("conflictStatus");
   });
 });
+
+// ── Admin conflict EDIT: patch-building contract ──────────────────────────────
+// The updateConflictCabinet procedure writes only the fields the admin supplied
+// (partial update) and, when clearAfter is set, also resets the conflict flags.
+// We replicate the exact patch-building logic here as a pure function so the
+// behaviour is locked down without needing a live DB.
+function buildConflictPatch(input: {
+  description?: string;
+  category?: string;
+  subCategory?: string | null;
+  width?: string | null;
+  height?: string | null;
+  depth?: string | null;
+  conflictReason?: string | null;
+  clearAfter?: boolean;
+}): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.category !== undefined) patch.category = input.category;
+  if (input.subCategory !== undefined) patch.subCategory = input.subCategory;
+  if (input.width !== undefined) patch.width = input.width;
+  if (input.height !== undefined) patch.height = input.height;
+  if (input.depth !== undefined) patch.depth = input.depth;
+  if (input.conflictReason !== undefined) patch.conflictReason = input.conflictReason;
+  if (input.clearAfter) {
+    patch.conflictStatus = "none";
+    patch.conflictReason = null;
+    patch.conflictedAt = null;
+  }
+  return patch;
+}
+
+describe("updateConflictCabinet patch building", () => {
+  it("writes only the provided fields (partial update)", () => {
+    const patch = buildConflictPatch({ description: "Fixed name" });
+    expect(patch).toEqual({ description: "Fixed name" });
+    expect(patch).not.toHaveProperty("category");
+    expect(patch).not.toHaveProperty("width");
+  });
+
+  it("allows nulling out optional dimensions / sub-category", () => {
+    const patch = buildConflictPatch({ subCategory: null, width: null });
+    expect(patch.subCategory).toBeNull();
+    expect(patch.width).toBeNull();
+  });
+
+  it("clearAfter resets the conflict flags in the same write", () => {
+    const patch = buildConflictPatch({ category: "Base", clearAfter: true });
+    expect(patch.category).toBe("Base");
+    expect(patch.conflictStatus).toBe("none");
+    expect(patch.conflictReason).toBeNull();
+    expect(patch.conflictedAt).toBeNull();
+  });
+
+  it("clearAfter false (or absent) leaves the product in conflict", () => {
+    const patch = buildConflictPatch({ description: "x", clearAfter: false });
+    expect(patch).not.toHaveProperty("conflictStatus");
+    expect(patch).not.toHaveProperty("conflictedAt");
+  });
+
+  it("an empty edit produces an empty patch (no-op)", () => {
+    expect(buildConflictPatch({})).toEqual({});
+  });
+});

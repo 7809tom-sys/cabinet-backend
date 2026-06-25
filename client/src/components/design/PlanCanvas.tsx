@@ -26,6 +26,8 @@ interface Props {
   onDelete?: (uid: string) => void;
   // Rotate the selected cabinet 90° in place (touch-friendly on-canvas handle).
   onRotate?: (uid: string) => void;
+  // Right-click a cabinet to open its per-cabinet attributes dialog.
+  onOpenAttributes?: (uid: string) => void;
   onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number) => void;
   showWallLayer: boolean;
   measureMode?: boolean;
@@ -70,7 +72,7 @@ interface Props {
 }
 
 export function PlanCanvas({
-  room, cabinets, selectedUid, onSelect, onMove, onDelete, onRotate, onDropNew, onDropToFloor,
+  room, cabinets, selectedUid, onSelect, onMove, onDelete, onRotate, onOpenAttributes, onDropNew, onDropToFloor,
   showWallLayer, measureMode = false, island = null, onIslandChange, onIslandMove,
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
@@ -747,17 +749,17 @@ export function PlanCanvas({
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onContextMenu={
-                  isWall && onDropToFloor
+                  onOpenAttributes
                     ? (e) => {
                         e.preventDefault();
                         onSelect(p.uid);
-                        onDropToFloor(p.uid);
+                        onOpenAttributes(p.uid);
                       }
                     : undefined
                 }
                 className={`group absolute transition-shadow ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
-                } ${isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-0"}`}
+                } ${isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
                   left: p.x * ppi,
                   top: p.y * ppi,
@@ -807,21 +809,52 @@ export function PlanCanvas({
                     style={{ height: 2 }}
                   />
                 )}
+                {/* Open unit (door removed): show an "OPEN" hatch so the shop sees
+                    there is no door/front on this cabinet. */}
+                {p.noDoor && !isWall && !isAppliance && (
+                  <div
+                    className="absolute inset-1 z-10 flex items-center justify-center rounded pointer-events-none"
+                    style={{
+                      background:
+                        "repeating-linear-gradient(45deg, #00000018 0, #00000018 3px, transparent 3px, transparent 7px)",
+                    }}
+                    title="Open unit — no door"
+                  >
+                    <span className="text-[8px] font-bold tracking-wide text-[#5b6472]">OPEN</span>
+                  </div>
+                )}
                 {/* Hinge-side marker: a short bar on the hinge edge of the door
                     face so the shop can see Left vs Right swing at a glance. */}
-                {(() => {
+                {!p.noDoor && (() => {
                   const sw = resolveSwing(p);
                   if (sw !== "left" && sw !== "right") return null;
+                  // Handles sit on the opening (non-hinge) edge; honor an explicit
+                  // override, else default to the side opposite the hinge.
+                  const hSide =
+                    p.handleSide === "left" || p.handleSide === "right"
+                      ? p.handleSide
+                      : sw === "left"
+                        ? "right"
+                        : "left";
                   return (
-                    <div
-                      className="absolute top-1/2 z-10 -translate-y-1/2 rounded bg-[#1a2744]"
-                      style={{
-                        [sw === "left" ? "left" : "right"]: 1,
-                        width: 2,
-                        height: "55%",
-                      } as React.CSSProperties}
-                      title={sw === "left" ? "Left hinge" : "Right hinge"}
-                    />
+                    <>
+                      <div
+                        className="absolute top-1/2 z-10 -translate-y-1/2 rounded bg-[#1a2744]"
+                        style={{
+                          [sw === "left" ? "left" : "right"]: 1,
+                          width: 2,
+                          height: "55%",
+                        } as React.CSSProperties}
+                        title={sw === "left" ? "Left hinge" : "Right hinge"}
+                      />
+                      <div
+                        className="absolute top-1/2 z-10 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#c89b3c]"
+                        style={{
+                          [hSide === "left" ? "left" : "right"]: 2,
+                        } as React.CSSProperties}
+                        title={hSide === "left" ? "Handle left" : "Handle right"}
+                      />
+                    </>
                   );
                 })()}
                 {/* Blind corners need a corner filler strip for door clearance — show

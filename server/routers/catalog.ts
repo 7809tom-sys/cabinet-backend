@@ -598,6 +598,45 @@ export const cabinetsRouter = router({
       return { ok: true };
     }),
 
+  // Admin: EDIT a conflicting product's data so the reviewer can fix what
+  // caused the conflict (wrong description / category / size) directly from the
+  // Conflicts tab, plus amend the review note. Only provided fields are written.
+  // Optionally clears the conflict in the same call (clearAfter=true).
+  updateConflictCabinet: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        description: z.string().min(1).optional(),
+        category: z.string().min(1).optional(),
+        subCategory: z.string().nullable().optional(),
+        width: z.string().nullable().optional(),
+        height: z.string().nullable().optional(),
+        depth: z.string().nullable().optional(),
+        conflictReason: z.string().nullable().optional(),
+        clearAfter: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const patch: Record<string, unknown> = {};
+      if (input.description !== undefined) patch.description = input.description;
+      if (input.category !== undefined) patch.category = input.category;
+      if (input.subCategory !== undefined) patch.subCategory = input.subCategory;
+      if (input.width !== undefined) patch.width = input.width;
+      if (input.height !== undefined) patch.height = input.height;
+      if (input.depth !== undefined) patch.depth = input.depth;
+      if (input.conflictReason !== undefined) patch.conflictReason = input.conflictReason;
+      if (input.clearAfter) {
+        patch.conflictStatus = "none";
+        patch.conflictReason = null;
+        patch.conflictedAt = null;
+      }
+      if (Object.keys(patch).length === 0) return { ok: true };
+      await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
+      return { ok: true };
+    }),
+
   // Admin: clear a conflict once reviewed, returning the product to live status.
   clearConflict: adminProcedure
     .input(z.object({ id: z.number() }))

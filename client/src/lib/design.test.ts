@@ -26,6 +26,7 @@ import {
   baseOpeningOverlaps, blocksFloorRun,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
+  cabinetAttrNote,
   type PlacedCabinet, type RoomData, type WallOpening,
 } from "./design";
 
@@ -1746,6 +1747,54 @@ describe("two-tone state updates (DesignTool behavior, pure replicas)", () => {
   });
 });
 
+describe("two-color slot selector (DesignTool slot behavior, pure replicas)", () => {
+  // Replica of the slot model: styleA mirrors the active style; switching the
+  // active slot swaps the active style to that slot's style; new cabinets stamp
+  // the active style ONLY when a second color (slot B) exists.
+  type State = { styleId: number | null; styleA: number | null; styleB: number | null; activeSlot: "A" | "B" };
+  const selectSlot = (s: State, slot: "A" | "B"): State => {
+    const target = slot === "A" ? s.styleA : s.styleB;
+    return { ...s, activeSlot: slot, styleId: target != null ? target : s.styleId };
+  };
+  // newCab.styleId stamp rule from addCabinet.
+  const stamp = (s: State): number | null => (s.styleB != null ? s.styleId : null);
+
+  it("single color (no slot B): new cabinets are NOT stamped (track the default)", () => {
+    const s: State = { styleId: 7, styleA: 7, styleB: null, activeSlot: "A" };
+    expect(stamp(s)).toBeNull();
+  });
+
+  it("selecting slot B makes B the active style and stamps B onto new cabinets", () => {
+    let s: State = { styleId: 7, styleA: 7, styleB: 99, activeSlot: "A" };
+    s = selectSlot(s, "B");
+    expect(s.activeSlot).toBe("B");
+    expect(s.styleId).toBe(99);
+    expect(stamp(s)).toBe(99); // a cabinet dropped now keeps navy
+  });
+
+  it("switching back to slot A stamps A; perimeter+island keep their own colors", () => {
+    // Consistent active-B state: styleId mirrors B because B is active.
+    let s: State = { styleId: 99, styleA: 7, styleB: 99, activeSlot: "B" };
+    // dropped an island cabinet in B (stamp captured at drop time)
+    const islandStyle = stamp(s);
+    s = selectSlot(s, "A");
+    const perimeterStyle = stamp(s);
+    expect(islandStyle).toBe(99);
+    expect(perimeterStyle).toBe(7);
+  });
+
+  it("removing slot B reverts B-colored cabinets to the default (null override)", () => {
+    const styleB = 99;
+    const placed = [
+      { uid: "a", styleId: null },
+      { uid: "b", styleId: 99 }, // placed in B
+      { uid: "c", styleId: 99 },
+    ];
+    const after = placed.map((p) => (p.styleId === styleB ? { ...p, styleId: null } : p));
+    expect(after.map((p) => p.styleId)).toEqual([null, null, null]);
+  });
+});
+
 describe("custom sizing (W/H/D)", () => {
   it("flags width as custom only when it differs from the captured nominal", () => {
     expect(isCustomWidth(cab({ width: 24, nominalWidth: 24 }))).toBe(false);
@@ -1794,5 +1843,64 @@ describe("custom size fee ($100)", () => {
   });
   it("does not charge when no nominal was captured (older designs)", () => {
     expect(customSizeFee(cab({ width: 27, depth: 24 }))).toBe(0);
+  });
+});
+
+describe("per-cabinet door/hardware attributes (right-click dialog)", () => {
+  it("notes an open unit when the door is removed", () => {
+    expect(cabinetAttrNote({ noDoor: true })).toBe("No door (open unit)");
+  });
+
+  it("open unit wins over a handle side (an open unit has no handle)", () => {
+    expect(cabinetAttrNote({ noDoor: true, handleSide: "left" })).toBe(
+      "No door (open unit)"
+    );
+  });
+
+  it("notes the handle side when a door is present", () => {
+    expect(cabinetAttrNote({ handleSide: "left" })).toBe("Handle left");
+    expect(cabinetAttrNote({ handleSide: "right" })).toBe("Handle right");
+  });
+
+  it("returns an empty note when nothing is set", () => {
+    expect(cabinetAttrNote({})).toBe("");
+    expect(cabinetAttrNote({ noDoor: false, handleSide: null })).toBe("");
+  });
+
+  it("accepts the new attribute fields on PlacedCabinet", () => {
+    const p = cab({ noDoor: true, handleSide: "right", rolloutQty: 2 });
+    expect(p.noDoor).toBe(true);
+    expect(p.handleSide).toBe("right");
+    expect(p.rolloutQty).toBe(2);
+  });
+});
+
+import { isPlaceableAccessory, accessoryPlacement, isLooseTrimItem } from "./design";
+
+describe("accessory placement (item 5: accessories into the drawing)", () => {
+  it("treats panels, skins and appliance garages as placeable", () => {
+    expect(isPlaceableAccessory({ masterCode: "BDEP", description: "Base Decorative End Panel", subCategory: "Decorative End Panels" })).toBe(true);
+    expect(isPlaceableAccessory({ masterCode: "DWEP", description: "Dishwasher End Panel" })).toBe(true);
+    expect(isPlaceableAccessory({ masterCode: "WS-12-42", description: "Wall Skin", subCategory: "Skin Panels" })).toBe(true);
+    expect(isPlaceableAccessory({ masterCode: "AG-24", description: "Appliance Garage 24" })).toBe(true);
+  });
+
+  it("keeps loose by-the-foot trim and hardware as BOM-only (not placeable)", () => {
+    expect(isPlaceableAccessory({ masterCode: "CM-8", description: "Crown Molding 8ft", subCategory: "Trim & Molding" })).toBe(false);
+    expect(isPlaceableAccessory({ masterCode: "LR-8", description: "Light Rail Molding" })).toBe(false);
+    expect(isPlaceableAccessory({ masterCode: "ROT-21", description: "Roll-Out Tray 21", subCategory: "Roll-Out Trays" })).toBe(false);
+    expect(isPlaceableAccessory({ masterCode: "PULL-5", description: "Bar Pull Hardware" })).toBe(false);
+  });
+
+  it("isLooseTrimItem flags molding/hardware/trays", () => {
+    expect(isLooseTrimItem({ description: "Crown Molding" })).toBe(true);
+    expect(isLooseTrimItem({ description: "Toe Kick" })).toBe(true);
+    expect(isLooseTrimItem({ description: "Base Decorative End Panel" })).toBe(false);
+  });
+
+  it("assigns base placement to floor panels and wall placement to skins/garages", () => {
+    expect(accessoryPlacement({ masterCode: "BDEP", description: "Base Decorative End Panel" })).toBe("base");
+    expect(accessoryPlacement({ masterCode: "WS-12-42", description: "Wall Skin" })).toBe("wall");
+    expect(accessoryPlacement({ masterCode: "AG-24", description: "Appliance Garage" })).toBe("wall");
   });
 });

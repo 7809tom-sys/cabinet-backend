@@ -31,6 +31,7 @@ import {
   normalizeLCornerDepths,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
+  isPlaceableAccessory, accessoryPlacement, isPanelItem,
   blindCornerAutoFiller,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
@@ -76,6 +77,8 @@ import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import { ColorSlotButton } from "@/components/design/ColorSlotButton";
+import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 
 // One wall's worth of a consultant plan (mirrors the server `consult` output).
 type ConsultPlanWall = {
@@ -258,8 +261,20 @@ export default function DesignTool() {
   // Room type: kitchen cabinets (default), bathroom, laundry, closet parts, or other.
   const [roomType, setRoomType] = useState<RoomType>("kitchen");
 
-  // Pricing selectors
+  // Pricing selectors. `styleId` is the ACTIVE door style — it drives the
+  // palette filter, pricing, and the finish stamped onto newly-placed cabinets.
   const [styleId, setStyleId] = useState<number | null>(null);
+  // Two-color (two-tone) selector: the design carries up to two door styles —
+  // slot A (== styleId when A is active) and slot B. `activeSlot` says which
+  // color new cabinets are placed in. Switching the active slot swaps styleId
+  // to that slot's style so the whole existing palette/pricing chain follows.
+  const [styleA, setStyleA] = useState<number | null>(null);
+  const [styleB, setStyleB] = useState<number | null>(null);
+  const [activeSlot, setActiveSlot] = useState<"A" | "B">("A");
+  // Refs mirror the active style + slot B so addCabinet (a stable callback) can
+  // stamp the current color without going stale or re-creating on every change.
+  const styleIdRef = useRef<number | null>(null);
+  const styleBRef = useRef<number | null>(null);
   const [tier, setTier] = useState<PricingTier>("Contractor");
   // Distributor lock: once the base cabinet's finish is chosen the member can
   // "Lock" the design to that style's supply line. While locked, the palette
@@ -512,7 +527,17 @@ export default function DesignTool() {
     // Tallest first; unknown height (0) sinks to the bottom.
     return Array.from(groups.entries())
       .sort((a, b) => (b[0] || -1) - (a[0] || -1))
-      .map(([height, items]) => ({ label: height ? `${fmtHeight(height)}\" High` : "Other", items }));
+      .map(([height, items]) => ({
+        // On base-family tabs every box is a standard 34½" base, so an unknown
+        // height should still read as the base height (never a stray "Other"
+        // group). Only non-base tabs fall back to "Other".
+        label: height
+          ? `${fmtHeight(height)}\" High`
+          : isBaseFamilyTab
+          ? `${fmtHeight(BASE_STD_HEIGHT)}\" High`
+          : "Other",
+        items,
+      }));
   }, [filteredPalette, paletteType, paletteSearch, closetGroups]);
 
   // Pricing for placed cabinets + add-on accessories (appliances carry
@@ -726,7 +751,13 @@ export default function DesignTool() {
     for (const p of placed) {
       const sw = resolveSwing(p);
       const sizeNote = customSizeNote(p);
-      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}`;
+      // Per-cabinet door/hardware attribute notes (from the right-click dialog).
+      const attrNotes: string[] = [];
+      if (p.noDoor) attrNotes.push("No door (open unit)");
+      if ((p.handleSide === "left" || p.handleSide === "right") && !p.noDoor)
+        attrNotes.push(`Handle ${p.handleSide}`);
+      const attrNote = attrNotes.join(", ");
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -734,9 +765,9 @@ export default function DesignTool() {
       else
         map.set(key, {
           code: p.masterCode,
-          description: sizeNote
-            ? `${p.description} — ${sizeNote}`
-            : p.description,
+          description: [p.description, sizeNote, attrNote]
+            .filter(Boolean)
+            .join(" — "),
           widthIn: rotatedSize(p).w,
           heightIn: placedHeight(p),
           depthIn: rotatedSize(p).d,
@@ -1112,9 +1143,18 @@ export default function DesignTool() {
 
   const addCabinet = useCallback(
     (c: DesignCabinet, x?: number, y?: number) => {
-      const width = dim(c.width, 24);
-      const depth = footprintDepth(c);
-      const height = dim(c.height, standardHeight(c.placement));
+      // Placeable accessories (decorative/end panels, skins, appliance garages)
+      // come in via the Accessories tab. Force a sensible placement (base vs
+      // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they
+      // render as a thin board against the run rather than a full 24" box.
+      const isAccessory = paletteType === "accessory" && isPlaceableAccessory(c);
+      const accPlacement = isAccessory ? accessoryPlacement(c) : c.placement;
+      const isFlatPanel = isAccessory && isPanelItem(c);
+      const width = dim(c.width, isAccessory ? 24 : 24);
+      const depth = isFlatPanel ? 0.75 : footprintDepth(c);
+      const height = isFlatPanel
+        ? dim(c.height, standardHeight(accPlacement))
+        : dim(c.height, standardHeight(accPlacement));
       setPlaced((prev) => {
         // Explicit drop position (drag-and-drop) wins. Otherwise we drop the
         // cabinet UNATTACHED in the center of the room so the user can grab it
@@ -1146,7 +1186,7 @@ export default function DesignTool() {
           cabinetId: c.id,
           masterCode: c.masterCode,
           description: c.description,
-          placement: c.placement,
+          placement: accPlacement,
           x: spot.x,
           y: spot.y,
           width,
@@ -1161,6 +1201,11 @@ export default function DesignTool() {
           catalogImageUrl: c.catalogImageUrl ?? null,
           pullMin: c.pullMin ?? null,
           pullMax: c.pullMax ?? null,
+          // Two-color: stamp the ACTIVE door style onto this cabinet so it keeps
+          // the color it was placed in, EVEN if the design default later changes.
+          // We only stamp when a real second color (slot B) exists; otherwise we
+          // leave styleId null so the cabinet just tracks the single default.
+          styleId: styleBRef.current != null ? styleIdRef.current : null,
         };
         setSelectedUid(newCab.uid);
         // Sink-base auto-fixture: dropping a sink base (SB-*) means there's a
@@ -1580,6 +1625,23 @@ export default function DesignTool() {
     setSelectedUid(null);
   };
 
+  // Move the selected cabinet by a delta (inches). Used by the arrow keys and
+  // the on-canvas move buttons. A cabinet that sits on the island can ALWAYS be
+  // nudged off it freely (it does not drag the island with it) so users can
+  // re-arrange the island run; we just keep every cabinet clamped inside the
+  // room. This is the fix for "can't move a cabinet once it's on the island".
+  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
+    if (!selectedUid) return;
+    setPlaced((prev) => {
+      const moved = prev.map((p) =>
+        p.uid === selectedUid
+          ? { ...p, x: Math.round((p.x + dxIn) * 10) / 10, y: Math.round((p.y + dyIn) * 10) / 10 }
+          : p
+      );
+      return clampCabinetsToRoom(moved, room);
+    });
+  }, [selectedUid, room]);
+
   // Raise/lower the selected WALL cabinet's mount height. Stores an explicit
   // mountBottom override (inches from floor to the box bottom); the elevation
   // then uses it verbatim instead of the default hang rule.
@@ -1613,6 +1675,73 @@ export default function DesignTool() {
       prev.map((p) => (p.uid === selectedUid ? { ...p, [field]: value } : p))
     );
   }, [selectedUid]);
+
+  // ─── Per-cabinet door / hardware attributes (right-click dialog) ────────────
+  // Update one attribute on a SPECIFIC cabinet by uid (the dialog edits the
+  // cabinet it was opened on, which may not be the keyboard-selected one).
+  const setCabAttr = useCallback(
+    (uid: string, patch: Partial<PlacedCabinet>) => {
+      setPlaced((prev) => prev.map((p) => (p.uid === uid ? { ...p, ...patch } : p)));
+    },
+    []
+  );
+
+  // Right-click attributes dialog (email item 1). Opening it selects the cabinet
+  // so the existing selected-based size/swing handlers operate on it.
+  const [attrUid, setAttrUid] = useState<string | null>(null);
+  const [attrOpen, setAttrOpen] = useState(false);
+  const openAttributes = useCallback((uid: string) => {
+    setSelectedUid(uid);
+    setAttrUid(uid);
+    setAttrOpen(true);
+  }, []);
+
+  // Set the door swing to an exact side for a specific cabinet.
+  const setSwingFor = useCallback((uid: string, swing: "left" | "right" | "double") => {
+    setPlaced((prev) =>
+      prev.map((p) => {
+        if (p.uid !== uid) return p;
+        if (!hasDoorSwing(p)) return p;
+        return { ...p, swing };
+      })
+    );
+  }, []);
+
+  // Remove / restore the door (open unit) for a specific cabinet.
+  const setNoDoorFor = useCallback((uid: string, noDoor: boolean) => {
+    setCabAttr(uid, { noDoor });
+  }, [setCabAttr]);
+
+  // Set the handle/pull side for a specific cabinet.
+  const setHandleSideFor = useCallback((uid: string, side: "left" | "right") => {
+    setCabAttr(uid, { handleSide: side });
+  }, [setCabAttr]);
+
+  // Set the roll-out tray quantity for a specific cabinet, and reconcile the
+  // single roll-out-tray BOM add-on line so the total equals the sum of every
+  // cabinet's rolloutQty (priced once through the existing add-on mechanism).
+  const setRolloutFor = useCallback((uid: string, qty: number) => {
+    const clamped = Math.max(0, Math.round(qty));
+    setPlaced((prev) => {
+      const next = prev.map((p) => (p.uid === uid ? { ...p, rolloutQty: clamped } : p));
+      const totalTrays = next.reduce(
+        (s, p) => s + (typeof p.rolloutQty === "number" ? p.rolloutQty : 0),
+        0
+      );
+      const row = addOnRowFor("roll-out-tray");
+      if (row) {
+        setAddedAddOns((prevAdd) => {
+          const others = prevAdd.filter((a) => a.cabinetId !== row.id);
+          if (totalTrays <= 0) return others;
+          return [
+            ...others,
+            { cabinetId: row.id, masterCode: row.masterCode, description: row.description, qty: totalTrays },
+          ];
+        });
+      }
+      return next;
+    });
+  }, [addOnRowFor]);
 
   // ─── Custom sizing ─────────────────────────────────────────────────────────
   // Resize the selected cabinet's WIDTH to a custom value. The customer grabs a
@@ -1767,6 +1896,37 @@ export default function DesignTool() {
     });
   }, [selectedUid, placed]);
 
+  // ── Two-color (two door styles) selector ───────────────────────────────────
+  // Slot A is the primary door style. We mirror styleId -> styleA so the active
+  // style and slot A stay in sync when A is active. Selecting a slot makes it
+  // active and swaps styleId to that slot's style so the palette + the finish
+  // stamped on new cabinets follow the highlighted color.
+  useEffect(() => {
+    if (activeSlot === "A") setStyleA(styleId);
+  }, [styleId, activeSlot]);
+  useEffect(() => { styleIdRef.current = styleId; }, [styleId]);
+  useEffect(() => { styleBRef.current = styleB; }, [styleB]);
+
+  // Click a color swatch: make that slot active. If the slot already has a
+  // style, switch the active style to it so new cabinets use it.
+  const selectColorSlot = useCallback((slot: "A" | "B") => {
+    setActiveSlot(slot);
+    const target = slot === "A" ? styleA : styleB;
+    if (target != null) setStyleId(target);
+  }, [styleA, styleB]);
+
+  // Assign a door style to a slot (from the picker). Setting the active slot's
+  // style also updates styleId. Slot B is the two-tone second color.
+  const setSlotStyle = useCallback((slot: "A" | "B", newStyleId: number) => {
+    if (slot === "A") {
+      setStyleA(newStyleId);
+      if (activeSlot === "A") setStyleId(newStyleId);
+    } else {
+      setStyleB(newStyleId);
+      if (activeSlot === "B") setStyleId(newStyleId);
+    }
+  }, [activeSlot]);
+
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(
     (side: WallSide) => {
@@ -1870,6 +2030,16 @@ export default function DesignTool() {
       } else if ((e.key === "s" || e.key === "S") && selectedUid && !measureMode) {
         e.preventDefault();
         swingSelected();
+      } else if (selectedUid && !measureMode && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        // Arrow keys nudge the selected cabinet. Default 1"; hold Shift for a
+        // fine 1/4" step. This lets users move a cabinet left/right/up/down
+        // anywhere — including on or off the island (items 3 & 4).
+        e.preventDefault();
+        const step = e.shiftKey ? 0.25 : 1;
+        if (e.key === "ArrowLeft") nudgeSelected(-step, 0);
+        else if (e.key === "ArrowRight") nudgeSelected(step, 0);
+        else if (e.key === "ArrowUp") nudgeSelected(0, -step);
+        else if (e.key === "ArrowDown") nudgeSelected(0, step);
       } else if (e.key === "Escape") {
         setSelectedUid(null);
         setSelectedOpeningUid(null);
@@ -1878,7 +2048,7 @@ export default function DesignTool() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening, measureMode, rotateSelected, swingSelected]);
+  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening, measureMode, rotateSelected, swingSelected, nudgeSelected]);
 
   const dragDataRef = useState<{ current: DesignCabinet | null }>(() => ({ current: null }))[0];
 
@@ -1968,6 +2138,8 @@ export default function DesignTool() {
     openings,
     island,
     styleId,
+    styleB,
+    activeSlot,
     tier,
     crown,
     toeKick,
@@ -2021,6 +2193,8 @@ export default function DesignTool() {
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);
           setStyleId(d.styleId ?? null);
+          if (typeof d.styleB === "number") setStyleB(d.styleB);
+          if (d.activeSlot === "A" || d.activeSlot === "B") setActiveSlot(d.activeSlot);
           if (d.tier) setTier(d.tier);
           // A saved design carries the user's explicit trim choices; mark them as
           // overrides so auto-apply doesn't re-enable a trim they turned off.
@@ -2786,10 +2960,34 @@ export default function DesignTool() {
                     <span className="font-normal normal-case">({group.items.length})</span>
                   </button>
                   {open && group.items.map((c) => {
-                    // Accessories & Trim are added to the bill of materials as
-                    // quantity line items (via addAddOn), not dragged onto the
-                    // canvas. Everything else is a placeable cabinet box.
+                    // Accessories & Trim: PHYSICAL items (decorative/end panels,
+                    // skins, appliance garages) drop onto the drawing like a
+                    // cabinet box (click-to-place or drag); LOOSE trim/hardware
+                    // sold by the foot/each (crown, light rail, roll-out trays,
+                    // hinges, pulls) stays a bill-of-materials quantity line.
                     if (paletteType === "accessory") {
+                      const placeable = isPlaceableAccessory(c);
+                      if (placeable) {
+                        return (
+                          <button
+                            key={c.masterCode}
+                            draggable
+                            onDragStart={() => { dragDataRef.current = c; }}
+                            onClick={() => addCabinet(c)}
+                            className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                          >
+                            <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                              <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                              <div className="text-[9px] font-medium text-primary/70">Click or drag to place on drawing</div>
+                            </div>
+                            <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                          </button>
+                        );
+                      }
                       const added = addedAddOnIds.has(c.id);
                       return (
                         <button
@@ -2862,12 +3060,12 @@ export default function DesignTool() {
               <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">Click to add, then drag along any wall and use the handle to resize the width.</p>
             )}
             {paletteType === "accessory" && filteredPalette.length > 0 && (
-              <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">Click to add to your bill of materials. Adjust quantities in the Build Sheet panel.</p>
+              <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">Panels, skins &amp; appliance garages place onto the drawing (click or drag). Crown, light rail, roll-out trays &amp; hardware add to the Build Sheet by quantity.</p>
             )}
           </div>
           <div className="p-2 border-t border-border text-[10px] text-muted-foreground text-center">
             {paletteType === "accessory"
-              ? "Click to add accessories to your bill of materials"
+              ? "Panels/garages: click or drag to drawing · trim/hardware: click to add to Build Sheet"
               : "Click or drag to add · drag on canvas to snap"}
           </div>
         </PaletteShell>
@@ -2883,6 +3081,7 @@ export default function DesignTool() {
               onMove={moveCabinet}
               onDelete={deleteCabinet}
               onRotate={rotateCabinet}
+              onOpenAttributes={openAttributes}
               onDropNew={handleDropNew}
               showWallLayer={showWallLayer}
               measureMode={measureMode}
@@ -2964,6 +3163,8 @@ export default function DesignTool() {
                   onSelect={setSelectedUid}
                   onMove={moveCabinet}
                   onDelete={deleteCabinet}
+                  onRotate={rotateCabinet}
+                  onOpenAttributes={openAttributes}
                   onDropNew={handleDropNew}
                   showWallLayer={showWallLayer}
                   measureMode={measureMode}
@@ -3059,70 +3260,57 @@ export default function DesignTool() {
                 )}
               </div>
             </div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">Pricing</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">Door styles &amp; pricing</div>
 
-            <div className="text-[11px] font-medium text-foreground">Design default finish</div>
-            <Select value={styleId ? String(styleId) : ""} onValueChange={(v) => changeDefaultStyle(Number(v))}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select door style" /></SelectTrigger>
-              <SelectContent>
-                {uniqueDoorStyles.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {/* Two-color selector (items 8 & 9): two door-style swatch buttons.
+                The HIGHLIGHTED one is the color new cabinets are placed in. Click
+                a swatch to make it active; use its picker to set/change the style.
+                Slot B is optional — "Set second color" until chosen. The pricing
+                tier (Wholesale/Contractor) sits right next to the color buttons
+                (item 7). */}
+            <div className="grid grid-cols-2 gap-2">
+              <ColorSlotButton
+                label="Color 1"
+                slot="A"
+                active={activeSlot === "A"}
+                style={styleA != null ? (doorStyles?.find((d) => d.id === styleA) ?? null) : null}
+                styles={uniqueDoorStyles}
+                onSelect={() => selectColorSlot("A")}
+                onPick={(id) => setSlotStyle("A", id)}
+                onClear={undefined}
+              />
+              <ColorSlotButton
+                label="Color 2"
+                slot="B"
+                active={activeSlot === "B"}
+                style={styleB != null ? (doorStyles?.find((d) => d.id === styleB) ?? null) : null}
+                styles={uniqueDoorStyles}
+                onSelect={() => { if (styleB != null) selectColorSlot("B"); else toast.info("Set a second door style first."); }}
+                onPick={(id) => setSlotStyle("B", id)}
+                onClear={styleB != null ? () => {
+                  // Drop the second color: clear B, re-color any cabinets that
+                  // were placed in B back to the default, and return to Color 1.
+                  setPlaced((prev) => prev.map((p) => (p.styleId === styleB ? { ...p, styleId: null } : p)));
+                  setStyleB(null);
+                  if (activeSlot === "B") { setActiveSlot("A"); if (styleA != null) setStyleId(styleA); }
+                  toast.success("Second color removed.");
+                } : undefined}
+              />
+            </div>
             <p className="text-[10px] leading-snug text-muted-foreground">
-              Applies to every cabinet that isn't given its own finish. For a <span className="font-medium text-foreground">two-tone</span> design, select a cabinet on the plan and use its <span className="font-medium text-foreground">Finish (this cabinet)</span> picker — only that cabinet changes.
+              The highlighted color is what new cabinets are placed in. Set a second door style, then click it to add cabinets in that color for a two-tone design.
             </p>
 
-            {/* Distributor lock: pin the design to the chosen base finish's supply
-                line. While locked, the palette + finish picker stay within that
-                line; member can still change color, but not jump supply lines. */}
-            {lockedDistributorId == null ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 w-full text-xs gap-1.5"
-                disabled={selectedStyleDistributorId == null}
-                onClick={() => {
-                  if (selectedStyleDistributorId == null) {
-                    toast.error("Pick a door style first, then lock it in.");
-                    return;
-                  }
-                  setLockedDistributorId(selectedStyleDistributorId);
-                  toast.success("Supply line locked — added cabinets will match this line. You can still change colors within it.");
-                }}
-              >
-                <Lock className="h-3.5 w-3.5" />
-                Lock supply line to this finish
-              </Button>
-            ) : (
-              <div className="flex items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5">
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary">
-                  <Lock className="h-3.5 w-3.5" />
-                  Supply line locked
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-[11px]"
-                  onClick={() => {
-                    setLockedDistributorId(null);
-                    toast.success("Unlocked — all supply lines available again.");
-                  }}
-                >
-                  <LockOpen className="h-3 w-3 mr-1" />
-                  Unlock
-                </Button>
-              </div>
-            )}
-
-            <Select value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Wholesale">Wholesale</SelectItem>
-                <SelectItem value="Contractor">Contractor</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-foreground shrink-0">Pricing</span>
+              <Select value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
+                <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Wholesale">Wholesale</SelectItem>
+                  <SelectItem value="Contractor">Contractor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* BOM list */}
@@ -3551,6 +3739,23 @@ export default function DesignTool() {
           placedCabinets={placed}
         />
       )}
+
+      {/* Right-click per-cabinet attributes editor */}
+      <CabinetAttributesDialog
+        cabinet={attrUid ? placed.find((p) => p.uid === attrUid) ?? null : null}
+        open={attrOpen}
+        onOpenChange={setAttrOpen}
+        customFee={CUSTOM_SIZE_FEE}
+        onSetWidth={(_uid, v) => setCustomWidth(v)}
+        onSetHeight={(_uid, v) => setCustomHeight(v)}
+        onSetDepth={(_uid, v) => setCustomDepth(v)}
+        onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
+        onSetSwing={setSwingFor}
+        onSetNoDoor={setNoDoorFor}
+        onSetHandleSide={setHandleSideFor}
+        onSetRollout={setRolloutFor}
+        rolloutAvailable={!!addOnRowFor("roll-out-tray")}
+      />
 
       {/* AI Design Consultant slide-in panel */}
       {consultOpen && (

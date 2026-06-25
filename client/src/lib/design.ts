@@ -25,6 +25,53 @@ export function isPanelItem(c: { description?: string | null; masterCode?: strin
   return /\bpanel\b|\bskin\b|end panel|dishwasher panel|refrigerator panel|decorative panel/.test(hay);
 }
 
+// Loose trim/molding/hardware sold by the linear foot or by the each that is
+// NOT a physical box on the floor plan — crown, light rail, toe-kick molding,
+// scribe, batten/filler strips, roll-out trays, hinges, knobs/pulls. These stay
+// as quantity BOM lines and are not drawn on the canvas.
+export function isLooseTrimItem(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
+  return /crown|light rail|\btoe ?kick\b|\bscribe\b|\bbatten\b|\bfiller\b|roll[- ]?out|pull[- ]?out tray|\bhinge\b|\bknob\b|\bpull\b|\bhardware\b|molding|moulding|\btrim\b/.test(
+    hay
+  );
+}
+
+// True for accessory-tab items that are physical objects which should be PLACED
+// on the drawing (a box/panel the shop sets in the run): decorative end panels,
+// base/dishwasher/refrigerator end panels, skins/wallskins, and appliance
+// garages. Excludes the loose by-the-foot trim/hardware above. This drives
+// whether an accessory drops onto the canvas vs. only adds a BOM line.
+export function isPlaceableAccessory(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  if (isLooseTrimItem(c)) return false;
+  if (isPanelItem(c)) return true; // end panels / skins / decorative panels
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
+  // Appliance garages sit on the counter as a real box.
+  if (/appliance garage|\bag-?\d/.test(hay)) return true;
+  return false;
+}
+
+// Which placement a placeable accessory should take when dropped. Panels/skins
+// and appliance garages mounted high read as wall items; everything else sits
+// on the floor as a base-zone object.
+export function accessoryPlacement(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}): Placement {
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
+  if (/appliance garage|\bag-?\d/.test(hay)) return "wall";
+  if (/wall ?skin|\bws\b|wall panel|refrigerator panel/.test(hay)) return "wall";
+  return "base";
+}
+
 export type Placement = "base" | "wall" | "tall" | "appliance";
 
 // Synthetic appliance catalog. Appliances are not cabinets (no DB row / price),
@@ -187,6 +234,17 @@ export interface PlacedCabinet {
   // cabinet is flagged CUSTOM. Optional for backward-compat with older designs.
   nominalHeight?: number | null;
   nominalDepth?: number | null;
+  // Per-cabinet door/hardware attributes (set from the right-click attributes
+  // dialog). All optional for backward-compat with older saved designs.
+  // noDoor: order this cabinet as an OPEN unit (no door/front) — e.g. open
+  // shelving or a glass-ready box; the shop omits the door.
+  noDoor?: boolean;
+  // handleSide: where the pull/knob mounts on the door, independent of the
+  // hinge side. "left" | "right" for a door; "top"|"bottom" reserved for drawers.
+  handleSide?: "left" | "right" | "top" | "bottom" | null;
+  // rolloutQty: number of roll-out (pull-out) trays to add inside this base
+  // cabinet. Priced as an add-on line per tray.
+  rolloutQty?: number | null;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal
@@ -239,6 +297,19 @@ export function customSizeNote(p: PlacedCabinet): string {
   if (isCustomHeight(p)) parts.push(`${fmtIn(Math.round(placedHeight(p) * 10) / 10)}\"H`);
   if (isCustomDepth(p)) parts.push(`${fmtIn(Math.round(p.depth * 10) / 10)}\"D`);
   return parts.length ? `CUSTOM ${parts.join(" × ")}` : "";
+}
+
+// Build-sheet note for the per-cabinet door/hardware attributes set in the
+// right-click attributes dialog. "No door" wins (an open unit has no handle);
+// otherwise an explicit handle side is noted. Returns "" when nothing applies.
+export function cabinetAttrNote(p: {
+  noDoor?: boolean;
+  handleSide?: "left" | "right" | null;
+}): string {
+  if (p.noDoor) return "No door (open unit)";
+  if (p.handleSide === "left" || p.handleSide === "right")
+    return `Handle ${p.handleSide}`;
+  return "";
 }
 
 // Resolve which door-style/finish a placed cabinet should actually use:
