@@ -809,3 +809,27 @@ export const payments = mysqlTable("payments", {
 
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = typeof payments.$inferInsert;
+
+
+// ─── Design leads ───────────────────────────────────────────────────────────
+// One row per "Launch Designer" entry. The email gate captures a contact even
+// if the visitor never saves a design or requests a quote, so reps always have
+// someone to follow up with. Email is required; name + phone are optional (we
+// keep the gate low-friction). userId is set when a logged-in user launches.
+export const designLeads = mysqlTable("design_leads", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"), // null for guest/email-only launches
+  email: varchar("email", { length: 320 }).notNull(),
+  name: varchar("name", { length: 256 }),
+  phone: varchar("phone", { length: 32 }),
+  roomType: varchar("roomType", { length: 32 }), // kitchen/bath/etc. if known at launch
+  source: varchar("source", { length: 64 }).default("designer_launch").notNull(),
+  // Light de-dupe / engagement counters so repeat launches update one record.
+  launchCount: int("launchCount").default(1).notNull(),
+  lastLaunchAt: timestamp("lastLaunchAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DesignLead = typeof designLeads.$inferSelect;
+export type InsertDesignLead = typeof designLeads.$inferInsert;

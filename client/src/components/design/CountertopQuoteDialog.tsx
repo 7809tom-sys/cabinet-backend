@@ -20,6 +20,8 @@ interface Props {
   linearFeet: number;
   hasIsland: boolean;
   defaultEmail?: string;
+  defaultName?: string;
+  defaultPhone?: string;
   // Snapshot of the current design so the team can see what's being quoted.
   roomData?: unknown;
   placedCabinets?: unknown;
@@ -28,11 +30,11 @@ interface Props {
 const MATERIALS = ["Quartz", "Granite", "Laminate", "Solid Surface", "Butcher Block", "Marble", "Not sure yet"];
 
 export function CountertopQuoteDialog({
-  open, onOpenChange, squareFeet, linearFeet, hasIsland, defaultEmail, roomData, placedCabinets,
+  open, onOpenChange, squareFeet, linearFeet, hasIsland, defaultEmail, defaultName, defaultPhone, roomData, placedCabinets,
 }: Props) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName ?? "");
   const [email, setEmail] = useState(defaultEmail ?? "");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(defaultPhone ?? "");
   const [zip, setZip] = useState("");
   const [material, setMaterial] = useState("Not sure yet");
   const [notes, setNotes] = useState("");

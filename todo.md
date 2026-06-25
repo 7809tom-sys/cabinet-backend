@@ -1672,3 +1672,12 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] C3-pricing-multipliers: DONE — Pricing & Margins tab (MarginsAdmin): global default markup + per-tier markups (Homeowner/Contractor/Wholesale) with live $100 preview, plus per-supply-line markup overrides. Persists via pricing.adminUpdateMargins + pricing.adminSetDistributorMarkup. Wraps FeeSystemAdmin. Covered by margins.test.ts (math) + NEW pricing.distributorMarkup.test.ts (3 DB-backed tests: non-admin guard, set+read-back override, out-of-range reject).
 - [x] C3-catalog-conflicts: DONE — Conflicts tab (ConflictsAdmin): lists held products (hidden from catalog/storefront/Design Tool), edit product data, Save / Save&clear / Clear conflict via cabinets.updateConflictCabinet + cabinets.clearConflict. Covered by conflictStatus.test.ts.
 - [x] C3-featured-doorstyles: DONE — Featured Styles tab (FeaturedStylesAdmin): pick + reorder + remove featured door styles (cap 30), persists via doorStyles.setFeatured + reorderFeatured; public doorStyles.featured consumes the ranked row for the "push top 2-3" merchandising. Covered by featuredStyles.test.ts.
+
+## Lead capture at designer launch (user request: "ideally email, but get their contact info too")
+
+- [x] L1: DONE — design_leads table (email required; name/phone/roomType optional; userId nullable; source, launchCount, lastLaunchAt, timestamps). Migration 0029 applied.
+- [x] L2: DONE — design.captureLead public procedure (email required, name/phone/roomType optional; de-dupes by email/userId and bumps launchCount; notifies owner on new lead). Also added admin-gated design.listLeads.
+- [x] L3: DONE — EmailGate now collects Full name (optional) + Email (required) + Phone (optional) with icons; onVerified passes a LeadContact {email, name, phone}; logged-in users still bypass via effect.
+- [x] L4: DONE — DesignTool fires design.captureLead on launch (fire-and-forget) and stores verifiedName/verifiedPhone; the Countertop Quote dialog now prefills name+phone too (defaultName/defaultPhone).
+- [x] L5: DONE — new Admin "Design Leads" tab (DesignLeadsAdmin): searchable table of name/email/phone/room/launch-count/last-activity/guest-vs-member, mailto + tel links, powered by design.listLeads (admin-gated).
+- [x] L6: DONE — design.captureLead.test.ts (4 tests): email validation, persists+normalizes email/name/phone, de-dupes + bumps launchCount preserving earlier name, listLeads admin-gated. Type-check clean; full suite 874 tests pass (78 files).

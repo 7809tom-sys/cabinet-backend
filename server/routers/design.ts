@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { eq, and, inArray, desc, like } from "drizzle-orm";
+import { eq, and, inArray, desc, like, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
-import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes } from "../../drizzle/schema";
+import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { invokeLLM } from "../_core/llm";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
@@ -409,6 +409,98 @@ export const designRouter = router({
         .where(eq(kitchenDesigns.id, input.id))
         .limit(1);
       return rows[0] ?? null;
+    }),
+
+  // ─── Lead capture at designer launch ──────────────────────────────────────
+  // The launch gate captures a contact even if the visitor never saves a design
+  // or requests a quote, so reps always have someone to follow up with. Email is
+  // required; name + phone are optional. Repeat launches by the same email (per
+  // user, or per email for guests) bump launchCount instead of inserting a new
+  // row, keeping the leads list clean.
+  captureLead: publicProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        name: z.string().max(255).optional(),
+        phone: z.string().max(32).optional(),
+        roomType: z.string().max(32).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return { ok: false as const };
+
+      const userId = ctx.user?.id ?? null;
+      const emailLower = input.email.trim().toLowerCase();
+      const name = input.name?.trim() || null;
+      const phone = input.phone?.trim() || null;
+      const roomType = input.roomType?.trim() || null;
+
+      // De-dupe: look for an existing lead for this email (scoped to the same
+      // user when logged in). Update + bump the counter if found.
+      const existing = await db
+        .select({ id: designLeads.id, name: designLeads.name, phone: designLeads.phone })
+        .from(designLeads)
+        .where(
+          userId
+            ? and(eq(designLeads.userId, userId), eq(designLeads.email, emailLower))
+            : eq(designLeads.email, emailLower),
+        )
+        .limit(1);
+
+      if (existing[0]) {
+        await db
+          .update(designLeads)
+          .set({
+            // Only overwrite name/phone when the new launch provides them, so we
+            // never erase contact info captured on an earlier visit.
+            name: name ?? existing[0].name,
+            phone: phone ?? existing[0].phone,
+            roomType: roomType ?? undefined,
+            userId: userId ?? undefined,
+            launchCount: sql`${designLeads.launchCount} + 1`,
+            lastLaunchAt: new Date(),
+          })
+          .where(eq(designLeads.id, existing[0].id));
+        return { ok: true as const, id: existing[0].id, deduped: true as const };
+      }
+
+      const result = await db.insert(designLeads).values({
+        userId,
+        email: emailLower,
+        name,
+        phone,
+        roomType,
+      });
+      const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+
+      // Notify the owner of a fresh design lead (best-effort).
+      try {
+        await notifyOwner({
+          title: "New design lead",
+          content: `${name || "(no name)"} · ${input.email}${phone ? ` · ${phone}` : ""}${roomType ? ` · ${roomType}` : ""} started a design.`,
+        });
+      } catch {
+        // Never block lead capture on a notification failure.
+      }
+
+      return { ok: true as const, id: insertId, deduped: false as const };
+    }),
+
+  // Admin: list captured design leads, newest engagement first.
+  listLeads: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(500).default(200) }).optional())
+    .query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      const db = await getDb();
+      if (!db) return [];
+      return db
+        .select()
+        .from(designLeads)
+        .orderBy(desc(designLeads.lastLaunchAt))
+        .limit(input?.limit ?? 200);
     }),
 
   // ─── Master Project roll-up ───────────────────────────────────────────────

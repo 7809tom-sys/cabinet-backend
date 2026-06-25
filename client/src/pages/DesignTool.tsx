@@ -67,7 +67,7 @@ import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
-import { EmailGate } from "@/components/design/EmailGate";
+import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, exportBuildSheet, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl } from "@/components/design/RoomSizeControl";
 import { WallPicker } from "@/components/design/WallPicker";
@@ -140,13 +140,25 @@ function DimStepper({
 }
 
 export default function DesignTool() {
-  // Email gate
+  // Contact gate (email required; name + phone optional)
   const [verified, setVerified] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState("");
-  const handleVerified = useCallback((email: string) => {
-    setVerifiedEmail(email);
+  const [verifiedName, setVerifiedName] = useState("");
+  const [verifiedPhone, setVerifiedPhone] = useState("");
+  const captureLead = trpc.design.captureLead.useMutation();
+  const handleVerified = useCallback((contact: LeadContact) => {
+    setVerifiedEmail(contact.email);
+    setVerifiedName(contact.name ?? "");
+    setVerifiedPhone(contact.phone ?? "");
     setVerified(true);
-  }, []);
+    // Record the lead so a rep has contact info even if the visitor never saves
+    // a design or requests a quote. Fire-and-forget — never block entry on it.
+    captureLead.mutate({
+      email: contact.email,
+      name: contact.name,
+      phone: contact.phone,
+    });
+  }, [captureLead]);
 
   // Optional package to preload (?package=slug), e.g. from a Kitchen Package page.
   const search = useSearch();
@@ -3770,6 +3782,8 @@ export default function DesignTool() {
           linearFeet={counter.linearFeet}
           hasIsland={counter.hasIsland}
           defaultEmail={verifiedEmail}
+          defaultName={verifiedName}
+          defaultPhone={verifiedPhone}
           roomData={room}
           placedCabinets={placed}
         />
