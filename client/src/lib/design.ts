@@ -316,6 +316,20 @@ export function placedHeight(p: PlacedCabinet): number {
 // cabinets that hang from the ceiling/soffit line. A standard 30" wall cabinet
 // bottomed at 54" also tops out here (84").
 export const WALL_CABINET_TOP = STD.WALL_MOUNT_BOTTOM + STD.WALL_HEIGHT; // 84"
+
+// On taller ceilings the upper run hangs higher so its top finishes near the
+// ceiling instead of leaving a big dead gap. We leave a small reveal so crown
+// has room and the boxes don't jam into the ceiling. On a standard 8ft ceiling
+// this resolves to the classic 84" line, so existing layouts are unchanged.
+export const CEILING_SOFFIT_REVEAL_IN = 12; // gap from ceiling to top of uppers on tall ceilings
+export function wallCabinetTopLine(room?: { ceilingHeight?: number } | null): number {
+  const ceil = roomCeiling(room);
+  // Standard 8ft (96"): keep the historical 84" line exactly.
+  if (ceil <= DEFAULT_CEILING_HEIGHT) return WALL_CABINET_TOP;
+  // Taller ceilings: hang the run so its top sits one reveal below the ceiling,
+  // but never below the historical 84" line (uppers only move UP, never down).
+  return Math.max(WALL_CABINET_TOP, ceil - CEILING_SOFFIT_REVEAL_IN);
+}
 // Standard mount line: the BOTTOM of a wall cabinet sits 54" above the floor
 // (18" above a 36" counter). Standard wall cabinets are bottom-anchored here,
 // so 30"/36"/42" boxes all start at 54" and rise higher as they get taller.
@@ -661,7 +675,14 @@ export function isStacker(p: { description?: string | null; masterCode?: string 
   return /\bstacker\b|\bstack(?:ing|ed)?\b/.test(hay);
 }
 
-export function elevationBox(p: PlacedCabinet): { bottom: number; height: number } {
+export function elevationBox(
+  p: PlacedCabinet,
+  room?: { ceilingHeight?: number } | null
+): { bottom: number; height: number } {
+  // The top line the upper run finishes at. On a standard 8ft ceiling this is
+  // the historical 84" line; on taller ceilings the run hangs higher so it
+  // finishes near the ceiling (see wallCabinetTopLine).
+  const topLine = wallCabinetTopLine(room);
   if (p.placement === "appliance") {
     const def = APPLIANCES.find((a) => a.masterCode === p.masterCode);
     if (def) return { bottom: def.elevBottom, height: def.elevHeight };
@@ -674,17 +695,19 @@ export function elevationBox(p: PlacedCabinet): { bottom: number; height: number
       return { bottom: p.mountBottom, height: h };
     }
     // 2) Glass stackers sit ON TOP of the wall cabinet below them: their bottom
-    //    rests on the standard 84" top line and they grow up to the ceiling.
+    //    rests on the upper-run top line and they grow up toward the ceiling.
+    //    On a taller ceiling the top line rises, so the stacker hangs higher.
     if (isStacker(p)) {
-      return { bottom: WALL_CABINET_TOP, height: h };
+      return { bottom: topLine, height: h };
     }
     // 3) SHORT wall cabinets (under 30" tall — e.g. 12"/15"/18"/24" bridges and
-    //    over-appliance boxes) ride HIGH: they stay TOP-anchored at the 84" line
-    //    so their TOP finishes flush with standard 30" uppers and their bottom
-    //    moves UP the wall accordingly (a 12" bottoms at 72", a 24" at 60"). The
-    //    bottom is clamped at 0 so an oversized box never goes below the floor.
+    //    over-appliance boxes) ride HIGH: they stay TOP-anchored at the upper-run
+    //    top line so their TOP finishes flush with the standard uppers and their
+    //    bottom moves UP the wall accordingly (a 12" bottoms at 72" on an 8ft
+    //    ceiling, higher on a taller one). Clamped at 0 so an oversized box never
+    //    goes below the floor.
     if (h < 30) {
-      return { bottom: Math.max(0, WALL_CABINET_TOP - h), height: h };
+      return { bottom: Math.max(0, topLine - h), height: h };
     }
     // 4) Standard/tall wall cabinets (30"+) are BOTTOM-anchored at the standard
     //    54" mount line (18" above a 36" counter), so 30", 36" and 42" boxes all
@@ -2216,6 +2239,34 @@ export interface CountertopSurface {
  *
  * Pure + deterministic so it can be unit-tested independently of rendering.
  */
+// True when a placed item is a real, countertop-BEARING base cabinet: it must
+// sit in the base zone AND be a solid box that a slab can rest on. This covers
+// standard bases, drawer bases, sink bases (incl. vanity-sink / ADA-sink), and
+// blind/corner bases. It deliberately EXCLUDES anything in the base zone that
+// does NOT carry a counter:
+//   - decorative end panels / refrigerator + dishwasher panels / skins
+//     (isPanelItem — 3/4" flat stock, not a box)
+//   - filler / scribe strips (FILL-* — a sliver, not a cabinet)
+// Tall cabinets and appliances are already excluded by the placement check.
+export function bearsCountertop(p: {
+  placement: Placement;
+  masterCode?: string | null;
+  description?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  if (p.placement !== "base") return false;
+  // Sink bases ARE counter-bearing even though their tops are cut for the sink.
+  if (isSinkBaseCabinet(p)) return true;
+  // Flat panels / skins carry no counter.
+  if (isPanelItem(p)) return false;
+  // Filler / scribe strips (FILL-* or a "Filler" sub-category) are non-bearing.
+  const code = (p.masterCode ?? "").toUpperCase();
+  if (/^FILL[-_ ]?\d/.test(code)) return false;
+  const hay = `${p.subCategory ?? ""} ${p.description ?? ""}`.toLowerCase();
+  if (/\bfiller\b|\bscribe\b/.test(hay)) return false;
+  return true;
+}
+
 export function countertopSurfaces(
   placed: PlacedCabinet[],
   room: RoomData,
@@ -2224,7 +2275,9 @@ export function countertopSurfaces(
   const out: CountertopSurface[] = [];
   const D = COUNTERTOP_DEPTH_IN;
   for (const p of placed) {
-    if (p.placement !== "base") continue;
+    // Only true countertop-bearing base cabinets get a slab (base/sink-base/
+    // island bases) — never tall cabinets, appliances, panels, or fillers.
+    if (!bearsCountertop(p)) continue;
     const { w } = rotatedSize(p);
     const side = cabinetWall(p, room);
     // Blind corner bases install pulled away from the corner (by the filler /

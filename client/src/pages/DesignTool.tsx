@@ -1566,12 +1566,12 @@ export default function DesignTool() {
       prev.map((p) => {
         if (p.uid !== selectedUid) return p;
         if (p.placement !== "wall") return p;
-        const cur = elevationBox(p).bottom;
+        const cur = elevationBox(p, room).bottom;
         const next = Math.max(0, Math.round((cur + deltaIn) * 10) / 10);
         return { ...p, mountBottom: next };
       })
     );
-  }, [selectedUid]);
+  }, [selectedUid, room]);
 
   // Clear the override so the cabinet returns to its default rule position.
   const resetMountHeight = useCallback(() => {
@@ -2478,7 +2478,7 @@ export default function DesignTool() {
                       <ChevronUp className="h-3.5 w-3.5" />
                     </Button>
                     <span className="text-[11px] font-mono tabular-nums text-foreground min-w-[34px] text-center">
-                      {Math.round(elevationBox(selectedCab).bottom)}″
+                      {Math.round(elevationBox(selectedCab, room).bottom)}″
                     </span>
                     <Button
                       variant="outline"

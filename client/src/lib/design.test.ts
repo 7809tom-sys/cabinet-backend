@@ -13,7 +13,8 @@ import {
   miteredTrimInches, cabinetWall, countertopArea,
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
   doorPanelKind, wallSpanMeasure,
-  countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH,
+  countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
+  wallCabinetTopLine,
   freeSegmentsOnWall, wallPlacementAt,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
@@ -889,6 +890,22 @@ describe("countertopSurfaces", () => {
     expect(countertopSurfaces([wall, tall], ROOM_12x10)).toHaveLength(0);
   });
 
+  it("covers a sink base (counter-bearing even though the top is cut)", () => {
+    const sb = cab({ uid: "sb", masterCode: "SB-36", description: "36in Sink Base", placement: "base", width: 36, depth: 24, x: 0, y: 0 });
+    expect(countertopSurfaces([sb], ROOM_12x10)).toHaveLength(1);
+  });
+
+  it("does NOT cover a base-zone decorative end panel or refrigerator panel", () => {
+    const endPanel = cab({ uid: "ep", masterCode: "BDEP", description: "Base Decorative End Panel", placement: "base", width: 24, depth: 24, x: 0, y: 0 });
+    const fridgePanel = cab({ uid: "rp", masterCode: "DWR-3", description: "Refrigerator End Panel", placement: "base", width: 3, depth: 24, x: 30, y: 0 });
+    expect(countertopSurfaces([endPanel, fridgePanel], ROOM_12x10)).toHaveLength(0);
+  });
+
+  it("does NOT cover a filler / scribe strip placed in the base zone", () => {
+    const filler = cab({ uid: "f", masterCode: "FILL-3", description: '3" Filler / Scribe Strip', subCategory: "Filler", placement: "base", width: 3, depth: 24, x: 0, y: 0 });
+    expect(countertopSurfaces([filler], ROOM_12x10)).toHaveLength(0);
+  });
+
   it("pins a front-wall slab to the bottom of the room", () => {
     const front = cab({ placement: "base", width: 24, depth: 24, x: 10, y: 96 });
     const [s] = countertopSurfaces([front], ROOM_12x10);
@@ -918,6 +935,26 @@ describe("countertopSurfaces", () => {
     const [s] = countertopSurfaces([blind], ROOM_12x10);
     expect(s.x).toBe(0);
     expect(s.width).toBe(42); // 36 + 6" travel
+  });
+});
+
+describe("bearsCountertop", () => {
+  it("is true for standard, drawer, and sink bases", () => {
+    expect(bearsCountertop({ placement: "base", masterCode: "B-24", description: "Base 24" })).toBe(true);
+    expect(bearsCountertop({ placement: "base", masterCode: "DB-24-3", description: "Drawer Base 24" })).toBe(true);
+    expect(bearsCountertop({ placement: "base", masterCode: "SB-36", description: "36in Sink Base" })).toBe(true);
+    expect(bearsCountertop({ placement: "base", masterCode: "VSD-36", description: "Vanity Sink Base" })).toBe(true);
+  });
+  it("is false for tall, wall, and appliances", () => {
+    expect(bearsCountertop({ placement: "tall", masterCode: "U-24-84" })).toBe(false);
+    expect(bearsCountertop({ placement: "wall", masterCode: "W-30-30" })).toBe(false);
+    expect(bearsCountertop({ placement: "appliance", masterCode: "FRIDGE-36" })).toBe(false);
+  });
+  it("is false for base-zone panels, skins, and fillers", () => {
+    expect(bearsCountertop({ placement: "base", masterCode: "BDEP", description: "Base Decorative End Panel" })).toBe(false);
+    expect(bearsCountertop({ placement: "base", masterCode: "DWR-3", description: "Refrigerator End Panel" })).toBe(false);
+    expect(bearsCountertop({ placement: "base", masterCode: "WS-12-42", description: "Wall Skin", subCategory: "Skin" })).toBe(false);
+    expect(bearsCountertop({ placement: "base", masterCode: "FILL-3", description: '3" Filler / Scribe Strip', subCategory: "Filler" })).toBe(false);
   });
 });
 
@@ -1110,6 +1147,48 @@ describe("wall cabinet elevation rules", () => {
   it("isStacker detects stacker cabinets and ignores plain wall cabinets", () => {
     expect(isStacker({ description: "30x12 Stacker Wall Cabinet with Glass Door" })).toBe(true);
     expect(isStacker({ description: "30\" x 12\" Bridge Wall Cabinet" })).toBe(false);
+  });
+
+  // ── Taller-ceiling behavior ───────────────────────────────────────────────
+  it("keeps the 84in top line on a standard 8ft ceiling (room passed)", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+    const bridge = cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "Bridge Wall" });
+    const box = elevationBox(bridge, room);
+    expect(box.bottom).toBe(72);
+    expect(box.bottom + box.height).toBe(84);
+  });
+
+  it("hangs a short bridge upper higher on a 10ft ceiling so it finishes near the ceiling", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 120 };
+    // topLine = 120 - 12 reveal = 108; a 12in bridge bottoms at 96, tops at 108.
+    const bridge = cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "Bridge Wall" });
+    const box = elevationBox(bridge, room);
+    expect(box.bottom).toBe(96);
+    expect(box.bottom + box.height).toBe(108);
+  });
+
+  it("hangs a glass stacker from the higher top line on a 9ft ceiling", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+    // topLine = 108 - 12 = 96; stacker sits ON that line.
+    const stacker = cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12GD", description: "Stacker Wall Cabinet with Glass Door" });
+    const box = elevationBox(stacker, room);
+    expect(box.bottom).toBe(96);
+    expect(box.bottom + box.height).toBe(108);
+  });
+
+  it("leaves a standard 30in upper bottom-anchored at 54in regardless of ceiling", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 120 };
+    const std = cab({ placement: "wall", width: 30, height: 30, masterCode: "W-30-30", description: "30x30 Wall" });
+    const box = elevationBox(std, room);
+    expect(box.bottom).toBe(54);
+    expect(box.bottom + box.height).toBe(84);
+  });
+
+  it("wallCabinetTopLine returns 84 for 8ft and rises with taller ceilings", () => {
+    expect(wallCabinetTopLine({ ceilingHeight: 96 })).toBe(84);
+    expect(wallCabinetTopLine({ ceilingHeight: 108 })).toBe(96);
+    expect(wallCabinetTopLine({ ceilingHeight: 120 })).toBe(108);
+    expect(wallCabinetTopLine(undefined)).toBe(84);
   });
 });
 

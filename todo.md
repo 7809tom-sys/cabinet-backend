@@ -1546,14 +1546,14 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Add editable ceiling height (feet/inches) to room/design state (default 96")
 - [x] Persist ceiling height in saved design draft/load
 - [x] Elevation/Front view uses ceiling height for wall bounds (affects stacked wall cabinets, crown headroom, light rail)
-- [ ] Wall-cabinet mount + crown math respects taller ceilings
+- [x] Wall-cabinet mount + crown math respects taller ceilings — new wallCabinetTopLine(room) (= 84" on 8ft, rises to ceiling − 12" soffit reveal on 9/10ft, never below 84"); elevationBox(p, room) hangs short bridge/over-appliance + glass-stacker uppers from that higher line so they finish near the ceiling, while standard 30"+ uppers stay bottom-anchored at 54"; crown band (drawn at box top) follows automatically. Room threaded through ElevationView + DesignTool mount UI. 5 new vitest cases
 - [x] vitest where ceiling height affects derived layout
 
 
 ## Design Tool: countertop draws over refrigerator/appliances (bug)
 - [x] Countertop slab must exclude appliances (refrigerator, range, dishwasher) and tall cabinets
-- [ ] Only cover base / sink-base / peninsula / island base cabinets
-- [ ] Verify in plan + elevation + split views
+- [x] Only cover base / sink-base / peninsula / island base cabinets — new bearsCountertop() helper (base placement + sink-base; excludes panels/skins via isPanelItem and FILL-*/"Filler"/"Scribe" strips); countertopSurfaces (plan) + ElevationView band both filter through it
+- [x] Verify in plan + elevation + split views — plan slab + elevation band share bearsCountertop (split renders both); tall/appliances already excluded by placement; 7 new vitest cases (bearsCountertop + countertopSurfaces panel/filler/sink-base)
 - [x] vitest on countertopSurfaces excluding appliances/tall
 
 
@@ -1596,7 +1596,7 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Server payment + order capture + vitest (authorizeNet.ts charge helper; payments router charge/adminGetSettings/adminSaveSettings/publicConfig/adminList; payment_settings + payments tables; approved charge marks the order confirmed; 13 tests in authorizeNet.test.ts + payments.test.ts)
 
 ## UI fixes (2026-06-24 user request)
-- [ ] Order review / line items: only one line item is visible — must show ALL line items (at least 10 visible, no truncation/scroll-hiding)
+- [~] Order review / line items: only one line item visible — set aside by user ("forget it", 2026-06-25); could not reproduce, awaiting screen confirmation if revisited
 - [x] Move the chat widget from the bottom-right corner to the top-right corner (ChatWidget launcher + panel now anchored top-20/top-36 right-5)
 
 ## More UI requests (2026-06-24 batch 2)

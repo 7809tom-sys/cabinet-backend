@@ -2,7 +2,7 @@ import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
   type DoorPanelKind, type WallSide, cabinetWall, resolveSwing,
-  countertopMaterial, roomCeiling,
+  countertopMaterial, roomCeiling, bearsCountertop,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -151,7 +151,7 @@ export function ElevationView({
           const TOL = 1.5; // inches: treat near-touching base cabinets as one run
           // Base-cabinet spans along this wall, sorted by start position.
           const spans = sorted
-            .filter((p) => p.placement === "base")
+            .filter((p) => bearsCountertop(p))
             .map((p) => {
               const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
               const posAlong = horizontal ? p.x : p.y;
@@ -196,7 +196,7 @@ export function ElevationView({
         {sorted.map((p) => {
           const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
           const posAlong = horizontal ? p.x : p.y;
-          const { bottom, height } = elevationBox(p);
+          const { bottom, height } = elevationBox(p, room);
           const isWall = p.placement === "wall";
           const isAppliance = p.placement === "appliance";
           const isSelected = p.uid === selectedUid;
@@ -304,7 +304,7 @@ export function ElevationView({
         {crown && sorted.filter((p) => p.placement === "wall").map((p) => {
           const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
           const posAlong = horizontal ? p.x : p.y;
-          const { bottom, height } = elevationBox(p);
+          const { bottom, height } = elevationBox(p, room);
           return (
             <div
               key={`crown-${p.uid}`}
@@ -329,7 +329,7 @@ export function ElevationView({
         {lightRail && sorted.filter((p) => p.placement === "wall").map((p) => {
           const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
           const posAlong = horizontal ? p.x : p.y;
-          const { bottom } = elevationBox(p);
+          const { bottom } = elevationBox(p, room);
           return (
             <div
               key={`lightrail-${p.uid}`}
@@ -382,8 +382,8 @@ export function ElevationView({
             const pEnd = pAlong + pSize;
             // Only draw where the two cabinets actually touch (within 1.5").
             if (Math.abs(nextAlong - pEnd) > 1.5) return null;
-            const { bottom, height } = elevationBox(p);
-            const nextBox = elevationBox(next);
+            const { bottom, height } = elevationBox(p, room);
+            const nextBox = elevationBox(next, room);
             const top = Math.max(bottom + height, nextBox.bottom + nextBox.height);
             const base = Math.min(bottom, nextBox.bottom);
             const widthPx = Math.max(3, BATTEN_WIDTH_IN * ppi);
