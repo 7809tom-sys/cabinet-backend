@@ -10,6 +10,8 @@ import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { realImageUrl } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { translateSpec } from "@/lib/i18n/specPhrases";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Family page — the DOOR-STYLE-FAMILY-first shopping experience.
@@ -46,14 +48,14 @@ interface FamilyItem extends CabinetLike {
 }
 
 // Group the DB categories into the buyer-facing room-section filters.
-const TYPE_FILTERS: { key: string; label: string; match: (cat: string) => boolean }[] = [
-  { key: "all", label: "All Cabinets", match: () => true },
-  { key: "base", label: "Base", match: (c) => c === "base" },
-  { key: "wall", label: "Wall", match: (c) => c === "wall" },
-  { key: "tall", label: "Tall & Pantry", match: (c) => c === "tall" },
-  { key: "vanity", label: "Vanity", match: (c) => c === "vanity" },
-  { key: "ada", label: "ADA", match: (c) => c === "ada" },
-  { key: "accessory", label: "Trim & Accessories", match: (c) => c === "accessory" },
+const TYPE_FILTERS: { key: string; labelKey: string; match: (cat: string) => boolean }[] = [
+  { key: "all", labelKey: "fam_f_all", match: () => true },
+  { key: "base", labelKey: "fam_f_base", match: (c) => c === "base" },
+  { key: "wall", labelKey: "fam_f_wall", match: (c) => c === "wall" },
+  { key: "tall", labelKey: "fam_f_tall", match: (c) => c === "tall" },
+  { key: "vanity", labelKey: "fam_f_vanity", match: (c) => c === "vanity" },
+  { key: "ada", labelKey: "fam_f_ada", match: (c) => c === "ada" },
+  { key: "accessory", labelKey: "fam_f_accessory", match: (c) => c === "accessory" },
 ];
 
 function FamilyCabinetCard({
@@ -65,6 +67,7 @@ function FamilyCabinetCard({
   finish: string;
   styleId: number;
 }) {
+  const { lang } = useLanguage();
   return (
     <Link href={`/catalog/${item.masterCode}?style=${styleId}`}>
       <div className="cabinet-card group rounded-xl border border-border bg-card hover:border-primary/40 cursor-pointer overflow-hidden transition-colors">
@@ -98,7 +101,7 @@ function FamilyCabinetCard({
           </div>
 
           <p className="text-sm font-medium text-foreground mt-2 leading-snug line-clamp-2">
-            {item.description}
+            {translateSpec(item.description, lang)}
           </p>
 
           {(item.width || item.height || item.depth) && (
@@ -124,6 +127,7 @@ function FamilyCabinetCard({
 }
 
 export default function Family({ styleCode }: { styleCode: string }) {
+  const { t } = useLanguage();
   const [activeType, setActiveType] = useState("all");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -209,15 +213,15 @@ export default function Family({ styleCode }: { styleCode: string }) {
     return (
       <div className="container py-16 text-center">
         <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
-        <h2 className="font-serif text-2xl font-bold mb-2">Door Style Not Found</h2>
+        <h2 className="font-serif text-2xl font-bold mb-2">{t("fam_not_found_title")}</h2>
         <p className="text-muted-foreground mb-4">
-          We couldn't find a door style with code "{styleCode}".
+          {t("fam_not_found_body", { code: styleCode })}
         </p>
         <Link
           href="/styles"
           className="text-sm font-medium text-primary hover:underline"
         >
-          Browse all door styles
+          {t("fam_browse_all")}
         </Link>
       </div>
     );
@@ -230,7 +234,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
       >
         <ChevronLeft className="h-4 w-4" />
-        All door styles
+        {t("fam_back")}
       </Link>
 
       {/* ── Family header: room scene + sample door + the facts ───────────────── */}
@@ -254,34 +258,33 @@ export default function Family({ styleCode }: { styleCode: string }) {
         <div className="relative grid md:grid-cols-[1.4fr_1fr] gap-6 p-6 md:p-10 items-center">
           <div className="max-w-xl">
             <p className="text-white/70 text-xs font-medium uppercase tracking-wider mb-2">
-              Door Style Collection
+              {t("fam_collection")}
             </p>
             <h1 className="font-serif text-3xl md:text-4xl font-bold text-white mb-3">
               {familyName}
             </h1>
             <p className="text-white/85 text-sm md:text-base mb-5">
-              Shop the complete {familyName} kitchen — base, wall, tall, vanity and
-              trim, all in this one finish, with member trade pricing built in.
+              {t("fam_intro", { name: familyName })}
             </p>
             <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm">
               {s.doorStyle && (
                 <p className="text-white/90">
-                  <span className="text-white/60">Door:</span> {s.doorStyle}
+                  <span className="text-white/60">{t("fam_door")}</span> {s.doorStyle}
                 </p>
               )}
               {s.woodSpecies && (
                 <p className="text-white/90">
-                  <span className="text-white/60">Wood:</span> {s.woodSpecies}
+                  <span className="text-white/60">{t("fam_wood")}</span> {s.woodSpecies}
                 </p>
               )}
               {s.finish && (
                 <p className="text-white/90">
-                  <span className="text-white/60">Finish:</span> {s.finish}
+                  <span className="text-white/60">{t("fam_finish")}</span> {s.finish}
                 </p>
               )}
               {s.color && (
                 <p className="text-white/90">
-                  <span className="text-white/60">Color:</span> {s.color}
+                  <span className="text-white/60">{t("fam_color")}</span> {s.color}
                 </p>
               )}
             </div>
@@ -291,7 +294,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
             {siblings.length > 1 && (
               <div className="mt-6">
                 <p className="text-white/70 text-xs font-medium uppercase tracking-wider mb-2">
-                  Choose your finish
+                  {t("fam_choose_finish")}
                 </p>
                 <div className="flex flex-wrap gap-2.5">
                   {siblings.map((sib) => {
@@ -342,7 +345,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
             )}
             <div className="min-w-0">
               <p className="text-xs font-semibold text-foreground truncate">
-                {familyName} door &amp; finish
+                {familyName} {t("fam_door_finish")}
               </p>
               <p className="text-[11px] text-muted-foreground truncate">
                 {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
@@ -366,7 +369,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
                 <DoorStyleSwatch style={s} className="h-44 w-auto" />
               )}
               <p className="text-center text-[11px] text-muted-foreground mt-2">
-                {familyName} door &amp; finish
+                {familyName} {t("fam_door_finish")}
               </p>
             </div>
           </div>
@@ -386,14 +389,14 @@ export default function Family({ styleCode }: { styleCode: string }) {
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              {f.label}
+              {t(f.labelKey as never)}
             </button>
           ))}
         </div>
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder={`Search ${familyName} cabinets…`}
+            placeholder={t("fam_search_ph", { name: familyName })}
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -418,14 +421,16 @@ export default function Family({ styleCode }: { styleCode: string }) {
       ) : visible.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No cabinets match this filter</p>
-          <p className="text-sm mt-1">Try a different type or clear your search.</p>
+          <p className="font-medium">{t("fam_no_match_title")}</p>
+          <p className="text-sm mt-1">{t("fam_no_match_body")}</p>
         </div>
       ) : (
         <>
           <p className="text-sm text-muted-foreground mb-4">
-            Showing {visible.length} cabinet{visible.length === 1 ? "" : "s"} in{" "}
-            {familyName}
+            {t(visible.length === 1 ? "fam_showing_one" : "fam_showing_many", {
+              count: visible.length,
+              name: familyName,
+            })}
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {visible.map((item) => (

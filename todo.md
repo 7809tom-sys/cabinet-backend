@@ -1766,3 +1766,10 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Build Sheet: group cabinet line items into collapsible sections (Base [incl. full-height/tall base merged], Wall, Appliances) — no separate tall section
 - [x] Build Sheet: wrap fillers/trim/countertop/add-ons in a collapsible "Trim & Extras" group; keep Estimated Total + Export always visible
 - [x] Update buildSheetCsv.test.ts for the new Color / Finish column (8 tests passing)
+
+
+## Bilingual (EN/ES) — Catalog descriptions + Family page (extension)
+- [x] Built deterministic Spanish spec-phrase translator (translateSpec) with ordered phrase map (door/drawer/shelf counts, ADA, vanity, sink base, lazy susan, microwave/oven combo, fillers, end panels, crown/trim, glass doors, refrigerator/range hood, L/R hand) — 13 unit tests passing
+- [x] Wired translateSpec into Catalog cards, CabinetDetail header, StorefrontShop affiliate cards + recommender, and Family page cabinet cards (specs read in ES when active; unknown vocab preserved)
+- [x] Translated Family (door-style collection) page chrome to ES: collection label, intro, Door/Wood/Finish/Color labels, "Choose your finish", filter tabs (Base/Pared/Altos y Despensa/Tocador/Molduras y Accesorios), search placeholder, not-found state, empty state, "Showing N cabinets" count (with {count}/{name} interpolation)
+- [x] Added 26 EN + 26 ES Family keys to site dictionary; updated parity test allowlist (fam_f_base, fam_f_ada, fam_color); 940 tests pass, tsc clean

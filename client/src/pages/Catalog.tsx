@@ -11,6 +11,7 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { translateSpec } from "@/lib/i18n/specPhrases";
 
 // Door-style tiles for the catalog landing — the shop is organized by door style,
 // not Base/Wall/Tall categories. Each links into the full Door Styles experience.
@@ -99,7 +100,7 @@ interface CabinetItem extends CabinetLike {
 }
 
 function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: number | null }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const href = styleId
     ? `/catalog/${cabinet.masterCode}?style=${styleId}`
     : `/catalog/${cabinet.masterCode}`;
@@ -127,7 +128,7 @@ function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: num
           </div>
 
           <p className="text-sm font-medium text-foreground mt-2 leading-snug line-clamp-2">
-            {cabinet.description}
+            {translateSpec(cabinet.description, lang)}
           </p>
 
           {(cabinet.width || cabinet.height || cabinet.depth) && (

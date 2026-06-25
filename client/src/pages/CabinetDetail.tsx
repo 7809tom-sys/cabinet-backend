@@ -25,6 +25,8 @@ import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto, realImageUrl } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
 import { useCart } from "@/contexts/CartContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { translateSpec } from "@/lib/i18n/specPhrases";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
 // Retail storefront: guests/homeowners see retail (homeowner) pricing with a
@@ -196,6 +198,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     ? ["homeowner", "contractor", "wholesale"]
     : ["homeowner"];
   const [qty, setQty] = useState(1);
+  const { lang } = useLanguage();
 
   const { data: cabinet, isLoading: cabinetLoading } = trpc.cabinets.byCode.useQuery({
     masterCode,
@@ -486,7 +489,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             <Badge variant="secondary" className="ml-2 text-xs">{cabinetTypeLabel(cabinet)}</Badge>
           </div>
           <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground mt-2 mb-1">
-            {cabinet.description}
+            {translateSpec(cabinet.description, lang)}
           </h1>
 
           {/* Door style selector (price follows the chosen style) */}

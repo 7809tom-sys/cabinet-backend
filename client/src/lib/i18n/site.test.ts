@@ -40,6 +40,9 @@ describe("SITE_STRINGS", () => {
       "dt_bs_color_2", // "Color 2" reads the same in ES
       "dt_bs_incl", // "incl." abbreviation kept short, same in ES
       "dt_tab_base", // "Base" is the same word in ES
+      "fam_f_base", // "Base" is the same word in ES
+      "fam_f_ada", // "ADA" is a proper acronym
+      "fam_color", // "Color:" reads the same in ES
     ]);
     const identical = enKeys.filter(
       (k) =>

@@ -13,6 +13,7 @@ import {
   type Lang,
   type StringKey,
 } from "@/lib/storefrontI18n";
+import { translateSpec } from "@/lib/i18n/specPhrases";
 import {
   ArrowRight, Check, Lock, RefreshCw, Sparkles, Search, Truck, ChevronRight,
 } from "lucide-react";
@@ -520,7 +521,7 @@ function CatalogCard({
 
   const showing = glass && upsell ? upsell : item;
   const code = showing.masterCode;
-  const description = showing.description;
+  const description = translateSpec(showing.description, lang);
   // Apply the affiliate's white-label markup to the platform homeowner price.
   const price = branding.applyMarkup(showing.homeownerPrice, {
     styleId,
@@ -625,7 +626,7 @@ function Recommender({
                   <span className="font-mono text-xs font-semibold" style={{ color: brand.primary }}>
                     {it.masterCode}
                   </span>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{it.description}</p>
+                  <p className="line-clamp-2 text-xs text-muted-foreground">{translateSpec(it.description, lang)}</p>
                   <div className="mt-1 text-sm font-bold">{money(branding.applyMarkup(it.homeownerPrice, { styleId: family.styleId, category: it.category }))}</div>
                 </div>
               ))}
