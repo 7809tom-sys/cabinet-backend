@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/contexts/CartContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { CabinetImage } from "@/components/CabinetImage";
 import { trpc } from "@/lib/trpc";
 import { normalizeZip } from "@shared/availability";
@@ -17,13 +18,11 @@ import { toast } from "sonner";
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
 
-function money(n: number | null): string {
-  if (n == null) return "Quoted";
-  return `$${n.toFixed(2)}`;
-}
-
 export default function Cart() {
+  const { t } = useLanguage();
   const { items, removeItem, setQty, clear, zip, setZip, subtotal, count } = useCart();
+  const money = (n: number | null): string =>
+    n == null ? t("crt_quoted") : `$${n.toFixed(2)}`;
   const [, navigate] = useLocation();
   const [zipInput, setZipInput] = useState(zip ?? "");
 
@@ -61,11 +60,11 @@ export default function Cart() {
 
   const applyZip = () => {
     if (!normalizedZip) {
-      toast.error("Enter a valid 5-digit ZIP code.");
+      toast.error(t("crt_zip_invalid"));
       return;
     }
     setZip(normalizedZip);
-    toast.success(`Showing availability for ${normalizedZip}`);
+    toast.success(`${t("crt_zip_showing")} ${normalizedZip}`);
   };
 
   // Supply-line lock: an order ships from ONE distributor (supply line). Door
@@ -84,7 +83,7 @@ export default function Cart() {
   const requestOrder = () => {
     if (items.length === 0) return;
     if (isMixedSupplier) {
-      toast.error("An order ships from one supplier. Remove items so all lines share one supplier.");
+      toast.error(t("crt_one_supplier_err"));
       return;
     }
     const prefill = items.map((i) => ({ code: i.masterCode, qty: i.qty }));
@@ -102,17 +101,16 @@ export default function Cart() {
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
           <ShoppingCart className="h-7 w-7 text-muted-foreground" />
         </div>
-        <h1 className="font-serif text-3xl font-bold mb-3">Your cart is empty</h1>
+        <h1 className="font-serif text-3xl font-bold mb-3">{t("crt_empty_title")}</h1>
         <p className="text-muted-foreground mb-8">
-          Browse the catalog or build a kitchen in the Design Tool, then add cabinets here to
-          request a quote.
+          {t("crt_empty_sub")}
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Button asChild>
-            <Link href="/catalog">Browse Catalog</Link>
+            <Link href="/catalog">{t("crt_browse_catalog")}</Link>
           </Button>
           <Button variant="outline" className="bg-background" asChild>
-            <Link href="/design">Open Design Tool</Link>
+            <Link href="/design">{t("crt_open_design")}</Link>
           </Button>
         </div>
       </div>
@@ -122,9 +120,9 @@ export default function Cart() {
   return (
     <div className="container max-w-5xl py-10">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-serif text-3xl md:text-4xl font-bold">Your Cart</h1>
+        <h1 className="font-serif text-3xl md:text-4xl font-bold">{t("crt_title")}</h1>
         <Button variant="ghost" size="sm" onClick={clear} className="text-muted-foreground">
-          <Trash2 className="mr-1.5 h-4 w-4" /> Clear cart
+          <Trash2 className="mr-1.5 h-4 w-4" /> {t("crt_clear")}
         </Button>
       </div>
 
@@ -161,14 +159,14 @@ export default function Cart() {
                       {a.inRange ? (
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
                           <Truck className="h-3 w-3" />
-                          Available{a.nearestMiles != null ? ` · ~${a.nearestMiles} mi` : ""}
-                          {a.leadTimeDays != null ? ` · ~${a.leadTimeDays}-day lead` : ""}
+                          {t("crt_available")}{a.nearestMiles != null ? ` · ~${a.nearestMiles} mi` : ""}
+                          {a.leadTimeDays != null ? ` · ~${a.leadTimeDays} ${t("crt_day_lead")}` : ""}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs text-amber-600">
                           <AlertTriangle className="h-3 w-3" />
-                          Out of service range for {normalizedZip}
-                          {a.nearestMiles != null ? ` (nearest ~${a.nearestMiles} mi)` : ""}
+                          {t("crt_out_of_range_for")} {normalizedZip}
+                          {a.nearestMiles != null ? ` (${t("crt_nearest")} ~${a.nearestMiles} mi)` : ""}
                         </span>
                       )}
                     </div>
@@ -182,7 +180,7 @@ export default function Cart() {
                     size="icon"
                     className="h-8 w-8 bg-background"
                     onClick={() => setQty(item.masterCode, item.styleId, item.tier, item.qty - 1)}
-                    aria-label="Decrease quantity"
+                    aria-label={t("crt_decrease_qty")}
                   >
                     <Minus className="h-3.5 w-3.5" />
                   </Button>
@@ -192,7 +190,7 @@ export default function Cart() {
                     size="icon"
                     className="h-8 w-8 bg-background"
                     onClick={() => setQty(item.masterCode, item.styleId, item.tier, item.qty + 1)}
-                    aria-label="Increase quantity"
+                    aria-label={t("crt_increase_qty")}
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
@@ -200,7 +198,7 @@ export default function Cart() {
 
                 <div className="w-24 text-right">
                   <div className="text-sm font-semibold">{money(lineTotal)}</div>
-                  <div className="text-xs text-muted-foreground">{money(item.unitPrice)} ea</div>
+                  <div className="text-xs text-muted-foreground">{money(item.unitPrice)} {t("crt_each")}</div>
                 </div>
 
                 <Button
@@ -208,7 +206,7 @@ export default function Cart() {
                   size="icon"
                   className="h-8 w-8 text-muted-foreground hover:text-destructive"
                   onClick={() => removeItem(item.masterCode, item.styleId, item.tier)}
-                  aria-label="Remove item"
+                  aria-label={t("crt_remove_item")}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -219,22 +217,22 @@ export default function Cart() {
 
         {/* Summary */}
         <div className="lg:sticky lg:top-24 h-fit rounded-xl border border-border bg-card p-5">
-          <h2 className="font-serif text-lg font-semibold">Order Summary</h2>
+          <h2 className="font-serif text-lg font-semibold">{t("crt_order_summary")}</h2>
           <Separator className="my-4" />
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Items</span>
+              <span className="text-muted-foreground">{t("crt_items")}</span>
               <span className="font-medium">{count}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Estimated subtotal</span>
+              <span className="text-muted-foreground">{t("crt_est_subtotal")}</span>
               <span className="font-medium">${subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground inline-flex items-center gap-1">
-                <Truck className="h-3.5 w-3.5" /> Shipping
+                <Truck className="h-3.5 w-3.5" /> {t("crt_shipping")}
               </span>
-              <span className="text-xs text-muted-foreground">Quoted live on your order</span>
+              <span className="text-xs text-muted-foreground">{t("crt_shipping_quoted")}</span>
             </div>
           </div>
           <Separator className="my-4" />
@@ -242,39 +240,37 @@ export default function Cart() {
               list stays clean and readable. */}
           <div className="mb-3">
             <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5 text-primary" /> Check availability by ZIP
+              <MapPin className="h-3.5 w-3.5 text-primary" /> {t("crt_check_by_zip")}
             </div>
             <div className="flex gap-2">
               <Input
                 value={zipInput}
                 onChange={(e) => setZipInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && applyZip()}
-                placeholder="e.g. 75201"
+                placeholder={t("crt_zip_placeholder")}
                 inputMode="numeric"
                 className="h-9"
-                aria-label="Delivery ZIP code"
+                aria-label={t("crt_zip_aria")}
               />
               <Button size="sm" className="h-9" onClick={applyZip} disabled={availabilityQuery.isFetching}>
-                {availabilityQuery.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
+                {availabilityQuery.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : t("crt_check")}
               </Button>
             </div>
             {hasCheckedZip && (
               <p className="mt-1.5 text-[11px] text-muted-foreground">
                 {outOfRangeCount === 0
-                  ? "All items ship to your area."
-                  : `${outOfRangeCount} item${outOfRangeCount > 1 ? "s" : ""} may be out of range.`}
+                  ? t("crt_all_ship")
+                  : `${outOfRangeCount} ${outOfRangeCount > 1 ? t("crt_may_out_many") : t("crt_may_out_one")}`}
               </p>
             )}
           </div>
           <p className="mb-4 text-xs text-muted-foreground">
-            Shipping is quoted live when you submit your order — it is not added to this estimate.
-            Final pricing and any applicable fees are confirmed on the order request.
+            {t("crt_shipping_note")}
           </p>
           {outOfRangeCount > 0 && (
             <div className="mb-3 flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Some items are outside the service range for {normalizedZip}. You can still submit a
-              request and our team will confirm options.
+              {t("crt_out_range_warn_a")} {normalizedZip}. {t("crt_out_range_warn_b")}
             </div>
           )}
           {isMixedSupplier && (
@@ -282,10 +278,9 @@ export default function Cart() {
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div>
-                  An order ships from one supplier. Your cart mixes{" "}
-                  <span className="font-semibold">{supplierGroups.size}</span> suppliers. You can
-                  freely mix door styles and colors from the <span className="font-semibold">same</span> supplier
-                  (two-tone is welcome) — just remove items so all lines share one supplier.
+                  {t("crt_mixed_a")}{" "}
+                  <span className="font-semibold">{supplierGroups.size}</span> {t("crt_mixed_b")}{" "}
+                  <span className="font-semibold">{t("crt_mixed_same")}</span> {t("crt_mixed_c")}
                 </div>
               </div>
             </div>
@@ -296,10 +291,10 @@ export default function Cart() {
             onClick={requestOrder}
             disabled={isMixedSupplier}
           >
-            <Check className="mr-1.5 h-4 w-4" /> Request this order
+            <Check className="mr-1.5 h-4 w-4" /> {t("crt_request_order")}
           </Button>
           <Button variant="outline" className="mt-2 w-full bg-background" asChild>
-            <Link href="/catalog">Continue shopping</Link>
+            <Link href="/catalog">{t("crt_continue_shopping")}</Link>
           </Button>
         </div>
       </div>

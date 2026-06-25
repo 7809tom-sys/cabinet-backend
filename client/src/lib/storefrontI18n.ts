@@ -208,9 +208,23 @@ export function readInitialLang(): Lang {
 }
 
 /**
- * Storefront language hook. Returns the active language, a setter, and a
- * translator `t(key, vars?)` that interpolates `{var}` placeholders.
+ * Pure storefront translator — given a language, returns a `t(key, vars?)`
+ * function. Used by both the standalone hook and the context-bound hook so the
+ * translation logic lives in exactly one place.
  */
+export function makeStorefrontT(lang: Lang) {
+  return (key: StringKey, vars?: Record<string, string | number>) => {
+    const table = STOREFRONT_STRINGS[lang] ?? STOREFRONT_STRINGS.en;
+    let str: string = table[key] ?? STOREFRONT_STRINGS.en[key] ?? key;
+    if (vars) {
+      for (const [k, v] of Object.entries(vars)) {
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+      }
+    }
+    return str;
+  };
+}
+
 export function useStorefrontLang() {
   const [lang, setLangState] = useState<Lang>(readInitialLang);
 
@@ -229,16 +243,7 @@ export function useStorefrontLang() {
   );
 
   const t = useCallback(
-    (key: StringKey, vars?: Record<string, string | number>) => {
-      const table = STOREFRONT_STRINGS[lang] ?? STOREFRONT_STRINGS.en;
-      let str: string = table[key] ?? STOREFRONT_STRINGS.en[key] ?? key;
-      if (vars) {
-        for (const [k, v] of Object.entries(vars)) {
-          str = str.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
-        }
-      }
-      return str;
-    },
+    (key: StringKey, vars?: Record<string, string | number>) => makeStorefrontT(lang)(key, vars),
     [lang]
   );
 

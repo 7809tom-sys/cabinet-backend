@@ -1737,3 +1737,12 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 
 ## Spanish localization (deep)
 - [ ] Full Spanish must reach granular product detail, not just headlines: cabinet/door long descriptions AND spec phrases ("one shelf" -> "un entrepaño", "two doors" -> "dos puertas", "soft-close", "adjustable shelf", dimension wording). Decide approach for long-form: (1) auto-translate at display time vs (2) stored Spanish description column. Short structured spec phrases -> fixed Spanish phrase map regardless. AWAITING owner choice on long-form approach.
+
+
+## Session: Bilingual EN|ES (site-wide + storefronts)
+- [x] i18n foundation: LanguageContext + persisted EN|ES toggle in top nav, applies site-wide incl. affiliate/member storefronts
+- [~] Spanish dictionary for UI chrome + page copy. DONE: nav/topnav (desktop+mobile), Home (full), Catalog (full), Door Styles (full), global Cart (full). REMAINING: Design Tool, checkout/OrderBuilder, Account, Packages, Countertops, secondary pages.
+- [ ] Spanish spec-phrase map for structured cabinet specs (one shelf -> un entrepaño, two doors -> dos puertas, soft-close, adjustable shelf, dimensions)
+- [ ] Catalog long-form descriptions: server translate-on-demand + cache into ES (cabinets + door styles)
+- [ ] Spanish affiliate benefits PDF "Beneficios de Ser un Afiliado"
+- [ ] Tests, type-check, verify EN/ES across pages + a storefront, checkpoint

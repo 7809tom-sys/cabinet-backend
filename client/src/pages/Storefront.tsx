@@ -6,7 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useReferral } from "@/hooks/useReferral";
-import { useStorefrontLang } from "@/lib/storefrontI18n";
+import { useStorefrontLangGlobal as useStorefrontLang } from "@/contexts/LanguageContext";
 import { StorefrontShop } from "@/components/storefront/StorefrontShop";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import {

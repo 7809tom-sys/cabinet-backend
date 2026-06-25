@@ -10,6 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { CabinetImage } from "@/components/CabinetImage";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Door-style tiles for the catalog landing — the shop is organized by door style,
 // not Base/Wall/Tall categories. Each links into the full Door Styles experience.
@@ -98,6 +99,7 @@ interface CabinetItem extends CabinetLike {
 }
 
 function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: number | null }) {
+  const { t } = useLanguage();
   const href = styleId
     ? `/catalog/${cabinet.masterCode}?style=${styleId}`
     : `/catalog/${cabinet.masterCode}`;
@@ -131,9 +133,9 @@ function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: num
           {(cabinet.width || cabinet.height || cabinet.depth) && (
             <p className="text-xs text-muted-foreground mt-2">
               {[
-                cabinet.width && `W: ${cabinet.width}"`,
-                cabinet.height && `H: ${cabinet.height}"`,
-                cabinet.depth && `D: ${cabinet.depth}"`,
+                cabinet.width && `${t("cat_w")}: ${cabinet.width}"`,
+                cabinet.height && `${t("cat_h")}: ${cabinet.height}"`,
+                cabinet.depth && `${t("cat_d")}: ${cabinet.depth}"`,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -141,7 +143,7 @@ function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: num
           )}
 
           <div className="mt-3 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">View pricing →</span>
+            <span className="text-xs text-muted-foreground">{t("cat_view_pricing")}</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
         </div>
@@ -157,6 +159,7 @@ function CategoryLanding({
 }: {
   onSearch: (term: string) => void;
 }) {
+  const { t } = useLanguage();
   const [term, setTerm] = useState("");
 
   // Pull real door styles so the "Shop by Door Style" tiles each link into that
@@ -195,11 +198,10 @@ function CategoryLanding({
         <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-navy)]/90 via-[var(--color-navy)]/70 to-transparent" />
         <div className="relative px-6 py-12 md:px-12 md:py-16 max-w-2xl">
           <h1 className="font-serif text-3xl md:text-4xl font-bold text-white mb-3">
-            Browse the Cabinet Catalog
+            {t("cat_hero_title")}
           </h1>
           <p className="text-white/85 text-sm md:text-base mb-6">
-            Choose your door style, then explore the cabinets available in that
-            finish — with member trade pricing built in.
+            {t("cat_hero_sub")}
           </p>
           <form
             onSubmit={(e) => {
@@ -210,7 +212,7 @@ function CategoryLanding({
           >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by code or description..."
+              placeholder={t("cat_search_placeholder")}
               className="pl-9 bg-white"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
@@ -222,17 +224,17 @@ function CategoryLanding({
       {/* Shop by Door Style — the catalog is organized by door style, not Base/Wall/Tall categories */}
       <div className="mt-10 flex flex-wrap items-end justify-between gap-3 mb-1">
         <h2 className="font-serif text-2xl font-bold text-foreground">
-          Shop by Door Style
+          {t("cat_shop_by_style")}
         </h2>
         <Link
           href="/styles"
           className="text-sm font-medium text-primary hover:underline inline-flex items-center gap-1"
         >
-          View all door styles <ChevronRight className="h-4 w-4" />
+          {t("cat_view_all_styles")} <ChevronRight className="h-4 w-4" />
         </Link>
       </div>
       <p className="text-muted-foreground text-sm mb-6">
-        Pick the look you want — each door style has its own cabinet lineup, with trade pricing built in.
+        {t("cat_shop_by_style_sub")}
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -244,7 +246,7 @@ function CategoryLanding({
               // the filter above) — matches the style's name, never a guess.
               image: s.roomSceneImageUrl as string,
               blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") ||
-                "Shop every cabinet in this finish.",
+                t("cat_blurb_fallback"),
             }))
           : DOOR_STYLE_TILES.map((t) => ({
               label: t.label,
@@ -291,6 +293,7 @@ function CategoryView({
   onBack: () => void;
   onSearchChange: (term: string) => void;
 }) {
+  const { t } = useLanguage();
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [offset, setOffset] = useState(0);
   // Cabinet availability is per door style: the shopper must pick a style
@@ -340,7 +343,7 @@ function CategoryView({
   const totalPages = Math.ceil(total / LIMIT);
   const currentPage = Math.floor(offset / LIMIT) + 1;
 
-  const heading = category ?? (debouncedSearch ? `Results for "${debouncedSearch}"` : "All Cabinets");
+  const heading = category ?? (debouncedSearch ? `${t("cat_results_for")} "${debouncedSearch}"` : t("cat_all_cabinets"));
 
   return (
     <div>
@@ -350,7 +353,7 @@ function CategoryView({
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
       >
         <ChevronLeft className="h-4 w-4" />
-        All categories
+        {t("cat_all_categories")}
       </button>
 
       {category && (
@@ -376,18 +379,17 @@ function CategoryView({
           must choose a style before any cabinets are shown. */}
       <div className="mb-6 rounded-xl border border-border bg-muted/30 p-4">
         <label className="block text-sm font-semibold text-foreground mb-2">
-          Door style
+          {t("cat_door_style_label")}
         </label>
         <p className="text-xs text-muted-foreground mb-3">
-          Each door style carries its own cabinet lineup. Pick a style to see the
-          cabinets available in that finish.
+          {t("cat_door_style_help")}
         </p>
         <select
           value={styleId ?? ""}
           onChange={(e) => setStyleId(e.target.value ? Number(e.target.value) : null)}
           className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          <option value="">Select a door style…</option>
+          <option value="">{t("cat_select_style_option")}</option>
           {styleOptions.map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
@@ -396,7 +398,7 @@ function CategoryView({
         </select>
         {selectedStyleLabel && (
           <p className="text-xs text-muted-foreground mt-2">
-            Showing cabinets available in{" "}
+            {t("cat_showing_in")}{" "}
             <span className="font-medium text-foreground">{selectedStyleLabel}</span>.
           </p>
         )}
@@ -407,7 +409,7 @@ function CategoryView({
         <div className="relative mb-6 max-w-lg">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search within results..."
+            placeholder={t("cat_search_within")}
             className="pl-9"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -425,7 +427,7 @@ function CategoryView({
               ×
             </button>
           </Badge>
-          <span className="text-xs text-muted-foreground">{total} results</span>
+          <span className="text-xs text-muted-foreground">{total} {t("cat_results_count")}</span>
         </div>
       )}
 
@@ -433,9 +435,9 @@ function CategoryView({
       {styleId == null ? (
         <div className="text-center py-16 text-muted-foreground">
           <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">Select a door style to begin</p>
+          <p className="font-medium">{t("cat_choose_style_title")}</p>
           <p className="text-sm mt-1">
-            Cabinet availability depends on the door style you choose.
+            {t("cat_choose_style_sub")}
           </p>
         </div>
       ) : (
@@ -457,8 +459,8 @@ function CategoryView({
       ) : items.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No cabinets found</p>
-          <p className="text-sm mt-1">Try adjusting your search.</p>
+          <p className="font-medium">{t("cat_none_title")}</p>
+          <p className="text-sm mt-1">{t("cat_none_sub")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -474,7 +476,7 @@ function CategoryView({
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-8 pt-4 border-t border-border">
           <p className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages} · {total} items
+            {t("cat_page")} {currentPage} {t("cat_page_of")} {totalPages} · {total} {t("cat_items")}
           </p>
           <div className="flex gap-2">
             <Button
@@ -483,7 +485,7 @@ function CategoryView({
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - LIMIT))}
             >
-              Previous
+              {t("cat_prev")}
             </Button>
             <Button
               variant="outline"
@@ -491,7 +493,7 @@ function CategoryView({
               disabled={offset + LIMIT >= total}
               onClick={() => setOffset(offset + LIMIT)}
             >
-              Next
+              {t("cat_next")}
             </Button>
           </div>
         </div>

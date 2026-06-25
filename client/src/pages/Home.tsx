@@ -6,10 +6,18 @@ import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
 
 function Hero() {
+  const { t } = useLanguage();
+  const stats = [
+    { value: "One", label: t("home_stat_one") },
+    { value: "Trade", label: t("home_stat_trade") },
+    { value: "2D", label: t("home_stat_2d") },
+    { value: "1-Click", label: t("home_stat_1click") },
+  ];
   return (
     <section className="relative overflow-hidden bg-[var(--color-navy)] text-white">
       {/* Background texture */}
@@ -31,37 +39,35 @@ function Hero() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-sm font-medium mb-6">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-gold)]" />
-              The Trade Platform for Cabinet Professionals
+              {t("home_hero_badge")}
             </div>
 
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              Design the
+              {t("home_hero_title_1")}
               <br />
-              <span className="text-[var(--color-gold)]">Kitchen of Their Dreams.</span>
+              <span className="text-[var(--color-gold)]">{t("home_hero_title_2")}</span>
             </h1>
 
             <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
-              Start with a door style you love, then browse the cabinets offered in
-              that look — each style has its own lineup, with trade pricing instantly.
-              Design kitchens in 2D and submit orders, all in one membership.
+              {t("home_hero_sub")}
             </p>
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-3">
               <Link href="/styles">
                 <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
-                  Shop by Door Style
+                  {t("home_hero_cta_style")}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/design">
                 <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                  Design Your Kitchen
+                  {t("home_hero_cta_design")}
                 </Button>
               </Link>
               <a href={getLoginUrl()}>
                 <Button size="lg" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10 gap-2">
-                  Member Sign In
+                  {t("home_hero_cta_signin")}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </a>
@@ -96,12 +102,7 @@ function Hero() {
 
         {/* Value props row */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/15 pt-10">
-          {[
-            { value: "One", label: "Unified Catalog" },
-            { value: "Trade", label: "Member Pricing" },
-            { value: "2D", label: "Kitchen Designer" },
-            { value: "1-Click", label: "Order Submission" },
-          ].map((stat) => (
+          {stats.map((stat) => (
             <div key={stat.label}>
               <div className="text-3xl font-bold text-[var(--color-gold)]">{stat.value}</div>
               <div className="text-sm text-white/60 mt-1">{stat.label}</div>
@@ -116,30 +117,31 @@ function Hero() {
 // ─── Audience Cards ───────────────────────────────────────────────────────────
 
 function AudienceCards() {
+  const { t } = useLanguage();
   const cards = [
     {
       icon: Building2,
-      title: "Suppliers",
-      description: "Join the supply network to put your catalog in front of every member dealer, with private or published listing control.",
-      cta: "Supplier Portal",
+      title: t("home_aud_suppliers_t"),
+      description: t("home_aud_suppliers_d"),
+      cta: t("home_aud_suppliers_cta"),
       href: "/distributor",
       color: "bg-blue-50 dark:bg-blue-950/30",
       iconColor: "text-blue-600 dark:text-blue-400",
     },
     {
       icon: Grid3X3,
-      title: "Dealers & Contractors",
-      description: "Access member trade pricing, build kitchen designs, place bulk orders, and manage your projects in one place.",
-      cta: "Dealer Portal",
+      title: t("home_aud_dealers_t"),
+      description: t("home_aud_dealers_d"),
+      cta: t("home_aud_dealers_cta"),
       href: "/account",
       color: "bg-amber-50 dark:bg-amber-950/30",
       iconColor: "text-amber-600 dark:text-amber-400",
     },
     {
       icon: Users,
-      title: "Affiliates",
-      description: "Run your own branded storefront on top of the platform catalog and earn on every order you bring in.",
-      cta: "Affiliate Program",
+      title: t("home_aud_affiliates_t"),
+      description: t("home_aud_affiliates_d"),
+      cta: t("home_aud_affiliates_cta"),
       href: "/affiliate",
       color: "bg-green-50 dark:bg-green-950/30",
       iconColor: "text-green-600 dark:text-green-400",
@@ -151,10 +153,10 @@ function AudienceCards() {
       <div className="container">
         <div className="text-center mb-12">
           <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
-            Built for the Cabinet Trade
+            {t("home_aud_title")}
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Whether you supply, sell, or refer — there's a membership workflow designed for you.
+            {t("home_aud_sub")}
           </p>
         </div>
 
@@ -183,27 +185,12 @@ function AudienceCards() {
 // ─── Platform Features ────────────────────────────────────────────────────────
 
 function PlatformFeatures() {
+  const { t } = useLanguage();
   const features = [
-    {
-      icon: Palette,
-      title: "One-Click Style Switcher",
-      description: "Select a kitchen configuration, then instantly swap the door style or line to see updated pricing across all items.",
-    },
-    {
-      icon: Ruler,
-      title: "2D Kitchen Design Tool",
-      description: "Draw your room walls, place cabinets from the catalog, and export a full bill of materials — all in the browser.",
-    },
-    {
-      icon: FileSpreadsheet,
-      title: "CSV & Bulk Ordering",
-      description: "Upload a spreadsheet or scan barcodes to build a full kitchen order in seconds. Perfect for contractors.",
-    },
-    {
-      icon: Grid3X3,
-      title: "Photo-to-Cart OCR",
-      description: "Upload a floor plan or quote. Our system reads the cabinet codes and auto-populates the order for review.",
-    },
+    { icon: Palette, title: t("home_feat_switcher_t"), description: t("home_feat_switcher_d") },
+    { icon: Ruler, title: t("home_feat_design_t"), description: t("home_feat_design_d") },
+    { icon: FileSpreadsheet, title: t("home_feat_csv_t"), description: t("home_feat_csv_d") },
+    { icon: Grid3X3, title: t("home_feat_ocr_t"), description: t("home_feat_ocr_d") },
   ];
 
   return (
@@ -213,14 +200,13 @@ function PlatformFeatures() {
           <div>
             <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-4">
               <span className="h-px w-8 bg-[var(--color-wood)]" />
-              Platform Features
+              {t("home_feat_eyebrow")}
             </div>
             <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Everything You Need to Move Cabinets Faster
+              {t("home_feat_title")}
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-8">
-              A shared trade platform where the supply network and member dealers run on the same
-              backend technology — keeping costs low and capabilities high across the supply chain.
+              {t("home_feat_sub")}
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -240,12 +226,12 @@ function PlatformFeatures() {
             <div className="mt-8">
               <Link href="/order/new">
                 <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2">
-                  Build an Order
+                  {t("home_feat_build_cta")}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <p className="text-xs text-muted-foreground mt-2">
-                Scan a quote, import a CSV, or type your codes — priced and ready in seconds.
+                {t("home_feat_build_note")}
               </p>
             </div>
           </div>
@@ -271,7 +257,7 @@ function PlatformFeatures() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 text-xs text-white/40 text-center">B24 — 24" Double Door Base Cabinet · Member Pricing</div>
+              <div className="mt-4 text-xs text-white/40 text-center">B24 — 24" Double Door Base Cabinet · {t("home_stat_trade")}</div>
             </div>
           </div>
         </div>
@@ -283,16 +269,15 @@ function PlatformFeatures() {
 // ─── Supply Network Strip ─────────────────────────────────────────────────────
 
 function DistributorsStrip() {
+  const { t } = useLanguage();
   // Door-style-first: we promote the breadth of finishes, never supplier names.
-  // Use door profiles that actually exist in the catalog so every chip lands on
-  // a populated, pre-filtered grid (/styles?door=...). No fictional profiles.
   const styles = ["Shaker", "Raised Panel", "Slab", "Slim Shaker", "Oxford"];
   return (
     <section className="py-10 border-y border-border bg-muted/20">
       <div className="container">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <p className="text-sm font-medium text-muted-foreground shrink-0">
-            Pick a door style, see its cabinet lineup:
+            {t("home_strip_label")}
           </p>
           <div className="flex flex-wrap justify-center md:justify-end gap-3">
             {styles.map((name) => (
@@ -314,15 +299,16 @@ function DistributorsStrip() {
 // ─── Category Quick Links ─────────────────────────────────────────────────────
 
 function CategoryLinks() {
+  const { t } = useLanguage();
   // Door styles lead the catalog: categories are a preview of what you'll find
   // INSIDE a chosen style. Every tile routes to the door-style selector first.
   const categories = [
-    { name: "Base", description: "Standard base cabinets, sink bases, drawer bases", href: "/styles" },
-    { name: "Wall", description: "Upper wall cabinets in all widths and heights", href: "/styles" },
-    { name: "Tall", description: "Pantry, utility, and full-height cabinets", href: "/styles" },
-    { name: "ADA", description: "Accessible design, ADA-compliant cabinets", href: "/styles" },
-    { name: "Vanity", description: "Bathroom vanity bases and wall cabinets", href: "/styles" },
-    { name: "Accessory", description: "Fillers, trim, molding, and specialty items", href: "/styles" },
+    { name: t("home_cat_base_t"), description: t("home_cat_base_d"), href: "/styles" },
+    { name: t("home_cat_wall_t"), description: t("home_cat_wall_d"), href: "/styles" },
+    { name: t("home_cat_tall_t"), description: t("home_cat_tall_d"), href: "/styles" },
+    { name: t("home_cat_ada_t"), description: t("home_cat_ada_d"), href: "/styles" },
+    { name: t("home_cat_vanity_t"), description: t("home_cat_vanity_d"), href: "/styles" },
+    { name: t("home_cat_accessory_t"), description: t("home_cat_accessory_d"), href: "/styles" },
   ];
 
   return (
@@ -331,15 +317,15 @@ function CategoryLinks() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
-              Every Cabinet Type, in Your Door Style
+              {t("home_cat_title")}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Pick a door style first — then shop base, wall, tall, vanity, ADA and trim all in that look.
+              {t("home_cat_sub")}
             </p>
           </div>
           <Link href="/styles">
             <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
-              Choose a style
+              {t("home_cat_choose")}
               <ChevronRight className="h-4 w-4" />
             </Button>
           </Link>
@@ -367,36 +353,34 @@ function CategoryLinks() {
 // ─── Style Showcase (dream-kitchen scenes) ─────────────────────────────────────
 
 function StyleShowcase() {
+  const { t } = useLanguage();
   // Feature real door-style families so each tile links straight into that
   // family's full catalog (/family/:styleCode), not a generic list page.
   const { data: styles } = trpc.doorStyles.list.useQuery();
-  const fallback = [
-    { name: "White Shaker", blurb: "Bright, timeless, the #1 request", scene: KITCHEN_SCENES["shaker-white"], href: "/styles" },
-    { name: "Gray Shaker", blurb: "Soft, modern transitional", scene: KITCHEN_SCENES["shaker-gray"], href: "/styles" },
-    { name: "Cherry Raised Panel", blurb: "Warm, traditional elegance", scene: KITCHEN_SCENES["raised-cherry"], href: "/styles" },
-    { name: "Natural Slab", blurb: "Clean, handleless, contemporary", scene: KITCHEN_SCENES["slab-natural"], href: "/styles" },
-    { name: "Espresso Shaker", blurb: "Rich, dramatic, modern", scene: KITCHEN_SCENES["shaker-espresso"], href: "/styles" },
-  ];
+  const fallback = useMemo(
+    () => [
+      { name: "White Shaker", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["shaker-white"], href: "/styles" },
+      { name: "Gray Shaker", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["shaker-gray"], href: "/styles" },
+      { name: "Cherry Raised Panel", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["raised-cherry"], href: "/styles" },
+      { name: "Natural Slab", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["slab-natural"], href: "/styles" },
+      { name: "Espresso Shaker", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["shaker-espresso"], href: "/styles" },
+    ],
+    [t]
+  );
   const looks = useMemo(() => {
     type S = { id: number; styleCode: string; ourName: string | null; doorStyle: string | null; color: string | null; woodSpecies: string | null; roomSceneImageUrl?: string | null };
-    // STRICT ONE-FAMILY-ONE-COLOR: only feature families that have a REAL
-    // verified room-scene photo — never a guessed/bucket scene on the home page.
     const list = (styles ?? []).filter((s) => !!(s as S).roomSceneImageUrl) as S[];
     if (list.length === 0) return fallback;
-    // Pick a visually-diverse set: one family per finish bucket so the showcase
-    // shows real variety (white / gray / dark / warm wood / light wood) instead
-    // of five near-identical scenes.
     const bucketOf = (s: S) => {
-      const t = [s.color, s.ourName, s.doorStyle, s.woodSpecies].filter(Boolean).join(" ").toLowerCase();
-      if (/black|obsidian|onyx|tricorn|espresso|java|ebony/.test(t)) return "dark";
-      if (/grey|gray|graphite|slate|sage|fog|navy|blue|cobalt/.test(t)) return "gray";
-      if (/cherry|mahogany|chestnut|saddle|autumn|rust|spice/.test(t)) return "warm";
-      if (/oak|honey|natural|maple|hickory|wheat|gold|solstice/.test(t)) return "light";
+      const t2 = [s.color, s.ourName, s.doorStyle, s.woodSpecies].filter(Boolean).join(" ").toLowerCase();
+      if (/black|obsidian|onyx|tricorn|espresso|java|ebony/.test(t2)) return "dark";
+      if (/grey|gray|graphite|slate|sage|fog|navy|blue|cobalt/.test(t2)) return "gray";
+      if (/cherry|mahogany|chestnut|saddle|autumn|rust|spice/.test(t2)) return "warm";
+      if (/oak|honey|natural|maple|hickory|wheat|gold|solstice/.test(t2)) return "light";
       return "white";
     };
     const seen = new Set<string>();
     const picked: S[] = [];
-    // First pass: one per finish bucket.
     for (const s of list) {
       const b = bucketOf(s);
       if (seen.has(b)) continue;
@@ -404,7 +388,6 @@ function StyleShowcase() {
       picked.push(s);
       if (picked.length >= 5) break;
     }
-    // Fill remaining slots with any other distinct families.
     for (const s of list) {
       if (picked.length >= 5) break;
       if (picked.some((p) => p.id === s.id)) continue;
@@ -412,27 +395,26 @@ function StyleShowcase() {
     }
     return picked.map((s) => ({
       name: s.ourName || s.styleCode,
-      blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") || "Shop every cabinet in this finish",
-      // Real verified photo only (guaranteed present by the filter above).
+      blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") || t("home_showcase_blurb_fallback"),
       scene: s.roomSceneImageUrl as string,
       href: `/family/${encodeURIComponent(s.styleCode)}`,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [styles]);
+  }, [styles, fallback, t]);
   return (
     <section className="py-16 md:py-20 bg-muted/30">
       <div className="container">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
             <span className="h-px w-8 bg-[var(--color-wood)]" />
-            Shop the Look
+            {t("home_showcase_eyebrow")}
             <span className="h-px w-8 bg-[var(--color-wood)]" />
           </div>
           <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
-            Find Your Kitchen Style
+            {t("home_showcase_title")}
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Every look below is available across the full catalog — pick a style, then build the whole kitchen around it.
+            {t("home_showcase_sub")}
           </p>
         </div>
 
@@ -445,7 +427,7 @@ function StyleShowcase() {
               <div className="font-serif text-2xl font-bold">{looks[0].name}</div>
               <div className="text-sm text-white/85">{looks[0].blurb}</div>
               <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-gold)]">
-                Shop this kitchen <ArrowRight className="h-4 w-4" />
+                {t("home_showcase_shop_this")} <ArrowRight className="h-4 w-4" />
               </span>
             </div>
           </Link>
@@ -467,7 +449,7 @@ function StyleShowcase() {
         <div className="mt-10 text-center">
           <Link href="/styles">
             <Button size="lg" variant="outline" className="gap-2 bg-card">
-              Explore All Door Styles <ArrowRight className="h-4 w-4" />
+              {t("home_showcase_explore_all")} <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
@@ -479,6 +461,7 @@ function StyleShowcase() {
 // ─── Footer ───────────────────────────────────────────────────────────────────
 
 function Footer() {
+  const { t } = useLanguage();
   return (
     <footer className="bg-[var(--color-navy)] text-white/70">
       <div className="container py-12">
@@ -493,17 +476,24 @@ function Footer() {
               </span>
             </div>
             <p className="text-sm leading-relaxed">
-              The trade platform connecting the cabinet supply network with member dealers and affiliates.
+              {t("home_footer_blurb")}
             </p>
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">Catalog</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">{t("home_footer_col_catalog")}</div>
             <ul className="space-y-2 text-sm">
-              {["Base Cabinets", "Wall Cabinets", "Tall Cabinets", "ADA Cabinets", "Vanity", "Accessories"].map((item) => (
-                <li key={item}>
-                  <Link href={`/catalog?category=${item.split(" ")[0]}`} className="hover:text-white transition-colors">
-                    {item}
+              {[
+                { label: t("home_cat_base_t"), key: "Base" },
+                { label: t("home_cat_wall_t"), key: "Wall" },
+                { label: t("home_cat_tall_t"), key: "Tall" },
+                { label: t("home_cat_ada_t"), key: "ADA" },
+                { label: t("home_cat_vanity_t"), key: "Vanity" },
+                { label: t("home_cat_accessory_t"), key: "Accessory" },
+              ].map((item) => (
+                <li key={item.key}>
+                  <Link href={`/catalog?category=${item.key}`} className="hover:text-white transition-colors">
+                    {item.label}
                   </Link>
                 </li>
               ))}
@@ -511,14 +501,14 @@ function Footer() {
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">Tools</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">{t("home_footer_col_tools")}</div>
             <ul className="space-y-2 text-sm">
               {[
-                { label: "Door Style Selector", href: "/styles" },
-                { label: "2D Design Tool", href: "/design" },
-                { label: "Bulk Order", href: "/bulk-order" },
-                { label: "Photo-to-Cart", href: "/photo-to-cart" },
-                { label: "Join Our Pro Network", href: "/pro-network" },
+                { label: t("nav_shop_by_style"), href: "/styles" },
+                { label: t("nav_design_tool"), href: "/design" },
+                { label: t("nav_build_an_order"), href: "/bulk-order" },
+                { label: t("nav_photo_to_cart"), href: "/photo-to-cart" },
+                { label: t("nav_pro_network"), href: "/pro-network" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-white transition-colors">
@@ -530,12 +520,12 @@ function Footer() {
           </div>
 
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">Portals</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">{t("home_footer_col_portals")}</div>
             <ul className="space-y-2 text-sm">
               {[
-                { label: "Supplier Portal", href: "/distributor" },
-                { label: "Affiliate Program", href: "/affiliate" },
-                { label: "Admin Dashboard", href: "/admin" },
+                { label: t("nav_supplier_portal"), href: "/distributor" },
+                { label: t("home_aud_affiliates_cta"), href: "/affiliate" },
+                { label: t("nav_admin"), href: "/admin" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-white transition-colors">
@@ -548,8 +538,8 @@ function Footer() {
         </div>
 
         <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/40">
-          <span>© {new Date().getFullYear()} Cabinet Dealz. All rights reserved.</span>
-          <span>A members-only trade platform.</span>
+          <span>© {new Date().getFullYear()} Cabinet Dealz. {t("footer_rights")}</span>
+          <span>{t("home_footer_members_only")}</span>
         </div>
       </div>
     </footer>

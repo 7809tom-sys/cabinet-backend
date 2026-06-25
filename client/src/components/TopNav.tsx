@@ -1,34 +1,57 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, ShoppingCart, ChevronDown } from "lucide-react";
+import { Menu, X, ShoppingCart, ChevronDown, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useCart } from "@/contexts/CartContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import type { SiteStringKey } from "@/lib/i18n/site";
+
+type NavLink = { key: SiteStringKey; href: string };
 
 // Primary links shown inline on desktop
-const PRIMARY_LINKS = [
-  { label: "Shop by Style", href: "/styles" },
-  { label: "Kitchen Packages", href: "/packages" },
-  { label: "All Cabinets", href: "/catalog" },
-  { label: "Countertops", href: "/countertops" },
-  { label: "Design Tool", href: "/design" },
+const PRIMARY_LINKS: NavLink[] = [
+  { key: "nav_shop_by_style", href: "/styles" },
+  { key: "nav_kitchen_packages", href: "/packages" },
+  { key: "nav_all_cabinets", href: "/catalog" },
+  { key: "nav_countertops", href: "/countertops" },
+  { key: "nav_design_tool", href: "/design" },
 ];
 
 // Secondary links folded into the "More" dropdown on desktop
-const MORE_LINKS = [
-  { label: "Build an Order", href: "/order/new" },
-  { label: "Photo to Cart", href: "/photo-to-cart" },
-  { label: "Pro Network", href: "/pro-network" },
+const MORE_LINKS: NavLink[] = [
+  { key: "nav_build_an_order", href: "/order/new" },
+  { key: "nav_photo_to_cart", href: "/photo-to-cart" },
+  { key: "nav_pro_network", href: "/pro-network" },
 ];
 
-const PORTAL_LINKS = [
-  { label: "Supplier Portal", href: "/distributor" },
-  { label: "Dealer Portal", href: "/portal/dealer" },
-  { label: "Affiliate Portal", href: "/affiliate" },
+const PORTAL_LINKS: NavLink[] = [
+  { key: "nav_supplier_portal", href: "/distributor" },
+  { key: "nav_dealer_portal", href: "/portal/dealer" },
+  { key: "nav_affiliate_portal", href: "/affiliate" },
 ];
 
 // All links flattened for the mobile menu
-const ALL_LINKS = [...PRIMARY_LINKS, ...MORE_LINKS];
+const ALL_LINKS: NavLink[] = [...PRIMARY_LINKS, ...MORE_LINKS];
+
+/** Compact EN|ES pill toggle reused on desktop + mobile. */
+function LangToggle({ className = "" }: { className?: string }) {
+  const { lang, toggle, t } = useLanguage();
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={t("lang_toggle_aria")}
+      title={t("lang_toggle_aria")}
+      className={`flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs font-semibold text-foreground/80 transition-colors hover:bg-muted ${className}`}
+    >
+      <Languages className="h-3.5 w-3.5" />
+      <span className={lang === "en" ? "text-primary" : "text-muted-foreground"}>EN</span>
+      <span className="text-muted-foreground/40">|</span>
+      <span className={lang === "es" ? "text-primary" : "text-muted-foreground"}>ES</span>
+    </button>
+  );
+}
 
 export function TopNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -36,6 +59,7 @@ export function TopNav() {
   const [location] = useLocation();
   const { user } = useAuth();
   const { count: cartCount } = useCart();
+  const { t } = useLanguage();
 
   const isActive = (href: string) => location.startsWith(href);
   const moreActive = [...MORE_LINKS, ...PORTAL_LINKS].some((l) => isActive(l.href));
@@ -65,7 +89,7 @@ export function TopNav() {
                   : "text-foreground/70 hover:text-foreground hover:bg-muted"
               }`}
             >
-              {link.label}
+              {t(link.key)}
             </Link>
           ))}
 
@@ -79,7 +103,7 @@ export function TopNav() {
                   : "text-foreground/70 hover:text-foreground hover:bg-muted"
               }`}
             >
-              More
+              {t("nav_more")}
               <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-150 ${moreOpen ? "rotate-180" : ""}`} />
             </button>
             {moreOpen && (
@@ -98,12 +122,12 @@ export function TopNav() {
                         : "text-popover-foreground hover:bg-muted"
                     }`}
                   >
-                    {link.label}
+                    {t(link.key)}
                   </Link>
                 ))}
                 <div className="my-1 border-t border-border" />
                 <div className="px-4 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Portals
+                  {t("nav_more")}
                 </div>
                 {PORTAL_LINKS.map((link) => (
                   <Link
@@ -116,7 +140,7 @@ export function TopNav() {
                         : "text-popover-foreground hover:bg-muted"
                     }`}
                   >
-                    {link.label}
+                    {t(link.key)}
                   </Link>
                 ))}
               </div>
@@ -126,8 +150,11 @@ export function TopNav() {
 
         {/* Right side actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Language toggle (desktop) */}
+          <LangToggle className="hidden sm:flex" />
+
           <Button variant="ghost" size="icon" asChild className="relative">
-            <Link href="/cart" aria-label="Shopping cart">
+            <Link href="/cart" aria-label={t("nav_cart")}>
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
@@ -146,12 +173,12 @@ export function TopNav() {
                     size="sm"
                     className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90"
                   >
-                    {user.role === "designer" ? "CRM" : "Admin"}
+                    {user.role === "designer" ? t("nav_crm") : t("nav_admin")}
                   </Button>
                 </Link>
               )}
               <Link href="/account">
-                <Button variant="outline" size="sm">Account</Button>
+                <Button variant="outline" size="sm">{t("nav_account")}</Button>
               </Link>
             </div>
           ) : (
@@ -160,7 +187,7 @@ export function TopNav() {
                 size="sm"
                 className="hidden lg:flex bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
               >
-                Sign In
+                {t("nav_sign_in")}
               </Button>
             </Link>
           )}
@@ -193,7 +220,7 @@ export function TopNav() {
                     : "text-foreground/70 hover:text-foreground hover:bg-muted"
                 }`}
               >
-                {link.label}
+                {t(link.key)}
               </Link>
             ))}
             <div className="border-t border-border my-2" />
@@ -204,25 +231,29 @@ export function TopNav() {
                 onClick={() => setMobileOpen(false)}
                 className="px-3 py-2.5 rounded-md text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted transition-colors"
               >
-                {link.label}
+                {t(link.key)}
               </Link>
             ))}
             <div className="border-t border-border my-2" />
+            {/* Language toggle (mobile) */}
+            <div className="px-3 pb-1">
+              <LangToggle className="w-full justify-center" />
+            </div>
             {(user?.role === "admin" || user?.role === "designer") && (
               <Link href="/admin" onClick={() => setMobileOpen(false)} className="px-3">
                 <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
-                  {user?.role === "designer" ? "CRM" : "Admin"}
+                  {user?.role === "designer" ? t("nav_crm") : t("nav_admin")}
                 </Button>
               </Link>
             )}
             {user && (
               <Link href="/account" onClick={() => setMobileOpen(false)} className="px-3">
-                <Button variant="outline" className="w-full">Account</Button>
+                <Button variant="outline" className="w-full">{t("nav_account")}</Button>
               </Link>
             )}
             {!user && (
               <Link href="/signin" onClick={() => setMobileOpen(false)} className="px-3">
-                <Button className="w-full bg-[var(--color-navy)] text-white">Sign In</Button>
+                <Button className="w-full bg-[var(--color-navy)] text-white">{t("nav_sign_in")}</Button>
               </Link>
             )}
           </nav>

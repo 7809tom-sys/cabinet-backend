@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import DoorPhotoMatchWidget from "@/components/DoorPhotoMatchWidget";
 import {
@@ -28,6 +29,7 @@ interface DoorStyle {
 }
 
 function StyleCard({ style }: { style: DoorStyle }) {
+  const { t } = useLanguage();
   // STRICT ONE-FAMILY-ONE-COLOR: use ONLY this style's own verified photo.
   // When there's no real photo, fall back to the color-accurate swatch/preview
   // (recolored to THIS style's exact finish) — never a generic stock door or
@@ -56,7 +58,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
               />
             )}
             <span className="absolute bottom-2 right-2 text-[10px] font-medium text-white bg-black/55 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-              View details
+              {t("ds_view_details")}
             </span>
           </div>
 
@@ -72,13 +74,13 @@ function StyleCard({ style }: { style: DoorStyle }) {
 
             <div className="mt-1 space-y-0.5">
               {style.woodSpecies && (
-                <p className="text-xs text-muted-foreground">Wood: {style.woodSpecies}</p>
+                <p className="text-xs text-muted-foreground">{t("ds_wood")}: {style.woodSpecies}</p>
               )}
               {style.finish && (
-                <p className="text-xs text-muted-foreground">Finish: {style.finish}</p>
+                <p className="text-xs text-muted-foreground">{t("ds_finish")}: {style.finish}</p>
               )}
               {style.color && (
-                <p className="text-xs text-muted-foreground">Color: {style.color}</p>
+                <p className="text-xs text-muted-foreground">{t("ds_color")}: {style.color}</p>
               )}
             </div>
           </div>
@@ -111,20 +113,20 @@ function StyleCard({ style }: { style: DoorStyle }) {
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
           <div className="flex items-center gap-2">
             <DoorStyleSwatch style={style} className="h-12 w-auto" />
-            <div className="text-xs text-muted-foreground">True color</div>
+            <div className="text-xs text-muted-foreground">{t("ds_true_color")}</div>
           </div>
           <div className="space-y-0.5">
-            {style.doorStyle && <p className="text-xs"><span className="text-muted-foreground">Style:</span> {style.doorStyle}</p>}
-            {style.woodSpecies && <p className="text-xs"><span className="text-muted-foreground">Wood:</span> {style.woodSpecies}</p>}
-            {style.finish && <p className="text-xs"><span className="text-muted-foreground">Finish:</span> {style.finish}</p>}
-            {style.color && <p className="text-xs"><span className="text-muted-foreground">Color:</span> {style.color}</p>}
+            {style.doorStyle && <p className="text-xs"><span className="text-muted-foreground">{t("ds_style")}:</span> {style.doorStyle}</p>}
+            {style.woodSpecies && <p className="text-xs"><span className="text-muted-foreground">{t("ds_wood")}:</span> {style.woodSpecies}</p>}
+            {style.finish && <p className="text-xs"><span className="text-muted-foreground">{t("ds_finish")}:</span> {style.finish}</p>}
+            {style.color && <p className="text-xs"><span className="text-muted-foreground">{t("ds_color")}:</span> {style.color}</p>}
           </div>
         </div>
 
         {/* Primary path into shopping: see EVERY cabinet available in this family */}
         <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
           <Button className="w-full mt-1" size="lg">
-            Shop the {style.ourName || style.styleCode} collection
+            {t("ds_shop_collection", { name: style.ourName || style.styleCode })}
             <ArrowRight className="h-4 w-4 ml-1" />
           </Button>
         </Link>
@@ -136,6 +138,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
 // ─── Main Door Styles page ────────────────────────────────────────────────────
 
 export default function DoorStyles() {
+  const { t } = useLanguage();
   // Read an optional ?door=<DoorStyle> query param so links from the Home page
   // hero chips (e.g. /styles?door=Shaker) open the grid pre-filtered to that
   // door profile. Falls back to "All Styles" when absent or unrecognized.
@@ -223,11 +226,10 @@ export default function DoorStyles() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="font-serif text-3xl font-bold text-foreground mb-2">
-          Door Styles
+          {t("ds_title")}
         </h1>
         <p className="text-muted-foreground">
-          A full range of finishes, each carrying its own trade pricing —
-          open any cabinet to compare styles and member pricing.
+          {t("ds_sub")}
         </p>
       </div>
 
@@ -247,7 +249,7 @@ export default function DoorStyles() {
                 : "bg-muted text-muted-foreground hover:text-foreground"
             }`}
           >
-            All Styles
+            {t("ds_all_styles")}
           </button>
           {types.map((t) => (
             <button
@@ -269,8 +271,8 @@ export default function DoorStyles() {
       {!isLoading && showFeatured && (
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="font-serif text-xl font-bold text-foreground">Featured Door Styles</h2>
-            <Badge className="bg-primary text-primary-foreground">Editor's Picks</Badge>
+            <h2 className="font-serif text-xl font-bold text-foreground">{t("ds_featured")}</h2>
+            <Badge className="bg-primary text-primary-foreground">{t("ds_editors_picks")}</Badge>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {featured.map((style) => (
@@ -281,7 +283,7 @@ export default function DoorStyles() {
       )}
 
       {!isLoading && showFeatured && gridStyles.length > 0 && (
-        <h2 className="font-serif text-xl font-bold text-foreground mb-4">All Door Styles</h2>
+        <h2 className="font-serif text-xl font-bold text-foreground mb-4">{t("ds_all_door_styles")}</h2>
       )}
 
       {isLoading ? (
@@ -300,7 +302,7 @@ export default function DoorStyles() {
       ) : visible.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">
           <Palette className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">No door styles match this filter.</p>
+          <p className="text-sm">{t("ds_none")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
