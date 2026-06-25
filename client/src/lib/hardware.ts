@@ -125,6 +125,29 @@ export function drawerCountForCabinet(p: PlacedCabinet): number {
   return 0;
 }
 
+/**
+ * How many drawer fronts to DRAW on a cabinet's face in the elevation view.
+ * This is a visual count (not a hardware/pricing count): in addition to the
+ * real drawer stack from drawerCountForCabinet, standard floor base cabinets
+ * (B-series, sink/door bases) get a single top drawer the way real cabinetry
+ * does. Wall cabinets, tall/pantry, drawer bases, and panels are left to the
+ * underlying count.
+ */
+export function displayDrawerCount(p: PlacedCabinet): number {
+  const base = drawerCountForCabinet(p);
+  if (base > 0) return base;
+  if (!carriesHardware(p)) return 0;
+  if (p.placement !== "base") return 0;
+  const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
+  // Skip cabinets that don't have a standard top drawer: corners/lazy susans,
+  // trash pullouts, sink bases (false drawer front, but keep as drawer face),
+  // and full-height door bases. Most standard bases get one top drawer.
+  if (/lazy|susan|\bls\b|corner|blind|\bbwb\b|trash|waste|\bfhd\b|full height|farm|apron/.test(hay)) return 0;
+  const doors = doorCountForCabinet(p);
+  if (doors <= 0) return 0;
+  return 1;
+}
+
 export interface HardwarePieceCount {
   /** Round knobs. */
   knobs: number;

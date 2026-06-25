@@ -9,6 +9,7 @@ import {
   hardwareStyle as resolveHardwareStyle,
   doorCountForCabinet,
   drawerCountForCabinet,
+  displayDrawerCount,
 } from "@/lib/hardware";
 import { useRef, useEffect, useState } from "react";
 
@@ -228,9 +229,18 @@ export function ElevationView({
               title={`${p.masterCode} — ${p.description}`}
             >
               <div className="w-full h-full relative">
-                {/* Door-style-specific front treatment (skipped for appliances) */}
+                {/* Door-style-specific front treatment (skipped for appliances).
+                    Renders a real drawer stack on top + door region below so
+                    drawer bases visibly show their drawer fronts in the drawing. */}
                 {!isAppliance && (
-                  <DoorFront kind={cabPanelKind} edge={edgeColor} face={cabFinish.face} />
+                  <DoorFront
+                    kind={cabPanelKind}
+                    edge={edgeColor}
+                    face={cabFinish.face}
+                    doors={doorCountForCabinet(p)}
+                    drawers={displayDrawerCount(p)}
+                    isWall={isWall}
+                  />
                 )}
                 {/* Decorative hardware (knobs / pulls / cup pulls) reflecting the
                     chosen hardware spec. Doors get the door piece; drawers get
@@ -547,9 +557,62 @@ function HardwareOverlay({
   return <>{pieces}</>;
 }
 
+// One door/drawer face panel rendered in the chosen door style. Used both for
+// the door region and for each individual drawer front so a drawer base reads
+// as a real stack of drawer fronts rather than one big door.
+function StylePanel({ kind, edge, face, drawer = false }: { kind: DoorPanelKind; edge: string; face: string; drawer?: boolean }) {
+  const stroke = `${edge}99`;
+  // Drawers always read as a slim single recessed panel regardless of the door
+  // style (drawer fronts don't get raised/beaded treatments in this model),
+  // except slab which stays flat.
+  if (drawer) {
+    if (kind === "slab") {
+      return <div className="absolute inset-[1.5px] rounded-[1px]" style={{ border: `1px solid ${edge}55` }} />;
+    }
+    return (
+      <>
+        <div className="absolute inset-[2px] border rounded-[1px]" style={{ borderColor: stroke }} />
+        <div className="absolute inset-[4px] rounded-[1px]" style={{ border: `1px solid ${stroke}` }} />
+      </>
+    );
+  }
+  return <DoorFront kind={kind} edge={edge} face={face} />;
+}
+
 // Lightweight door-front detail overlay that reflects the active door style so a
-// placed cabinet visibly changes appearance when the user switches styles.
-function DoorFront({ kind, edge, face }: { kind: DoorPanelKind; edge: string; face: string }) {
+// placed cabinet visibly changes appearance when the user switches styles. When
+// `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
+// and a door region below, so drawer bases show their real drawer fronts.
+function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean }) {
+  const drawerCount = drawers ?? 0;
+  const doorCount = doors ?? 0;
+  // When a cabinet has drawers, draw the drawer stack + (optional) door region.
+  if (drawerCount > 0) {
+    const hasDoors = doorCount > 0;
+    // Drawer band height: all-drawer cabinets fill the face; mixed bases give a
+    // generous slice to drawers (top) and the rest to the door(s) below.
+    const drawerBandPct = hasDoors ? 42 : 100;
+    const sliceH = drawerBandPct / drawerCount;
+    return (
+      <>
+        {Array.from({ length: drawerCount }).map((_, i) => (
+          <div
+            key={`drw-${i}`}
+            className="absolute left-0 right-0"
+            style={{ top: `${sliceH * i}%`, height: `${sliceH}%` }}
+          >
+            <StylePanel kind={kind} edge={edge} face={face} drawer />
+          </div>
+        ))}
+        {hasDoors && (
+          <div className="absolute left-0 right-0" style={{ top: `${drawerBandPct}%`, bottom: 0 }}>
+            <StylePanel kind={kind} edge={edge} face={face} />
+          </div>
+        )}
+      </>
+    );
+  }
+  void isWall;
   const stroke = `${edge}99`;
   const frame = (
     <div className="absolute inset-[3px] border rounded-[1px]" style={{ borderColor: stroke }} />

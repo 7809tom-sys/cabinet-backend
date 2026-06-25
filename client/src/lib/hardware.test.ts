@@ -5,6 +5,7 @@ import {
   hardwareStyle,
   doorCountForCabinet,
   drawerCountForCabinet,
+  displayDrawerCount,
   hardwareForCabinet,
   hardwareSchedule,
   hardwareScheduleNote,
@@ -71,6 +72,25 @@ describe("door / drawer counting", () => {
     expect(doorCountForCabinet(cab({ placement: "appliance", cabinetId: 0, masterCode: "RANGE-30" }))).toBe(0);
     expect(doorCountForCabinet(cab({ masterCode: "WSV-30", description: "Wall Skin Panel" }))).toBe(0);
     expect(drawerCountForCabinet(cab({ placement: "appliance", cabinetId: 0 }))).toBe(0);
+  });
+});
+
+describe("display drawer count (elevation drawer fronts)", () => {
+  it("draws the full drawer stack for a drawer base", () => {
+    expect(displayDrawerCount(cab({ masterCode: "DB-24-3", description: "Drawer Base" }))).toBe(3);
+  });
+
+  it("gives a standard base cabinet a single top drawer front", () => {
+    expect(displayDrawerCount(cab({ masterCode: "B-24", description: "Base 24", numberOfDoors: 1 }))).toBe(1);
+  });
+
+  it("does not add a top drawer to wall cabinets", () => {
+    expect(displayDrawerCount(cab({ placement: "wall", masterCode: "W-2430", description: "Wall 24x30", numberOfDoors: 2 }))).toBe(0);
+  });
+
+  it("skips corner / lazy susan / trash bases", () => {
+    expect(displayDrawerCount(cab({ masterCode: "LS-36", description: "Lazy Susan corner" }))).toBe(0);
+    expect(displayDrawerCount(cab({ masterCode: "BWB-18", description: "Base Waste Basket trash pull-out" }))).toBe(0);
   });
 });
 

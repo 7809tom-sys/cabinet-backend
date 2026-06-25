@@ -1608,3 +1608,12 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 
 ## Custom adjustment fee (2026-06-24 batch 4)
 - [x] Add a flat $100 "custom adjustment" fee per resized cabinet (any W/H/D differs from nominal): CUSTOM_SIZE_FEE/customSizeFee helpers; added to Design Tool estimated total + a "CUSTOM-ADJ" priced build-sheet line (qty = # resized cabinets); "Custom +$100" badge in the resize toolbar; also folded into server design.projectSummary subtotal so saved/CRM totals match; 4 new vitest cases (816 pass)
+
+## Design Tool improvements (2026-06-24 batch 5)
+- [x] Countertop material selector → compact dropdown (Estimate & Build Sheet panel) replacing the tall 3-up swatch grid; shows a color chip + name
+- [x] Countertop material already flows into the build sheet as a "COUNTERTOP (quote)" line naming the material (verified)
+- [x] Auto-apply ALL trim types: crown auto-on when wall cabinets exist, light rail auto-on with wall cabinets, toe kick auto-on with a base run, batten auto-on when seams exist; each keeps a manual toggle (explicit user off is remembered via userTrimOverride refs so auto-apply won't fight it); linear-foot/stick quantities already auto-calc
+- [x] Tap/select any placed cabinet opens its edit controls (PlanCanvas onSelect on tap; contextual edit row + on-canvas handles)
+- [x] Reliable rotate: on-canvas rotate handle (rotateCabinet by uid) added next to delete, plus existing toolbar Rotate + "R" key
+- [x] Render drawer fronts in elevation/front view: DoorFront now splits into a drawer stack (one front per drawer) + door region; displayDrawerCount gives drawer bases their full stack and standard base cabinets a top drawer (skips corner/lazy-susan/trash); 5 vitest cases
+- [x] Auto-add finished END PANELS for ALL exposed cabinet ends (generalEndPanels via exposedEnds, priced from the catalog end-panel SKU when available, else a pending placeholder) + existing Hickory skins + auto blind-corner fillers; banner notes both

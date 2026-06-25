@@ -8,7 +8,7 @@ import {
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
 } from "@/lib/design";
-import { X } from "lucide-react";
+import { X, RotateCw } from "lucide-react";
 
 interface IslandZone {
   x: number;
@@ -24,6 +24,8 @@ interface Props {
   onSelect: (uid: string | null) => void;
   onMove: (uid: string, x: number, y: number) => void;
   onDelete?: (uid: string) => void;
+  // Rotate the selected cabinet 90° in place (touch-friendly on-canvas handle).
+  onRotate?: (uid: string) => void;
   onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number) => void;
   showWallLayer: boolean;
   measureMode?: boolean;
@@ -68,7 +70,7 @@ interface Props {
 }
 
 export function PlanCanvas({
-  room, cabinets, selectedUid, onSelect, onMove, onDelete, onDropNew, onDropToFloor,
+  room, cabinets, selectedUid, onSelect, onMove, onDelete, onRotate, onDropNew, onDropToFloor,
   showWallLayer, measureMode = false, island = null, onIslandChange, onIslandMove,
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
@@ -835,6 +837,22 @@ export function PlanCanvas({
                     }}
                     title={`Corner filler (3") — included for door clearance`}
                   />
+                )}
+                {/* Always-available rotate control on the selected cabinet — a
+                    touch-friendly handle so customers can turn a cabinet without
+                    a keyboard. Turns the cabinet 90° and re-seats it. */}
+                {isSelected && !measureMode && onRotate && (
+                  <button
+                    type="button"
+                    aria-label="Rotate cabinet 90 degrees"
+                    onPointerDown={(e) => { e.stopPropagation(); }}
+                    onClick={(e) => { e.stopPropagation(); onRotate(p.uid); }}
+                    className="absolute -top-2.5 -left-2.5 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-[#1a2744] text-white shadow-md hover:bg-[#243456] active:scale-95 transition"
+                    style={{ transitionDuration: "120ms" }}
+                    title="Rotate 90°"
+                  >
+                    <RotateCw className="h-3 w-3" strokeWidth={3} />
+                  </button>
                 )}
                 {/* Always-available delete control on the selected cabinet. */}
                 {isSelected && !measureMode && onDelete && (

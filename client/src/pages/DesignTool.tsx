@@ -49,7 +49,7 @@ import {
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox,
 } from "@/lib/design";
-import { hickorySkinSuggestions, type HickorySkinSuggestion } from "@/lib/hickorySkins";
+import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import {
   type HardwareStyleId,
   DEFAULT_HARDWARE_STYLE_ID,
@@ -201,11 +201,19 @@ export default function DesignTool() {
   // Doors & windows: adjustable wall openings.
   const [openings, setOpenings] = useState<WallOpening[]>([]);
   const [selectedOpeningUid, setSelectedOpeningUid] = useState<string | null>(null);
-  // Trim toggles rendered in elevation + added to the BOM.
+  // Trim toggles rendered in elevation + added to the BOM. These AUTO-APPLY
+  // based on the layout (toe kick on any base run, crown + light rail when there
+  // are wall cabinets, batten when cabinets share a seam). The user can still
+  // override any of them off; trimOverride remembers an explicit user choice so
+  // automation never fights the user.
   const [crown, setCrown] = useState(false);
   const [toeKick, setToeKick] = useState(false);
   const [batten, setBatten] = useState(false);
   const [lightRail, setLightRail] = useState(false);
+  // Which trims the user has explicitly set (so auto-apply leaves them alone).
+  const trimOverride = useRef<{ crown: boolean; toeKick: boolean; batten: boolean; lightRail: boolean }>({
+    crown: false, toeKick: false, batten: false, lightRail: false,
+  });
   // Countertop tool: measures base + island runs; not auto-priced (quote request).
   const [countertop, setCountertop] = useState(false);
   // Countertop material: when set, a visible slab is drawn over base cabinets.
@@ -670,6 +678,32 @@ export default function DesignTool() {
     [placed, room, activeStyle]
   );
 
+  // Finished END PANELS for every exposed cabinet end on NON-Hickory styles
+  // (Hickory ends are already covered by the skin engine above). Like crown and
+  // toe kick, these are added AUTOMATICALLY based on the layout — one finished
+  // end panel per exposed end — so the customer never has to remember them. When
+  // the catalog exposes a real end-panel SKU for the locked style we use it (and
+  // it is priced); otherwise we emit a clearly-flagged placeholder.
+  const autoEndPanels = useMemo(() => {
+    if (isHickoryStyle(activeStyle as never)) return [];
+    const ends = exposedEnds(placed, room);
+    if (ends.length === 0) return [];
+    const catalogPanel =
+      (addOns?.endPanels as Array<{ id: number; masterCode: string; description: string }> | undefined)?.[0] ?? null;
+    return ends.map((e) => ({
+      end: e.end,
+      placement: e.placement,
+      height: e.height,
+      depth: e.depth,
+      code: catalogPanel?.masterCode ?? `END-PANEL-${e.placement.toUpperCase()}`,
+      cabinetId: catalogPanel?.id ?? null,
+      description: catalogPanel
+        ? `${catalogPanel.description} (covers exposed side of ${e.masterCode})`
+        : `Finished End Panel — ${e.placement} (covers exposed side of ${e.masterCode}) — SKU pending confirmation`,
+      pendingSku: !catalogPanel,
+    }));
+  }, [activeStyle, placed, room, addOns]);
+
   // Restore a saved design (room + placed cabinets + style) onto the canvas.
   const loadSavedDesign = useCallback(
     (d: { room: RoomData; placed: PlacedCabinet[]; styleId: number | null; roomType?: string | null; distributorId?: number | null }) => {
@@ -746,6 +780,27 @@ export default function DesignTool() {
         });
     }
     rows.push(...Array.from(skinMap.values()));
+    // Auto finished END PANELS (non-Hickory): one per exposed end, aggregated by
+    // code + height. Priced when a real catalog end-panel SKU is resolved for the
+    // locked style; otherwise emitted as a pending placeholder.
+    const panelMap = new Map<string, BuildSheetRow>();
+    for (const ep of autoEndPanels) {
+      const key = `${ep.code}|${Math.round(ep.height)}`;
+      const existing = panelMap.get(key);
+      if (existing) existing.qty += 1;
+      else
+        panelMap.set(key, {
+          code: ep.code,
+          description: ep.description,
+          widthIn: 0,
+          heightIn: ep.height,
+          depthIn: ep.depth,
+          placement: "accessory",
+          qty: 1,
+          unitPrice: !ep.pendingSku && ep.cabinetId != null && styleId ? addOnPriceFor(ep.cabinetId) : null,
+        });
+    }
+    rows.push(...Array.from(panelMap.values()));
     // Custom size adjustment: flat $100 for each cabinet resized in any
     // dimension. One aggregated, priced line so it shows on the build sheet.
     const customCount = placed.filter((p) => isCustomSize(p)).length;
@@ -762,7 +817,7 @@ export default function DesignTool() {
       });
     }
     return rows;
-  }, [placed, addedAddOns, priceMap, styleId, unitPriceFor, hickorySkins]);
+  }, [placed, addedAddOns, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, addOnPriceFor]);
   // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
   // note for the build sheet — carries no price (hardware is not a catalog SKU).
   const hwSchedule = useMemo(
@@ -831,6 +886,27 @@ export default function DesignTool() {
     () => (lightRail ? trimPiecesNeeded(lightRailLinearInches(placed, room)) : null),
     [lightRail, placed, room]
   );
+
+  // ─── Trim auto-apply ────────────────────────────────────────────────────────
+  // Every trim that crown/toe kick do is now AUTOMATIC: when the layout warrants
+  // a trim we switch it on (and its quantity is computed above), unless the user
+  // has explicitly toggled that trim off. This mirrors how a real takeoff adds
+  // toe kick to every base run, crown + light rail to every wall run, and batten
+  // wherever cabinets meet — without the user hand-toggling each one.
+  const hasBaseCab = useMemo(() => placed.some((p) => p.placement === "base"), [placed]);
+  const hasWallCab = useMemo(() => placed.some((p) => p.placement === "wall"), [placed]);
+  const needsBatten = useMemo(() => battenLinearInches(placed, room) > 0, [placed, room]);
+  useEffect(() => {
+    const o = trimOverride.current;
+    // Toe kick: any base cabinet run needs a toe kick.
+    if (!o.toeKick && hasBaseCab && !toeKick) setToeKick(true);
+    // Crown: wall cabinets get crown along the top.
+    if (!o.crown && hasWallCab && !crown) setCrown(true);
+    // Light rail: valance under the wall cabinets.
+    if (!o.lightRail && hasWallCab && !lightRail) setLightRail(true);
+    // Batten: cover the seams wherever cabinets meet.
+    if (!o.batten && needsBatten && !batten) setBatten(true);
+  }, [hasBaseCab, hasWallCab, needsBatten, toeKick, crown, lightRail, batten]);
   // Countertop is a POST-LAYOUT step: it can only be applied once the kitchen
   // has base cabinets (or an island) to sit on. A base run, a vanity, or an
   // island all count as a surface that takes a top.
@@ -1649,6 +1725,24 @@ export default function DesignTool() {
     setSelectedUid((cur) => (cur === uid ? null : cur));
   }, []);
 
+  // Rotate a specific cabinet by uid (used by the on-canvas rotate handle so a
+  // touch user can turn any cabinet they tap, not just via the toolbar/keyboard).
+  const rotateCabinet = useCallback((uid: string) => {
+    setSelectedUid(uid);
+    setPlaced((prev) =>
+      prev.map((p) => {
+        if (p.uid !== uid) return p;
+        const rotated = { ...p, rotation: (p.rotation + 90) % 360 };
+        const snapped = snapPosition(
+          rotated,
+          room,
+          prev.filter((c) => c.placement === p.placement && c.uid !== p.uid)
+        );
+        return { ...rotated, x: snapped.x, y: snapped.y };
+      })
+    );
+  }, [room]);
+
   // Right-click a WALL cabinet -> drop it to the floor as an island/peninsula
   // base. It keeps its width but becomes a floor-standing box that stands on a
   // standard 4.5" toe kick (mountBottom = TOE_KICK), so it reads like a real
@@ -1856,6 +1950,12 @@ export default function DesignTool() {
           setIsland(d.island ?? null);
           setStyleId(d.styleId ?? null);
           if (d.tier) setTier(d.tier);
+          // A saved design carries the user's explicit trim choices; mark them as
+          // overrides so auto-apply doesn't re-enable a trim they turned off.
+          if ("crown" in d) trimOverride.current.crown = true;
+          if ("toeKick" in d) trimOverride.current.toeKick = true;
+          if ("batten" in d) trimOverride.current.batten = true;
+          if ("lightRail" in d) trimOverride.current.lightRail = true;
           setCrown(!!d.crown);
           setToeKick(!!d.toeKick);
           setBatten(!!d.batten);
@@ -2111,10 +2211,10 @@ export default function DesignTool() {
               <DropdownMenuCheckboxItem checked={!!island} onCheckedChange={() => setIsland((cur) => cur ? null : { width: Math.min(48, room.width - 24), depth: Math.min(24, room.depth - 24), x: Math.max(0, room.width / 2 - 24), y: Math.max(0, room.depth / 2 - 12) })}>Island zone</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Trim (Front View)</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem checked={crown} onCheckedChange={() => setCrown((c) => !c)}>Crown molding</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={toeKick} onCheckedChange={() => setToeKick((t) => !t)}>Toe kick</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={batten} onCheckedChange={() => setBatten((b) => !b)}>Batten molding</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={lightRail} onCheckedChange={() => setLightRail((l) => !l)}>Light rail</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={crown} onCheckedChange={() => { trimOverride.current.crown = true; setCrown((c) => !c); }}>Crown molding</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={toeKick} onCheckedChange={() => { trimOverride.current.toeKick = true; setToeKick((t) => !t); }}>Toe kick</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={batten} onCheckedChange={() => { trimOverride.current.batten = true; setBatten((b) => !b); }}>Batten molding</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={lightRail} onCheckedChange={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }}>Light rail</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={countertop} disabled={!countertop && !hasBaseRun} onCheckedChange={toggleCountertop}>Countertop</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Hardware (knobs / pulls)</DropdownMenuLabel>
@@ -2184,8 +2284,8 @@ export default function DesignTool() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setCrown((c) => !c)}
-            title="Crown molding (shown in Front View)"
+            onClick={() => { trimOverride.current.crown = true; setCrown((c) => !c); }}
+            title="Crown molding (auto-applied to wall cabinets; click to override)"
             className={`h-8 gap-1.5 ${crown ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
             <PanelTop className="h-3.5 w-3.5" /> Crown
@@ -2193,8 +2293,8 @@ export default function DesignTool() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setToeKick((t) => !t)}
-            title="Toe kick (shown in Front View)"
+            onClick={() => { trimOverride.current.toeKick = true; setToeKick((t) => !t); }}
+            title="Toe kick (auto-applied to base runs; click to override)"
             className={`h-8 gap-1.5 ${toeKick ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
             <Columns3 className="h-3.5 w-3.5" /> Toe Kick
@@ -2202,8 +2302,8 @@ export default function DesignTool() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setBatten((b) => !b)}
-            title="Batten molding (BAM): covers seams between cabinets; shown in Front View"
+            onClick={() => { trimOverride.current.batten = true; setBatten((b) => !b); }}
+            title="Batten molding (BAM): auto-applied to cabinet seams; click to override"
             className={`h-8 gap-1.5 ${batten ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
             <Columns3 className="h-3.5 w-3.5" /> Batten
@@ -2211,8 +2311,8 @@ export default function DesignTool() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setLightRail((l) => !l)}
-            title="Light rail molding: valance under wall cabinets; shown in Front View"
+            onClick={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }}
+            title="Light rail molding: auto-applied under wall cabinets; click to override"
             className={`h-8 gap-1.5 ${lightRail ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
             <PanelTop className="h-3.5 w-3.5" /> Light Rail
@@ -2699,6 +2799,7 @@ export default function DesignTool() {
               onSelect={setSelectedUid}
               onMove={moveCabinet}
               onDelete={deleteCabinet}
+              onRotate={rotateCabinet}
               onDropNew={handleDropNew}
               showWallLayer={showWallLayer}
               measureMode={measureMode}
@@ -3200,6 +3301,14 @@ export default function DesignTool() {
                 </span>
               </div>
             )}
+            {autoEndPanels.length > 0 && (
+              <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                <span>
+                  <strong>Exposed ends:</strong> {autoEndPanels.length} finished end panel{autoEndPanels.length > 1 ? "s" : ""} auto-added to your build sheet to cover the exposed cabinet side{autoEndPanels.length > 1 ? "s" : ""}.{autoEndPanels.some((p) => p.pendingSku) ? " Some panel SKUs are pending team confirmation and are not yet priced in the estimate." : ""}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-muted-foreground">Estimated Total</span>
               <span className="font-serif text-2xl font-bold text-foreground">${total.toFixed(2)}</span>
@@ -3229,30 +3338,29 @@ export default function DesignTool() {
             {countertop && (
               <div className="mt-4 rounded-lg border border-border p-3">
                 <p className="text-xs font-semibold text-foreground mb-2">Countertop material</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {COUNTERTOP_MATERIALS.map((m) => {
-                    const active = m.id === countertopMaterialId;
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => setCountertopMaterialId(m.id)}
-                        title={m.name}
-                        className={`flex flex-col items-center gap-1 rounded-md border p-1.5 transition ${active ? "border-[#1a2744] ring-1 ring-[#1a2744]" : "border-border hover:border-muted-foreground"}`}
-                      >
-                        <span
-                          className="h-7 w-full rounded"
-                          style={{
-                            background: m.fill,
-                            border: `1px solid ${m.edge}`,
-                            backgroundImage: m.speckle ? `radial-gradient(${m.speckle} 0.5px, transparent 0.6px)` : undefined,
-                            backgroundSize: m.speckle ? "6px 6px" : undefined,
-                          }}
-                        />
-                        <span className="text-[9px] leading-tight text-center text-muted-foreground">{m.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <Select value={countertopMaterialId} onValueChange={setCountertopMaterialId}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="Select material" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTERTOP_MATERIALS.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="h-4 w-4 rounded shrink-0"
+                            style={{
+                              background: m.fill,
+                              border: `1px solid ${m.edge}`,
+                              backgroundImage: m.speckle ? `radial-gradient(${m.speckle} 0.5px, transparent 0.6px)` : undefined,
+                              backgroundSize: m.speckle ? "6px 6px" : undefined,
+                            }}
+                          />
+                          {m.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
                 <p className="text-xs font-semibold text-foreground mt-3 mb-2">Add sink &amp; faucet</p>
                 <div className="grid grid-cols-2 gap-2">
