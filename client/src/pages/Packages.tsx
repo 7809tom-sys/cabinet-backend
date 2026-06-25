@@ -3,6 +3,7 @@ import { ArrowRight, Check, Package as PackageIcon, Hammer, Truck } from "lucide
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const SHAPE_ART: Record<string, React.ReactNode> = {
   "L-Shape": (
@@ -28,6 +29,7 @@ function usd(n: number) {
 }
 
 export default function Packages() {
+  const { t } = useLanguage();
   const { data: packages, isLoading, isError, refetch } = trpc.packages.list.useQuery();
 
   return (
@@ -36,25 +38,23 @@ export default function Packages() {
       <section className="bg-[var(--color-navy)] text-white">
         <div className="container py-14 md:py-20">
           <Badge className="mb-4 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]">
-            Kitchen Packages
+            {t("pkg_badge")}
           </Badge>
           <h1 className="font-serif text-3xl md:text-5xl font-bold max-w-3xl leading-tight">
-            Whole-kitchen floor-plan bundles — priced as one package, shipped your way.
+            {t("pkg_hero_title")}
           </h1>
           <p className="mt-5 text-white/75 max-w-2xl text-lg">
-            Pick a standard layout, see the full cabinet list, and quote a complete kitchen in
-            seconds. Every package is benchmarked against the major online sellers, and ships your
-            way — <span className="font-semibold text-white">assembled or flat-pack (RTA)</span>.
+            {t("pkg_hero_sub_a")} <span className="font-semibold text-white">{t("pkg_hero_sub_b")}</span>.
           </p>
           <div className="mt-8 flex flex-wrap gap-6 text-sm">
             <div className="flex items-center gap-2 text-white/80">
-              <PackageIcon className="h-4 w-4 text-[var(--color-gold)]" /> Complete cabinet bill of materials
+              <PackageIcon className="h-4 w-4 text-[var(--color-gold)]" /> {t("pkg_feat_bom")}
             </div>
             <div className="flex items-center gap-2 text-white/80">
-              <Hammer className="h-4 w-4 text-[var(--color-gold)]" /> Assembled or flat-pack — your choice
+              <Hammer className="h-4 w-4 text-[var(--color-gold)]" /> {t("pkg_feat_assembled")}
             </div>
             <div className="flex items-center gap-2 text-white/80">
-              <Truck className="h-4 w-4 text-[var(--color-gold)]" /> Shipping quoted live at order from network hubs
+              <Truck className="h-4 w-4 text-[var(--color-gold)]" /> {t("pkg_feat_shipping")}
             </div>
           </div>
         </div>
@@ -65,20 +65,20 @@ export default function Packages() {
         {isError && (
           <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-10 text-center">
             <p className="text-sm text-muted-foreground mb-4">
-              We couldn't load the kitchen packages right now.
+              {t("pkg_load_err")}
             </p>
             <button
               onClick={() => refetch()}
               className="inline-flex items-center rounded-lg bg-[var(--color-navy)] text-white px-4 py-2 text-sm font-medium hover:bg-[var(--color-navy)]/90"
             >
-              Try again
+              {t("pkg_try_again")}
             </button>
           </div>
         )}
 
         {!isError && !isLoading && (packages?.length ?? 0) === 0 && (
           <div className="rounded-2xl border border-border bg-white p-10 text-center">
-            <p className="text-sm text-muted-foreground">No kitchen packages are available yet.</p>
+            <p className="text-sm text-muted-foreground">{t("pkg_none")}</p>
           </div>
         )}
 
@@ -103,7 +103,7 @@ export default function Packages() {
                         {SHAPE_ART[p.shape] ?? SHAPE_ART["Galley"]}
                       </div>
                       <Badge className="absolute top-4 right-4 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]">
-                        {p.cabinetCount} cabinets
+                        {p.cabinetCount} {t("pkg_cabinets")}
                       </Badge>
                     </div>
 
@@ -119,7 +119,7 @@ export default function Packages() {
                         <div className="flex items-end justify-between">
                           <div>
                             <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                              Suggested retail
+                              {t("pkg_suggested_retail")}
                             </div>
                             <div className="font-serif text-2xl font-bold text-[var(--color-navy)]">
                               {usd(p.suggestedRetail)}
@@ -127,10 +127,10 @@ export default function Packages() {
                           </div>
                           <div className="text-right">
                             <div className="text-xs text-muted-foreground line-through">
-                              {usd(p.competitorAvg)} avg
+                              {usd(p.competitorAvg)} {t("pkg_avg")}
                             </div>
                             <Badge variant="secondary" className="mt-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-                              {pctUnder}% under market
+                              {pctUnder}% {t("pkg_under_market")}
                             </Badge>
                           </div>
                         </div>
@@ -138,10 +138,10 @@ export default function Packages() {
 
                       <div className="mt-4 flex items-center justify-between text-sm font-medium text-[var(--color-navy)]">
                         <span className="flex items-center gap-1.5 text-emerald-600">
-                          <Check className="h-4 w-4" /> Assembled or RTA
+                          <Check className="h-4 w-4" /> {t("pkg_assembled_or_rta")}
                         </span>
                         <span className="flex items-center gap-1 group-hover:gap-2 transition-all">
-                          View package <ArrowRight className="h-4 w-4" />
+                          {t("pkg_view_package")} <ArrowRight className="h-4 w-4" />
                         </span>
                       </div>
                     </div>
@@ -151,10 +151,7 @@ export default function Packages() {
         </div>
 
         <p className="mt-10 text-center text-xs text-muted-foreground max-w-2xl mx-auto">
-          Competitor figures are assembled white-shaker package prices captured as a planning
-          benchmark; sellers run frequent sales, so treat these as guidance rather than a live
-          quote. Cabinet pricing shown excludes freight — shipping is quoted live (LTL carrier)
-          at order time.
+          {t("pkg_disclaimer")}
         </p>
       </section>
     </div>

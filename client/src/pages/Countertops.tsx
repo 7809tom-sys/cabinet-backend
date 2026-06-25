@@ -14,6 +14,7 @@ import { CheckCircle2, Loader2, Ruler, PencilRuler } from "lucide-react";
 import { COUNTERTOP_MATERIALS, countertopMaterial } from "@/lib/design";
 import { COUNTERTOP_INFO, countertopInfo } from "@shared/countertops";
 import { useSeo } from "@/hooks/useSeo";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // A swatch tile rendering the real material fill/edge/speckle from design.ts so
 // what shoppers see here matches the Design Tool render.
@@ -49,6 +50,7 @@ function Swatch({ id, selected, onSelect }: { id: string; selected: boolean; onS
 }
 
 export default function Countertops() {
+  const { t } = useLanguage();
   const [selectedId, setSelectedId] = useState<string>(COUNTERTOP_MATERIALS[0].id);
   const selectedInfo = useMemo(() => countertopInfo(selectedId), [selectedId]);
 
@@ -70,9 +72,9 @@ export default function Countertops() {
   const submit = trpc.design.requestCountertopQuote.useMutation({
     onSuccess: () => {
       setSubmitted(true);
-      toast.success("Countertop quote request sent. We'll be in touch with pricing.");
+      toast.success(t("ct_quote_sent_toast"));
     },
-    onError: (e) => toast.error(e.message || "Could not send the request. Please try again."),
+    onError: (e) => toast.error(e.message || t("ct_send_err")),
   });
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -80,7 +82,7 @@ export default function Countertops() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!emailValid) {
-      toast.error("Please enter a valid email so we can send your quote.");
+      toast.error(t("ct_valid_email_err"));
       return;
     }
     const sqftNum = Number(sqft);
@@ -107,20 +109,19 @@ export default function Countertops() {
       {/* Hero */}
       <section className="bg-[var(--color-navy)] text-white">
         <div className="container py-14 md:py-20">
-          <p className="text-[var(--color-gold)] font-semibold tracking-wide uppercase text-sm">Countertops</p>
+          <p className="text-[var(--color-gold)] font-semibold tracking-wide uppercase text-sm">{t("ct_eyebrow")}</p>
           <h1 className="mt-2 font-serif text-3xl md:text-5xl font-bold max-w-3xl">
-            Finish your kitchen with the right countertop
+            {t("ct_hero_title")}
           </h1>
           <p className="mt-4 max-w-2xl text-white/80 text-lg">
-            Explore popular materials and colors, then send us your measurements for a project quote.
-            Countertops are fabricated and installed per job — we quote each one for you.
+            {t("ct_hero_sub")}
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button asChild size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
-              <Link href="/design"><PencilRuler className="mr-2 h-4 w-4" /> Measure in the Design Tool</Link>
+              <Link href="/design"><PencilRuler className="mr-2 h-4 w-4" /> {t("ct_measure_btn")}</Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="border-white/40 text-white hover:bg-white/10">
-              <a href="#quote"><Ruler className="mr-2 h-4 w-4" /> Request a quote</a>
+              <a href="#quote"><Ruler className="mr-2 h-4 w-4" /> {t("ct_request_btn")}</a>
             </Button>
           </div>
         </div>
@@ -128,9 +129,9 @@ export default function Countertops() {
 
       {/* Material gallery */}
       <section className="container py-12 md:py-16">
-        <h2 className="font-serif text-2xl md:text-3xl font-bold">Materials &amp; colors</h2>
+        <h2 className="font-serif text-2xl md:text-3xl font-bold">{t("ct_materials_title")}</h2>
         <p className="mt-2 text-muted-foreground max-w-2xl">
-          Tap a swatch to learn more. These are the same finishes you can preview live on your layout in the Design Tool.
+          {t("ct_materials_sub")}
         </p>
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_1fr]">
@@ -164,7 +165,7 @@ export default function Countertops() {
                     ))}
                   </ul>
                   <Button asChild className="mt-5 w-full bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
-                    <a href="#quote">Get a quote for {selectedInfo.name}</a>
+                    <a href="#quote">{t("ct_get_quote_for")} {selectedInfo.name}</a>
                   </Button>
                 </>
               ) : null}
@@ -177,10 +178,9 @@ export default function Countertops() {
       <section id="quote" className="border-t border-border bg-muted/30">
         <div className="container py-12 md:py-16">
           <div className="mx-auto max-w-xl">
-            <h2 className="font-serif text-2xl md:text-3xl font-bold text-center">Request a countertop quote</h2>
+            <h2 className="font-serif text-2xl md:text-3xl font-bold text-center">{t("ct_form_title")}</h2>
             <p className="mt-2 text-center text-muted-foreground">
-              Tell us a little about your project and we&apos;ll follow up with pricing. Not sure of your square
-              footage? <Link href="/design" className="text-primary underline">Measure it in the Design Tool</Link>.
+              {t("ct_form_sub_a")} <Link href="/design" className="text-primary underline">{t("ct_form_sub_link")}</Link>.
             </p>
 
             <Card className="mt-8">
@@ -188,58 +188,58 @@ export default function Countertops() {
                 {submitted ? (
                   <div className="py-6 text-center space-y-3">
                     <CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
-                    <h3 className="font-serif text-xl font-bold">Request sent</h3>
+                    <h3 className="font-serif text-xl font-bold">{t("ct_sent_title")}</h3>
                     <p className="text-muted-foreground">
-                      Thanks! We received your countertop request and will follow up at {email} with pricing.
+                      {t("ct_sent_body_a")} {email} {t("ct_sent_body_b")}
                     </p>
-                    <Button className="mt-2" onClick={() => setSubmitted(false)}>Send another</Button>
+                    <Button className="mt-2" onClick={() => setSubmitted(false)}>{t("ct_send_another")}</Button>
                   </div>
                 ) : (
                   <form className="grid gap-4" onSubmit={handleSubmit}>
                     <div className="grid gap-1.5">
-                      <Label htmlFor="ct-email">Email *</Label>
+                      <Label htmlFor="ct-email">{t("ct_email")} *</Label>
                       <Input id="ct-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" required />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="grid gap-1.5">
-                        <Label htmlFor="ct-name">Name</Label>
-                        <Input id="ct-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" />
+                        <Label htmlFor="ct-name">{t("ct_name")}</Label>
+                        <Input id="ct-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("ct_optional")} />
                       </div>
                       <div className="grid gap-1.5">
-                        <Label htmlFor="ct-phone">Phone</Label>
-                        <Input id="ct-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Optional" />
+                        <Label htmlFor="ct-phone">{t("ct_phone")}</Label>
+                        <Input id="ct-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("ct_optional")} />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="grid gap-1.5">
-                        <Label htmlFor="ct-zip">ZIP</Label>
-                        <Input id="ct-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="Optional" />
+                        <Label htmlFor="ct-zip">{t("ct_zip")}</Label>
+                        <Input id="ct-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder={t("ct_optional")} />
                       </div>
                       <div className="grid gap-1.5">
-                        <Label htmlFor="ct-sqft">Approx. sq ft</Label>
+                        <Label htmlFor="ct-sqft">{t("ct_approx_sqft")}</Label>
                         <Input id="ct-sqft" inputMode="decimal" value={sqft} onChange={(e) => setSqft(e.target.value)} placeholder="e.g. 45" />
                       </div>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label htmlFor="ct-material">Material</Label>
+                      <Label htmlFor="ct-material">{t("ct_material")}</Label>
                       <Select value={material} onValueChange={setMaterial}>
                         <SelectTrigger id="ct-material">
-                          <SelectValue placeholder="Choose a material" />
+                          <SelectValue placeholder={t("ct_choose_material")} />
                         </SelectTrigger>
                         <SelectContent>
                           {COUNTERTOP_MATERIALS.map((m) => (
                             <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
                           ))}
-                          <SelectItem value="Not sure yet">Not sure yet</SelectItem>
+                          <SelectItem value="Not sure yet">{t("ct_not_sure")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="grid gap-1.5">
-                      <Label htmlFor="ct-notes">Notes</Label>
-                      <Textarea id="ct-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Edge profile, island, timeline, anything else…" rows={3} />
+                      <Label htmlFor="ct-notes">{t("ct_notes")}</Label>
+                      <Textarea id="ct-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("ct_notes_ph")} rows={3} />
                     </div>
                     <Button type="submit" disabled={submit.isPending} className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
-                      {submit.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending…</>) : "Request quote"}
+                      {submit.isPending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("ct_sending")}</>) : t("ct_request_quote")}
                     </Button>
                   </form>
                 )}

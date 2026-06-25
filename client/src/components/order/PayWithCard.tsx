@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { CreditCard, Lock, CheckCircle2, Truck, Loader2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Minimal typing for the Accept.js global injected by the gateway script.
 type AcceptResponse = {
@@ -54,6 +55,7 @@ export default function PayWithCard({
   presetFreightCents,
   onPaid,
 }: PayWithCardProps) {
+  const { t } = useLanguage();
   const { data: config, isLoading } = trpc.payments.publicConfig.useQuery();
   const [scriptReady, setScriptReady] = useState(false);
 
@@ -82,7 +84,7 @@ export default function PayWithCard({
     el.src = config.acceptJsUrl;
     el.async = true;
     el.onload = () => setScriptReady(true);
-    el.onerror = () => toast.error("Could not load the secure payment library.");
+    el.onerror = () => toast.error(t("pay_lib_load_err"));
     document.body.appendChild(el);
     scriptElRef.current = el;
     // Intentionally not removing on unmount — the gateway script is safe to keep.
@@ -96,15 +98,15 @@ export default function PayWithCard({
   const handlePay = useCallback(() => {
     if (!config?.enabled) return;
     if (!freightOk) {
-      toast.error("Enter the shipping amount quoted for this order before paying.");
+      toast.error(t("pay_enter_shipping_err"));
       return;
     }
     if (!window.Accept) {
-      toast.error("Secure payment library is still loading. Please try again in a moment.");
+      toast.error(t("pay_lib_loading_err"));
       return;
     }
     if (!cardNumber || !expMonth || !expYear || !cvc) {
-      toast.error("Enter your full card details.");
+      toast.error(t("pay_full_card_err"));
       return;
     }
     setProcessing(true);
@@ -122,8 +124,8 @@ export default function PayWithCard({
       (res) => {
         if (res.messages.resultCode !== "Ok" || !res.opaqueData) {
           setProcessing(false);
-          const msg = res.messages.message?.[0]?.text ?? "Your card could not be verified.";
-          toast.error("Card error", { description: msg });
+          const msg = res.messages.message?.[0]?.text ?? t("pay_card_unverified");
+          toast.error(t("pay_card_error"), { description: msg });
           return;
         }
         charge.mutate(
@@ -140,18 +142,18 @@ export default function PayWithCard({
             onSuccess: (r) => {
               setProcessing(false);
               setPaid({ transactionId: r.transactionId, amountCents: r.amountCents, last4: r.cardLast4 });
-              toast.success("Payment approved", { description: `Charged ${fmt(r.amountCents)}` });
+              toast.success(t("pay_approved"), { description: t("pay_charged", { amount: fmt(r.amountCents) }) });
               onPaid?.({ transactionId: r.transactionId, amountCents: r.amountCents });
             },
             onError: (e) => {
               setProcessing(false);
-              toast.error("Payment declined", { description: e.message });
+              toast.error(t("pay_declined"), { description: e.message });
             },
           },
         );
       },
     );
-  }, [config, freightOk, freightCents, cardNumber, expMonth, expYear, cvc, zip, charge, orderRequestId, payerName, payerEmail, onPaid]);
+  }, [config, freightOk, freightCents, cardNumber, expMonth, expYear, cvc, zip, charge, orderRequestId, payerName, payerEmail, onPaid, t]);
 
   if (isLoading) {
     return <div className="flex justify-center py-6"><Spinner /></div>;
@@ -167,12 +169,12 @@ export default function PayWithCard({
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
             <CheckCircle2 className="h-6 w-6 text-emerald-600" />
           </div>
-          <h3 className="font-serif text-xl font-bold mb-1">Payment received</h3>
+          <h3 className="font-serif text-xl font-bold mb-1">{t("pay_received_title")}</h3>
           <p className="text-muted-foreground">
-            We charged {fmt(paid.amountCents)}{paid.last4 ? ` to the card ending ••${paid.last4}` : ""}.
+            {t("pay_received_body", { amount: fmt(paid.amountCents), ending: paid.last4 ? t("pay_card_ending", { last4: paid.last4 }) : "" })}
           </p>
           {paid.transactionId && (
-            <p className="text-xs text-muted-foreground mt-2">Transaction #{paid.transactionId}</p>
+            <p className="text-xs text-muted-foreground mt-2">{t("pay_transaction", { id: paid.transactionId })}</p>
           )}
         </CardContent>
       </Card>
@@ -183,11 +185,11 @@ export default function PayWithCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CreditCard className="h-5 w-5" /> Pay in full
+          <CreditCard className="h-5 w-5" /> {t("pay_in_full")}
         </CardTitle>
         <CardDescription className="flex items-center gap-1.5">
           <Lock className="h-3.5 w-3.5 text-emerald-600" />
-          Secured by Authorize.Net. Your card details are tokenized in your browser and never touch our servers.
+          {t("pay_secured_by")}
           {config.environment === "sandbox" && (
             <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">SANDBOX</span>
           )}
@@ -197,7 +199,7 @@ export default function PayWithCard({
         {/* Freight gate */}
         <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1.5">
           <Label htmlFor="freight" className="flex items-center gap-1.5">
-            <Truck className="h-4 w-4" /> Shipping quoted for this order
+            <Truck className="h-4 w-4" /> {t("pay_shipping_quoted")}
           </Label>
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground">$</span>
@@ -212,41 +214,40 @@ export default function PayWithCard({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Freight is quoted live on your order. Payment unlocks once the shipping amount is attached, so your
-            total includes shipping (no surprise bills).
+            {t("pay_freight_hint")}
           </p>
         </div>
 
         <fieldset disabled={!freightOk || !scriptReady} className="space-y-4 disabled:opacity-50">
           <div className="space-y-1.5">
-            <Label htmlFor="card">Card number</Label>
+            <Label htmlFor="card">{t("pay_card_number")}</Label>
             <Input id="card" inputMode="numeric" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} placeholder="1234 5678 9012 3456" autoComplete="cc-number" />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="m">Month</Label>
+              <Label htmlFor="m">{t("pay_month")}</Label>
               <Input id="m" inputMode="numeric" value={expMonth} onChange={(e) => setExpMonth(e.target.value)} placeholder="MM" maxLength={2} autoComplete="cc-exp-month" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="y">Year</Label>
+              <Label htmlFor="y">{t("pay_year")}</Label>
               <Input id="y" inputMode="numeric" value={expYear} onChange={(e) => setExpYear(e.target.value)} placeholder="YYYY" maxLength={4} autoComplete="cc-exp-year" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cvc">CVC</Label>
+              <Label htmlFor="cvc">{t("pay_cvc")}</Label>
               <Input id="cvc" inputMode="numeric" value={cvc} onChange={(e) => setCvc(e.target.value)} placeholder="123" maxLength={4} autoComplete="cc-csc" />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="zip">Billing ZIP</Label>
-            <Input id="zip" inputMode="numeric" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="ZIP" className="max-w-[160px]" autoComplete="postal-code" />
+            <Label htmlFor="zip">{t("pay_billing_zip")}</Label>
+            <Input id="zip" inputMode="numeric" value={zip} onChange={(e) => setZip(e.target.value)} placeholder={t("pay_zip_ph")} className="max-w-[160px]" autoComplete="postal-code" />
           </div>
         </fieldset>
 
         <Button onClick={handlePay} disabled={processing || !freightOk || !scriptReady} className="w-full gap-2 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
           {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-          {processing ? "Processing…" : freightOk ? "Pay now" : "Enter shipping to continue"}
+          {processing ? t("pay_processing") : freightOk ? t("pay_pay_now") : t("pay_enter_shipping_cta")}
         </Button>
-        {!scriptReady && <p className="text-center text-xs text-muted-foreground">Loading secure payment form…</p>}
+        {!scriptReady && <p className="text-center text-xs text-muted-foreground">{t("pay_loading_form")}</p>}
       </CardContent>
     </Card>
   );

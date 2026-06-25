@@ -29,6 +29,11 @@ describe("SITE_STRINGS", () => {
       "home_cat_base_t", // "Base" is the same word in ES
       "home_cat_ada_t", // "ADA" is a proper acronym
       "ds_color", // "Color" is the same word in ES
+      "pkd_th_sku", // "SKU" is a universal acronym
+      "ct_material", // "Material" is the same word in ES
+      "pay_cvc", // "CVC" is a universal acronym
+      "dt_rs_field_eq", // pure number/unit format string
+      "ob_manual_hint_c", // just ")." punctuation
     ]);
     const identical = enKeys.filter(
       (k) =>

@@ -3,6 +3,7 @@ import { Ruler, Mail, User, Phone, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface LeadContact {
   email: string;
@@ -20,6 +21,7 @@ interface Props {
 // gate low-friction, but capturing them gives reps real contact info to follow
 // up on. If the user is already logged in, we skip straight through.
 export function EmailGate({ onVerified }: Props) {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -57,12 +59,10 @@ export function EmailGate({ onVerified }: Props) {
           <Ruler className="h-7 w-7 text-[#d4a75a]" />
         </div>
         <h1 className="font-serif text-2xl font-bold text-center text-[#1a2744] mb-2">
-          Start Your Kitchen Design
+          {t("dt_gate_title")}
         </h1>
         <p className="text-center text-sm text-muted-foreground mb-6">
-          Tell us where to send your design. Your email launches the designer and
-          saves your bill of materials — add your name and phone so a Cabinet Dealz
-          rep can help if you'd like.
+          {t("dt_gate_sub")}
         </p>
 
         <div className="space-y-3">
@@ -72,7 +72,7 @@ export function EmailGate({ onVerified }: Props) {
             <Input
               type="text"
               autoComplete="name"
-              placeholder="Full name (optional)"
+              placeholder={t("dt_gate_name_ph")}
               className="pl-9"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -86,7 +86,7 @@ export function EmailGate({ onVerified }: Props) {
             <Input
               type="email"
               autoComplete="email"
-              placeholder="you@example.com"
+              placeholder={t("dt_gate_email_ph")}
               className="pl-9"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -101,7 +101,7 @@ export function EmailGate({ onVerified }: Props) {
             <Input
               type="tel"
               autoComplete="tel"
-              placeholder="Phone (optional)"
+              placeholder={t("dt_gate_phone_ph")}
               className="pl-9"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -110,19 +110,19 @@ export function EmailGate({ onVerified }: Props) {
           </div>
 
           {touched && !valid && (
-            <p className="text-xs text-destructive">Please enter a valid email address.</p>
+            <p className="text-xs text-destructive">{t("dt_gate_invalid_email")}</p>
           )}
           <Button
             className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90 gap-2"
             disabled={!valid}
             onClick={submit}
           >
-            Launch Designer <ArrowRight className="h-4 w-4" />
+            {t("dt_gate_launch")} <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
 
         <p className="text-[11px] text-muted-foreground text-center mt-5">
-          By continuing you agree to receive design-related emails. No spam.
+          {t("dt_gate_consent")}
         </p>
       </div>
     </div>

@@ -9,6 +9,7 @@ import {
 import {
   addScan, setScanQty, removeScan, totalScanQty, type ScanItem,
 } from "@/lib/scanList";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type ResultPayload = {
   lines: unknown[];
@@ -33,6 +34,7 @@ function getBarcodeDetectorCtor(): BarcodeDetectorCtor | null {
 }
 
 export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
+  const { t } = useLanguage();
   const [items, setItems] = useState<ScanItem[]>([]);
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
 
   const match = trpc.orders.matchCodes.useMutation({
     onSuccess: (r) => onResult(r as ResultPayload),
-    onError: (e) => toast.error("Couldn't match those codes", { description: e.message }),
+    onError: (e) => toast.error(t("bc_match_err"), { description: e.message }),
   });
 
   const stopCamera = useCallback(() => {
@@ -76,7 +78,7 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
     lastHitRef.current = { code, at: now };
     setItems((prev) => addScan(prev, code, 1));
     setLastScan(code);
-    toast.success(`Scanned ${code}`);
+    toast.success(t("bc_scanned", { code }));
     // Best-effort haptic feedback on mobile.
     try { navigator.vibrate?.(40); } catch { /* no-op */ }
   }, []);
@@ -85,7 +87,7 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
     setCameraError(null);
     const Ctor = getBarcodeDetectorCtor();
     if (!Ctor) {
-      setCameraError("This browser doesn't support live barcode scanning. Type or paste codes below instead.");
+      setCameraError(t("bc_no_support"));
       return;
     }
     try {
@@ -123,8 +125,8 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
       const msg = err instanceof Error ? err.message : "Camera unavailable";
       setCameraError(
         /denied|permission/i.test(msg)
-          ? "Camera permission was denied. Enable it in your browser, or type codes below."
-          : `Couldn't start the camera (${msg}). Type codes below instead.`
+          ? t("bc_perm_denied")
+          : t("bc_cam_err", { msg })
       );
       stopCamera();
     }
@@ -157,19 +159,19 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
               <div className="h-24 w-3/4 rounded-lg border-2 border-[var(--color-gold)]/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]" />
             </div>
             <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white">
-              <ScanLine className="h-3.5 w-3.5 animate-pulse" /> Point at a barcode
+              <ScanLine className="h-3.5 w-3.5 animate-pulse" /> {t("bc_point")}
             </div>
             <Button
               variant="secondary" size="icon"
               className="absolute top-2 right-2 h-8 w-8"
               onClick={stopCamera}
-              aria-label="Stop camera"
+              aria-label={t("bc_stop_camera")}
             >
               <X className="h-4 w-4" />
             </Button>
             {lastScan && (
               <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-[var(--color-gold)] px-3 py-1 text-xs font-medium text-[var(--color-navy)]">
-                Last: {lastScan}
+                {t("bc_last", { code: lastScan })}
               </div>
             )}
           </div>
@@ -183,11 +185,9 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
               {supported ? <Camera className="h-6 w-6 text-[var(--color-navy)]" /> : <CameraOff className="h-6 w-6 text-muted-foreground" />}
             </div>
             <div>
-              <p className="font-medium">{supported ? "Start the barcode scanner" : "Live scanning not available"}</p>
+              <p className="font-medium">{supported ? t("bc_start_scanner") : t("bc_not_available")}</p>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {supported
-                  ? "Use your camera to scan cabinet labels one after another"
-                  : "Your browser can't open the scanner — add codes manually below"}
+                {supported ? t("bc_start_sub") : t("bc_not_available_sub")}
               </p>
             </div>
           </button>
@@ -204,12 +204,12 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
           value={manualCode}
           onChange={(e) => setManualCode(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addManual(); } }}
-          placeholder="Add a code by hand (e.g. B24)"
+          placeholder={t("bc_add_by_hand_ph")}
           className="font-mono"
-          aria-label="Add a cabinet code manually"
+          aria-label={t("bc_add_aria")}
         />
         <Button variant="outline" onClick={addManual} disabled={!manualCode.trim()} className="gap-1 shrink-0">
-          <Plus className="h-4 w-4" /> Add
+          <Plus className="h-4 w-4" /> {t("bc_add")}
         </Button>
       </div>
 
@@ -217,8 +217,8 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
       {items.length > 0 ? (
         <div className="rounded-lg border border-border divide-y divide-border">
           <div className="flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground">
-            <span>{items.length} code{items.length === 1 ? "" : "s"} · {total} unit{total === 1 ? "" : "s"}</span>
-            <button className="hover:text-destructive" onClick={() => setItems([])}>Clear all</button>
+            <span>{t("bc_summary", { c: items.length, cs: items.length === 1 ? "" : "s", u: total, us: total === 1 ? "" : "s" })}</span>
+            <button className="hover:text-destructive" onClick={() => setItems([])}>{t("bc_clear_all")}</button>
           </div>
           {items.map((it, idx) => (
             <div key={`${it.code}-${idx}`} className="flex items-center gap-3 px-3 py-2">
@@ -228,12 +228,12 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
                 type="number" min={1} max={999} value={it.qty}
                 onChange={(e) => setItems((prev) => setScanQty(prev, idx, parseInt(e.target.value, 10) || 1))}
                 className="h-8 w-16 text-center"
-                aria-label={`Quantity for ${it.code}`}
+                aria-label={t("bc_qty_for", { code: it.code })}
               />
               <Button
                 variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
                 onClick={() => setItems((prev) => removeScan(prev, idx))}
-                aria-label={`Remove ${it.code}`}
+                aria-label={t("bc_remove", { code: it.code })}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -242,7 +242,7 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
         </div>
       ) : (
         <p className="text-sm text-muted-foreground text-center py-2">
-          No codes yet — scan a label or add one by hand to get started.
+          {t("bc_empty")}
         </p>
       )}
 
@@ -252,7 +252,7 @@ export function BarcodeScanTab({ onResult }: { onResult: (r: ResultPayload) => v
         className="w-full bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2"
       >
         {match.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Barcode className="h-4 w-4" />}
-        {match.isPending ? "Matching…" : `Match ${items.length || ""} code${items.length === 1 ? "" : "s"}`}
+        {match.isPending ? t("bc_matching") : t("bc_match_n", { n: items.length || "", s: items.length === 1 ? "" : "s" })}
       </Button>
     </div>
   );

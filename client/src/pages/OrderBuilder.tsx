@@ -12,6 +12,7 @@ import {
 import { OrderReview, type ReviewLine } from "@/components/order/OrderReview";
 import { BarcodeScanTab } from "@/components/order/BarcodeScanTab";
 import { CART_PREFILL_KEY } from "@/pages/Cart";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type Source = "ocr" | "csv" | "manual" | "barcode";
 
@@ -26,6 +27,7 @@ function fileToDataUrl(file: File): Promise<string> {
 }
 
 export default function OrderBuilder() {
+  const { t } = useLanguage();
   const [lines, setLines] = useState<ReviewLine[]>([]);
   const [source, setSource] = useState<Source>("ocr");
   const matchCodes = trpc.orders.matchCodes.useMutation();
@@ -58,12 +60,12 @@ export default function OrderBuilder() {
         onSuccess: (result) => {
           setSource("manual");
           setLines(result.lines);
-          toast.success(`Loaded ${result.lines.length} item${result.lines.length > 1 ? "s" : ""} from your cart`, {
-            description: `${result.matchedCount} matched · ${result.unmatchedCount} need review`,
+          toast.success(t("ob_loaded_from_cart", { n: result.lines.length, s: result.lines.length > 1 ? "s" : "" }), {
+            description: t("ob_matched_review", { m: result.matchedCount, u: result.unmatchedCount }),
           });
           setTimeout(() => document.getElementById("order-review")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
         },
-        onError: () => toast.error("Could not load cart items. Please try again."),
+        onError: () => toast.error(t("ob_cart_load_err")),
       }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -71,13 +73,13 @@ export default function OrderBuilder() {
 
   function ingest(result: { lines: ReviewLine[]; matchedCount: number; unmatchedCount: number }, src: Source) {
     if (result.lines.length === 0) {
-      toast.error("No cabinet codes found. Try another method.");
+      toast.error(t("ob_no_codes"));
       return;
     }
     setSource(src);
     setLines(result.lines);
-    toast.success(`Found ${result.lines.length} line${result.lines.length > 1 ? "s" : ""}`, {
-      description: `${result.matchedCount} matched · ${result.unmatchedCount} need review`,
+    toast.success(t("ob_found_lines", { n: result.lines.length, s: result.lines.length > 1 ? "s" : "" }), {
+      description: t("ob_matched_review", { m: result.matchedCount, u: result.unmatchedCount }),
     });
     // Smooth scroll to the review section.
     setTimeout(() => document.getElementById("order-review")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
@@ -89,11 +91,9 @@ export default function OrderBuilder() {
     <div className="container py-10 max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="font-serif text-3xl md:text-4xl font-bold text-foreground">Build an Order</h1>
+        <h1 className="font-serif text-3xl md:text-4xl font-bold text-foreground">{t("ob_title")}</h1>
         <p className="text-muted-foreground mt-2 max-w-2xl">
-          Snap a photo of an existing quote or spec sheet, import a CSV, or type your cabinet
-          codes. We'll match them to the catalog, price them for your door style, and route the
-          order to the supply line.
+          {t("ob_sub")}
         </p>
       </div>
 
@@ -101,16 +101,16 @@ export default function OrderBuilder() {
         <Tabs value={source} onValueChange={(v) => setSource(v as Source)} className="mb-2">
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
             <TabsTrigger value="ocr" className="flex-col gap-1 py-3">
-              <Camera className="h-4 w-4" /> Scan a Photo
+              <Camera className="h-4 w-4" /> {t("ob_tab_scan")}
             </TabsTrigger>
             <TabsTrigger value="barcode" className="flex-col gap-1 py-3">
-              <Barcode className="h-4 w-4" /> Scan Barcode
+              <Barcode className="h-4 w-4" /> {t("ob_tab_barcode")}
             </TabsTrigger>
             <TabsTrigger value="csv" className="flex-col gap-1 py-3">
-              <FileSpreadsheet className="h-4 w-4" /> Import CSV
+              <FileSpreadsheet className="h-4 w-4" /> {t("ob_tab_csv")}
             </TabsTrigger>
             <TabsTrigger value="manual" className="flex-col gap-1 py-3">
-              <Keyboard className="h-4 w-4" /> Type Codes
+              <Keyboard className="h-4 w-4" /> {t("ob_tab_manual")}
             </TabsTrigger>
           </TabsList>
 
@@ -147,19 +147,20 @@ type ResultPayload = { lines: ReviewLine[]; matchedCount: number; unmatchedCount
 
 // ─── Scan a Photo (OCR) ─────────────────────────────────────────────────────────
 function ScanTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
+  const { t } = useLanguage();
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   const extract = trpc.orders.extractFromImage.useMutation({
     onSuccess: (r) => onResult(r as ResultPayload),
-    onError: (e) => toast.error("Couldn't read that image", { description: e.message }),
+    onError: (e) => toast.error(t("ob_img_read_err"), { description: e.message }),
   });
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Please choose an image file (JPG, PNG, HEIC).");
+      toast.error(t("ob_choose_image_err"));
       return;
     }
     const url = await fileToDataUrl(file);
@@ -187,16 +188,16 @@ function ScanTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
             <Camera className="h-6 w-6 text-[var(--color-navy)]" />
           </div>
           <div>
-            <p className="font-medium">Take or upload a photo</p>
+            <p className="font-medium">{t("ob_take_upload")}</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              A quote, spec sheet, or handwritten list of cabinet codes
+              {t("ob_take_upload_sub")}
             </p>
           </div>
         </button>
       ) : (
         <div className="space-y-4">
           <div className="relative rounded-lg overflow-hidden border border-border">
-            <img src={preview} alt="Order sheet preview" className="w-full max-h-80 object-contain bg-muted" />
+            <img src={preview} alt={t("ob_img_alt")} className="w-full max-h-80 object-contain bg-muted" />
             <Button
               variant="secondary"
               size="icon"
@@ -213,16 +214,16 @@ function ScanTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
               className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2"
             >
               {extract.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-              {extract.isPending ? "Reading cabinet codes…" : "Extract cabinet codes"}
+              {extract.isPending ? t("ob_reading_codes") : t("ob_extract_codes")}
             </Button>
             <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2">
-              <Upload className="h-4 w-4" /> Choose a different photo
+              <Upload className="h-4 w-4" /> {t("ob_choose_diff_photo")}
             </Button>
           </div>
         </div>
       )}
       <p className="text-xs text-muted-foreground mt-4">
-        Tip: a clear, well-lit photo with codes like B24, W3030, or DB24-3 reads best. We never store your photo.
+        {t("ob_scan_tip")}
       </p>
     </div>
   );
@@ -230,19 +231,20 @@ function ScanTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
 
 // ─── Import CSV ──────────────────────────────────────────────────────────────────
 function CsvTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
+  const { t } = useLanguage();
   const fileRef = useRef<HTMLInputElement>(null);
   const [csv, setCsv] = useState("");
 
   const extract = trpc.orders.extractFromCsv.useMutation({
     onSuccess: (r) => onResult(r as ResultPayload),
-    onError: (e) => toast.error("Couldn't read that CSV", { description: e.message }),
+    onError: (e) => toast.error(t("ob_csv_read_err"), { description: e.message }),
   });
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
     const text = await file.text();
     setCsv(text);
-    toast.success(`Loaded ${file.name}`);
+    toast.success(t("ob_loaded_file", { name: file.name }));
   }
 
   return (
@@ -251,9 +253,9 @@ function CsvTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
 
       <div className="flex flex-col sm:flex-row gap-3">
         <Button variant="outline" onClick={() => fileRef.current?.click()} className="gap-2">
-          <Upload className="h-4 w-4" /> Upload a CSV file
+          <Upload className="h-4 w-4" /> {t("ob_upload_csv")}
         </Button>
-        <span className="text-sm text-muted-foreground self-center">or paste rows below</span>
+        <span className="text-sm text-muted-foreground self-center">{t("ob_or_paste")}</span>
       </div>
 
       <div className="space-y-1.5">
@@ -265,7 +267,7 @@ function CsvTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
           placeholder={"code,qty\nB-24,2\nW-30-30,4\nDB-24-3,1\nSB-36,1"}
         />
         <p className="text-xs text-muted-foreground">
-          One cabinet per line. First column is the code, optional second column is quantity (defaults to 1). A header row is auto-detected.
+          {t("ob_csv_hint")}
         </p>
       </div>
 
@@ -275,7 +277,7 @@ function CsvTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
         className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2"
       >
         {extract.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-        {extract.isPending ? "Matching codes…" : "Match codes"}
+        {extract.isPending ? t("ob_matching_codes") : t("ob_match_codes")}
       </Button>
     </div>
   );
@@ -283,11 +285,12 @@ function CsvTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
 
 // ─── Type Codes (manual) ──────────────────────────────────────────────────────────
 function ManualTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
+  const { t } = useLanguage();
   const [text, setText] = useState("");
 
   const match = trpc.orders.matchCodes.useMutation({
     onSuccess: (r) => onResult(r as ResultPayload),
-    onError: (e) => toast.error("Couldn't match those codes", { description: e.message }),
+    onError: (e) => toast.error(t("ob_match_err"), { description: e.message }),
   });
 
   // Parse "CODE xN", "CODE, N", or "CODE" per line.
@@ -327,7 +330,7 @@ function ManualTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
           placeholder={"B24 x2\nW3030 x4\nDB24-3\nSB36"}
         />
         <p className="text-xs text-muted-foreground">
-          One code per line. Add a quantity with "x2", a comma, or a space (e.g. <code>B24 x2</code> or <code>B24, 2</code>).
+          {t("ob_manual_hint_a")} <code>B24 x2</code> {t("ob_manual_hint_b")} <code>B24, 2</code>{t("ob_manual_hint_c")}
         </p>
       </div>
       <Button
@@ -336,7 +339,7 @@ function ManualTab({ onResult }: { onResult: (r: ResultPayload) => void }) {
         className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2"
       >
         {match.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Keyboard className="h-4 w-4" />}
-        {match.isPending ? "Matching…" : `Match ${parsedCount || ""} code${parsedCount === 1 ? "" : "s"}`}
+        {match.isPending ? t("ob_matching") : t("ob_match_n", { n: parsedCount || "", s: parsedCount === 1 ? "" : "s" })}
       </Button>
     </div>
   );

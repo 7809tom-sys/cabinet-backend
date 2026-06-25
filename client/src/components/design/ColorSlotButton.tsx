@@ -6,6 +6,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ColorSlotButton
@@ -43,6 +44,7 @@ export function ColorSlotButton({
   onPick,
   onClear,
 }: ColorSlotButtonProps) {
+  const { t } = useLanguage();
   const [pickerOpen, setPickerOpen] = useState(false);
   const name = style?.ourName ?? null;
   const hasStyle = style != null;
@@ -70,7 +72,7 @@ export function ColorSlotButton({
         {hasStyle && onClear && (
           <button
             type="button"
-            title="Remove this color"
+            title={t("dt_cs_remove_color")}
             onClick={(e) => { e.stopPropagation(); onClear(); }}
             className="text-muted-foreground hover:text-red-600"
           >
@@ -96,10 +98,10 @@ export function ColorSlotButton({
         </div>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[12px] font-semibold text-foreground">
-            {name ?? "Set door style"}
+            {name ?? t("dt_cs_set_style")}
           </span>
           <span className="block text-[10px] text-muted-foreground">
-            {active ? "Active — new cabinets use this" : hasStyle ? "Click to use" : "Optional second color"}
+            {active ? t("dt_cs_active") : hasStyle ? t("dt_cs_click_use") : t("dt_cs_optional_second")}
           </span>
         </span>
       </button>
@@ -112,14 +114,14 @@ export function ColorSlotButton({
             className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-[#1a2744] hover:underline"
           >
             <Pencil className="h-3 w-3" />
-            {hasStyle ? "Change door style" : "Choose door style"}
+            {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-56 p-1">
           <div className="max-h-64 overflow-y-auto">
             {styles.length === 0 ? (
               <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                No door styles available.
+                {t("dt_cs_none_available")}
               </div>
             ) : (
               styles.map((s) => (
@@ -132,7 +134,7 @@ export function ColorSlotButton({
                     style?.id === s.id ? "bg-accent font-semibold" : "",
                   ].join(" ")}
                 >
-                  <span className="truncate">{s.ourName ?? `Style #${s.id}`}</span>
+                  <span className="truncate">{s.ourName ?? t("dt_cs_style_num", { id: s.id })}</span>
                   {style?.id === s.id && <Check className="h-3.5 w-3.5 text-[#d4a75a]" />}
                 </button>
               ))

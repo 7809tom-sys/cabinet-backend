@@ -1746,3 +1746,23 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Catalog long-form descriptions: server translate-on-demand + cache into ES (cabinets + door styles)
 - [ ] Spanish affiliate benefits PDF "Beneficios de Ser un Afiliado"
 - [ ] Tests, type-check, verify EN/ES across pages + a storefront, checkpoint
+
+
+## Bilingual (EN/ES) — Design Tool translation
+- [ ] Design Tool: main shell (toolbar, palette tabs, panels, primary toasts) translated to ES
+- [~] Design Tool: dialogs (CabinetAttributes, CountertopQuote, ProDesigner, EmailGate, OpeningSizeEditor) translated to ES
+- [~] Design Tool: canvas/elevation/help/controls. DONE: EmailGate, WallPicker, CornerView, ColorSlotButton, RoomSizeControl, OpeningSizeEditor. REMAINING: PlanCanvas, ElevationView, DesignActions, DesignHelp translated to ES
+- [ ] Design Tool: DesignSession + PlanSheet pages translated to ES
+- [ ] Final full test suite + EN/ES visual spot-check + checkpoint
+
+
+## Estimate & Build Sheet — collapsible sections (user request)
+- [x] Make each section of the Estimate & Build Sheet collapsible (Door Styles & Pricing, line-item list, two-tone finishes, exposed-ends note, totals)
+- [x] Apply collapsible behavior on BOTH mobile drawer and desktop/PC sidebar
+- [x] Sensible default open/closed states; remember within session
+
+- [x] Build Sheet line items: clearly show each cabinet's specific door style/color (swatch + finish name) per line, so two-tone designs are unambiguous
+
+- [x] Build Sheet: group cabinet line items into collapsible sections (Base [incl. full-height/tall base merged], Wall, Appliances) — no separate tall section
+- [x] Build Sheet: wrap fillers/trim/countertop/add-ons in a collapsible "Trim & Extras" group; keep Estimated Total + Export always visible
+- [ ] Update buildSheetCsv.test.ts for the new Color / Finish column

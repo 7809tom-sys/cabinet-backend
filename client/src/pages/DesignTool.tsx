@@ -272,6 +272,20 @@ export default function DesignTool() {
       return next;
     });
   }, []);
+
+  // Estimate & Build Sheet: collapsible sections (works in both the desktop
+  // sidebar and the mobile drawer since both render the same children). The
+  // Estimated Total + Export CTA are intentionally NOT collapsible.
+  const [collapsedSheet, setCollapsedSheet] = useState<Set<string>>(() => new Set());
+  const toggleSheetSection = useCallback((key: string) => {
+    setCollapsedSheet((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
   // Room type: kitchen cabinets (default), bathroom, laundry, closet parts, or other.
   const [roomType, setRoomType] = useState<RoomType>("kitchen");
 
@@ -800,6 +814,17 @@ export default function DesignTool() {
     []
   );
 
+  // Map of door-style id -> display name. Defined here (before buildRows) so the
+  // export can label each line with its specific color/finish.
+  const styleNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    doorStyles?.forEach((d) => {
+      const s = d as { id: number; ourName?: string | null };
+      m.set(s.id, s.ourName ?? `Style #${s.id}`);
+    });
+    return m;
+  }, [doorStyles]);
+
   // Itemized lines for the exported build sheet (cabinets aggregated by code).
   const buildRows = useMemo<BuildSheetRow[]>(() => {
     const map = new Map<string, BuildSheetRow>();
@@ -812,7 +837,11 @@ export default function DesignTool() {
       if ((p.handleSide === "left" || p.handleSide === "right") && !p.noDoor)
         attrNotes.push(`Handle ${p.handleSide}`);
       const attrNote = attrNotes.join(", ");
-      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}`;
+      // Per-cabinet color (two-tone aware) for the export, mirroring the on-screen
+      // line items. Included in the dedup key so different colors stay separate.
+      const cabStyleId = styleId ? effectiveStyleId(p, styleId) : null;
+      const cabColor = cabStyleId != null ? (styleNameById.get(cabStyleId) ?? null) : null;
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${cabStyleId ?? "_"}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -823,6 +852,7 @@ export default function DesignTool() {
           description: [p.description, sizeNote, attrNote]
             .filter(Boolean)
             .join(" — "),
+          color: cabColor,
           widthIn: rotatedSize(p).w,
           heightIn: placedHeight(p),
           depthIn: rotatedSize(p).d,
@@ -903,7 +933,7 @@ export default function DesignTool() {
       });
     }
     return rows;
-  }, [placed, addedAddOns, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, addOnPriceFor]);
+  }, [placed, addedAddOns, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, addOnPriceFor, styleNameById]);
   // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
   // note for the build sheet — carries no price (hardware is not a catalog SKU).
   const hwSchedule = useMemo(
@@ -954,14 +984,6 @@ export default function DesignTool() {
   // Distinct finishes actually used across the design (default + per-cabinet
   // overrides), each with its display name + swatch, so the summary can list
   // every finish on a two-tone design instead of just the default.
-  const styleNameById = useMemo(() => {
-    const m = new Map<number, string>();
-    doorStyles?.forEach((d) => {
-      const s = d as { id: number; ourName?: string | null };
-      m.set(s.id, s.ourName ?? `Style #${s.id}`);
-    });
-    return m;
-  }, [doorStyles]);
   const finishSummary = useMemo(() => {
     if (!styleId) return [] as Array<{ id: number; name: string; face: string; edge: string }>;
     return distinctStyleIds(placed, styleId).map((id) => {
@@ -1110,9 +1132,18 @@ export default function DesignTool() {
       hasConflict: boolean;
       label: string;
       swing: DoorSwing;
+      colorId: number | null;
+      colorName: string | null;
+      colorFace: string | null;
+      colorEdge: string | null;
     }>();
     for (const p of placed) {
-      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}`;
+      // Resolve THIS cabinet's specific color (two-tone designs place cabinets in
+      // either Color 1 or Color 2). We key by color too so each color shows as
+      // its own line, and surface the swatch + finish name for the line item.
+      const cabStyleId = styleId ? effectiveStyleId(p, styleId) : null;
+      const colorKey = cabStyleId ?? "_";
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}|${colorKey}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -1121,6 +1152,7 @@ export default function DesignTool() {
         existing.uids.push(p.uid);
         if (conflictUids.has(p.uid)) existing.hasConflict = true;
       } else {
+        const fin = cabStyleId != null ? finishById.get(cabStyleId) : null;
         map.set(key, {
           key,
           sample: p,
@@ -1130,11 +1162,34 @@ export default function DesignTool() {
           hasConflict: conflictUids.has(p.uid),
           label: dimLabel(p),
           swing: resolveSwing(p),
+          colorId: cabStyleId,
+          colorName: cabStyleId != null ? (styleNameById.get(cabStyleId) ?? null) : null,
+          colorFace: fin?.face ?? null,
+          colorEdge: fin?.edge ?? null,
         });
       }
     }
     return Array.from(map.values());
-  }, [placed, priceMap, styleId, conflictUids, unitPriceFor]);
+  }, [placed, priceMap, styleId, conflictUids, unitPriceFor, finishById, styleNameById]);
+
+  // Build-sheet cabinet sections. Full-height (tall) base cabinets are grouped
+  // WITH the regular base cabinets (a single "Base Cabinets" section) — there is
+  // no separate tall section. Wall cabinets get their own section, and anything
+  // left over (appliances/other) goes into a final section so nothing is lost.
+  // This is a build-sheet organization concern only; the placement model is
+  // unchanged. Within each section we sort by code for a logical, stable order.
+  const cabinetSections = useMemo(() => {
+    const byCode = (a: typeof panelGroups[number], b: typeof panelGroups[number]) =>
+      a.sample.masterCode.localeCompare(b.sample.masterCode, undefined, { numeric: true });
+    const base = panelGroups
+      .filter((g) => g.sample.placement === "base" || g.sample.placement === "tall")
+      .sort(byCode);
+    const wall = panelGroups.filter((g) => g.sample.placement === "wall").sort(byCode);
+    const other = panelGroups
+      .filter((g) => g.sample.placement !== "base" && g.sample.placement !== "tall" && g.sample.placement !== "wall")
+      .sort(byCode);
+    return { base, wall, other };
+  }, [panelGroups]);
 
   // Non-cabinet build-sheet lines (fillers, crown, toe kick, countertop note).
   const extraLines = useMemo(() => {
@@ -3363,68 +3418,125 @@ export default function DesignTool() {
           </div>
 
           {/* BOM list */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          <div className="flex-1 overflow-y-auto py-1">
             {placed.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-xs">
                 <DollarSign className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 Add cabinets to build your bill of materials
               </div>
             ) : (
-              panelGroups.map((g) => {
-                const selected = g.uids.includes(selectedUid ?? "");
-                const lineTotal = g.unitPrice != null ? g.unitPrice * g.qty : null;
-                return (
-                  <div
-                    key={g.key}
-                    onClick={() => setSelectedUid(g.uids[g.uids.length - 1])}
-                    className={`group w-full text-left flex items-center justify-between gap-2 p-2 rounded-lg text-xs transition-colors cursor-pointer ${
-                      selected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <div className="font-mono font-semibold truncate flex items-center gap-1.5">
-                        {g.sample.masterCode}
-                        {g.qty > 1 && (
-                          <span className="inline-flex items-center rounded bg-[#1a2744] text-white px-1.5 py-0.5 text-[9px] font-bold">
-                            ×{g.qty}
-                          </span>
-                        )}
-                        {g.hasConflict && (
-                          <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-                            Conflict
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground truncate">
-                        {g.label} · {g.sample.placement}
-                        {(g.swing === "left" || g.swing === "right") && (
-                          <span className="ml-1 font-semibold text-foreground/70">· {g.swing === "left" ? "L hinge" : "R hinge"}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <div className="text-right">
-                        <div className="font-semibold leading-none">
-                          {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A") : "—"}
+              (() => {
+                // One line-item renderer reused by every cabinet section so base,
+                // wall and appliance lines look and behave identically.
+                const renderLine = (g: typeof panelGroups[number]) => {
+                  const selected = g.uids.includes(selectedUid ?? "");
+                  const lineTotal = g.unitPrice != null ? g.unitPrice * g.qty : null;
+                  return (
+                    <div
+                      key={g.key}
+                      onClick={() => setSelectedUid(g.uids[g.uids.length - 1])}
+                      className={`group w-full text-left flex items-center justify-between gap-2 p-2 rounded-lg text-xs transition-colors cursor-pointer ${
+                        selected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-mono font-semibold truncate flex items-center gap-1.5">
+                          {g.sample.masterCode}
+                          {g.qty > 1 && (
+                            <span className="inline-flex items-center rounded bg-[#1a2744] text-white px-1.5 py-0.5 text-[9px] font-bold">
+                              ×{g.qty}
+                            </span>
+                          )}
+                          {g.hasConflict && (
+                            <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                              Conflict
+                            </span>
+                          )}
                         </div>
-                        {styleId && g.qty > 1 && g.unitPrice != null && (
-                          <div className="text-[9px] text-muted-foreground mt-0.5">${g.unitPrice.toFixed(2)} ea</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {g.label} · {g.sample.placement}
+                          {(g.swing === "left" || g.swing === "right") && (
+                            <span className="ml-1 font-semibold text-foreground/70">· {g.swing === "left" ? "L hinge" : "R hinge"}</span>
+                          )}
+                        </div>
+                        {/* Per-line color: always show the cabinet's specific door
+                            style / finish so the shopping list is unambiguous
+                            (critical for two-tone designs). */}
+                        {g.colorName && (
+                          <div className="mt-0.5 flex items-center gap-1">
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-sm border shrink-0"
+                              style={{ background: g.colorFace ?? "#ccc", borderColor: g.colorEdge ?? "#999" }}
+                            />
+                            <span className="text-[10px] font-medium text-foreground/80 truncate">{g.colorName}</span>
+                          </div>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); deleteOneFromGroup(g.uids); }}
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label={g.qty > 1 ? `Remove one ${g.sample.masterCode}` : `Remove ${g.sample.masterCode}`}
-                        title={g.qty > 1 ? "Remove one from the design" : "Remove from the design"}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="text-right">
+                          <div className="font-semibold leading-none">
+                            {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A") : "—"}
+                          </div>
+                          {styleId && g.qty > 1 && g.unitPrice != null && (
+                            <div className="text-[9px] text-muted-foreground mt-0.5">${g.unitPrice.toFixed(2)} ea</div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); deleteOneFromGroup(g.uids); }}
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label={g.qty > 1 ? `Remove one ${g.sample.masterCode}` : `Remove ${g.sample.masterCode}`}
+                          title={g.qty > 1 ? "Remove one from the design" : "Remove from the design"}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  );
+                };
+                return (
+                  <>
+                    {cabinetSections.base.length > 0 && (
+                      <SheetSection
+                        title="Base Cabinets"
+                        count={cabinetSections.base.reduce((n, g) => n + g.qty, 0)}
+                        collapsed={collapsedSheet.has("base")}
+                        onToggle={() => toggleSheetSection("base")}
+                      >
+                        <div className="px-2 pb-1 space-y-1">{cabinetSections.base.map(renderLine)}</div>
+                      </SheetSection>
+                    )}
+                    {cabinetSections.wall.length > 0 && (
+                      <SheetSection
+                        title="Wall Cabinets"
+                        count={cabinetSections.wall.reduce((n, g) => n + g.qty, 0)}
+                        collapsed={collapsedSheet.has("wall")}
+                        onToggle={() => toggleSheetSection("wall")}
+                      >
+                        <div className="px-2 pb-1 space-y-1">{cabinetSections.wall.map(renderLine)}</div>
+                      </SheetSection>
+                    )}
+                    {cabinetSections.other.length > 0 && (
+                      <SheetSection
+                        title="Appliances & Other"
+                        count={cabinetSections.other.reduce((n, g) => n + g.qty, 0)}
+                        collapsed={collapsedSheet.has("other")}
+                        onToggle={() => toggleSheetSection("other")}
+                      >
+                        <div className="px-2 pb-1 space-y-1">{cabinetSections.other.map(renderLine)}</div>
+                      </SheetSection>
+                    )}
+                  </>
                 );
-              })
+              })()
             )}
+            {(fillers.length > 0 || ((crown || toeKick || batten || countertop) && placed.length > 0) || addedAddOns.length > 0) && (
+            <SheetSection
+              title="Trim & Extras"
+              collapsed={collapsedSheet.has("extras")}
+              onToggle={() => toggleSheetSection("extras")}
+            >
+            <div className="px-2 pb-1 space-y-1">
             {fillers.length > 0 && (
               <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
                 {fillers.map((f) => (
@@ -3512,6 +3624,9 @@ export default function DesignTool() {
                   );
                 })}
               </div>
+            )}
+            </div>
+            </SheetSection>
             )}
           </div>
 
@@ -3969,6 +4084,55 @@ function PricingShell({
   return (
     <div className="hidden lg:flex w-72 shrink-0 border-l border-border bg-card flex-col">
       {children}
+    </div>
+  );
+}
+
+// Collapsible section used inside the Estimate & Build Sheet panel. Works the
+// same in the desktop sidebar and the mobile drawer (both render the same
+// children). The Estimated Total + Export CTA are intentionally NOT wrapped in
+// this so they always stay visible.
+function SheetSection({
+  title, count, collapsed, onToggle, children, className,
+}: {
+  title: string;
+  count?: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/50"
+      >
+        <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+          {typeof count === "number" && count > 0 && (
+            <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-foreground/70">
+              {count}
+            </span>
+          )}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+            collapsed ? "-rotate-90" : "rotate-0",
+          )}
+        />
+      </button>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200 ease-out",
+          collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+        )}
+      >
+        <div className="overflow-hidden">{children}</div>
+      </div>
     </div>
   );
 }

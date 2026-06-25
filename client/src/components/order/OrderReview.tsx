@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { CabinetImage } from "@/components/CabinetImage";
 import PayWithCard from "@/components/order/PayWithCard";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -80,6 +81,7 @@ function CabinetSearchPicker({
   onPick: (c: { id: number; masterCode: string; description: string }) => void;
   initialTerm?: string;
 }) {
+  const { t } = useLanguage();
   const [term, setTerm] = useState(initialTerm);
   const [debounced, setDebounced] = useState(initialTerm);
   useEffect(() => {
@@ -99,7 +101,7 @@ function CabinetSearchPicker({
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
         <Input
           autoFocus
-          placeholder="Search by code or description…"
+          placeholder={t("or_search_ph")}
           className="pl-8 h-9"
           value={term}
           onChange={(e) => setTerm(e.target.value)}
@@ -107,13 +109,13 @@ function CabinetSearchPicker({
       </div>
       {isLoading && debounced ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("or_searching")}
         </div>
       ) : items.length > 0 ? (
         <div className="relative z-20 max-h-72 overflow-auto rounded-md border border-border divide-y divide-border bg-popover">
           {items.length >= 2 && (
             <p className="px-3 py-1.5 text-[11px] text-muted-foreground bg-muted/50 sticky top-0">
-              {items.length} matches — pick the exact cabinet (e.g. pantry vs. decorative panel)
+              {t("or_matches_pick", { n: items.length })}
             </p>
           )}
           {items.map((c) => {
@@ -142,37 +144,39 @@ function CabinetSearchPicker({
           })}
         </div>
       ) : debounced ? (
-        <p className="text-sm text-muted-foreground py-2">No cabinets found for "{debounced}".</p>
+        <p className="text-sm text-muted-foreground py-2">{t("or_no_cabinets_for", { term: debounced })}</p>
       ) : (
-        <p className="text-sm text-muted-foreground py-2">Type to search the catalog.</p>
+        <p className="text-sm text-muted-foreground py-2">{t("or_type_to_search")}</p>
       )}
     </div>
   );
 }
 
-function confidenceBadge(line: ReviewLine) {
+function ConfidenceBadge({ line }: { line: ReviewLine }) {
+  const { t } = useLanguage();
   if (!line.matched) {
     return (
       <Badge variant="outline" className="gap-1 border-amber-400/60 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
-        <AlertTriangle className="h-3 w-3" /> Needs review
+        <AlertTriangle className="h-3 w-3" /> {t("or_needs_review")}
       </Badge>
     );
   }
   if (line.confidence === "exact" || line.confidence === "normalized") {
     return (
       <Badge variant="outline" className="gap-1 border-emerald-400/60 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30">
-        <CheckCircle2 className="h-3 w-3" /> Matched
+        <CheckCircle2 className="h-3 w-3" /> {t("or_matched")}
       </Badge>
     );
   }
   return (
     <Badge variant="outline" className="gap-1 border-blue-400/60 text-blue-600 bg-blue-50 dark:bg-blue-950/30">
-      <CheckCircle2 className="h-3 w-3" /> Best guess
+      <CheckCircle2 className="h-3 w-3" /> {t("or_best_guess")}
     </Badge>
   );
 }
 
 export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
+  const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
   const [tier, setTier] = useState<Tier>("Contractor");
   const [styleId, setStyleId] = useState<number | null>(null);
@@ -203,7 +207,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
     persistReferralCode(code);
     setReferralCode(code);
     setRefInput("");
-    toast.success(`Referral applied · ${refLookup.data.storeName}`);
+    toast.success(t("or_referral_applied", { store: refLookup.data.storeName }));
   }
 
   useEffect(() => {
@@ -243,7 +247,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       confidence: "exact",
     };
     onLinesChange([...lines, kitLine]);
-    toast.success("Touch-up kit added to your order.");
+    toast.success(t("or_touchup_added"));
   }
   const stableCabinetIds = useMemo(
     () => Array.from(new Set(matchedCabinetIds)).sort((a, b) => a - b),
@@ -258,7 +262,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       onLinesChange(
         lines.map((l, i) => (i === existingIdx ? { ...l, qty: l.qty + 1 } : l))
       );
-      toast.success(`Added another ${rec.masterCode} (qty ${lines[existingIdx].qty + 1}).`);
+      toast.success(t("or_added_another", { code: rec.masterCode, qty: lines[existingIdx].qty + 1 }));
       return;
     }
     const recLine: ReviewLine = {
@@ -272,7 +276,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       confidence: "exact",
     };
     onLinesChange([...lines, recLine]);
-    toast.success(`${rec.masterCode} added to your order.`);
+    toast.success(t("or_added_to_order", { code: rec.masterCode }));
   }
 
   // Door styles that can fulfill the matched cabinets.
@@ -370,8 +374,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
           const next = [...lines];
           next.splice(idx + 1, 0, topLine);
           onLinesChange(next);
-          toast.success("Split pantry completed", {
-            description: `Added the matching ${top.width}" top (${top.masterCode}) to reach ${top.totalHeight}".`,
+          toast.success(t("or_split_completed"), {
+            description: t("or_split_completed_desc", { w: top.width, code: top.masterCode, h: top.totalHeight }),
           });
         }
       })
@@ -464,22 +468,22 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
     onSuccess: (res) => {
       setSubmittedId(res.id);
       if (isAuthenticated) utils.orders.myRequests.invalidate();
-      toast.success("Order request submitted", {
-        description: "Our team will review and send it to the supply line.",
+      toast.success(t("or_submitted_toast"), {
+        description: t("or_submitted_desc"),
       });
     },
-    onError: (e) => toast.error("Could not submit", { description: e.message }),
+    onError: (e) => toast.error(t("or_could_not_submit"), { description: e.message }),
   });
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   function handleSubmit() {
     if (lines.length === 0) {
-      toast.error("Add at least one cabinet before submitting.");
+      toast.error(t("or_add_one_first"));
       return;
     }
     if (!emailValid) {
-      toast.error("Enter a valid email so we can confirm your order.");
+      toast.error(t("or_valid_email_confirm"));
       return;
     }
     // Carry the finish-match rule through to the order: skins & decorative end
@@ -531,10 +535,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40">
           <CheckCircle2 className="h-7 w-7 text-emerald-600" />
         </div>
-        <h3 className="font-serif text-2xl font-bold mb-2">Order request received</h3>
+        <h3 className="font-serif text-2xl font-bold mb-2">{t("or_received_title")}</h3>
         <p className="text-muted-foreground max-w-md mx-auto mb-6">
-          We've logged your {itemCount}-piece order. Our team reviews every request and routes it to
-          the supply line for fulfillment. You'll get a confirmation at{" "}
+          {t("or_received_body_a", { n: itemCount })}{" "}
           <span className="font-medium text-foreground">{email}</span>.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -543,7 +546,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
               confirmReq.mutate(
                 { id: submittedId },
                 {
-                  onSuccess: () => toast.success("Thanks — your order is confirmed."),
+                  onSuccess: () => toast.success(t("or_confirmed_toast")),
                   onError: (e) => toast.error(e.message),
                 }
               );
@@ -551,10 +554,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
             disabled={confirmReq.isPending || confirmReq.isSuccess}
             className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
           >
-            {confirmReq.isSuccess ? "Confirmed" : confirmReq.isPending ? "Confirming…" : "Confirm this order"}
+            {confirmReq.isSuccess ? t("or_confirmed") : confirmReq.isPending ? t("or_confirming") : t("or_confirm_this")}
           </Button>
           <Button variant="outline" onClick={onReset}>
-            Start another order
+            {t("or_start_another")}
           </Button>
         </div>
 
@@ -577,41 +580,41 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
     <div className="space-y-6">
       {/* Summary strip */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3">
-        <Badge variant="secondary" className="gap-1">{lines.length} lines</Badge>
-        <Badge variant="secondary" className="gap-1">{itemCount} pieces</Badge>
+        <Badge variant="secondary" className="gap-1">{t("or_lines", { n: lines.length })}</Badge>
+        <Badge variant="secondary" className="gap-1">{t("or_pieces", { n: itemCount })}</Badge>
         <Badge variant="outline" className="gap-1 border-emerald-400/60 text-emerald-600">
-          {matchedCount} matched
+          {t("or_n_matched", { n: matchedCount })}
         </Badge>
         {unmatchedCount > 0 && (
           <Badge variant="outline" className="gap-1 border-amber-400/60 text-amber-600">
-            {unmatchedCount} need review
+            {t("or_n_need_review", { n: unmatchedCount })}
           </Badge>
         )}
         <div className="ml-auto">
-          <Button variant="ghost" size="sm" onClick={onReset}>Clear & start over</Button>
+          <Button variant="ghost" size="sm" onClick={onReset}>{t("or_clear_start_over")}</Button>
         </div>
       </div>
 
       {/* Style + tier controls */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label>Door style</Label>
+          <Label>{t("or_door_style")}</Label>
           {stableCabinetIds.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Match at least one cabinet to pick a style.</p>
+            <p className="text-sm text-muted-foreground">{t("or_match_one_to_style")}</p>
           ) : stylesQuery.isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground h-9">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading styles…
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("or_loading_styles")}
             </div>
           ) : styleOptions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No published styles cover these cabinets yet.</p>
+            <p className="text-sm text-muted-foreground">{t("or_no_styles_cover")}</p>
           ) : (
             <Select value={styleId ? String(styleId) : undefined} onValueChange={(v) => setStyleId(Number(v))}>
-              <SelectTrigger><SelectValue placeholder="Choose a door style" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t("or_choose_door_style")} /></SelectTrigger>
               <SelectContent>
                 {styleOptions.map((s) => (
                   <SelectItem key={s.styleId} value={String(s.styleId)}>
                     {s.name}
-                    {!s.coversAll ? " (partial coverage)" : ""}
+                    {!s.coversAll ? t("or_partial_coverage") : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -621,18 +624,18 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
             <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
               <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                <strong>{selectedStyle?.name}</strong> ships unfinished on all exposed exteriors. Every visible/exposed cabinet side needs a matching Hickory skin / end panel in the same finish, added as a <strong>separate line item</strong>. We&rsquo;ll flag this on your quote so exposed sides are confirmed before production.
+                <strong>{selectedStyle?.name}</strong> {t("or_unfinished_a")} <strong>{t("or_unfinished_b")}</strong>{t("or_unfinished_c")}
               </span>
             </div>
           )}
         </div>
         <div className="space-y-1.5">
-          <Label>Pricing tier</Label>
+          <Label>{t("or_pricing_tier")}</Label>
           <Select value={tier} onValueChange={(v) => setTier(v as Tier)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="Contractor">Contractor</SelectItem>
-              <SelectItem value="Wholesale">Wholesale</SelectItem>
+              <SelectItem value="Contractor">{t("or_tier_contractor")}</SelectItem>
+              <SelectItem value="Wholesale">{t("or_tier_wholesale")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -643,12 +646,12 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-[120px]">Code</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="w-[140px]">Status</TableHead>
-              <TableHead className="w-[120px]">Qty</TableHead>
-              <TableHead className="w-[100px] text-right">Unit</TableHead>
-              <TableHead className="w-[110px] text-right">Line</TableHead>
+              <TableHead className="w-[120px]">{t("or_th_code")}</TableHead>
+              <TableHead>{t("or_th_description")}</TableHead>
+              <TableHead className="w-[140px]">{t("or_th_status")}</TableHead>
+              <TableHead className="w-[120px]">{t("or_th_qty")}</TableHead>
+              <TableHead className="w-[100px] text-right">{t("or_th_unit")}</TableHead>
+              <TableHead className="w-[110px] text-right">{t("or_th_line")}</TableHead>
               <TableHead className="w-[44px]" />
             </TableRow>
           </TableHeader>
@@ -671,16 +674,16 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                     <div className="min-w-0">
                       {l.masterCode ?? l.rawCode}
                       {l.matched && l.masterCode && l.rawCode && l.masterCode.toUpperCase() !== l.rawCode.toUpperCase() && (
-                        <span className="block text-[10px] font-normal text-muted-foreground">from "{l.rawCode}"</span>
+                        <span className="block text-[10px] font-normal text-muted-foreground">{t("or_from_raw", { raw: l.rawCode })}</span>
                       )}
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="text-sm">
-                  {l.description ?? <span className="text-muted-foreground italic">Unrecognized code</span>}
+                  {l.description ?? <span className="text-muted-foreground italic">{t("or_unrecognized")}</span>}
                   {l.pantryTopFor != null && (
                     <Badge variant="secondary" className="ml-2 text-[10px] align-middle">
-                      Split-pantry top (auto-added)
+                      {t("or_split_top_auto")}
                     </Badge>
                   )}
                   {l.matched &&
@@ -693,13 +696,13 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                           className="ml-2 text-[10px] align-middle border-[var(--color-gold)]/50 text-[var(--color-gold)]"
                           title="Skins & decorative end panels are finished to match the cabinet door style."
                         >
-                          {label ?? "Finish to match door style"}
+                          {label ?? t("or_finish_to_match")}
                         </Badge>
                       );
                     })()}
                 </TableCell>
                 <TableCell>
-                  {fixingIndex === idx ? null : confidenceBadge(l)}
+                  {fixingIndex === idx ? null : <ConfidenceBadge line={l} />}
                   {!l.matched && fixingIndex !== idx && (
                     <Button
                       variant="link"
@@ -707,7 +710,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                       className="h-auto p-0 text-xs"
                       onClick={() => setFixingIndex(idx)}
                     >
-                      <Pencil className="h-3 w-3 mr-1" /> Fix
+                      <Pencil className="h-3 w-3 mr-1" /> {t("or_fix")}
                     </Button>
                   )}
                   {l.matched && fixingIndex !== idx && l.pantryTopFor == null && (
@@ -717,11 +720,11 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                       className="h-auto p-0 text-xs text-muted-foreground ml-2"
                       onClick={() => setFixingIndex(idx)}
                     >
-                      swap
+                      {t("or_swap")}
                     </Button>
                   )}
                   {l.pantryTopFor != null && (
-                    <span className="block text-[10px] text-muted-foreground">Controlled by its pantry base</span>
+                    <span className="block text-[10px] text-muted-foreground">{t("or_controlled_by_base")}</span>
                   )}
                   {fixingIndex === idx && (
                     <div className="mt-1">
@@ -744,13 +747,13 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                             normalized: c.masterCode,
                           });
                           setFixingIndex(null);
-                          toast.success("Code fixed & remembered", {
-                            description: `"${rawForAlias}" will now match ${c.masterCode} automatically.`,
+                          toast.success(t("or_code_fixed"), {
+                            description: t("or_code_fixed_desc", { raw: rawForAlias, code: c.masterCode }),
                           });
                         }}
                       />
                       <Button variant="ghost" size="sm" className="mt-1 h-7 text-xs" onClick={() => setFixingIndex(null)}>
-                        Cancel
+                        {t("or_cancel")}
                       </Button>
                     </div>
                   )}
@@ -804,13 +807,13 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       <div className="flex items-center justify-between rounded-lg border border-border bg-card px-5 py-4">
         <div>
           <p className="text-sm text-muted-foreground">
-            Estimated total{" "}
+            {t("or_est_total")}{" "}
             {pricedCount < matchedCount && (
-              <span className="text-amber-600">(some lines not yet priced)</span>
+              <span className="text-amber-600">{t("or_some_not_priced")}</span>
             )}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {selectedStyle ? `${selectedStyle.name} · ${tier}` : "Select a door style to price"}
+            {selectedStyle ? `${selectedStyle.name} · ${tier}` : t("or_select_style_to_price")}
           </p>
         </div>
         <p className="font-serif text-2xl font-bold tabular-nums">
@@ -822,19 +825,19 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       {ownerHasCost && (
         <div className="rounded-lg border border-dashed border-amber-500/50 bg-amber-50/60 px-5 py-3 dark:bg-amber-950/20">
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-500">
-            <Lock className="h-3 w-3" /> Owner view · not shown to customers
+            <Lock className="h-3 w-3" /> {t("or_owner_view")}
           </div>
           <div className="mt-2 grid grid-cols-3 gap-3 text-sm">
             <div>
-              <p className="text-muted-foreground">My cost</p>
+              <p className="text-muted-foreground">{t("or_my_cost")}</p>
               <p className="font-semibold tabular-nums">${ownerCost.toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">Gross margin</p>
+              <p className="text-muted-foreground">{t("or_gross_margin")}</p>
               <p className="font-semibold tabular-nums">${ownerMargin.toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">Margin %</p>
+              <p className="text-muted-foreground">{t("or_margin_pct")}</p>
               <p className="font-semibold tabular-nums">{ownerMarginPct != null ? `${ownerMarginPct}%` : "—"}</p>
             </div>
           </div>
@@ -843,26 +846,26 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
 
       {/* Contact + submit */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-        <h3 className="font-serif text-lg font-semibold">Submit this order</h3>
+        <h3 className="font-serif text-lg font-semibold">{t("or_submit_this")}</h3>
         <p className="text-sm text-muted-foreground -mt-2">
-          We'll review your request and route it to the supply line. All orders are confirmed with the originator before fulfillment.
+          {t("or_submit_blurb")}
         </p>
         {referralInfo.data ? (
           <div className="flex items-center gap-2 rounded-md border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/10 px-3 py-2 text-sm">
             <CheckCircle2 className="h-4 w-4 text-[var(--color-gold)] shrink-0" />
             <span className="text-foreground">
-              Referred by <span className="font-semibold">{referralInfo.data.storeName}</span>
+              {t("or_referred_by")} <span className="font-semibold">{referralInfo.data.storeName}</span>
             </span>
           </div>
         ) : (
           <div className="space-y-1.5">
-            <Label htmlFor="ord-ref">Referral code <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Label htmlFor="ord-ref">{t("or_referral_code")} <span className="text-muted-foreground font-normal">{t("or_optional")}</span></Label>
             <div className="flex gap-2">
               <Input
                 id="ord-ref"
                 value={refInput}
                 onChange={(e) => setRefInput(e.target.value.toUpperCase())}
-                placeholder="e.g. FIRSTCLASS"
+                placeholder={t("or_ref_ph")}
                 className="uppercase"
               />
               <Button
@@ -872,45 +875,45 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
                 disabled={refInput.trim().length < 3 || !refLookup.data}
                 onClick={applyManualReferral}
               >
-                Apply
+                {t("or_apply")}
               </Button>
             </div>
             {refInput.trim().length >= 3 && !refLookup.isFetching && (
               refLookup.data ? (
-                <p className="text-xs text-[var(--color-gold)]">Found: {refLookup.data.storeName}</p>
+                <p className="text-xs text-[var(--color-gold)]">{t("or_found_store", { store: refLookup.data.storeName })}</p>
               ) : (
-                <p className="text-xs text-muted-foreground">No store matches that code.</p>
+                <p className="text-xs text-muted-foreground">{t("or_no_store_match")}</p>
               )
             )}
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="ord-name">Name</Label>
-            <Input id="ord-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+            <Label htmlFor="ord-name">{t("or_name")}</Label>
+            <Input id="ord-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("or_name_ph")} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="ord-email">Email <span className="text-destructive">*</span></Label>
-            <Input id="ord-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
+            <Label htmlFor="ord-email">{t("or_email")} <span className="text-destructive">*</span></Label>
+            <Input id="ord-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("or_email_ph")} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="ord-phone">Phone</Label>
-            <Input id="ord-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(optional)" />
+            <Label htmlFor="ord-phone">{t("or_phone")}</Label>
+            <Input id="ord-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("or_phone_ph")} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="ord-zip">Delivery ZIP</Label>
-            <Input id="ord-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="(optional)" />
+            <Label htmlFor="ord-zip">{t("or_delivery_zip")}</Label>
+            <Input id="ord-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder={t("or_zip_ph")} />
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ord-notes">Notes</Label>
-          <Textarea id="ord-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything the team should know — finishes, hardware, deadlines…" rows={3} />
+          <Label htmlFor="ord-notes">{t("or_notes")}</Label>
+          <Textarea id="ord-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("or_notes_ph")} rows={3} />
         </div>
         {unmatchedCount > 0 && (
           <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <span>
-              {unmatchedCount} line{unmatchedCount > 1 ? "s" : ""} couldn't be matched automatically. You can still submit — our team will help identify them — or use "Fix" to map them now.
+              {t("or_unmatched_warn", { n: unmatchedCount, s: unmatchedCount > 1 ? "s" : "" })}
             </span>
           </div>
         )}
@@ -920,7 +923,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
           size="lg"
           className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
         >
-          {createReq.isPending ? "Submitting…" : `Submit order request${total > 0 ? ` · $${total.toFixed(2)}` : ""}`}
+          {createReq.isPending ? t("or_submitting") : `${t("or_submit_request")}${total > 0 ? ` · $${total.toFixed(2)}` : ""}`}
         </Button>
       </div>
     </div>

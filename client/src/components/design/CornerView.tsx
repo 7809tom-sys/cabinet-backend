@@ -5,6 +5,8 @@ import {
 } from "@/lib/design";
 import { type HardwareStyleId } from "@/lib/hardware";
 import { ElevationView } from "./ElevationView";
+import { useLanguage } from "@/contexts/LanguageContext";
+import type { SiteStringKey } from "@/lib/i18n/site";
 
 // The four kitchen corners, each defined by the two walls that meet there.
 // `left` is the wall drawn on the LEFT half (mirrored so its corner end faces
@@ -13,11 +15,11 @@ import { ElevationView } from "./ElevationView";
 // corner looking out" effect, showing both adjoining walls at once.
 export type CornerId = "top-left" | "top-right" | "bottom-right" | "bottom-left";
 
-const CORNERS: Record<CornerId, { label: string; left: WallSide; right: WallSide }> = {
-  "top-left": { label: "Back / Left", left: "left", right: "top" },
-  "top-right": { label: "Back / Right", left: "top", right: "right" },
-  "bottom-right": { label: "Front / Right", left: "right", right: "bottom" },
-  "bottom-left": { label: "Front / Left", left: "bottom", right: "left" },
+const CORNERS: Record<CornerId, { label: string; labelKey: SiteStringKey; left: WallSide; right: WallSide }> = {
+  "top-left": { label: "Back / Left", labelKey: "dt_corner_back_left", left: "left", right: "top" },
+  "top-right": { label: "Back / Right", labelKey: "dt_corner_back_right", left: "top", right: "right" },
+  "bottom-right": { label: "Front / Right", labelKey: "dt_corner_front_right", left: "right", right: "bottom" },
+  "bottom-left": { label: "Front / Left", labelKey: "dt_corner_front_left", left: "bottom", right: "left" },
 };
 
 const CORNER_ORDER: CornerId[] = ["top-left", "top-right", "bottom-right", "bottom-left"];
@@ -49,6 +51,7 @@ export function CornerView({
   panelKind = "shaker", hardwareStyleId = null,
   finishFor, panelKindFor,
 }: Props) {
+  const { t } = useLanguage();
   const { left, right } = CORNERS[corner];
 
   const sharedProps = {
@@ -80,7 +83,7 @@ export function CornerView({
         className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-white/90 px-1.5 py-1 rounded-full shadow-sm"
         onClick={(e) => e.stopPropagation()}
       >
-        <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Corner</span>
+        <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("dt_corner")}</span>
         {CORNER_ORDER.map((c) => (
           <button
             key={c}
@@ -90,7 +93,7 @@ export function CornerView({
               c === corner ? "bg-[#1a2744] text-white" : "text-[#1a2744] hover:bg-[#1a2744]/10"
             }`}
           >
-            {CORNERS[c].label}
+            {t(CORNERS[c].labelKey)}
           </button>
         ))}
       </div>
@@ -105,7 +108,7 @@ export function CornerView({
         }}
         className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 rounded-full bg-[#1a2744] text-white px-3 py-1.5 text-[11px] font-medium shadow hover:bg-[#243456]"
       >
-        Rotate to next corner ↻
+        {t("dt_rotate_next_corner")} ↻
       </button>
     </div>
   );

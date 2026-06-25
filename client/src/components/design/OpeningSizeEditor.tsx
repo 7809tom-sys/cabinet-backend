@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { clampOpening, wallLength, type WallOpening, type RoomData } from "@/lib/design";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
   opening: WallOpening;
@@ -14,6 +15,7 @@ interface Props {
 // in addition to dragging the resize handle on the canvas. Doors keep a fixed
 // 80" tall standard, so only windows expose a height field.
 export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) {
+  const { t } = useLanguage();
   // Windows and cased openings expose Height + Sill (sizeable like a doorway);
   // doors stay a standard 80" tall so only their width is editable.
   const showHeightSill = opening.kind === "window" || opening.kind === "opening";
@@ -63,12 +65,12 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-[11px] text-muted-foreground">
-        Selected{" "}
+        {t("dt_op_selected")}{" "}
         <span className="font-semibold text-foreground">{opening.label}</span>
       </span>
       <div className="h-4 w-px bg-border" />
       <label className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-        Width
+        {t("dt_op_width")}
         <input
           type="number"
           inputMode="decimal"
@@ -82,12 +84,12 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
           }}
           className={fieldClass}
         />
-        <span className="text-foreground/60">in</span>
+        <span className="text-foreground/60">{t("dt_op_in")}</span>
       </label>
       {showHeightSill && (
         <>
           <label className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-            Height
+            {t("dt_op_height")}
             <input
               type="number"
               inputMode="decimal"
@@ -101,10 +103,10 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
               }}
               className={fieldClass}
             />
-            <span className="text-foreground/60">in</span>
+            <span className="text-foreground/60">{t("dt_op_in")}</span>
           </label>
           <label className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-            Sill
+            {t("dt_op_sill")}
             <input
               type="number"
               inputMode="decimal"
@@ -118,17 +120,17 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete }: Props) 
               }}
               className={fieldClass}
             />
-            <span className="text-foreground/60">in</span>
+            <span className="text-foreground/60">{t("dt_op_in")}</span>
           </label>
         </>
       )}
       <button
         type="button"
         onClick={onDelete}
-        title="Delete this opening"
+        title={t("dt_op_delete_title")}
         className="flex items-center gap-1 rounded-md border border-destructive/40 bg-white px-2 py-1 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive hover:text-white"
       >
-        <Trash2 className="h-3 w-3" /> Delete
+        <Trash2 className="h-3 w-3" /> {t("dt_op_delete")}
       </button>
     </div>
   );
