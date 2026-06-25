@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -49,6 +56,7 @@ type ConflictItem = {
   skuCount: number;
   distributorNames: string[];
   doorStyleNames: string[];
+  styleIds: number[];
 };
 
 type EditForm = {
@@ -59,7 +67,10 @@ type EditForm = {
   height: string;
   depth: string;
   conflictReason: string;
+  styleId: string; // "" = leave unchanged
 };
+
+const CUSTOM_CATEGORY = "__custom__";
 
 function EditConflictDialog({
   cabinet,
@@ -71,6 +82,9 @@ function EditConflictDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const utils = trpc.useUtils();
+  const { data: categoryOptions } = trpc.cabinets.allCategories.useQuery();
+  const { data: styleOptions } = trpc.cabinets.doorStyleOptions.useQuery();
+  const currentStyleId = cabinet.styleIds.length === 1 ? String(cabinet.styleIds[0]) : "";
   const [form, setForm] = useState<EditForm>({
     description: cabinet.description ?? "",
     category: cabinet.category ?? "",
@@ -79,7 +93,14 @@ function EditConflictDialog({
     height: cabinet.height ?? "",
     depth: cabinet.depth ?? "",
     conflictReason: cabinet.conflictReason ?? "",
+    styleId: currentStyleId,
   });
+  // When the current category isn't in the known list, treat it as a custom
+  // free-text entry so the dropdown still works.
+  const knownCats = categoryOptions ?? [];
+  const [customCat, setCustomCat] = useState(false);
+  const categoryIsKnown = form.category === "" || knownCats.includes(form.category);
+  const showCustomCat = customCat || (!categoryIsKnown && form.category !== "");
 
   const update = trpc.cabinets.updateConflictCabinet.useMutation({
     onSuccess: (_d, vars) => {
@@ -105,6 +126,9 @@ function EditConflictDialog({
     height: form.height.trim() === "" ? null : form.height.trim(),
     depth: form.depth.trim() === "" ? null : form.depth.trim(),
     conflictReason: form.conflictReason.trim() === "" ? null : form.conflictReason.trim(),
+    // Only send styleId when the admin actually picked a (different) one.
+    styleId:
+      form.styleId !== "" && form.styleId !== currentStyleId ? Number(form.styleId) : undefined,
     clearAfter,
   });
 
@@ -128,12 +152,83 @@ function EditConflictDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="ec-cat">Category</Label>
-              <Input id="ec-cat" value={form.category} onChange={(e) => set("category", e.target.value)} />
+              {showCustomCat ? (
+                <div className="flex gap-1.5">
+                  <Input
+                    id="ec-cat"
+                    value={form.category}
+                    onChange={(e) => set("category", e.target.value)}
+                    placeholder="New category name"
+                    autoFocus
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCustomCat(false);
+                      if (!knownCats.includes(form.category)) set("category", knownCats[0] ?? "");
+                    }}
+                  >
+                    List
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={knownCats.includes(form.category) ? form.category : ""}
+                  onValueChange={(v) => {
+                    if (v === CUSTOM_CATEGORY) {
+                      setCustomCat(true);
+                      set("category", "");
+                    } else {
+                      set("category", v);
+                    }
+                  }}
+                >
+                  <SelectTrigger id="ec-cat">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {knownCats.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={CUSTOM_CATEGORY}>+ New category…</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="ec-sub">Sub-category</Label>
               <Input id="ec-sub" value={form.subCategory} onChange={(e) => set("subCategory", e.target.value)} placeholder="—" />
             </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="ec-style">Door style</Label>
+            <Select value={form.styleId} onValueChange={(v) => set("styleId", v)}>
+              <SelectTrigger id="ec-style">
+                <SelectValue placeholder="Select the correct door style" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {(styleOptions ?? []).map((opt) => (
+                  <SelectItem key={opt.id} value={String(opt.id)}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {cabinet.styleIds.length > 1 ? (
+              <p className="text-xs text-amber-700">
+                This item is carried under {cabinet.styleIds.length} door styles. Picking one will
+                re-point all of its SKUs to that single style.
+              </p>
+            ) : form.styleId !== currentStyleId && form.styleId !== "" ? (
+              <p className="text-xs text-muted-foreground">
+                Saving will move this product to the selected door style.
+              </p>
+            ) : null}
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="grid gap-1.5">

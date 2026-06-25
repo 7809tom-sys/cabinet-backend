@@ -816,6 +816,7 @@ export const cabinetsRouter = router({
       skuCount: number;
       distributorNames: string[];
       doorStyleNames: string[];
+      styleIds: number[];
     };
     const db = await getDb();
     if (!db) return [] as ConflictItem[];
@@ -831,6 +832,7 @@ export const cabinetsRouter = router({
     const skuRows = await db
       .select({
         cabinetId: distributorSkus.cabinetId,
+        styleId: distributorSkus.styleId,
         distributorName: distributors.name,
         styleName: doorStyles.ourName,
         styleCode: doorStyles.styleCode,
@@ -860,6 +862,9 @@ export const cabinetsRouter = router({
             .filter((v): v is string => Boolean(v))
         )
       );
+      const styleIds = Array.from(
+        new Set(skus.map((s) => s.styleId).filter((v): v is number => typeof v === "number"))
+      );
       return {
         id: c.id,
         masterCode: c.masterCode,
@@ -874,9 +879,44 @@ export const cabinetsRouter = router({
         skuCount: skus.length,
         distributorNames,
         doorStyleNames,
+        styleIds,
       };
     });
     return result;
+  }),
+
+  // Admin: every distinct category INCLUDING conflict items, so the conflict
+  // editor can offer the full real category list (the public `categories` query
+  // deliberately hides conflicts).
+  allCategories: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [] as string[];
+    const rows = await db.selectDistinct({ category: cabinets.category }).from(cabinets);
+    return rows
+      .map((r) => r.category)
+      .filter((v): v is string => Boolean(v))
+      .sort((a, b) => a.localeCompare(b));
+  }),
+
+  // Admin: door-style options for the conflict editor's style picker. Returns a
+  // flat, labeled list (supplier identity is allowed in the admin back office).
+  doorStyleOptions: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [] as { id: number; label: string }[];
+    const rows = await db
+      .select({
+        id: doorStyles.id,
+        ourName: doorStyles.ourName,
+        styleCode: doorStyles.styleCode,
+        doorStyle: doorStyles.doorStyle,
+        isActive: doorStyles.isActive,
+      })
+      .from(doorStyles)
+      .orderBy(asc(doorStyles.ourName));
+    return rows.map((r) => ({
+      id: r.id,
+      label: `${r.ourName}${r.styleCode ? ` (${r.styleCode})` : ""}${r.doorStyle ? ` \u2014 ${r.doorStyle}` : ""}${r.isActive ? "" : " [inactive]"}`,
+    }));
   }),
 
   // Admin: flag a product into conflict status (hold in back office).
@@ -911,6 +951,10 @@ export const cabinetsRouter = router({
         height: z.string().nullable().optional(),
         depth: z.string().nullable().optional(),
         conflictReason: z.string().nullable().optional(),
+        // Re-assign this product to the correct door style. When provided, ALL of
+        // the item's distributor SKUs are re-pointed to this styleId so the
+        // product appears under the right door style once it's live again.
+        styleId: z.number().int().positive().optional(),
         clearAfter: z.boolean().optional(),
       })
     )
@@ -930,8 +974,29 @@ export const cabinetsRouter = router({
         patch.conflictReason = null;
         patch.conflictedAt = null;
       }
-      if (Object.keys(patch).length === 0) return { ok: true };
-      await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
+
+      // Re-assign door style across all of the item's SKUs, if requested.
+      if (input.styleId !== undefined) {
+        const styleRow = await db
+          .select({ id: doorStyles.id, distributorId: doorStyles.distributorId })
+          .from(doorStyles)
+          .where(eq(doorStyles.id, input.styleId))
+          .limit(1);
+        if (!styleRow[0]) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Selected door style was not found." });
+        }
+        // Point every SKU of this cabinet at the chosen style. We also align the
+        // SKU's distributorId to the style's distributor so the SKU stays
+        // internally consistent (a style belongs to one supply line).
+        await db
+          .update(distributorSkus)
+          .set({ styleId: input.styleId, distributorId: styleRow[0].distributorId })
+          .where(eq(distributorSkus.cabinetId, input.id));
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
+      }
       return { ok: true };
     }),
 

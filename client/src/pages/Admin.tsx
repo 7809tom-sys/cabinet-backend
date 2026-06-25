@@ -19,6 +19,8 @@ import {
   Hammer,
   Layers,
   Search,
+  UserRound,
+  DollarSign,
 } from "lucide-react";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
@@ -34,6 +36,9 @@ import CostLookupAdmin from "@/components/admin/CostLookupAdmin";
 import PaymentsAdmin from "@/components/admin/PaymentsAdmin";
 import DesignLeadsAdmin from "@/components/admin/DesignLeadsAdmin";
 import DoorCorrectionsAdmin from "@/components/admin/DoorCorrectionsAdmin";
+import ConsultationsAdmin from "@/components/admin/ConsultationsAdmin";
+import SalesCommissionsAdmin from "@/components/admin/SalesCommissionsAdmin";
+import AffiliateInvoicesAdmin from "@/components/admin/AffiliateInvoicesAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -357,7 +362,9 @@ export default function Admin() {
   // Designers are internal sales staff: they may enter the admin backend but
   // ONLY get the Sales CRM — every other admin surface is hidden + server-gated.
   const isDesigner = user.role === "designer";
-  if (user.role !== "admin" && !isDesigner) {
+  // Sales reps (1099 contractors) get an even narrower workspace: CRM + Design Tool only.
+  const isSalesRep = user.role === "sales_rep";
+  if (user.role !== "admin" && !isDesigner && !isSalesRep) {
     return (
       <div className="container max-w-md py-20 text-center">
         <h1 className="font-serif text-2xl font-bold mb-3">Access Restricted</h1>
@@ -368,14 +375,56 @@ export default function Admin() {
     );
   }
 
+  if (isSalesRep) {
+    return (
+      <div className="container py-10">
+        <h1 className="font-serif text-3xl font-bold mb-1">Sales Rep Workspace</h1>
+        <p className="text-muted-foreground mb-8">
+          Work your pipeline in the CRM and build customer kitchens in the Design Tool. A flat $400
+          commission is recorded automatically each time a deal you own is marked Won.
+        </p>
+        <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
+          <TabsList>
+            <TabsTrigger value="crm">Sales CRM</TabsTrigger>
+            <TabsTrigger value="commissions">My Commissions</TabsTrigger>
+          </TabsList>
+          <TabsContent value="crm" className="mt-6">
+            <CrmBoard lang="en" />
+          </TabsContent>
+          <TabsContent value="commissions" className="mt-6">
+            <SalesCommissionsAdmin />
+          </TabsContent>
+        </Tabs>
+        <div className="mt-8">
+          <a href="/design">
+            <Button className="bg-[var(--color-navy)] text-white gap-2">
+              <UserRound className="h-4 w-4" /> Open Design Tool
+            </Button>
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   if (isDesigner) {
     return (
       <div className="container py-10">
-        <h1 className="font-serif text-3xl font-bold mb-1">Sales CRM</h1>
+        <h1 className="font-serif text-3xl font-bold mb-1">Designer Workspace</h1>
         <p className="text-muted-foreground mb-8">
-          Track your leads and deals through each stage.
+          Manage your consultation availability and track your leads and deals.
         </p>
-        <CrmBoard lang="en" />
+        <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
+          <TabsList>
+            <TabsTrigger value="crm">Sales CRM</TabsTrigger>
+            <TabsTrigger value="consultations">Consultations</TabsTrigger>
+          </TabsList>
+          <TabsContent value="crm" className="mt-6">
+            <CrmBoard lang="en" />
+          </TabsContent>
+          <TabsContent value="consultations" className="mt-6">
+            <ConsultationsAdmin />
+          </TabsContent>
+        </Tabs>
       </div>
     );
   }
@@ -390,10 +439,13 @@ export default function Admin() {
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
         <TabsList>
           <TabsTrigger value="crm">Sales CRM</TabsTrigger>
+          <TabsTrigger value="consultations">Consultations</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="design-leads">Design Leads</TabsTrigger>
           <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
+          <TabsTrigger value="affiliate-invoices">Affiliate Invoices</TabsTrigger>
           <TabsTrigger value="payouts">Payouts</TabsTrigger>
+          <TabsTrigger value="commissions">Sales Commissions</TabsTrigger>
           <TabsTrigger value="pros">Pro Applications</TabsTrigger>
           <TabsTrigger value="quotes">Countertop Quotes</TabsTrigger>
           <TabsTrigger value="featured">Featured Styles</TabsTrigger>
@@ -408,6 +460,16 @@ export default function Admin() {
         </TabsList>
         <TabsContent value="crm" className="mt-6">
           <CrmBoard lang="en" />
+        </TabsContent>
+        <TabsContent value="commissions" className="mt-6">
+          <SalesCommissionsAdmin />
+        </TabsContent>
+        <TabsContent value="affiliate-invoices" className="mt-6">
+          <AffiliateInvoicesAdmin />
+        </TabsContent>
+
+        <TabsContent value="consultations" className="mt-6">
+          <ConsultationsAdmin />
         </TabsContent>
         <TabsContent value="payouts" className="mt-6">
           <PayoutsAdmin />

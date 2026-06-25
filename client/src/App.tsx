@@ -15,6 +15,7 @@ const CabinetDetail = lazy(() => import("@/pages/CabinetDetail"));
 const DoorStyles = lazy(() => import("@/pages/DoorStyles"));
 const Family = lazy(() => import("@/pages/Family"));
 const DesignTool = lazy(() => import("@/pages/DesignTool"));
+const DesignSession = lazy(() => import("@/pages/DesignSession"));
 const Packages = lazy(() => import("@/pages/Packages"));
 const PackageDetail = lazy(() => import("@/pages/PackageDetail"));
 const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
@@ -119,6 +120,12 @@ export default function App() {
               </Suspense>
             </AppLayout>
           )}
+        </Route>
+
+        <Route path="/design/session/:token">
+          <Suspense fallback={<PageLoader />}>
+            <DesignSession />
+          </Suspense>
         </Route>
 
         <Route path="/design">

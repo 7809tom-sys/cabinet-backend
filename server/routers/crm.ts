@@ -11,6 +11,8 @@ import {
   affiliates,
   orderRequests,
   proApplications,
+  salesCommissions,
+  users,
 } from "../../drizzle/schema";
 import {
   CRM_STAGES,
@@ -20,6 +22,53 @@ import {
   isClosedStage,
   type CrmStage,
 } from "@shared/crm";
+import {
+  SALES_REP_COMMISSION_CENTS,
+  shouldCreateCommission,
+} from "@shared/salesPrograms";
+
+/**
+ * Record a flat $400 commission when a deal owned by a sales rep transitions to
+ * "won". Idempotent: the sales_commissions.dealId unique constraint guarantees
+ * at most one commission per deal even under races / repeated transitions.
+ * Only the deal's owner earns it, and only if that owner is a sales_rep.
+ */
+async function recordSalesCommissionOnWon(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  deal: typeof crmDeals.$inferSelect,
+): Promise<void> {
+  if (!deal.ownerUserId) return;
+  // Already recorded for this deal?
+  const existing = await db
+    .select({ id: salesCommissions.id })
+    .from(salesCommissions)
+    .where(eq(salesCommissions.dealId, deal.id))
+    .limit(1);
+  // Owner must be a sales rep, and the shared rule must approve creation.
+  const ownerRows = await db.select().from(users).where(eq(users.id, deal.ownerUserId)).limit(1);
+  const owner = ownerRows[0];
+  if (!owner) return;
+  const ok = shouldCreateCommission({
+    ownerRole: owner.role,
+    nextStage: "won",
+    previousStage: null,
+    commissionAlreadyExists: !!existing[0],
+  });
+  if (!ok) return;
+  try {
+    await db.insert(salesCommissions).values({
+      dealId: deal.id,
+      repUserId: owner.id,
+      repName: owner.name ?? owner.email ?? "Sales Rep",
+      amountCents: SALES_REP_COMMISSION_CENTS,
+      status: "pending",
+      dealTitle: deal.title,
+      wonAt: new Date(),
+    });
+  } catch {
+    // Unique violation under a race — another path already recorded it. Safe to ignore.
+  }
+}
 
 // ─── Scope resolution ──────────────────────────────────────────────────────────
 // Admin (role === "admin") sees the HOUSE board: deals where affiliateId IS NULL.
@@ -49,7 +98,8 @@ async function resolveMyAffiliateId(ctx: Ctx): Promise<number | null> {
 async function resolveScope(
   ctx: Ctx,
 ): Promise<{ kind: "house" } | { kind: "affiliate"; affiliateId: number }> {
-  if (ctx.user.role === "admin" || ctx.user.role === "designer") return { kind: "house" };
+  if (ctx.user.role === "admin" || ctx.user.role === "designer" || ctx.user.role === "sales_rep")
+    return { kind: "house" };
   const affiliateId = await resolveMyAffiliateId(ctx);
   if (affiliateId == null) {
     throw new TRPCError({
@@ -268,6 +318,10 @@ export const crmRouter = router({
       if (Object.keys(patch).length > 0) {
         await db.update(crmDeals).set(patch).where(eq(crmDeals.id, deal.id));
       }
+      // Newly won → record the sales-rep commission (idempotent, sales reps only).
+      if (input.stage === "won" && deal.stage !== "won") {
+        await recordSalesCommissionOnWon(db, deal);
+      }
       return { ok: true };
     }),
 
@@ -292,6 +346,10 @@ export const crmRouter = router({
           kind: "stage_change",
           body: `Stage changed from ${deal.stage} to ${input.stage}`,
         });
+      }
+      // Newly won → record the sales-rep commission (idempotent, sales reps only).
+      if (input.stage === "won" && deal.stage !== "won") {
+        await recordSalesCommissionOnWon(db, deal);
       }
       return { ok: true };
     }),
@@ -531,9 +589,50 @@ export const crmRouter = router({
         linkedByUserId: ctx.user.id,
       });
 
-      return { id: dealId, reused: false };
+            return { id: dealId, reused: false };
+    }),
+
+  // ── Sales-rep commissions: list (admin) ────────────────────────────────────
+  // Admin sees all commissions; a sales rep sees only their own.
+  listCommissions: protectedProcedure
+    .input(z.object({ status: z.enum(["pending", "paid", "void", "all"]).default("all") }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return [] as (typeof salesCommissions.$inferSelect)[];
+      const isStaff = ["admin"].includes(ctx.user.role);
+      const conds = [];
+      if (!isStaff) {
+        if (ctx.user.role !== "sales_rep") return [];
+        conds.push(eq(salesCommissions.repUserId, ctx.user.id));
+      }
+      const status = input?.status ?? "all";
+      if (status !== "all") conds.push(eq(salesCommissions.status, status));
+      return db
+        .select()
+        .from(salesCommissions)
+        .where(conds.length ? and(...conds) : undefined)
+        .orderBy(desc(salesCommissions.wonAt))
+        .limit(500);
+    }),
+
+  // ── Sales-rep commissions: mark paid / void (admin only) ────────────────────
+  setCommissionStatus: adminProcedure
+    .input(z.object({ id: z.number().int(), status: z.enum(["pending", "paid", "void"]), notes: z.string().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const patch: Partial<typeof salesCommissions.$inferInsert> = { status: input.status };
+      if (input.notes !== undefined) patch.notes = input.notes;
+      if (input.status === "paid") {
+        patch.paidAt = new Date();
+        patch.paidByUserId = ctx.user.id;
+      } else {
+        patch.paidAt = null;
+        patch.paidByUserId = null;
+      }
+      await db.update(salesCommissions).set(patch).where(eq(salesCommissions.id, input.id));
+      return { ok: true };
     }),
 });
-
 // (exported helpers kept internal; inArray imported for potential batch ops)
 void inArray;

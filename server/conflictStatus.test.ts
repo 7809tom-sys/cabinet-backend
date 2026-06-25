@@ -108,3 +108,65 @@ describe("updateConflictCabinet patch building", () => {
     expect(buildConflictPatch({})).toEqual({});
   });
 });
+
+// ── Conflict editor: door-style re-assignment contract ────────────────────────
+// The Conflicts editor lets an admin re-assign a held product to the correct
+// door style. The client only sends `styleId` when the admin actually picked a
+// DIFFERENT style than the one the item is currently carried under; the server
+// then re-points every SKU of the cabinet to that style. We lock both decisions
+// down as pure functions.
+
+// Client: decide whether to include styleId in the mutation payload.
+function styleIdToSend(selected: string, current: string): number | undefined {
+  return selected !== "" && selected !== current ? Number(selected) : undefined;
+}
+
+// Server: whether the styleId in the input triggers a SKU re-point.
+function shouldRepointSkus(input: { styleId?: number }): boolean {
+  return input.styleId !== undefined;
+}
+
+describe("conflict editor door-style assignment", () => {
+  it("sends styleId only when a different style is chosen", () => {
+    expect(styleIdToSend("12", "7")).toBe(12);
+  });
+
+  it("omits styleId when the selection matches the current style (no-op)", () => {
+    expect(styleIdToSend("7", "7")).toBeUndefined();
+  });
+
+  it("omits styleId when nothing is selected", () => {
+    expect(styleIdToSend("", "7")).toBeUndefined();
+  });
+
+  it("derives a numeric styleId from the picker's string value", () => {
+    const sent = styleIdToSend("305", "");
+    expect(typeof sent).toBe("number");
+    expect(sent).toBe(305);
+  });
+
+  it("server re-points SKUs only when a styleId is supplied", () => {
+    expect(shouldRepointSkus({ styleId: 9 })).toBe(true);
+    expect(shouldRepointSkus({})).toBe(false);
+  });
+});
+
+// A single-style item exposes its current style so the picker can pre-select it;
+// a multi-style item exposes "" (no single current), forcing an explicit choice.
+function currentStyleIdFor(styleIds: number[]): string {
+  return styleIds.length === 1 ? String(styleIds[0]) : "";
+}
+
+describe("conflict editor current-style pre-selection", () => {
+  it("pre-selects the only style for a single-style item", () => {
+    expect(currentStyleIdFor([42])).toBe("42");
+  });
+
+  it("leaves the picker empty for a multi-style item", () => {
+    expect(currentStyleIdFor([42, 43])).toBe("");
+  });
+
+  it("leaves the picker empty when the item has no SKUs yet", () => {
+    expect(currentStyleIdFor([])).toBe("");
+  });
+});

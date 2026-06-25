@@ -24,7 +24,7 @@ export const users = mysqlTable("users", {
   failedLoginAttempts: int("failedLoginAttempts").default(0).notNull(),
   lockedUntil: timestamp("lockedUntil"),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin", "distributor", "dealer", "partner", "designer"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "admin", "distributor", "dealer", "partner", "designer", "sales_rep"]).default("user").notNull(),
   distributorId: int("distributorId"), // set for role=distributor: which supply line this user manages
   // Pricing tier the OWNER assigns after seeing the customer on the site (Tawk.to ping).
   // Drives which price column the user sees/checks out at. Default homeowner until changed.
@@ -448,6 +448,13 @@ export const affiliates = mysqlTable("affiliates", {
   defaultMarkupBps: int("defaultMarkupBps").default(2000).notNull(), // 20% default
   // Optional per-category markup overrides, JSON: { "base": 2500, "wall": 1500 }
   categoryMarkupJson: text("categoryMarkupJson"),
+  // Annual membership: an affiliate pays a yearly fee ($1,195) to participate.
+  // membershipStatus drives storefront/CRM access; the dated fields track the
+  // current paid term. Detailed invoices live in affiliate_invoices.
+  membershipStatus: mysqlEnum("membershipStatus", ["pending", "active", "past_due", "cancelled"]).default("pending").notNull(),
+  membershipFeeCents: int("membershipFeeCents").default(119500).notNull(), // $1,195.00
+  membershipPaidAt: timestamp("membershipPaidAt"),
+  membershipExpiresAt: timestamp("membershipExpiresAt"),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -862,3 +869,113 @@ export const doorStyleCorrections = mysqlTable("door_style_corrections", {
 });
 export type DoorStyleCorrection = typeof doorStyleCorrections.$inferSelect;
 export type InsertDoorStyleCorrection = typeof doorStyleCorrections.$inferInsert;
+
+
+// ─── Professional designer scheduling ───────────────────────────────────────────
+// A designer (role = "designer" or "admin") publishes bookable time slots. A
+// customer in the Design Tool taps "Get a professional designer", picks an open
+// slot, and books it. Booking claims the slot and spawns a CRM deal so the
+// internal team manages the consultation from the existing pipeline.
+
+export const designerAvailability = mysqlTable("designer_availability", {
+  id: int("id").autoincrement().primaryKey(),
+  designerUserId: int("designerUserId").notNull(), // FK -> users.id (role designer/admin)
+  designerName: varchar("designerName", { length: 256 }), // snapshot for display
+  // Slot window, stored UTC.
+  startAt: timestamp("startAt").notNull(),
+  endAt: timestamp("endAt").notNull(),
+  // "video" (default) or "phone" or "in_person".
+  mode: mysqlEnum("mode", ["video", "phone", "in_person"]).default("video").notNull(),
+  // open = bookable, booked = claimed, blocked = manually closed by the designer.
+  status: mysqlEnum("status", ["open", "booked", "blocked"]).default("open").notNull(),
+  notes: varchar("notes", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DesignerAvailability = typeof designerAvailability.$inferSelect;
+export type InsertDesignerAvailability = typeof designerAvailability.$inferInsert;
+
+export const designConsultations = mysqlTable("design_consultations", {
+  id: int("id").autoincrement().primaryKey(),
+  slotId: int("slotId").notNull(), // FK -> designer_availability.id
+  designerUserId: int("designerUserId").notNull(),
+  designerName: varchar("designerName", { length: 256 }),
+  // Requesting customer (may be a guest who only gave name/email/phone).
+  customerUserId: int("customerUserId"), // nullable for guests
+  customerName: varchar("customerName", { length: 256 }).notNull(),
+  customerEmail: varchar("customerEmail", { length: 320 }).notNull(),
+  customerPhone: varchar("customerPhone", { length: 32 }),
+  // Optional saved design the customer wants to review with the designer.
+  designId: int("designId"),
+  designName: varchar("designName", { length: 256 }),
+  // Scheduling window (snapshotted from the slot, UTC).
+  startAt: timestamp("startAt").notNull(),
+  endAt: timestamp("endAt").notNull(),
+  mode: mysqlEnum("mode", ["video", "phone", "in_person"]).default("video").notNull(),
+  topic: varchar("topic", { length: 1000 }), // what the customer wants help with
+  status: mysqlEnum("status", ["requested", "confirmed", "completed", "cancelled"]).default("requested").notNull(),
+  // CRM linkage created at booking time.
+  dealId: int("dealId"),
+  // Read-only "share live with customer" follow link token + voice meeting URL.
+  shareToken: varchar("shareToken", { length: 40 }),
+  meetingUrl: varchar("meetingUrl", { length: 1000 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DesignConsultation = typeof designConsultations.$inferSelect;
+export type InsertDesignConsultation = typeof designConsultations.$inferInsert;
+
+
+// ─── Affiliate membership invoices ──────────────────────────────────────────────
+// Each affiliate annual membership term produces an invoice. The affiliate pays
+// it by Stripe (when enabled) or via the owner's own credit-card processing
+// (recorded as an external/manual payment). One "open" invoice at a time per
+// affiliate; paying it activates/extends the membership term.
+export const affiliateInvoices = mysqlTable("affiliate_invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  // Human-friendly invoice number, e.g. "AFF-2026-0007".
+  invoiceNumber: varchar("invoiceNumber", { length: 32 }).notNull().unique(),
+  description: varchar("description", { length: 256 }).default("Annual affiliate membership").notNull(),
+  amountCents: int("amountCents").default(119500).notNull(), // $1,195.00
+  status: mysqlEnum("status", ["open", "paid", "void"]).default("open").notNull(),
+  // How it was paid once status = paid.
+  paymentMethod: mysqlEnum("paymentMethod", ["stripe", "external_card", "manual", "none"]).default("none").notNull(),
+  paymentRef: varchar("paymentRef", { length: 256 }), // Stripe id / last4 / memo
+  // Membership term this invoice covers (snapshotted on payment).
+  periodStart: timestamp("periodStart"),
+  periodEnd: timestamp("periodEnd"),
+  issuedAt: timestamp("issuedAt").defaultNow().notNull(),
+  paidAt: timestamp("paidAt"),
+  paidByUserId: int("paidByUserId"), // admin who recorded a manual/external payment
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AffiliateInvoice = typeof affiliateInvoices.$inferSelect;
+export type InsertAffiliateInvoice = typeof affiliateInvoices.$inferInsert;
+
+// ─── Sales-rep commissions ──────────────────────────────────────────────────────
+// A sales rep earns a flat one-time commission ($400) when a CRM deal they own
+// is marked "won". One commission row per deal (idempotent on dealId). Status
+// moves pending -> paid when the owner pays the rep out.
+export const salesCommissions = mysqlTable("sales_commissions", {
+  id: int("id").autoincrement().primaryKey(),
+  dealId: int("dealId").notNull().unique(), // one commission per won deal
+  repUserId: int("repUserId").notNull(), // the deal owner at win time
+  repName: varchar("repName", { length: 256 }),
+  amountCents: int("amountCents").default(40000).notNull(), // $400.00 flat
+  status: mysqlEnum("status", ["pending", "paid", "void"]).default("pending").notNull(),
+  dealTitle: varchar("dealTitle", { length: 256 }),
+  wonAt: timestamp("wonAt").defaultNow().notNull(),
+  paidAt: timestamp("paidAt"),
+  paidByUserId: int("paidByUserId"),
+  notes: varchar("notes", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SalesCommission = typeof salesCommissions.$inferSelect;
+export type InsertSalesCommission = typeof salesCommissions.$inferInsert;

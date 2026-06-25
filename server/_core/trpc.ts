@@ -77,3 +77,35 @@ export const distributorProcedure = t.procedure.use(
     });
   }),
 );
+
+// Designer access: a user with role=designer or admin. Designers publish
+// availability and manage the consultations booked against their slots.
+export const designerProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+    if (ctx.user.role !== "designer" && ctx.user.role !== "admin") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Designer access required" });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  }),
+);
+
+// CRM staff access: admin, designer, or sales_rep. These are the internal roles
+// allowed into the CRM pipeline. (Affiliates/partners are scoped separately in
+// the crm router by their affiliate id.)
+export const crmStaffProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+    const ok = ["admin", "designer", "sales_rep"].includes(ctx.user.role);
+    if (!ok) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "CRM access required" });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  }),
+);

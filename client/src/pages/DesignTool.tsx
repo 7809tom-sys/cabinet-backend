@@ -4,7 +4,7 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
-  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus,
+  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,7 @@ import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
+import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
@@ -237,6 +238,7 @@ export default function DesignTool() {
   const [sinks, setSinks] = useState<SinkFixture[]>([]);
   const [selectedSinkUid, setSelectedSinkUid] = useState<string | null>(null);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [proDesignerOpen, setProDesignerOpen] = useState(false);
   // Mouse-draw room mode: drag on an empty canvas to draw the room outline.
   const [drawMode, setDrawMode] = useState(false);
   // Active wall: the wall the user has highlighted. New items drop onto it, and
@@ -3666,6 +3668,13 @@ export default function DesignTool() {
             >
               <Download className="h-4 w-4" /> Export Build Sheet (CSV)
             </Button>
+            <Button
+              variant="outline"
+              className="w-full mt-2 gap-2 border-[#a87f33] text-[#7a5c24] hover:bg-[#a87f33]/10"
+              onClick={() => setProDesignerOpen(true)}
+            >
+              <UserRound className="h-4 w-4" /> Get a Professional Designer
+            </Button>
             {countertop && counter && counter.squareFeet > 0 && (
               <Button
                 variant="outline"
@@ -3788,6 +3797,15 @@ export default function DesignTool() {
           placedCabinets={placed}
         />
       )}
+      <ProDesignerDialog
+        open={proDesignerOpen}
+        onOpenChange={setProDesignerOpen}
+        defaultName={verifiedName}
+        defaultEmail={verifiedEmail}
+        defaultPhone={verifiedPhone}
+        designId={loadDesignId ?? undefined}
+        designName={savedDesign?.name ?? null}
+      />
 
       {/* Right-click per-cabinet attributes editor */}
       <CabinetAttributesDialog

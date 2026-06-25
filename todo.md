@@ -1714,3 +1714,26 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] ADMIN: Featured Door Styles panel flags every unverified door with an amber "Wrong door? Upload the correct photo" marker + a green check once verified, plus a summary badge counting how many need the correct photo
 
 - [x] Responsive nav: top nav overflowed/clipped on tablet (768) and laptop (1024–1440). Restructured into 5 primary inline links + consolidated "More" dropdown (Build an Order, Photo to Cart, Pro Network, Portals); hamburger now handles <1024. Verified at 768/1024/1280/1440. Tests 897 pass, tsc clean.
+
+
+## Session: Pro Designer Booking + Sales Rep + Affiliate Fee (in progress)
+- [x] Schema: designer_availability, design_consultations, affiliate_invoices, sales_commissions; affiliate membership fields; users.role += sales_rep; migrated
+- [x] Backend consultations router: openSlots, availableDesigners, book (claims slot + creates CRM deal + meeting activity), myAvailability, addSlot, removeSlot, myConsultations, setConsultationStatus, myDesigns
+- [x] trpc: designerProcedure + crmStaffProcedure
+- [x] Customer UI: "Get a Professional Designer" CTA + scheduling dialog in Design Tool (ProDesignerDialog: pick designer/slot, prefill verified contact, attach current design)
+- [x] Designer UI: manage availability (add/remove slots) + view/confirm/complete/cancel consultations (ConsultationsAdmin)
+- [x] Share-live: read-only follow link /design/session/:token (polling) + Meet/Zoom meetingUrl field for voice
+- [x] Sales Rep (1099) role: restricted admin workspace (CRM + My Commissions + Design Tool button), server-gated via crmStaffProcedure + resolveScope
+- [x] Sales commissions: $400 one-time per won deal owned by a sales rep (idempotent); admin Sales Commissions tab (pending->paid)
+- [x] Affiliate program: $1,195 annual membership invoice; pending->paid (stripe/external_card/manual); admin Affiliate Invoices tab
+- [x] Tests + type-check + checkpoint (tsc clean, 915 pass; shared salesPrograms helpers unit-tested + wired into prod crm/membership logic)
+
+## Session: Affiliate PDF + Price Audit
+- [x] Sales-rep commission + membership-term unit tests (shared/salesPrograms.test.ts, 10 tests); full suite green 915
+- [ ] Checkpoint after pro-designer + sales-rep + affiliate-invoice features
+- [ ] "Benefits of Being an Affiliate" PDF: about the store, co-op purchasing, what membership means, $1,195/year, white-label storefront + 4 templates, markup control, CRM, AND a how-to section on using the Design Tool + all its features
+- [ ] Admin Price Audit tab: look up item by queue number OR model/master code -> show system price -> verify vs owner's price list -> flag/correct mismatch
+- [ ] Final tests, type-check, verify, checkpoint, deliver
+
+## Spanish localization (deep)
+- [ ] Full Spanish must reach granular product detail, not just headlines: cabinet/door long descriptions AND spec phrases ("one shelf" -> "un entrepaño", "two doors" -> "dos puertas", "soft-close", "adjustable shelf", dimension wording). Decide approach for long-form: (1) auto-translate at display time vs (2) stored Spanish description column. Short structured spec phrases -> fixed Spanish phrase map regardless. AWAITING owner choice on long-form approach.
