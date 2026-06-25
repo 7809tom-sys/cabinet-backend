@@ -1484,6 +1484,29 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(isSinkBaseCabinet({ masterCode: "DB-24-3", description: "Drawer Base" })).toBe(false);
   });
 
+  it("detects the full range of sink-base / vanity-sink families from the catalog", () => {
+    // Real catalog rows (code + description) that MUST be detected as sink bases:
+    expect(isSinkBaseCabinet({ masterCode: "FSB-36", description: '36" Farmhouse Sink Base' })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "CSB-36", description: '36" Corner Sink Base Cabinet' })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "SBF-42-42", description: '42" x 42" Diagonal Sink Floor' })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "UV-SBF4242", description: '42" Diagonal Corner Sink Floor' })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "VSD-36", description: '36" Vanity Sink Base Cabinet' })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "VA-30", description: '30" Double Door Vanity Sink Base Cabinet' })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "ADA-VS-30", description: '30" Double Door ADA Vanity Sink Base Cabinet' })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "ADA-SB-33R", description: 'ADA Sink Base 33"' })).toBe(true);
+    expect(isSinkBaseCabinet({ masterCode: "BFH-30", description: '30" Full Height Door Vanity Sink Cabinet' })).toBe(true);
+  });
+
+  it("does NOT mistake look-alike non-sink families for sink bases", () => {
+    // These share a prefix/letters with sink families but are NOT sinks:
+    expect(isSinkBaseCabinet({ masterCode: "LSB36", description: '36" Base Easy Reach with Lazy Susan Cabinet' })).toBe(false);
+    expect(isSinkBaseCabinet({ masterCode: "LSB36ADA", description: '36" Base Easy Reach Lazy Susan ADA Cabinet' })).toBe(false);
+    expect(isSinkBaseCabinet({ masterCode: "VA-48", description: '48"W x 6"H Arched Valance - 3/4" Deep' })).toBe(false);
+    expect(isSinkBaseCabinet({ masterCode: "BFH-18", description: '18" Full Height Single Door Base Cabinet' })).toBe(false);
+    expect(isSinkBaseCabinet({ masterCode: "V-30-21TDR", description: '30" Vanity 3 Drawers Right' })).toBe(false);
+    expect(isSinkBaseCabinet({ masterCode: "W3030", description: '30" Wall Cabinet' })).toBe(false);
+  });
+
   it("detects the sink appliance/fixture", () => {
     expect(isSinkAppliance({ masterCode: "SINK-33", description: 'Sink 33"' })).toBe(true);
     expect(isSinkAppliance({ masterCode: "RANGE-30", description: "Range 30" })).toBe(false);

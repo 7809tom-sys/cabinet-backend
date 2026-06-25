@@ -1617,3 +1617,8 @@ notch not orienting to the seated corner and a fixed 0.667 ratio for non-36 widt
 - [x] Reliable rotate: on-canvas rotate handle (rotateCabinet by uid) added next to delete, plus existing toolbar Rotate + "R" key
 - [x] Render drawer fronts in elevation/front view: DoorFront now splits into a drawer stack (one front per drawer) + door region; displayDrawerCount gives drawer bases their full stack and standard base cabinets a top drawer (skips corner/lazy-susan/trash); 5 vitest cases
 - [x] Auto-add finished END PANELS for ALL exposed cabinet ends (generalEndPanels via exposedEnds, priced from the catalog end-panel SKU when available, else a pending placeholder) + existing Hickory skins + auto blind-corner fillers; banner notes both
+
+## Design Tool conflict + depth fixes (2026-06-24 batch 6)
+- [x] Broaden isSinkBaseCabinet to cover ALL sink-base/vanity-sink families (FSB, CSB, SBF, VSD, VA, ADA-VS, ADA-SB, BFH-with-sink) so a sink fixture over any sink base is never flagged as a conflict; excludes false positives (LSB=Lazy Susan, VA-48=Valance, BFH-18=plain base); 2 new test blocks (15 assertions) in design.test.ts
+- [x] Wall cabinet dropped to the floor keeps its OWN depth (12" upper stays 12", not 24"): dropToFloor pins the resolved depth (and nominalDepth) before placement flips to "base" so the base-depth fallback can never expand it; resolved while still placement==="wall" via p.depth (guarded to STD.WALL_DEPTH)
+- [x] tsc clean + full suite 822 tests pass; checkpoint

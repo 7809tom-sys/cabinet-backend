@@ -545,10 +545,32 @@ export function isSinkBaseCabinet(c: {
   masterCode?: string | null;
   subCategory?: string | null;
 }): boolean {
-  const code = (c.masterCode ?? "").toUpperCase();
-  if (/^SB[-_ ]?\d/.test(code) || /^B?SB\b/.test(code)) return true;
+  // The DESCRIPTION is the reliable signal across distributors. Code prefixes
+  // are deliberately conservative because several families collide with
+  // non-sink cabinets (verified against the live catalog):
+  //   - LSB = "Base Easy Reach with Lazy Susan" (NOT a sink)
+  //   - VA-30 = "Vanity Sink Base" (IS) but VA-48 = "Arched Valance" (NOT)
+  //   - BFH-30 = "Vanity Sink Cabinet" (IS) but BFH-18 = "Full Height Base" (NOT)
+  // So we only trust unambiguous code stems and otherwise defer to the text.
   const hay = `${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
-  return /\bsink\s*base\b/.test(hay);
+  const descIsSink =
+    /\bsink\s*base\b/.test(hay) ||                      // "Sink Base", "Corner Sink Base"
+    /\bvanity\s*sink\b/.test(hay) ||                    // "Vanity Sink Base"
+    /\bsink\s*(?:floor|front)\b/.test(hay) ||           // "Diagonal Sink Floor"
+    /\b(?:farm(?:house)?|apron)\b[^.]*\bsink\b/.test(hay) ||
+    /\bsink\b[^.]*\b(?:base|cabinet|floor|front)\b/.test(hay);
+  if (descIsSink) return true;
+  // Unambiguous sink-base code stems only (each requires a following size digit
+  // or end, and none collide with the non-sink families above):
+  //   SB-36, FSB-30, CSB-36, SBF-42-42, VSD-36, ADA-SB-33R, ADA-VS-30, ADA-VSD-48
+  const code = (c.masterCode ?? "").toUpperCase();
+  return (
+    /^(?:ADA-)?F?SB[-_ ]?\d/.test(code) || // SB / FSB + size
+    /^CSB[-_ ]?\d/.test(code) ||           // corner sink base
+    /^(?:UV-)?SBF[-_ ]?\d/.test(code) ||   // sink base front / sink floor
+    /^(?:ADA-)?VSD?[-_ ]?\d/.test(code) || // vanity sink (drawer) base
+    /^ADA-SB[-_ ]?\d/.test(code)           // ADA sink base
+  );
 }
 
 // A sink FIXTURE placed as an appliance (the SINK-33 palette entry). The kitchen

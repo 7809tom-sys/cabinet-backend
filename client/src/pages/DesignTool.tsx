@@ -1754,13 +1754,20 @@ export default function DesignTool() {
       prev.map((p) => {
         if (p.uid !== uid) return p;
         if (p.placement !== "wall") return p;
+        // Resolve the cabinet's REAL current depth WHILE it is still a wall
+        // cabinet (placement === "wall"), so a 12" upper stays 12". We then PIN
+        // that value onto the new base box. This is essential: once placement
+        // flips to "base", any resolver that hits the depth fallback
+        // (dim(p.depth, STD.BASE_DEPTH)) would otherwise snap it to 24" if the
+        // stored depth were ever 0/undefined — which is exactly the 12"->24" bug.
+        const keptDepth = p.depth > 0 ? p.depth : STD.WALL_DEPTH;
         return {
           ...p,
           placement: "base",
-          // Keep the wall cabinet's OWN depth (e.g. a 12" upper stays 12" when
-          // dropped to the floor) instead of forcing it to the 24" base depth.
-          // footprintDepth() resolves dim(p.depth, ...) so the stored depth wins.
-          // (No depth override here.)
+          // Lock in the wall cabinet's own depth (e.g. a 12" upper stays 12")
+          // instead of letting the base-depth fallback force it to 24".
+          depth: keptDepth,
+          nominalDepth: keptDepth,
           // Box height: keep the cabinet's own height if it has one, otherwise
           // fall back to the standard base box height.
           height: p.height && p.height > 0 ? p.height : STD.BASE_HEIGHT,
