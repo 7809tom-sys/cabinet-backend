@@ -1752,7 +1752,7 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Design Tool: main shell (toolbar, palette tabs incl. room-type strip Cocina/Baño/Lavandería/Clóset/Otros + Base/Esquina/Pared/etc., panels, primary toasts/confirms/prompts) translated to ES
 - [x] Design Tool: dialogs (CabinetAttributes, CountertopQuote, ProDesigner, EmailGate, OpeningSizeEditor) translated to ES
 - [x] Design Tool: canvas/elevation/help/controls. DONE: EmailGate, WallPicker, CornerView, ColorSlotButton, RoomSizeControl, OpeningSizeEditor, PlanCanvas, ElevationView, DesignActions (UI; CSV kept EN), DesignHelp translated to ES
-- [ ] Design Tool: DesignSession + PlanSheet pages translated to ES (deferred — secondary print/follow pages)
+- [x] Design Tool: DesignSession + PlanSheet pages translated to ES (shared live-session follow page + printable graph-paper worksheet, both wired to useLanguage; verified live in ES)
 - [x] Final full test suite (925 pass) + EN/ES visual spot-check + checkpoint
 
 

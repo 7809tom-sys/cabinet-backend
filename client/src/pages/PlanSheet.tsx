@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { makeQrDataUrl } from "@/lib/qr";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * Printable graph-paper design sheet.
@@ -31,6 +32,7 @@ const H = ROWS * SQUARE_PX;
 
 export default function PlanSheet() {
   const [qr, setQr] = useState<string>("");
+  const { t } = useLanguage();
 
   const designUrl = useMemo(() => {
     if (typeof window === "undefined") return "https://cabinetdealz.com/design";
@@ -68,11 +70,11 @@ export default function PlanSheet() {
         <Button variant="ghost" size="sm" asChild>
           <Link href="/design">
             <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Back to Design Tool
+            {t("ps_back")}
           </Link>
         </Button>
         <p className="hidden text-sm text-muted-foreground sm:block">
-          Print this graph-paper sheet to sketch a layout by hand, then scan the QR to build it online.
+          {t("ps_screen_hint")}
         </p>
         <Button
           size="sm"
@@ -80,7 +82,7 @@ export default function PlanSheet() {
           className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
         >
           <Printer className="mr-1.5 h-4 w-4" />
-          Print
+          {t("ps_print")}
         </Button>
       </div>
 
@@ -99,50 +101,45 @@ export default function PlanSheet() {
                 </span>
               </div>
               <p className="mt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Kitchen Design Worksheet
+                {t("ps_worksheet")}
               </p>
             </div>
 
             <div className="flex flex-col items-center">
               {qr ? (
-                <img src={qr} alt="Scan to design online" className="h-20 w-20" />
+                <img src={qr} alt={t("ps_scan_alt")} className="h-20 w-20" />
               ) : (
                 <div className="h-20 w-20 rounded border border-dashed border-border" />
               )}
               <span className="mt-1 max-w-[7rem] text-center text-[10px] leading-tight text-muted-foreground">
-                Scan to build your plan online
+                {t("ps_scan_caption")}
               </span>
             </div>
           </div>
 
           {/* Project fields */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 py-4 text-sm">
-            <Field label="Name" />
-            <Field label="Date" />
-            <Field label="Phone" />
-            <Field label="Email" />
-            <Field label="Project / Room" className="col-span-2" />
+            <Field label={t("ps_field_name")} />
+            <Field label={t("ps_field_date")} />
+            <Field label={t("ps_field_phone")} />
+            <Field label={t("ps_field_email")} />
+            <Field label={t("ps_field_project")} className="col-span-2" />
           </div>
 
           {/* Scale key */}
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Scale: 1 small square = 3&quot; &nbsp;·&nbsp; 1 bold square (4) = 1 ft</span>
-            <span>
-              Drawing area: {FEET_COLS} ft &times; {FEET_ROWS} ft
-            </span>
+            <span className="font-medium text-foreground">{t("ps_scale")}</span>
+            <span>{t("ps_drawing_area", { cols: FEET_COLS, rows: FEET_ROWS })}</span>
           </div>
 
           {/* Graph paper grid */}
-          <GraphGrid />
+          <GraphGrid label={t("ps_grid_alt")} />
 
           {/* Footer notes */}
           <div className="mt-4 border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
-            <p className="font-medium text-foreground">Sketching tips</p>
+            <p className="font-medium text-foreground">{t("ps_tips_title")}</p>
             <p>
-              Draw your walls along the bold (1&nbsp;ft) lines. Mark windows (W), doors (D), the sink (S),
-              range (R) and refrigerator (RF). Note ceiling height and any soffits. Then scan the QR above
-              or visit <span className="font-mono">{designUrl.replace(/^https?:\/\//, "")}</span> to turn it
-              into a priced cabinet layout.
+              {t("ps_tips_body", { url: designUrl.replace(/^https?:\/\//, "") })}
             </p>
           </div>
         </div>
@@ -162,7 +159,7 @@ function Field({ label, className = "" }: { label: string; className?: string })
   );
 }
 
-function GraphGrid() {
+function GraphGrid({ label }: { label: string }) {
   // Build the grid as an inline SVG so it renders identically on screen and in print.
   const lines: React.ReactNode[] = [];
   for (let c = 0; c <= COLS; c++) {
@@ -203,7 +200,7 @@ function GraphGrid() {
         className="block h-auto w-full"
         preserveAspectRatio="xMidYMid meet"
         role="img"
-        aria-label="Graph paper grid"
+        aria-label={label}
       >
         <rect x={0} y={0} width={W} height={H} fill="#ffffff" />
         {lines}

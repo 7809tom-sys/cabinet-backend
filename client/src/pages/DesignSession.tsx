@@ -6,16 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PlacedCabinet, RoomData } from "@/lib/design";
 import { Video, Phone, MapPin, ExternalLink, Eye } from "lucide-react";
-
-const MODE_META: Record<string, { icon: React.ReactNode; label: string }> = {
-  video: { icon: <Video className="h-4 w-4" />, label: "Video call" },
-  phone: { icon: <Phone className="h-4 w-4" />, label: "Phone call" },
-  in_person: { icon: <MapPin className="h-4 w-4" />, label: "In person" },
-};
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function DesignSession() {
   const params = useParams();
   const token = (params as { token?: string }).token ?? "";
+  const { t } = useLanguage();
+
+  const MODE_META: Record<string, { icon: React.ReactNode; label: string }> = {
+    video: { icon: <Video className="h-4 w-4" />, label: t("ds_mode_video") },
+    phone: { icon: <Phone className="h-4 w-4" />, label: t("ds_mode_phone") },
+    in_person: { icon: <MapPin className="h-4 w-4" />, label: t("ds_mode_in_person") },
+  };
 
   // Poll every 4s so the customer sees the designer's saved updates near-live.
   const { data, isLoading, error } = trpc.consultations.sharedSession.useQuery(
@@ -26,8 +28,8 @@ export default function DesignSession() {
   if (token.length < 8) {
     return (
       <div className="container max-w-md py-20 text-center">
-        <h1 className="font-serif text-2xl font-bold mb-2">Invalid session link</h1>
-        <p className="text-muted-foreground">This share link doesn't look right.</p>
+        <h1 className="font-serif text-2xl font-bold mb-2">{t("ds_invalid_title")}</h1>
+        <p className="text-muted-foreground">{t("ds_invalid_body")}</p>
       </div>
     );
   }
@@ -36,7 +38,7 @@ export default function DesignSession() {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3">
         <Spinner className="h-7 w-7 text-primary" />
-        <p className="text-sm text-muted-foreground">Connecting to your design session…</p>
+        <p className="text-sm text-muted-foreground">{t("ds_connecting")}</p>
       </div>
     );
   }
@@ -44,9 +46,9 @@ export default function DesignSession() {
   if (error || !data) {
     return (
       <div className="container max-w-md py-20 text-center">
-        <h1 className="font-serif text-2xl font-bold mb-2">Session not found</h1>
+        <h1 className="font-serif text-2xl font-bold mb-2">{t("ds_notfound_title")}</h1>
         <p className="text-muted-foreground">
-          {error?.message ?? "This session link is no longer valid. Ask your designer for a new link."}
+          {error?.message ?? t("ds_notfound_body")}
         </p>
       </div>
     );
@@ -64,13 +66,16 @@ export default function DesignSession() {
           <div>
             <div className="flex items-center gap-2">
               <Eye className="h-4 w-4 text-[#a87f33]" />
-              <h1 className="font-serif text-xl font-bold">Live design session</h1>
+              <h1 className="font-serif text-xl font-bold">{t("ds_live_title")}</h1>
               <Badge variant="outline" className="capitalize">
                 {consultation.status}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              with {consultation.designerName ?? "your Cabinet Dealz designer"} ·{" "}
+              {t("ds_with", {
+                name: consultation.designerName ?? t("ds_default_designer"),
+              })}{" "}
+              ·{" "}
               {new Date(consultation.startAt).toLocaleString(undefined, {
                 weekday: "short",
                 month: "short",
@@ -87,7 +92,7 @@ export default function DesignSession() {
             {consultation.meetingUrl && (
               <a href={consultation.meetingUrl} target="_blank" rel="noreferrer">
                 <Button size="sm" className="gap-1 bg-[#a87f33] hover:bg-[#946e2b]">
-                  Join call <ExternalLink className="h-3.5 w-3.5" />
+                  {t("ds_join_call")} <ExternalLink className="h-3.5 w-3.5" />
                 </Button>
               </a>
             )}
@@ -98,14 +103,14 @@ export default function DesignSession() {
       <div className="container py-6">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-medium text-foreground">
-            {consultation.designName || design?.name || "Your design"}
+            {consultation.designName || design?.name || t("ds_your_design")}
           </p>
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
-            Live · updates automatically
+            {t("ds_live_updates")}
           </span>
         </div>
 
@@ -122,14 +127,12 @@ export default function DesignSession() {
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border bg-background py-20 text-center text-muted-foreground">
-            Your designer hasn't shared a layout for this session yet. It will appear here
-            automatically once they do.
+            {t("ds_no_layout")}
           </div>
         )}
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          This is a view-only preview. Your designer is driving the layout — talk through changes on
-          the call and they'll update here in a few seconds.
+          {t("ds_viewonly")}
         </p>
       </div>
     </div>
