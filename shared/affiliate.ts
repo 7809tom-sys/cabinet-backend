@@ -54,3 +54,42 @@ export function sumCommission(
     commission: computeCommission(gross, rate),
   };
 }
+
+
+// ─── Affiliate membership offer ───────────────────────────────────────────────
+// Single source of truth for the paid affiliate membership. An affiliate pays an
+// annual fee and gets: access to the kitchen design software, their own
+// (white-labeled) website/storefront, and membership in the buying group (trade
+// pricing). Surface this constant anywhere the offer/price is shown so copy and
+// pricing never drift.
+export const AFFILIATE_MEMBERSHIP = {
+  priceUsd: 1195,
+  billingPeriod: "year" as const,
+  benefits: [
+    {
+      title: "Kitchen Design Software",
+      desc: "Full access to the 2D kitchen designer — lay out rooms, drop cabinets, and price jobs instantly.",
+    },
+    {
+      title: "Your Own Website",
+      desc: "A white-labeled storefront with your branding, featured door styles, and your referral link.",
+    },
+    {
+      title: "Buying-Group Access",
+      desc: "Join the purchasing group and order at trade pricing across our supply network.",
+    },
+  ],
+} as const;
+
+// Format the membership price for display, e.g. "$1,195".
+export function formatMembershipPrice(
+  amount: number = AFFILIATE_MEMBERSHIP.priceUsd,
+): string {
+  if (!Number.isFinite(amount)) return "$0";
+  return `$${Math.round(amount).toLocaleString("en-US")}`;
+}
+
+// Full price label including the billing period, e.g. "$1,195/year".
+export function membershipPriceLabel(): string {
+  return `${formatMembershipPrice()}/${AFFILIATE_MEMBERSHIP.billingPeriod}`;
+}

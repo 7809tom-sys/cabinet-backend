@@ -5,6 +5,9 @@ import {
   deriveReferralCode,
   computeCommission,
   sumCommission,
+  AFFILIATE_MEMBERSHIP,
+  formatMembershipPrice,
+  membershipPriceLabel,
 } from "./affiliate";
 
 describe("normalizeReferralCode", () => {
@@ -66,5 +69,31 @@ describe("sumCommission", () => {
     expect(res.confirmedCount).toBe(3);
     expect(res.gross).toBe(3000);
     expect(res.commission).toBe(150);
+  });
+});
+
+
+describe("affiliate membership offer", () => {
+  it("is priced at $1,195 per year", () => {
+    expect(AFFILIATE_MEMBERSHIP.priceUsd).toBe(1195);
+    expect(AFFILIATE_MEMBERSHIP.billingPeriod).toBe("year");
+  });
+
+  it("lists the three core benefits", () => {
+    const titles = AFFILIATE_MEMBERSHIP.benefits.map((b) => b.title);
+    expect(titles).toEqual([
+      "Kitchen Design Software",
+      "Your Own Website",
+      "Buying-Group Access",
+    ]);
+  });
+
+  it("formats the price with a thousands separator", () => {
+    expect(formatMembershipPrice()).toBe("$1,195");
+    expect(formatMembershipPrice(995)).toBe("$995");
+  });
+
+  it("builds a full price label with the billing period", () => {
+    expect(membershipPriceLabel()).toBe("$1,195/year");
   });
 });

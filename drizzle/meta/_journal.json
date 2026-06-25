@@ -211,6 +211,13 @@
       "when": 1782394973859,
       "tag": "0029_purple_psylocke",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1782395863561,
+      "tag": "0030_careless_redwing",
+      "breakpoints": true
     }
   ]
 }

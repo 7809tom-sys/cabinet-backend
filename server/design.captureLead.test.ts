@@ -2,7 +2,7 @@ import { describe, expect, it, afterAll } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { designLeads } from "../drizzle/schema";
+import { designLeads, crmDeals } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 // design.captureLead records a contact when a visitor launches the designer.
@@ -51,6 +51,8 @@ const TEST_EMAIL = "lead-capture-test@example.com";
 async function cleanup() {
   const db = await getDb();
   if (!db) return;
+  // Remove any auto-created house deals first, then the lead rows.
+  await db.delete(crmDeals).where(eq(crmDeals.contactEmail, TEST_EMAIL));
   await db.delete(designLeads).where(eq(designLeads.email, TEST_EMAIL));
 }
 
@@ -88,6 +90,28 @@ describe("design.captureLead — launch lead capture", () => {
     expect(rows[0]?.launchCount).toBe(1);
   });
 
+  it("auto-creates exactly one HOUSE crm deal and links it to the lead", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    // The lead created above should carry a dealId pointing at a house deal.
+    const leadRows = await db
+      .select()
+      .from(designLeads)
+      .where(eq(designLeads.email, TEST_EMAIL));
+    expect(leadRows.length).toBe(1);
+    expect(leadRows[0]?.dealId).toBeTruthy();
+
+    const deals = await db
+      .select()
+      .from(crmDeals)
+      .where(eq(crmDeals.contactEmail, TEST_EMAIL));
+    expect(deals.length).toBe(1); // exactly one deal
+    expect(deals[0]?.affiliateId).toBeNull(); // house pipeline
+    expect(deals[0]?.stage).toBe("new");
+    expect(deals[0]?.id).toBe(leadRows[0]?.dealId);
+  });
+
   it("de-dupes a repeat launch into one row and bumps launchCount", async () => {
     const db = await getDb();
     if (!db) return;
@@ -107,6 +131,13 @@ describe("design.captureLead — launch lead capture", () => {
     expect(rows[0]?.launchCount).toBe(2); // bumped
     // Earlier-captured name is preserved (not erased by the nameless relaunch).
     expect(rows[0]?.name).toBe("Jordan Tester");
+
+    // A repeat launch must NOT spawn a second house deal.
+    const deals = await db
+      .select()
+      .from(crmDeals)
+      .where(eq(crmDeals.contactEmail, TEST_EMAIL));
+    expect(deals.length).toBe(1);
   });
 
   it("listLeads is admin-only and includes captured leads", async () => {

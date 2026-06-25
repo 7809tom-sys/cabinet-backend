@@ -1681,3 +1681,15 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] L4: DONE — DesignTool fires design.captureLead on launch (fire-and-forget) and stores verifiedName/verifiedPhone; the Countertop Quote dialog now prefills name+phone too (defaultName/defaultPhone).
 - [x] L5: DONE — new Admin "Design Leads" tab (DesignLeadsAdmin): searchable table of name/email/phone/room/launch-count/last-activity/guest-vs-member, mailto + tel links, powered by design.listLeads (admin-gated).
 - [x] L6: DONE — design.captureLead.test.ts (4 tests): email validation, persists+normalizes email/name/phone, de-dupes + bumps launchCount preserving earlier name, listLeads admin-gated. Type-check clean; full suite 874 tests pass (78 files).
+
+## Design lead -> CRM auto-deal (user: "yes")
+
+- [x] D1: DONE — dealId int (nullable) added to design_leads; migration 0030 applied.
+- [x] D2: DONE — captureLead now auto-creates a HOUSE crm deal (affiliateId NULL, source "storefront", stage "new", contact name/email/phone copied) on NEW lead only, best-effort, and stores dealId back on the lead. Repeat launches hit the de-dupe branch (no new deal). Type-check clean.
+- [x] D3: DONE — added 2 tests (new lead creates exactly one house deal linked via dealId, affiliateId null, stage new; repeat launch does not create a second deal). 5/5 in design.captureLead.test.ts pass; cleanup removes both deal + lead rows.
+
+## Affiliate membership offer ($1,195/yr) (user: price + annual + benefits)
+
+- [x] M1: DONE — shared AFFILIATE_MEMBERSHIP constant (priceUsd 1195, billingPeriod "year", 3 benefits: Kitchen Design Software / Your Own Website / Buying-Group Access) + formatMembershipPrice() and membershipPriceLabel() helpers in shared/affiliate.ts.
+- [x] M2: DONE — affiliate page (/affiliate) now shows the membership offer in both the signed-out hero (navy hero + $1,195/year + 3 benefit cards + Apply to join / Sign in) and the signed-in-but-not-an-affiliate state (membership card with price, benefits, Apply to join). CTA links to /pro-network. Verified via screenshot.
+- [x] M3: DONE — added 4 shared membership tests (price=1195/year, 3 benefit titles, price formatting with separator, full label "$1,195/year"). Type-check clean; full suite 879 tests / 78 files pass.

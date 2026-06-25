@@ -3,7 +3,7 @@ import { eq, and, inArray, desc, like, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
-import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads } from "../../drizzle/schema";
+import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { invokeLLM } from "../_core/llm";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
@@ -473,6 +473,31 @@ export const designRouter = router({
         roomType,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+
+      // Auto-create a HOUSE sales deal so this lead lands on the Cabinet Dealz
+      // sales board immediately (affiliateId NULL = house pipeline). Best-effort:
+      // never block lead capture if deal creation fails. The dealId is stored
+      // back on the lead so repeat launches reuse the same deal (D2 de-dupe).
+      let dealId: number | null = null;
+      try {
+        const dealTitle = `Designer lead \u2014 ${name || input.email}`.slice(0, 256);
+        const dealRes = await db.insert(crmDeals).values({
+          affiliateId: null, // house deal
+          ownerUserId: userId,
+          title: dealTitle,
+          stage: "new",
+          priority: "medium",
+          contactName: name,
+          contactEmail: emailLower,
+          contactPhone: phone,
+          source: "storefront",
+          notes: `Auto-created from the Design Tool launch gate.${roomType ? ` Room type: ${roomType}.` : ""}`,
+        });
+        dealId = (dealRes as unknown as [{ insertId: number }])[0].insertId;
+        await db.update(designLeads).set({ dealId }).where(eq(designLeads.id, insertId));
+      } catch {
+        // Lead is still captured even if the deal could not be created.
+      }
 
       // Notify the owner of a fresh design lead (best-effort).
       try {

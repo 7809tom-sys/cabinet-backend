@@ -19,9 +19,15 @@ import {
 } from "@/components/ui/tabs";
 import {
   Copy, ExternalLink, DollarSign, Package, CheckCircle2, Store,
-  LinkIcon, Save, Loader2,
+  LinkIcon, Save, Loader2, PencilRuler, Globe, Users,
 } from "lucide-react";
 import { CrmBoard } from "@/components/crm/CrmBoard";
+import {
+  AFFILIATE_MEMBERSHIP,
+  formatMembershipPrice,
+} from "@shared/affiliate";
+
+const MEMBERSHIP_BENEFIT_ICONS = [PencilRuler, Globe, Users];
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -53,16 +59,75 @@ export default function AffiliateDashboard() {
 
   if (!isAuthenticated) {
     return (
-      <div className="container py-20 text-center max-w-md">
-        <Store className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-        <h1 className="font-serif text-2xl font-bold mb-2">Affiliate Sign In</h1>
-        <p className="text-muted-foreground mb-6">
-          Sign in with the email tied to your affiliate account to view your storefront, referral
-          link, and commissions.
-        </p>
-        <a href={getLoginUrl()}>
-          <Button size="lg">Sign In</Button>
-        </a>
+      <div>
+        {/* Membership offer */}
+        <section className="bg-[var(--color-navy)] text-white">
+          <div className="container py-16 md:py-20">
+            <div className="max-w-2xl">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-1.5 text-sm font-medium">
+                <span className="h-2 w-2 rounded-full bg-[var(--color-gold)]" />
+                Affiliate Membership
+              </span>
+              <h1 className="font-serif text-4xl md:text-5xl font-bold mt-6 leading-tight">
+                Run your own cabinet business with{" "}
+                <span className="text-[var(--color-gold)]">Cabinet Dealz</span>
+              </h1>
+              <p className="text-white/80 text-lg mt-4">
+                One annual membership gets you the design software, your own branded website,
+                and a seat in our buying group at trade pricing.
+              </p>
+              <div className="mt-8 flex items-end gap-3">
+                <span className="font-serif text-5xl font-bold text-[var(--color-gold)]">
+                  {formatMembershipPrice()}
+                </span>
+                <span className="text-white/70 mb-1.5">
+                  per {AFFILIATE_MEMBERSHIP.billingPeriod}
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Benefits */}
+        <section className="container py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {AFFILIATE_MEMBERSHIP.benefits.map((b, i) => {
+              const Icon = MEMBERSHIP_BENEFIT_ICONS[i] ?? CheckCircle2;
+              return (
+                <div
+                  key={b.title}
+                  className="rounded-xl border border-border bg-card p-6"
+                >
+                  <div className="h-10 w-10 rounded-lg bg-[var(--color-navy)]/10 flex items-center justify-center">
+                    <Icon className="h-5 w-5 text-[var(--color-navy)]" />
+                  </div>
+                  <h3 className="font-serif text-lg font-bold mt-4">{b.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-2">{b.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-10 rounded-xl border border-border bg-muted/40 p-6 md:p-8 text-center max-w-2xl mx-auto">
+            <h2 className="font-serif text-2xl font-bold">Become an affiliate</h2>
+            <p className="text-muted-foreground mt-2 mb-6">
+              Already a member? Sign in with the email tied to your affiliate account to view your
+              storefront, referral link, and commissions.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link href="/pro-network">
+                <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
+                  Apply to join
+                </Button>
+              </Link>
+              <a href={getLoginUrl()}>
+                <Button size="lg" variant="outline">
+                  Affiliate sign in
+                </Button>
+              </a>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
@@ -77,16 +142,54 @@ export default function AffiliateDashboard() {
 
   if (!myRef.data) {
     return (
-      <div className="container py-20 text-center max-w-md">
-        <Store className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-        <h1 className="font-serif text-2xl font-bold mb-2">No affiliate account found</h1>
-        <p className="text-muted-foreground mb-6">
-          We couldn't find an affiliate account linked to your sign-in email. If you believe this is
-          a mistake, please contact the Cabinet Dealz team.
-        </p>
-        <Link href="/">
-          <Button variant="outline">Back to home</Button>
-        </Link>
+      <div className="container py-16 max-w-3xl">
+        <div className="text-center">
+          <Store className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h1 className="font-serif text-2xl font-bold mb-2">No affiliate account found</h1>
+          <p className="text-muted-foreground">
+            We couldn't find an affiliate account linked to your sign-in email. Become a member to
+            get the design software, your own website, and buying-group pricing.
+          </p>
+        </div>
+
+        <div className="mt-8 rounded-xl border border-border bg-card p-6 md:p-8">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium text-muted-foreground">Affiliate Membership</div>
+              <div className="flex items-end gap-2 mt-1">
+                <span className="font-serif text-4xl font-bold text-[var(--color-navy)]">
+                  {formatMembershipPrice()}
+                </span>
+                <span className="text-muted-foreground mb-1">
+                  per {AFFILIATE_MEMBERSHIP.billingPeriod}
+                </span>
+              </div>
+            </div>
+            <Link href="/pro-network">
+              <Button className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
+                Apply to join
+              </Button>
+            </Link>
+          </div>
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {AFFILIATE_MEMBERSHIP.benefits.map((b, i) => {
+              const Icon = MEMBERSHIP_BENEFIT_ICONS[i] ?? CheckCircle2;
+              return (
+                <div key={b.title} className="rounded-lg border border-border p-4">
+                  <Icon className="h-5 w-5 text-[var(--color-navy)]" />
+                  <div className="font-semibold text-sm mt-2">{b.title}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{b.desc}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-6 text-center">
+          <Link href="/">
+            <Button variant="outline">Back to home</Button>
+          </Link>
+        </div>
       </div>
     );
   }

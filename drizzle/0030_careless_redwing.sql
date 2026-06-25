@@ -1,0 +1,1 @@
+ALTER TABLE `design_leads` ADD `dealId` int;
