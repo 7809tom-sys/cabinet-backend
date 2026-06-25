@@ -9,6 +9,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useLanguage } from "@/contexts/LanguageContext";
 import type { PlacedCabinet, RoomData } from "@/lib/design";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -146,7 +147,7 @@ export function exportBuildSheet(args: BuildSheetArgs): boolean {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  toast.success("Build sheet exported", { description: `${args.buildRows.length} line items` });
+  toast.success("Build sheet exported", { description: `${args.buildRows.length} line items` }); // CSV export stays English (machine-readable)
   return true;
 }
 
@@ -213,6 +214,7 @@ function downloadProjectCsv(
 // Per-project totals expander used inside the My Designs dialog. Lazily queries
 // the roll-up only when opened.
 function ProjectTotals({ projectName }: { projectName: string }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const summary = trpc.design.projectSummary.useQuery(
     { projectName },
@@ -225,13 +227,13 @@ function ProjectTotals({ projectName }: { projectName: string }) {
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center gap-1 text-[10px] font-medium text-[#a87f33] hover:underline"
       >
-        <Calculator className="h-3 w-3" /> {open ? "Hide" : "View"} project total
+        <Calculator className="h-3 w-3" /> {open ? t("dt_act_hide") : t("dt_act_view")} {t("dt_act_project_total_link")}
       </button>
       {open && (
         <div className="mt-1.5 rounded-md bg-muted/40 p-2 text-[11px]">
           {summary.isLoading ? (
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" /> Calculating…
+              <Loader2 className="h-3 w-3 animate-spin" /> {t("dt_act_calculating")}
             </div>
           ) : summary.data ? (
             <>
@@ -246,7 +248,7 @@ function ProjectTotals({ projectName }: { projectName: string }) {
                 ))}
               </div>
               <div className="mt-1.5 flex items-center justify-between border-t border-border pt-1.5 font-semibold">
-                <span>Project total</span>
+                <span>{t("dt_act_project_total")}</span>
                 <span className="tabular-nums">${summary.data.grandTotal.toFixed(2)}</span>
               </div>
               <Button
@@ -255,14 +257,14 @@ function ProjectTotals({ projectName }: { projectName: string }) {
                 className="mt-2 h-7 w-full gap-1.5 text-[11px]"
                 onClick={() => downloadProjectCsv(projectName, summary.data!)}
               >
-                <Download className="h-3 w-3" /> Download project CSV
+                <Download className="h-3 w-3" /> {t("dt_act_download_project_csv")}
               </Button>
               <p className="mt-1 text-[9px] leading-tight text-muted-foreground">
-                Estimated contractor pricing across all rooms. Countertops &amp; fixtures quoted separately.
+                {t("dt_act_project_pricing_note")}
               </p>
             </>
           ) : (
-            <span className="text-muted-foreground">No totals available.</span>
+            <span className="text-muted-foreground">{t("dt_act_no_totals")}</span>
           )}
         </div>
       )}
@@ -301,6 +303,7 @@ export function DesignActions({
   room, placed, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
+  const { t } = useLanguage();
   const utils = trpc.useUtils();
 
   const [saveOpen, setSaveOpen] = useState(false);
@@ -315,17 +318,17 @@ export function DesignActions({
   const quoteMutation = trpc.crm.requestQuoteFromDesign.useMutation({
     onSuccess: (r) => {
       toast.success(
-        r.reused ? "Already sent to your rep" : "Sent to a Cabinet Dealz rep",
-        { description: "A specialist will follow up with your quote." },
+        r.reused ? t("dt_act_quote_reused") : t("dt_act_quote_sent"),
+        { description: t("dt_act_quote_desc") },
       );
     },
     onError: (e) =>
-      toast.error("Saved, but could not request a quote", { description: e.message }),
+      toast.error(t("dt_act_quote_err"), { description: e.message }),
   });
 
   const saveMutation = trpc.design.save.useMutation({
     onSuccess: (res) => {
-      toast.success("Design saved", { description: name || "Untitled kitchen" });
+      toast.success(t("dt_act_saved"), { description: name || t("dt_act_saved_untitled") });
       setSaveOpen(false);
       setName("");
       utils.design.myDesigns.invalidate();
@@ -339,7 +342,7 @@ export function DesignActions({
       }
       setRequestQuote(false);
     },
-    onError: (e) => toast.error("Could not save design", { description: e.message }),
+    onError: (e) => toast.error(t("dt_act_save_err"), { description: e.message }),
   });
 
   // Only logged-in users can list their saved designs (protected procedure).
@@ -350,13 +353,13 @@ export function DesignActions({
 
   const handleSave = () => {
     if (placed.length === 0) {
-      toast.error("Add cabinets before saving.");
+      toast.error(t("dt_act_err_save_empty"));
       return;
     }
     const proj = projectName.trim();
     const rlabel = roomLabel.trim();
     saveMutation.mutate({
-      name: name.trim() || rlabel || proj || "Untitled design",
+      name: name.trim() || rlabel || proj || t("dt_act_untitled_design"),
       roomData: room,
       placedCabinets: placed,
       selectedStyleId: styleId ?? undefined,
@@ -373,58 +376,58 @@ export function DesignActions({
   return (
     <>
       <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setSaveOpen(true)}>
-        <Save className="h-3.5 w-3.5" /> Save
+        <Save className="h-3.5 w-3.5" /> {t("dt_act_save_btn")}
       </Button>
       <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setLoadOpen(true)}>
-        <FolderOpen className="h-3.5 w-3.5" /> My Designs
+        <FolderOpen className="h-3.5 w-3.5" /> {t("dt_act_my_designs_btn")}
       </Button>
 
       {/* Save dialog */}
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Save kitchen design</DialogTitle>
+            <DialogTitle>{t("dt_act_save_title")}</DialogTitle>
             <DialogDescription>
-              Name this layout so you can reopen and re-price it later.
+              {t("dt_act_save_desc")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="design-name" className="text-sm">Design name</Label>
+              <Label htmlFor="design-name" className="text-sm">{t("dt_act_design_name")}</Label>
               <Input
                 id="design-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Maple Street kitchen"
+                placeholder={t("dt_act_design_name_ph")}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
                 autoFocus
               />
             </div>
             <div className="rounded-lg border border-dashed border-border p-3 space-y-2.5 bg-muted/20">
               <p className="text-[11px] font-semibold text-foreground">
-                Master Project <span className="font-normal text-muted-foreground">(optional)</span>
+                {t("dt_act_master_project")} <span className="font-normal text-muted-foreground">{t("dt_act_optional")}</span>
               </p>
               <p className="text-[11px] text-muted-foreground -mt-1">
-                Group several rooms (kitchen, baths, laundry) under one job to get a combined bill of materials.
+                {t("dt_act_master_project_desc")}
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label htmlFor="project-name" className="text-[11px]">Project / job</Label>
+                  <Label htmlFor="project-name" className="text-[11px]">{t("dt_act_project_job")}</Label>
                   <Input
                     id="project-name"
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="123 Oak St — Whole Home"
+                    placeholder={t("dt_act_project_job_ph")}
                     className="h-8 text-xs"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="room-label" className="text-[11px]">Room in project</Label>
+                  <Label htmlFor="room-label" className="text-[11px]">{t("dt_act_room_in_project")}</Label>
                   <Input
                     id="room-label"
                     value={roomLabel}
                     onChange={(e) => setRoomLabel(e.target.value)}
-                    placeholder="Master Bath"
+                    placeholder={t("dt_act_room_in_project_ph")}
                     className="h-8 text-xs"
                   />
                 </div>
@@ -444,26 +447,26 @@ export function DesignActions({
                 />
                 <span className="text-[11px] leading-snug">
                   <span className="font-semibold text-foreground flex items-center gap-1">
-                    <Send className="h-3 w-3" /> Send to a Cabinet Dealz rep for a quote
+                    <Send className="h-3 w-3" /> {t("dt_act_send_rep")}
                   </span>
                   <span className="text-muted-foreground">
-                    Creates a follow-up in our sales pipeline with this design attached
-                    {total > 0 ? ` (est. $${total.toLocaleString()})` : ""}.
+                    {t("dt_act_send_rep_desc")}
+                    {total > 0 ? t("dt_act_send_rep_est", { total: total.toLocaleString() }) : "."}
                   </span>
                 </span>
               </label>
             )}
             {!isAuthenticated && (
               <p className="text-[11px] text-muted-foreground">
-                Tip: sign in to see all your saved designs under “My Designs” on any device, and to request a quote from a rep.
+                {t("dt_act_signin_tip")}
               </p>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setSaveOpen(false)}>{t("dt_act_cancel")}</Button>
             <Button onClick={handleSave} disabled={saveMutation.isPending} className="gap-1.5">
               {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save design
+              {t("dt_act_save_design")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -473,29 +476,29 @@ export function DesignActions({
       <Dialog open={loadOpen} onOpenChange={setLoadOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>My saved designs</DialogTitle>
-            <DialogDescription>Open a saved layout to keep editing.</DialogDescription>
+            <DialogTitle>{t("dt_act_my_saved_title")}</DialogTitle>
+            <DialogDescription>{t("dt_act_my_saved_desc")}</DialogDescription>
           </DialogHeader>
 
           {!isAuthenticated ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              Sign in to view designs saved to your account.
+              {t("dt_act_signin_to_view")}
             </div>
           ) : myDesigns.isLoading ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
-              <Loader2 className="h-5 w-5 mx-auto mb-2 animate-spin" /> Loading…
+              <Loader2 className="h-5 w-5 mx-auto mb-2 animate-spin" /> {t("dt_act_loading")}
             </div>
           ) : myDesigns.isError ? (
             <div className="py-6 text-center text-sm text-destructive">
-              Couldn’t load your designs.
+              {t("dt_act_load_err")}
               <div className="mt-2">
-                <Button variant="outline" size="sm" onClick={() => myDesigns.refetch()}>Retry</Button>
+                <Button variant="outline" size="sm" onClick={() => myDesigns.refetch()}>{t("dt_act_retry")}</Button>
               </div>
             </div>
           ) : !myDesigns.data || myDesigns.data.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
-              No saved designs yet.
+              {t("dt_act_no_saved")}
             </div>
           ) : (
             <div className="max-h-80 overflow-y-auto space-y-3">
@@ -508,7 +511,7 @@ export function DesignActions({
                         {group.projectName}
                       </span>
                       <span className="text-[10px] text-muted-foreground">
-                        {group.rooms.length} room{group.rooms.length === 1 ? "" : "s"}
+                        {group.rooms.length} {group.rooms.length === 1 ? t("dt_act_room_one") : t("dt_act_room_many")}
                       </span>
                     </div>
                   )}
@@ -531,7 +534,7 @@ export function DesignActions({
                               roomType: rType ?? null,
                             });
                             setLoadOpen(false);
-                            toast.success(`Loaded "${d.name}"`);
+                            toast.success(t("dt_act_loaded", { name: d.name }));
                           }}
                         >
                           <div className="flex items-center gap-2">
@@ -543,7 +546,7 @@ export function DesignActions({
                             )}
                           </div>
                           <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                            <span>{items} item{items === 1 ? "" : "s"}</span>
+                              <span>{items} {items === 1 ? t("dt_act_item_one") : t("dt_act_item_many")}</span>
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               {new Date(d.updatedAt).toLocaleDateString()}
@@ -562,7 +565,7 @@ export function DesignActions({
 
       {/* Export build sheet — replaces the placeholder cart action */}
       <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExport}>
-        <Download className="h-3.5 w-3.5" /> Export
+        <Download className="h-3.5 w-3.5" /> {t("dt_act_export_btn")}
       </Button>
     </>
   );

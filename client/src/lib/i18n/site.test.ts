@@ -31,9 +31,15 @@ describe("SITE_STRINGS", () => {
       "ds_color", // "Color" is the same word in ES
       "pkd_th_sku", // "SKU" is a universal acronym
       "ct_material", // "Material" is the same word in ES
+      "dt_cq_material", // "Material" is the same word in ES
       "pay_cvc", // "CVC" is a universal acronym
       "dt_rs_field_eq", // pure number/unit format string
       "ob_manual_hint_c", // just ")." punctuation
+      "dt_pd_phone_ph", // phone number placeholder, format-only
+      "dt_bs_color_1", // "Color 1" reads the same in ES
+      "dt_bs_color_2", // "Color 2" reads the same in ES
+      "dt_bs_incl", // "incl." abbreviation kept short, same in ES
+      "dt_tab_base", // "Base" is the same word in ES
     ]);
     const identical = enKeys.filter(
       (k) =>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,14 +22,14 @@ import {
 
 const DISMISS_KEY = "cd_design_tip_dismissed_v1";
 
-/** Short rotating one-liners shown in the tip strip above the canvas. */
-const TIPS: string[] = [
-  "Pick a wall (Back / Left / Right / Front) — the highlighted wall is where new items land.",
-  "Drag a highlighted wall in or out on the canvas to resize the room on that side.",
-  "Click \"Room\" to type exact width & depth, or \"Draw Room\" to sketch it with your mouse.",
-  "Select a placed cabinet, then use \"Snap to wall\" to move it to another wall.",
-  "Only cabinets available from your selected line & door style are shown.",
-];
+/** Keys for the short rotating one-liners shown in the tip strip above the canvas. */
+const TIP_KEYS = [
+  "dt_help_tip1",
+  "dt_help_tip2",
+  "dt_help_tip3",
+  "dt_help_tip4",
+  "dt_help_tip5",
+] as const;
 
 /** A single step in the Help guide. */
 function HelpStep({
@@ -58,6 +59,7 @@ function HelpStep({
  * "?" button that opens a full step-by-step guide dialog.
  */
 export function DesignHelp() {
+  const { t } = useLanguage();
   const [dismissed, setDismissed] = useState(true);
   const [tipIndex, setTipIndex] = useState(0);
 
@@ -74,7 +76,7 @@ export function DesignHelp() {
   useEffect(() => {
     if (dismissed) return;
     const id = window.setInterval(() => {
-      setTipIndex((i) => (i + 1) % TIPS.length);
+      setTipIndex((i) => (i + 1) % TIP_KEYS.length);
     }, 5000);
     return () => window.clearInterval(id);
   }, [dismissed]);
@@ -99,46 +101,40 @@ export function DesignHelp() {
             className="h-8 gap-1.5 bg-background"
           >
             <HelpCircle className="h-4 w-4" />
-            Help
+            {t("dt_help_btn")}
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>How to use the Kitchen Designer</DialogTitle>
+            <DialogTitle>{t("dt_help_title")}</DialogTitle>
             <DialogDescription>
-              A quick guide to laying out your kitchen to scale.
+              {t("dt_help_desc")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-1">
-            <HelpStep icon={<PanelsTopLeft className="h-4 w-4" />} title="1. Choose a wall">
-              Use the <strong>Wall</strong> selector (Back / Left / Right / Front). The
-              chosen wall is highlighted on the floor plan — that's where new items go.
+            <HelpStep icon={<PanelsTopLeft className="h-4 w-4" />} title={t("dt_help_s1_title")}>
+              {t("dt_help_tip1")}
             </HelpStep>
-            <HelpStep icon={<MousePointerClick className="h-4 w-4" />} title="2. Add cabinets & items">
-              Click any cabinet, appliance, or door/window from the left panel. It drops
-              onto the highlighted wall and lines up next to what's already there.
+            <HelpStep icon={<MousePointerClick className="h-4 w-4" />} title={t("dt_help_s2_title")}>
+              {t("dt_help_s2_body")}
             </HelpStep>
-            <HelpStep icon={<Move className="h-4 w-4" />} title="3. Resize the room by a wall">
-              Drag a highlighted wall inward or outward on the canvas to grow or shrink the
-              room on that side. A live feet/inches readout follows your drag.
+            <HelpStep icon={<Move className="h-4 w-4" />} title={t("dt_help_s3_title")}>
+              {t("dt_help_s3_body")}
             </HelpStep>
-            <HelpStep icon={<Ruler className="h-4 w-4" />} title="4. Set exact measurements">
-              Click <strong>Room</strong> to type the precise width and depth in feet and
-              inches. Your room redraws to scale instantly.
+            <HelpStep icon={<Ruler className="h-4 w-4" />} title={t("dt_help_s4_title")}>
+              {t("dt_help_tip3")}
             </HelpStep>
-            <HelpStep icon={<PencilLine className="h-4 w-4" />} title="5. Or draw it freehand">
-              Click <strong>Draw Room</strong>, then drag on the empty canvas to sketch the
-              room outline. Release to set the size (snapped to the nearest inch).
+            <HelpStep icon={<PencilLine className="h-4 w-4" />} title={t("dt_help_s5_title")}>
+              {t("dt_help_tip2")}
             </HelpStep>
-            <HelpStep icon={<RotateCw className="h-4 w-4" />} title="6. Adjust placed items">
-              Select any cabinet to <strong>Rotate</strong>, <strong>Delete</strong>, or use
-              <strong> Snap to wall</strong> to move it to a different wall.
+            <HelpStep icon={<RotateCw className="h-4 w-4" />} title={t("dt_help_s6_title")}>
+              {t("dt_help_tip4")}
             </HelpStep>
           </div>
         </DialogContent>
       </Dialog>
     ),
-    []
+    [t]
   );
 
   return (
@@ -150,12 +146,12 @@ export function DesignHelp() {
             key={tipIndex}
             className="truncate text-xs text-foreground/90 animate-in fade-in duration-300"
           >
-            {TIPS[tipIndex]}
+            {t(TIP_KEYS[tipIndex])}
           </p>
           <button
             type="button"
             onClick={dismiss}
-            aria-label="Dismiss tip"
+            aria-label={t("dt_help_dismiss")}
             className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
           >
             <X className="h-3.5 w-3.5" />

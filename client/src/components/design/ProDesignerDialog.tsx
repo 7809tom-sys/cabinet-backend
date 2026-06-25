@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,10 +30,10 @@ const MODE_ICON: Record<string, React.ReactNode> = {
   phone: <Phone className="h-3.5 w-3.5" />,
   in_person: <MapPin className="h-3.5 w-3.5" />,
 };
-const MODE_LABEL: Record<string, string> = {
-  video: "Video call",
-  phone: "Phone call",
-  in_person: "In person",
+const MODE_LABEL_KEY: Record<string, "dt_pd_mode_video" | "dt_pd_mode_phone" | "dt_pd_mode_in_person"> = {
+  video: "dt_pd_mode_video",
+  phone: "dt_pd_mode_phone",
+  in_person: "dt_pd_mode_in_person",
 };
 
 export function ProDesignerDialog({
@@ -44,6 +45,7 @@ export function ProDesignerDialog({
   designId,
   designName,
 }: Props) {
+  const { t } = useLanguage();
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [name, setName] = useState(defaultName ?? "");
   const [email, setEmail] = useState(defaultEmail ?? "");
@@ -60,10 +62,10 @@ export function ProDesignerDialog({
     onSuccess: () => {
       setDone(true);
       utils.consultations.openSlots.invalidate();
-      toast.success("Consultation booked — we'll be in touch to confirm.");
+      toast.success(t("dt_pd_toast_booked"));
     },
     onError: (e) => {
-      toast.error(e.message || "Could not book that time. Please pick another.");
+      toast.error(e.message || t("dt_pd_toast_error"));
       utils.consultations.openSlots.invalidate();
     },
   });
@@ -104,13 +106,12 @@ export function ProDesignerDialog({
         {done ? (
           <div className="py-6 text-center">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
-            <h3 className="mt-3 text-lg font-semibold">You're booked!</h3>
+            <h3 className="mt-3 text-lg font-semibold">{t("dt_pd_booked_title")}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              A Cabinet Dealz designer will confirm your consultation by email
-              {phone ? " or phone" : ""}. We'll review your design together and answer any questions.
+              {t("dt_pd_booked_desc", { phone: phone ? t("dt_pd_booked_or_phone") : "" })}
             </p>
             <Button className="mt-5" onClick={() => onOpenChange(false)}>
-              Done
+              {t("dt_pd_done")}
             </Button>
           </div>
         ) : (
@@ -118,14 +119,13 @@ export function ProDesignerDialog({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <UserRound className="h-5 w-5 text-[#a87f33]" />
-                Get a professional designer
+                {t("dt_pd_title")}
               </DialogTitle>
               <DialogDescription>
-                Book a free consultation with a Cabinet Dealz designer. Pick a time that works for
-                you and we'll walk through your kitchen together.
+                {t("dt_pd_desc")}
                 {designName ? (
                   <span className="mt-1 block font-medium text-foreground">
-                    Design attached: {designName}
+                    {t("dt_pd_design_attached", { name: designName })}
                   </span>
                 ) : null}
               </DialogDescription>
@@ -135,16 +135,15 @@ export function ProDesignerDialog({
               {/* Slot picker */}
               <div>
                 <Label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Choose a time
+                  {t("dt_pd_choose_time")}
                 </Label>
                 {isLoading ? (
                   <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Loading available times…
+                    <Loader2 className="h-4 w-4 animate-spin" /> {t("dt_pd_loading_times")}
                   </div>
                 ) : grouped.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-                    No open times right now. Leave your info below and a designer will reach out to
-                    schedule.
+                    {t("dt_pd_no_times")}
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
@@ -164,7 +163,7 @@ export function ProDesignerDialog({
                                     ? "border-[#a87f33] bg-[#a87f33] text-white"
                                     : "border-border hover:border-[#a87f33]/60 hover:bg-muted/50"
                                 }`}
-                                title={`${MODE_LABEL[s.mode]} with ${s.designerName ?? "a designer"}`}
+                                title={t("dt_pd_slot_title", { mode: t(MODE_LABEL_KEY[s.mode]), designer: s.designerName ?? t("dt_pd_a_designer") })}
                               >
                                 {new Date(s.startAt).toLocaleTimeString(undefined, {
                                   hour: "numeric",
@@ -187,31 +186,31 @@ export function ProDesignerDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2 sm:col-span-1">
                   <Label htmlFor="pd-name" className="text-xs">
-                    Your name
+                    {t("dt_pd_your_name")}
                   </Label>
-                  <Input id="pd-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
+                  <Input id="pd-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("dt_pd_name_ph")} />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
                   <Label htmlFor="pd-phone" className="text-xs">
-                    Phone (optional)
+                    {t("dt_pd_phone_opt")}
                   </Label>
-                  <Input id="pd-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 123-4567" />
+                  <Input id="pd-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("dt_pd_phone_ph")} />
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="pd-email" className="text-xs">
-                    Email
+                    {t("dt_pd_email")}
                   </Label>
-                  <Input id="pd-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jane@example.com" />
+                  <Input id="pd-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("dt_pd_email_ph")} />
                 </div>
                 <div className="col-span-2">
                   <Label htmlFor="pd-topic" className="text-xs">
-                    What would you like help with? (optional)
+                    {t("dt_pd_topic")}
                   </Label>
                   <Textarea
                     id="pd-topic"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
-                    placeholder="e.g. Finalizing my layout, picking a door style, getting an accurate quote…"
+                    placeholder={t("dt_pd_topic_ph")}
                     rows={2}
                   />
                 </div>
@@ -235,11 +234,11 @@ export function ProDesignerDialog({
               >
                 {book.isPending ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Booking…
+                    <Loader2 className="h-4 w-4 animate-spin" /> {t("dt_pd_booking")}
                   </>
                 ) : (
                   <>
-                    <CalendarCheck className="h-4 w-4" /> Book my consultation
+                    <CalendarCheck className="h-4 w-4" /> {t("dt_pd_book")}
                   </>
                 )}
               </Button>

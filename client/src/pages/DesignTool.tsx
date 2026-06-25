@@ -80,6 +80,8 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
+import { useLanguage } from "@/contexts/LanguageContext";
+import type { SiteStringKey } from "@/lib/i18n/site";
 
 // One wall's worth of a consultant plan (mirrors the server `consult` output).
 type ConsultPlanWall = {
@@ -114,10 +116,12 @@ function DimStepper({
   onStep: (delta: number) => void;
   onSet: (v: number) => void;
 }) {
+  const { t } = useLanguage();
+  const dimName = label === "W" ? t("dt_dim_width") : label === "H" ? t("dt_dim_height") : t("dt_dim_depth");
   return (
-    <div className="flex items-center gap-0.5" title={`${label === "W" ? "Width" : label === "H" ? "Height" : "Depth"} (inches)`}>
+    <div className="flex items-center gap-0.5" title={t("dt_dim_unit_title", { name: dimName })}>
       <span className={cn("text-[11px] mr-0.5", custom ? "font-bold text-[var(--color-gold,#c89b3c)]" : "text-muted-foreground")}>{label}</span>
-      <Button variant="outline" size="sm" className="h-7 w-6 p-0" title={`Decrease ${label} 1 inch`} onClick={() => onStep(-1)}>
+      <Button variant="outline" size="sm" className="h-7 w-6 p-0" title={t("dt_dim_decrease", { label })} onClick={() => onStep(-1)}>
         <Minus className="h-3 w-3" />
       </Button>
       <Input
@@ -131,9 +135,9 @@ function DimStepper({
           const v = Number(e.target.value);
           if (Number.isFinite(v) && v > 0) onSet(v);
         }}
-        aria-label={`Custom ${label} in inches`}
+        aria-label={t("dt_dim_custom_aria", { label })}
       />
-      <Button variant="outline" size="sm" className="h-7 w-6 p-0" title={`Increase ${label} 1 inch`} onClick={() => onStep(1)}>
+      <Button variant="outline" size="sm" className="h-7 w-6 p-0" title={t("dt_dim_increase", { label })} onClick={() => onStep(1)}>
         <Plus className="h-3 w-3" />
       </Button>
     </div>
@@ -141,6 +145,11 @@ function DimStepper({
 }
 
 export default function DesignTool() {
+  const { t } = useLanguage();
+  // Localized wall names (Back/Front/Left/Right) keyed by WallSide.
+  const wallLabel: Record<WallSide, string> = {
+    top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
+  };
   // Contact gate (email required; name + phone optional)
   const [verified, setVerified] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState("");
@@ -562,8 +571,8 @@ export default function DesignTool() {
       const cornerBases = filteredPalette.filter((c) => isCornerBase(c));
       const cornerWalls = filteredPalette.filter((c) => !isCornerBase(c));
       const sections: { label: string; items: DesignCabinet[] }[] = [];
-      if (cornerBases.length > 0) sections.push({ label: "Corner Base Cabinets", items: cornerBases });
-      if (cornerWalls.length > 0) sections.push({ label: "Corner Wall Cabinets", items: cornerWalls });
+      if (cornerBases.length > 0) sections.push({ label: t("dt_pl_grp_corner_base"), items: cornerBases });
+      if (cornerWalls.length > 0) sections.push({ label: t("dt_pl_grp_corner_wall"), items: cornerWalls });
       return sections;
     }
     // Every floor-standing BASE cabinet is a standard 34½" tall (the toe-kick +
@@ -601,13 +610,13 @@ export default function DesignTool() {
         // height should still read as the base height (never a stray "Other"
         // group). Only non-base tabs fall back to "Other".
         label: height
-          ? `${fmtHeight(height)}\" High`
+          ? t("dt_pl_grp_high", { h: fmtHeight(height) })
           : isBaseFamilyTab
-          ? `${fmtHeight(BASE_STD_HEIGHT)}\" High`
-          : "Other",
+          ? t("dt_pl_grp_high", { h: fmtHeight(BASE_STD_HEIGHT) })
+          : t("dt_pl_grp_other"),
         items,
       }));
-  }, [filteredPalette, paletteType, paletteSearch, closetGroups, isCornerBase]);
+  }, [filteredPalette, paletteType, paletteSearch, closetGroups, isCornerBase, t]);
 
   // Pricing for placed cabinets + add-on accessories (appliances carry
   // cabinetId 0 and are unpriced).
@@ -1054,7 +1063,7 @@ export default function DesignTool() {
   const toggleCountertop = useCallback(() => {
     setCountertop((c) => {
       if (!c && !hasBaseRun) {
-        toast.info("Build the kitchen layout first — place base cabinets, then add the countertop.");
+        toast.info(t("dt_t_build_first"));
         return c;
       }
       return !c;
@@ -1338,7 +1347,7 @@ export default function DesignTool() {
           setSinks((prevSinks) => [...prevSinks, autoSink]);
           setSelectedSinkUid(autoSink.uid);
           setCountertop(true); // a sink implies a counter
-          toast.success("Sink base added — dropped a sink + faucet over it.");
+          toast.success(t("dt_t_sink_added"));
         }
         // Blind corner trade rule: when a blind corner cabinet is dropped flush
         // in a room corner, auto-snap a 3" filler on the side OPPOSITE the pull
@@ -1348,11 +1357,11 @@ export default function DesignTool() {
         if (isBlindCorner(newCab.masterCode, newCab.description)) {
           const res = blindCornerAutoFiller(newCab, room, makeUid);
           if (res.filler) {
-            toast.success('Blind corner: added a 3" filler on the side opposite the pull.');
+            toast.success(t("dt_toast_blind_added"));
             return [...prev, newCab, res.filler];
           }
           if (res.ambiguous) {
-            toast.warning("Blind corner needs its filler — seat it in a corner so the opposite-side filler can be placed (left in conflict for now).");
+            toast.warning(t("dt_toast_blind_corner"));
           }
         }
         return [...prev, newCab];
@@ -1366,16 +1375,16 @@ export default function DesignTool() {
   // makeFiller spec as the auto-fill engine so it carries a code + width and
   // shows on the build sheet. Default 3" — the most common scribe width.
   const addManualFiller = useCallback(() => {
-    if (layoutLocked) { toast.info("Unlock the layout to add a filler."); return; }
-    const raw = window.prompt('Filler width in inches (typical 3", max 6"):', "3");
+    if (layoutLocked) { toast.info(t("dt_t_unlock_filler")); return; }
+    const raw = window.prompt(t("dt_prompt_filler_width"), "3");
     if (raw == null) return;
     const w = Math.round(parseFloat(raw) * 10) / 10;
-    if (!Number.isFinite(w) || w <= 0) { toast.error("Enter a filler width greater than 0."); return; }
-    if (w > 6) { toast.error('Fillers are typically 6" or less — use a panel for wider gaps.'); return; }
+    if (!Number.isFinite(w) || w <= 0) { toast.error(t("dt_t_filler_gt0")); return; }
+    if (w > 6) { toast.error(t("dt_toast_filler_wide")); return; }
     const placement: DesignCabinet["placement"] = roomType === "closet" ? "base" : "base";
     const fillerDef = makeFiller(w, placement);
     addCabinet(fillerDef);
-    toast.success(`Added a ${w}" filler — drag it into the gap.`);
+    toast.success(t("dt_toast_added_filler", { w }));
   }, [layoutLocked, roomType, addCabinet]);
 
   // ── Auto-Fill: tile the active wall with a suggested run of cabinets ────────
@@ -1384,16 +1393,16 @@ export default function DesignTool() {
   // each chosen cabinet flush along the wall using the same nextFreeSpotOnWall
   // geometry as manual placement. Items are fully movable/deletable afterward.
   const autoFillActiveWall = useCallback(() => {
-    if (layoutLocked) { toast.info("Unlock the layout to auto-fill a wall."); return; }
+    if (layoutLocked) { toast.info(t("dt_t_unlock_autofill")); return; }
     const mode: FillMode = roomType === "closet" ? "closet" : "kitchen";
     const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
-    if (pool.length === 0) { toast.error("No cabinets available for this line yet — pick a door style first."); return; }
+    if (pool.length === 0) { toast.error(t("dt_t_pick_style_first")); return; }
 
     // Break the wall into OPEN segments around existing cabinets and any
     // door/window openings, then tile EACH segment independently so the run
     // breaks cleanly around a doorway instead of running under it.
     const segments = freeSegmentsOnWall(activeWall, room, placed, openings, 9);
-    if (segments.length === 0) { toast.info("This wall is already full."); return; }
+    if (segments.length === 0) { toast.info(t("dt_t_wall_full")); return; }
 
     let totalCount = 0;
     let totalFiller = 0;
@@ -1435,29 +1444,30 @@ export default function DesignTool() {
         totalFiller += result.fillerInches;
       }
       if (totalCount === 0) {
-        toast.info("Couldn't fit any cabinets in the remaining space.");
+        toast.info(t("dt_t_no_fit"));
         return prev;
       }
-      const segNote = segments.length > 1 ? ` across ${segments.length} sections` : "";
-      const fillerNote = totalFiller > 0 ? ` + ${Math.round(totalFiller * 10) / 10}\" filler` : "";
-      toast.success(`Auto-filled ${WALL_LABELS[activeWall]} wall: ${totalCount} cabinet${totalCount === 1 ? "" : "s"}${segNote}${fillerNote}.`);
+      const segNote = segments.length > 1 ? t("dt_sh_seg_note", { n: segments.length }) : "";
+      const fillerNote = totalFiller > 0 ? t("dt_sh_filler_note", { n: Math.round(totalFiller * 10) / 10 }) : "";
+      const wn = { top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right") }[activeWall];
+      toast.success(t("dt_sh_autofilled_toast", { wall: wn, count: totalCount, seg: segNote, filler: fillerNote }));
       return working;
     });
-  }, [layoutLocked, activeWall, room, roomType, autoFillCabinets, placed, openings]);
+  }, [layoutLocked, activeWall, room, roomType, autoFillCabinets, placed, openings, t]);
 
   // ── Range/oven corner clearance: one-click fix ──────────────────────────────
   // For each range/oven flagged by the clearance rule, nudge the neighboring
   // cabinets on its interior side outward by the filler width and drop a real
   // filler/scribe between the appliance and that cabinet so the handles clear.
   const addClearanceFiller = useCallback(() => {
-    if (layoutLocked) { toast.info("Unlock the layout to add a clearance filler."); return; }
+    if (layoutLocked) { toast.info(t("dt_t_unlock_clearance")); return; }
     const bad = rangeOvenClearanceViolations(placed, room);
-    if (bad.size === 0) { toast.info("No range/oven corner clearance issues to fix."); return; }
+    if (bad.size === 0) { toast.info(t("dt_t_no_clearance")); return; }
     const W = RANGE_CLEARANCE_FILLER_IN;
     setPlaced((prev) => {
       const { placed: next, added } = autoPlaceRangeFillers(prev, room, W, makeUid);
-      if (added.length === 0) { toast.info("Couldn't place a clearance filler automatically — try nudging the cabinet manually."); return prev; }
-      toast.success(`Added ${added.length} clearance filler${added.length === 1 ? "" : "s"} (${W}\" each) next to the range/oven.`);
+      if (added.length === 0) { toast.info(t("dt_t_clearance_fail")); return prev; }
+      toast.success(t("dt_toast_added_clearance", { n: added.length, s: added.length === 1 ? "" : "s", w: W }));
       return next;
     });
   }, [layoutLocked, placed, room]);
@@ -1484,14 +1494,15 @@ export default function DesignTool() {
     return sides.map((side) => {
       const full = side === "top" || side === "bottom" ? room.width : room.depth;
       const openingW = openings.filter((o) => o.side === side).reduce((s, o) => s + o.width, 0);
-      return { id: side, label: WALL_LABELS[side], lengthInches: Math.max(12, full - openingW) };
+      const wn = { top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right") }[side];
+      return { id: side, label: wn, lengthInches: Math.max(12, full - openingW) };
     });
-  }, [room, openings]);
+  }, [room, openings, t]);
 
   // Apply a returned plan: place each wall's items flush along that wall.
   const applyConsultPlan = useCallback(
     (plan: ConsultPlanWall[]) => {
-      if (layoutLocked) { toast.info("Unlock the layout to apply a suggested design."); return; }
+      if (layoutLocked) { toast.info(t("dt_t_unlock_suggest")); return; }
       if (!plan || plan.length === 0) return;
       let total = 0;
       setPlaced((prev) => {
@@ -1523,7 +1534,7 @@ export default function DesignTool() {
         }
         return working;
       });
-      if (total > 0) toast.success(`Design consultant placed ${total} item${total === 1 ? "" : "s"} — drag or swap anything.`);
+      if (total > 0) toast.success(t("dt_toast_consultant_placed", { n: total, s: total === 1 ? "" : "s" }));
     },
     [layoutLocked, room],
   );
@@ -1568,7 +1579,7 @@ export default function DesignTool() {
     setSinks((prev) => [...prev, sink]);
     setSelectedSinkUid(sink.uid);
     setCountertop(true); // a sink implies a counter
-    toast.success(`${preset.name} added — drag it onto the counter.`);
+    toast.success(t("dt_toast_preset_added", { name: preset.name }));
   }, [room, activeWall]);
 
   const moveSink = useCallback((uid: string, x: number, y: number) => {
@@ -1649,12 +1660,12 @@ export default function DesignTool() {
       prev.map((p) => {
         if (p.uid !== selectedUid) return p;
         if (!hasDoorSwing(p)) {
-          toast.info("This item has no hinged door to swing.");
+          toast.info(t("dt_t_no_door_swing"));
           return p;
         }
         const current = resolveSwing(p);
         if (current === "double") {
-          toast.info("Double-door cabinet — both doors open from the center.");
+          toast.info(t("dt_t_double_door"));
           return p;
         }
         const next: DoorSwing = cycleSwing(current);
@@ -1926,9 +1937,7 @@ export default function DesignTool() {
     if (newStyleId === styleId) return;
     const inheriting = placed.filter((p) => p.styleId == null).length;
     if (styleId != null && inheriting > 0) {
-      const ok = window.confirm(
-        `This is the DESIGN DEFAULT finish. Changing it will recolor ${inheriting} cabinet${inheriting === 1 ? "" : "s"} that use the default.\n\nTo make a TWO-TONE design instead, click Cancel, then select just the cabinet(s) you want (e.g. the island) and use the "Finish (this cabinet)" picker.\n\nChange the default finish anyway?`
-      );
+      const ok = window.confirm(t("dt_confirm_default_finish", { n: inheriting, s: inheriting === 1 ? "" : "s" }));
       if (!ok) return;
     }
     setStyleId(newStyleId);
@@ -1944,7 +1953,7 @@ export default function DesignTool() {
     if (!sel) return;
     const targetStyle = sel.styleId ?? null; // the override we want to spread
     if (targetStyle == null) {
-      toast.info("Pick a different finish for this cabinet first, then apply it to its group.");
+      toast.info(t("dt_t_pick_finish_first"));
       return;
     }
     setPlaced((prev) => {
@@ -2037,7 +2046,7 @@ export default function DesignTool() {
   // cabinet on a toe-kick base rather than sitting flat on the slab. A 30" box
   // therefore spans 4.5"-34.5".
   const dropToFloor = useCallback((uid: string) => {
-    if (layoutLocked) { toast.info("Unlock the layout to drop a cabinet to the floor."); return; }
+    if (layoutLocked) { toast.info(t("dt_t_unlock_drop_floor")); return; }
     setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== uid) return p;
@@ -2065,7 +2074,7 @@ export default function DesignTool() {
         };
       })
     );
-    toast.success("Dropped to floor on a 4.5\" toe kick.");
+    toast.success(t("dt_toast_dropped_floor"));
   }, [layoutLocked]);
 
   // Remove ONE instance from a consolidated panel group (decrement qty).
@@ -2148,7 +2157,7 @@ export default function DesignTool() {
     }));
     setPlaced(normalizeLCornerDepths(items));
     setSelectedUid(null);
-    toast.success(`Loaded "${packageLayout.name}" — edit, swap styles, and re-price.`);
+    toast.success(t("dt_toast_loaded_design", { name: packageLayout.name }));
   }, [packageLayout]);
 
   // Load a saved design from ?load=<id> (e.g. opened from a CRM deal).
@@ -2164,7 +2173,7 @@ export default function DesignTool() {
       distributorId: (savedDesign as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
       roomType: (savedDesign as { roomType?: string | null }).roomType ?? null,
     });
-    toast.success(`Loaded "${savedDesign.name}" — edit, swap styles, and re-price.`);
+    toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
   }, [loadDesignId, savedDesign, loadSavedDesign]);
 
   // Surface a failed package preload (network error or invalid slug).
@@ -2172,12 +2181,12 @@ export default function DesignTool() {
     if (!packageSlug || !verified) return;
     if (packageError && !packageErrorRef.current) {
       packageErrorRef.current = true;
-      toast.error("Couldn't load that kitchen package. Start from the package page and try again.");
+      toast.error(t("dt_t_pkg_load_fail"));
     }
     // packageLayout resolves to null for an unknown slug (no throw).
     if (packageLayout === null && !packageErrorRef.current) {
       packageErrorRef.current = true;
-      toast.error("That kitchen package wasn't found — starting with a blank canvas.");
+      toast.error(t("dt_t_pkg_not_found"));
     }
   }, [packageError, packageLayout, packageSlug, verified]);
 
@@ -2279,7 +2288,7 @@ export default function DesignTool() {
           if (typeof d.lockedDistributorId === "number") setLockedDistributorId(d.lockedDistributorId);
           if (typeof d.hardwareStyleId === "string") setHardwareStyleId(d.hardwareStyleId as HardwareStyleId);
           if (Array.isArray(d.placed) && d.placed.length > 0) {
-            toast.success("Restored your in-progress design.");
+            toast.success(t("dt_t_restored"));
           }
         }
       }
@@ -2340,16 +2349,16 @@ export default function DesignTool() {
       <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-wrap shrink-0">
         <div className="flex items-center gap-2">
           <h1 className="font-serif text-base lg:text-lg font-bold text-foreground">
-            <span className="lg:hidden">Designer</span>
-            <span className="hidden lg:inline">Kitchen Designer</span>
+            <span className="lg:hidden">{t("dt_sh_title_mobile")}</span>
+            <span className="hidden lg:inline">{t("dt_sh_title_desktop")}</span>
           </h1>
-          <Badge variant="secondary" className="text-xs">{placed.length} items</Badge>
+          <Badge variant="secondary" className="text-xs">{t("dt_sh_items", { n: placed.length })}</Badge>
         </div>
 
         <div className="h-5 w-px bg-border" />
 
         {/* Room size editor + mouse-draw mode. Disabled while the layout is locked. */}
-        <div className={layoutLocked ? "pointer-events-none opacity-50" : ""} title={layoutLocked ? "Unlock the layout to edit the room" : undefined}>
+        <div className={layoutLocked ? "pointer-events-none opacity-50" : ""} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
           <RoomSizeControl
             room={room}
             onChange={applyRoom}
@@ -2369,7 +2378,7 @@ export default function DesignTool() {
             can be dragged on the canvas to resize the room on that side.
             Desktop-only — on mobile these live in the "More" menu to save space. */}
         <div className="hidden lg:flex items-center gap-1.5">
-          <span className="text-[11px] font-medium text-muted-foreground">Wall:</span>
+          <span className="text-[11px] font-medium text-muted-foreground">{t("dt_sh_wall")}</span>
           <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
             {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => {
               const wLocked = layoutLocked || lockedWalls.has(w);
@@ -2377,23 +2386,23 @@ export default function DesignTool() {
                 <div key={w} className="flex items-center">
                   <button
                     onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                    title={`Highlight the ${WALL_LABELS[w]} wall — new items land here; drag it on the canvas to resize`}
+                    title={t("dt_sh_wall_highlight", { wall: wallLabel[w] })}
                     className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                       activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {WALL_LABELS[w]}
+                    {wallLabel[w]}
                   </button>
                   <button
                     onClick={() => {
-                      if (layoutLocked) { toast.info("Whole layout is locked. Turn off Lock Layout to lock walls individually."); return; }
+                      if (layoutLocked) { toast.info(t("dt_sh_whole_locked")); return; }
                       setLockedWalls((prev) => {
                         const next = new Set(prev);
                         if (next.has(w)) next.delete(w); else next.add(w);
                         return next;
                       });
                     }}
-                    title={wLocked ? `${WALL_LABELS[w]} wall is locked — click to unlock` : `Lock the ${WALL_LABELS[w]} wall so it can't be resized`}
+                    title={wLocked ? t("dt_sh_wall_locked_unlock", { wall: wallLabel[w] }) : t("dt_sh_wall_lock", { wall: wallLabel[w] })}
                     className={`ml-0.5 mr-0.5 rounded p-1 transition-colors ${
                       wLocked ? "text-[#d4a75a]" : "text-muted-foreground/50 hover:text-foreground"
                     }`}
@@ -2408,33 +2417,33 @@ export default function DesignTool() {
             onClick={() => {
               setLayoutLocked((v) => !v);
               setDrawMode(false);
-              toast.success(!layoutLocked ? "Layout locked — walls & room are frozen. Cabinets can still be placed." : "Layout unlocked.");
+              toast.success(!layoutLocked ? t("dt_sh_layout_locked_toast") : t("dt_sh_layout_unlocked_toast"));
             }}
-            title={layoutLocked ? "Unlock the floor plan and walls" : "Lock the floor plan and walls so they can't be moved while you place cabinets"}
+            title={layoutLocked ? t("dt_sh_unlock_plan") : t("dt_sh_lock_plan")}
             className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
               layoutLocked ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >
             {layoutLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
-            {layoutLocked ? "Locked" : "Lock Layout"}
+            {layoutLocked ? t("dt_sh_locked") : t("dt_sh_lock_layout")}
           </button>
           <button
             onClick={autoFillActiveWall}
             disabled={layoutLocked}
-            title={`Auto-fill the highlighted ${WALL_LABELS[activeWall]} wall with a suggested run of cabinets`}
+            title={t("dt_sh_autofill_title", { wall: wallLabel[activeWall] })}
             className="flex items-center gap-1.5 rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
           >
             <Wand2 className="h-3.5 w-3.5" />
-            Auto-Fill Wall
+            {t("dt_sh_autofill_wall")}
           </button>
           <button
             type="button"
             onClick={() => setConsultOpen((o) => !o)}
-            title="Ask the AI design consultant to lay out a wall from your description"
+            title={t("dt_sh_consultant_title")}
             className="flex items-center gap-1.5 rounded-lg border border-[#1a2744]/30 bg-[#1a2744]/5 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition-colors hover:bg-[#1a2744]/10"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            Design Consultant
+            {t("dt_sh_consultant")}
           </button>
         </div>
 
@@ -2448,7 +2457,7 @@ export default function DesignTool() {
               viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <LayoutGrid className="h-3.5 w-3.5" /> Bird's-Eye
+            <LayoutGrid className="h-3.5 w-3.5" /> {t("dt_sh_birdseye")}
           </button>
           <button
             onClick={() => setViewMode("elevation")}
@@ -2456,7 +2465,7 @@ export default function DesignTool() {
               viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Eye className="h-3.5 w-3.5" /> Front View
+            <Eye className="h-3.5 w-3.5" /> {t("dt_sh_front_view")}
           </button>
           <button
             onClick={() => setViewMode("split")}
@@ -2464,16 +2473,16 @@ export default function DesignTool() {
               viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Columns3 className="h-3.5 w-3.5" /> Split
+            <Columns3 className="h-3.5 w-3.5" /> {t("dt_sh_split")}
           </button>
           <button
             onClick={() => setViewMode("corner")}
-            title="Corner view: see the two walls that meet at a corner together"
+            title={t("dt_sh_corner_title")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
               viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <ScanLine className="h-3.5 w-3.5" /> Corner
+            <ScanLine className="h-3.5 w-3.5" /> {t("dt_sh_corner")}
           </button>
         </div>
 
@@ -2482,10 +2491,10 @@ export default function DesignTool() {
           href="/plan-sheet"
           target="_blank"
           rel="noopener noreferrer"
-          title="Open a printable graph-paper worksheet (with QR to this designer)"
+          title={t("dt_sh_print_title")}
           className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
         >
-          <Printer className="h-3.5 w-3.5" /> Print Sheet
+          <Printer className="h-3.5 w-3.5" /> {t("dt_sh_print_sheet")}
         </a>
 
         {/* Mobile: compact "More" menu with the toggles that live in the desktop toolbar */}
@@ -2493,11 +2502,11 @@ export default function DesignTool() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                <MoreHorizontal className="h-4 w-4" /> More
+                <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Active wall</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("dt_sh_active_wall")}</DropdownMenuLabel>
               <div className="grid grid-cols-4 gap-1 px-2 pb-1.5">
                 {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
                   <button
@@ -2507,26 +2516,26 @@ export default function DesignTool() {
                       activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/40 text-muted-foreground"
                     }`}
                   >
-                    {WALL_LABELS[w]}
+                    {wallLabel[w]}
                   </button>
                 ))}
               </div>
-              <DropdownMenuItem disabled={layoutLocked} onClick={autoFillActiveWall}>Auto-fill active wall</DropdownMenuItem>
-              <DropdownMenuCheckboxItem checked={layoutLocked} onCheckedChange={() => { setLayoutLocked((v) => !v); setDrawMode(false); }}>Lock layout</DropdownMenuCheckboxItem>
-              <DropdownMenuItem onClick={() => setConsultOpen((o) => !o)}>Design consultant…</DropdownMenuItem>
+              <DropdownMenuItem disabled={layoutLocked} onClick={autoFillActiveWall}>{t("dt_sh_autofill_active")}</DropdownMenuItem>
+              <DropdownMenuCheckboxItem checked={layoutLocked} onCheckedChange={() => { setLayoutLocked((v) => !v); setDrawMode(false); }}>{t("dt_sh_lock_layout")}</DropdownMenuCheckboxItem>
+              <DropdownMenuItem onClick={() => setConsultOpen((o) => !o)}>{t("dt_sh_consultant_menu")}</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Tools</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem checked={measureMode} onCheckedChange={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}>Measure</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={!!island} onCheckedChange={() => setIsland((cur) => cur ? null : { width: Math.min(48, room.width - 24), depth: Math.min(24, room.depth - 24), x: Math.max(0, room.width / 2 - 24), y: Math.max(0, room.depth / 2 - 12) })}>Island zone</DropdownMenuCheckboxItem>
+              <DropdownMenuLabel>{t("dt_sh_tools")}</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem checked={measureMode} onCheckedChange={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}>{t("dt_sh_measure")}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={!!island} onCheckedChange={() => setIsland((cur) => cur ? null : { width: Math.min(48, room.width - 24), depth: Math.min(24, room.depth - 24), x: Math.max(0, room.width / 2 - 24), y: Math.max(0, room.depth / 2 - 12) })}>{t("dt_sh_island_zone")}</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Trim (Front View)</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem checked={crown} onCheckedChange={() => { trimOverride.current.crown = true; setCrown((c) => !c); }}>Crown molding</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={toeKick} onCheckedChange={() => { trimOverride.current.toeKick = true; setToeKick((t) => !t); }}>Toe kick</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={batten} onCheckedChange={() => { trimOverride.current.batten = true; setBatten((b) => !b); }}>Batten molding</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={lightRail} onCheckedChange={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }}>Light rail</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={countertop} disabled={!countertop && !hasBaseRun} onCheckedChange={toggleCountertop}>Countertop</DropdownMenuCheckboxItem>
+              <DropdownMenuLabel>{t("dt_sh_trim_front")}</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem checked={crown} onCheckedChange={() => { trimOverride.current.crown = true; setCrown((c) => !c); }}>{t("dt_sh_crown")}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={toeKick} onCheckedChange={() => { trimOverride.current.toeKick = true; setToeKick((tk) => !tk); }}>{t("dt_sh_toe_kick")}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={batten} onCheckedChange={() => { trimOverride.current.batten = true; setBatten((b) => !b); }}>{t("dt_sh_batten")}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={lightRail} onCheckedChange={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }}>{t("dt_sh_light_rail")}</DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={countertop} disabled={!countertop && !hasBaseRun} onCheckedChange={toggleCountertop}>{t("dt_sh_countertop")}</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel>Hardware (knobs / pulls)</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("dt_sh_hardware")}</DropdownMenuLabel>
               {HARDWARE_STYLES.map((h) => (
                 <DropdownMenuCheckboxItem
                   key={h.id}
@@ -2538,12 +2547,12 @@ export default function DesignTool() {
                 </DropdownMenuCheckboxItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled={layoutLocked} onClick={addManualFiller}>Add filler…</DropdownMenuItem>
-              <DropdownMenuItem disabled={!selectedUid || measureMode} onClick={swingSelected}>Swing door</DropdownMenuItem>
+              <DropdownMenuItem disabled={layoutLocked} onClick={addManualFiller}>{t("dt_sh_add_filler")}</DropdownMenuItem>
+              <DropdownMenuItem disabled={!selectedUid || measureMode} onClick={swingSelected}>{t("dt_sh_swing_door")}</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  if (placed.length > 0 && !window.confirm("Start a new design? This clears the current canvas.")) return;
+                  if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
                   setPlaced([]);
                   setOpenings([]);
                   setIsland(null);
@@ -2552,10 +2561,10 @@ export default function DesignTool() {
                   setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false);
                   setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
                   clearDraft();
-                  toast.success("Started a new design.");
+                  toast.success(t("dt_sh_started_new"));
                 }}
               >
-                Start new design
+                {t("dt_sh_start_new")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -2569,7 +2578,7 @@ export default function DesignTool() {
             onClick={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}
             className={`h-8 gap-1.5 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
-            <Ruler className="h-3.5 w-3.5" /> Measure
+            <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_measure")}
           </Button>
           <Button
             variant="outline"
@@ -2588,72 +2597,72 @@ export default function DesignTool() {
             }
             className={`h-8 gap-1.5 ${island ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
-            <Square className="h-3.5 w-3.5" /> Island
+            <Square className="h-3.5 w-3.5" /> {t("dt_sh_island")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => { trimOverride.current.crown = true; setCrown((c) => !c); }}
-            title="Crown molding (auto-applied to wall cabinets; click to override)"
+            title={t("dt_sh_crown_title")}
             className={`h-8 gap-1.5 ${crown ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
-            <PanelTop className="h-3.5 w-3.5" /> Crown
+            <PanelTop className="h-3.5 w-3.5" /> {t("dt_sh_crown_btn")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => { trimOverride.current.toeKick = true; setToeKick((t) => !t); }}
-            title="Toe kick (auto-applied to base runs; click to override)"
+            title={t("dt_sh_toe_kick_title")}
             className={`h-8 gap-1.5 ${toeKick ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
-            <Columns3 className="h-3.5 w-3.5" /> Toe Kick
+            <Columns3 className="h-3.5 w-3.5" /> {t("dt_sh_toe_kick_btn")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => { trimOverride.current.batten = true; setBatten((b) => !b); }}
-            title="Batten molding (BAM): auto-applied to cabinet seams; click to override"
+            title={t("dt_sh_batten_title")}
             className={`h-8 gap-1.5 ${batten ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
-            <Columns3 className="h-3.5 w-3.5" /> Batten
+            <Columns3 className="h-3.5 w-3.5" /> {t("dt_sh_batten_btn")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }}
-            title="Light rail molding: auto-applied under wall cabinets; click to override"
+            title={t("dt_sh_light_rail_title")}
             className={`h-8 gap-1.5 ${lightRail ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
-            <PanelTop className="h-3.5 w-3.5" /> Light Rail
+            <PanelTop className="h-3.5 w-3.5" /> {t("dt_sh_light_rail_btn")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={addManualFiller}
             disabled={layoutLocked}
-            title="Add a filler/scribe strip (typical 3″) and drag it into a gap"
+            title={t("dt_sh_filler_title")}
             className="h-8 gap-1.5"
           >
-            <Columns3 className="h-3.5 w-3.5" /> Filler
+            <Columns3 className="h-3.5 w-3.5" /> {t("dt_sh_filler_btn")}
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={toggleCountertop}
             disabled={!countertop && !hasBaseRun}
-            title={!countertop && !hasBaseRun ? "Place base cabinets first, then add the countertop" : "Countertop (measured for a quote request)"}
+            title={!countertop && !hasBaseRun ? t("dt_sh_countertop_disabled_title") : t("dt_sh_countertop_title")}
             className={`h-8 gap-1.5 ${countertop ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600" : ""}`}
           >
-            <Square className="h-3.5 w-3.5" /> Countertop
+            <Square className="h-3.5 w-3.5" /> {t("dt_sh_countertop_btn")}
           </Button>
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-8 gap-1.5">
-            <RotateCw className="h-3.5 w-3.5" /> Rotate <span className="text-[10px] opacity-60">(R)</span>
+            <RotateCw className="h-3.5 w-3.5" /> {t("dt_sh_rotate")} <span className="text-[10px] opacity-60">(R)</span>
           </Button>
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-8 gap-1.5">
-            <DoorOpen className="h-3.5 w-3.5" /> Swing <span className="text-[10px] opacity-60">(S)</span>
+            <DoorOpen className="h-3.5 w-3.5" /> {t("dt_sh_swing")} <span className="text-[10px] opacity-60">(S)</span>
           </Button>
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
-            <Trash2 className="h-3.5 w-3.5" /> Delete
+            <Trash2 className="h-3.5 w-3.5" /> {t("dt_sh_delete")}
           </Button>
           <div className="h-5 w-px bg-border" />
           <DesignActions
@@ -2704,16 +2713,16 @@ export default function DesignTool() {
                       className="flex h-9 w-9 items-center justify-center rounded border text-[8px] font-semibold"
                       style={{ backgroundColor: activeFinish.face, borderColor: activeFinish.edge, color: activeFinish.label }}
                     >
-                      Door
+                      {t("dt_cx_door")}
                     </span>
                   )}
                   <span className="hidden md:inline text-[10px] leading-tight text-muted-foreground">
-                    Door<br /><span className="font-medium text-foreground/80">{activeStyleName || "—"}</span>
+                    {t("dt_cx_door")}<br /><span className="font-medium text-foreground/80">{activeStyleName || "—"}</span>
                   </span>
                 </div>
               )}
               <span className="text-[11px] text-muted-foreground">
-                Selected <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
+                {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
                 <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
               </span>
               <div className="h-4 w-px bg-border" />
@@ -2755,15 +2764,15 @@ export default function DesignTool() {
                 />
                 {(isCustomWidth(selectedCab) || isCustomHeight(selectedCab) || isCustomDepth(selectedCab)) && (
                   <>
-                    <Badge variant="secondary" className="text-[10px]">Custom +${CUSTOM_SIZE_FEE}</Badge>
+                    <Badge variant="secondary" className="text-[10px]">{t("dt_cx_custom_fee", { fee: CUSTOM_SIZE_FEE })}</Badge>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2 text-[11px] text-muted-foreground"
-                      title="Reset all dimensions to the catalog size"
+                      title={t("dt_cx_reset_dims")}
                       onClick={() => { resetWidth(); resetHeight(); resetDepth(); }}
                     >
-                      Reset
+                      {t("dt_cx_reset")}
                     </Button>
                   </>
                 )}
@@ -2776,16 +2785,16 @@ export default function DesignTool() {
                   <div className="h-4 w-px bg-border" />
                   <div className="flex items-center gap-1 rounded-md bg-[#d4a75a]/10 px-1.5 py-1 ring-1 ring-[#d4a75a]/30">
                     <Palette className="h-3.5 w-3.5 text-[#1a2744]" />
-                    <span className="text-[11px] font-semibold text-[#1a2744] mr-0.5">Finish (this cabinet)</span>
+                    <span className="text-[11px] font-semibold text-[#1a2744] mr-0.5">{t("dt_cx_finish_this")}</span>
                     <Select
                       value={selectedCab.styleId != null ? String(selectedCab.styleId) : "__match__"}
                       onValueChange={(v) => setCabinetStyle(v === "__match__" ? null : Number(v))}
                     >
                       <SelectTrigger className="h-7 w-[150px] text-[11px] bg-white">
-                        <SelectValue placeholder="Match design" />
+                        <SelectValue placeholder={t("dt_cx_match_design")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__match__">Match design{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
+                        <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
                         {uniqueDoorStyles.map((s) => (
                           <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>
                         ))}
@@ -2796,10 +2805,10 @@ export default function DesignTool() {
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 text-[11px] text-[#1a2744] hover:bg-[#d4a75a]/20"
-                        title="Give every other cabinet this same finish"
+                        title={t("dt_cx_apply_all")}
                         onClick={applySelectedFinishToMatching}
                       >
-                        Apply to all
+                        {t("dt_cx_apply_to_all")}
                       </Button>
                     )}
                   </div>
@@ -2809,12 +2818,12 @@ export default function DesignTool() {
                 <>
                   <div className="h-4 w-px bg-border" />
                   <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-muted-foreground mr-0.5">Mount</span>
+                    <span className="text-[11px] text-muted-foreground mr-0.5">{t("dt_cx_mount")}</span>
                     <Button
                       variant="outline"
                       size="sm"
                       className="h-7 w-7 p-0"
-                      title="Raise 1 inch"
+                      title={t("dt_cx_raise")}
                       onClick={() => adjustMountHeight(1)}
                     >
                       <ChevronUp className="h-3.5 w-3.5" />
@@ -2826,7 +2835,7 @@ export default function DesignTool() {
                       variant="outline"
                       size="sm"
                       className="h-7 w-7 p-0"
-                      title="Lower 1 inch"
+                      title={t("dt_cx_lower")}
                       onClick={() => adjustMountHeight(-1)}
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
@@ -2836,10 +2845,10 @@ export default function DesignTool() {
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 text-[11px] text-muted-foreground"
-                        title="Reset to default mount height"
+                        title={t("dt_cx_reset_mount")}
                         onClick={resetMountHeight}
                       >
-                        Reset
+                        {t("dt_cx_reset")}
                       </Button>
                     )}
                   </div>
@@ -2848,11 +2857,11 @@ export default function DesignTool() {
                     variant="outline"
                     size="sm"
                     className="h-7 gap-1 px-2 text-[11px]"
-                    title="Drop this wall cabinet to the floor as an island/peninsula base (top at 34.5 in)"
+                    title={t("dt_cx_drop_island")}
                     onClick={() => dropToFloor(selectedCab.uid)}
                   >
                     <ChevronsDown className="h-3.5 w-3.5" />
-                    Drop to floor
+                    {t("dt_cx_drop_to_floor")}
                   </Button>
                 </>
               )}
@@ -2865,13 +2874,13 @@ export default function DesignTool() {
                         ? ""
                         : "bg-red-50 ring-1 ring-red-300"
                     }`}
-                    title="Manufacturer blind-corner pull range (inches across the corner). An administrator must enter the min and max from the manufacturer spec."
+                    title={t("dt_cx_pull_spec_title")}
                   >
-                    <span className="text-[11px] text-muted-foreground mr-0.5">Pull spec</span>
+                    <span className="text-[11px] text-muted-foreground mr-0.5">{t("dt_cx_pull_spec")}</span>
                     <Input
                       type="number"
                       value={typeof selectedCab.pullMin === "number" ? selectedCab.pullMin : ""}
-                      placeholder="min"
+                      placeholder={t("dt_cx_min")}
                       className="h-7 w-14 text-[11px]"
                       onChange={(e) => setBlindPull("pullMin", e.target.value === "" ? null : Number(e.target.value))}
                     />
@@ -2879,11 +2888,11 @@ export default function DesignTool() {
                     <Input
                       type="number"
                       value={typeof selectedCab.pullMax === "number" ? selectedCab.pullMax : ""}
-                      placeholder="max"
+                      placeholder={t("dt_cx_max")}
                       className="h-7 w-14 text-[11px]"
                       onChange={(e) => setBlindPull("pullMax", e.target.value === "" ? null : Number(e.target.value))}
                     />
-                    <span className="text-[11px] text-muted-foreground">in</span>
+                    <span className="text-[11px] text-muted-foreground">{t("dt_cx_in")}</span>
                   </div>
                 </>
               )}
@@ -2940,13 +2949,13 @@ export default function DesignTool() {
                     roomType === rt.value ? "bg-[#a87f33] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {rt.label}
+                  {t(("dt_room_" + rt.value) as SiteStringKey)}
                 </button>
               ))}
             </div>
             {paletteType === "closetparts" && (
               <p className="mb-2 rounded-md bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] text-amber-700">
-                Closet parts are placeholder products &amp; prices — your real closet catalog will replace these. You can also add real cabinets and a door from the other tabs.
+                {t("dt_pl_closet_note")}
               </p>
             )}
             {/* Catalog tabs. Closet mode leads with the Closet parts tab but
@@ -2960,36 +2969,42 @@ export default function DesignTool() {
                 : roomType === "laundry"
                 ? (["appliance", "base", "corner", "wall", "wallht", "tall", "opening", "accessory"] as const)
                 : (["base", "corner", "wall", "wallht", "tall", "appliance", "opening", "accessory"] as const)
-              ).map((t) => (
+              ).map((tab) => (
                 <button
-                  key={t}
-                  onClick={() => setPaletteType(t)}
+                  key={tab}
+                  onClick={() => setPaletteType(tab)}
                   className={`shrink-0 whitespace-nowrap px-2.5 lg:px-1 lg:flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
-                    paletteType === t ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+                    paletteType === tab ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {t === "appliance"
-                    ? (roomType === "bathroom" || roomType === "laundry" ? "Fixtures" : "Appli.")
-                    : t === "opening"
-                    ? "Door/Win"
-                    : t === "wallht"
-                    ? "Wall by Ht"
-                    : t === "corner"
-                    ? "Corner"
-                    : t === "vanity"
-                    ? "Vanity"
-                    : t === "closetparts"
-                    ? "Closet"
-                    : t === "accessory"
-                    ? "Accessories & Trim"
-                    : t}
+                  {tab === "appliance"
+                    ? (roomType === "bathroom" || roomType === "laundry" ? t("dt_tab_fixtures") : t("dt_tab_appli"))
+                    : tab === "opening"
+                    ? t("dt_tab_door_win")
+                    : tab === "wallht"
+                    ? t("dt_tab_wall_by_ht")
+                    : tab === "corner"
+                    ? t("dt_tab_corner")
+                    : tab === "vanity"
+                    ? t("dt_tab_vanity")
+                    : tab === "closetparts"
+                    ? t("dt_tab_closet")
+                    : tab === "accessory"
+                    ? t("dt_tab_accessories")
+                    : tab === "base"
+                    ? t("dt_tab_base")
+                    : tab === "wall"
+                    ? t("dt_tab_wall")
+                    : tab === "tall"
+                    ? t("dt_tab_tall")
+                    : tab}
                 </button>
               ))}
             </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder={roomType === "closet" ? "Search parts by name or size..." : 'Search by name, code, or size (e.g. "DB-24" or 24")'}
+                placeholder={roomType === "closet" ? t("dt_pl_search_closet") : t("dt_pl_search_kitchen")}
                 className="pl-8 pr-7 h-8 text-xs"
                 value={paletteSearch}
                 onChange={(e) => setPaletteSearch(e.target.value)}
@@ -2997,7 +3012,7 @@ export default function DesignTool() {
               {paletteSearch && (
                 <button
                   type="button"
-                  aria-label="Clear search"
+                  aria-label={t("dt_pl_clear_search")}
                   onClick={() => setPaletteSearch("")}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
@@ -3072,7 +3087,7 @@ export default function DesignTool() {
                             <div className="min-w-0 flex-1">
                               <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
                               <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                              <div className="text-[9px] font-medium text-primary/70">Click or drag to place on drawing</div>
+                              <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
                             </div>
                             <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
                           </button>
@@ -3154,23 +3169,23 @@ export default function DesignTool() {
             {paletteType !== "opening" && !paletteLoading && filteredPalette.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">
                 {paletteSearch
-                  ? "No cabinets match your search."
+                  ? t("dt_pl_no_match")
                   : styleId
-                  ? "No cabinets available for this door style."
-                  : "No cabinets available in this category."}
+                  ? t("dt_pl_no_style")
+                  : t("dt_pl_no_category")}
               </p>
             )}
             {paletteType === "opening" && (
-              <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">Click to add, then drag along any wall and use the handle to resize the width.</p>
+              <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">{t("dt_pl_click_add_drag")}</p>
             )}
             {paletteType === "accessory" && filteredPalette.length > 0 && (
-              <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">Panels, skins &amp; appliance garages place onto the drawing (click or drag). Crown, light rail, roll-out trays &amp; hardware add to the Build Sheet by quantity.</p>
+              <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">{t("dt_pl_panels_note")}</p>
             )}
           </div>
           <div className="p-2 border-t border-border text-[10px] text-muted-foreground text-center">
             {paletteType === "accessory"
-              ? "Panels/garages: click or drag to drawing · trim/hardware: click to add to Build Sheet"
-              : "Click or drag to add · drag on canvas to snap"}
+              ? t("dt_pl_foot_accessory")
+              : t("dt_pl_foot_default")}
           </div>
         </PaletteShell>
 
@@ -3199,7 +3214,7 @@ export default function DesignTool() {
               onDeleteOpening={deleteOpening}
               finish={activeFinish}
               drawMode={drawMode}
-              onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(`Room set to ${Math.round(r.width/12)}′ × ${Math.round(r.depth/12)}′`); }}
+              onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
               activeWall={activeWall}
               onSelectWall={setActiveWall}
               onResizeWall={resizeWall}
@@ -3282,7 +3297,7 @@ export default function DesignTool() {
                   onDeleteOpening={deleteOpening}
                   finish={activeFinish}
                   drawMode={drawMode}
-                  onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(`Room set to ${Math.round(r.width/12)}′ × ${Math.round(r.depth/12)}′`); }}
+                  onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
                   activeWall={activeWall}
                   onSelectWall={setActiveWall}
                   onResizeWall={resizeWall}
@@ -3329,7 +3344,7 @@ export default function DesignTool() {
               className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-white/90 border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-white"
             >
               <PanelTop className="h-3.5 w-3.5" />
-              {showWallLayer ? "Hide" : "Show"} wall cabinets
+              {showWallLayer ? t("dt_hide_wall_cabs") : t("dt_show_wall_cabs")}
             </button>
           )}
         </div>
@@ -3348,14 +3363,14 @@ export default function DesignTool() {
                 <DoorStyleSwatch style={activeStyle} className="h-40 w-full object-contain" />
               ) : (
                 <div className="flex h-40 w-full items-center justify-center text-xs text-muted-foreground">
-                  Select a door style to preview the finish
+                  {t("dt_bs_select_finish_preview")}
                 </div>
               )}
               {/* Label overlay */}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-3 pb-2 pt-8">
-                <div className="text-[10px] uppercase tracking-wider text-white/70">Door style sample</div>
+                <div className="text-[10px] uppercase tracking-wider text-white/70">{t("dt_bs_door_sample")}</div>
                 <div className="truncate text-sm font-bold text-white">
-                  {activeStyleName ?? "Select a door style"}
+                  {activeStyleName ?? t("dt_bs_select_style")}
                 </div>
                 {activeStyle && (activeStyle.doorStyle || activeStyle.finish || activeStyle.color) && (
                   <div className="truncate text-[11px] text-white/80">
@@ -3364,7 +3379,7 @@ export default function DesignTool() {
                 )}
               </div>
             </div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">Door styles &amp; pricing</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">{t("dt_bs_styles_pricing")}</div>
 
             {/* Two-color selector (items 8 & 9): two door-style swatch buttons.
                 The HIGHLIGHTED one is the color new cabinets are placed in. Click
@@ -3374,7 +3389,7 @@ export default function DesignTool() {
                 (item 7). */}
             <div className="grid grid-cols-2 gap-2">
               <ColorSlotButton
-                label="Color 1"
+                label={t("dt_bs_color_1")}
                 slot="A"
                 active={activeSlot === "A"}
                 style={styleA != null ? (doorStyles?.find((d) => d.id === styleA) ?? null) : null}
@@ -3384,12 +3399,12 @@ export default function DesignTool() {
                 onClear={undefined}
               />
               <ColorSlotButton
-                label="Color 2"
+                label={t("dt_bs_color_2")}
                 slot="B"
                 active={activeSlot === "B"}
                 style={styleB != null ? (doorStyles?.find((d) => d.id === styleB) ?? null) : null}
                 styles={uniqueDoorStyles}
-                onSelect={() => { if (styleB != null) selectColorSlot("B"); else toast.info("Set a second door style first."); }}
+                onSelect={() => { if (styleB != null) selectColorSlot("B"); else toast.info(t("dt_t_second_style_first")); }}
                 onPick={(id) => setSlotStyle("B", id)}
                 onClear={styleB != null ? () => {
                   // Drop the second color: clear B, re-color any cabinets that
@@ -3397,21 +3412,21 @@ export default function DesignTool() {
                   setPlaced((prev) => prev.map((p) => (p.styleId === styleB ? { ...p, styleId: null } : p)));
                   setStyleB(null);
                   if (activeSlot === "B") { setActiveSlot("A"); if (styleA != null) setStyleId(styleA); }
-                  toast.success("Second color removed.");
+                  toast.success(t("dt_t_second_color_removed"));
                 } : undefined}
               />
             </div>
             <p className="text-[10px] leading-snug text-muted-foreground">
-              The highlighted color is what new cabinets are placed in. Set a second door style, then click it to add cabinets in that color for a two-tone design.
+              {t("dt_bs_two_tone_help")}
             </p>
 
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium text-foreground shrink-0">Pricing</span>
+              <span className="text-[11px] font-medium text-foreground shrink-0">{t("dt_bs_pricing")}</span>
               <Select value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
                 <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Wholesale">Wholesale</SelectItem>
-                  <SelectItem value="Contractor">Contractor</SelectItem>
+                  <SelectItem value="Wholesale">{t("dt_bs_wholesale")}</SelectItem>
+                  <SelectItem value="Contractor">{t("dt_bs_contractor")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -3498,7 +3513,7 @@ export default function DesignTool() {
                   <>
                     {cabinetSections.base.length > 0 && (
                       <SheetSection
-                        title="Base Cabinets"
+                        title={t("dt_bs_sec_base")}
                         count={cabinetSections.base.reduce((n, g) => n + g.qty, 0)}
                         collapsed={collapsedSheet.has("base")}
                         onToggle={() => toggleSheetSection("base")}
@@ -3508,7 +3523,7 @@ export default function DesignTool() {
                     )}
                     {cabinetSections.wall.length > 0 && (
                       <SheetSection
-                        title="Wall Cabinets"
+                        title={t("dt_bs_sec_wall")}
                         count={cabinetSections.wall.reduce((n, g) => n + g.qty, 0)}
                         collapsed={collapsedSheet.has("wall")}
                         onToggle={() => toggleSheetSection("wall")}
@@ -3518,7 +3533,7 @@ export default function DesignTool() {
                     )}
                     {cabinetSections.other.length > 0 && (
                       <SheetSection
-                        title="Appliances & Other"
+                        title={t("dt_bs_sec_other")}
                         count={cabinetSections.other.reduce((n, g) => n + g.qty, 0)}
                         collapsed={collapsedSheet.has("other")}
                         onToggle={() => toggleSheetSection("other")}
@@ -3532,7 +3547,7 @@ export default function DesignTool() {
             )}
             {(fillers.length > 0 || ((crown || toeKick || batten || countertop) && placed.length > 0) || addedAddOns.length > 0) && (
             <SheetSection
-              title="Trim & Extras"
+              title={t("dt_bs_sec_extras")}
               collapsed={collapsedSheet.has("extras")}
               onToggle={() => toggleSheetSection("extras")}
             >
@@ -3542,10 +3557,10 @@ export default function DesignTool() {
                 {fillers.map((f) => (
                   <div key={f.kind} className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-amber-50 dark:bg-amber-950/30">
                     <div className="min-w-0">
-                      <div className="font-mono font-semibold truncate">{f.kind === "wall" ? "WALL" : "BASE"} CORNER FILLER</div>
-                      <div className="text-[10px] text-muted-foreground">{f.count} × {f.width}″ · req. for blind corner</div>
+                      <div className="font-mono font-semibold truncate">{f.kind === "wall" ? t("dt_bs_wall_corner_filler") : t("dt_bs_base_corner_filler")}</div>
+                      <div className="text-[10px] text-muted-foreground">{t("dt_bs_filler_req", { count: f.count, width: f.width })}</div>
                     </div>
-                    <span className="font-semibold shrink-0 text-amber-700 dark:text-amber-400">incl.</span>
+                    <span className="font-semibold shrink-0 text-amber-700 dark:text-amber-400">{t("dt_bs_incl")}</span>
                   </div>
                 ))}
               </div>
@@ -3555,45 +3570,45 @@ export default function DesignTool() {
                 {crown && crownOrder && crownOrder.pieces > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
-                      <div className="font-mono font-semibold truncate">CROWN MOLDING</div>
+                      <div className="font-mono font-semibold truncate">{t("dt_bs_crown_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {crownOrder.pieces} pc{crownOrder.pieces > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft run (incl. 3&quot; miter/wall)
                       </div>
                     </div>
-                    <span className="font-semibold shrink-0 text-muted-foreground">incl.</span>
+                    <span className="font-semibold shrink-0 text-muted-foreground">{t("dt_bs_incl")}</span>
                   </div>
                 )}
                 {toeKick && toeKickOrder && toeKickOrder.pieces > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
-                      <div className="font-mono font-semibold truncate">TOE KICK</div>
+                      <div className="font-mono font-semibold truncate">{t("dt_bs_toe_kick")}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {toeKickOrder.pieces} pc{toeKickOrder.pieces > 1 ? "s" : ""} @ {toeKickOrder.stickFeet}&apos; · {toeKickOrder.measuredFeet} ft run
                       </div>
                     </div>
-                    <span className="font-semibold shrink-0 text-muted-foreground">incl.</span>
+                    <span className="font-semibold shrink-0 text-muted-foreground">{t("dt_bs_incl")}</span>
                   </div>
                 )}
                 {batten && battenOrder && battenOrder.pieces > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
-                      <div className="font-mono font-semibold truncate">BATTEN MOLDING (BAM)</div>
+                      <div className="font-mono font-semibold truncate">{t("dt_bs_batten_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {battenOrder.pieces} pc{battenOrder.pieces > 1 ? "s" : ""} @ {battenOrder.stickFeet}&apos; · {battenOrder.measuredFeet} ft run · 3/4&quot; × 3/16&quot;
                       </div>
                     </div>
-                    <span className="font-semibold shrink-0 text-muted-foreground">incl.</span>
+                    <span className="font-semibold shrink-0 text-muted-foreground">{t("dt_bs_incl")}</span>
                   </div>
                 )}
                 {countertop && counter && counter.squareFeet > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30">
                     <div className="min-w-0">
-                      <div className="font-mono font-semibold truncate">COUNTERTOP</div>
+                      <div className="font-mono font-semibold truncate">{t("dt_bs_countertop")}</div>
                       <div className="text-[10px] text-muted-foreground">
                         ~{counter.squareFeet} sq ft · {counter.linearFeet} linear ft{counter.hasIsland ? " (incl. island)" : ""}
                       </div>
                     </div>
-                    <span className="font-semibold shrink-0 text-amber-600">Quote</span>
+                    <span className="font-semibold shrink-0 text-amber-600">{t("dt_bs_quote")}</span>
                   </div>
                 )}
               </div>
@@ -3673,10 +3688,10 @@ export default function DesignTool() {
                       className="h-7 w-full gap-1.5 text-xs"
                       onClick={() => {
                         addAddOn(row!);
-                        toast.success(`Added ${row!.masterCode} to your build sheet.`);
+                        toast.success(t("dt_toast_added_to_sheet", { code: row!.masterCode }));
                       }}
                     >
-                      <Plus className="h-3.5 w-3.5" /> Add {row!.masterCode}
+                      <Plus className="h-3.5 w-3.5" /> {t("dt_add")} {row!.masterCode}
                     </Button>
                   </div>
                 ))}
@@ -3717,11 +3732,11 @@ export default function DesignTool() {
                 className="mb-2 w-full gap-2 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300"
                 onClick={addClearanceFiller}
               >
-                <Plus className="h-4 w-4" /> Add {RANGE_CLEARANCE_FILLER_IN}" clearance filler next to range/oven
+                <Plus className="h-4 w-4" /> {t("dt_bs_add_clearance", { n: RANGE_CLEARANCE_FILLER_IN })}
               </Button>
             )}
             {!styleId && placed.length > 0 && (
-              <p className="text-[10px] text-amber-600 mb-2">Select a door style to see pricing.</p>
+              <p className="text-[10px] text-amber-600 mb-2">{t("dt_bs_select_style_pricing")}</p>
             )}
             {styleId && activeStyleName && !designIsMixedFinish && (
               <div className="flex items-center gap-2 mb-2 text-[11px] text-muted-foreground">
@@ -3729,13 +3744,13 @@ export default function DesignTool() {
                   className="inline-block h-3.5 w-3.5 rounded-sm border"
                   style={{ background: activeFinish.face, borderColor: activeFinish.edge }}
                 />
-                Finish applied to design: <span className="font-medium text-foreground">{activeStyleName}</span>
+                {t("dt_bs_finish_applied")} <span className="font-medium text-foreground">{activeStyleName}</span>
               </div>
             )}
             {styleId && designIsMixedFinish && finishSummary.length > 0 && (
               <div className="mb-2 text-[11px] text-muted-foreground">
                 <div className="mb-1">
-                  Two-tone design — <span className="font-medium text-foreground">{finishSummary.length} finishes</span>:
+                  {t("dt_bs_two_tone")} <span className="font-medium text-foreground">{t("dt_bs_n_finishes", { n: finishSummary.length })}</span>:
                 </div>
                 <div className="flex flex-col gap-1">
                   {finishSummary.map((f, i) => (
@@ -3745,7 +3760,7 @@ export default function DesignTool() {
                         style={{ background: f.face, borderColor: f.edge }}
                       />
                       <span className="font-medium text-foreground">{f.name}</span>
-                      {i === 0 && <span className="text-[10px] text-muted-foreground">(design default)</span>}
+                      {i === 0 && <span className="text-[10px] text-muted-foreground">{t("dt_bs_design_default")}</span>}
                     </div>
                   ))}
                 </div>
@@ -3768,7 +3783,7 @@ export default function DesignTool() {
               </div>
             )}
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-muted-foreground">Estimated Total</span>
+              <span className="text-sm font-medium text-muted-foreground">{t("dt_bs_estimated_total")}</span>
               <span className="font-serif text-2xl font-bold text-foreground">${total.toFixed(2)}</span>
             </div>
             <Button
@@ -3776,19 +3791,19 @@ export default function DesignTool() {
               disabled={placed.length === 0}
               onClick={() => {
                 if (hasConflicts && !window.confirm(
-                  `This design has ${conflictUids.size} conflict${conflictUids.size > 1 ? "s" : ""} (an appliance running into a cabinet). Export the build sheet anyway?`
+                  t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
                 )) return;
                 exportBuildSheet({ room, styleName: activeStyleName, tier, total, buildRows, extraLines });
               }}
             >
-              <Download className="h-4 w-4" /> Export Build Sheet (CSV)
+              <Download className="h-4 w-4" /> {t("dt_bs_export_csv")}
             </Button>
             <Button
               variant="outline"
               className="w-full mt-2 gap-2 border-[#a87f33] text-[#7a5c24] hover:bg-[#a87f33]/10"
               onClick={() => setProDesignerOpen(true)}
             >
-              <UserRound className="h-4 w-4" /> Get a Professional Designer
+              <UserRound className="h-4 w-4" /> {t("dt_bs_get_pro")}
             </Button>
             {countertop && counter && counter.squareFeet > 0 && (
               <Button
@@ -3796,16 +3811,16 @@ export default function DesignTool() {
                 className="w-full mt-2 gap-2 border-amber-500 text-amber-700 hover:bg-amber-50"
                 onClick={() => setQuoteOpen(true)}
               >
-                <Square className="h-4 w-4" /> Request Countertop Quote
+                <Square className="h-4 w-4" /> {t("dt_bs_request_ct_quote")}
               </Button>
             )}
 
             {countertop && (
               <div className="mt-4 rounded-lg border border-border p-3">
-                <p className="text-xs font-semibold text-foreground mb-2">Countertop material</p>
+                <p className="text-xs font-semibold text-foreground mb-2">{t("dt_bs_countertop_material")}</p>
                 <Select value={countertopMaterialId} onValueChange={setCountertopMaterialId}>
                   <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Select material" />
+                    <SelectValue placeholder={t("dt_bs_select_material")} />
                   </SelectTrigger>
                   <SelectContent>
                     {COUNTERTOP_MATERIALS.map((m) => (
@@ -3827,11 +3842,11 @@ export default function DesignTool() {
                   </SelectContent>
                 </Select>
 
-                <p className="text-xs font-semibold text-foreground mt-3 mb-2">Add sink &amp; faucet</p>
+                <p className="text-xs font-semibold text-foreground mt-3 mb-2">{t("dt_bs_add_sink")}</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {(Object.keys(SINK_PRESETS) as SinkType[]).map((t) => (
-                    <Button key={t} variant="outline" size="sm" className="h-8 text-[11px] justify-start gap-1.5" onClick={() => addSink(t)}>
-                      <Plus className="h-3 w-3" /> {SINK_PRESETS[t].name}
+                  {(Object.keys(SINK_PRESETS) as SinkType[]).map((st) => (
+                    <Button key={st} variant="outline" size="sm" className="h-8 text-[11px] justify-start gap-1.5" onClick={() => addSink(st)}>
+                      <Plus className="h-3 w-3" /> {SINK_PRESETS[st].name}
                     </Button>
                   ))}
                 </div>
@@ -3845,16 +3860,16 @@ export default function DesignTool() {
                         </button>
                         <label className="flex items-center gap-1 text-muted-foreground cursor-pointer">
                           <input type="checkbox" checked={s.faucet} onChange={() => toggleSinkFaucet(s.uid)} className="h-3 w-3" />
-                          Faucet
+                          {t("dt_bs_faucet")}
                         </label>
-                        <button className="text-destructive" title="Remove" onClick={() => deleteSink(s.uid)}>
+                        <button className="text-destructive" title={t("dt_bs_remove")} onClick={() => deleteSink(s.uid)}>
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
-                <p className="text-[10px] text-muted-foreground mt-2">Tip: drag a sink on the plan to position it. Sinks &amp; faucets are shown for layout only and are quoted separately.</p>
+                <p className="text-[10px] text-muted-foreground mt-2">{t("dt_bs_sink_tip")}</p>
               </div>
             )}
           </div>
@@ -3951,7 +3966,7 @@ export default function DesignTool() {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-[#d4a75a]" />
                 <div>
-                  <h2 className="font-serif text-sm font-bold text-foreground leading-tight">Design Consultant</h2>
+                  <h2 className="font-serif text-sm font-bold text-foreground leading-tight">{t("dt_bs_consultant")}</h2>
                   <p className="text-[10px] text-muted-foreground">
                     {roomType === "closet" ? "Closet" : "Kitchen"} · walls: {consultWalls.map((w) => `${w.label} ${Math.round(w.lengthInches)}"`).join(" · ")}
                   </p>
@@ -3961,7 +3976,7 @@ export default function DesignTool() {
                 type="button"
                 onClick={() => setConsultOpen(false)}
                 className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Close design consultant"
+                aria-label={t("dt_bs_close_consultant")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -4042,12 +4057,13 @@ function PaletteShell({
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
+  const { t } = useLanguage();
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="left" className="w-[88vw] max-w-sm p-0 gap-0 flex flex-col">
           <SheetHeader className="px-3 py-2 border-b border-border text-left">
-            <SheetTitle className="text-sm">Catalog</SheetTitle>
+            <SheetTitle className="text-sm">{t("dt_pl_catalog")}</SheetTitle>
           </SheetHeader>
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</div>
         </SheetContent>
@@ -4069,12 +4085,13 @@ function PricingShell({
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
+  const { t } = useLanguage();
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="bottom" className="h-[82vh] p-0 gap-0 flex flex-col rounded-t-2xl">
           <SheetHeader className="px-3 py-2 border-b border-border text-left">
-            <SheetTitle className="text-sm">Estimate & Build Sheet</SheetTitle>
+            <SheetTitle className="text-sm">{t("dt_bs_estimate_build")}</SheetTitle>
           </SheetHeader>
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</div>
         </SheetContent>

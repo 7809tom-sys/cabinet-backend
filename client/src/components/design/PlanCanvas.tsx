@@ -4,11 +4,12 @@ import {
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
-  clampRoomInches, inchesToFeetInches, WallSide, WALL_LABELS,
+  clampRoomInches, inchesToFeetInches, WallSide,
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
 } from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface IslandZone {
   x: number;
@@ -82,6 +83,11 @@ export function PlanCanvas({
   countertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
 }: Props) {
+  const { t } = useLanguage();
+  // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
+  const wallLabel: Record<WallSide, string> = {
+    top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
+  };
   // A wall cannot be resized if the whole layout is locked or that wall is locked.
   const isWallLocked = (side: WallSide) => layoutLocked || !!lockedWalls?.has(side);
   // Door/window drag along its wall (move) or width-resize.
@@ -506,21 +512,21 @@ export function PlanCanvas({
                 background: isActive ? "rgba(212,167,90,0.55)" : "transparent",
                 boxShadow: isActive ? "inset 0 0 0 2px #d4a75a" : undefined,
               }}
-              title={`${WALL_LABELS[side]} wall — click to target new items here; drag to resize`}
+              title={t("dt_pc_wall_target", { wall: wallLabel[side] })}
             >
               {isActive && (
                 <span
                   className="pointer-events-none rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold text-white shadow whitespace-nowrap"
                   style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
                 >
-                  {WALL_LABELS[side].toUpperCase()}{wallLocked ? " — locked" : " — drag to resize"}
+                  {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : t("dt_pc_wall_resize_suffix")}
                 </span>
               )}
               {wallLocked && !isActive && (
                 <span
                   className="pointer-events-none rounded bg-[#1a2744]/80 px-1 text-[9px] font-bold text-[#d4a75a] shadow"
                   style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
-                  title={`${WALL_LABELS[side]} wall is locked`}
+                  title={t("dt_pc_wall_is_locked", { wall: wallLabel[side] })}
                 >
                   🔒
                 </span>
@@ -589,7 +595,7 @@ export function PlanCanvas({
                 width: s.width * ppi,
                 height: s.depth * ppi,
               }}
-              title={`${SINK_PRESETS[s.type].name} — drag to position`}
+              title={t("dt_pc_sink_drag", { name: SINK_PRESETS[s.type].name })}
             >
               {/* basin */}
               <div
@@ -630,7 +636,7 @@ export function PlanCanvas({
               background: "rgba(212,167,90,0.10)",
               borderRadius: 3,
             }}
-            title="Island zone — drag to move, corner handle to resize"
+            title={t("dt_pc_island_zone")}
           >
             <span className="absolute left-1 top-1 text-[9px] font-bold tracking-wide text-[#a87f33] bg-white/70 px-1 rounded pointer-events-none">
               ISLAND {Math.round(island.width)}″×{Math.round(island.depth)}″
@@ -684,13 +690,13 @@ export function PlanCanvas({
                 boxShadow: isSel ? "0 0 0 3px rgba(212,167,90,0.5)" : undefined,
                 borderRadius: 2,
               }}
-              title={`${o.label} (${Math.round(o.width)}" wide) — drag to move`}
+              title={t("dt_pc_opening_drag", { label: o.label, width: Math.round(o.width) })}
             >
               <span
                 className={`pointer-events-none whitespace-nowrap text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}
                 style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
               >
-                {isDoor ? "DOOR" : isOpening ? "OPEN" : "WIN"} {Math.round(o.width)}"
+                {isDoor ? t("dt_pc_door") : isOpening ? t("dt_pc_open") : t("dt_pc_win")} {Math.round(o.width)}"
               </span>
               {/* width-resize handle at the far end */}
               {onOpeningChange && (
@@ -710,7 +716,7 @@ export function PlanCanvas({
               {isSel && onDeleteOpening && (
                 <button
                   type="button"
-                  aria-label="Delete opening"
+                  aria-label={t("dt_pc_delete_opening")}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); onDeleteOpening(o.uid); }}
                   className="absolute -top-2.5 -right-2.5 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-[#dc2626] text-white shadow-md hover:bg-[#b91c1c] active:scale-95 transition"
@@ -818,9 +824,9 @@ export function PlanCanvas({
                       background:
                         "repeating-linear-gradient(45deg, #00000018 0, #00000018 3px, transparent 3px, transparent 7px)",
                     }}
-                    title="Open unit — no door"
+                    title={t("dt_pc_open_no_door")}
                   >
-                    <span className="text-[8px] font-bold tracking-wide text-[#5b6472]">OPEN</span>
+                    <span className="text-[8px] font-bold tracking-wide text-[#5b6472]">{t("dt_pc_open")}</span>
                   </div>
                 )}
                 {/* Hinge-side marker: a short bar on the hinge edge of the door
@@ -845,14 +851,14 @@ export function PlanCanvas({
                           width: 2,
                           height: "55%",
                         } as React.CSSProperties}
-                        title={sw === "left" ? "Left hinge" : "Right hinge"}
+                        title={sw === "left" ? t("dt_pc_left_hinge") : t("dt_pc_right_hinge")}
                       />
                       <div
                         className="absolute top-1/2 z-10 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#c89b3c]"
                         style={{
                           [hSide === "left" ? "left" : "right"]: 2,
                         } as React.CSSProperties}
-                        title={hSide === "left" ? "Handle left" : "Handle right"}
+                        title={hSide === "left" ? t("dt_pc_handle_left") : t("dt_pc_handle_right")}
                       />
                     </>
                   );
@@ -868,7 +874,7 @@ export function PlanCanvas({
                         "repeating-linear-gradient(45deg, #d4a75a 0, #d4a75a 2px, transparent 2px, transparent 5px)",
                       borderLeft: "1px dashed #8a6d3b",
                     }}
-                    title={`Corner filler (3") — included for door clearance`}
+                    title={t("dt_pc_corner_filler")}
                   />
                 )}
                 {/* Always-available rotate control on the selected cabinet — a
@@ -877,12 +883,12 @@ export function PlanCanvas({
                 {isSelected && !measureMode && onRotate && (
                   <button
                     type="button"
-                    aria-label="Rotate cabinet 90 degrees"
+                    aria-label={t("dt_pc_rotate_aria")}
                     onPointerDown={(e) => { e.stopPropagation(); }}
                     onClick={(e) => { e.stopPropagation(); onRotate(p.uid); }}
                     className="absolute -top-2.5 -left-2.5 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-[#1a2744] text-white shadow-md hover:bg-[#243456] active:scale-95 transition"
                     style={{ transitionDuration: "120ms" }}
-                    title="Rotate 90°"
+                    title={t("dt_pc_rotate_title")}
                   >
                     <RotateCw className="h-3 w-3" strokeWidth={3} />
                   </button>
@@ -891,7 +897,7 @@ export function PlanCanvas({
                 {isSelected && !measureMode && onDelete && (
                   <button
                     type="button"
-                    aria-label="Delete cabinet"
+                    aria-label={t("dt_pc_delete_cabinet")}
                     onPointerDown={(e) => { e.stopPropagation(); }}
                     onClick={(e) => { e.stopPropagation(); onDelete(p.uid); }}
                     className="absolute -top-2.5 -right-2.5 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-[#dc2626] text-white shadow-md hover:bg-[#b91c1c] active:scale-95 transition"
@@ -1001,17 +1007,17 @@ export function PlanCanvas({
 
       {hoverSnap && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-[#1a2744] text-white text-xs px-3 py-1 rounded-full shadow-lg z-30">
-          Snapped to wall
+          {t("dt_pc_snapped")}
         </div>
       )}
 
       {measureMode && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-[#d4a75a] text-[#1a2744] text-xs font-semibold px-3 py-1 rounded-full shadow-lg z-30">
           {measurePicks.length === 0
-            ? "Measure: click the first cabinet"
+            ? t("dt_pc_measure_first")
             : measurePicks.length === 1
-            ? "Measure: click the second cabinet"
-            : "Distance shown — click a cabinet to re-measure"}
+            ? t("dt_pc_measure_second")
+            : t("dt_pc_measure_done")}
         </div>
       )}
 
@@ -1020,7 +1026,7 @@ export function PlanCanvas({
           const w = inchesToFeetInches(room.width);
           const h = inchesToFeetInches(room.depth);
           const f = (v: { feet: number; inches: number }) => (v.inches ? `${v.feet}'${v.inches}"` : `${v.feet}'`);
-          return `${f(w)} × ${f(h)} room`;
+          return t("dt_pc_room_size", { w: f(w), h: f(h) });
         })()}
       </div>
     </div>

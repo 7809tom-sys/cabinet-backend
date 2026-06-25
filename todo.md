@@ -1749,11 +1749,11 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 
 
 ## Bilingual (EN/ES) — Design Tool translation
-- [ ] Design Tool: main shell (toolbar, palette tabs, panels, primary toasts) translated to ES
-- [~] Design Tool: dialogs (CabinetAttributes, CountertopQuote, ProDesigner, EmailGate, OpeningSizeEditor) translated to ES
-- [~] Design Tool: canvas/elevation/help/controls. DONE: EmailGate, WallPicker, CornerView, ColorSlotButton, RoomSizeControl, OpeningSizeEditor. REMAINING: PlanCanvas, ElevationView, DesignActions, DesignHelp translated to ES
-- [ ] Design Tool: DesignSession + PlanSheet pages translated to ES
-- [ ] Final full test suite + EN/ES visual spot-check + checkpoint
+- [x] Design Tool: main shell (toolbar, palette tabs incl. room-type strip Cocina/Baño/Lavandería/Clóset/Otros + Base/Esquina/Pared/etc., panels, primary toasts/confirms/prompts) translated to ES
+- [x] Design Tool: dialogs (CabinetAttributes, CountertopQuote, ProDesigner, EmailGate, OpeningSizeEditor) translated to ES
+- [x] Design Tool: canvas/elevation/help/controls. DONE: EmailGate, WallPicker, CornerView, ColorSlotButton, RoomSizeControl, OpeningSizeEditor, PlanCanvas, ElevationView, DesignActions (UI; CSV kept EN), DesignHelp translated to ES
+- [ ] Design Tool: DesignSession + PlanSheet pages translated to ES (deferred — secondary print/follow pages)
+- [x] Final full test suite (925 pass) + EN/ES visual spot-check + checkpoint
 
 
 ## Estimate & Build Sheet — collapsible sections (user request)
@@ -1765,4 +1765,4 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 
 - [x] Build Sheet: group cabinet line items into collapsible sections (Base [incl. full-height/tall base merged], Wall, Appliances) — no separate tall section
 - [x] Build Sheet: wrap fillers/trim/countertop/add-ons in a collapsible "Trim & Extras" group; keep Estimated Total + Export always visible
-- [ ] Update buildSheetCsv.test.ts for the new Color / Finish column
+- [x] Update buildSheetCsv.test.ts for the new Color / Finish column (8 tests passing)

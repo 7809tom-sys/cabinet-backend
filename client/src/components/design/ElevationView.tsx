@@ -12,6 +12,7 @@ import {
   displayDrawerCount,
 } from "@/lib/hardware";
 import { useRef, useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
   room: RoomData;
@@ -58,6 +59,7 @@ export function ElevationView({
   hardwareStyleId = null,
   finishFor, panelKindFor,
 }: Props) {
+  const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
   // Counter-flip transform for text so labels read correctly when this whole
   // elevation sits inside a scaleX(-1) container.
@@ -73,7 +75,7 @@ export function ElevationView({
   const side: WallSide =
     wall === "front" ? "bottom" : wall === "back" ? "top" : (wall as WallSide);
   const WALL_LABELS: Record<WallSide, string> = {
-    top: "Back", bottom: "Front", left: "Left", right: "Right",
+    top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
   };
   const horizontal = side === "top" || side === "bottom";
   const planSpan = horizontal ? room.width : room.depth;
@@ -131,7 +133,7 @@ export function ElevationView({
         <div className="absolute left-0 right-0 bottom-0 border-b-[3px] border-[#1a2744]" />
         {/* Ceiling line label so the chosen ceiling height is visible at a glance. */}
         <div className="absolute -top-[14px] right-0 text-[9px] font-medium text-[#1a2744]/70" style={textFlip}>
-          {`Ceiling ${Math.round(WALL_TOTAL_HEIGHT)}\"`}
+          {t("dt_ev_ceiling", { n: Math.round(WALL_TOTAL_HEIGHT) })}
         </div>
         <div
           className="absolute left-0 right-0 border-b border-dashed border-[#b08d57]/40"
@@ -186,7 +188,7 @@ export function ElevationView({
                     borderBottom: `1px solid ${mat.edge}`,
                     boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
                   }}
-                  title={`${mat.name} countertop`}
+                  title={t("dt_ev_countertop", { material: mat.name })}
                 />
               ))}
             </>
@@ -267,7 +269,7 @@ export function ElevationView({
                         width: 2.5,
                         background: "#1a2744",
                       } as React.CSSProperties}
-                      title={sw === "left" ? "Left hinge" : "Right hinge"}
+                      title={sw === "left" ? t("dt_ev_left_hinge") : t("dt_ev_right_hinge")}
                     />
                   );
                 })()}
@@ -319,7 +321,7 @@ export function ElevationView({
                 borderRadius: "2px 2px 0 0",
                 zIndex: 3,
               }}
-              title="Crown molding"
+              title={t("dt_ev_crown")}
             />
           );
         })}
@@ -344,7 +346,7 @@ export function ElevationView({
                 borderRadius: "0 0 2px 2px",
                 zIndex: 3,
               }}
-              title="Light rail molding"
+              title={t("dt_ev_light_rail")}
             />
           );
         })}
@@ -364,7 +366,7 @@ export function ElevationView({
                 height: Math.max(2, TOE_KICK_HEIGHT_IN * ppi),
                 zIndex: 4,
               }}
-              title="Toe kick"
+              title={t("dt_ev_toe_kick")}
             />
           );
         })}
@@ -401,7 +403,7 @@ export function ElevationView({
                   boxShadow: "0 0 0 0.5px rgba(0,0,0,0.15)",
                   zIndex: 5,
                 }}
-                title='Batten molding (BAM) 3/4" × 3/16"'
+                title={t("dt_ev_batten")}
               />
             );
           })}
@@ -439,7 +441,7 @@ export function ElevationView({
                 </div>
               )}
               <span className={`relative text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}>
-                {isDoor ? "DOOR" : isOpening ? "OPEN" : "WINDOW"}
+                {isDoor ? t("dt_ev_door") : isOpening ? t("dt_ev_open") : t("dt_ev_window")}
               </span>
             </div>
           );
@@ -453,7 +455,7 @@ export function ElevationView({
           className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/85 px-1.5 py-1 rounded-full shadow-sm"
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Wall</span>
+          <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("dt_ev_wall")}</span>
           {((["top", "left", "bottom", "right"] as WallSide[]).map((w) => (
             <button
               key={w}
@@ -471,13 +473,13 @@ export function ElevationView({
         </div>
       ) : (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 text-xs font-medium text-[#1a2744] bg-white/80 px-3 py-1 rounded-full">
-          {WALL_LABELS[side]} Wall Elevation
+          {t("dt_ev_wall_elevation", { wall: WALL_LABELS[side] })}
         </div>
       )}
 
       {sorted.length === 0 && viewOpenings.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm text-center px-6" style={textFlip}>
-          Nothing on the {WALL_LABELS[side].toLowerCase()} wall yet. Switch the active wall above, or place cabinets on this wall in the plan view.
+          {t("dt_ev_empty", { wall: WALL_LABELS[side].toLowerCase() })}
         </div>
       )}
     </div>

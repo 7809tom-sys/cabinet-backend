@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -27,11 +28,22 @@ interface Props {
   placedCabinets?: unknown;
 }
 
-const MATERIALS = ["Quartz", "Granite", "Laminate", "Solid Surface", "Butcher Block", "Marble", "Not sure yet"];
+const MATERIAL_KEYS = [
+  "dt_cq_mat_quartz",
+  "dt_cq_mat_granite",
+  "dt_cq_mat_laminate",
+  "dt_cq_mat_solid",
+  "dt_cq_mat_butcher",
+  "dt_cq_mat_marble",
+  "dt_cq_mat_unsure",
+] as const;
+// English material values are the canonical values sent to the backend.
+const MATERIAL_VALUES = ["Quartz", "Granite", "Laminate", "Solid Surface", "Butcher Block", "Marble", "Not sure yet"];
 
 export function CountertopQuoteDialog({
   open, onOpenChange, squareFeet, linearFeet, hasIsland, defaultEmail, defaultName, defaultPhone, roomData, placedCabinets,
 }: Props) {
+  const { t } = useLanguage();
   const [name, setName] = useState(defaultName ?? "");
   const [email, setEmail] = useState(defaultEmail ?? "");
   const [phone, setPhone] = useState(defaultPhone ?? "");
@@ -43,16 +55,16 @@ export function CountertopQuoteDialog({
   const submit = trpc.design.requestCountertopQuote.useMutation({
     onSuccess: () => {
       setSubmitted(true);
-      toast.success("Countertop quote request sent. We'll be in touch with pricing.");
+      toast.success(t("dt_cq_toast_sent"));
     },
-    onError: (e) => toast.error(e.message || "Could not send the request. Please try again."),
+    onError: (e) => toast.error(e.message || t("dt_cq_toast_error")),
   });
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   function handleSubmit() {
     if (!emailValid) {
-      toast.error("Please enter a valid email so we can send your quote.");
+      toast.error(t("dt_cq_invalid_email"));
       return;
     }
     submit.mutate({
@@ -84,65 +96,66 @@ export function CountertopQuoteDialog({
         {submitted ? (
           <div className="py-6 text-center space-y-3">
             <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" />
-            <DialogTitle>Request sent</DialogTitle>
+            <DialogTitle>{t("dt_cq_sent_title")}</DialogTitle>
             <DialogDescription>
-              Thanks! We received your countertop request for about {squareFeet} sq ft and will
-              follow up at {email} with pricing.
+              {t("dt_cq_sent_desc", { sqft: squareFeet, email })}
             </DialogDescription>
-            <Button className="mt-2" onClick={() => handleClose(false)}>Done</Button>
+            <Button className="mt-2" onClick={() => handleClose(false)}>{t("dt_cq_done")}</Button>
           </div>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Request a countertop quote</DialogTitle>
+              <DialogTitle>{t("dt_cq_title")}</DialogTitle>
               <DialogDescription>
-                Countertops are priced per project. Send us your plan and we&apos;ll quote it.
-                Measured from your layout: <strong>~{squareFeet} sq ft</strong> ({linearFeet} linear ft
-                {hasIsland ? ", incl. island" : ""}).
+                {t("dt_cq_desc")} <strong>{t("dt_cq_sqft", { sqft: squareFeet })}</strong>{" "}
+                {t("dt_cq_linear", {
+                  linear: linearFeet,
+                  island: hasIsland ? t("dt_cq_incl_island") : "",
+                })}.
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-3 py-2">
               <div className="grid gap-1.5">
-                <Label htmlFor="ct-email">Email *</Label>
-                <Input id="ct-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" />
+                <Label htmlFor="ct-email">{t("dt_cq_email")}</Label>
+                <Input id="ct-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("dt_cq_email_ph")} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="ct-name">Name</Label>
-                  <Input id="ct-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" />
+                  <Label htmlFor="ct-name">{t("dt_cq_name")}</Label>
+                  <Input id="ct-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("dt_cq_optional")} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="ct-phone">Phone</Label>
-                  <Input id="ct-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Optional" />
+                  <Label htmlFor="ct-phone">{t("dt_cq_phone")}</Label>
+                  <Input id="ct-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("dt_cq_optional")} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="ct-zip">ZIP</Label>
-                  <Input id="ct-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="For local pricing" />
+                  <Label htmlFor="ct-zip">{t("dt_cq_zip")}</Label>
+                  <Input id="ct-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder={t("dt_cq_zip_ph")} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="ct-material">Material</Label>
+                  <Label htmlFor="ct-material">{t("dt_cq_material")}</Label>
                   <Select value={material} onValueChange={setMaterial}>
                     <SelectTrigger id="ct-material"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {MATERIALS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                      {MATERIAL_VALUES.map((m, i) => <SelectItem key={m} value={m}>{t(MATERIAL_KEYS[i])}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="ct-notes">Notes</Label>
-                <Textarea id="ct-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Edge profile, seams, sink cutouts, timeline…" rows={3} />
+                <Label htmlFor="ct-notes">{t("dt_cq_notes")}</Label>
+                <Textarea id="ct-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("dt_cq_notes_ph")} rows={3} />
               </div>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => handleClose(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => handleClose(false)}>{t("dt_cq_cancel")}</Button>
               <Button onClick={handleSubmit} disabled={submit.isPending || !emailValid}>
                 {submit.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-                Send request
+                {t("dt_cq_send")}
               </Button>
             </DialogFooter>
           </>

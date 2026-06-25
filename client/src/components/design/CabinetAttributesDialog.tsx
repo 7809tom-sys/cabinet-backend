@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Minus, Plus, DoorOpen, DoorClosed, Wrench } from "lucide-react";
 import {
   Dialog,
@@ -40,17 +41,19 @@ function Dim({
   max: number;
   onSet: (v: number) => void;
 }) {
-  const full = label === "W" ? "Width" : label === "H" ? "Height" : "Depth";
+  const { t } = useLanguage();
+  const full =
+    label === "W" ? t("dt_ca_width") : label === "H" ? t("dt_ca_height") : t("dt_ca_depth");
   return (
     <div className="flex flex-col gap-1">
-      <Label className="text-[11px] text-muted-foreground">{full} (in)</Label>
+      <Label className="text-[11px] text-muted-foreground">{t("dt_ca_dim_unit", { name: full })}</Label>
       <div className="flex items-center gap-1">
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="h-8 w-8 p-0"
-          title={`Decrease ${full} 1 inch`}
+          title={t("dt_ca_dim_dec", { name: full })}
           onClick={() => onSet(Math.max(min, Math.round((value - 1) * 10) / 10))}
         >
           <Minus className="h-3.5 w-3.5" />
@@ -69,14 +72,14 @@ function Dim({
             const v = Number(e.target.value);
             if (Number.isFinite(v) && v > 0) onSet(Math.max(min, Math.min(max, v)));
           }}
-          aria-label={`${full} in inches`}
+          aria-label={t("dt_ca_dim_aria", { name: full })}
         />
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="h-8 w-8 p-0"
-          title={`Increase ${full} 1 inch`}
+          title={t("dt_ca_dim_inc", { name: full })}
           onClick={() => onSet(Math.min(max, Math.round((value + 1) * 10) / 10))}
         >
           <Plus className="h-3.5 w-3.5" />
@@ -121,6 +124,7 @@ export function CabinetAttributesDialog({
   onSetRollout,
   rolloutAvailable,
 }: CabinetAttributesDialogProps) {
+  const { t } = useLanguage();
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
   if (!cabinet) return null;
 
@@ -153,11 +157,11 @@ export function CabinetAttributesDialog({
           {/* Dimensions */}
           <section className="space-y-2">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold">Size</h4>
+              <h4 className="text-sm font-semibold">{t("dt_ca_size")}</h4>
               {custom && (
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-[10px]">
-                    Custom +${customFee}
+                    {t("dt_ca_custom_fee", { fee: customFee })}
                   </Badge>
                   <Button
                     type="button"
@@ -166,7 +170,7 @@ export function CabinetAttributesDialog({
                     className="h-7 px-2 text-[11px] text-muted-foreground"
                     onClick={() => onResetSize(uid)}
                   >
-                    Reset to catalog
+                    {t("dt_ca_reset_catalog")}
                   </Button>
                 </div>
               )}
@@ -201,7 +205,7 @@ export function CabinetAttributesDialog({
 
           {/* Door */}
           <section className="space-y-3 border-t border-border pt-4">
-            <h4 className="text-sm font-semibold">Door &amp; hardware</h4>
+            <h4 className="text-sm font-semibold">{t("dt_ca_door_hardware")}</h4>
 
             {/* Remove door */}
             <div className="flex items-center justify-between">
@@ -212,29 +216,29 @@ export function CabinetAttributesDialog({
                   <DoorClosed className="h-4 w-4 text-muted-foreground" />
                 )}
                 <div>
-                  <Label className="text-sm">Remove door</Label>
+                  <Label className="text-sm">{t("dt_ca_remove_door")}</Label>
                   <p className="text-[11px] text-muted-foreground">
-                    Order as an open unit (no door/front).
+                    {t("dt_ca_remove_door_hint")}
                   </p>
                 </div>
               </div>
               <Switch
                 checked={noDoor}
                 onCheckedChange={(v) => onSetNoDoor(uid, v)}
-                aria-label="Remove door"
+                aria-label={t("dt_ca_remove_door")}
               />
             </div>
 
             {/* Door swing */}
             <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
-              <Label className="text-sm">Door swing (hinge side)</Label>
+              <Label className="text-sm">{t("dt_ca_door_swing")}</Label>
               {isDouble ? (
                 <p className="text-[11px] text-muted-foreground">
-                  Double-door cabinet — both doors open from the center.
+                  {t("dt_ca_double_hint")}
                 </p>
               ) : !hasDoorSwing(cabinet) ? (
                 <p className="text-[11px] text-muted-foreground">
-                  This item has no hinged door.
+                  {t("dt_ca_no_hinged")}
                 </p>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
@@ -246,7 +250,7 @@ export function CabinetAttributesDialog({
                     disabled={!canSwing}
                     onClick={() => onSetSwing(uid, "left")}
                   >
-                    Left hinge
+                    {t("dt_ca_left_hinge")}
                   </Button>
                   <Button
                     type="button"
@@ -256,7 +260,7 @@ export function CabinetAttributesDialog({
                     disabled={!canSwing}
                     onClick={() => onSetSwing(uid, "right")}
                   >
-                    Right hinge
+                    {t("dt_ca_right_hinge")}
                   </Button>
                 </div>
               )}
@@ -264,7 +268,7 @@ export function CabinetAttributesDialog({
 
             {/* Handle position */}
             <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
-              <Label className="text-sm">Handle position</Label>
+              <Label className="text-sm">{t("dt_ca_handle_position")}</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -273,7 +277,7 @@ export function CabinetAttributesDialog({
                   className="h-8"
                   onClick={() => onSetHandleSide(uid, "left")}
                 >
-                  Left
+                  {t("dt_ca_left")}
                 </Button>
                 <Button
                   type="button"
@@ -282,7 +286,7 @@ export function CabinetAttributesDialog({
                   className="h-8"
                   onClick={() => onSetHandleSide(uid, "right")}
                 >
-                  Right
+                  {t("dt_ca_right")}
                 </Button>
               </div>
             </div>
@@ -292,7 +296,7 @@ export function CabinetAttributesDialog({
           <section className="space-y-2 border-t border-border pt-4">
             <div className="flex items-center gap-2">
               <Wrench className="h-4 w-4 text-muted-foreground" />
-              <h4 className="text-sm font-semibold">Roll-out trays</h4>
+              <h4 className="text-sm font-semibold">{t("dt_ca_rollout")}</h4>
             </div>
             {isBase ? (
               rolloutAvailable ? (
@@ -320,17 +324,17 @@ export function CabinetAttributesDialog({
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
                   <span className="text-[11px] text-muted-foreground">
-                    Pull-out shelves added to the build sheet.
+                    {t("dt_ca_rollout_added")}
                   </span>
                 </div>
               ) : (
                 <p className="text-[11px] text-muted-foreground">
-                  Roll-out trays aren’t offered for the selected door style.
+                  {t("dt_ca_rollout_na_style")}
                 </p>
               )
             ) : (
               <p className="text-[11px] text-muted-foreground">
-                Roll-out trays are only available on base cabinets.
+                {t("dt_ca_rollout_base_only")}
               </p>
             )}
           </section>
@@ -338,7 +342,7 @@ export function CabinetAttributesDialog({
 
         <DialogFooter>
           <Button type="button" onClick={() => onOpenChange(false)}>
-            Done
+            {t("dt_ca_done")}
           </Button>
         </DialogFooter>
       </DialogContent>
