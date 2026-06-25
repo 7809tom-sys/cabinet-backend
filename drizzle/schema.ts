@@ -85,6 +85,9 @@ export const doorStyles = mysqlTable("door_styles", {
   warehouseZip: varchar("warehouseZip", { length: 16 }),
   shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }),
   doorSampleImageUrl: varchar("doorSampleImageUrl", { length: 512 }),
+  // True once an admin (or an approved field correction) has verified the
+  // sample photo is the correct door for this style. Drives the green check.
+  doorSampleVerified: boolean("doorSampleVerified").default(false).notNull(),
   roomSceneImageUrl: varchar("roomSceneImageUrl", { length: 512 }),
   thumbnailImageUrl: varchar("thumbnailImageUrl", { length: 512 }),
   // Admin merchandising (80/20): which styles get pushed in the Featured row.
@@ -834,3 +837,28 @@ export const designLeads = mysqlTable("design_leads", {
 
 export type DesignLead = typeof designLeads.$inferSelect;
 export type InsertDesignLead = typeof designLeads.$inferInsert;
+
+// ─── Door style sample-photo corrections ────────────────────────────────────
+// Two-way door photo tool: a field user (or admin) submits a real photo of a
+// known door style to correct the on-file sample. Admin submissions apply to
+// the live sample immediately and are logged here as "approved"; non-admin
+// submissions land as "pending" for an admin to approve/reject. We keep the
+// previous image so a correction can be undone.
+export const doorStyleCorrections = mysqlTable("door_style_corrections", {
+  id: int("id").autoincrement().primaryKey(),
+  styleId: int("styleId").notNull(), // door_styles.id this correction targets
+  imageUrl: varchar("imageUrl", { length: 512 }).notNull(), // new sample (S3 /manus-storage/..)
+  fileKey: varchar("fileKey", { length: 512 }).notNull(),
+  previousImageUrl: varchar("previousImageUrl", { length: 512 }), // for undo/history
+  note: varchar("note", { length: 512 }), // optional submitter note
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  submittedBy: int("submittedBy").notNull(), // users.id
+  submittedByName: varchar("submittedByName", { length: 256 }),
+  reviewedBy: int("reviewedBy"), // users.id of the admin who approved/rejected
+  reviewedAt: timestamp("reviewedAt"),
+  reviewNote: varchar("reviewNote", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type DoorStyleCorrection = typeof doorStyleCorrections.$inferSelect;
+export type InsertDoorStyleCorrection = typeof doorStyleCorrections.$inferInsert;

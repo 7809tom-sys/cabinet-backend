@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { eq, and, like, inArray, isNotNull, sql, desc, asc } from "drizzle-orm";
-import { publicProcedure, adminProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
+import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
 import { getDb, notInConflict, getPricingSettings, updatePricingSettings, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import {
@@ -9,9 +10,12 @@ import {
   doorStyles,
   distributorSkus,
   costChangeLog,
+  doorStyleCorrections,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
+import { invokeLLM } from "../_core/llm";
+import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
 
 // ─── Supplier-identity scrubbing ───────────────────────────────────────────────
 // Cabinet Dealz never exposes the underlying supplier. These helpers strip any
@@ -231,6 +235,300 @@ export const doorStylesRouter = router({
       }
       return { ok: true };
     }),
+
+  // ── Door sample-photo corrections (two-way photo tool) ──────────────────────
+  // Submit a real photo to correct a door style's on-file sample. Admins apply
+  // it to the live sample immediately (logged as approved + verified). Everyone
+  // else creates a pending correction for an admin to review. Reuses S3.
+  submitCorrection: protectedProcedure
+    .input(
+      z.object({
+        styleId: z.number(),
+        // base64 data URL, e.g. "data:image/jpeg;base64,...."
+        imageDataUrl: z
+          .string()
+          .min(16)
+          .refine((s) => s.startsWith("data:image/"), "Must be a data:image/* URL"),
+        note: z.string().max(500).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const styleRows = await db
+        .select()
+        .from(doorStyles)
+        .where(eq(doorStyles.id, input.styleId))
+        .limit(1);
+      const style = styleRows[0];
+      if (!style) throw new TRPCError({ code: "NOT_FOUND", message: "Door style not found." });
+
+      // Decode + upload to S3.
+      const m = input.imageDataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+      if (!m) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid image data." });
+      const [, mime, b64] = m;
+      const ext = mime.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+      const buf = Buffer.from(b64, "base64");
+      if (buf.length > 10 * 1024 * 1024) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Image too large (max 10MB)." });
+      }
+      const { url, key } = await storagePut(
+        `door-corrections/s${input.styleId}-u${ctx.user.id}.${ext}`,
+        buf,
+        mime,
+      );
+
+      const isAdmin = ctx.user.role === "admin";
+      const previousImageUrl = style.doorSampleImageUrl ?? null;
+
+      const [inserted] = await db.insert(doorStyleCorrections).values({
+        styleId: input.styleId,
+        imageUrl: url,
+        fileKey: key,
+        previousImageUrl,
+        note: input.note ?? null,
+        status: isAdmin ? "approved" : "pending",
+        submittedBy: ctx.user.id,
+        submittedByName: ctx.user.name ?? null,
+        reviewedBy: isAdmin ? ctx.user.id : null,
+        reviewedAt: isAdmin ? new Date() : null,
+      });
+
+      // Admin submissions update the live sample immediately + mark verified.
+      if (isAdmin) {
+        await db
+          .update(doorStyles)
+          .set({ doorSampleImageUrl: url, doorSampleVerified: true })
+          .where(eq(doorStyles.id, input.styleId));
+      }
+
+      return {
+        ok: true,
+        applied: isAdmin,
+        status: isAdmin ? ("approved" as const) : ("pending" as const),
+        correctionId: (inserted as { insertId?: number }).insertId ?? null,
+        imageUrl: url,
+      };
+    }),
+
+  // Admin: list corrections, optionally filtered by status (default pending).
+  listCorrections: adminProcedure
+    .input(z.object({ status: z.enum(["pending", "approved", "rejected", "all"]).default("pending") }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const status = input?.status ?? "pending";
+      const base = db
+        .select({
+          id: doorStyleCorrections.id,
+          styleId: doorStyleCorrections.styleId,
+          styleName: doorStyles.ourName,
+          styleCode: doorStyles.styleCode,
+          imageUrl: doorStyleCorrections.imageUrl,
+          previousImageUrl: doorStyleCorrections.previousImageUrl,
+          note: doorStyleCorrections.note,
+          status: doorStyleCorrections.status,
+          submittedBy: doorStyleCorrections.submittedBy,
+          submittedByName: doorStyleCorrections.submittedByName,
+          reviewedBy: doorStyleCorrections.reviewedBy,
+          reviewedAt: doorStyleCorrections.reviewedAt,
+          createdAt: doorStyleCorrections.createdAt,
+        })
+        .from(doorStyleCorrections)
+        .leftJoin(doorStyles, eq(doorStyles.id, doorStyleCorrections.styleId))
+        .orderBy(desc(doorStyleCorrections.createdAt))
+        .limit(200);
+      const rows =
+        status === "all"
+          ? await base
+          : await db
+              .select({
+                id: doorStyleCorrections.id,
+                styleId: doorStyleCorrections.styleId,
+                styleName: doorStyles.ourName,
+                styleCode: doorStyles.styleCode,
+                imageUrl: doorStyleCorrections.imageUrl,
+                previousImageUrl: doorStyleCorrections.previousImageUrl,
+                note: doorStyleCorrections.note,
+                status: doorStyleCorrections.status,
+                submittedBy: doorStyleCorrections.submittedBy,
+                submittedByName: doorStyleCorrections.submittedByName,
+                reviewedBy: doorStyleCorrections.reviewedBy,
+                reviewedAt: doorStyleCorrections.reviewedAt,
+                createdAt: doorStyleCorrections.createdAt,
+              })
+              .from(doorStyleCorrections)
+              .leftJoin(doorStyles, eq(doorStyles.id, doorStyleCorrections.styleId))
+              .where(eq(doorStyleCorrections.status, status))
+              .orderBy(desc(doorStyleCorrections.createdAt))
+              .limit(200);
+      return rows;
+    }),
+
+  // Admin: approve (apply to live sample + verify) or reject a pending correction.
+  reviewCorrection: adminProcedure
+    .input(z.object({ id: z.number(), approve: z.boolean(), reviewNote: z.string().max(500).optional() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const rows = await db
+        .select()
+        .from(doorStyleCorrections)
+        .where(eq(doorStyleCorrections.id, input.id))
+        .limit(1);
+      const corr = rows[0];
+      if (!corr) throw new TRPCError({ code: "NOT_FOUND" });
+      if (corr.status !== "pending") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This correction was already reviewed." });
+      }
+      await db
+        .update(doorStyleCorrections)
+        .set({
+          status: input.approve ? "approved" : "rejected",
+          reviewedBy: ctx.user.id,
+          reviewedAt: new Date(),
+          reviewNote: input.reviewNote ?? null,
+        })
+        .where(eq(doorStyleCorrections.id, input.id));
+      if (input.approve) {
+        await db
+          .update(doorStyles)
+          .set({ doorSampleImageUrl: corr.imageUrl, doorSampleVerified: true })
+          .where(eq(doorStyles.id, corr.styleId));
+      }
+      return { ok: true, approved: input.approve };
+    }),
+
+  // Public: upload a real-world door photo and let the vision model rank the
+  // closest active door styles in the live catalog.
+  matchFromPhoto: publicProcedure
+    .input(
+      z.object({
+        imageDataUrl: z
+          .string()
+          .min(16)
+          .refine((s) => s.startsWith("data:image/"), "Must be a data:image/* URL"),
+        filename: z.string().max(200).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const candidates = await db
+        .select({
+          id: doorStyles.id,
+          styleCode: doorStyles.styleCode,
+          ourName: doorStyles.ourName,
+          doorStyle: doorStyles.doorStyle,
+          color: doorStyles.color,
+          finish: doorStyles.finish,
+          woodSpecies: doorStyles.woodSpecies,
+          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+          thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+          roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+        })
+        .from(doorStyles)
+        .where(eq(doorStyles.isActive, true))
+        .orderBy(asc(doorStyles.ourName));
+
+      if (candidates.length === 0) {
+        return { storedUrl: null, matches: [] };
+      }
+
+      let storedUrl: string | null = null;
+      try {
+        const m = input.imageDataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+        if (m) {
+          const [, mime, b64] = m;
+          const ext = mime.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+          const buf = Buffer.from(b64, "base64");
+          if (buf.length <= 10 * 1024 * 1024) {
+            const safeName = (input.filename || `door-photo-${Date.now()}.${ext}`).replace(/[^a-zA-Z0-9._-]/g, "_");
+            const stored = await storagePut(`door-match-uploads/${safeName}`, buf, mime);
+            storedUrl = stored.url;
+          }
+        }
+      } catch {
+        // Keep matching available even if storage is temporarily unavailable.
+      }
+
+      const catalogContext = candidates
+        .map(
+          (style) =>
+            `- ${style.id}: ${style.ourName || style.styleCode} | code=${style.styleCode} | profile=${style.doorStyle || "unknown"} | color=${style.color || "unknown"} | finish=${style.finish || "unknown"} | wood=${style.woodSpecies || "unknown"}`,
+        )
+        .join("\n");
+
+      try {
+        const result = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a cabinet door-style matcher. Compare the uploaded door photo to the live door-style catalog. Return exactly the top 3 style IDs from the provided catalog, ranked best to worst. Use only IDs from the catalog. Confidence must be between 0 and 1. Keep reasoning short and visual.",
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text:
+                    "Match this real-world door photo against the active door-style catalog below. Rank the best 3 matches using only the listed style IDs.\n\nCatalog:\n" + catalogContext,
+                },
+                { type: "image_url", image_url: { url: input.imageDataUrl } },
+              ],
+            },
+          ],
+          responseFormat: {
+            type: "json_schema",
+            json_schema: {
+              name: "door_photo_match",
+              strict: true,
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  matches: {
+                    type: "array",
+                    minItems: 0,
+                    maxItems: 3,
+                    items: {
+                      type: "object",
+                      additionalProperties: false,
+                      properties: {
+                        styleId: { type: "integer" },
+                        confidence: { type: "number" },
+                        reasoning: { type: "string" },
+                      },
+                      required: ["styleId", "confidence", "reasoning"],
+                    },
+                  },
+                },
+                required: ["matches"],
+              },
+            },
+          },
+          maxTokens: 1200,
+        });
+
+        const raw = result.choices?.[0]?.message?.content;
+        const text = typeof raw === "string" ? raw : Array.isArray(raw) ? raw.map((p: any) => (p.type === "text" ? p.text : "")).join("") : "";
+        const parsed = JSON.parse(text || "{}") as DoorVisionResult;
+        return {
+          storedUrl,
+          matches: rankDoorMatches(candidates as DoorCandidate[], parsed),
+        };
+      } catch {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Could not compare that photo to the door-style catalog. Try a clearer, straight-on photo.",
+        });
+      }
+    }),
+
+  // ── Family catalog (the door-style-FAMILY-first shopping view) ──────────────
 
   // ── Family catalog (the door-style-FAMILY-first shopping view) ──────────────
   // Given one door style, return EVERY cabinet available in that style (base,

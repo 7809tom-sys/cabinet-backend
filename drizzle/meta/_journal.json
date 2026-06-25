@@ -225,6 +225,13 @@
       "when": 1782410943088,
       "tag": "0031_famous_mister_fear",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "5",
+      "when": 1782411333149,
+      "tag": "0032_narrow_bloodstrike",
+      "breakpoints": true
     }
   ]
 }

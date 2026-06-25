@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import DoorPhotoMatchWidget from "@/components/DoorPhotoMatchWidget";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -228,6 +229,11 @@ export default function DoorStyles() {
           A full range of finishes, each carrying its own trade pricing —
           open any cabinet to compare styles and member pricing.
         </p>
+      </div>
+
+      {/* Match a door from a photo */}
+      <div className="mb-8">
+        <DoorPhotoMatchWidget />
       </div>
 
       {/* Door-style type filter */}

@@ -33,6 +33,7 @@ import PayoutsAdmin from "@/components/admin/PayoutsAdmin";
 import CostLookupAdmin from "@/components/admin/CostLookupAdmin";
 import PaymentsAdmin from "@/components/admin/PaymentsAdmin";
 import DesignLeadsAdmin from "@/components/admin/DesignLeadsAdmin";
+import DoorCorrectionsAdmin from "@/components/admin/DoorCorrectionsAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -386,7 +387,7 @@ export default function Admin() {
         Manage affiliates, review Pro Network applications, and handle countertop quote requests.
       </p>
 
-      <Tabs defaultValue="crm">
+      <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
         <TabsList>
           <TabsTrigger value="crm">Sales CRM</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
@@ -396,6 +397,7 @@ export default function Admin() {
           <TabsTrigger value="pros">Pro Applications</TabsTrigger>
           <TabsTrigger value="quotes">Countertop Quotes</TabsTrigger>
           <TabsTrigger value="featured">Featured Styles</TabsTrigger>
+          <TabsTrigger value="door-corrections">Door Corrections</TabsTrigger>
           <TabsTrigger value="distributors">Distributors</TabsTrigger>
           <TabsTrigger value="images">Product Images</TabsTrigger>
           <TabsTrigger value="margins">Pricing & Margins</TabsTrigger>
@@ -424,6 +426,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="quotes" className="mt-6">
           <CountertopQuotes />
+        </TabsContent>
+        <TabsContent value="door-corrections" className="mt-6">
+          <DoorCorrectionsAdmin />
         </TabsContent>
         <TabsContent value="featured" className="mt-6">
           <FeaturedStylesAdmin />

@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Star, Search, GripVertical, ArrowUp, ArrowDown, X } from "lucide-react";
+import { Star, Search, GripVertical, ArrowUp, ArrowDown, X, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import DoorPhotoCorrectButton from "./DoorPhotoCorrectButton";
 
 const MAX_FEATURED = 30;
 
@@ -17,6 +18,7 @@ interface AdminStyle {
   finish: string | null;
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
+  doorSampleVerified: boolean;
   roomSceneImageUrl: string | null;
   isFeatured: boolean;
   featuredRank: number;
@@ -72,6 +74,10 @@ export default function FeaturedStylesAdmin() {
   });
 
   const atCap = featured.length >= MAX_FEATURED;
+  const unverifiedCount = useMemo(
+    () => featured.filter((s) => !s.doorSampleVerified).length,
+    [featured],
+  );
 
   function add(s: AdminStyle) {
     if (atCap) {
@@ -118,12 +124,20 @@ export default function FeaturedStylesAdmin() {
             top of the list shows first.
           </p>
         </div>
-        <Badge
-          variant={atCap ? "destructive" : "secondary"}
-          className="text-sm shrink-0 self-start sm:self-auto"
-        >
-          {featured.length} / {MAX_FEATURED} featured
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+          {unverifiedCount > 0 && (
+            <Badge variant="outline" className="text-sm border-amber-500 text-amber-600 bg-amber-50">
+              <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+              {unverifiedCount} need correct photo
+            </Badge>
+          )}
+          <Badge
+            variant={atCap ? "destructive" : "secondary"}
+            className="text-sm"
+          >
+            {featured.length} / {MAX_FEATURED} featured
+          </Badge>
+        </div>
       </div>
 
       {/* Featured list */}
@@ -156,12 +170,35 @@ export default function FeaturedStylesAdmin() {
                   <div className="h-12 w-12 rounded bg-muted shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm truncate">{s.ourName}</p>
+                  <p className="font-medium text-sm truncate flex items-center gap-1.5">
+                    {s.ourName}
+                    {s.doorSampleVerified ? (
+                      <span
+                        title="Sample photo verified"
+                        aria-label="Sample photo verified"
+                        className="inline-flex items-center text-emerald-600"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </span>
+                    ) : (
+                      <span
+                        title="Unverified door — confirm this is the correct door or upload the correct photo"
+                        aria-label="Unverified door photo"
+                        className="inline-flex items-center text-amber-600"
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
+                    {!s.doorSampleVerified && (
+                      <span className="ml-1 text-amber-600 font-medium">· Wrong door? Upload the correct photo</span>
+                    )}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <DoorPhotoCorrectButton styleId={s.id} styleName={s.ourName} compact />
                   <Button
                     size="icon"
                     variant="ghost"
