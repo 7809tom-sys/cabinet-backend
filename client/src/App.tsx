@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 // Lazy-loaded pages
 const Catalog = lazy(() => import("@/pages/Catalog"));
+const Countertops = lazy(() => import("@/pages/Countertops"));
 const CabinetDetail = lazy(() => import("@/pages/CabinetDetail"));
 const DoorStyles = lazy(() => import("@/pages/DoorStyles"));
 const Family = lazy(() => import("@/pages/Family"));
@@ -132,6 +133,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <ProNetwork />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/countertops">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Countertops />
             </Suspense>
           </AppLayout>
         </Route>

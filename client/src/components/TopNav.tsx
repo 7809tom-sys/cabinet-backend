@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { label: "Shop by Style", href: "/styles" },
   { label: "Kitchen Packages", href: "/packages" },
   { label: "All Cabinets", href: "/catalog" },
+  { label: "Countertops", href: "/countertops" },
   { label: "Design Tool", href: "/design" },
   { label: "Build an Order", href: "/order/new" },
   { label: "Photo to Cart", href: "/photo-to-cart" },

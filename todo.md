@@ -1693,3 +1693,9 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] M1: DONE — shared AFFILIATE_MEMBERSHIP constant (priceUsd 1195, billingPeriod "year", 3 benefits: Kitchen Design Software / Your Own Website / Buying-Group Access) + formatMembershipPrice() and membershipPriceLabel() helpers in shared/affiliate.ts.
 - [x] M2: DONE — affiliate page (/affiliate) now shows the membership offer in both the signed-out hero (navy hero + $1,195/year + 3 benefit cards + Apply to join / Sign in) and the signed-in-but-not-an-affiliate state (membership card with price, benefits, Apply to join). CTA links to /pro-network. Verified via screenshot.
 - [x] M3: DONE — added 4 shared membership tests (price=1195/year, 3 benefit titles, price formatting with separator, full label "$1,195/year"). Type-check clean; full suite 879 tests / 78 files pass.
+
+## Public Countertops gallery page (storefront)
+- [x] CT1: DONE — /countertops page with swatch grid from COUNTERTOP_MATERIALS (real fill/edge/speckle render) + selectable material detail card (blurb + highlights), backed by new shared/countertops.ts (ids synced to design.ts)
+- [x] CT2: DONE — built-in quote form reuses design.requestCountertopQuote (email required + validated; name/phone/zip/material/sqft/notes; success state with reset)
+- [x] CT3: DONE — added Countertops to shared NAV_LINKS (TopNav desktop+mobile) + /countertops route in App.tsx; hero + form CTAs link into /design to measure. Added dependency-free useSeo hook for title/meta. Type-check clean
+- [x] CT4: DONE — shared/countertops.test.ts (4 tests: ids synced to design.ts render materials, every material has name/blurb/2+ highlights, lookup helper, names match). Type-check clean; full suite 883 tests / 79 files pass
