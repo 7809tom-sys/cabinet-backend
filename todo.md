@@ -1829,3 +1829,14 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Reuse existing SheetSection accordion + collapsedSheet state
 - [x] EN/ES label for the new section; tests + tsc + mobile/desktop verify; checkpoint
 - [x] Make "Door Styles & Pricing" color-picker section (Color 1 / Color 2 + pricing tier + explainer) a collapsible accordion too; collapsed by default once a door style is picked, with the active style/color summarized in the header
+
+## Build Sheet notes -> compact icon popover
+- [x] Replace the inline "Details & notes" accordion with a small list/info icon button near the Estimated Total that opens a popover/dialog listing the same non-blocking notes
+- [x] Icon shows a count badge of how many notes; hidden entirely when there are zero notes
+- [x] Keep blocking conflict warning + range-clearance button + Estimated Total + CTAs always visible inline
+- [x] EN/ES label for the icon/popover title; tests + tsc + verify; checkpoint
+
+## Corner cabinet (Easy-Reach / Lazy Susan) SKU coverage backfill
+- [ ] ERB-33, ERB-36, LSB33, LSB36, LSB36ADA only have SKUs for a subset of the 62 door styles, so they disappear from the Corner tab for styles they lack
+- [ ] Backfill missing distributor_skus for these 5 cabinets across all active door styles, copying each cabinet's existing price (wholesale/contractor/list/etc.) so they appear on every style
+- [ ] Verify in DB each of the 5 now has 62 available+published styles; spot-check designer Corner tab

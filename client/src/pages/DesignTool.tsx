@@ -4,7 +4,7 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
-  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound,
+  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem,
@@ -3802,82 +3805,101 @@ export default function DesignTool() {
               </Button>
             )}
             {(() => {
-              // Collapse all NON-blocking informational notes into a single
-              // "Details & notes" accordion so the panel stays uncluttered
-              // (especially on mobile). The blocking conflict warning + range
-              // clearance button above, and the Estimated Total + CTAs below,
-              // are intentionally left OUTSIDE this accordion so they're always
-              // visible. Collapsed by default once a door style is picked.
-              const hasNotes =
-                (!styleId && placed.length > 0) ||
-                (styleId != null && activeStyleName != null && !designIsMixedFinish) ||
-                (styleId != null && designIsMixedFinish && finishSummary.length > 0) ||
-                hickorySkins.length > 0 ||
-                autoEndPanels.length > 0;
-              if (!hasNotes) return null;
-              return (
-                <SheetSection
-                  className="mb-2 rounded-md border border-border"
-                  title={t("dt_bs_notes_section")}
-                  collapsed={sheetCollapsed("build-notes", styleId != null)}
-                  onToggle={() => toggleSheetSection("build-notes")}
-                >
-                  <div className="px-3 pb-2 pt-1">
-            {!styleId && placed.length > 0 && (
-              <p className="text-[10px] text-amber-600 mb-2">{t("dt_bs_select_style_pricing")}</p>
-            )}
-            {styleId && activeStyleName && !designIsMixedFinish && (
-              <div className="flex items-center gap-2 mb-2 text-[11px] text-muted-foreground">
-                <span
-                  className="inline-block h-3.5 w-3.5 rounded-sm border"
-                  style={{ background: activeFinish.face, borderColor: activeFinish.edge }}
-                />
-                {t("dt_bs_finish_applied")} <span className="font-medium text-foreground">{activeStyleName}</span>
-              </div>
-            )}
-            {styleId && designIsMixedFinish && finishSummary.length > 0 && (
-              <div className="mb-2 text-[11px] text-muted-foreground">
-                <div className="mb-1">
-                  {t("dt_bs_two_tone")} <span className="font-medium text-foreground">{t("dt_bs_n_finishes", { n: finishSummary.length })}</span>:
-                </div>
-                <div className="flex flex-col gap-1">
-                  {finishSummary.map((f, i) => (
-                    <div key={f.id} className="flex items-center gap-2">
-                      <span
-                        className="inline-block h-3.5 w-3.5 rounded-sm border"
-                        style={{ background: f.face, borderColor: f.edge }}
-                      />
-                      <span className="font-medium text-foreground">{f.name}</span>
-                      {i === 0 && <span className="text-[10px] text-muted-foreground">{t("dt_bs_design_default")}</span>}
+              // Non-blocking informational notes are tucked behind a small info
+              // icon next to the Estimated Total so the panel stays uncluttered.
+              // Clicking the icon opens a popover with the list. The blocking
+              // conflict warning + range-clearance button (above) and the
+              // Estimated Total + CTAs (below) always stay visible inline.
+              const noteItems: React.ReactNode[] = [];
+              if (!styleId && placed.length > 0) {
+                noteItems.push(
+                  <p key="select" className="text-[11px] text-amber-600">{t("dt_bs_select_style_pricing")}</p>,
+                );
+              }
+              if (styleId && activeStyleName && !designIsMixedFinish) {
+                noteItems.push(
+                  <div key="finish" className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <span
+                      className="inline-block h-3.5 w-3.5 rounded-sm border"
+                      style={{ background: activeFinish.face, borderColor: activeFinish.edge }}
+                    />
+                    {t("dt_bs_finish_applied")} <span className="font-medium text-foreground">{activeStyleName}</span>
+                  </div>,
+                );
+              }
+              if (styleId && designIsMixedFinish && finishSummary.length > 0) {
+                noteItems.push(
+                  <div key="twotone" className="text-[11px] text-muted-foreground">
+                    <div className="mb-1">
+                      {t("dt_bs_two_tone")} <span className="font-medium text-foreground">{t("dt_bs_n_finishes", { n: finishSummary.length })}</span>:
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {hickorySkins.length > 0 && (
-              <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                <span>
-                  <strong>Hickory exposed ends:</strong> {hickorySkins.length} finished-end skin{hickorySkins.length > 1 ? "s" : ""} auto-added to your build sheet to cover the unfinished side{hickorySkins.length > 1 ? "s" : ""} of your Hickory cabinets. Skin pricing is confirmed by our team (SKU pending), so it is not included in the estimate yet.
-                </span>
-              </div>
-            )}
-            {autoEndPanels.length > 0 && (
-              <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                <span>
-                  <strong>Exposed ends:</strong> {autoEndPanels.length} finished end panel{autoEndPanels.length > 1 ? "s" : ""} auto-added to your build sheet to cover the exposed cabinet side{autoEndPanels.length > 1 ? "s" : ""}.{autoEndPanels.some((p) => p.pendingSku) ? " Some panel SKUs are pending team confirmation and are not yet priced in the estimate." : ""}
-                </span>
-              </div>
-            )}
+                    <div className="flex flex-col gap-1">
+                      {finishSummary.map((f, i) => (
+                        <div key={f.id} className="flex items-center gap-2">
+                          <span
+                            className="inline-block h-3.5 w-3.5 rounded-sm border"
+                            style={{ background: f.face, borderColor: f.edge }}
+                          />
+                          <span className="font-medium text-foreground">{f.name}</span>
+                          {i === 0 && <span className="text-[10px] text-muted-foreground">{t("dt_bs_design_default")}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>,
+                );
+              }
+              if (hickorySkins.length > 0) {
+                noteItems.push(
+                  <div key="hickory" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                    <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                    <span>
+                      <strong>Hickory exposed ends:</strong> {hickorySkins.length} finished-end skin{hickorySkins.length > 1 ? "s" : ""} auto-added to your build sheet to cover the unfinished side{hickorySkins.length > 1 ? "s" : ""} of your Hickory cabinets. Skin pricing is confirmed by our team (SKU pending), so it is not included in the estimate yet.
+                    </span>
+                  </div>,
+                );
+              }
+              if (autoEndPanels.length > 0) {
+                noteItems.push(
+                  <div key="endpanels" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                    <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                    <span>
+                      <strong>Exposed ends:</strong> {autoEndPanels.length} finished end panel{autoEndPanels.length > 1 ? "s" : ""} auto-added to your build sheet to cover the exposed cabinet side{autoEndPanels.length > 1 ? "s" : ""}.{autoEndPanels.some((p) => p.pendingSku) ? " Some panel SKUs are pending team confirmation and are not yet priced in the estimate." : ""}
+                    </span>
+                  </div>,
+                );
+              }
+              return (
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-muted-foreground">{t("dt_bs_estimated_total")}</span>
+                    {noteItems.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={t("dt_bs_notes_view")}
+                            title={t("dt_bs_notes_view")}
+                            className="relative inline-flex items-center justify-center rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+                          >
+                            <Info className="h-4 w-4" />
+                            <span className="absolute -right-0.5 -top-0.5 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold leading-none text-white">
+                              {noteItems.length}
+                            </span>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-72 max-h-80 overflow-y-auto">
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            {t("dt_bs_notes_popover")}
+                          </div>
+                          <div className="flex flex-col gap-2">{noteItems}</div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
-                </SheetSection>
+                  <span className="font-serif text-2xl font-bold text-foreground">${total.toFixed(2)}</span>
+                </div>
               );
             })()}
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-muted-foreground">{t("dt_bs_estimated_total")}</span>
-              <span className="font-serif text-2xl font-bold text-foreground">${total.toFixed(2)}</span>
-            </div>
             <Button
               className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90 gap-2"
               disabled={placed.length === 0}
