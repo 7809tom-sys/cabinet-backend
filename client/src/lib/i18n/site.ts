@@ -944,6 +944,9 @@ export const SITE_STRINGS = {
     // --- Design Tool: build sheet panel ---
     dt_bs_door_sample: "Door style sample",
     dt_bs_styles_pricing: "Door styles & pricing",
+    dt_bs_door_section: "Door style & pricing",
+    dt_bs_door_section_none: "Tap to pick a door style",
+    dt_bs_notes_section: "Details & notes",
     dt_bs_pricing: "Pricing",
     dt_bs_wholesale: "Wholesale",
     dt_bs_contractor: "Contractor",
@@ -2075,6 +2078,9 @@ export const SITE_STRINGS = {
     // --- Herramienta de Diseño: panel de hoja de construcción ---
     dt_bs_door_sample: "Muestra de estilo de puerta",
     dt_bs_styles_pricing: "Estilos de puerta y precios",
+    dt_bs_door_section: "Estilo de puerta y precios",
+    dt_bs_door_section_none: "Toca para elegir un estilo de puerta",
+    dt_bs_notes_section: "Detalles y notas",
     dt_bs_pricing: "Precios",
     dt_bs_wholesale: "Mayorista",
     dt_bs_contractor: "Contratista",

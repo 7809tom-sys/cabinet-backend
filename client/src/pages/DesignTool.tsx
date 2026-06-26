@@ -289,7 +289,13 @@ export default function DesignTool() {
   // sidebar and the mobile drawer since both render the same children). The
   // Estimated Total + Export CTA are intentionally NOT collapsible.
   const [collapsedSheet, setCollapsedSheet] = useState<Set<string>>(() => new Set());
+  // Tracks which sections the user has explicitly toggled. Sections that the
+  // user has NOT touched fall back to a computed default (e.g. the door-style
+  // picker and the Details & notes accordion auto-collapse once a door style is
+  // picked, to declutter the panel — especially on mobile).
+  const [touchedSheet, setTouchedSheet] = useState<Set<string>>(() => new Set());
   const toggleSheetSection = useCallback((key: string) => {
+    setTouchedSheet((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
     setCollapsedSheet((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -297,6 +303,13 @@ export default function DesignTool() {
       return next;
     });
   }, []);
+  // Resolve a section's collapsed state: honor the user's explicit toggle once
+  // they've touched it, otherwise use `defaultCollapsed`.
+  const sheetCollapsed = useCallback(
+    (key: string, defaultCollapsed: boolean) =>
+      touchedSheet.has(key) ? collapsedSheet.has(key) : defaultCollapsed,
+    [touchedSheet, collapsedSheet],
+  );
 
   // Room type: kitchen cabinets (default), bathroom, laundry, closet parts, or other.
   const [roomType, setRoomType] = useState<RoomType>("kitchen");
@@ -3416,8 +3429,23 @@ export default function DesignTool() {
                 )}
               </div>
             </div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-1">{t("dt_bs_styles_pricing")}</div>
+          </div>
 
+          {/* Door style & pricing picker: collapses into an accordion once a door
+              style is chosen so it stops dominating the panel (esp. on mobile).
+              The header summarizes the active style + tier when collapsed. The
+              door-style hero sample above stays visible at all times. */}
+          <SheetSection
+            className="border-b border-border"
+            title={
+              styleId
+                ? `${t("dt_bs_door_section")} · ${activeStyleName ?? ""} · ${tier === "Wholesale" ? t("dt_bs_wholesale") : t("dt_bs_contractor")}`
+                : t("dt_bs_door_section_none")
+            }
+            collapsed={sheetCollapsed("door-style-picker", styleId != null)}
+            onToggle={() => toggleSheetSection("door-style-picker")}
+          >
+            <div className="px-3 pb-3 pt-1 space-y-2">
             {/* Two-color selector (items 8 & 9): two door-style swatch buttons.
                 The HIGHLIGHTED one is the color new cabinets are placed in. Click
                 a swatch to make it active; use its picker to set/change the style.
@@ -3467,7 +3495,8 @@ export default function DesignTool() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
+            </div>
+          </SheetSection>
 
           {/* BOM list */}
           <div className="flex-1 overflow-y-auto py-1">
@@ -3772,6 +3801,28 @@ export default function DesignTool() {
                 <Plus className="h-4 w-4" /> {t("dt_bs_add_clearance", { n: RANGE_CLEARANCE_FILLER_IN })}
               </Button>
             )}
+            {(() => {
+              // Collapse all NON-blocking informational notes into a single
+              // "Details & notes" accordion so the panel stays uncluttered
+              // (especially on mobile). The blocking conflict warning + range
+              // clearance button above, and the Estimated Total + CTAs below,
+              // are intentionally left OUTSIDE this accordion so they're always
+              // visible. Collapsed by default once a door style is picked.
+              const hasNotes =
+                (!styleId && placed.length > 0) ||
+                (styleId != null && activeStyleName != null && !designIsMixedFinish) ||
+                (styleId != null && designIsMixedFinish && finishSummary.length > 0) ||
+                hickorySkins.length > 0 ||
+                autoEndPanels.length > 0;
+              if (!hasNotes) return null;
+              return (
+                <SheetSection
+                  className="mb-2 rounded-md border border-border"
+                  title={t("dt_bs_notes_section")}
+                  collapsed={sheetCollapsed("build-notes", styleId != null)}
+                  onToggle={() => toggleSheetSection("build-notes")}
+                >
+                  <div className="px-3 pb-2 pt-1">
             {!styleId && placed.length > 0 && (
               <p className="text-[10px] text-amber-600 mb-2">{t("dt_bs_select_style_pricing")}</p>
             )}
@@ -3819,6 +3870,10 @@ export default function DesignTool() {
                 </span>
               </div>
             )}
+                  </div>
+                </SheetSection>
+              );
+            })()}
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-muted-foreground">{t("dt_bs_estimated_total")}</span>
               <span className="font-serif text-2xl font-bold text-foreground">${total.toFixed(2)}</span>

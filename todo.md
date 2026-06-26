@@ -1820,3 +1820,12 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Tall tab correct: oven/microwave towers, pantry/utility, split-pantry top+bottom (24" deep) — split-pantry tops correctly NOT in Wall
 - [x] ADA bases (placementType "ada base") normalize to Base; sort into Specialty (18) + Sink (11); ADA vanity-sink route to Vanity tab
 - [x] Roll-out shelves (RS-*) + end panels stay in Accessories (category=Accessory), not Base
+
+
+## Mobile Build Sheet declutter (accordion for notes)
+- [x] Collapse non-blocking build-sheet notes (finish applied, two-tone summary, Hickory exposed ends, exposed end panels, select-style hint) into one collapsible "Details & notes" accordion, collapsed by default once a door style is picked
+- [x] Keep BLOCKING items always visible: conflict warning + range-clearance fix button
+- [x] Keep Estimated Total + Export CTA + Pro CTA always visible
+- [x] Reuse existing SheetSection accordion + collapsedSheet state
+- [x] EN/ES label for the new section; tests + tsc + mobile/desktop verify; checkpoint
+- [x] Make "Door Styles & Pricing" color-picker section (Color 1 / Color 2 + pricing tier + explainer) a collapsible accordion too; collapsed by default once a door style is picked, with the active style/color summarized in the header
