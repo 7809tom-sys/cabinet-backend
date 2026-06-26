@@ -77,6 +77,27 @@ export function CornerView({
         </div>
       </div>
 
+      {/* ── Flat-shaded depth cues (no perspective math) ──────────────────────
+          A cheap way to make the two flat wall panels read as a real 3D corner:
+          (1) a soft directional gradient on each half so the two walls look lit
+          from slightly different angles (left wall a touch darker, like an
+          interior corner), (2) a stronger contact shadow down the seam where the
+          walls meet, and (3) a faint floor plane at the bottom. These are pure
+          CSS overlays — pointer-events-none so clicks still reach the cabinets —
+          and cost virtually nothing to render. */}
+      <div className="pointer-events-none absolute inset-0 z-10 flex">
+        {/* Left wall flat shade: darker toward the seam (interior corner). */}
+        <div className="flex-1 bg-gradient-to-r from-transparent to-[#1a2744]/12" />
+        <div className="w-[2px] shrink-0" />
+        {/* Right wall flat shade: darker toward the seam, lighter outward. */}
+        <div className="flex-1 bg-gradient-to-l from-transparent to-[#1a2744]/[0.06]" />
+      </div>
+      {/* Seam contact shadow — soft vertical band straddling the corner line. */}
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 w-10 -translate-x-1/2 bg-[radial-gradient(ellipse_at_center,rgba(26,39,68,0.18),transparent_70%)]" />
+      {/* Floor plane: a faint grounded band at the bottom so cabinets sit on a
+          surface instead of floating against the wall. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[14%] bg-gradient-to-t from-[#1a2744]/10 to-transparent" />
+
       {/* The mirrored ElevationView also flips its wall-switcher pill text, so we
           hide those and provide our own corner picker on top. */}
       <div

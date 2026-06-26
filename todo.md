@@ -1893,3 +1893,24 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Remove the "Export Build Sheet (CSV)" button from the designer estimate panel (redundant now that "Add all to cart" handles ordering)
 - [x] Remove unused exportBuildSheet + Download imports (kept buildSheetCsv helper + its tests, still valid)
 - [x] tsc clean + full suite green (966 tests)
+
+## Freight origin: ship from nearest distributor warehouse (not fixed ZIP)
+- [ ] Freight currently uses single shippingSettings.originZip; switch to per-shipment origin = nearest distributor warehouse (distributors.warehouseZips), keyed by customer ZIP
+- [ ] Use existing nearestWarehouseMiles helper to pick the closest warehouse ZIP for the order's distributor
+- [ ] Fall back to global originZip only when a distributor has no warehouse ZIPs
+- [ ] Multi-distributor orders compute freight per origin warehouse
+- [ ] Tests for nearest-warehouse origin selection; tsc + full suite green
+
+## Two-tone "family" rule (same distributor) + out-of-family warning
+- [ ] When picking Color 1 + Color 2, prefer a single distributor that carries BOTH styles
+- [ ] If Color 2 is only available from a different distributor than Color 1, show a warning in the designer: going outside the family may add extra shipping
+- [ ] EN/ES warning copy; tests; tsc + full suite green; checkpoint
+
+
+## Phase N: Freight origin + two-tone warning + corner 3D
+- [x] Add pickNearestWarehouseZip helper to shared/availability.ts
+- [x] Wire nearest distributor warehouse as freight origin (live mode) in server/routers/freight.ts (resolveOriginZip + resolveCartDistributorId, optional distributorId input)
+- [x] Two-tone "family" rule warning in DesignTool when Color 1 / Color 2 come from different distributors (EN/ES i18n)
+- [x] Flat-shaded depth cues (directional shading + seam contact shadow + floor plane) added to CornerView — lightweight, no perspective/3D math (option 3)
+- [x] tsc clean + full test suite passing (87 files, 971 tests)
+- [ ] Checkpoint

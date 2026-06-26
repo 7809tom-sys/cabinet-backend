@@ -348,6 +348,19 @@ export default function DesignTool() {
     ) as { distributorId?: number } | undefined;
     return s?.distributorId ?? null;
   }, [doorStyles, styleId]);
+  // Two-tone supply-line check: when both Color 1 (slot A) and Color 2 (slot B)
+  // are chosen, compare the distributor (supply line) behind each. If they don't
+  // share a supply line, the two colors ship from different suppliers, which
+  // adds freight — surface a non-blocking warning so the member can stay within
+  // one family if they prefer.
+  const twoToneCrossDistributor = useMemo(() => {
+    if (styleA == null || styleB == null) return false;
+    const source = (doorStyles ?? []) as Array<{ id: number; distributorId?: number }>;
+    const distA = source.find((d) => d.id === styleA)?.distributorId ?? null;
+    const distB = source.find((d) => d.id === styleB)?.distributorId ?? null;
+    if (distA == null || distB == null) return false;
+    return distA !== distB;
+  }, [doorStyles, styleA, styleB]);
   // De-duplicate by display name so the same style isn't listed once per line.
   // When locked, only offer styles from the locked distributor so changing the
   // finish never silently switches supply lines.
@@ -3887,6 +3900,14 @@ export default function DesignTool() {
                         </div>
                       ))}
                     </div>
+                  </div>,
+                );
+              }
+              if (twoToneCrossDistributor) {
+                noteItems.push(
+                  <div key="twotone-family" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                    <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                    <span>{t("dt_two_tone_family_warn")}</span>
                   </div>,
                 );
               }

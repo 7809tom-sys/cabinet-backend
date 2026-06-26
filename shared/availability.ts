@@ -104,6 +104,35 @@ export function nearestWarehouseMiles(
   return best;
 }
 
+/**
+ * Given a customer coordinate and a list of warehouse refs (zip + resolved
+ * coordinate), return the ZIP of the nearest warehouse. Falls back to the first
+ * warehouse zip when the customer cannot be located, and null when the list is
+ * empty. Used to pick the freight ORIGIN so an order ships from the closest
+ * warehouse instead of one fixed origin ZIP.
+ */
+export function pickNearestWarehouseZip(
+  customer: LatLng | null,
+  warehouses: WarehouseRef[]
+): string | null {
+  const valid = warehouses.filter((w) => !!w.zip);
+  if (valid.length === 0) return null;
+  if (!customer) return valid[0].zip;
+  let bestZip: string | null = null;
+  let best: number | null = null;
+  for (const w of valid) {
+    if (!w.coord) continue;
+    const d = haversineMiles(customer, w.coord);
+    if (best === null || d < best) {
+      best = d;
+      bestZip = w.zip;
+    }
+  }
+  // If none of the warehouses had a resolvable coordinate, fall back to the
+  // first zip so we still ship from a real warehouse rather than the global one.
+  return bestZip ?? valid[0].zip;
+}
+
 export const DEFAULT_SERVICE_RADIUS_MI = 250;
 
 /** Is a supply line available to a customer location within the radius? */

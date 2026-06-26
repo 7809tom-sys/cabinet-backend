@@ -7,8 +7,17 @@ import {
   shippingSettings,
   freightZones,
   cabinets,
+  distributors,
+  distributorSkus,
   type ShippingSettings,
 } from "../../drizzle/schema";
+import {
+  normalizeZip,
+  approxZipCentroid,
+  pickNearestWarehouseZip,
+  type WarehouseRef,
+} from "../../shared/availability";
+import { makeRequest, type GeocodingResult, type LatLng } from "../_core/map";
 import {
   estimateFreight,
   totalCartWeight,
@@ -218,6 +227,100 @@ async function resolvePackages(
   return { packages, weighted };
 }
 
+// ─── Freight origin resolution (nearest distributor warehouse) ───────────────
+// In-memory geocode cache (zip → coord). Process-lifetime only; mirrors the
+// location router so destination/warehouse ZIPs resolve offline-first.
+const zipCoordCache = new Map<string, LatLng | null>();
+
+async function geocodeZip(zip: string): Promise<LatLng | null> {
+  if (zipCoordCache.has(zip)) return zipCoordCache.get(zip)!;
+  const offline = approxZipCentroid(zip);
+  if (offline) {
+    zipCoordCache.set(zip, offline);
+    return offline;
+  }
+  try {
+    const res = await makeRequest<GeocodingResult>("/maps/api/geocode/json", {
+      address: `${zip}, USA`,
+      components: "country:US",
+    });
+    const loc = res.results?.[0]?.geometry?.location ?? null;
+    zipCoordCache.set(zip, loc);
+    return loc;
+  } catch {
+    zipCoordCache.set(zip, null);
+    return null;
+  }
+}
+
+/**
+ * Figure out which distributor(s) the cart's cabinets belong to. We look up the
+ * distributor_skus rows for the cabinetIds present in the cart. A well-formed
+ * order is single-line (one distributor), so we use the most common distributor.
+ * Returns null when no cabinetIds resolve to a SKU.
+ */
+async function resolveCartDistributorId(
+  items: FreightItemInput[],
+  explicit?: number | null
+): Promise<number | null> {
+  if (explicit != null) return explicit;
+  const ids = items
+    .map((i) => i.cabinetId)
+    .filter((id): id is number => typeof id === "number");
+  if (ids.length === 0) return null;
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({ distributorId: distributorSkus.distributorId })
+    .from(distributorSkus)
+    .where(inArray(distributorSkus.cabinetId, ids));
+  if (rows.length === 0) return null;
+  const counts = new Map<number, number>();
+  for (const r of rows) counts.set(r.distributorId, (counts.get(r.distributorId) ?? 0) + 1);
+  let bestId: number | null = null;
+  let bestN = -1;
+  for (const [id, n] of Array.from(counts.entries())) {
+    if (n > bestN) {
+      bestN = n;
+      bestId = id;
+    }
+  }
+  return bestId;
+}
+
+/**
+ * Resolve the freight ORIGIN ZIP: ship from the distributor warehouse nearest to
+ * the destination instead of one fixed origin. Falls back to `fallbackZip`
+ * (settings.originZip) when the distributor has no warehouse ZIPs or cannot be
+ * resolved.
+ */
+async function resolveOriginZip(
+  destinationZip: string,
+  distributorId: number | null,
+  fallbackZip: string
+): Promise<string> {
+  if (distributorId == null) return fallbackZip;
+  const db = await getDb();
+  if (!db) return fallbackZip;
+  const rows = await db
+    .select({ warehouseZips: distributors.warehouseZips })
+    .from(distributors)
+    .where(eq(distributors.id, distributorId))
+    .limit(1);
+  const zips = (rows[0]?.warehouseZips ?? []) as string[];
+  const normalized = zips
+    .map((z) => normalizeZip(z))
+    .filter((z): z is string => !!z);
+  if (normalized.length === 0) return fallbackZip;
+
+  const customer = await geocodeZip(normalizeZip(destinationZip) ?? destinationZip);
+  const warehouses: WarehouseRef[] = await Promise.all(
+    normalized.map(async (zip) => ({ zip, coord: await geocodeZip(zip) }))
+  );
+  const nearest = pickNearestWarehouseZip(customer, warehouses);
+  return nearest ?? fallbackZip;
+}
+
 // Build a stable FreightQuote from a live carrier amount.
 function liveQuoteToFreightQuote(
   carrierCents: number,
@@ -287,6 +390,9 @@ export const freightRouter = router({
         items: itemsSchema,
         merchandiseSubtotalCents: z.number().int().min(0).default(0),
         accessorials: accessorialsSchema,
+        // Optional: explicit supply line for this cart. When omitted we infer it
+        // from the cart's cabinetIds so freight ships from the nearest warehouse.
+        distributorId: z.number().int().positive().nullable().optional(),
       })
     )
     .query(async ({ input }): Promise<FreightQuote> => {
@@ -326,8 +432,20 @@ export const freightRouter = router({
           };
         }
 
+        // Ship from the distributor warehouse nearest the destination (falls
+        // back to the configured global origin ZIP when unavailable).
+        const cartDistributorId = await resolveCartDistributorId(
+          input.items,
+          input.distributorId
+        );
+        const originZip = await resolveOriginZip(
+          input.destinationZip,
+          cartDistributorId,
+          settings.originZip
+        );
+
         const live = await easypostQuote(liveKey, {
-          fromZip: settings.originZip,
+          fromZip: originZip,
           toZip: input.destinationZip,
           pallets: plan.pallets.map((p) => ({
             lengthIn: p.lengthIn,

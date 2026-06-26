@@ -4,6 +4,7 @@ import {
   normalizeZip,
   approxZipCentroid,
   nearestWarehouseMiles,
+  pickNearestWarehouseZip,
   isWithinRadius,
   DEFAULT_SERVICE_RADIUS_MI,
 } from "./availability";
@@ -71,5 +72,41 @@ describe("availability radius", () => {
 
   it("default radius is a sane positive number", () => {
     expect(DEFAULT_SERVICE_RADIUS_MI).toBeGreaterThan(0);
+  });
+});
+
+describe("pickNearestWarehouseZip", () => {
+  const warehouses = [
+    { zip: "98032", coord: approxZipCentroid("98032") }, // Seattle
+    { zip: "75247", coord: approxZipCentroid("75247") }, // Dallas
+    { zip: "33054", coord: approxZipCentroid("33054") }, // Miami
+  ];
+
+  it("returns the warehouse ZIP nearest the customer", () => {
+    const cust = approxZipCentroid("75201"); // Dallas
+    expect(pickNearestWarehouseZip(cust, warehouses)).toBe("75247");
+  });
+
+  it("picks Seattle for a Pacific-NW customer", () => {
+    const cust = approxZipCentroid("98101"); // Seattle area resolves via 980 prefix
+    // 98101 has no centroid; fall back to a known WA coordinate.
+    const seattle = { lat: 47.61, lng: -122.33 };
+    expect(pickNearestWarehouseZip(cust ?? seattle, warehouses)).toBe("98032");
+  });
+
+  it("falls back to the first ZIP when the customer can't be located", () => {
+    expect(pickNearestWarehouseZip(null, warehouses)).toBe("98032");
+  });
+
+  it("returns null for an empty warehouse list", () => {
+    expect(pickNearestWarehouseZip(approxZipCentroid("75201"), [])).toBeNull();
+  });
+
+  it("falls back to first ZIP when no warehouse has a coordinate", () => {
+    const noCoords = [
+      { zip: "00000", coord: null },
+      { zip: "11111", coord: null },
+    ];
+    expect(pickNearestWarehouseZip(approxZipCentroid("75201"), noCoords)).toBe("00000");
   });
 });
