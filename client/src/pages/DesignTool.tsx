@@ -3130,6 +3130,39 @@ export default function DesignTool() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {/* Door-style-first prompt: the palette is empty until a door style
+                is picked (catalog + pricing key off it). Make that obvious with a
+                clear call-out + a jump to the picker, instead of leaving users
+                staring at an empty list. */}
+            {!styleId &&
+              paletteType !== "opening" &&
+              paletteType !== "closetparts" &&
+              paletteType !== "accessory" && (
+                <div className="mb-2 rounded-lg border border-[#a87f33]/40 bg-[#a87f33]/10 px-3 py-3 text-center space-y-2">
+                  <p className="text-xs font-semibold text-foreground">
+                    {t("dt_pl_need_style_title")}
+                  </p>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {t("dt_pl_need_style_body")}
+                  </p>
+                  <Button
+                    size="sm"
+                    className="h-7 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 text-[11px]"
+                    onClick={() => {
+                      const el = document.getElementById("door-style-picker-card");
+                      if (el) {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        el.classList.add("ring-2", "ring-[#a87f33]", "rounded-lg");
+                        window.setTimeout(() => {
+                          el.classList.remove("ring-2", "ring-[#a87f33]", "rounded-lg");
+                        }, 1800);
+                      }
+                    }}
+                  >
+                    {t("dt_pl_need_style_cta")}
+                  </Button>
+                </div>
+              )}
             {paletteType === "opening" ? (
               OPENINGS.map((o) => (
                 <button
@@ -3493,6 +3526,7 @@ export default function DesignTool() {
               The header summarizes the active style + tier when collapsed. The
               door-style hero sample above stays visible at all times. */}
           <SheetSection
+            id="door-style-picker-card"
             className="border-b border-border"
             title={
               styleId
@@ -4308,7 +4342,7 @@ function PricingShell({
 // children). The Estimated Total + Export CTA are intentionally NOT wrapped in
 // this so they always stay visible.
 function SheetSection({
-  title, count, collapsed, onToggle, children, className,
+  title, count, collapsed, onToggle, children, className, id,
 }: {
   title: string;
   count?: number;
@@ -4316,9 +4350,10 @@ function SheetSection({
   onToggle: () => void;
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
-    <div className={className}>
+    <div id={id} className={className}>
       <button
         type="button"
         onClick={onToggle}
