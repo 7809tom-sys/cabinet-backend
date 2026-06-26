@@ -1888,3 +1888,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Reword OrderReview decorative end-panels blurb to cosmetic-only
 - [x] Hickory skin auto-suggest left untouched (only style with unfinished exposed ends)
 - [x] tsc clean + full suite green (966 tests)
+
+## Designer: remove Export Build Sheet (CSV)
+- [x] Remove the "Export Build Sheet (CSV)" button from the designer estimate panel (redundant now that "Add all to cart" handles ordering)
+- [x] Remove unused exportBuildSheet + Download imports (kept buildSheetCsv helper + its tests, still valid)
+- [x] tsc clean + full suite green (966 tests)

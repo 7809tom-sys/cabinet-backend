@@ -3,7 +3,7 @@ import { useSearch, useLocation } from "wouter";
 import { useCart, type CartItem } from "@/contexts/CartContext";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
-  DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
+  DollarSign, PanelTop, Columns3, Ruler, Square, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
 } from "lucide-react";
@@ -72,7 +72,7 @@ import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
-import { DesignActions, exportBuildSheet, type BuildSheetRow } from "@/components/design/DesignActions";
+import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl } from "@/components/design/RoomSizeControl";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
@@ -3972,19 +3972,6 @@ export default function DesignTool() {
               }}
             >
               <ShoppingCart className="h-4 w-4" /> {t("dt_cart_add_all")}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full mt-2 bg-[#1a2744] text-white hover:bg-[#1a2744]/90 gap-2 border-transparent"
-              disabled={placed.length === 0}
-              onClick={() => {
-                if (hasConflicts && !window.confirm(
-                  t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
-                )) return;
-                exportBuildSheet({ room, styleName: activeStyleName, tier, total, buildRows, extraLines });
-              }}
-            >
-              <Download className="h-4 w-4" /> {t("dt_bs_export_csv")}
             </Button>
             <Button
               variant="outline"
