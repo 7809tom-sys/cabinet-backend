@@ -1837,6 +1837,6 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] EN/ES label for the icon/popover title; tests + tsc + verify; checkpoint
 
 ## Corner cabinet (Easy-Reach / Lazy Susan) SKU coverage backfill
-- [ ] ERB-33, ERB-36, LSB33, LSB36, LSB36ADA only have SKUs for a subset of the 62 door styles, so they disappear from the Corner tab for styles they lack
-- [ ] Backfill missing distributor_skus for these 5 cabinets across all active door styles, copying each cabinet's existing price (wholesale/contractor/list/etc.) so they appear on every style
-- [ ] Verify in DB each of the 5 now has 62 available+published styles; spot-check designer Corner tab
+- [x] ERB-33, ERB-36, LSB33, LSB36, LSB36ADA only have SKUs for a subset of the 62 door styles, so they disappear from the Corner tab for styles they lack
+- [x] Backfill missing distributor_skus for these 5 cabinets across all active door styles, copying each cabinet's existing price (wholesale/contractor/list/etc.) so they appear on every style
+- [x] Verify in DB each of the 5 now has 62 available+published styles; spot-check designer Corner tab
