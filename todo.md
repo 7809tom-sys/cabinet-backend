@@ -1913,4 +1913,10 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Two-tone "family" rule warning in DesignTool when Color 1 / Color 2 come from different distributors (EN/ES i18n)
 - [x] Flat-shaded depth cues (directional shading + seam contact shadow + floor plane) added to CornerView — lightweight, no perspective/3D math (option 3)
 - [x] tsc clean + full test suite passing (87 files, 971 tests)
-- [ ] Checkpoint
+- [x] Checkpoint (version 049cba49)
+
+
+## Corner view enhancements (June)
+- [x] Strengthen CornerView depth cues (deeper seam shadow, stronger directional wall shading, floor plane + contact line, ceiling shade)
+- [x] Render corner cabinets (lazy Susan / diagonal corner / WDC / blind corner) straddling BOTH walls at the seam in Corner view — added seamCabinets prop to ElevationView (renderCabinetBox helper, pinned to corner end posAlong 0); CornerView computes corner cabinets seated at the viewed corner via cornerRotationForPlaced and injects seam ghosts into the non-owning half. tsc clean; verified live with LSB36 showing on both walls
+- [x] Verify both-sides corner rendering in live designer + checkpoint

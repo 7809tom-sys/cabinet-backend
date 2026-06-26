@@ -50,6 +50,11 @@ interface Props {
   // Decorative hardware spec to draw on the fronts (knob / pull / cup). When
   // omitted or "none", no hardware is drawn.
   hardwareStyleId?: HardwareStyleId | null;
+  // Corner cabinets that physically wrap THIS corner but are owned by the
+  // adjoining wall. CornerView injects them so a lazy-Susan / diagonal / blind
+  // corner unit is drawn on BOTH walls, pinned to the seam (corner end of the
+  // wall = posAlong 0). These are render-only ghosts of the real placed cabinet.
+  seamCabinets?: PlacedCabinet[];
 }
 
 export function ElevationView({
@@ -57,7 +62,7 @@ export function ElevationView({
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
-  finishFor, panelKindFor,
+  finishFor, panelKindFor, seamCabinets = [],
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
@@ -109,6 +114,91 @@ export function ElevationView({
 
   // Openings on the wall being viewed.
   const viewOpenings = openings.filter((o) => o.side === side);
+
+  // Draw a single cabinet/appliance face box. Shared by the main run and by the
+  // seam (corner) cabinets injected from CornerView. When `seam` is set the box
+  // is pinned to the corner end of the wall (posAlong 0), drawn as a render-only
+  // ghost of a corner cabinet that physically wraps this corner.
+  const renderCabinetBox = (p: PlacedCabinet, seam = false) => {
+    const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+    const posAlong = seam ? 0 : (horizontal ? p.x : p.y);
+    const { bottom, height } = elevationBox(p, room);
+    const isWall = p.placement === "wall";
+    const isAppliance = p.placement === "appliance";
+    const isSelected = p.uid === selectedUid;
+    const cabFinish = finishFor ? finishFor(p) : finish;
+    const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
+    const faceFill = isAppliance
+      ? "linear-gradient(to bottom, #d9dee6 0%, #c2c9d4 100%)"
+      : cabFinish.face;
+    const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
+
+    return (
+      <div
+        key={seam ? `${p.uid}-seam` : p.uid}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(p.uid);
+        }}
+        className="absolute cursor-pointer flex flex-col items-center justify-center overflow-hidden"
+        style={{
+          left: posAlong * ppi,
+          width: sizeAlong * ppi,
+          bottom: bottom * ppi,
+          height: height * ppi,
+          background: faceFill,
+          border: isSelected
+            ? "2px solid #1a2744"
+            : `1.5px solid ${edgeColor}`,
+          boxShadow: isSelected ? "0 0 0 3px rgba(212,167,90,0.5)" : undefined,
+          opacity: seam ? 0.96 : undefined,
+        }}
+        title={`${p.masterCode} — ${p.description}`}
+      >
+        <div className="w-full h-full relative">
+          {!isAppliance && (
+            <DoorFront
+              kind={cabPanelKind}
+              edge={edgeColor}
+              face={cabFinish.face}
+              doors={doorCountForCabinet(p)}
+              drawers={displayDrawerCount(p)}
+              isWall={isWall}
+            />
+          )}
+          {!isAppliance && hw.id !== "none" && (
+            <HardwareOverlay
+              doors={doorCountForCabinet(p)}
+              drawers={drawerCountForCabinet(p)}
+              doorPiece={hw.doorPiece}
+              drawerPiece={hw.drawerPiece}
+              accent="#1a2744"
+            />
+          )}
+          {!isAppliance && (() => {
+            const sw = resolveSwing(p);
+            if (sw !== "left" && sw !== "right") return null;
+            return (
+              <div
+                className="absolute top-[12%] bottom-[12%] z-10 rounded"
+                style={{
+                  [sw === "left" ? "left" : "right"]: 1,
+                  width: 2.5,
+                  background: "#1a2744",
+                } as React.CSSProperties}
+                title={sw === "left" ? t("dt_ev_left_hinge") : t("dt_ev_right_hinge")}
+              />
+            );
+          })()}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : cabFinish.label, ...textFlip }}>
+              {p.masterCode}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -195,93 +285,12 @@ export function ElevationView({
           );
         })()}
 
-        {sorted.map((p) => {
-          const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
-          const posAlong = horizontal ? p.x : p.y;
-          const { bottom, height } = elevationBox(p, room);
-          const isWall = p.placement === "wall";
-          const isAppliance = p.placement === "appliance";
-          const isSelected = p.uid === selectedUid;
-          const cabFinish = finishFor ? finishFor(p) : finish;
-          const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
-          const faceFill = isAppliance
-            ? "linear-gradient(to bottom, #d9dee6 0%, #c2c9d4 100%)"
-            : cabFinish.face;
-          const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
+        {sorted.map((p) => renderCabinetBox(p))}
 
-          return (
-            <div
-              key={p.uid}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(p.uid);
-              }}
-              className="absolute cursor-pointer flex flex-col items-center justify-center overflow-hidden"
-              style={{
-                left: posAlong * ppi,
-                width: sizeAlong * ppi,
-                bottom: bottom * ppi,
-                height: height * ppi,
-                background: faceFill,
-                border: isSelected
-                  ? "2px solid #1a2744"
-                  : `1.5px solid ${edgeColor}`,
-                boxShadow: isSelected ? "0 0 0 3px rgba(212,167,90,0.5)" : undefined,
-              }}
-              title={`${p.masterCode} — ${p.description}`}
-            >
-              <div className="w-full h-full relative">
-                {/* Door-style-specific front treatment (skipped for appliances).
-                    Renders a real drawer stack on top + door region below so
-                    drawer bases visibly show their drawer fronts in the drawing. */}
-                {!isAppliance && (
-                  <DoorFront
-                    kind={cabPanelKind}
-                    edge={edgeColor}
-                    face={cabFinish.face}
-                    doors={doorCountForCabinet(p)}
-                    drawers={displayDrawerCount(p)}
-                    isWall={isWall}
-                  />
-                )}
-                {/* Decorative hardware (knobs / pulls / cup pulls) reflecting the
-                    chosen hardware spec. Doors get the door piece; drawers get
-                    the drawer piece. Skipped for appliances and style "none". */}
-                {!isAppliance && hw.id !== "none" && (
-                  <HardwareOverlay
-                    doors={doorCountForCabinet(p)}
-                    drawers={drawerCountForCabinet(p)}
-                    doorPiece={hw.doorPiece}
-                    drawerPiece={hw.drawerPiece}
-                    accent="#1a2744"
-                  />
-                )}
-                {/* Hinge-side marker: a slim vertical bar on the hinge edge so the
-                    shop reads Left vs Right swing on the elevation too. */}
-                {!isAppliance && (() => {
-                  const sw = resolveSwing(p);
-                  if (sw !== "left" && sw !== "right") return null;
-                  return (
-                    <div
-                      className="absolute top-[12%] bottom-[12%] z-10 rounded"
-                      style={{
-                        [sw === "left" ? "left" : "right"]: 1,
-                        width: 2.5,
-                        background: "#1a2744",
-                      } as React.CSSProperties}
-                      title={sw === "left" ? t("dt_ev_left_hinge") : t("dt_ev_right_hinge")}
-                    />
-                  );
-                })()}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : cabFinish.label, ...textFlip }}>
-                    {p.masterCode}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {/* Corner cabinets that wrap this corner from the adjoining wall, drawn
+            pinned to the seam so a lazy-Susan / diagonal / blind unit shows on
+            BOTH walls of the corner view. */}
+        {seamCabinets.map((p) => renderCabinetBox(p, true))}
 
         {sorted
           .filter((p) => p.placement === "base" && p.cabinetId !== 0)
