@@ -1920,3 +1920,4 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Strengthen CornerView depth cues (deeper seam shadow, stronger directional wall shading, floor plane + contact line, ceiling shade)
 - [x] Render corner cabinets (lazy Susan / diagonal corner / WDC / blind corner) straddling BOTH walls at the seam in Corner view — added seamCabinets prop to ElevationView (renderCabinetBox helper, pinned to corner end posAlong 0); CornerView computes corner cabinets seated at the viewed corner via cornerRotationForPlaced and injects seam ghosts into the non-owning half. tsc clean; verified live with LSB36 showing on both walls
 - [x] Verify both-sides corner rendering in live designer + checkpoint
+- [ ] Make Corner view read as TRUE 3D: CSS perspective with both walls converging to a vanishing point at the seam, tapered floor + ceiling planes (lightweight, no 3D engine)
