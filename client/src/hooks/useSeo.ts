@@ -8,6 +8,7 @@ import { useEffect } from "react";
  *   - Twitter Card tags (twitter:card / twitter:title / twitter:description / twitter:image)
  *   - <link rel="canonical">
  *   - <html lang>
+ *   - <script type="application/ld+json"> structured data (rich snippets)
  * and restores the previous values on unmount. Keeps us SEO-friendly without
  * pulling in react-helmet.
  */
@@ -27,6 +28,12 @@ export interface SeoOptions {
   lang?: "en" | "es";
   /** Override canonical URL; defaults to the current location (no query/hash). */
   canonical?: string;
+  /**
+   * Structured data (schema.org) injected as a JSON-LD <script>. Pass a single
+   * object or an array of objects; each is rendered as its own tag and removed
+   * on unmount. Stringify-stable inputs only (memoize before passing).
+   */
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
 /** Find or create a <meta> by attribute (name or property) and set its content. */
@@ -67,7 +74,12 @@ export function useSeo(
     image = DEFAULT_IMAGE,
     lang,
     canonical,
+    jsonLd,
   } = opts;
+
+  // Serialize once so the effect dependency is a stable primitive string
+  // (avoids re-running on every render when callers pass inline objects).
+  const jsonLdKey = jsonLd ? JSON.stringify(jsonLd) : "";
 
   useEffect(() => {
     const created: HTMLElement[] = [];
@@ -136,6 +148,23 @@ export function useSeo(
       setMeta("property", "og:url", url, created, prev);
     }
 
+    // JSON-LD structured data
+    const ldScripts: HTMLScriptElement[] = [];
+    if (jsonLdKey) {
+      const parsed = JSON.parse(jsonLdKey) as
+        | Record<string, unknown>
+        | Record<string, unknown>[];
+      const blocks = Array.isArray(parsed) ? parsed : [parsed];
+      for (const block of blocks) {
+        const script = document.createElement("script");
+        script.type = "application/ld+json";
+        script.setAttribute("data-seo-jsonld", "true");
+        script.textContent = JSON.stringify(block);
+        document.head.appendChild(script);
+        ldScripts.push(script);
+      }
+    }
+
     return () => {
       document.title = prevTitle;
       if (prevLang !== null) {
@@ -157,6 +186,7 @@ export function useSeo(
         if (createdCanon) canonEl.remove();
         else if (prevCanon !== null) canonEl.setAttribute("href", prevCanon);
       }
+      for (const s of ldScripts) s.remove();
     };
-  }, [title, desc, type, image, lang, canonical]);
+  }, [title, desc, type, image, lang, canonical, jsonLdKey]);
 }

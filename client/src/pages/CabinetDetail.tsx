@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useSearch } from "wouter";
 import {
   ChevronLeft, Package, Palette, DollarSign,
@@ -27,6 +27,7 @@ import { finishColors } from "@/lib/design";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
+import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
@@ -208,11 +209,32 @@ export default function CabinetDetail({ masterCode }: Props) {
   const seoName = cabinet?.description
     ? translateSpec(cabinet.description, lang)
     : masterCode;
+  // Product structured data (no Offer — cabinet pricing is tier/member-gated
+  // and must not be published in markup). Memoized so the JSON-LD <script>
+  // isn't re-injected on every render.
+  const cabinetJsonLd = useMemo(
+    () =>
+      cabinet
+        ? buildProductJsonLd({
+            name: seoName,
+            description: translateSpec(cabinet.description ?? "", lang),
+            sku: masterCode,
+            image: cabinet.catalogImageUrl ?? undefined,
+            url:
+              typeof window !== "undefined"
+                ? `${window.location.origin}/catalog/${masterCode}`
+                : undefined,
+            category: cabinet.category ?? undefined,
+          })
+        : undefined,
+    [cabinet, seoName, masterCode, lang],
+  );
   useSeo({
     title: t("seo_cabinet_t", { name: seoName }),
     description: t("seo_cabinet_d", { name: seoName }),
     type: "product",
     lang,
+    ...(cabinetJsonLd ? { jsonLd: cabinetJsonLd } : {}),
   });
 
   const { data: styles, isLoading: pricingLoading } = trpc.pricing.stylesForCabinet.useQuery(

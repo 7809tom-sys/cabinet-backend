@@ -13,6 +13,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
+import { buildPackageJsonLd } from "@/lib/seo/jsonLd";
 
 function usd(n: number | null) {
   if (n == null) return "—";
@@ -32,11 +33,33 @@ export default function PackageDetail({ slug }: { slug: string }) {
   });
 
   const pkgName = (pkg as { name?: string } | undefined)?.name ?? "";
+  // Package structured data WITH a public Offer (suggested retail in USD).
+  // Package pricing is public, so it's safe — and good for rich snippets — to
+  // publish it. Memoized on the priced fields to keep the JSON-LD stable.
+  const pkgForLd = pkg as
+    | { name?: string; slug?: string; blurb?: string; suggestedRetail?: number }
+    | undefined;
+  const packageJsonLd = useMemo(
+    () =>
+      pkgForLd && typeof pkgForLd.suggestedRetail === "number"
+        ? buildPackageJsonLd({
+            name: pkgForLd.name ?? "",
+            description: pkgForLd.blurb ?? undefined,
+            url:
+              typeof window !== "undefined" && pkgForLd.slug
+                ? `${window.location.origin}/packages/${pkgForLd.slug}`
+                : undefined,
+            offer: { price: pkgForLd.suggestedRetail, availability: "InStock" },
+          })
+        : undefined,
+    [pkgForLd?.name, pkgForLd?.slug, pkgForLd?.blurb, pkgForLd?.suggestedRetail],
+  );
   useSeo({
     title: pkgName ? t("seo_package_t", { name: pkgName }) : t("seo_packages_t"),
     description: pkgName ? t("seo_package_d", { name: pkgName }) : t("seo_packages_d"),
     type: "product",
     lang,
+    ...(packageJsonLd ? { jsonLd: packageJsonLd } : {}),
   });
 
   const { data: styles } = trpc.doorStyles.list.useQuery();

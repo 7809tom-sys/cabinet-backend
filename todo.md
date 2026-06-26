@@ -1787,3 +1787,11 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Bilingual SEO copy (EN+ES) for all meta; og:locale toggles en_US/es_ES
 - [x] Tests (server/seo.test.ts, 4) + tsc clean + verified robots/sitemap via curl + static head via curl; full suite 942 pass
 - [ ] FOLLOW-UP (post-publish): update sitemap/canonical confirmed against final custom domain; submit sitemap to Google Search Console
+
+
+## SEO: Structured data (JSON-LD) for rich snippets
+- [x] Build a pure jsonLd helper module (buildProductJsonLd / buildPackageJsonLd) with unit tests (client/src/lib/seo/jsonLd.ts; 7 tests)
+- [x] Extend useSeo to inject/cleanup a <script type="application/ld+json"> tag (single or array; stable via stringified key; removed on unmount)
+- [x] CabinetDetail: emit Product JSON-LD (name, description, brand Cabinet Dealz, image, sku/mpn, url, category) — NO Offer (tier/member-gated pricing intentionally not published). Verified in live DOM (DB-12-3)
+- [x] PackageDetail: emit Product JSON-LD with Offer (suggestedRetail price, priceCurrency USD, availability InStock, url). Verified in live DOM (l-shape-10x10: price 3330.33 USD InStock)
+- [x] Validate JSON shape via tests (949 pass) + tsc clean + headless Chromium DOM dump of both page types; checkpoint
