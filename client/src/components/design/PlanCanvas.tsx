@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
-  PlacedCabinet, RoomData, rotatedSize, placedFootprint, snapPosition, hasCollision,
+  PlacedCabinet, RoomData, rotatedSize, placedFootprint, snapPosition, orientToWall, hasCollision,
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, formatInches, isBlindCorner,
   resolveSwing,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
@@ -23,7 +23,7 @@ interface Props {
   cabinets: PlacedCabinet[];
   selectedUid: string | null;
   onSelect: (uid: string | null) => void;
-  onMove: (uid: string, x: number, y: number) => void;
+  onMove: (uid: string, x: number, y: number, rotation?: number) => void;
   onDelete?: (uid: string) => void;
   // Rotate the selected cabinet 90° in place (touch-friendly on-canvas handle).
   onRotate?: (uid: string) => void;
@@ -365,14 +365,17 @@ export function PlanCanvas({
       const rawX = px / ppi;
       const rawY = py / ppi;
 
-      const candidate: PlacedCabinet = { ...cabinet, x: rawX, y: rawY };
-      const snapped = snapPosition(
-        candidate,
-        room,
-        cabinets.filter((c) => c.placement === cabinet.placement)
-      );
+      let candidate: PlacedCabinet = { ...cabinet, x: rawX, y: rawY };
+      // Auto-rotate: if the cabinet is meeting a wall, turn it so its back is to
+      // that wall BEFORE snapping, so the snapped x/y use the turned footprint.
+      const others = cabinets.filter((c) => c.placement === cabinet.placement);
+      const targetRot = orientToWall(candidate, room);
+      if (targetRot != null) {
+        candidate = { ...candidate, rotation: targetRot };
+      }
+      const snapped = snapPosition(candidate, room, others);
       setHoverSnap(snapped.snappedWall);
-      onMove(dragUid, snapped.x, snapped.y);
+      onMove(dragUid, snapped.x, snapped.y, targetRot ?? undefined);
     },
     [dragUid, cabinets, ppi, room, onMove]
   );

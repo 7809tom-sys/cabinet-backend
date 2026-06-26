@@ -24,7 +24,7 @@ import {
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun,
-  snapPosition, hasCollision,
+  snapPosition, orientToWall, hasCollision,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   cabinetAttrNote,
@@ -491,6 +491,38 @@ describe("snapToWall — explicit wall placement", () => {
     const r = snapToWall(cab({ x: 200, y: 30, width: 24, depth: 24 }), "top", room);
     expect(r.x).toBe(144 - 24);
     expect(r.y).toBe(0);
+  });
+});
+
+describe("orientToWall (auto-rotate to face the room)", () => {
+  const room: RoomData = { width: 144, depth: 120 };
+
+  it("turns a wrongly-rotated cabinet to 0 at the top wall", () => {
+    // A cabinet currently at 90 (vertical) dragged flush to the top wall should
+    // become 0 so its back is to the back wall.
+    const p = cab({ x: 40, y: 0, width: 24, depth: 24, rotation: 90 });
+    expect(orientToWall(p, room)).toBe(0);
+  });
+
+  it("turns a wrongly-rotated cabinet to 90 at the left wall", () => {
+    const p = cab({ x: 0, y: 40, width: 24, depth: 24, rotation: 0 });
+    expect(orientToWall(p, room)).toBe(90);
+  });
+
+  it("turns to 90 at the right wall", () => {
+    // 24x24 box flush to the right wall (x so right edge ~= room width).
+    const p = cab({ x: 144 - 24, y: 40, width: 24, depth: 24, rotation: 0 });
+    expect(orientToWall(p, room)).toBe(90);
+  });
+
+  it("returns null when already correctly oriented for that wall", () => {
+    const p = cab({ x: 40, y: 0, width: 24, depth: 24, rotation: 0 });
+    expect(orientToWall(p, room)).toBeNull();
+  });
+
+  it("returns null when the cabinet is out in the middle of the room", () => {
+    const p = cab({ x: 60, y: 50, width: 24, depth: 24, rotation: 0 });
+    expect(orientToWall(p, room)).toBeNull();
   });
 });
 

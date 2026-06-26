@@ -1788,8 +1788,10 @@ export default function DesignTool() {
     [addCabinet]
   );
 
-  const moveCabinet = useCallback((uid: string, x: number, y: number) => {
-    setPlaced((prev) => prev.map((p) => (p.uid === uid ? { ...p, x, y } : p)));
+  const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number) => {
+    setPlaced((prev) => prev.map((p) => (p.uid === uid
+      ? { ...p, x, y, ...(rotation != null ? { rotation } : {}) }
+      : p)));
   }, []);
 
   const swingSelected = () => {

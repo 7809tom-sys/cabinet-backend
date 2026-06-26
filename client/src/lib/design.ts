@@ -637,6 +637,44 @@ export function snapPosition(
   return { x, y, snappedWall };
 }
 
+// Auto-orientation: when a cabinet is dragged near a wall, it should turn so its
+// BACK is to that wall and it faces into the room. Back/front (horizontal) walls
+// want rotation 0; left/right (vertical) walls want rotation 90. We pick the
+// SINGLE nearest wall within the snap threshold (so a corner does not flip-flop)
+// and only suggest a turn when the cabinet's current orientation does not already
+// match that wall. Returns the target rotation, or null when no wall is close
+// enough (e.g. the cabinet is out in the middle / on an island) so the caller
+// can leave the user's chosen rotation alone.
+export function orientToWall(
+  moving: PlacedCabinet,
+  room: RoomData
+): number | null {
+  // Note: island cabinets sit out in the middle of the room, so they never fall
+  // within the wall snap threshold below and are left untouched automatically.
+  const { w, d } = rotatedSize(moving);
+  const T = STD.SNAP_THRESHOLD;
+  // Distance from each wall (negative/positive both count via abs).
+  const dist: Record<WallSide, number> = {
+    top: Math.abs(moving.y - 0),
+    bottom: Math.abs(moving.y + d - room.depth),
+    left: Math.abs(moving.x - 0),
+    right: Math.abs(moving.x + w - room.width),
+  };
+  // Nearest wall within threshold.
+  let best: WallSide | null = null;
+  let bestDist = T;
+  (Object.keys(dist) as WallSide[]).forEach((side) => {
+    if (dist[side] <= bestDist) { bestDist = dist[side]; best = side; }
+  });
+  if (!best) return null;
+  const horizontal = best === "top" || best === "bottom";
+  const targetRot = horizontal ? 0 : 90;
+  const cur = ((Math.round(moving.rotation) % 180) + 180) % 180;
+  // Already correctly oriented for this wall axis -> no change needed.
+  if (cur === targetRot) return null;
+  return targetRot;
+}
+
 export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): boolean {
   const { w, d } = rotatedSize(moving);
   for (const o of others) {
