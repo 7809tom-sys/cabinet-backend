@@ -309,7 +309,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
     return [
       { key: "touchUpKit", label: "Touch-up kit", blurb: "Finish-matched kit for nicks & scratches during install.", items: d.touchUpKit },
       { key: "molding", label: "Crown & trim molding", blurb: "Finish wall & tall cabinets to the ceiling line.", items: d.molding },
-      { key: "endPanels", label: "Decorative end panels", blurb: "Cover exposed cabinet sides in the matching finish.", items: d.endPanels },
+      { key: "endPanels", label: "Decorative end panels", blurb: "Optional cosmetic panels in the matching finish — cabinet ends already come finished.", items: d.endPanels },
       { key: "fillers", label: "Fillers & scribes", blurb: "Close gaps at walls and between cabinets.", items: d.fillers },
       { key: "rollOutTrays", label: "Roll-out shelves", blurb: "Add pull-out shelves inside base cabinets.", items: d.rollOutTrays },
     ].filter((g) => g.items.length > 0);

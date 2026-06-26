@@ -79,7 +79,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 gap-1.5">
             <Maximize className="h-3.5 w-3.5" />
-            <span className="text-xs">{t("dt_room_label", { w: fmt(wDisp), d: fmt(dDisp) })}</span>
+            <span className="text-xs">{t("dt_room_label_h", { w: fmt(wDisp), d: fmt(dDisp), h: fmt(inchesToFeetInches(roomCeiling(room))) })}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-80" align="start">

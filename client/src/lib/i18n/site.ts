@@ -595,6 +595,7 @@ export const SITE_STRINGS = {
 
     // --- Design Tool: Room Size Control ---
     dt_room_label: "Room: {w} × {d}",
+    dt_room_label_h: "Room: {w} × {d} · {h} ceiling",
     dt_rs_measure_title: "Measure your room",
     dt_rs_measure_hint: "Grab a tape measure and enter each wall. Type any format —",
     dt_rs_back_wall: "Back wall (width)",
@@ -1738,6 +1739,7 @@ export const SITE_STRINGS = {
 
     // --- Herramienta de Diseño: Tamaño de la Habitación ---
     dt_room_label: "Habitación: {w} × {d}",
+    dt_room_label_h: "Habitación: {w} × {d} · techo {h}",
     dt_rs_measure_title: "Mide tu habitación",
     dt_rs_measure_hint: "Toma una cinta métrica e ingresa cada pared. Escribe en cualquier formato —",
     dt_rs_back_wall: "Pared del fondo (ancho)",

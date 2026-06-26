@@ -33,7 +33,7 @@ import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths,
-  conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet, isAngledWallCabinet,
+  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, isOnIsland, isCornerCabinet, isAngledWallCabinet,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
   blindCornerAutoFiller,
@@ -829,31 +829,16 @@ export default function DesignTool() {
     [placed, room, activeStyle]
   );
 
-  // Finished END PANELS for every exposed cabinet end on NON-Hickory styles
-  // (Hickory ends are already covered by the skin engine above). Like crown and
-  // toe kick, these are added AUTOMATICALLY based on the layout — one finished
-  // end panel per exposed end — so the customer never has to remember them. When
-  // the catalog exposes a real end-panel SKU for the locked style we use it (and
-  // it is priced); otherwise we emit a clearly-flagged placeholder.
-  const autoEndPanels = useMemo(() => {
-    if (isHickoryStyle(activeStyle as never)) return [];
-    const ends = exposedEnds(placed, room);
-    if (ends.length === 0) return [];
-    const catalogPanel =
-      (addOns?.endPanels as Array<{ id: number; masterCode: string; description: string }> | undefined)?.[0] ?? null;
-    return ends.map((e) => ({
-      end: e.end,
-      placement: e.placement,
-      height: e.height,
-      depth: e.depth,
-      code: catalogPanel?.masterCode ?? `END-PANEL-${e.placement.toUpperCase()}`,
-      cabinetId: catalogPanel?.id ?? null,
-      description: catalogPanel
-        ? `${catalogPanel.description} (covers exposed side of ${e.masterCode})`
-        : `Finished End Panel — ${e.placement} (covers exposed side of ${e.masterCode}) — SKU pending confirmation`,
-      pendingSku: !catalogPanel,
-    }));
-  }, [activeStyle, placed, room, addOns]);
+  // NOTE: Only HICKORY ships with unfinished exposed ends that REQUIRE a skin
+  // (handled by the hickorySkins engine above). Every other door style comes
+  // with FINISHED ends, so nothing is auto-added for them. Decorative end
+  // panels on finished-end styles are purely cosmetic and remain an OPTIONAL
+  // choice the user can add from the catalog/accessories — never auto-added.
+  // We keep this as an empty list so the build-sheet integration below stays
+  // unchanged while no panels are forced onto non-Hickory designs.
+  const autoEndPanels = useMemo<
+    Array<{ code: string; cabinetId: number | null; description: string; height: number; depth: number; pendingSku: boolean }>
+  >(() => [], []);
 
   // Restore a saved design (room + placed cabinets + style) onto the canvas.
   const loadSavedDesign = useCallback(
@@ -1214,8 +1199,14 @@ export default function DesignTool() {
   // Blind corner manufacturer pull spec: missing spec OR installed pull out of
   // the [min,max] range. Missing spec must be resolved by the administrator.
   const blindSpecIssues = useMemo(() => blindCornerSpecViolations(placed), [placed]);
+  // Cabinets that exceed the room's ceiling height (tall pantries / tall uppers).
+  const ceilingViolationUids = useMemo(
+    () => ceilingFitViolations(placed, room),
+    [placed, room]
+  );
   const conflictUids = useMemo(() => {
     const set = conflictingUids(placed);
+    // (ceilingViolationUids declared above)
     // Blind corner rule: a blind corner whose neighbor isn't pulled the
     // required 3" off the corner is also a conflict.
     blindCornerViolations(placed).forEach((uid) => set.add(uid));
@@ -1227,8 +1218,10 @@ export default function DesignTool() {
     baseOpeningUids.forEach((uid: string) => set.add(uid));
     // Blind corner pull spec issues (missing spec or out-of-range).
     blindSpecIssues.forEach((_issue, uid) => set.add(uid));
+    // Cabinet taller than the room's ceiling height.
+    ceilingViolationUids.forEach((uid: string) => set.add(uid));
     return set;
-  }, [placed, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues]);
+  }, [placed, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
   const hasConflicts = conflictUids.size > 0;
   // Blind corner violations specifically, for a tailored warning message.
   const blindViolationUids = useMemo(() => blindCornerViolations(placed), [placed]);
@@ -3786,7 +3779,7 @@ export default function DesignTool() {
                         : rec.kind === "roll-out-tray"
                           ? "Add roll-out trays?"
                           : rec.kind === "end-panel"
-                            ? "Finish exposed sides?"
+                            ? "Add a decorative end panel?"
                             : "Add crown molding?"}
                     </div>
                     <div className="text-[10px] text-muted-foreground mb-2">
@@ -3795,7 +3788,7 @@ export default function DesignTool() {
                         : rec.kind === "roll-out-tray"
                           ? "Pull-out shelves make your base cabinets easier to reach."
                           : rec.kind === "end-panel"
-                            ? "Cover an exposed cabinet side or island end with a decorative panel that matches your door style."
+                            ? "Optional, looks only — your cabinet ends already come finished. A matching decorative panel can dress up an exposed island end or peninsula side if you want."
                             : "A crown profile across the top of your wall cabinets gives the run a finished, built-in look."}
                     </div>
                     <Button
@@ -3835,6 +3828,9 @@ export default function DesignTool() {
                     : ""}
                   {blindOutOfRangeCount > 0
                     ? `${blindOutOfRangeCount} blind corner cabinet${blindOutOfRangeCount > 1 ? "s" : ""} ${blindOutOfRangeCount > 1 ? "are" : "is"} pulled outside the manufacturer's min/max range. `
+                    : ""}
+                  {ceilingViolationUids.size > 0
+                    ? `${ceilingViolationUids.size} cabinet${ceilingViolationUids.size > 1 ? "s are" : " is"} taller than the ${(() => { const c = inchesToFeetInches(roomCeiling(room)); return c.inches === 0 ? `${c.feet}'` : `${c.feet}'${c.inches}"`; })()} ceiling — pick a shorter box or raise the ceiling height. `
                     : ""}
                   An appliance running into a cabinet, or a blind corner without its 3" pull, must be fixed before ordering.
                 </span>
@@ -3900,16 +3896,6 @@ export default function DesignTool() {
                     <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
                     <span>
                       <strong>Hickory exposed ends:</strong> {hickorySkins.length} finished-end skin{hickorySkins.length > 1 ? "s" : ""} auto-added to your build sheet to cover the unfinished side{hickorySkins.length > 1 ? "s" : ""} of your Hickory cabinets. Skin pricing is confirmed by our team (SKU pending), so it is not included in the estimate yet.
-                    </span>
-                  </div>,
-                );
-              }
-              if (autoEndPanels.length > 0) {
-                noteItems.push(
-                  <div key="endpanels" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                    <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                    <span>
-                      <strong>Exposed ends:</strong> {autoEndPanels.length} finished end panel{autoEndPanels.length > 1 ? "s" : ""} auto-added to your build sheet to cover the exposed cabinet side{autoEndPanels.length > 1 ? "s" : ""}.{autoEndPanels.some((p) => p.pendingSku) ? " Some panel SKUs are pending team confirmation and are not yet priced in the estimate." : ""}
                     </span>
                   </div>,
                 );

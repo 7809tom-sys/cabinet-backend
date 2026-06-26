@@ -14,7 +14,7 @@ import {
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
   doorPanelKind, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
-  wallCabinetTopLine,
+  wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
   freeSegmentsOnWall, wallPlacementAt,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
@@ -2026,5 +2026,42 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     const moving = cab({ uid: "M", placement: "base", x: 26, y: 0, width: 24, depth: 24 });
     const res = snapPosition(moving, ROOM, [left, right, moving]);
     expect(hasCollision({ ...moving, x: res.x, y: res.y }, [left, right])).toBe(false);
+  });
+});
+
+describe("ceiling height fit checks", () => {
+  it("roomCeiling falls back to default for missing/out-of-range values", () => {
+    expect(roomCeiling(undefined)).toBe(DEFAULT_CEILING_HEIGHT);
+    expect(roomCeiling({})).toBe(DEFAULT_CEILING_HEIGHT);
+    expect(roomCeiling({ ceilingHeight: 50 })).toBe(DEFAULT_CEILING_HEIGHT); // below MIN
+    expect(roomCeiling({ ceilingHeight: 999 })).toBe(DEFAULT_CEILING_HEIGHT); // above MAX
+    expect(roomCeiling({ ceilingHeight: 108 })).toBe(108); // 9ft honored
+  });
+
+  it("wallCabinetTopLine hangs uppers higher on taller ceilings, never below 84", () => {
+    expect(wallCabinetTopLine({ ceilingHeight: 96 })).toBe(84); // 8ft unchanged
+    expect(wallCabinetTopLine({ ceilingHeight: 84 })).toBe(84); // 7ft never below 84
+    // 11ft (132") -> 132 - 12 reveal = 120, above the historical 84 line
+    expect(wallCabinetTopLine({ ceilingHeight: 132 })).toBe(120);
+  });
+
+  it("flags a tall pantry that exceeds the ceiling but not under a taller ceiling", () => {
+    const pantry = cab({ uid: "p1", placement: "tall", x: 0, y: 0, width: 24, depth: 24, height: 96 });
+    // 8ft ceiling (96"): a 96" pantry just fits (<= ceil + 0.5).
+    expect(ceilingFitViolations([pantry], { ceilingHeight: 96 }).has("p1")).toBe(false);
+    // 7ft ceiling (84"): the 96" pantry does NOT fit.
+    expect(ceilingFitViolations([pantry], { ceilingHeight: 84 }).has("p1")).toBe(true);
+  });
+
+  it("flags a tall wall cabinet whose hung top exceeds the ceiling", () => {
+    // 42" upper bottom-anchored at 54" tops out at 96" -> needs > 96" ceiling.
+    const upper = cab({ uid: "w1", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 42 });
+    expect(ceilingFitViolations([upper], { ceilingHeight: 96 }).has("w1")).toBe(false); // exactly fits
+    expect(ceilingFitViolations([upper], { ceilingHeight: 90 }).has("w1")).toBe(true); // 90" too low
+  });
+
+  it("never flags base or appliance cabinets", () => {
+    const base = cab({ uid: "b1", placement: "base", x: 0, y: 0, width: 24, depth: 24, height: 34.5 });
+    expect(ceilingFitViolations([base], { ceilingHeight: 84 }).size).toBe(0);
   });
 });

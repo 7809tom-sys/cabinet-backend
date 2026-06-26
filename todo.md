@@ -1863,3 +1863,28 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Sink object placed on canvas cannot be deleted - mobile Delete + keyboard Delete/Backspace now delete a selected sink; selection is mutually exclusive (cabinet/sink/opening)
 - [x] No visible link/list to review & purchase placed cabinets - added itemized cabinet list (with color) + primary "Add all to cart" button that pushes the design into the cart and routes to /cart
 - [x] Dragging a cabinet near another now snaps/butts against it and stops, not overlap/collide (overlap push-out added to snapPosition; 3 new vitest cases)
+
+## Adjustable Ceiling Height (user request: people go from ~8 ft to ~11 ft, even pitched)
+- [ ] Add `ceilingHeight` (inches) to RoomData model + clamp range (e.g. 84"\u2013144"), default 96"
+- [ ] Persist ceilingHeight in design.save / load (DB column or JSON), backward-compatible default for old saves
+- [ ] Add adjustable Ceiling Height control (feet + inches) to the designer toolbar/room controls; EN/ES labels
+- [ ] Front/elevation view draws the wall to the real ceiling height (shows space above wall cabinets)
+- [ ] Fit warnings: crown / stacked uppers / tall pantry exceeding ceiling get flagged
+- [ ] (Optional) sloped/vaulted ceiling note or per-wall height if feasible
+- [ ] tsc + vitest (clamp + fit-check helpers) + screenshots; checkpoint
+
+## Adjustable Ceiling Height (already largely built; surfaced + warnings)
+- [x] ceilingHeight already in RoomData with presets, 84-144" clamp, roomCeiling() helper, default 96"
+- [x] Adjustable Ceiling control already exists in Room popover (custom value 84-144" + 8/9/10 ft presets) - covers 8 ft to 11 ft
+- [x] ElevationView already draws wall to roomCeiling(room); uppers pushed up by wallCabinetTopLine
+- [x] Surface ceiling height on the Room button label (EN/ES)
+- [x] Add ceilingFitViolations helper + warn when cabinets (tall pantry / stacked uppers + crown) exceed the ceiling
+- [x] Tests added (roomCeiling, ceilingFitViolations); tsc clean; full suite green (966 tests)
+
+## End panels: only Hickory needs a skin (per user)
+- [x] Stop auto-adding finished end panels to the build sheet for non-Hickory styles (autoEndPanels now always empty)
+- [x] Remove the "Exposed ends: N finished end panels auto-added" build-sheet note
+- [x] Reword the optional decorative end-panel suggestion as purely cosmetic ("ends already come finished")
+- [x] Reword OrderReview decorative end-panels blurb to cosmetic-only
+- [x] Hickory skin auto-suggest left untouched (only style with unfinished exposed ends)
+- [x] tsc clean + full suite green (966 tests)

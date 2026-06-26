@@ -428,6 +428,30 @@ export function wallCabinetTopLine(room?: { ceilingHeight?: number } | null): nu
   // but never below the historical 84" line (uppers only move UP, never down).
   return Math.max(WALL_CABINET_TOP, ceil - CEILING_SOFFIT_REVEAL_IN);
 }
+// Returns the uids of placed cabinets that do not fit under the room's ceiling.
+// A tall cabinet (pantry/oven cabinet) is measured from the floor; a wall
+// cabinet is measured at its hung top line. Anything whose top exceeds the
+// ceiling is flagged so the user can pick a shorter box or raise the ceiling.
+export function ceilingFitViolations(
+  placed: PlacedCabinet[],
+  room?: { ceilingHeight?: number } | null,
+): Set<string> {
+  const ceil = roomCeiling(room);
+  const bad = new Set<string>();
+  for (const p of placed) {
+    if (p.placement === "wall") {
+      // Wall boxes are bottom-anchored at the mount line; their top is mount + height.
+      const top = WALL_MOUNT_BOTTOM + placedHeight(p);
+      if (top > ceil + 0.5) bad.add(p.uid);
+    } else if (p.placement === "tall") {
+      // Tall boxes stand on the floor; their height is the top line.
+      if (placedHeight(p) > ceil + 0.5) bad.add(p.uid);
+    }
+    // base/appliance always fit under any valid ceiling (>= 84").
+  }
+  return bad;
+}
+
 // Standard mount line: the BOTTOM of a wall cabinet sits 54" above the floor
 // (18" above a 36" counter). Standard wall cabinets are bottom-anchored here,
 // so 30"/36"/42" boxes all start at 54" and rise higher as they get taller.
