@@ -1840,3 +1840,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] ERB-33, ERB-36, LSB33, LSB36, LSB36ADA only have SKUs for a subset of the 62 door styles, so they disappear from the Corner tab for styles they lack
 - [x] Backfill missing distributor_skus for these 5 cabinets across all active door styles, copying each cabinet's existing price (wholesale/contractor/list/etc.) so they appear on every style
 - [x] Verify in DB each of the 5 now has 62 available+published styles; spot-check designer Corner tab
+
+## Tawk.to live chat go-live
+- [x] Set VITE_TAWK_PROPERTY_ID (6a3ea71335bb181d4aa8b755) and VITE_TAWK_WIDGET_ID (default) from owner's embed snippet
+- [x] Validate embed URL resolves to a real Tawk widget (HTTP 200 + account key echo) via vitest server/tawk.config.test.ts
+- [x] Restart dev server so the chat launcher loads the live widget
