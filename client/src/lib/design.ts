@@ -442,11 +442,17 @@ export function wallCabinetTopLine(room?: { ceilingHeight?: number } | null): nu
 // ceiling is flagged so the user can pick a shorter box or raise the ceiling.
 export function ceilingFitViolations(
   placed: PlacedCabinet[],
-  room?: { ceilingHeight?: number } | null,
+  room?: RoomData | { ceilingHeight?: number } | null,
 ): Set<string> {
-  const ceil = roomCeiling(room);
+  const globalCeil = roomCeiling(room ?? undefined);
   const bad = new Set<string>();
   for (const p of placed) {
+    // Use the ceiling of the wall this cabinet sits on (its LOW point when the
+    // ceiling slopes), so a tall/wall box under a low slope is flagged. Falls
+    // back to the global ceiling when we can't resolve a wall.
+    const ceil = room && "width" in room
+      ? wallCeilingMin(room as RoomData, cabinetWall(p, room as RoomData))
+      : globalCeil;
     if (p.placement === "wall") {
       // Wall boxes are bottom-anchored at the mount line; their top is mount + height.
       const top = WALL_MOUNT_BOTTOM + placedHeight(p);
@@ -465,13 +471,32 @@ export function ceilingFitViolations(
 // so 30"/36"/42" boxes all start at 54" and rise higher as they get taller.
 export const WALL_MOUNT_BOTTOM = STD.WALL_MOUNT_BOTTOM; // 54"
 
+/** A single wall's ceiling. Either a flat height, or a slope between a high end
+ *  and a low end (for vaulted / knee-wall / angled ceilings). Heights are in
+ *  inches from the floor. `slopeFrom` indicates which END of the wall the HIGH
+ *  side is on, as you look at that wall in the Front View (left-to-right along
+ *  the wall's plan span). */
+export interface WallCeiling {
+  /** High-side height in inches (or the flat height when not sloped). */
+  high: number;
+  /** Low-side height in inches. Equal to `high` for a flat ceiling. */
+  low: number;
+  /** Which end of the wall the HIGH side sits on. Only meaningful when high !== low. */
+  slopeFrom?: "start" | "end";
+}
+
 export interface RoomData {
   width: number;
   depth: number;
   /** Floor-to-ceiling height in inches. Optional for back-compat; falls back to
    *  DEFAULT_CEILING_HEIGHT when absent. Drives how much wall shows above the
-   *  upper cabinets in the elevation/Front View. */
+   *  upper cabinets in the elevation/Front View. Acts as the GLOBAL/default
+   *  ceiling for any wall that has no explicit per-wall override. */
   ceilingHeight?: number;
+  /** Optional per-wall ceiling overrides, keyed by plan wall side
+   *  (top/bottom/left/right). A wall absent here uses `ceilingHeight`. Lets a
+   *  room have a different (or sloped) ceiling on each wall. */
+  wallCeilings?: Partial<Record<WallSide, WallCeiling>>;
 }
 
 // Standard US ceiling height. Common alternatives: 108" (9ft), 120" (10ft).
@@ -484,6 +509,70 @@ export function roomCeiling(room: { ceilingHeight?: number } | null | undefined)
   return typeof h === "number" && h >= MIN_CEILING_HEIGHT && h <= MAX_CEILING_HEIGHT
     ? h
     : DEFAULT_CEILING_HEIGHT;
+}
+
+// Clamp a raw ceiling-height value into the allowed range. Out-of-range or
+// non-finite inputs fall back to the standard ceiling height.
+export function clampCeilingHeight(h: number | null | undefined): number {
+  if (typeof h !== "number" || !Number.isFinite(h)) return DEFAULT_CEILING_HEIGHT;
+  return Math.max(MIN_CEILING_HEIGHT, Math.min(MAX_CEILING_HEIGHT, Math.round(h)));
+}
+
+// Resolve the ceiling definition for a specific wall. Falls back to the room's
+// global flat ceiling when the wall has no override, so legacy designs and
+// untouched walls behave exactly as before.
+export function wallCeiling(
+  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>> } | null | undefined,
+  side: WallSide,
+): WallCeiling {
+  const override = room?.wallCeilings?.[side];
+  if (override && Number.isFinite(override.high) && Number.isFinite(override.low)) {
+    const high = clampCeilingHeight(override.high);
+    const low = clampCeilingHeight(override.low);
+    return { high: Math.max(high, low), low: Math.min(high, low), slopeFrom: override.slopeFrom ?? "start" };
+  }
+  const flat = roomCeiling(room ?? undefined);
+  return { high: flat, low: flat };
+}
+
+// True when the given wall has a sloped (angled) ceiling rather than a flat one.
+export function wallCeilingIsSloped(
+  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>> } | null | undefined,
+  side: WallSide,
+): boolean {
+  const c = wallCeiling(room, side);
+  return Math.abs(c.high - c.low) > 0.5;
+}
+
+// The LOWEST ceiling height anywhere on a wall (the binding constraint for what
+// can fit under it). For a flat wall this equals its height; for a slope it is
+// the low end.
+export function wallCeilingMin(
+  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>> } | null | undefined,
+  side: WallSide,
+): number {
+  const c = wallCeiling(room, side);
+  return Math.min(c.high, c.low);
+}
+
+// Ceiling height at a fractional position (0..1) along a wall's plan span,
+// measured left-to-right as drawn in the Front View. Interpolates linearly for
+// sloped walls; returns the flat height otherwise. `slopeFrom: "start"` means
+// the HIGH side is at fraction 0 (left), `"end"` means the high side is at
+// fraction 1 (right).
+export function wallCeilingAt(
+  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>> } | null | undefined,
+  side: WallSide,
+  frac: number,
+): number {
+  const c = wallCeiling(room, side);
+  if (Math.abs(c.high - c.low) <= 0.5) return c.high;
+  const f = Math.max(0, Math.min(1, frac));
+  // At the high end the value is c.high; at the low end it is c.low.
+  const highAtStart = (c.slopeFrom ?? "start") === "start";
+  const startVal = highAtStart ? c.high : c.low;
+  const endVal = highAtStart ? c.low : c.high;
+  return startVal + (endVal - startVal) * f;
 }
 
 export const DEFAULT_ROOM: RoomData = { width: 144, depth: 120, ceilingHeight: DEFAULT_CEILING_HEIGHT };

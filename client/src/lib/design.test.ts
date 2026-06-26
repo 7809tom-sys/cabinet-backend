@@ -15,6 +15,7 @@ import {
   doorPanelKind, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
+  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, clampCeilingHeight,
   freeSegmentsOnWall, wallPlacementAt,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN,
@@ -48,6 +49,86 @@ function cab(partial: Partial<PlacedCabinet>): PlacedCabinet {
     ...partial,
   };
 }
+
+describe("per-wall ceiling (flat + sloped)", () => {
+  it("falls back to the room default when a wall has no override", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+    expect(wallCeiling(room, "top")).toEqual({ high: 108, low: 108 });
+    expect(wallCeilingIsSloped(room, "top")).toBe(false);
+    expect(wallCeilingMin(room, "top")).toBe(108);
+  });
+
+  it("uses a flat per-wall override", () => {
+    const room: RoomData = {
+      width: 144, depth: 120, ceilingHeight: 96,
+      wallCeilings: { left: { high: 120, low: 120 } },
+    };
+    expect(wallCeiling(room, "left")).toMatchObject({ high: 120, low: 120 });
+    expect(wallCeilingMin(room, "left")).toBe(120);
+    // other walls still track the default
+    expect(wallCeilingMin(room, "right")).toBe(96);
+  });
+
+  it("normalizes a sloped override so high >= low", () => {
+    const room: RoomData = {
+      width: 144, depth: 120, ceilingHeight: 96,
+      wallCeilings: { top: { high: 90, low: 120, slopeFrom: "start" } },
+    };
+    const wc = wallCeiling(room, "top");
+    expect(wc.high).toBe(120);
+    expect(wc.low).toBe(90);
+    expect(wallCeilingIsSloped(room, "top")).toBe(true);
+    expect(wallCeilingMin(room, "top")).toBe(90);
+  });
+
+  it("interpolates height along a sloped wall (high at start)", () => {
+    const room: RoomData = {
+      width: 120, depth: 120, ceilingHeight: 96,
+      wallCeilings: { top: { high: 120, low: 96, slopeFrom: "start" } },
+    };
+    expect(wallCeilingAt(room, "top", 0)).toBeCloseTo(120); // high end (left)
+    expect(wallCeilingAt(room, "top", 1)).toBeCloseTo(96); // low end (right)
+    expect(wallCeilingAt(room, "top", 0.5)).toBeCloseTo(108); // midpoint
+  });
+
+  it("interpolates height along a sloped wall (high at end)", () => {
+    const room: RoomData = {
+      width: 120, depth: 120, ceilingHeight: 96,
+      wallCeilings: { top: { high: 120, low: 96, slopeFrom: "end" } },
+    };
+    expect(wallCeilingAt(room, "top", 0)).toBeCloseTo(96); // low end (left)
+    expect(wallCeilingAt(room, "top", 1)).toBeCloseTo(120); // high end (right)
+  });
+
+  it("clamps ceiling heights into the allowed range", () => {
+    expect(clampCeilingHeight(40)).toBe(84); // below MIN
+    expect(clampCeilingHeight(999)).toBe(144); // above MAX
+    expect(clampCeilingHeight(100.4)).toBe(100); // rounds
+    expect(clampCeilingHeight(undefined)).toBe(DEFAULT_CEILING_HEIGHT);
+  });
+
+  it("flags a tall cabinet that exceeds a low sloped wall via ceilingFitViolations", () => {
+    // Back wall slopes down to 84" on its low side; a 90" tall pantry on that
+    // wall should be flagged.
+    const room: RoomData = {
+      width: 144, depth: 120, ceilingHeight: 108,
+      wallCeilings: { top: { high: 108, low: 84, slopeFrom: "start" } },
+    };
+    const tall = cab({ uid: "t1", placement: "tall", x: 0, y: 0, width: 24, depth: 24, height: 90 });
+    const bad = ceilingFitViolations([tall], room);
+    expect(bad.has("t1")).toBe(true);
+  });
+
+  it("does NOT flag a tall cabinet that fits under the wall's low point", () => {
+    const room: RoomData = {
+      width: 144, depth: 120, ceilingHeight: 108,
+      wallCeilings: { top: { high: 108, low: 96, slopeFrom: "start" } },
+    };
+    const tall = cab({ uid: "t2", placement: "tall", x: 0, y: 0, width: 24, depth: 24, height: 90 });
+    const bad = ceilingFitViolations([tall], room);
+    expect(bad.has("t2")).toBe(false);
+  });
+});
 
 describe("placedFootprint — honors real depth, never lets a real cabinet vanish", () => {
   it("keeps a genuinely shallow 12-inch base at 12 inches (e.g. spice pull-out)", () => {

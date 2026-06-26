@@ -3,6 +3,7 @@ import {
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
   type DoorPanelKind, type WallSide, cabinetWall, resolveSwing,
   countertopMaterial, roomCeiling, bearsCountertop,
+  wallCeiling, wallCeilingIsSloped,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -72,13 +73,28 @@ export function ElevationView({
   const ref = useRef<HTMLDivElement>(null);
   const [ppi, setPpi] = useState(4);
   const PADDING = 40;
-  // Wall height shown in the elevation tracks the room's real ceiling height,
-  // so a 9ft/10ft ceiling shows more wall above the uppers than a standard 8ft.
-  const WALL_TOTAL_HEIGHT = roomCeiling(room);
 
   // Normalize legacy "front"/"back" to plan WallSide values.
   const side: WallSide =
     wall === "front" ? "bottom" : wall === "back" ? "top" : (wall as WallSide);
+
+  // Resolve this wall's ceiling (flat or sloped). The wall box is drawn to the
+  // HIGH end so a sloped ceiling has room; the slope itself is drawn as an
+  // overlay below the box top. heightLeft/heightRight are the ceiling heights at
+  // the visually LEFT and RIGHT ends of this elevation. `wallCeilingAt` works in
+  // plan order (start->end); when this view is mirrored (CornerView left wall)
+  // the on-screen left/right are swapped, so we flip them back for display.
+  const wc = wallCeiling(room, side);
+  const sloped = wallCeilingIsSloped(room, side);
+  const ceilHigh = wc.high;
+  // Plan-order start/end heights.
+  const startH = (wc.slopeFrom ?? "start") === "start" ? wc.high : wc.low;
+  const endH = (wc.slopeFrom ?? "start") === "start" ? wc.low : wc.high;
+  const heightLeft = mirror ? endH : startH;
+  const heightRight = mirror ? startH : endH;
+  // Wall height shown in the elevation tracks the room's real ceiling height,
+  // drawn to the high end so a 9ft/10ft (or sloped) ceiling shows more wall.
+  const WALL_TOTAL_HEIGHT = ceilHigh;
   const WALL_LABELS: Record<WallSide, string> = {
     top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
   };
@@ -221,9 +237,51 @@ export function ElevationView({
         }}
       >
         <div className="absolute left-0 right-0 bottom-0 border-b-[3px] border-[#1a2744]" />
-        {/* Ceiling line label so the chosen ceiling height is visible at a glance. */}
+        {/* Sloped ceiling overlay: when this wall has an angled ceiling, shade the
+            dead space above the slope line (outside the room) and draw the slope
+            as a solid ceiling line. The wall box height equals the HIGH end, so
+            the slope drops from the high corner down to (ceilHigh-low) above the
+            box bottom on the low side. */}
+        {sloped && (() => {
+          const W = wallPxW;
+          const H = wallPxH;
+          // y from the TOP of the box for each end (0 = box top = high ceiling).
+          const yLeft = (ceilHigh - heightLeft) * ppi;
+          const yRight = (ceilHigh - heightRight) * ppi;
+          return (
+            <svg
+              className="absolute inset-0 pointer-events-none overflow-visible"
+              width={W}
+              height={H}
+              style={{ left: 0, top: 0 }}
+            >
+              {/* Dead space above the ceiling (outside the room). */}
+              <polygon
+                points={`0,0 ${W},0 ${W},${yRight} 0,${yLeft}`}
+                fill="#c9d2de"
+                opacity={0.85}
+              />
+              {/* Hatch to read clearly as "outside / above ceiling". */}
+              <polygon
+                points={`0,0 ${W},0 ${W},${yRight} 0,${yLeft}`}
+                fill="url(#slopeHatch)"
+              />
+              <defs>
+                <pattern id="slopeHatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <line x1="0" y1="0" x2="0" y2="8" stroke="#8a98ad" strokeWidth="1" opacity="0.5" />
+                </pattern>
+              </defs>
+              {/* The sloped ceiling line itself. */}
+              <line x1={0} y1={yLeft} x2={W} y2={yRight} stroke="#1a2744" strokeWidth={3} />
+            </svg>
+          );
+        })()}
+        {/* Ceiling line label so the chosen ceiling height is visible at a glance.
+            Shows both ends when the ceiling is sloped. */}
         <div className="absolute -top-[14px] right-0 text-[9px] font-medium text-[#1a2744]/70" style={textFlip}>
-          {t("dt_ev_ceiling", { n: Math.round(WALL_TOTAL_HEIGHT) })}
+          {sloped
+            ? t("dt_ev_ceiling_slope", { hi: Math.round(ceilHigh), lo: Math.round(Math.min(heightLeft, heightRight)) })
+            : t("dt_ev_ceiling", { n: Math.round(WALL_TOTAL_HEIGHT) })}
         </div>
         <div
           className="absolute left-0 right-0 border-b border-dashed border-[#b08d57]/40"

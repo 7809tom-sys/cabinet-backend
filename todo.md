@@ -1936,3 +1936,15 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Confirmed genuine 12" bases (SPB-6/SPB-9) correctly stay 12"
 - [x] Hardened placedFootprint: 6" minimum visible floor for real cabinet boxes (panels/fillers exempt) so nothing can vanish from bad data
 - [x] Added 7 regression tests for depth + sliver floor; full suite 986 passing
+
+## Per-wall / sloped ceiling height (2026-06-26)
+- [ ] Extend RoomData with optional per-wall ceiling heights (back/left/right/front), each supporting a high+low value for slopes; fall back to single ceilingHeight
+- [ ] Add helpers: resolve a wall's ceiling line (flat or sloped), keep roomCeiling() as global fallback
+- [ ] Render per-wall/sloped ceiling line in ElevationView (Front View) using the active wall's heights
+- [ ] Render sloped ceiling plane in CornerView for each of the two walls
+- [ ] Update wallCabinetTopLine + ceilingFitViolations to respect per-wall ceiling (use the wall's low point)
+- [ ] Add per-wall ceiling controls to RoomSizeControl (flat height + optional slope high/low per wall)
+- [ ] Add regression tests for per-wall ceiling resolution + fit checks
+- [ ] Verify in browser (Front View + Corner View show slope), run full test suite, checkpoint
+
+- [x] Per-wall / sloped ceiling: model, render (Front+Corner), UI controls, fit checks, tests (994 passing)
