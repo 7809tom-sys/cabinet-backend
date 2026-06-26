@@ -49,6 +49,47 @@ function cab(partial: Partial<PlacedCabinet>): PlacedCabinet {
   };
 }
 
+describe("placedFootprint — honors real depth, never lets a real cabinet vanish", () => {
+  it("keeps a genuinely shallow 12-inch base at 12 inches (e.g. spice pull-out)", () => {
+    const p = cab({ masterCode: "SPB-9", description: '9" Spice Pull-Out Base', width: 12, depth: 12 });
+    expect(placedFootprint(p).d).toBe(12);
+  });
+
+  it("keeps a 21-inch vanity base at 21 inches", () => {
+    const p = cab({ masterCode: "VA-30", description: '30" Vanity Sink Base', width: 30, depth: 21 });
+    expect(placedFootprint(p).d).toBe(21);
+  });
+
+  it("keeps a standard 24-inch base at 24 inches", () => {
+    const p = cab({ masterCode: "B-24", description: '24" Base', width: 24, depth: 24 });
+    expect(placedFootprint(p).d).toBe(24);
+  });
+
+  it("floors a garbage 0.75-inch base depth to a visible minimum so it cannot disappear", () => {
+    const p = cab({ masterCode: "BS-24-35", description: '24" Base Cabinet with Shelf', width: 24, depth: 0.75 });
+    expect(placedFootprint(p).d).toBeGreaterThanOrEqual(6);
+  });
+
+  it("floors a zero width/depth so a real cabinet always has a visible footprint", () => {
+    const p = cab({ masterCode: "B-24", description: '24" Base', width: 0, depth: 0 });
+    const fp = placedFootprint(p);
+    expect(fp.w).toBeGreaterThanOrEqual(6);
+    expect(fp.d).toBeGreaterThanOrEqual(6);
+  });
+
+  it("does NOT inflate intentionally-thin flat stock (end panel stays slim)", () => {
+    const p = cab({ masterCode: "BEP", description: "Base End Panel", subCategory: "End Panel", width: 24, depth: 0.75 });
+    expect(placedFootprint(p).d).toBeCloseTo(0.75, 2);
+  });
+
+  it("respects rotation while still flooring the visible size", () => {
+    const p = cab({ masterCode: "B-24", description: '24" Base', width: 24, depth: 24, rotation: 90 });
+    const fp = placedFootprint(p);
+    expect(fp.w).toBeGreaterThanOrEqual(6);
+    expect(fp.d).toBeGreaterThanOrEqual(6);
+  });
+});
+
 describe("corner cabinet detection", () => {
   it("detects corner cabinets by master-code prefix", () => {
     expect(isCornerCabinet("BBC-36")).toBe(true); // blind corner base

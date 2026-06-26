@@ -1925,3 +1925,14 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 ## Active bugs (2026-06-26)
 - [x] Placed base cabinet (e.g. B-18) mis-labeled "accessory / trim" FIXED — PlacedCabinet now carries category/subCategory (stamped in addCabinet + auto-fill); selected preview shows "1-door cabinet". Regression test added; 979 tests pass.
 - [x] Designer palette search box: verified WORKING in latest build (typing "B-24" filters to 24" matches). The reported failure was the OLDER published build — fixed by republishing.
+
+## Active bugs (2026-06-26 #2)
+- [ ] Base cabinet DEPTH: placed bases are forced to 24" deep; some bases are genuinely 12" deep (and other specialty depths). Use each cabinet's real catalog depth at placement, not a hardcoded 24".
+- [ ] Cabinets disappearing in the designer: ensure placement NEVER drops/hides a cabinet (off-canvas coords, NaN, overlap-skip). Always place visibly on the active wall.
+
+## Depth + disappearing fix (2026-06-26)
+- [x] Audited catalog base depths; found bad data: BS-24-35=0.75", VA-30/36/42=3"
+- [x] Corrected DB depths: BS-24-35 -> 24", VA-30/36/42 -> 21" (vanity standard)
+- [x] Confirmed genuine 12" bases (SPB-6/SPB-9) correctly stay 12"
+- [x] Hardened placedFootprint: 6" minimum visible floor for real cabinet boxes (panels/fillers exempt) so nothing can vanish from bad data
+- [x] Added 7 regression tests for depth + sliver floor; full suite 986 passing

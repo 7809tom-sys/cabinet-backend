@@ -539,7 +539,17 @@ export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
     const side = (p.width > 0 ? p.width : (p.depth > 0 ? p.depth : 24));
     return { w: side, d: side };
   }
-  return rotatedSize(p);
+  const sz = rotatedSize(p);
+  // Defensive floor: a real cabinet box must never render as an invisible sliver
+  // because of bad/missing catalog data (e.g. depth 0/0.75/NULL). We do NOT
+  // normalize to the standard 24"/12" depth here — legitimately shallow boxes
+  // (12" spice pull-outs, 21" vanities, etc.) must keep their real depth. We only
+  // enforce a small absolute minimum so nothing can vanish. Flat stock
+  // (panels/skins/fillers) is intentionally thin and is exempt.
+  const isFlatStock = isPanelItem(p) || isLooseTrimItem(p);
+  if (isFlatStock) return sz;
+  const MIN_VISIBLE = 6; // inches — smallest a real cabinet box may render
+  return { w: Math.max(sz.w, MIN_VISIBLE), d: Math.max(sz.d, MIN_VISIBLE) };
 }
 
 // One-time normalization for placed cabinets coming from a saved design / restore.
