@@ -218,8 +218,22 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
     return "specialty";
   }
 
-  // 3) Drawer bases: all-drawer fronts.
-  if (type === "drawer-base" || /drawer base/.test(`${sub} ${desc}`)) {
+  // 3) Drawer bases: ALL-drawer fronts only. We must NOT catch standard door
+  //    bases that happen to include one drawer (e.g. B-24 = "Double Door Single
+  //    Drawer Base Cabinet"): those are regular bases and belong in the "base"
+  //    bucket. So classify as drawer ONLY when the drawing type is a drawer base,
+  //    or the subCategory is exactly "Drawer Base" (the catalog's own all-drawer
+  //    designation). The loose /drawer base/ description match is intentionally
+  //    dropped because descriptions like "...Single Drawer Base Cabinet" contain
+  //    that substring while still being door bases.
+  //    Some catalog rows are mis-tagged subCategory="Drawer Base" while actually
+  //    being single-door full-height bases (e.g. BFH-12/15/18, doors=1). A real
+  //    drawer base has NO doors, so require a 0-door box before trusting the tag.
+  const { doors: ddDoors, drawers: ddDrawers } = resolveDoorDrawerCounts(cab);
+  if (
+    type === "drawer-base" ||
+    (/^drawer base$/.test(sub.trim()) && ddDoors === 0 && ddDrawers >= 1)
+  ) {
     return "drawer";
   }
 

@@ -377,6 +377,39 @@ describe("baseSubGroup (designer Base tab ordering)", () => {
     ).toBe("specialty");
   });
 
+  // Regression: a standard door base whose DESCRIPTION contains the substring
+  // "...Single Drawer Base Cabinet" must NOT be mistaken for a drawer base. These
+  // are the regular bases (B-12..B-42) that were wrongly hidden under the Drawer
+  // Bases group instead of the Base Cabinets group.
+  it("classifies a door + single drawer base as base (not drawer)", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "B-24",
+        description: '24" Double Door Single Drawer Base Cabinet with Adjustable Shelf',
+        category: "Base",
+        subCategory: "Single Door Base",
+        numberOfDoors: 2,
+        numberOfDrawers: 1,
+      }),
+    ).toBe("base");
+  });
+
+  // Regression: some rows are mis-tagged subCategory="Drawer Base" but are really
+  // single-door full-height bases (BFH-12/15/18). A real drawer base has 0 doors,
+  // so a 1-door box tagged "Drawer Base" must still land in the base group.
+  it("classifies a single-door base mis-tagged subCategory=Drawer Base as base", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "BFH-12",
+        description: '12" Full Height Single Door Base Cabinet',
+        category: "Base",
+        subCategory: "Drawer Base",
+        numberOfDoors: 1,
+        numberOfDrawers: 0,
+      }),
+    ).toBe("base");
+  });
+
   it("sink wins over drawer when a sink base also has drawers", () => {
     expect(
       baseSubGroup({
