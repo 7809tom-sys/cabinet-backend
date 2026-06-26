@@ -9,7 +9,6 @@ import {
   pricingRouter,
 } from "./routers/catalog";
 import { designRouter } from "./routers/design";
-import { packagesRouter } from "./routers/packages";
 import { prosRouter } from "./routers/pros";
 import { ordersRouter } from "./routers/orders";
 import { affiliatesRouter } from "./routers/affiliates";
@@ -47,7 +46,6 @@ export const appRouter = router({
   doorStyles: doorStylesRouter,
   pricing: pricingRouter,
   design: designRouter,
-  packages: packagesRouter,
   pros: prosRouter,
   orders: ordersRouter,
   affiliates: affiliatesRouter,

@@ -577,6 +577,36 @@ export function snapPosition(
     }
   }
 
+  // Overlap prevention: even after edge-snapping, a fast drag can still land the
+  // cabinet ON TOP of a neighbor. Push it back out so it BUTTS flush against the
+  // cabinet it overlaps, along whichever axis needs the smallest correction.
+  // Iterated a few times so a cabinet dragged into a tight run settles between
+  // its neighbors instead of stacking on one of them.
+  for (let pass = 0; pass < 4; pass++) {
+    let moved = false;
+    for (const o of others) {
+      if (o.uid === moving.uid) continue;
+      const os = rotatedSize(o);
+      const overlapX = Math.min(x + w, o.x + os.w) - Math.max(x, o.x);
+      const overlapY = Math.min(y + d, o.y + os.d) - Math.max(y, o.y);
+      if (overlapX > 0.01 && overlapY > 0.01) {
+        // Resolve along the axis of least penetration (the natural "butt" edge).
+        if (overlapX <= overlapY) {
+          // Push left or right to the nearer side of the neighbor.
+          const center = x + w / 2;
+          const oCenter = o.x + os.w / 2;
+          x = center < oCenter ? o.x - w : o.x + os.w;
+        } else {
+          const center = y + d / 2;
+          const oCenter = o.y + os.d / 2;
+          y = center < oCenter ? o.y - d : o.y + os.d;
+        }
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+
   x = Math.max(0, Math.min(x, room.width - w));
   y = Math.max(0, Math.min(y, room.depth - d));
 

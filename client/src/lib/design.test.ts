@@ -24,6 +24,7 @@ import {
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun,
+  snapPosition, hasCollision,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   cabinetAttrNote,
@@ -1991,5 +1992,39 @@ describe("accessory placement (item 5: accessories into the drawing)", () => {
     expect(accessoryPlacement({ masterCode: "BDEP", description: "Base Decorative End Panel" })).toBe("base");
     expect(accessoryPlacement({ masterCode: "WS-12-42", description: "Wall Skin" })).toBe("wall");
     expect(accessoryPlacement({ masterCode: "AG-24", description: "Appliance Garage" })).toBe("wall");
+  });
+});
+
+describe("snapPosition overlap prevention (drag butts against neighbors)", () => {
+  const ROOM: RoomData = { width: 200, depth: 120 };
+
+  it("pushes a dragged cabinet out so it butts flush to the right of a neighbor", () => {
+    // Neighbor occupies x:0..24 along the back wall. Drop a 24" cabinet mostly
+    // on top of it (x:10) but slightly to its right → should snap to x:24.
+    const neighbor = cab({ uid: "n1", placement: "base", x: 0, y: 0, width: 24, depth: 24 });
+    const moving = cab({ uid: "m1", placement: "base", x: 10, y: 0, width: 24, depth: 24 });
+    const res = snapPosition(moving, ROOM, [neighbor, moving]);
+    expect(res.x).toBe(24);
+    expect(res.y).toBe(0);
+    // No residual overlap.
+    expect(hasCollision({ ...moving, x: res.x, y: res.y }, [neighbor])).toBe(false);
+  });
+
+  it("pushes a dragged cabinet to the left when its center is left of the neighbor", () => {
+    const neighbor = cab({ uid: "n2", placement: "base", x: 50, y: 0, width: 24, depth: 24 });
+    // Moving cabinet center is left of the neighbor's center → push left to 26.
+    const moving = cab({ uid: "m2", placement: "base", x: 40, y: 0, width: 24, depth: 24 });
+    const res = snapPosition(moving, ROOM, [neighbor, moving]);
+    expect(res.x).toBe(50 - 24);
+    expect(hasCollision({ ...moving, x: res.x, y: res.y }, [neighbor])).toBe(false);
+  });
+
+  it("settles a cabinet between two neighbors without overlapping either", () => {
+    const left = cab({ uid: "L", placement: "base", x: 0, y: 0, width: 24, depth: 24 });
+    const right = cab({ uid: "R", placement: "base", x: 48, y: 0, width: 24, depth: 24 });
+    // Exact 24" gap between them; drop a 24" cabinet roughly in the slot.
+    const moving = cab({ uid: "M", placement: "base", x: 26, y: 0, width: 24, depth: 24 });
+    const res = snapPosition(moving, ROOM, [left, right, moving]);
+    expect(hasCollision({ ...moving, x: res.x, y: res.y }, [left, right])).toBe(false);
   });
 });

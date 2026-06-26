@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useSearch } from "wouter";
+import { useSearch, useLocation } from "wouter";
+import { useCart, type CartItem } from "@/contexts/CartContext";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, Download, DoorOpen,
@@ -176,10 +177,7 @@ export default function DesignTool() {
     });
   }, [captureLead]);
 
-  // Optional package to preload (?package=slug), e.g. from a Kitchen Package page.
   const search = useSearch();
-  const packageSlug = useMemo(() => new URLSearchParams(search).get("package"), [search]);
-  const loadedPackageRef = useRef<string | null>(null);
   // Optional saved design to load (?load=<designId>), e.g. from a CRM deal's
   // "Linked Designs" list. Loads the saved room + placed cabinets + style.
   const loadDesignId = useMemo(() => {
@@ -192,15 +190,10 @@ export default function DesignTool() {
   // so the debounced save effect doesn't overwrite the stored draft with the
   // initial empty state before restore runs.
   const draftRestoredRef = useRef(false);
-  const { data: packageLayout, isError: packageError } = trpc.packages.layout.useQuery(
-    { slug: packageSlug ?? "" },
-    { enabled: !!packageSlug && verified, retry: 1 }
-  );
   const { data: savedDesign } = trpc.design.byId.useQuery(
     { id: loadDesignId ?? 0 },
     { enabled: loadDesignId != null && verified, retry: 1 }
   );
-  const packageErrorRef = useRef(false);
 
   // Mobile layout: which slide-up panel is open (catalog picker or cart/BOM).
   // Designer is touch-first: treat anything narrower than a small laptop (1024px)
@@ -208,6 +201,8 @@ export default function DesignTool() {
   // the single-column UI with the bottom toolbar + drawers (never the cramped
   // 3-column desktop view).
   const isMobile = useIsMobile(1024);
+  const [, navigate] = useLocation();
+  const { addItem, clear: clearCart, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
   const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart">(() => {
     if (typeof window === "undefined") return null;
     const p = new URLSearchParams(window.location.search).get("panel");
@@ -996,6 +991,72 @@ export default function DesignTool() {
     }
     return rows;
   }, [placed, addedAddOns, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, addOnPriceFor, styleNameById]);
+  // ── Add the whole design to the shopping cart ───────────────────────────────
+  // Turns the placed cabinets into cart line items (aggregated by master code +
+  // effective door style), so a shopper can review and buy the exact kitchen they
+  // designed. Closet parts, appliances, and unpriced placeholder rows (skins /
+  // pending-SKU end panels) are NOT added — only real, priced catalog cabinets.
+  // The cart is locked to ONE distributor (supply line); the whole design shares
+  // the design's locked distributor, so there is never a cross-distributor mix.
+  const cartableLines = useMemo(() => {
+    if (!styleId) return [] as CartItem[];
+    const map = new Map<string, CartItem>();
+    for (const p of placed) {
+      if (isClosetPart(p.masterCode)) continue; // closet parts use a separate flow
+      if (p.cabinetId == null) continue; // appliances / non-catalog items
+      const unit = unitPriceFor(p);
+      if (unit == null) continue; // skip unpriced rows (no SKU for this style)
+      const sid = effectiveStyleId(p, styleId) ?? styleId;
+      const styleLabel = styleNameById.get(sid) ?? "";
+      const key = `${p.masterCode}::${sid}`;
+      const existing = map.get(key);
+      if (existing) existing.qty += 1;
+      else
+        map.set(key, {
+          masterCode: p.masterCode,
+          name: p.description ?? p.masterCode,
+          styleId: sid,
+          styleLabel,
+          distributorId: lockedDistributorId ?? null,
+          tier: tier === "Wholesale" ? "wholesale" : "contractor",
+          unitPrice: unit,
+          qty: 1,
+        });
+    }
+    return Array.from(map.values());
+  }, [placed, styleId, unitPriceFor, styleNameById, lockedDistributorId, tier]);
+
+  const addAllToCart = useCallback(() => {
+    if (cartableLines.length === 0) {
+      toast.info(t("dt_cart_nothing"));
+      return;
+    }
+    // If the cart already holds items from a DIFFERENT distributor, adding would
+    // be rejected line-by-line. Offer to clear and start fresh with this design.
+    if (
+      cartLockedDistributorId != null &&
+      lockedDistributorId != null &&
+      cartLockedDistributorId !== lockedDistributorId
+    ) {
+      const ok = window.confirm(
+        t("dt_cart_distributor_conflict", { name: cartLockedStyleLabel ?? "" })
+      );
+      if (!ok) return;
+      clearCart();
+    }
+    let added = 0;
+    for (const line of cartableLines) {
+      const res = addItem(line);
+      if (res.ok) added += line.qty;
+    }
+    if (added > 0) {
+      toast.success(t("dt_cart_added", { n: added }));
+      navigate("/cart");
+    } else {
+      toast.error(t("dt_cart_failed"));
+    }
+  }, [cartableLines, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, navigate, t]);
+
   // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
   // note for the build sheet — carries no price (hardware is not a catalog SKU).
   const hwSchedule = useMemo(
@@ -1648,6 +1709,24 @@ export default function DesignTool() {
     setSinks((prev) => prev.map((s) => (s.uid === uid ? { ...s, faucet: !s.faucet } : s)));
   }, []);
 
+  // Selecting any one object on the canvas (cabinet / sink / wall opening)
+  // clears the other selections, so there is exactly one "active" object the
+  // Delete / Rotate controls act on. Without this, tapping a sink left the
+  // cabinet selection (selectedUid) untouched and the Delete button — which was
+  // gated on selectedUid — stayed disabled, so a sink could never be deleted.
+  const selectCabinet = useCallback((uid: string | null) => {
+    setSelectedUid(uid);
+    if (uid) { setSelectedSinkUid(null); setSelectedOpeningUid(null); }
+  }, []);
+  const selectSink = useCallback((uid: string | null) => {
+    setSelectedSinkUid(uid);
+    if (uid) { setSelectedUid(null); setSelectedOpeningUid(null); }
+  }, []);
+  const selectOpening = useCallback((uid: string | null) => {
+    setSelectedOpeningUid(uid);
+    if (uid) { setSelectedUid(null); setSelectedSinkUid(null); }
+  }, []);
+
   // Move the island AND every cabinet sitting on it by the same delta, clamped
   // so the island stays inside the room. Cabinets move in lockstep so they
   // never slide off the island.
@@ -1747,9 +1826,22 @@ export default function DesignTool() {
   };
 
   const deleteSelected = () => {
-    if (!selectedUid) return;
-    setPlaced((prev) => prev.filter((p) => p.uid !== selectedUid));
-    setSelectedUid(null);
+    // Cabinet selection takes priority; otherwise delete a selected sink or
+    // wall opening so EVERY selectable object on the canvas is removable from
+    // the same Delete control (mobile toolbar + Delete/Backspace key).
+    if (selectedUid) {
+      setPlaced((prev) => prev.filter((p) => p.uid !== selectedUid));
+      setSelectedUid(null);
+      return;
+    }
+    if (selectedSinkUid) {
+      deleteSink(selectedSinkUid);
+      return;
+    }
+    if (selectedOpeningUid) {
+      deleteOpening(selectedOpeningUid);
+      setSelectedOpeningUid(null);
+    }
   };
 
   // Move the selected cabinet by a delta (inches). Used by the arrow keys and
@@ -2146,6 +2238,9 @@ export default function DesignTool() {
       if ((e.key === "Delete" || e.key === "Backspace") && selectedOpeningUid) {
         e.preventDefault();
         deleteOpening(selectedOpeningUid);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedSinkUid) {
+        e.preventDefault();
+        deleteSink(selectedSinkUid);
       } else if ((e.key === "Delete" || e.key === "Backspace") && selectedUid) {
         e.preventDefault();
         deleteCabinet(selectedUid);
@@ -2168,50 +2263,15 @@ export default function DesignTool() {
       } else if (e.key === "Escape") {
         setSelectedUid(null);
         setSelectedOpeningUid(null);
+        setSelectedSinkUid(null);
         setMeasureMode(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening, measureMode, rotateSelected, swingSelected, nudgeSelected]);
+  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening, selectedSinkUid, deleteSink, measureMode, rotateSelected, swingSelected, nudgeSelected]);
 
   const dragDataRef = useState<{ current: DesignCabinet | null }>(() => ({ current: null }))[0];
-
-  // Preload a kitchen package layout onto the canvas (once per slug).
-  useEffect(() => {
-    if (!packageLayout || loadedPackageRef.current === packageLayout.slug) return;
-    loadedPackageRef.current = packageLayout.slug;
-    setRoom((prev) => ({ width: packageLayout.room.width, depth: packageLayout.room.depth, ceilingHeight: prev.ceilingHeight }));
-    const items = (packageLayout.items as Array<{
-      cabinetId: number; masterCode: string; description: string;
-      placement: "base" | "wall" | "tall"; x: number; y: number; rotation: number;
-      width: number | null; depth: number | null; height?: number | null;
-      catalogImageUrl?: string | null;
-    }>).map((it) => ({
-      uid: makeUid(),
-      cabinetId: it.cabinetId,
-      masterCode: it.masterCode,
-      description: it.description,
-      placement: it.placement,
-      x: it.x,
-      y: it.y,
-      width: it.width && it.width > 0 ? it.width : 24,
-      depth:
-        it.depth && it.depth > 0
-          ? it.depth
-          : it.placement === "wall"
-          ? STD.WALL_DEPTH
-          : it.placement === "tall"
-          ? STD.TALL_DEPTH
-          : STD.BASE_DEPTH,
-      height: it.height && it.height > 0 ? it.height : standardHeight(it.placement),
-      rotation: it.rotation,
-      catalogImageUrl: it.catalogImageUrl ?? null,
-    }));
-    setPlaced(normalizeLCornerDepths(items));
-    setSelectedUid(null);
-    toast.success(t("dt_toast_loaded_design", { name: packageLayout.name }));
-  }, [packageLayout]);
 
   // Load a saved design from ?load=<id> (e.g. opened from a CRM deal).
   useEffect(() => {
@@ -2228,20 +2288,6 @@ export default function DesignTool() {
     });
     toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
   }, [loadDesignId, savedDesign, loadSavedDesign]);
-
-  // Surface a failed package preload (network error or invalid slug).
-  useEffect(() => {
-    if (!packageSlug || !verified) return;
-    if (packageError && !packageErrorRef.current) {
-      packageErrorRef.current = true;
-      toast.error(t("dt_t_pkg_load_fail"));
-    }
-    // packageLayout resolves to null for an unknown slug (no throw).
-    if (packageLayout === null && !packageErrorRef.current) {
-      packageErrorRef.current = true;
-      toast.error(t("dt_t_pkg_not_found"));
-    }
-  }, [packageError, packageLayout, packageSlug, verified]);
 
   // ─── Draft auto-save / restore ───────────────────────────────────────────────
   // Real-world safeguard: someone designs on their phone, a call comes in (or the
@@ -2299,11 +2345,11 @@ export default function DesignTool() {
     }
   });
 
-  // Restore once, after verification, unless we're loading a package layout.
+  // Restore once, after verification, unless we're loading a saved design.
   useEffect(() => {
     if (!verified || draftRestoredRef.current) return;
-    if (packageSlug || loadDesignId != null) {
-      // A package or saved-design load owns the canvas; skip draft restore but
+    if (loadDesignId != null) {
+      // A saved-design load owns the canvas; skip draft restore but
       // allow future saves.
       draftRestoredRef.current = true;
       return;
@@ -2350,7 +2396,7 @@ export default function DesignTool() {
     }
     draftRestoredRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verified, packageSlug, draftKey]);
+  }, [verified, draftKey]);
 
   // Debounced save on any design change.
   useEffect(() => {
@@ -3249,7 +3295,7 @@ export default function DesignTool() {
               room={room}
               cabinets={placed}
               selectedUid={selectedUid}
-              onSelect={setSelectedUid}
+              onSelect={selectCabinet}
               onMove={moveCabinet}
               onDelete={deleteCabinet}
               onRotate={rotateCabinet}
@@ -3262,7 +3308,7 @@ export default function DesignTool() {
               onIslandMove={moveIsland}
               openings={openings}
               selectedOpeningUid={selectedOpeningUid}
-              onSelectOpening={setSelectedOpeningUid}
+              onSelectOpening={selectOpening}
               onOpeningChange={changeOpening}
               onDeleteOpening={deleteOpening}
               finish={activeFinish}
@@ -3277,7 +3323,7 @@ export default function DesignTool() {
               countertopMaterialId={countertop ? countertopMaterialId : null}
               sinks={sinks}
               selectedSinkUid={selectedSinkUid}
-              onSelectSink={setSelectedSinkUid}
+              onSelectSink={selectSink}
               onMoveSink={moveSink}
               onDropToFloor={dropToFloor}
               finishFor={finishForCab}
@@ -3288,7 +3334,7 @@ export default function DesignTool() {
               room={room}
               cabinets={placed}
               selectedUid={selectedUid}
-              onSelect={setSelectedUid}
+              onSelect={selectCabinet}
               wall={activeWall}
               onSelectWall={setActiveWall}
               countertopMaterialId={countertop ? countertopMaterialId : null}
@@ -3309,7 +3355,7 @@ export default function DesignTool() {
               room={room}
               cabinets={placed}
               selectedUid={selectedUid}
-              onSelect={setSelectedUid}
+              onSelect={selectCabinet}
               corner={corner}
               onCornerChange={setCorner}
               countertopMaterialId={countertop ? countertopMaterialId : null}
@@ -3332,7 +3378,7 @@ export default function DesignTool() {
                   room={room}
                   cabinets={placed}
                   selectedUid={selectedUid}
-                  onSelect={setSelectedUid}
+                  onSelect={selectCabinet}
                   onMove={moveCabinet}
                   onDelete={deleteCabinet}
                   onRotate={rotateCabinet}
@@ -3345,7 +3391,7 @@ export default function DesignTool() {
                   onIslandMove={moveIsland}
                   openings={openings}
                   selectedOpeningUid={selectedOpeningUid}
-                  onSelectOpening={setSelectedOpeningUid}
+                  onSelectOpening={selectOpening}
                   onOpeningChange={changeOpening}
                   onDeleteOpening={deleteOpening}
                   finish={activeFinish}
@@ -3360,7 +3406,7 @@ export default function DesignTool() {
                   countertopMaterialId={countertop ? countertopMaterialId : null}
                   sinks={sinks}
                   selectedSinkUid={selectedSinkUid}
-                  onSelectSink={setSelectedSinkUid}
+                  onSelectSink={selectSink}
                   onMoveSink={moveSink}
                   onDropToFloor={dropToFloor}
                   finishFor={finishForCab}
@@ -3371,7 +3417,7 @@ export default function DesignTool() {
                   room={room}
                   cabinets={placed}
                   selectedUid={selectedUid}
-                  onSelect={setSelectedUid}
+                  onSelect={selectCabinet}
                   wall={activeWall}
                   onSelectWall={setActiveWall}
                   countertopMaterialId={countertop ? countertopMaterialId : null}
@@ -3900,8 +3946,50 @@ export default function DesignTool() {
                 </div>
               );
             })()}
+            {/* Itemized purchase list: every priced cabinet in the design, shown
+                with its door-style color so the shopper sees exactly what they
+                are buying before ordering. */}
+            {cartableLines.length > 0 && (
+              <div className="mt-1 rounded-lg border border-border">
+                <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t("dt_cart_items_title")}
+                </div>
+                <ul className="divide-y divide-border">
+                  {cartableLines.map((line) => (
+                    <li key={`${line.masterCode}-${line.styleId}`} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 font-medium text-foreground">
+                          <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px]">{line.qty}×</span>
+                          <span className="truncate">{line.masterCode}</span>
+                        </div>
+                        {line.styleLabel && (
+                          <div className="truncate text-[11px] text-muted-foreground">{line.styleLabel}</div>
+                        )}
+                      </div>
+                      <span className="shrink-0 font-medium text-foreground">
+                        {line.unitPrice != null ? `$${(line.unitPrice * line.qty).toFixed(2)}` : "—"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* PRIMARY action: turn the design into a real, orderable cart. */}
             <Button
-              className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90 gap-2"
+              className="w-full mt-2 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 gap-2"
+              disabled={cartableLines.length === 0}
+              onClick={() => {
+                if (hasConflicts && !window.confirm(
+                  t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
+                )) return;
+                addAllToCart();
+              }}
+            >
+              <ShoppingCart className="h-4 w-4" /> {t("dt_cart_add_all")}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full mt-2 bg-[#1a2744] text-white hover:bg-[#1a2744]/90 gap-2 border-transparent"
               disabled={placed.length === 0}
               onClick={() => {
                 if (hasConflicts && !window.confirm(
@@ -4013,7 +4101,7 @@ export default function DesignTool() {
             <MobileBarButton
               icon={<Trash2 className="h-5 w-5" />}
               label="Delete"
-              disabled={!selectedUid || measureMode}
+              disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid) || measureMode}
               danger
               onClick={deleteSelected}
             />

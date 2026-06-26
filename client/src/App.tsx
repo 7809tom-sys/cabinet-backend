@@ -16,8 +16,6 @@ const DoorStyles = lazy(() => import("@/pages/DoorStyles"));
 const Family = lazy(() => import("@/pages/Family"));
 const DesignTool = lazy(() => import("@/pages/DesignTool"));
 const DesignSession = lazy(() => import("@/pages/DesignSession"));
-const Packages = lazy(() => import("@/pages/Packages"));
-const PackageDetail = lazy(() => import("@/pages/PackageDetail"));
 const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
 const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
 const Admin = lazy(() => import("@/pages/Admin"));
@@ -80,24 +78,6 @@ export default function App() {
             <AppLayout>
               <Suspense fallback={<PageLoader />}>
                 <CabinetDetail masterCode={params.masterCode} />
-              </Suspense>
-            </AppLayout>
-          )}
-        </Route>
-
-        <Route path="/packages">
-          <AppLayout>
-            <Suspense fallback={<PageLoader />}>
-              <Packages />
-            </Suspense>
-          </AppLayout>
-        </Route>
-
-        <Route path="/packages/:slug">
-          {(params) => (
-            <AppLayout>
-              <Suspense fallback={<PageLoader />}>
-                <PackageDetail slug={params.slug} />
               </Suspense>
             </AppLayout>
           )}

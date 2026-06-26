@@ -15,7 +15,7 @@ const WELCOME =
 const SUGGESTED = [
   "What door styles do you offer?",
   "How do I order cabinets?",
-  "Help me plan a 10x10 kitchen",
+  "Help me design my kitchen",
 ];
 
 export function ChatWidget() {
@@ -81,7 +81,7 @@ export function ChatWidget() {
     setConnecting(false);
     if (ok) {
       setOpen(false);
-      toast.success("Connecting you with our team\u2026");
+      toast.success("Connecting you with our team…");
     } else if (!isTawkConfigured()) {
       toast.info("Live chat is being set up", {
         description: "In the meantime, ask here or request a quote and we'll reach out.",
@@ -135,7 +135,7 @@ export function ChatWidget() {
               onSendMessage={handleSend}
               isLoading={chat.isPending}
               height="100%"
-              placeholder="Ask about cabinets, styles, ordering\u2026"
+              placeholder="Ask about cabinets, styles, ordering…"
               emptyStateMessage={WELCOME}
               suggestedPrompts={SUGGESTED}
             />
@@ -149,7 +149,7 @@ export function ChatWidget() {
               disabled={connecting}
             >
               <Headset className="h-4 w-4" />
-              {connecting ? "Connecting\u2026" : "Talk to a live person"}
+              {connecting ? "Connecting…" : "Talk to a live person"}
             </Button>
           </div>
         </div>

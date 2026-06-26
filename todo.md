@@ -1845,3 +1845,21 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Set VITE_TAWK_PROPERTY_ID (6a3ea71335bb181d4aa8b755) and VITE_TAWK_WIDGET_ID (default) from owner's embed snippet
 - [x] Validate embed URL resolves to a real Tawk widget (HTTP 200 + account key echo) via vitest server/tawk.config.test.ts
 - [x] Restart dev server so the chat launcher loads the live widget
+
+## Remove Kitchen Packages feature (per owner: people don't buy 10x10 kitchens)
+- [x] Chat: change suggested prompt "Help me plan a 10x10 kitchen" -> "Help me design my kitchen" and fix \u2026 escapes in ChatWidget
+- [x] App.tsx: remove Packages + PackageDetail lazy imports and /packages routes
+- [x] TopNav.tsx: remove nav_kitchen_packages link
+- [x] DesignTool.tsx: remove ?package=slug preload (packageSlug, packages.layout query, preload effect, error effect, draft-restore guard)
+- [x] Delete pages Packages.tsx and PackageDetail.tsx
+- [x] server/routers.ts: remove packagesRouter wiring; delete server/routers/packages.ts
+- [x] shared/packages.ts: delete; server/packages.test.ts: delete
+- [x] seo.ts: remove /packages sitemap entry; jsonLd.test.ts dropped package tests; removed buildPackageJsonLd
+- [x] assistant.ts: remove "Kitchen Packages" from guidance copy
+- [x] i18n/site.ts: package nav + pkd_* keys left as harmless unused strings (not rendered anywhere)
+- [x] tsc clean + full vitest suite green (958 tests)
+
+## Designer mobile fixes (from screenshot)
+- [x] Sink object placed on canvas cannot be deleted - mobile Delete + keyboard Delete/Backspace now delete a selected sink; selection is mutually exclusive (cabinet/sink/opening)
+- [x] No visible link/list to review & purchase placed cabinets - added itemized cabinet list (with color) + primary "Add all to cart" button that pushes the design into the cart and routes to /cart
+- [x] Dragging a cabinet near another now snaps/butts against it and stops, not overlap/collide (overlap push-out added to snapPosition; 3 new vitest cases)
