@@ -185,6 +185,14 @@ export interface PlacedCabinet {
   cabinetId: number;
   masterCode: string;
   description: string;
+  // Catalog category / sub-category, carried from the source cabinet so the
+  // canvas drawing + accessibility label classify the PLACED cabinet the same
+  // way the palette does. Without these, cabinetDrawingType() can't tell a real
+  // base/wall/tall box from an accessory strip and a normal base cabinet whose
+  // description mentions "shelf"/"panel" gets mislabeled "accessory / trim".
+  // Optional for backward-compat with older saved designs.
+  category?: string | null;
+  subCategory?: string | null;
   placement: Placement;
   x: number;
   y: number;

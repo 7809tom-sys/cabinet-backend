@@ -1921,3 +1921,7 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Render corner cabinets (lazy Susan / diagonal corner / WDC / blind corner) straddling BOTH walls at the seam in Corner view — added seamCabinets prop to ElevationView (renderCabinetBox helper, pinned to corner end posAlong 0); CornerView computes corner cabinets seated at the viewed corner via cornerRotationForPlaced and injects seam ghosts into the non-owning half. tsc clean; verified live with LSB36 showing on both walls
 - [x] Verify both-sides corner rendering in live designer + checkpoint
 - [ ] Make Corner view read as TRUE 3D: CSS perspective with both walls converging to a vanishing point at the seam, tapered floor + ceiling planes (lightweight, no 3D engine)
+
+## Active bugs (2026-06-26)
+- [x] Placed base cabinet (e.g. B-18) mis-labeled "accessory / trim" FIXED — PlacedCabinet now carries category/subCategory (stamped in addCabinet + auto-fill); selected preview shows "1-door cabinet". Regression test added; 979 tests pass.
+- [x] Designer palette search box: verified WORKING in latest build (typing "B-24" filters to 24" matches). The reported failure was the OLDER published build — fixed by republishing.

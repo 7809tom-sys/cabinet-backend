@@ -211,6 +211,24 @@ describe("cabinetDrawingType — real cabinet families never become accessory st
     expect(cabinetAltText(cab)).not.toContain("accessory / trim");
   });
 
+  it("B-18 'Single Door Single Drawer Base ... with Adjustable Shelf' classifies as a real cabinet when category is carried (placed-cabinet regression)", () => {
+    // Regression: a PlacedCabinet built from the palette now carries `category`,
+    // so the selected-cabinet preview no longer mislabels a normal base box as
+    // "accessory / trim" just because its description mentions "Shelf".
+    const placed: CabinetLike = {
+      masterCode: "B-18",
+      description: '18" Single Door Single Drawer Base Cabinet with Adjustable Shelf',
+      category: "Base",
+      subCategory: "Single Door Base",
+      width: "18",
+      numberOfDoors: 1,
+      numberOfDrawers: 1,
+    };
+    expect(cabinetDrawingType(placed)).toBe("standard-door");
+    expect(cabinetAltText(placed)).not.toContain("accessory / trim");
+    expect(cabinetAltText(placed)).toContain("1-door cabinet");
+  });
+
   it("does not classify a Wall cabinet mentioning 'panel' as accessory", () => {
     const cab: CabinetLike = {
       masterCode: "W-30-30",

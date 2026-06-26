@@ -1425,6 +1425,12 @@ export default function DesignTool() {
           cabinetId: c.id,
           masterCode: c.masterCode,
           description: c.description,
+          // Carry catalog category/sub-category so the placed cabinet's canvas
+          // drawing + accessibility label classify it the same as the palette
+          // (otherwise a normal base box whose description says "shelf"/"panel"
+          // is mislabeled "accessory / trim").
+          category: c.category ?? null,
+          subCategory: c.subCategory ?? null,
           placement: accPlacement,
           x: spot.x,
           y: spot.y,
@@ -1544,6 +1550,8 @@ export default function DesignTool() {
             cabinetId: c.id,
             masterCode: c.masterCode,
             description: c.description,
+            category: c.category ?? null,
+            subCategory: c.subCategory ?? null,
             placement: "base",
             x: spot.x,
             y: spot.y,
