@@ -6,6 +6,7 @@ import {
   cabinetAltText,
   cabinetTypeLabel,
   resolveDoorDrawerCounts,
+  baseSubGroup,
   type CabinetLike,
 } from "./cabinetGraphics";
 
@@ -282,5 +283,109 @@ describe("door-count agreement: label + drawing follow the description, not a wr
     const { doors } = resolveDoorDrawerCounts(cab);
     expect(doors).toBe(1);
     expect(cabinetTypeLabel(cab)).toBe("Single Door Wall");
+  });
+});
+
+describe("baseSubGroup (designer Base tab ordering)", () => {
+  it("classifies a plain door base as base", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "B-24",
+        description: '24" Two Door Base Cabinet',
+        category: "Base",
+        numberOfDoors: 2,
+        numberOfDrawers: 1,
+      }),
+    ).toBe("base");
+  });
+
+  it("classifies a full-height base as base (grouped with bases)", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "B-30FH",
+        description: '30" Full Height Base Cabinet',
+        category: "Base",
+        numberOfDoors: 2,
+        numberOfDrawers: 0,
+      }),
+    ).toBe("base");
+  });
+
+  it("classifies an all-drawer base as drawer", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "DB-12-3",
+        description: '12" Three Drawer Base Cabinet',
+        category: "Base",
+        subCategory: "Drawer Base",
+        numberOfDoors: 0,
+        numberOfDrawers: 3,
+      }),
+    ).toBe("drawer");
+  });
+
+  it("classifies a sink base as sink", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "SB-36",
+        description: '36" Sink Base Cabinet',
+        category: "Base",
+        subCategory: "Sink Base",
+        numberOfDoors: 2,
+      }),
+    ).toBe("sink");
+  });
+
+  it("classifies a farmhouse sink base as sink", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "FSB-36",
+        description: '36" Farmhouse Sink Base',
+        category: "Base",
+      }),
+    ).toBe("sink");
+  });
+
+  it("classifies a blind/lazy-susan corner base as specialty", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "BBC-42",
+        description: '42" Blind Corner Base Cabinet',
+        category: "Base",
+        isCornerCabinet: true,
+      }),
+    ).toBe("specialty");
+  });
+
+  it("classifies a microwave base as specialty", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "BMW-30",
+        description: '30" Base Microwave Cabinet',
+        category: "Base",
+      }),
+    ).toBe("specialty");
+  });
+
+  it("classifies a spice pull-out base as specialty", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "SPB-9",
+        description: '9" Spice Pull-Out Base',
+        category: "Base",
+      }),
+    ).toBe("specialty");
+  });
+
+  it("sink wins over drawer when a sink base also has drawers", () => {
+    expect(
+      baseSubGroup({
+        masterCode: "SB-36-D",
+        description: '36" Sink Base with Drawers',
+        category: "Base",
+        numberOfDoors: 0,
+        numberOfDrawers: 2,
+      }),
+    ).toBe("sink");
   });
 });

@@ -165,6 +165,69 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
 }
 
 /**
+ * Sub-grouping used by the designer's "Base" palette tab so floor cabinets are
+ * organized logically instead of one long list. Four ordered buckets:
+ *   1. base       — standard door base cabinets (the most common)
+ *   2. drawer     — all-drawer drawer bases
+ *   3. sink       — sink/farmhouse/vanity-sink fronts
+ *   4. specialty  — everything else that's still a base box (blind/lazy-susan
+ *                   corners that land on the Base tab, microwave/oven/trash
+ *                   bases, spice pull-outs, end/wine/desk specialty units, ADA)
+ *
+ * Pure + framework-free so it is unit-testable. Order of checks matters: the
+ * most specific specialty signals win, then sink, then drawer, then plain base.
+ */
+export type BaseSubGroup = "base" | "drawer" | "sink" | "specialty";
+
+export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
+  const code = lc(cab.masterCode);
+  const sub = lc(cab.subCategory);
+  const desc = lc(cab.description);
+  const hay = `${sub} ${desc} ${code}`;
+  const type = cabinetDrawingType(cab);
+
+  // 1) Sink fronts/bases first — a sink base often also has drawers/doors, so it
+  //    must be classified before the drawer/standard checks.
+  if (
+    type === "sink-base" ||
+    /\bsink\b/.test(hay) ||
+    /^(?:ada-)?f?sb[-_ ]?\d/.test(code) ||
+    /^csb[-_ ]?\d/.test(code) ||
+    /^(?:uv-)?sbf[-_ ]?\d/.test(code) ||
+    /^(?:ada-)?vsd?[-_ ]?\d/.test(code)
+  ) {
+    return "sink";
+  }
+
+  // 2) Specialty bases: corners that fall on the Base tab, appliance bases
+  //    (microwave/oven/trash/waste), spice pull-outs, blind/lazy-susan, ADA,
+  //    end/wine/desk and other non-standard boxes.
+  if (
+    type === "blind-corner" ||
+    type === "appliance-garage" ||
+    type === "ada" ||
+    cab.isCornerCabinet ||
+    /blind|lazy susan|easy reach|diagonal|corner/.test(hay) ||
+    /microwave|\boven\b|trash|waste|recycl/.test(hay) ||
+    /spice|pull[- ]?out|pullout|roll[- ]?out|tray base/.test(hay) ||
+    /\bada\b/.test(hay) ||
+    /end (?:shelf|panel|base)|angle|wine|desk|peninsula base|appliance base/.test(
+      hay,
+    )
+  ) {
+    return "specialty";
+  }
+
+  // 3) Drawer bases: all-drawer fronts.
+  if (type === "drawer-base" || /drawer base/.test(`${sub} ${desc}`)) {
+    return "drawer";
+  }
+
+  // 4) Everything else is a standard door base.
+  return "base";
+}
+
+/**
  * A short, shopper-facing type label that ALWAYS agrees with the drawing.
  * The catalog's `subCategory` is sometimes wrong (a single-door wall tagged
  * "Double Door Wall"), so when the description clearly states the door/drawer

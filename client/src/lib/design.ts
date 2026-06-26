@@ -878,6 +878,18 @@ export function isCornerCabinet(masterCode: string, description?: string): boole
   return /corner|lazy susan|easy reach|blind|diagonal|angled (wall|corner)/.test(desc);
 }
 
+// An ANGLED WALL cabinet (AW-*) has a 45° face that transitions between two
+// wall runs, but it is a regular wall-tab cabinet — NOT a corner cabinet. Use
+// this to keep AW units OUT of the Corner palette tab. (Its diagonal canvas
+// footprint is still handled by isDiagonalCorner below, which is intentional.)
+export function isAngledWallCabinet(masterCode: string, description?: string): boolean {
+  const code = (masterCode || "").toUpperCase();
+  const desc = (description || "").toLowerCase();
+  // A genuine corner unit (e.g. "corner" in the text) is never an angled wall.
+  if (/corner/.test(desc)) return false;
+  return /^AW[-\d]/.test(code) || /\bangled wall\b/.test(desc);
+}
+
 // A diagonal corner cabinet has a single 45-degree angled front face spanning
 // the corner (NOT an L-shaped notch like a blind/lazy-susan corner). Codes like
 // DCW (Diagonal Corner Wall), WDC, KWD and descriptions containing "diagonal".

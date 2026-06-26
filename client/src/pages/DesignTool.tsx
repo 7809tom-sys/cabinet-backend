@@ -29,7 +29,7 @@ import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths,
-  conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet,
+  conflictingUids, blindCornerViolations, blindCornerSpecViolations, isBlindCorner, isOnIsland, isCornerCabinet, isAngledWallCabinet,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
   blindCornerAutoFiller,
@@ -76,6 +76,7 @@ import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
+import { baseSubGroup, type BaseSubGroup } from "@/lib/cabinetGraphics";
 import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
@@ -401,15 +402,27 @@ export default function DesignTool() {
     { enabled: paletteType === "corner" }
   );
 
+  // An "Angled Wall" cabinet (AW-*) has a 45° face but is a normal wall-run
+  // transition unit — it is NOT a corner cabinet, so it must live on the regular
+  // "Wall" tab, not the "Corner" tab. (Its diagonal CANVAS rendering is handled
+  // separately by isDiagonalCorner in design.ts and is intentionally left intact.)
+  const isAngledWall = useCallback((c: DesignCabinet) => {
+    if (c.isCornerCabinet === true) return false; // a true corner unit wins
+    if ((c.subCategory || "").toLowerCase().includes("corner")) return false;
+    return isAngledWallCabinet(c.masterCode, c.description || undefined);
+  }, []);
+
   // Detect a diagonal/corner WALL cabinet for the dedicated "Corner Wall" tab.
   const isCornerWall = useCallback((c: DesignCabinet) => {
+    // Angled wall cabinets are wall-tab items, never corner-tab items.
+    if (isAngledWall(c)) return false;
     const sub = (c.subCategory || "").toLowerCase();
     return (
       c.isCornerCabinet === true ||
       sub.includes("corner") ||
       isCornerCabinet(c.masterCode, c.description || undefined)
     );
-  }, []);
+  }, [isAngledWall]);
 
   // Detect a corner BASE cabinet (blind corner BBC, lazy susan LSB, easy reach
   // ERB/BER, diagonal corner sink CSB, corner base CB) for the dedicated
@@ -577,6 +590,29 @@ export default function DesignTool() {
       if (cornerWalls.length > 0) sections.push({ label: t("dt_pl_grp_corner_wall"), items: cornerWalls });
       return sections;
     }
+    // The "Base" tab is organized by base TYPE (not height): standard door
+    // bases first, then drawer bases, then sink bases, then specialty bases —
+    // each a collapsible accordion section. Full-height (tall) base cabinets are
+    // standard door bases and live in the first "Base Cabinets" group; there is
+    // no separate section for them. Empty sections are dropped.
+    if (paletteType === "base") {
+      const order: { key: BaseSubGroup; labelKey: SiteStringKey }[] = [
+        { key: "base", labelKey: "dt_pl_grp_base_std" },
+        { key: "drawer", labelKey: "dt_pl_grp_base_drawer" },
+        { key: "sink", labelKey: "dt_pl_grp_base_sink" },
+        { key: "specialty", labelKey: "dt_pl_grp_base_specialty" },
+      ];
+      const buckets: Record<BaseSubGroup, DesignCabinet[]> = {
+        base: [],
+        drawer: [],
+        sink: [],
+        specialty: [],
+      };
+      for (const c of filteredPalette) buckets[baseSubGroup(c)].push(c);
+      return order
+        .map(({ key, labelKey }) => ({ label: t(labelKey), items: buckets[key] }))
+        .filter((g) => g.items.length > 0);
+    }
     // Every floor-standing BASE cabinet is a standard 34½" tall (the toe-kick +
     // box + countertop reveal is fixed); the stored "height" on some SKUs (spice
     // pull-outs like BSDC-6/SPB-9/SPB-6, diagonal sink floors) is actually the
@@ -585,7 +621,6 @@ export default function DesignTool() {
     // 15"/42" groups. Wall / Wall-by-Height / Tall tabs keep their real heights
     // because grouping by height is meaningful there.
     const isBaseFamilyTab =
-      paletteType === "base" ||
       paletteType === "vanity";
     const BASE_STD_HEIGHT = 34.5;
     const groups = new Map<number, DesignCabinet[]>();

@@ -1795,3 +1795,17 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] CabinetDetail: emit Product JSON-LD (name, description, brand Cabinet Dealz, image, sku/mpn, url, category) — NO Offer (tier/member-gated pricing intentionally not published). Verified in live DOM (DB-12-3)
 - [x] PackageDetail: emit Product JSON-LD with Offer (suggestedRetail price, priceCurrency USD, availability InStock, url). Verified in live DOM (l-shape-10x10: price 3330.33 USD InStock)
 - [x] Validate JSON shape via tests (949 pass) + tsc clean + headless Chromium DOM dump of both page types; checkpoint
+
+
+## Designer Base tab: ordered accordion subgroups
+- [x] Added pure baseSubGroup() classifier (base / drawer / sink / specialty) in cabinetGraphics.ts with unit tests (33 tests)
+- [x] DesignTool groupedPalette: Base tab splits into 4 ordered accordion subgroups -> Base, Drawer Bases, Sink Bases, Specialty Bases (collapsible like other groups). Full-height bases (B-*FH) stay in the regular Base group per user.
+- [x] Added EN/ES i18n labels for the 4 base subgroups
+- [x] Tests + tsc + verified in designer (BASE CABINETS (15) leads, FH bases included); checkpoint
+
+
+## Designer Corner tab cleanup
+- [x] Angled Wall (AW-*) cabinets must NOT appear in the Corner tab; moved to the regular Wall tab (diagonal/angled canvas rendering left intact via isDiagonalCorner)
+- [x] Added exported isAngledWallCabinet() helper (design.ts); isCornerWall excludes it, Wall tab (!isCornerWall) includes it
+- [x] Kept true corner units in Corner tab (DCW diagonal, blind/lazy-susan, easy-reach ERB/BER, RHC corner range hood with isCornerCabinet=1)
+- [x] Tests added (design.test.ts: AW=angledWall true, cornerWall excluded, still diagonal-rendered) + tsc clean + full suite 961 pass; checkpoint

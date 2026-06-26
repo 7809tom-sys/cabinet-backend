@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  isCornerCabinet, cornerClipPath, centerDistance, formatInches,
+  isCornerCabinet, isAngledWallCabinet, cornerClipPath, centerDistance, formatInches,
   isApplianceCode, applianceAsDesignCabinet, elevationBox, APPLIANCES,
   conflictingUids, isSinkBaseCabinet, isSinkAppliance, STD,
   appliancesForRoom, ROOM_TYPES,
@@ -69,6 +69,25 @@ describe("corner cabinet detection", () => {
     expect(isCornerCabinet("B-24", "Base 24 inch")).toBe(false);
     expect(isCornerCabinet("SB-36", "Sink Base 36")).toBe(false);
     expect(isCornerCabinet("W-30-30", "Wall 30x30")).toBe(false);
+  });
+});
+
+describe("angled wall cabinets are NOT corner cabinets (palette tab routing)", () => {
+  it("flags AW-* angled wall cabinets", () => {
+    expect(isAngledWallCabinet("AW-12-30", "12x30 Angled Wall Cabinet")).toBe(true);
+    expect(isAngledWallCabinet("AW-12-42")).toBe(true);
+    expect(isAngledWallCabinet("X-9", "24in Angled Wall unit")).toBe(true);
+  });
+  it("does NOT flag true corner / diagonal / other cabinets as angled wall", () => {
+    expect(isAngledWallCabinet("DCW-24-30", "Diagonal Corner Wall")).toBe(false);
+    expect(isAngledWallCabinet("RHC-06-30", "Range Hood Corner Cabinet")).toBe(false);
+    expect(isAngledWallCabinet("OE-6-30", "Wall Open End Shelf")).toBe(false);
+    expect(isAngledWallCabinet("W-30-30", "Wall 30x30")).toBe(false);
+    expect(isAngledWallCabinet("BES-12", "Base End Shelf")).toBe(false);
+  });
+  it("an angled wall cabinet is still drawn diagonally (rendering unchanged)", () => {
+    // Routing to the Wall tab must NOT change its canvas footprint.
+    expect(isDiagonalCorner("AW-12-30", "12x30 Angled Wall Cabinet")).toBe(true);
   });
 });
 
