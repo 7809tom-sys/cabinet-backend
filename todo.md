@@ -1809,3 +1809,14 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Added exported isAngledWallCabinet() helper (design.ts); isCornerWall excludes it, Wall tab (!isCornerWall) includes it
 - [x] Kept true corner units in Corner tab (DCW diagonal, blind/lazy-susan, easy-reach ERB/BER, RHC corner range hood with isCornerCabinet=1)
 - [x] Tests added (design.test.ts: AW=angledWall true, cornerWall excluded, still diagonal-rendered) + tsc clean + full suite 961 pass; checkpoint
+
+
+## Catalog placement audit (winding-down QA)
+- [x] Audited all 400 cabinets against the live server placement normalization + client tab filters
+- [x] Verified 0 placeable cabinets land in NO palette tab (nothing invisible)
+- [x] Tab distribution sane: Base 89, Vanity 53, Corner 41, Wall 108, Tall 33, Accessory 76 (=400)
+- [x] Corner tab contains only true corner units (blind BBC/WBC, diagonal DCW/WD, easy-reach ERB/WER, lazy susan LSB, corner sink CSB/UV-SBF, corner range hood RHC); no angled-wall (AW) leakage
+- [x] Vanity tab populated with all genuine vanities (V-*, VB-*, VS-*, VDB-*, VA-*, BFH-* full-height vanity sink, ADA-VS/VDB); confirmed NOT empty
+- [x] Tall tab correct: oven/microwave towers, pantry/utility, split-pantry top+bottom (24" deep) — split-pantry tops correctly NOT in Wall
+- [x] ADA bases (placementType "ada base") normalize to Base; sort into Specialty (18) + Sink (11); ADA vanity-sink route to Vanity tab
+- [x] Roll-out shelves (RS-*) + end panels stay in Accessories (category=Accessory), not Base
