@@ -26,6 +26,7 @@ import { doorFamilyPhoto, realImageUrl } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 
 // ─── Price tier display ───────────────────────────────────────────────────────
@@ -198,10 +199,20 @@ export default function CabinetDetail({ masterCode }: Props) {
     ? ["homeowner", "contractor", "wholesale"]
     : ["homeowner"];
   const [qty, setQty] = useState(1);
-  const { lang } = useLanguage();
+  const { t, lang } = useLanguage();
 
   const { data: cabinet, isLoading: cabinetLoading } = trpc.cabinets.byCode.useQuery({
     masterCode,
+  });
+
+  const seoName = cabinet?.description
+    ? translateSpec(cabinet.description, lang)
+    : masterCode;
+  useSeo({
+    title: t("seo_cabinet_t", { name: seoName }),
+    description: t("seo_cabinet_d", { name: seoName }),
+    type: "product",
+    lang,
   });
 
   const { data: styles, isLoading: pricingLoading } = trpc.pricing.stylesForCabinet.useQuery(

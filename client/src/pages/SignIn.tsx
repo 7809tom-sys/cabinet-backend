@@ -7,6 +7,8 @@ import { getLoginUrl, type LoginProvider } from "@/const";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 import {
   Card,
   CardContent,
@@ -80,6 +82,8 @@ function SocialButton({
 export default function SignIn() {
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();
+  const { t, lang } = useLanguage();
+  useSeo({ title: t("seo_signin_t"), description: t("seo_signin_d"), lang });
 
   // Login state
   const [loginEmail, setLoginEmail] = useState("");

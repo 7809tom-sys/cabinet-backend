@@ -11,6 +11,7 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 
 // Door-style tiles for the catalog landing — the shop is organized by door style,
@@ -506,6 +507,8 @@ function CategoryView({
 // ─── Main Catalog page ────────────────────────────────────────────────────────
 
 export default function Catalog() {
+  const { t, lang } = useLanguage();
+  useSeo({ title: t("seo_catalog_t"), description: t("seo_catalog_d"), lang });
   const searchStr = useSearch();
   const [, navigate] = useLocation();
   const params = new URLSearchParams(searchStr);

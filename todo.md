@@ -1773,3 +1773,17 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Wired translateSpec into Catalog cards, CabinetDetail header, StorefrontShop affiliate cards + recommender, and Family page cabinet cards (specs read in ES when active; unknown vocab preserved)
 - [x] Translated Family (door-style collection) page chrome to ES: collection label, intro, Door/Wood/Finish/Color labels, "Choose your finish", filter tabs (Base/Pared/Altos y Despensa/Tocador/Molduras y Accesorios), search placeholder, not-found state, empty state, "Showing N cabinets" count (with {count}/{name} interpolation)
 - [x] Added 26 EN + 26 ES Family keys to site dictionary; updated parity test allowlist (fam_f_base, fam_f_ada, fam_color); 940 tests pass, tsc clean
+
+
+## SEO audit + improvements (requested)
+- [x] Upgrade useSeo hook: manages title (+ " | Cabinet Dealz" suffix), description, OG (og:title/description/type/url/image/site_name/locale), Twitter card tags, canonical link, and <html lang> (EN/ES); restores prior values on unmount
+- [x] Add base OG/Twitter tags + theme-color + favicon + 1200x630 OG image to index.html
+- [x] Add favicon (brand CD monogram SVG) + apple-touch-icon referenced from index.html
+- [x] Per-route SEO: Home, Catalog, Styles (DoorStyles), Packages, Countertops, DesignTool, ProNetwork, PlanSheet, Cart, SignIn, NotFound
+- [x] CabinetDetail + Family + PackageDetail: dynamic titles/descriptions from live data (translated spec name / style name / package name; no hardcoded SKU counts); og:type=product on product pages
+- [x] robots.txt (dynamic, server/seo.ts): allow public crawl, disallow /cart /checkout /signin /admin /account /api/; Sitemap line uses live host
+- [x] sitemap.xml (dynamic, server/seo.ts): stable public routes + every active door-style family (DB-driven, deduped, XML-escaped); absolute URLs from live host
+- [x] Removed public "Showing N cabinets" count -> count-free "Cabinets available in {name}" (per no-SKU-count SEO guidance)
+- [x] Bilingual SEO copy (EN+ES) for all meta; og:locale toggles en_US/es_ES
+- [x] Tests (server/seo.test.ts, 4) + tsc clean + verified robots/sitemap via curl + static head via curl; full suite 942 pass
+- [ ] FOLLOW-UP (post-publish): update sitemap/canonical confirmed against final custom domain; submit sitemap to Google Search Console

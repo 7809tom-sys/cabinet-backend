@@ -50,14 +50,15 @@ function Swatch({ id, selected, onSelect }: { id: string; selected: boolean; onS
 }
 
 export default function Countertops() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [selectedId, setSelectedId] = useState<string>(COUNTERTOP_MATERIALS[0].id);
   const selectedInfo = useMemo(() => countertopInfo(selectedId), [selectedId]);
 
-  useSeo(
-    "Kitchen Countertops — Quartz, Granite, Marble & More | Cabinet Dealz",
-    "Browse kitchen countertop materials and colors — quartz, granite, marble, butcher block and concrete — and request a per-project countertop quote.",
-  );
+  useSeo({
+    title: t("seo_countertops_t"),
+    description: t("seo_countertops_d"),
+    lang,
+  });
 
   // Quote form state
   const [name, setName] = useState("");

@@ -8,6 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { registerSeoRoutes } from "../seo";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -44,6 +45,9 @@ async function startServer() {
       createContext,
     })
   );
+  // SEO: dynamic robots.txt + sitemap.xml (must be registered before the
+  // Vite/static SPA fallback so they aren't swallowed by the catch-all).
+  registerSeoRoutes(app);
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);

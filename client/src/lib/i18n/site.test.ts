@@ -43,6 +43,7 @@ describe("SITE_STRINGS", () => {
       "fam_f_base", // "Base" is the same word in ES
       "fam_f_ada", // "ADA" is a proper acronym
       "fam_color", // "Color:" reads the same in ES
+      "seo_cabinet_t", // pure "{name}" token — the cabinet's own name, no copy
     ]);
     const identical = enKeys.filter(
       (k) =>

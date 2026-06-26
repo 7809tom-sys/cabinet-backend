@@ -7,6 +7,7 @@ import { getLoginUrl } from "@/const";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
 
@@ -549,6 +550,8 @@ function Footer() {
 // ─── Main Home Page ───────────────────────────────────────────────────────────
 
 export default function Home() {
+  const { t, lang } = useLanguage();
+  useSeo({ title: t("seo_home_t"), description: t("seo_home_d"), lang });
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("auth_error")) {

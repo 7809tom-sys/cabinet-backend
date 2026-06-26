@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 
 function usd(n: number | null) {
   if (n == null) return "—";
@@ -22,12 +23,20 @@ function usd0(n: number) {
 }
 
 export default function PackageDetail({ slug }: { slug: string }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [, navigate] = useLocation();
   const [styleId, setStyleId] = useState<number | null>(null);
   const { data: pkg, isLoading, isError, refetch } = trpc.packages.bySlug.useQuery({
     slug,
     ...(styleId != null ? { styleId } : {}),
+  });
+
+  const pkgName = (pkg as { name?: string } | undefined)?.name ?? "";
+  useSeo({
+    title: pkgName ? t("seo_package_t", { name: pkgName }) : t("seo_packages_t"),
+    description: pkgName ? t("seo_package_d", { name: pkgName }) : t("seo_packages_d"),
+    type: "product",
+    lang,
   });
 
   const { data: styles } = trpc.doorStyles.list.useQuery();

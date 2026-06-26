@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import DoorPhotoMatchWidget from "@/components/DoorPhotoMatchWidget";
 import {
@@ -138,7 +139,8 @@ function StyleCard({ style }: { style: DoorStyle }) {
 // ─── Main Door Styles page ────────────────────────────────────────────────────
 
 export default function DoorStyles() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  useSeo({ title: t("seo_styles_t"), description: t("seo_styles_d"), lang });
   // Read an optional ?door=<DoorStyle> query param so links from the Home page
   // hero chips (e.g. /styles?door=Shaker) open the grid pre-filtered to that
   // door profile. Falls back to "All Styles" when absent or unrecognized.

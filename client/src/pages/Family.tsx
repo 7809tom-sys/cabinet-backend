@@ -11,6 +11,7 @@ import { realImageUrl } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -127,7 +128,7 @@ function FamilyCabinetCard({
 }
 
 export default function Family({ styleCode }: { styleCode: string }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [activeType, setActiveType] = useState("all");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -187,6 +188,12 @@ export default function Family({ styleCode }: { styleCode: string }) {
 
   const s = style as FamilyStyle | null;
   const familyName = s?.ourName || s?.styleCode || "Door Style";
+  useSeo({
+    title: t("seo_family_t", { name: familyName }),
+    description: t("seo_family_d", { name: familyName }),
+    image: (s as FamilyStyle | null)?.roomSceneImageUrl || undefined,
+    lang,
+  });
   // STRICT ONE-FAMILY-ONE-COLOR: a family shows ONLY its own verified photo.
   // There is NO keyword/bucket fallback — we never borrow another family's
   // scene. When a family has no real photo yet, `realScene` stays null and the
@@ -427,10 +434,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
       ) : (
         <>
           <p className="text-sm text-muted-foreground mb-4">
-            {t(visible.length === 1 ? "fam_showing_one" : "fam_showing_many", {
-              count: visible.length,
-              name: familyName,
-            })}
+            {t("fam_showing_label", { name: familyName })}
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {visible.map((item) => (

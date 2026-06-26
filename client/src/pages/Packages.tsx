@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 
 const SHAPE_ART: Record<string, React.ReactNode> = {
   "L-Shape": (
@@ -29,7 +30,8 @@ function usd(n: number) {
 }
 
 export default function Packages() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  useSeo({ title: t("seo_packages_t"), description: t("seo_packages_d"), lang });
   const { data: packages, isLoading, isError, refetch } = trpc.packages.list.useQuery();
 
   return (

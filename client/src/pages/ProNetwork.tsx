@@ -8,6 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { CheckCircle2, Hammer, Layers, ShieldCheck, MapPin } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 
 const TRADES: { value: "installation" | "countertop_fabrication"; label: string; icon: typeof Hammer }[] = [
   { value: "installation", label: "Cabinet Installation", icon: Hammer },
@@ -25,6 +27,8 @@ const MATERIALS = [
 ];
 
 export default function ProNetwork() {
+  const { t, lang } = useLanguage();
+  useSeo({ title: t("seo_pro_t"), description: t("seo_pro_d"), lang });
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({
     companyName: "",

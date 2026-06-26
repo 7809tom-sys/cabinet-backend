@@ -4,6 +4,7 @@ import { Printer, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 import { makeQrDataUrl } from "@/lib/qr";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 
 /**
  * Printable graph-paper design sheet.
@@ -32,7 +33,8 @@ const H = ROWS * SQUARE_PX;
 
 export default function PlanSheet() {
   const [qr, setQr] = useState<string>("");
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  useSeo({ title: t("seo_plansheet_t"), description: t("seo_plansheet_d"), lang });
 
   const designUrl = useMemo(() => {
     if (typeof window === "undefined") return "https://cabinetdealz.com/design";

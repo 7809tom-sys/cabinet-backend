@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 import { CabinetImage } from "@/components/CabinetImage";
 import { trpc } from "@/lib/trpc";
 import { normalizeZip } from "@shared/availability";
@@ -19,7 +20,8 @@ import { toast } from "sonner";
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
 
 export default function Cart() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  useSeo({ title: t("seo_cart_t"), description: t("seo_cart_d"), lang });
   const { items, removeItem, setQty, clear, zip, setZip, subtotal, count } = useCart();
   const money = (n: number | null): string =>
     n == null ? t("crt_quoted") : `$${n.toFixed(2)}`;

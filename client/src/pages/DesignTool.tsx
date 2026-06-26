@@ -81,6 +81,7 @@ import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSeo } from "@/hooks/useSeo";
 import type { SiteStringKey } from "@/lib/i18n/site";
 
 // One wall's worth of a consultant plan (mirrors the server `consult` output).
@@ -145,7 +146,8 @@ function DimStepper({
 }
 
 export default function DesignTool() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  useSeo({ title: t("seo_design_t"), description: t("seo_design_d"), lang });
   // Localized wall names (Back/Front/Left/Right) keyed by WallSide.
   const wallLabel: Record<WallSide, string> = {
     top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
