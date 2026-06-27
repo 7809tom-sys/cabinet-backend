@@ -601,6 +601,20 @@ export default function DesignTool() {
   // Group the palette by cabinet height so wall cabinets (and others) are easy
   // to find by size — mirrors how pros scan 2020's catalog by height.
   const groupedPalette = useMemo(() => {
+    // Stable small->large ordering inside every accordion section, so narrow
+    // boxes (B12, B15) always lead and the list reads like a printed catalog.
+    // Width can be a numeric string; unknown widths sink to the bottom.
+    const wnum = (w: unknown) => {
+      const n = parseFloat(String(w ?? ""));
+      return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+    };
+    const byWidth = (a: DesignCabinet, b: DesignCabinet) => {
+      const dw = wnum(a.width) - wnum(b.width);
+      if (dw !== 0) return dw;
+      return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
+    };
+    const sortGroups = (gs: { label: string; items: DesignCabinet[] }[]) =>
+      gs.map((g) => ({ ...g, items: [...g.items].sort(byWidth) }));
     // The Closet-parts tab groups by part category (Panels, Shelves, Hanging…).
     if (paletteType === "closetparts") {
       const s = normalizePaletteSearch(paletteSearch);
@@ -622,9 +636,9 @@ export default function DesignTool() {
         if (arr) arr.push(c);
         else bySub.set(label, [c]);
       }
-      return Array.from(bySub.entries())
+      return sortGroups(Array.from(bySub.entries())
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([label, items]) => ({ label, items }));
+        .map(([label, items]) => ({ label, items })));
     }
     // The unified Corner tab splits into two fixed sections — Corner Base
     // Cabinets and Corner Wall Cabinets — so every corner type lives under one
@@ -635,7 +649,7 @@ export default function DesignTool() {
       const sections: { label: string; items: DesignCabinet[] }[] = [];
       if (cornerBases.length > 0) sections.push({ label: t("dt_pl_grp_corner_base"), items: cornerBases });
       if (cornerWalls.length > 0) sections.push({ label: t("dt_pl_grp_corner_wall"), items: cornerWalls });
-      return sections;
+      return sortGroups(sections);
     }
     // The "Base" tab is organized by base TYPE (not height): standard door
     // bases first, then drawer bases, then sink bases, then specialty bases —
@@ -656,9 +670,11 @@ export default function DesignTool() {
         specialty: [],
       };
       for (const c of filteredPalette) buckets[baseSubGroup(c)].push(c);
-      return order
-        .map(({ key, labelKey }) => ({ label: t(labelKey), items: buckets[key] }))
-        .filter((g) => g.items.length > 0);
+      return sortGroups(
+        order
+          .map(({ key, labelKey }) => ({ label: t(labelKey), items: buckets[key] }))
+          .filter((g) => g.items.length > 0)
+      );
     }
     // Every floor-standing BASE cabinet is a standard 34½" tall (the toe-kick +
     // box + countertop reveal is fixed); the stored "height" on some SKUs (spice
@@ -687,7 +703,7 @@ export default function DesignTool() {
       return h.toFixed(2).replace(/\.?0+$/, "");
     };
     // Tallest first; unknown height (0) sinks to the bottom.
-    return Array.from(groups.entries())
+    return sortGroups(Array.from(groups.entries())
       .sort((a, b) => (b[0] || -1) - (a[0] || -1))
       .map(([height, items]) => ({
         // On base-family tabs every box is a standard 34½" base, so an unknown
@@ -699,7 +715,7 @@ export default function DesignTool() {
           ? t("dt_pl_grp_high", { h: fmtHeight(BASE_STD_HEIGHT) })
           : t("dt_pl_grp_other"),
         items,
-      }));
+      })));
   }, [filteredPalette, paletteType, paletteSearch, closetGroups, isCornerBase, t]);
 
   // Pricing for placed cabinets (appliances carry cabinetId 0 and are unpriced).

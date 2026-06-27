@@ -2065,3 +2065,9 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Removed the distributor-name display query (no name shown)
 - [x] Typecheck + full test suite green (1016 pass)
 - [x] Typecheck/tests verified; design canvas is behind an email gate so the place-a-cabinet flow was validated via code path + tests; checkpoint saved
+
+## Design Tool: Order base cabinets by width (B12/B15 first)
+- [x] Sort placeableCabinets server query by width asc, then masterCode, so each bucket reads small->large (B12, B15, B18...)
+- [x] Add matching client-side width sort within each accordion group (base/drawer/sink/specialty, corner, wall/tall by-height, accessory) as a robust tie-break
+- [x] Added a unit test asserting the base palette is non-decreasing by width (10/10 placeable tests pass)
+- [x] Typecheck clean; full suite green (consult timeout was flaky, passes in isolation), checkpoint

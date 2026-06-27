@@ -150,6 +150,20 @@ export const designRouter = router({
         );
       }
 
+      // Order every bucket small -> large by width so the palette reads the way
+      // pros expect (B12, B15, B18, B21, B24, ...). Width can arrive as a numeric
+      // string/decimal, so coerce to a number; unknown widths sink to the bottom.
+      // Master code is the stable tie-break for equal widths.
+      const widthNum = (w: unknown) => {
+        const n = parseFloat(String(w ?? ""));
+        return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+      };
+      filtered = [...filtered].sort((a, b) => {
+        const dw = widthNum(a.width) - widthNum(b.width);
+        if (dw !== 0) return dw;
+        return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
+      });
+
       return filtered;
     }),
 

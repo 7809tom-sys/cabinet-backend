@@ -50,6 +50,31 @@ describe("design.placeableCabinets availability filter", () => {
     }
   });
 
+  it("orders the base palette by width ascending (narrow boxes like B-12/B-15 come first)", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+    const base = await caller.design.placeableCabinets({ placement: "base" });
+    if (base.length < 2) return;
+
+    const widthNum = (w: unknown) => {
+      const n = parseFloat(String(w ?? ""));
+      return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+    };
+
+    // The returned list must be non-decreasing by width, so the palette reads
+    // small -> large and the narrow base cabinets always lead.
+    for (let i = 1; i < base.length; i++) {
+      const prev = widthNum((base[i - 1] as { width: unknown }).width);
+      const cur = widthNum((base[i] as { width: unknown }).width);
+      expect(
+        prev <= cur,
+        `base palette out of order at index ${i}: ${base[i - 1].masterCode} (${prev}) before ${base[i].masterCode} (${cur})`
+      ).toBe(true);
+    }
+  });
+
   it("never surfaces accessory/trim items (e.g. countertop support brackets) in the placeable palette", async () => {
     const db = await getDb();
     if (!db) return;
