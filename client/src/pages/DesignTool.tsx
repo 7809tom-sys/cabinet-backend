@@ -575,6 +575,37 @@ export default function DesignTool() {
       .slice(0, s ? 500 : paletteType === "accessory" ? 200 : 80);
   }, [paletteCabinets, cornerWallCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
 
+  // Total cabinets available in the active style for the CURRENT tab, ignoring
+  // the search box (so the hint reflects the real lineup size, not the filtered
+  // view). Used to show "N cabinets available in <style>" so a smaller per-finish
+  // lineup (e.g. Aero Alba) is obvious instead of looking "empty/broken".
+  const availableInStyleCount = useMemo(() => {
+    if (paletteType === "opening" || paletteType === "closetparts" || paletteType === "appliance") {
+      return null;
+    }
+    if (paletteType === "corner") {
+      const merged = [
+        ...(((paletteCabinets as DesignCabinet[]) ?? []).filter(isCornerBase)),
+        ...(((cornerWallCabinets as DesignCabinet[]) ?? []).filter(isCornerWall)),
+      ];
+      const seen = new Set<number>();
+      return merged.filter((c) => {
+        const id = Number(c.id);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      }).length;
+    }
+    const src = ((paletteCabinets as DesignCabinet[]) ?? []);
+    return src.filter((c) => {
+      if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
+      if (paletteType === "vanity") return isVanity(c);
+      if (paletteType === "accessory") return true;
+      if (paletteType === "base") return !isCornerBase(c) && !isVanity(c);
+      return true;
+    }).length;
+  }, [paletteCabinets, cornerWallCabinets, paletteType, isCornerWall, isCornerBase, isVanity]);
+
   // Group the palette by cabinet height so wall cabinets (and others) are easy
   // to find by size — mirrors how pros scan 2020's catalog by height.
   const groupedPalette = useMemo(() => {
@@ -3180,6 +3211,24 @@ export default function DesignTool() {
                   >
                     {t("dt_pl_need_style_cta")}
                   </Button>
+                </div>
+              )}
+            {/* Per-style availability hint: when a style is selected and the user
+                isn't searching, show how many cabinets that finish carries for the
+                current tab. Makes a smaller per-finish lineup obvious instead of
+                looking "empty/broken". */}
+            {styleId &&
+              !paletteSearch &&
+              availableInStyleCount != null &&
+              availableInStyleCount > 0 && (
+                <div className="mb-1.5 px-1 text-[11px] leading-snug text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {availableInStyleCount === 1
+                      ? t("dt_pl_avail_count_one", { style: activeStyleName ?? "" })
+                      : t("dt_pl_avail_count", { count: availableInStyleCount, style: activeStyleName ?? "" })}
+                  </span>
+                  {" "}
+                  <span>{t("dt_pl_avail_lineup_note")}</span>
                 </div>
               )}
             {paletteType === "opening" ? (

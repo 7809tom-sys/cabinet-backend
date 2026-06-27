@@ -1966,3 +1966,25 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Reproduced: picking a style into the NON-active color slot left active styleId null, so the style-filtered catalog returned nothing -> looked empty
 - [x] Fixed in DesignTool.setSlotStyle: the first style pick for any slot now activates that slot AND sets styleId, so the catalog always populates
 - [x] Verified live: picking Aero Alba sets active slot + shows its full lineup (28 base-placement items across sub-groups: Drawer Base 17, Roll Out 7, Sink 3, Single Door Base 2, etc.). Regular B-series isn't carried in that finish (data reality, not a bug). 1000 tests pass.
+
+## Per-style availability hint + lineup confirmation (user request)
+- [ ] Add a clear "X of Y cabinets available in this style" hint in the designer catalog header (shown once a style is selected)
+- [ ] Make the hint subtle/non-alarming; explain that each finish has its own lineup
+- [ ] Add unit test for the availability-count logic
+- [ ] Verify in browser (style with full lineup vs Aero Alba's smaller lineup), checkpoint
+- [ ] FOLLOW-UP (needs user): confirm whether Aero Alba (and similar styles) should carry the standard B-series bases — if yes, it's a missing-SKU data fix
+
+
+## Per-style availability hint (user request)
+- [x] i18n strings dt_pl_avail_count / _one / _lineup_note (en+es)
+- [x] availableInStyleCount memo (counts full lineup for the active style per tab, ignores search)
+- [x] Render hint line under search box when a style is selected (verified live: "28 cabinets available in Aero Alba — Each finish has its own lineup.")
+- [x] Verified in browser
+
+## Catalog thumbnails / door swatches blank on live (mobile) — user report "photograph don't working"
+- [x] Diagnosed: NOT broken links. The 61 door-sample photos averaged 3.4 MB each (up to 5 MB), total ~204 MB. Catalog/Door-Styles pages load many at once -> phones (cellular) show blank squares / never finish. Cabinet line-art images were fine (300 imgs, avg 7 KB).
+- [x] Fix 1: optimized all 61 door photos with Pillow (resize max 900px long edge, progressive JPEG q82) -> avg ~22 KB; total 204 MB -> 1.55 MB. Repointed door_styles.doorSampleImageUrl to the new _opt keys (61/62; 1 is an external CDN webp @ 359 KB, already small).
+- [x] Fix 2: storage proxy Cache-Control changed from no-store to public/max-age=86400+SWR so images are cached and not re-downloaded every scroll/visit.
+- [x] Verified optimized images serve 200 image/jpeg (~52-63 KB) with cacheable headers; designer catalog renders door swatches. 1000 tests pass.
+- [x] Added storageProxy.test.ts (asserts cacheable header + redirect); 1001 tests pass
+- [x] Checkpoint + advise publish

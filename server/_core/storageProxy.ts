@@ -38,7 +38,12 @@ export function registerStorageProxy(app: Express) {
         return;
       }
 
-      res.set("Cache-Control", "no-store");
+      // Storage keys are content-addressed (a content hash is appended to every
+      // uploaded file name), so a given key's bytes never change. Allow the
+      // browser/CDN to cache the redirect so catalog images aren't re-fetched on
+      // every scroll/visit (critical for mobile data). The signed S3 URL itself
+      // carries its own short expiry, but the redirect mapping is safe to cache.
+      res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
       res.redirect(307, url);
     } catch (err) {
       console.error("[StorageProxy] failed:", err);
