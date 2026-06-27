@@ -36,7 +36,6 @@ import {
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, isOnIsland, isCornerCabinet, isAngledWallCabinet,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
-  blindCornerAutoFiller,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -45,7 +44,7 @@ import {
   trimPiecesNeeded, countertopArea, battenLinearInches,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   makeSink, SINK_PRESETS, type SinkFixture, type SinkType,
-  blindCornerFillers, snapToWall, snapPosition, nextFreeSpotOnWall,
+  snapToWall, snapPosition, nextFreeSpotOnWall,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, wallPlacementAt, cabinetWall,
@@ -451,6 +450,9 @@ export default function DesignTool() {
     // Only genuine, placeable corner BASE cabinets belong here. Exclude
     // accessories/trim (crown, scribe, end panels, hardware), tiny filler/tray
     // slivers, and the BA-24 end-of-run angled base (not a corner).
+    // Wall-placement corner cabinets (DCW-*, WBC-*, WER-*, WD-*) must NOT be
+    // classified as corner bases — they belong in the Corner Wall section.
+    if (placement === "wall") return false;
     if (placement.includes("accessory") || placement.includes("trim")) return false;
     if (/trim|molding|end panel|hardware|filler|tray|floor/.test(sub)) return false;
     if (code.startsWith("BA-")) return false; // end-of-run angled base, not a corner
@@ -1148,10 +1150,6 @@ export default function DesignTool() {
     [countertop, placed, island]
   );
 
-  // Blind corner cabinets must auto-include a corner filler. One filler per
-  // blind corner, split into base vs wall lines for the BOM.
-  const fillers = useMemo(() => blindCornerFillers(placed), [placed]);
-
   // Conflicts: an appliance physically running into a cabinet. Highlighted red
   // on the canvas, badged in the BOM, and warned about before export.
   // Range/oven corner clearance rule: a range/oven at a wall corner butting a
@@ -1197,8 +1195,6 @@ export default function DesignTool() {
     return set;
   }, [placed, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
   const hasConflicts = conflictUids.size > 0;
-  // Blind corner violations specifically, for a tailored warning message.
-  const blindViolationUids = useMemo(() => blindCornerViolations(placed), [placed]);
   const blindMissingSpecCount = useMemo(
     () => Array.from(blindSpecIssues.values()).filter((v) => v === "missing-spec").length,
     [blindSpecIssues]
@@ -1284,12 +1280,7 @@ export default function DesignTool() {
   // Non-cabinet build-sheet lines (fillers, crown, toe kick, countertop note).
   const extraLines = useMemo(() => {
     const out: { label: string; detail: string }[] = [];
-    for (const f of fillers) {
-      out.push({
-        label: `${f.kind === "wall" ? "WALL" : "BASE"} CORNER FILLER`,
-        detail: `${f.count} x ${f.width}in (required for blind corner)`,
-      });
-    }
+    // Note: blind corner fillers are placed manually by the user, not auto-listed here.
     if (crown && crownOrder && crownOrder.pieces > 0)
       out.push({ label: "CROWN MOLDING", detail: `${crownOrder.pieces} pc @ ${crownOrder.stickFeet}ft` });
     if (toeKick && toeKickOrder && toeKickOrder.pieces > 0)
@@ -1337,7 +1328,7 @@ export default function DesignTool() {
       }
     }
     return out;
-  }, [fillers, crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, sinks, hwSchedule, activeStyle, activeStyleName]);
+  }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, sinks, hwSchedule, activeStyle, activeStyleName]);
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -1438,21 +1429,6 @@ export default function DesignTool() {
           setSelectedSinkUid(autoSink.uid);
           setCountertop(true); // a sink implies a counter
           toast.success(t("dt_t_sink_added"));
-        }
-        // Blind corner trade rule: when a blind corner cabinet is dropped flush
-        // in a room corner, auto-snap a 3" filler on the side OPPOSITE the pull
-        // and let the cabinet project its full corner return. If we can't tell
-        // which corner/side it is (ambiguous), we place nothing and the existing
-        // blind-corner conflict stays on so the user resolves it manually.
-        if (isBlindCorner(newCab.masterCode, newCab.description)) {
-          const res = blindCornerAutoFiller(newCab, room, makeUid);
-          if (res.filler) {
-            toast.success(t("dt_toast_blind_added"));
-            return [...prev, newCab, res.filler];
-          }
-          if (res.ambiguous) {
-            toast.warning(t("dt_toast_blind_corner"));
-          }
         }
         return [...prev, newCab];
       });
@@ -2088,13 +2064,13 @@ export default function DesignTool() {
   // anywhere; this only scopes which cabinets/finishes are selectable.
   useEffect(() => {
     if (lockedDistributorId != null) return;
-    // Ignore non-priced placements (appliances carry cabinetId 0); a real
-    // cabinet with a resolvable supply line is what locks the warehouse.
-    const hasRealCabinet = placed.some((p) => p.cabinetId > 0);
-    if (hasRealCabinet && selectedStyleDistributorId != null) {
+    // Lock the warehouse as soon as a door style is chosen — this ensures
+    // the Color 2 picker (and the palette) are already scoped to the correct
+    // supply line even before the first cabinet is placed.
+    if (selectedStyleDistributorId != null) {
       setLockedDistributorId(selectedStyleDistributorId);
     }
-  }, [placed, lockedDistributorId, selectedStyleDistributorId]);
+  }, [lockedDistributorId, selectedStyleDistributorId]);
   useEffect(() => { styleIdRef.current = styleId; }, [styleId]);
   useEffect(() => { styleBRef.current = styleB; }, [styleB]);
 
@@ -3672,26 +3648,14 @@ export default function DesignTool() {
                 );
               })()
             )}
-            {(fillers.length > 0 || ((crown || toeKick || batten || countertop) && placed.length > 0)) && (
+            {((crown || toeKick || batten || countertop) && placed.length > 0) && (
             <SheetSection
               title={t("dt_bs_sec_extras")}
               collapsed={collapsedSheet.has("extras")}
               onToggle={() => toggleSheetSection("extras")}
             >
             <div className="px-2 pb-1 space-y-1">
-            {fillers.length > 0 && (
-              <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
-                {fillers.map((f) => (
-                  <div key={f.kind} className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-amber-50 dark:bg-amber-950/30">
-                    <div className="min-w-0">
-                      <div className="font-mono font-semibold truncate">{f.kind === "wall" ? t("dt_bs_wall_corner_filler") : t("dt_bs_base_corner_filler")}</div>
-                      <div className="text-[10px] text-muted-foreground">{t("dt_bs_filler_req", { count: f.count, width: f.width })}</div>
-                    </div>
-                    <span className="font-semibold shrink-0 text-amber-700 dark:text-amber-400">{t("dt_bs_incl")}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+{/* Auto-filler removed: user places corner fillers manually */}
             {(crown || toeKick || batten || countertop) && placed.length > 0 && (
               <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
                 {crown && crownOrder && crownOrder.pieces > 0 && (
@@ -3752,9 +3716,7 @@ export default function DesignTool() {
                 <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-600" />
                 <span>
                   <strong>{conflictUids.size} item{conflictUids.size > 1 ? "s" : ""} in conflict.</strong>{" "}
-                  {blindViolationUids.size > 0
-                    ? `A blind corner needs a 3" filler — pull the adjacent cabinet at least 3" off the corner. `
-                    : ""}
+
                   {rangeClearanceUids.size > 0
                     ? `A range/oven in the corner needs a ${RANGE_CLEARANCE_FILLER_IN}" filler beside it so the range handle clears the cabinet handle. `
                     : ""}
@@ -3770,7 +3732,7 @@ export default function DesignTool() {
                   {ceilingViolationUids.size > 0
                     ? `${ceilingViolationUids.size} cabinet${ceilingViolationUids.size > 1 ? "s are" : " is"} taller than the ${(() => { const c = inchesToFeetInches(roomCeiling(room)); return c.inches === 0 ? `${c.feet}'` : `${c.feet}'${c.inches}"`; })()} ceiling — pick a shorter box or raise the ceiling height. `
                     : ""}
-                  An appliance running into a cabinet, or a blind corner without its 3" pull, must be fixed before ordering.
+                  An appliance running into a cabinet must be fixed before ordering.
                 </span>
               </div>
             )}
