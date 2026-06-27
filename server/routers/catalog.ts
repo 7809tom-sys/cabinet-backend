@@ -73,9 +73,39 @@ export const doorStylesRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
+      // Explicit projection: include distributorId (needed for client-side warehouse
+      // lock filtering in the design tool) but NEVER include distributorName (supplier
+      // identity is private). Using an explicit select instead of scrubDoorStyle so
+      // the TypeScript return type carries distributorId correctly.
+      const projection = {
+        id: doorStyles.id,
+        distributorId: doorStyles.distributorId,
+        styleCode: doorStyles.styleCode,
+        ourName: doorStyles.ourName,
+        doorStyle: doorStyles.doorStyle,
+        woodSpecies: doorStyles.woodSpecies,
+        finish: doorStyles.finish,
+        color: doorStyles.color,
+        boxConstruction: doorStyles.boxConstruction,
+        drawerConstruction: doorStyles.drawerConstruction,
+        hardware: doorStyles.hardware,
+        frameSize: doorStyles.frameSize,
+        overlayType: doorStyles.overlayType,
+        doorPanelType: doorStyles.doorPanelType,
+        warehouseZip: doorStyles.warehouseZip,
+        shippingRate: doorStyles.shippingRate,
+        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+        doorSampleVerified: doorStyles.doorSampleVerified,
+        roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+        thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+        isFeatured: doorStyles.isFeatured,
+        featuredRank: doorStyles.featuredRank,
+        isActive: doorStyles.isActive,
+        createdAt: doorStyles.createdAt,
+      };
       if (input?.distributorId) {
-        const rows = await db
-          .select()
+        return db
+          .select(projection)
           .from(doorStyles)
           .where(
             and(
@@ -83,10 +113,8 @@ export const doorStylesRouter = router({
               eq(doorStyles.isActive, true)
             )
           );
-        return rows.map(scrubDoorStyle);
       }
-      const rows = await db.select().from(doorStyles).where(eq(doorStyles.isActive, true));
-      return rows.map(scrubDoorStyle);
+      return db.select(projection).from(doorStyles).where(eq(doorStyles.isActive, true));
     }),
 
   byId: publicProcedure

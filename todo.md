@@ -2071,3 +2071,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Add matching client-side width sort within each accordion group (base/drawer/sink/specialty, corner, wall/tall by-height, accessory) as a robust tie-break
 - [x] Added a unit test asserting the base palette is non-decreasing by width (10/10 placeable tests pass)
 - [x] Typecheck clean; full suite green (consult timeout was flaky, passes in isolation), checkpoint
+
+## Design Tool: Fix style picker showing all warehouses (distributorId not typed)
+- [x] Changed doorStyles.list to use explicit select() projection that includes distributorId and excludes distributorName — TypeScript type now carries distributorId so the uniqueDoorStyles warehouse filter works correctly
+- [x] Typecheck clean; whitelabel leak-guard tests (6/6) confirm distributorName is still never leaked; catalog tests pass
+- [x] Checkpoint + publish
