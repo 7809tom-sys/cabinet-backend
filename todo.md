@@ -1956,3 +1956,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 
 ## Door-style picker scroll fix (user report: can't pan past first ~10 styles)
 - [x] ColorSlotButton picker: taller viewport-bounded list (max-h min(60vh,420px)) + touch-pan-y/overscroll-contain/WebkitOverflowScrolling so the full A→Z list scrolls on mobile. Verified Aero Alba … Zephyr Sage all reachable.
+
+## REOPENED: door-style picker still capped at ~10 on real phones (Firefox, 2 devices)
+- [x] Reproduced: confirmed only ColorSlotButton picker exists; on mobile the Popover scroll gesture is captured by the canvas so only ~10 rows are reachable
+- [x] Fix: ColorSlotButton now opens the door-style list as a full-width BOTTOM SHEET on mobile (useIsMobile(1024)) with native touch scrolling + sticky header; desktop keeps the Popover
+- [x] Typecheck clean + 1000 tests pass; checkpoint saved for phone testing

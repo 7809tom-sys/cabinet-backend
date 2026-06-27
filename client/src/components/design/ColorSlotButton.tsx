@@ -6,6 +6,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/useMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15,6 +22,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 // member can place the perimeter in Color 1, then switch to Color 2 for the island
 // to build a two-tone kitchen. Clicking the body selects the slot; the small edit
 // affordance opens a picker to set/change which door style this slot holds.
+//
+// MOBILE NOTE: on touch / small screens the style list is shown in a full-width
+// BOTTOM SHEET, not a Popover. A Radix Popover anchored to a tiny trigger near the
+// bottom of a phone screen could only grow ~10 rows tall and its internal scroll
+// gesture was being captured by the canvas behind it ("only see ~10 styles, won't
+// scroll"). A bottom Sheet is full-height and natively touch-scrollable, so the
+// entire A→Z lineup is reachable on every mobile browser.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type StyleOption = { id: number; ourName: string | null };
@@ -45,9 +59,44 @@ export function ColorSlotButton({
   onClear,
 }: ColorSlotButtonProps) {
   const { t } = useLanguage();
+  const isMobile = useIsMobile(1024);
   const [pickerOpen, setPickerOpen] = useState(false);
   const name = style?.ourName ?? null;
   const hasStyle = style != null;
+
+  // Shared list of selectable styles, reused by both the Popover (desktop) and
+  // the Sheet (mobile) so behavior stays identical.
+  const StyleList = ({ rowClass }: { rowClass?: string }) =>
+    styles.length === 0 ? (
+      <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+        {t("dt_cs_none_available")}
+      </div>
+    ) : (
+      <>
+        {styles.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => {
+              onPick(s.id);
+              setPickerOpen(false);
+            }}
+            className={[
+              "flex w-full items-center justify-between rounded px-2 text-left hover:bg-accent",
+              rowClass ?? "py-1.5 text-[12px]",
+              style?.id === s.id ? "bg-accent font-semibold" : "",
+            ].join(" ")}
+          >
+            <span className="truncate">
+              {s.ourName ?? t("dt_cs_style_num", { id: s.id })}
+            </span>
+            {style?.id === s.id && (
+              <Check className="h-4 w-4 shrink-0 text-[#d4a75a]" />
+            )}
+          </button>
+        ))}
+      </>
+    );
 
   return (
     <div
@@ -73,7 +122,10 @@ export function ColorSlotButton({
           <button
             type="button"
             title={t("dt_cs_remove_color")}
-            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
             className="text-muted-foreground hover:text-red-600"
           >
             <X className="h-3.5 w-3.5" />
@@ -101,57 +153,67 @@ export function ColorSlotButton({
             {name ?? t("dt_cs_set_style")}
           </span>
           <span className="block text-[10px] text-muted-foreground">
-            {active ? t("dt_cs_active") : hasStyle ? t("dt_cs_click_use") : t("dt_cs_optional_second")}
+            {active
+              ? t("dt_cs_active")
+              : hasStyle
+                ? t("dt_cs_click_use")
+                : t("dt_cs_optional_second")}
           </span>
         </span>
       </button>
 
-      {/* Picker: set / change the door style this slot holds */}
-      <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-        <PopoverTrigger asChild>
+      {/* The trigger looks identical on desktop & mobile; only what it opens differs. */}
+      {isMobile ? (
+        <>
           <button
             type="button"
+            onClick={() => setPickerOpen(true)}
             className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-[#1a2744] hover:underline"
           >
             <Pencil className="h-3 w-3" />
             {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
           </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          side="bottom"
-          collisionPadding={12}
-          className="w-56 p-1"
-        >
-          <div
-            className="max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain touch-pan-y"
-            style={{ WebkitOverflowScrolling: "touch" }}
-            onWheelCapture={(e) => e.stopPropagation()}
-            onTouchMoveCapture={(e) => e.stopPropagation()}
-          >
-            {styles.length === 0 ? (
-              <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
-                {t("dt_cs_none_available")}
+          <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
+            <SheetContent
+              side="bottom"
+              className="flex max-h-[85vh] flex-col rounded-t-2xl p-0"
+            >
+              <SheetHeader className="border-b px-4 py-3">
+                <SheetTitle className="text-base">
+                  {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
+                </SheetTitle>
+              </SheetHeader>
+              <div
+                className="flex-1 overflow-y-auto overscroll-contain px-3 py-2"
+                style={{ WebkitOverflowScrolling: "touch" }}
+              >
+                <StyleList rowClass="py-3 text-[15px] border-b border-border/40 last:border-0" />
               </div>
-            ) : (
-              styles.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => { onPick(s.id); setPickerOpen(false); }}
-                  className={[
-                    "flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-[12px] hover:bg-accent",
-                    style?.id === s.id ? "bg-accent font-semibold" : "",
-                  ].join(" ")}
-                >
-                  <span className="truncate">{s.ourName ?? t("dt_cs_style_num", { id: s.id })}</span>
-                  {style?.id === s.id && <Check className="h-3.5 w-3.5 text-[#d4a75a]" />}
-                </button>
-              ))
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
+            </SheetContent>
+          </Sheet>
+        </>
+      ) : (
+        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-[#1a2744] hover:underline"
+            >
+              <Pencil className="h-3 w-3" />
+              {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" side="bottom" collisionPadding={12} className="w-56 p-1">
+            <div
+              className="max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain touch-pan-y"
+              style={{ WebkitOverflowScrolling: "touch" }}
+              onWheelCapture={(e) => e.stopPropagation()}
+            >
+              <StyleList />
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }
