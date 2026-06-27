@@ -1,7 +1,7 @@
 import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
-  type DoorPanelKind, type WallSide, cabinetWall, resolveSwing,
+  type DoorPanelKind, type WallSide, cabinetWall,
   countertopMaterial, roomCeiling, bearsCountertop,
   wallCeiling, wallCeilingIsSloped,
 } from "@/lib/design";
@@ -191,21 +191,7 @@ export function ElevationView({
               accent="#1a2744"
             />
           )}
-          {!isAppliance && (() => {
-            const sw = resolveSwing(p);
-            if (sw !== "left" && sw !== "right") return null;
-            return (
-              <div
-                className="absolute top-[12%] bottom-[12%] z-10 rounded"
-                style={{
-                  [sw === "left" ? "left" : "right"]: 1,
-                  width: 2.5,
-                  background: "#1a2744",
-                } as React.CSSProperties}
-                title={sw === "left" ? t("dt_ev_left_hinge") : t("dt_ev_right_hinge")}
-              />
-            );
-          })()}
+          {/* Hinge indicator intentionally removed — no hardware shown */}
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : cabFinish.label, ...textFlip }}>
               {p.masterCode}
@@ -683,15 +669,45 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
   }
   void isWall;
   const stroke = `${edge}99`;
+  // For multi-door cabinets, split the face into N side-by-side door panels
+  // separated by a center stile. Each panel gets its own style treatment.
+  const numDoors = Math.max(1, doorCount);
+  if (numDoors > 1) {
+    const doorWidthPct = 100 / numDoors;
+    return (
+      <>
+        {Array.from({ length: numDoors }).map((_, i) => (
+          <div
+            key={`door-${i}`}
+            className="absolute top-0 bottom-0"
+            style={{ left: `${doorWidthPct * i}%`, width: `${doorWidthPct}%` }}
+          >
+            {/* stile between doors */}
+            {i > 0 && (
+              <div
+                className="absolute top-0 bottom-0 left-0"
+                style={{ width: 2, background: stroke }}
+              />
+            )}
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} />
+          </div>
+        ))}
+      </>
+    );
+  }
+  return <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} />;
+}
+
+// Renders a single door panel in the chosen style. Used by DoorFront for each
+// individual door in a multi-door cabinet.
+function SingleDoorPanel({ kind, edge, face, stroke }: { kind: DoorPanelKind; edge: string; face: string; stroke: string }) {
   const frame = (
     <div className="absolute inset-[3px] border rounded-[1px]" style={{ borderColor: stroke }} />
   );
   switch (kind) {
     case "slab":
-      // Flat slab: a single thin reveal, no inner panel.
       return <div className="absolute inset-[2px] rounded-[1px]" style={{ border: `1px solid ${edge}55` }} />;
     case "double-shaker":
-      // Two stacked recessed panels.
       return (
         <>
           {frame}
@@ -699,8 +715,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
           <div className="absolute left-[7px] right-[7px] top-[51%] bottom-[7px] rounded-[1px]" style={{ border: `1px solid ${stroke}` }} />
         </>
       );
-    case "raised": {
-      // Beveled raised center panel.
+    case "raised":
       return (
         <>
           {frame}
@@ -713,9 +728,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
           />
         </>
       );
-    }
     case "beaded":
-      // Vertical bead board lines inside the frame.
       return (
         <>
           {frame}
@@ -728,7 +741,6 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
         </>
       );
     case "inset":
-      // Thin inset reveal + recessed panel.
       return (
         <>
           <div className="absolute inset-[2px] rounded-[1px]" style={{ border: `1px solid ${edge}55` }} />
@@ -737,7 +749,6 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
       );
     case "shaker":
     default:
-      // Single recessed Shaker panel.
       return (
         <>
           {frame}

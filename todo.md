@@ -2076,3 +2076,9 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Changed doorStyles.list to use explicit select() projection that includes distributorId and excludes distributorName — TypeScript type now carries distributorId so the uniqueDoorStyles warehouse filter works correctly
 - [x] Typecheck clean; whitelabel leak-guard tests (6/6) confirm distributorName is still never leaked; catalog tests pass
 - [x] Checkpoint + publish
+
+## Design Tool: Elevation view — remove handles, improve cabinet representation
+- [x] Removed hinge indicator line (2.5px vertical bar at door edge) — was the element that looked like a handle
+- [x] Fixed DoorFront to split multi-door cabinets into N side-by-side panels with center stile(s) — 2-door cabinet now shows 2 panels, 3-door shows 3, etc.
+- [x] Extracted SingleDoorPanel helper so each door in a multi-door run gets its own style treatment (shaker/raised/slab/beaded/inset/double-shaker)
+- [x] Typecheck clean, design placeable tests pass (10/10), checkpoint + publish
