@@ -2009,3 +2009,27 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] UI: "Today's 4 to audit" panel (collapsible cards so they stay scannable) at the top — 4 unaudited items with inline verify, refreshes daily
 - [x] Tests: dropdown option procedures + daily picks determinism + admin-only gating (4 tests, 1011 total passing)
 - [x] Typecheck clean, full suite passing, verified in preview, checkpoint
+
+## Skyline adjusted-list correction (user request 2026-06-27)
+- [x] Back up current Skyline (distributor 3) SKU prices to a timestamped CSV before any change
+- [x] Recompute adjusted List = round(yourCost / 0.30, 2) for ALL 6587 Skyline SKUs (yourCost is the trusted anchor)
+- [x] Left wholesale/contractor/homeowner UNTOUCHED (owner sets markups off cost on the Markup tab)
+- [x] Wrote 6587 cost_change_log entries for each changed listPrice
+- [x] Verified W2130-SWO: cost 126.70 -> list 422.33 (cost/list=0.3000); all 6587 rows now at exactly 30%
+
+## Cabinet color/finish rendering fix (user: "get the color cabinet styles to work")
+- [ ] Audit real door-style names/colors/finishes in DB; list styles the current matcher mis-colors
+- [ ] Rewrite finishColors matcher: scan color/finish field first; stop broad words (dove/pearl/alba/cotton/snow) from forcing white when a real color is present
+- [ ] Map every real style to a correct face/edge/label color (validate Skyline Aero ___, Cobalt Abyss, etc.)
+- [ ] Unit tests over the real style names asserting expected color family
+- [ ] Verify on cabinet detail page (drawing + swatch) and door styles page
+- [ ] Full test suite + typecheck green, checkpoint, deliver
+
+
+## Design Tool two-tone color bug (fix)
+
+- [x] Bug: activating COLOR 2 repaints ALL previously-placed cabinets because slot-A cabinets are stored with styleId=null and inherit the global default
+- [x] Fix: stamp every newly placed cabinet (addCabinet, auto-fill, consultant) with the concrete active styleId so it keeps its color when the active style switches
+- [x] Fix: default-style change already only recolors cabinets with no explicit per-cabinet style (now far fewer, since placements are stamped)
+- [x] Verified Design Tool loads with COLOR 1/COLOR 2 panel; placement now stamps concrete styleId so COLOR 1 cabinets keep their color when COLOR 2 is activated
+- [x] Typecheck clean + full suite green (1011 tests, 269 design tests), checkpoint, deliver

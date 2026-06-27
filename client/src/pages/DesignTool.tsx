@@ -1477,11 +1477,14 @@ export default function DesignTool() {
           catalogImageUrl: c.catalogImageUrl ?? null,
           pullMin: c.pullMin ?? null,
           pullMax: c.pullMax ?? null,
-          // Two-color: stamp the ACTIVE door style onto this cabinet so it keeps
-          // the color it was placed in, EVEN if the design default later changes.
-          // We only stamp when a real second color (slot B) exists; otherwise we
-          // leave styleId null so the cabinet just tracks the single default.
-          styleId: styleBRef.current != null ? styleIdRef.current : null,
+          // Two-color: ALWAYS stamp the active door style onto this cabinet so it
+          // permanently keeps the color it was placed in, even after the active
+          // style/slot later changes. (Previously we only stamped when slot B
+          // existed and left styleId null otherwise — which caused every
+          // already-placed cabinet to inherit the new default and the WHOLE room
+          // to repaint the moment a 2nd color was activated.) When no style is
+          // chosen yet, fall back to null so the cabinet tracks the single default.
+          styleId: styleIdRef.current ?? null,
         };
         setSelectedUid(newCab.uid);
         // Sink-base auto-fixture: dropping a sink base (SB-*) means there's a
@@ -1595,6 +1598,8 @@ export default function DesignTool() {
             catalogImageUrl: c.catalogImageUrl ?? null,
             pullMin: c.pullMin ?? null,
             pullMax: c.pullMax ?? null,
+            // Stamp the active color so Auto-Fill cabinets keep their finish.
+            styleId: styleIdRef.current ?? null,
           };
           working = [...working, newCab];
           along += width;
@@ -1686,6 +1691,8 @@ export default function DesignTool() {
               height,
               rotation: spot.rotation,
               catalogImageUrl: null,
+              // Stamp the active color so Consultant-placed cabinets keep it.
+              styleId: styleIdRef.current ?? null,
             };
             working = [...working, newCab];
             total++;
