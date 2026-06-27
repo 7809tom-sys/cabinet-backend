@@ -431,6 +431,10 @@ export default function DesignTool() {
   const isCornerWall = useCallback((c: DesignCabinet) => {
     // Angled wall cabinets are wall-tab items, never corner-tab items.
     if (isAngledWall(c)) return false;
+    // WD-* (tall 48"-60" diagonal corner wall cabinets) are vanity/bathroom
+    // items — they do not belong in the Kitchen corner wall section.
+    const code = (c.masterCode || "").toUpperCase();
+    if (code.startsWith("WD-")) return false;
     const sub = (c.subCategory || "").toLowerCase();
     return (
       c.isCornerCabinet === true ||
