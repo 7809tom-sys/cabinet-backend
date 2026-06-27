@@ -2151,14 +2151,25 @@ export default function DesignTool() {
   // Assign a door style to a slot (from the picker). Setting the active slot's
   // style also updates styleId. Slot B is the two-tone second color.
   const setSlotStyle = useCallback((slot: "A" | "B", newStyleId: number) => {
+    // If no active style is set yet (first pick), make THIS slot active so the
+    // catalog populates immediately — otherwise picking a style into a
+    // non-active slot would leave styleId null and the cabinet list empty
+    // ("base cabinets gone" regression).
+    const noStyleYet = styleId == null;
     if (slot === "A") {
       setStyleA(newStyleId);
-      if (activeSlot === "A") setStyleId(newStyleId);
+      if (activeSlot === "A" || noStyleYet) {
+        if (noStyleYet) setActiveSlot("A");
+        setStyleId(newStyleId);
+      }
     } else {
       setStyleB(newStyleId);
-      if (activeSlot === "B") setStyleId(newStyleId);
+      if (activeSlot === "B" || noStyleYet) {
+        if (noStyleYet) setActiveSlot("B");
+        setStyleId(newStyleId);
+      }
     }
-  }, [activeSlot]);
+  }, [activeSlot, styleId]);
 
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(

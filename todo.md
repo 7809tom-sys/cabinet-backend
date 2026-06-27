@@ -1961,3 +1961,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Reproduced: confirmed only ColorSlotButton picker exists; on mobile the Popover scroll gesture is captured by the canvas so only ~10 rows are reachable
 - [x] Fix: ColorSlotButton now opens the door-style list as a full-width BOTTOM SHEET on mobile (useIsMobile(1024)) with native touch scrolling + sticky header; desktop keeps the Popover
 - [x] Typecheck clean + 1000 tests pass; checkpoint saved for phone testing
+
+## RESOLVED: base cabinets disappear after selecting a door style (Firefox + Chrome, after picker fix)
+- [x] Reproduced: picking a style into the NON-active color slot left active styleId null, so the style-filtered catalog returned nothing -> looked empty
+- [x] Fixed in DesignTool.setSlotStyle: the first style pick for any slot now activates that slot AND sets styleId, so the catalog always populates
+- [x] Verified live: picking Aero Alba sets active slot + shows its full lineup (28 base-placement items across sub-groups: Drawer Base 17, Roll Out 7, Sink 3, Single Door Base 2, etc.). Regular B-series isn't carried in that finish (data reality, not a bug). 1000 tests pass.
