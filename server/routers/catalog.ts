@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { eq, and, like, inArray, isNotNull, sql, desc, asc } from "drizzle-orm";
+import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
@@ -1045,6 +1046,167 @@ export const cabinetsRouter = router({
         .set({ conflictStatus: "none", conflictReason: null, conflictedAt: null })
         .where(eq(cabinets.id, input.id));
       return { ok: true };
+    }),
+
+  // ── Admin: Cabinet spreadsheet export ────────────────────────────────────
+  // Returns a base64-encoded XLSX workbook containing every cabinet row so
+  // the admin can correct descriptions, dimensions, categories, etc. in Excel
+  // and re-upload via adminImport.
+  adminExport: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { xlsx: "", filename: "cabinets.xlsx", count: 0 };
+
+    const rows = await db
+      .select({
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        placementType: cabinets.placementType,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        numberOfDoors: cabinets.numberOfDoors,
+        numberOfDrawers: cabinets.numberOfDrawers,
+        hingeSide: cabinets.hingeSide,
+        isCornerCabinet: cabinets.isCornerCabinet,
+        cornerSide: cabinets.cornerSide,
+        graphicType: cabinets.graphicType,
+        isActive: cabinets.isActive,
+      })
+      .from(cabinets)
+      .orderBy(asc(cabinets.category), asc(cabinets.masterCode));
+
+    const sheetData = [
+      [
+        "masterCode", "description", "category", "subCategory", "placementType",
+        "width", "height", "depth", "numberOfDoors", "numberOfDrawers",
+        "hingeSide", "isCornerCabinet", "cornerSide", "graphicType", "isActive",
+      ],
+      ...rows.map((r) => [
+        r.masterCode,
+        r.description,
+        r.category,
+        r.subCategory ?? "",
+        r.placementType ?? "",
+        r.width != null ? Number(r.width) : "",
+        r.height != null ? Number(r.height) : "",
+        r.depth != null ? Number(r.depth) : "",
+        r.numberOfDoors ?? 0,
+        r.numberOfDrawers ?? 0,
+        r.hingeSide ?? "",
+        r.isCornerCabinet ? "TRUE" : "FALSE",
+        r.cornerSide ?? "",
+        r.graphicType ?? "",
+        r.isActive ? "TRUE" : "FALSE",
+      ]),
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    XLSX.utils.book_append_sheet(wb, ws, "Cabinets");
+    const buf = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
+    const date = new Date().toISOString().slice(0, 10);
+    return { xlsx: buf as string, filename: `cabinet-dealz-cabinets-${date}.xlsx`, count: rows.length };
+  }),
+
+  // ── Admin: Cabinet spreadsheet import ────────────────────────────────────
+  // Accepts a base64-encoded XLSX workbook (same format as adminExport),
+  // parses every row, and upserts changes to the cabinets table.
+  // Only the editable columns are updated; masterCode is the lookup key.
+  // Returns per-row results so the UI can show a summary.
+  adminImport: adminProcedure
+    .input(z.object({ xlsx: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      let wb: XLSX.WorkBook;
+      try {
+        wb = XLSX.read(input.xlsx, { type: "base64" });
+      } catch {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Could not parse the uploaded file. Make sure it is a valid .xlsx workbook." });
+      }
+
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) throw new TRPCError({ code: "BAD_REQUEST", message: "Workbook has no sheets." });
+
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
+      if (rawRows.length === 0) return { updated: 0, skipped: 0, errors: [] as string[] };
+
+      let updated = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        const masterCode = String(row["masterCode"] ?? "").trim();
+        if (!masterCode) { skipped++; continue; }
+
+        // Build the patch — only include fields that are present and non-empty.
+        const patch: Record<string, unknown> = {};
+
+        const desc = String(row["description"] ?? "").trim();
+        if (desc) patch.description = desc;
+
+        const cat = String(row["category"] ?? "").trim();
+        if (cat) patch.category = cat;
+
+        const sub = String(row["subCategory"] ?? "").trim();
+        patch.subCategory = sub || null;
+
+        const pt = String(row["placementType"] ?? "").trim();
+        if (pt) patch.placementType = pt;
+
+        const w = parseFloat(String(row["width"] ?? ""));
+        if (!isNaN(w)) patch.width = String(w);
+
+        const h = parseFloat(String(row["height"] ?? ""));
+        if (!isNaN(h)) patch.height = String(h);
+
+        const d = parseFloat(String(row["depth"] ?? ""));
+        if (!isNaN(d)) patch.depth = String(d);
+
+        const doors = parseInt(String(row["numberOfDoors"] ?? ""), 10);
+        if (!isNaN(doors)) patch.numberOfDoors = doors;
+
+        const drawers = parseInt(String(row["numberOfDrawers"] ?? ""), 10);
+        if (!isNaN(drawers)) patch.numberOfDrawers = drawers;
+
+        const hinge = String(row["hingeSide"] ?? "").trim();
+        if (hinge) patch.hingeSide = hinge;
+
+        const cornerRaw = String(row["isCornerCabinet"] ?? "").trim().toUpperCase();
+        if (cornerRaw === "TRUE" || cornerRaw === "1") patch.isCornerCabinet = true;
+        else if (cornerRaw === "FALSE" || cornerRaw === "0") patch.isCornerCabinet = false;
+
+        const cornerSide = String(row["cornerSide"] ?? "").trim();
+        patch.cornerSide = cornerSide || null;
+
+        const gt = String(row["graphicType"] ?? "").trim();
+        if (gt) patch.graphicType = gt;
+
+        const activeRaw = String(row["isActive"] ?? "").trim().toUpperCase();
+        if (activeRaw === "TRUE" || activeRaw === "1") patch.isActive = true;
+        else if (activeRaw === "FALSE" || activeRaw === "0") patch.isActive = false;
+
+        if (Object.keys(patch).length === 0) { skipped++; continue; }
+
+        try {
+          const result = await db
+            .update(cabinets)
+            .set(patch)
+            .where(eq(cabinets.masterCode, masterCode));
+          const affected = (result as unknown as { rowsAffected?: number })?.rowsAffected ?? 0;
+          if (affected > 0) updated++;
+          else { skipped++; errors.push(`Row ${i + 2}: masterCode "${masterCode}" not found — skipped.`); }
+        } catch (err) {
+          errors.push(`Row ${i + 2}: ${masterCode} — ${err instanceof Error ? err.message : String(err)}`);
+          skipped++;
+        }
+      }
+
+      return { updated, skipped, errors };
     }),
 });
 
