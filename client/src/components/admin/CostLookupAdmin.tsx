@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Search, Save, History, ShieldCheck, X, BadgeCheck, CircleAlert } from "lucide-react";
+import { Search, Save, History, ShieldCheck, X, BadgeCheck, CircleAlert, CalendarClock, ListFilter, ChevronUp, ChevronDown } from "lucide-react";
 
 // Editable price-ladder fields, in display order.
 const FIELDS = [
@@ -42,6 +46,19 @@ type Sku = {
   styleDistributorName: string | null;
 };
 
+type CabinetResult = {
+  id: number;
+  masterCode: string;
+  description: string;
+  category: string;
+  subCategory: string | null;
+  conflictStatus?: string;
+  priceVerified?: boolean;
+  priceVerifiedAt?: string | Date | null;
+  priceVerifiedByName?: string | null;
+  skus: Sku[];
+};
+
 function dollarsOrBlank(v: string | null): string {
   if (v === null || v === undefined) return "";
   const n = Number(v);
@@ -51,14 +68,6 @@ function dollarsOrBlank(v: string | null): string {
 // One editable SKU row. Tracks its own dirty draft so each row saves
 // independently and only changed fields are sent.
 function SkuRow({ sku, onSaved }: { sku: Sku; onSaved: () => void }) {
-  const [draft, setDraft] = useState<Record<FieldKey, string>>({
-    yourCost: dollarsOrBlank(sku.yourCost),
-    listPrice: dollarsOrBlank(sku.listPrice),
-    wholesalePrice: dollarsOrBlank(sku.wholesalePrice),
-    contractorPrice: dollarsOrBlank(sku.contractorPrice),
-    homeownerPrice: dollarsOrBlank(sku.homeownerPrice),
-  });
-
   const initial: Record<FieldKey, string> = {
     yourCost: dollarsOrBlank(sku.yourCost),
     listPrice: dollarsOrBlank(sku.listPrice),
@@ -66,6 +75,7 @@ function SkuRow({ sku, onSaved }: { sku: Sku; onSaved: () => void }) {
     contractorPrice: dollarsOrBlank(sku.contractorPrice),
     homeownerPrice: dollarsOrBlank(sku.homeownerPrice),
   };
+  const [draft, setDraft] = useState<Record<FieldKey, string>>(initial);
 
   const dirty = FIELDS.some((f) => draft[f.key] !== initial[f.key]);
 
@@ -236,7 +246,332 @@ function VerifyButton({
   );
 }
 
-export default function CostLookupAdmin() {
+// A full cabinet card: header (code + verify + history) and the SKU price table.
+// `defaultCollapsed` starts the price table hidden behind a toggle — used by the
+// Daily Picks panel so 4 cabinets (each with many SKUs) stay scannable.
+function CabinetCard({
+  cab,
+  auditOpen,
+  onToggleAudit,
+  onChanged,
+  defaultCollapsed = false,
+}: {
+  cab: CabinetResult;
+  auditOpen: boolean;
+  onToggleAudit: () => void;
+  onChanged: () => void;
+  defaultCollapsed?: boolean;
+}) {
+  const [open, setOpen] = useState(!defaultCollapsed);
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+        <div>
+          <CardTitle className="font-mono">{cab.masterCode}</CardTitle>
+          <p className="text-sm text-muted-foreground">{cab.description}</p>
+          <p className="text-xs text-muted-foreground">
+            {cab.category}{cab.subCategory ? ` · ${cab.subCategory}` : ""} · {cab.skus.length} SKU{cab.skus.length === 1 ? "" : "s"}
+          </p>
+          {defaultCollapsed && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 bg-background"
+              onClick={() => setOpen((o) => !o)}
+            >
+              {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+              <span className="ml-1">{open ? "Hide prices" : "Open / edit prices"}</span>
+            </Button>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <VerifyButton
+            cabinetId={cab.id}
+            verified={!!cab.priceVerified}
+            verifiedAt={cab.priceVerifiedAt}
+            verifiedByName={cab.priceVerifiedByName}
+            onChanged={onChanged}
+          />
+          <Button variant="outline" size="sm" className="bg-background" onClick={onToggleAudit}>
+            <History className="size-4" />
+            <span className="ml-1">History</span>
+          </Button>
+        </div>
+      </CardHeader>
+      {open && (
+      <CardContent>
+        {cab.skus.length === 0 ? (
+          <p className="py-4 text-sm text-muted-foreground">No SKUs mapped for this cabinet yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[180px]">Door style / line</TableHead>
+                  {FIELDS.map((f) => (
+                    <TableHead key={f.key} className="min-w-[110px]">{f.label}</TableHead>
+                  ))}
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cab.skus.map((sku) => (
+                  <SkuRow key={sku.skuId} sku={sku} onSaved={onChanged} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        {auditOpen && <AuditTrail masterCode={cab.masterCode} onClose={onToggleAudit} />}
+      </CardContent>
+      )}
+      {!open && auditOpen && (
+        <CardContent>
+          <AuditTrail masterCode={cab.masterCode} onClose={onToggleAudit} />
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+// ─── Today's picks: 4 unaudited items to check each day ──────────────────────
+function DailyPicks() {
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.pricing.adminDailyAuditPicks.useQuery({ count: 4 });
+  const [auditFor, setAuditFor] = useState<string | null>(null);
+
+  const refetch = () => {
+    utils.pricing.adminDailyAuditPicks.invalidate();
+    utils.pricing.adminAuditDistributors.invalidate();
+    if (auditFor) utils.pricing.adminCostHistory.invalidate();
+  };
+
+  const picks = (data?.picks ?? []) as CabinetResult[];
+
+  return (
+    <Card className="border-emerald-200">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CalendarClock className="size-5 text-emerald-600" />
+          Today&apos;s 4 to audit
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          A fresh rotation of items that still need a price check — confirm these
+          against your distributor paperwork so the catalog stays accurate.
+          {typeof data?.remaining === "number" && (
+            <span className="ml-1 font-medium text-foreground">
+              {data.remaining} item{data.remaining === 1 ? "" : "s"} still unaudited.
+            </span>
+          )}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Spinner /></div>
+        ) : picks.length === 0 ? (
+          <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-4 py-6 text-sm text-emerald-800">
+            <BadgeCheck className="size-5" /> All items have been price-verified. Nothing to audit today.
+          </div>
+        ) : (
+          picks.map((cab) => (
+            <CabinetCard
+              key={cab.id}
+              cab={cab}
+              defaultCollapsed
+              auditOpen={auditFor === cab.masterCode}
+              onToggleAudit={() => setAuditFor(auditFor === cab.masterCode ? null : cab.masterCode)}
+              onChanged={refetch}
+            />
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Find by dropdown: Distributor → Door style → Item ───────────────────────
+function DropdownFinder() {
+  const utils = trpc.useUtils();
+  const [distId, setDistId] = useState<number | null>(null);
+  const [styleId, setStyleId] = useState<number | null>(null);
+  const [cabinetId, setCabinetId] = useState<number | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
+
+  const distQuery = trpc.pricing.adminAuditDistributors.useQuery();
+  const stylesQuery = trpc.pricing.adminAuditStyles.useQuery(
+    { distributorId: distId ?? 0 },
+    { enabled: distId !== null },
+  );
+  const itemsQuery = trpc.pricing.adminAuditItems.useQuery(
+    { distributorId: distId ?? 0, styleId: styleId ?? 0 },
+    { enabled: distId !== null && styleId !== null },
+  );
+
+  const distributors = (distQuery.data ?? []) as {
+    id: number; label: string; cabinetCount: number; auditedCount: number; unauditedCount: number;
+  }[];
+  const styles = (stylesQuery.data ?? []) as {
+    id: number; label: string; ourName: string; styleCode: string; itemCount: number;
+  }[];
+  type Item = Sku & {
+    cabinetId: number;
+    masterCode: string;
+    description: string;
+    category: string;
+    subCategory: string | null;
+    priceVerified: boolean;
+    priceVerifiedAt?: string | Date | null;
+    priceVerifiedByName?: string | null;
+  };
+  const items = (itemsQuery.data ?? []) as Item[];
+
+  const selectedItem = useMemo(
+    () => items.find((it) => it.cabinetId === cabinetId) ?? null,
+    [items, cabinetId],
+  );
+
+  // Build a CabinetResult shape from the single selected SKU so we can reuse
+  // the same CabinetCard editor used everywhere else.
+  const selectedCab: CabinetResult | null = useMemo(() => {
+    if (!selectedItem) return null;
+    return {
+      id: selectedItem.cabinetId,
+      masterCode: selectedItem.masterCode,
+      description: selectedItem.description,
+      category: selectedItem.category,
+      subCategory: selectedItem.subCategory,
+      priceVerified: selectedItem.priceVerified,
+      priceVerifiedAt: selectedItem.priceVerifiedAt,
+      priceVerifiedByName: selectedItem.priceVerifiedByName,
+      skus: [selectedItem as Sku],
+    };
+  }, [selectedItem]);
+
+  const refetch = () => {
+    utils.pricing.adminAuditItems.invalidate();
+    utils.pricing.adminAuditDistributors.invalidate();
+    utils.pricing.adminDailyAuditPicks.invalidate();
+    if (auditOpen) utils.pricing.adminCostHistory.invalidate();
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ListFilter className="size-5 text-emerald-600" />
+            Find an item to audit
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            No SKU needed. Pick the original <strong>distributor</strong>, then the
+            <strong> door style</strong>, then the <strong>item</strong> — its prices
+            load below, ready to compare against your price list and mark audited.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* Distributor */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Distributor</label>
+              <Select
+                value={distId !== null ? String(distId) : undefined}
+                onValueChange={(v) => {
+                  setDistId(Number(v));
+                  setStyleId(null);
+                  setCabinetId(null);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={distQuery.isLoading ? "Loading…" : "Select distributor"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {distributors.map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.label} ({d.auditedCount}/{d.cabinetCount} audited)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Door style */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Door style</label>
+              <Select
+                value={styleId !== null ? String(styleId) : undefined}
+                disabled={distId === null}
+                onValueChange={(v) => {
+                  setStyleId(Number(v));
+                  setCabinetId(null);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    distId === null ? "Pick a distributor first"
+                      : stylesQuery.isLoading ? "Loading…"
+                      : "Select door style"
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {styles.map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.label} · {s.itemCount} item{s.itemCount === 1 ? "" : "s"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Item */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Item</label>
+              <Select
+                value={cabinetId !== null ? String(cabinetId) : undefined}
+                disabled={styleId === null}
+                onValueChange={(v) => {
+                  setCabinetId(Number(v));
+                  setAuditOpen(false);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    styleId === null ? "Pick a door style first"
+                      : itemsQuery.isLoading ? "Loading…"
+                      : "Select item"
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {items.map((it) => (
+                    <SelectItem key={it.cabinetId} value={String(it.cabinetId)}>
+                      {it.masterCode} — {it.description}
+                      {it.priceVerified ? "  ✓" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {styleId !== null && !itemsQuery.isLoading && items.length === 0 && (
+            <p className="mt-3 text-sm text-muted-foreground">No items found for this door style.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {selectedCab && (
+        <CabinetCard
+          cab={selectedCab}
+          auditOpen={auditOpen}
+          onToggleAudit={() => setAuditOpen((o) => !o)}
+          onChanged={refetch}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Search by code / queue number (the original path) ───────────────────────
+function SearchFinder() {
   const [term, setTerm] = useState("");
   const [submitted, setSubmitted] = useState<string>("");
   const [auditFor, setAuditFor] = useState<string | null>(null);
@@ -259,21 +594,10 @@ export default function CostLookupAdmin() {
 
   const refetchAll = () => {
     utils.pricing.adminLookupCost.invalidate();
+    utils.pricing.adminDailyAuditPicks.invalidate();
     if (auditFor) utils.pricing.adminCostHistory.invalidate();
   };
 
-  type CabinetResult = {
-    id: number;
-    masterCode: string;
-    description: string;
-    category: string;
-    subCategory: string | null;
-    conflictStatus?: string;
-    priceVerified?: boolean;
-    priceVerifiedAt?: string | Date | null;
-    priceVerifiedByName?: string | null;
-    skus: Sku[];
-  };
   const results = (data?.cabinets ?? []) as CabinetResult[];
 
   return (
@@ -281,16 +605,13 @@ export default function CostLookupAdmin() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="size-5 text-emerald-600" />
-            Cost Lookup &amp; Price Audit
+            <Search className="size-5 text-emerald-600" />
+            Search by code or queue number
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Owner-only. Look up an item by its <strong>queue number</strong> (e.g.
+            Look up an item by its <strong>queue number</strong> (e.g.
             <code className="mx-1 rounded bg-muted px-1">#123</code>) or by its
-            <strong> model / cabinet code</strong> to see every stored SKU across
-            lines and door styles. Compare each price against your master price
-            list, correct any field inline, then hit <strong>Mark price
-            verified</strong>. Every change is logged.
+            <strong> model / cabinet code</strong> (e.g. B24, DB-24-3).
           </p>
         </CardHeader>
         <CardContent>
@@ -326,64 +647,53 @@ export default function CostLookupAdmin() {
       )}
 
       {results.map((cab) => (
-        <Card key={cab.id}>
-          <CardHeader className="flex flex-row items-start justify-between space-y-0">
-            <div>
-              <CardTitle className="font-mono">{cab.masterCode}</CardTitle>
-              <p className="text-sm text-muted-foreground">{cab.description}</p>
-              <p className="text-xs text-muted-foreground">
-                {cab.category}{cab.subCategory ? ` · ${cab.subCategory}` : ""} · {cab.skus.length} SKU{cab.skus.length === 1 ? "" : "s"}
-              </p>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              <VerifyButton
-                cabinetId={cab.id}
-                verified={!!cab.priceVerified}
-                verifiedAt={cab.priceVerifiedAt}
-                verifiedByName={cab.priceVerifiedByName}
-                onChanged={refetchAll}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAuditFor(auditFor === cab.masterCode ? null : cab.masterCode)}
-              >
-                <History className="size-4" />
-                <span className="ml-1">History</span>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {cab.skus.length === 0 ? (
-              <p className="py-4 text-sm text-muted-foreground">
-                No SKUs mapped for this cabinet yet.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[180px]">Door style / line</TableHead>
-                      {FIELDS.map((f) => (
-                        <TableHead key={f.key} className="min-w-[110px]">{f.label}</TableHead>
-                      ))}
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cab.skus.map((sku) => (
-                      <SkuRow key={sku.skuId} sku={sku} onSaved={refetchAll} />
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-            {auditFor === cab.masterCode && (
-              <AuditTrail masterCode={cab.masterCode} onClose={() => setAuditFor(null)} />
-            )}
-          </CardContent>
-        </Card>
+        <CabinetCard
+          key={cab.id}
+          cab={cab}
+          auditOpen={auditFor === cab.masterCode}
+          onToggleAudit={() => setAuditFor(auditFor === cab.masterCode ? null : cab.masterCode)}
+          onChanged={refetchAll}
+        />
       ))}
+    </div>
+  );
+}
+
+export default function CostLookupAdmin() {
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="size-5 text-emerald-600" />
+            Cost Lookup &amp; Price Audit
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Owner-only. Compare stored prices against your master price list,
+            correct any field inline, then hit <strong>Mark price verified</strong>.
+            Every change is logged.
+          </p>
+        </CardHeader>
+      </Card>
+
+      <DailyPicks />
+
+      <Tabs defaultValue="dropdown" className="w-full">
+        <TabsList>
+          <TabsTrigger value="dropdown">
+            <ListFilter className="mr-1.5 size-4" /> Find by dropdown
+          </TabsTrigger>
+          <TabsTrigger value="search">
+            <Search className="mr-1.5 size-4" /> Search by code
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="dropdown" className="mt-4">
+          <DropdownFinder />
+        </TabsContent>
+        <TabsContent value="search" className="mt-4">
+          <SearchFinder />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

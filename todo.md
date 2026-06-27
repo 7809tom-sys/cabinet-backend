@@ -1998,3 +1998,14 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Added "Become a Vendor" nav link (More dropdown; EN+ES i18n)
 - [x] server/vendor.test.ts (6 tests) + browser verified; full suite 1007 passing
 - [ ] Branded multi-category vendor pitch PDF
+
+## Price Audit: cascading dropdowns + daily picks (user request 2026-06-27)
+- [x] Backend: pricing.adminAuditDistributors — distributors that have SKUs, with counts (total / audited / unaudited) so the owner can pick the original distributor by name
+- [x] Backend: pricing.adminAuditStyles({distributorId}) — door styles available for that distributor (id, ourName, styleCode), only styles that have SKUs
+- [x] Backend: pricing.adminAuditItems({distributorId, styleId}) — items (cabinets) available for that distributor+style, returning the cabinet + that one SKU + price ladder + audited flag, so no SKU typing is needed
+- [x] Backend: pricing.adminDailyAuditPicks — deterministic "4 items a day" rotation of cabinets that are NOT price-verified (stable per calendar day), returns enough to render + verify
+- [x] UI: Price Audit tab gets a "Find by dropdown" mode — Distributor select -> Door style select -> Item select -> show editable price ladder + Mark audited + History (reuse SkuRow/VerifyButton/AuditTrail)
+- [x] UI: keep the existing search box (queue # / model code) as an alternate path
+- [x] UI: "Today's 4 to audit" panel (collapsible cards so they stay scannable) at the top — 4 unaudited items with inline verify, refreshes daily
+- [x] Tests: dropdown option procedures + daily picks determinism + admin-only gating (4 tests, 1011 total passing)
+- [x] Typecheck clean, full suite passing, verified in preview, checkpoint

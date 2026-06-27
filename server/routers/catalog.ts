@@ -33,6 +33,11 @@ function scrubDoorStyle<T extends Record<string, unknown>>(row: T): Omit<T, "dis
   return rest;
 }
 
+// Calendar-day key in UTC (YYYY-MM-DD) used to label the daily audit rotation.
+function dayKeyUTC(d: Date = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
 // ─── Distributors ─────────────────────────────────────────────────────────────
 
 export const distributorsRouter = router({
@@ -1388,6 +1393,210 @@ export const pricingRouter = router({
         })
         .where(eq(cabinets.id, input.cabinetId));
       return { success: true, verified: input.verified } as const;
+    }),
+
+  // ─── Price Audit: cascading dropdowns (no SKU typing required) ────────────────
+  // Step 1: distributors that actually have SKUs, with audit progress counts so
+  // the owner can pick the original distributor by name. OWNER-ONLY (real names).
+  adminAuditDistributors: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [] as unknown[];
+    const rows = await db
+      .select({
+        id: distributors.id,
+        code: distributors.code,
+        name: distributors.name,
+        brandName: distributors.brandName,
+        skuCount: sql<number>`count(distinct ${distributorSkus.id})`,
+        cabinetCount: sql<number>`count(distinct ${distributorSkus.cabinetId})`,
+        auditedCount: sql<number>`count(distinct case when ${cabinets.priceVerified} = true then ${distributorSkus.cabinetId} end)`,
+      })
+      .from(distributorSkus)
+      .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+      .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+      .groupBy(distributors.id, distributors.code, distributors.name, distributors.brandName)
+      .orderBy(asc(distributors.name));
+    // Owner tool: surface the real distributor name (brandName) so it matches the
+    // owner's paperwork; fall back to the neutral name when no brand is stored.
+    return rows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      label: r.brandName || r.name,
+      skuCount: Number(r.skuCount),
+      cabinetCount: Number(r.cabinetCount),
+      auditedCount: Number(r.auditedCount),
+      unauditedCount: Number(r.cabinetCount) - Number(r.auditedCount),
+    }));
+  }),
+
+  // Step 2: door styles that have SKUs for the chosen distributor.
+  adminAuditStyles: adminProcedure
+    .input(z.object({ distributorId: z.number().int() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [] as unknown[];
+      const rows = await db
+        .select({
+          id: doorStyles.id,
+          ourName: doorStyles.ourName,
+          distributorName: doorStyles.distributorName,
+          styleCode: doorStyles.styleCode,
+          itemCount: sql<number>`count(distinct ${distributorSkus.cabinetId})`,
+        })
+        .from(distributorSkus)
+        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(eq(distributorSkus.distributorId, input.distributorId))
+        .groupBy(doorStyles.id, doorStyles.ourName, doorStyles.distributorName, doorStyles.styleCode)
+        .orderBy(asc(doorStyles.ourName));
+      // Owner tool: include the original distributor's door name so it matches the
+      // paperwork, alongside our name + code.
+      return rows.map((r) => ({
+        id: r.id,
+        label: r.distributorName || r.ourName,
+        ourName: r.ourName,
+        styleCode: r.styleCode,
+        itemCount: Number(r.itemCount),
+      }));
+    }),
+
+  // Step 3: items (cabinets) for the chosen distributor + door style, each with
+  // its single matching SKU + price ladder + audited flag, so the owner can pick
+  // an item from a dropdown and audit it without ever knowing the SKU string.
+  adminAuditItems: adminProcedure
+    .input(z.object({ distributorId: z.number().int(), styleId: z.number().int() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [] as unknown[];
+      const rows = await db
+        .select({
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          priceVerified: cabinets.priceVerified,
+          priceVerifiedAt: cabinets.priceVerifiedAt,
+          priceVerifiedByName: cabinets.priceVerifiedByName,
+          skuId: distributorSkus.id,
+          distributorId: distributorSkus.distributorId,
+          styleId: distributorSkus.styleId,
+          platformSku: distributorSkus.platformSku,
+          distributorSku: distributorSkus.distributorSku,
+          supplierCabinetName: distributorSkus.supplierCabinetName,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          yourCost: distributorSkus.yourCost,
+          listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          distributorName: distributors.name,
+          distributorBrandName: distributors.brandName,
+          styleOurName: doorStyles.ourName,
+          styleCode: doorStyles.styleCode,
+          styleDistributorName: doorStyles.distributorName,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+        .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(
+          and(
+            eq(distributorSkus.distributorId, input.distributorId),
+            eq(distributorSkus.styleId, input.styleId),
+          ),
+        )
+        .orderBy(asc(cabinets.masterCode));
+      return rows;
+    }),
+
+  // "Today's 4 to audit": a deterministic daily rotation through the cabinets
+  // that still need price verification. Stable for the whole calendar day so the
+  // same 4 show up on every refresh, then rotates the next day. Returns the
+  // cabinet + its SKUs (same shape as adminLookupCost) so the UI can verify
+  // inline. OWNER-ONLY.
+  adminDailyAuditPicks: adminProcedure
+    .input(z.object({ count: z.number().int().min(1).max(20).optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { day: "", picks: [] as unknown[], remaining: 0 };
+      const count = input?.count ?? 4;
+      // All unaudited cabinets that have at least one SKU (nothing to audit
+      // otherwise), ordered stably by id so the rotation window is deterministic.
+      const unaudited = await db
+        .select({ id: cabinets.id })
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(eq(cabinets.priceVerified, false))
+        .groupBy(cabinets.id)
+        .orderBy(asc(cabinets.id));
+      const ids = unaudited.map((r) => r.id);
+      const remaining = ids.length;
+      if (remaining === 0) return { day: dayKeyUTC(), picks: [] as unknown[], remaining: 0 };
+
+      // Deterministic per-day window: advance the start offset by `count` each
+      // day so we cycle through the whole backlog over time.
+      const epochDay = Math.floor(Date.now() / 86_400_000);
+      const start = (epochDay * count) % remaining;
+      const pickedIds: number[] = [];
+      for (let i = 0; i < Math.min(count, remaining); i++) {
+        pickedIds.push(ids[(start + i) % remaining]);
+      }
+
+      const selectCols = {
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        conflictStatus: cabinets.conflictStatus,
+        priceVerified: cabinets.priceVerified,
+        priceVerifiedAt: cabinets.priceVerifiedAt,
+        priceVerifiedByName: cabinets.priceVerifiedByName,
+      };
+      const matched = await db.select(selectCols).from(cabinets).where(inArray(cabinets.id, pickedIds));
+      // Preserve the picked order.
+      const orderMap = new Map(pickedIds.map((id, i) => [id, i]));
+      matched.sort((a, b) => (orderMap.get(a.id)! - orderMap.get(b.id)!));
+
+      const skuRows = await db
+        .select({
+          skuId: distributorSkus.id,
+          cabinetId: distributorSkus.cabinetId,
+          distributorId: distributorSkus.distributorId,
+          styleId: distributorSkus.styleId,
+          platformSku: distributorSkus.platformSku,
+          distributorSku: distributorSkus.distributorSku,
+          supplierCabinetName: distributorSkus.supplierCabinetName,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          yourCost: distributorSkus.yourCost,
+          listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          distributorName: distributors.name,
+          distributorBrandName: distributors.brandName,
+          styleOurName: doorStyles.ourName,
+          styleCode: doorStyles.styleCode,
+          styleDistributorName: doorStyles.distributorName,
+        })
+        .from(distributorSkus)
+        .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+        .leftJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(inArray(distributorSkus.cabinetId, pickedIds))
+        .orderBy(asc(distributorSkus.cabinetId), asc(doorStyles.ourName));
+      const byCab = new Map<number, typeof skuRows>();
+      for (const r of skuRows) {
+        const list = byCab.get(r.cabinetId) ?? ([] as unknown as typeof skuRows);
+        (list as unknown[]).push(r);
+        byCab.set(r.cabinetId, list);
+      }
+      return {
+        day: dayKeyUTC(),
+        remaining,
+        picks: matched.map((c) => ({ ...c, skus: (byCab.get(c.id) ?? []) as typeof skuRows })),
+      };
     }),
 
   // Recent audit rows for a SKU or a cabinet number, newest first.
