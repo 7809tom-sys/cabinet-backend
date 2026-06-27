@@ -112,12 +112,23 @@ export const customersRouter = router({
       return { ok: true, userId: input.userId, tier: input.tier };
     }),
 
-  // Grant / revoke the CRM-only "designer" role. Designers are internal sales
-  // staff who can log into the admin backend but ONLY see the Sales CRM. The
-  // owner never demotes an existing admin through here (guarded below).
+  // Assign one of the owner-manageable roles to a user account:
+  //   - user      → regular member (default)
+  //   - designer  → internal sales staff; admin backend but only the Sales CRM
+  //   - partner   → affiliate account (links to an affiliates record via userId)
+  //   - admin     → full platform administrator
+  //
+  // Guardrails: you cannot change your own role here, you cannot demote the
+  // last remaining admin, and you cannot repurpose specialized accounts
+  // (distributor / dealer / sales_rep) from this control.
   setRole: adminProcedure
-    .input(z.object({ userId: z.number().int(), role: z.enum(["user", "designer"]) }))
-    .mutation(async ({ input }) => {
+    .input(
+      z.object({
+        userId: z.number().int(),
+        role: z.enum(["user", "designer", "partner", "admin"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -129,12 +140,42 @@ export const customersRouter = router({
       if (!target) {
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
       }
-      // Never repurpose an admin/distributor/partner account from this control.
-      if (target.role !== "user" && target.role !== "designer") {
+
+      // You can't change your own role (prevents accidental self-lockout).
+      if (ctx.user.id === input.userId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You can't change your own role.",
+        });
+      }
+
+      // Only user/designer/partner/admin accounts are manageable here. Specialized
+      // accounts (distributor/dealer/sales_rep) are provisioned elsewhere.
+      const manageable = ["user", "designer", "partner", "admin"];
+      if (!manageable.includes(target.role)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: `Cannot change role for a ${target.role} account here.`,
         });
+      }
+
+      // No-op if unchanged.
+      if (target.role === input.role) {
+        return { ok: true, userId: input.userId, role: input.role };
+      }
+
+      // Never strip the last admin (avoid locking everyone out of the backend).
+      if (target.role === "admin" && input.role !== "admin") {
+        const [{ cnt }] = await db
+          .select({ cnt: sql<number>`count(*)` })
+          .from(users)
+          .where(eq(users.role, "admin"));
+        if (Number(cnt) <= 1) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This is the only admin. Promote someone else to admin first.",
+          });
+        }
       }
 
       await db

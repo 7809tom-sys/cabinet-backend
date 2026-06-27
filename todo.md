@@ -2033,3 +2033,27 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Fix: default-style change already only recolors cabinets with no explicit per-cabinet style (now far fewer, since placements are stamped)
 - [x] Verified Design Tool loads with COLOR 1/COLOR 2 panel; placement now stamps concrete styleId so COLOR 1 cabinets keep their color when COLOR 2 is activated
 - [x] Typecheck clean + full suite green (1011 tests, 269 design tests), checkpoint, deliver
+
+
+## Admin role assignment (Customers panel)
+
+- [ ] Backend: expand customers.setRole to accept user/designer/partner/admin
+- [ ] Backend guardrails: cannot change own role; cannot demote the last admin; cannot repurpose distributor/dealer/sales_rep accounts here
+- [ ] Backend: when granting partner(affiliate), allow; document that the affiliate record links via userId
+- [ ] UI: replace single Make-Designer button with a role dropdown (User / Designer / Affiliate / Admin)
+- [ ] UI: confirm dialog when promoting to Admin
+- [ ] Tests: role transitions + guardrails (self, last admin, protected roles)
+- [ ] Typecheck clean, full suite passing, verified in preview, checkpoint
+
+## Admin: Dedicated Roles Tab
+- [x] Create RolesAdmin component (search users, show current role badge, assign Admin/Designer/Affiliate/Member via dropdown + admin-confirm dialog), reusing customers.list + customers.setRole
+- [x] Add "Roles" tab to Admin.tsx Tabs (admin-only)
+- [x] Typecheck + full test suite green, save checkpoint
+
+## Design Tool: Remove ALL Add-on Sales
+- [x] Remove "Don't forget this" recommendation/upsell panel from DesignTool.tsx (was crowding the cabinet list)
+- [x] Remove add-on accessory BOM lines (addedAddOns) so quote only contains placed cabinets + structural extras
+- [x] Remove addedAddOns state, addAddOn/removeAddOn, addOnPriceFor, findAddOns query, addOnRecommendations usage
+- [x] Remove roll-out tray section + props from CabinetAttributesDialog (was an add-on sale)
+- [x] Hide loose non-placeable add-on items from Accessories palette; keep placeable physical panels
+- [x] Typecheck + full test suite green (1016 pass), save checkpoint

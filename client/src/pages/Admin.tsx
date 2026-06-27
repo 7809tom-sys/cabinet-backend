@@ -26,6 +26,7 @@ import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
 import LineBrandingEditor from "@/components/admin/LineBrandingEditor";
 import CustomersAdmin from "@/components/admin/CustomersAdmin";
+import RolesAdmin from "@/components/admin/RolesAdmin";
 import SkuImageManager from "@/components/admin/SkuImageManager";
 import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
 import ShippingAdmin from "@/components/admin/ShippingAdmin";
@@ -584,6 +585,7 @@ export default function Admin() {
           <TabsTrigger value="crm">Sales CRM</TabsTrigger>
           <TabsTrigger value="consultations">Consultations</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
+          <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="design-leads">Design Leads</TabsTrigger>
           <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
           <TabsTrigger value="affiliate-invoices">Affiliate Invoices</TabsTrigger>
@@ -623,6 +625,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="customers" className="mt-6">
           <CustomersAdmin />
+        </TabsContent>
+        <TabsContent value="roles" className="mt-6">
+          <RolesAdmin />
         </TabsContent>
         <TabsContent value="affiliates" className="mt-6">
           <AffiliatesAdmin />

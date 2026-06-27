@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Minus, Plus, DoorOpen, DoorClosed, Wrench } from "lucide-react";
+import { Minus, Plus, DoorOpen, DoorClosed } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -101,8 +101,6 @@ export interface CabinetAttributesDialogProps {
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
   onSetHandleSide: (uid: string, side: "left" | "right") => void;
-  onSetRollout: (uid: string, qty: number) => void;
-  rolloutAvailable: boolean;
 }
 
 // Right-click attributes editor for a single placed cabinet (email item 1):
@@ -121,8 +119,6 @@ export function CabinetAttributesDialog({
   onSetSwing,
   onSetNoDoor,
   onSetHandleSide,
-  onSetRollout,
-  rolloutAvailable,
 }: CabinetAttributesDialogProps) {
   const { t } = useLanguage();
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
@@ -140,7 +136,6 @@ export function CabinetAttributesDialog({
         swing === "left"
         ? "right"
         : "left";
-  const rolloutQty = typeof cabinet.rolloutQty === "number" ? cabinet.rolloutQty : 0;
   const isBase = cabinet.placement === "base";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
@@ -290,53 +285,6 @@ export function CabinetAttributesDialog({
                 </Button>
               </div>
             </div>
-          </section>
-
-          {/* Roll-out trays */}
-          <section className="space-y-2 border-t border-border pt-4">
-            <div className="flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-muted-foreground" />
-              <h4 className="text-sm font-semibold">{t("dt_ca_rollout")}</h4>
-            </div>
-            {isBase ? (
-              rolloutAvailable ? (
-                <div className="flex items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    disabled={rolloutQty <= 0}
-                    onClick={() => onSetRollout(uid, Math.max(0, rolloutQty - 1))}
-                  >
-                    <Minus className="h-3.5 w-3.5" />
-                  </Button>
-                  <span className="min-w-[2ch] text-center text-sm font-semibold tabular-nums">
-                    {rolloutQty}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => onSetRollout(uid, rolloutQty + 1)}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                  <span className="text-[11px] text-muted-foreground">
-                    {t("dt_ca_rollout_added")}
-                  </span>
-                </div>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">
-                  {t("dt_ca_rollout_na_style")}
-                </p>
-              )
-            ) : (
-              <p className="text-[11px] text-muted-foreground">
-                {t("dt_ca_rollout_base_only")}
-              </p>
-            )}
           </section>
         </div>
 

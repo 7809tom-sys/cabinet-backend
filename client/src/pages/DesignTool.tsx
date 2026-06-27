@@ -48,7 +48,6 @@ import {
   blindCornerFillers, snapToWall, snapPosition, nextFreeSpotOnWall,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
-  addOnRecommendations,
   freeSegmentsOnWall, wallPlacementAt, cabinetWall,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -259,13 +258,6 @@ export default function DesignTool() {
   // walls. Cabinets can always still be added/moved.
   const [layoutLocked, setLayoutLocked] = useState(false);
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
-  // Add-on accessories added from the "don't forget this" recommendations
-  // (touch-up kit, roll-out trays). These are non-spatial BOM line items keyed
-  // by cabinetId, so they price + export without cluttering the floor plan.
-  const [addedAddOns, setAddedAddOns] = useState<
-    { cabinetId: number; masterCode: string; description: string; qty: number }[]
-  >([]);
-
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory">("base");
@@ -710,24 +702,17 @@ export default function DesignTool() {
       }));
   }, [filteredPalette, paletteType, paletteSearch, closetGroups, isCornerBase, t]);
 
-  // Pricing for placed cabinets + add-on accessories (appliances carry
-  // cabinetId 0 and are unpriced).
+  // Pricing for placed cabinets (appliances carry cabinetId 0 and are unpriced).
   const placedCabinetIds = useMemo(
     () =>
       Array.from(
-        new Set(
-          [
-            ...placed.map((p) => p.cabinetId),
-            ...addedAddOns.map((a) => a.cabinetId),
-          ].filter((id) => id > 0)
-        )
+        new Set(placed.map((p) => p.cabinetId).filter((id) => id > 0))
       ),
-    [placed, addedAddOns]
+    [placed]
   );
   // TWO-TONE pricing: price each cabinet at its EFFECTIVE finish (per-cabinet
   // override, else the design default). Build the distinct (cabinetId, styleId)
   // pairs the design actually uses so we fetch every needed price in one call.
-  // Add-ons always price at the design default finish.
   const pricePairs = useMemo(() => {
     if (!styleId) return [] as Array<{ cabinetId: number; styleId: number }>;
     const seen = new Set<string>();
@@ -740,9 +725,8 @@ export default function DesignTool() {
       pairs.push({ cabinetId, styleId: sid });
     };
     placed.forEach((p) => push(p.cabinetId, effectiveStyleId(p, styleId) ?? styleId));
-    addedAddOns.forEach((a) => push(a.cabinetId, styleId));
     return pairs;
-  }, [placed, addedAddOns, styleId]);
+  }, [placed, styleId]);
 
   const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs },
@@ -772,71 +756,11 @@ export default function DesignTool() {
     [priceMap, styleId]
   );
 
-  // Add-on unit price (always at the design default finish).
-  const addOnPriceFor = useCallback(
-    (cabinetId: number): number => {
-      if (!styleId) return 0;
-      return priceMap.get(`${cabinetId}:${styleId}`) ?? 0;
-    },
-    [priceMap, styleId]
-  );
-
   const total = useMemo(
     () =>
       placed.reduce((sum, p) => sum + (unitPriceFor(p) ?? 0), 0) +
-      placed.reduce((sum, p) => sum + customSizeFee(p), 0) +
-      addedAddOns.reduce((sum, a) => sum + addOnPriceFor(a.cabinetId) * a.qty, 0),
-    [placed, addedAddOns, unitPriceFor, addOnPriceFor]
-  );
-
-  // ─── Add-on recommendations ("don't forget this") ──────────────────────────
-  // Touch-up kit is always recommended; roll-out trays appear once the design
-  // has base cabinets. The buyable add-on rows are resolved server-side for the
-  // locked style so a recommendation only shows when it's actually orderable.
-  const { data: addOns } = trpc.design.findAddOns.useQuery(
-    { styleId: styleId ?? 0 },
-    { enabled: !!styleId }
-  );
-  const recommendations = useMemo(() => addOnRecommendations(placed), [placed]);
-  // Map each recommendation kind to its resolved buyable row (if any).
-  const addOnRowFor = useCallback(
-    (kind: string) => {
-      if (!addOns) return null;
-      if (kind === "touch-up-kit") return addOns.touchUpKit ?? null;
-      if (kind === "roll-out-tray")
-        return (addOns.rollOutTrays as Array<{ id: number; masterCode: string; description: string }>)[0] ?? null;
-      if (kind === "end-panel")
-        return (addOns.endPanels as Array<{ id: number; masterCode: string; description: string }> | undefined)?.[0] ?? null;
-      if (kind === "crown-molding")
-        return (addOns.crownMoldings as Array<{ id: number; masterCode: string; description: string }> | undefined)?.[0] ?? null;
-      return null;
-    },
-    [addOns]
-  );
-  // Add (or increment) an add-on accessory as a BOM line item.
-  const addAddOn = useCallback(
-    (row: { id: number; masterCode: string; description: string }) => {
-      setAddedAddOns((prev) => {
-        const existing = prev.find((a) => a.cabinetId === row.id);
-        if (existing)
-          return prev.map((a) =>
-            a.cabinetId === row.id ? { ...a, qty: a.qty + 1 } : a
-          );
-        return [
-          ...prev,
-          { cabinetId: row.id, masterCode: row.masterCode, description: row.description, qty: 1 },
-        ];
-      });
-    },
-    []
-  );
-  const removeAddOn = useCallback((cabinetId: number) => {
-    setAddedAddOns((prev) => prev.filter((a) => a.cabinetId !== cabinetId));
-  }, []);
-  // Which add-on cabinetIds are already in the BOM (to toggle button state).
-  const addedAddOnIds = useMemo(
-    () => new Set(addedAddOns.map((a) => a.cabinetId)),
-    [addedAddOns]
+      placed.reduce((sum, p) => sum + customSizeFee(p), 0),
+    [placed, unitPriceFor]
   );
 
   // Active finish: derived from the selected door style name so picking a trim
@@ -948,20 +872,7 @@ export default function DesignTool() {
           unitPrice: closet ? unit : styleId ? unit : null,
         });
     }
-    // Add-on accessories (touch-up kit, roll-out trays) as their own lines.
     const rows = Array.from(map.values());
-    for (const a of addedAddOns) {
-      rows.push({
-        code: a.masterCode,
-        description: a.description,
-        widthIn: 0,
-        heightIn: 0,
-        depthIn: 0,
-        placement: "accessory",
-        qty: a.qty,
-        unitPrice: styleId ? addOnPriceFor(a.cabinetId) : null,
-      });
-    }
     // Hickory unfinished-end skins: one per exposed end, aggregated by
     // placeholder code + height. Price is null (SKU pending owner confirmation).
     const skinMap = new Map<string, BuildSheetRow>();
@@ -999,7 +910,10 @@ export default function DesignTool() {
           depthIn: ep.depth,
           placement: "accessory",
           qty: 1,
-          unitPrice: !ep.pendingSku && ep.cabinetId != null && styleId ? addOnPriceFor(ep.cabinetId) : null,
+          unitPrice:
+            !ep.pendingSku && ep.cabinetId != null && styleId
+              ? priceMap.get(`${ep.cabinetId}:${styleId}`) ?? null
+              : null,
         });
     }
     rows.push(...Array.from(panelMap.values()));
@@ -1019,7 +933,7 @@ export default function DesignTool() {
       });
     }
     return rows;
-  }, [placed, addedAddOns, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, addOnPriceFor, styleNameById]);
+  }, [placed, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, styleNameById]);
   // ── Add the whole design to the shopping cart ───────────────────────────────
   // Turns the placed cabinets into cart line items (aggregated by master code +
   // effective door style), so a shopper can review and buy the exact kitchen they
@@ -1989,32 +1903,6 @@ export default function DesignTool() {
   const setHandleSideFor = useCallback((uid: string, side: "left" | "right") => {
     setCabAttr(uid, { handleSide: side });
   }, [setCabAttr]);
-
-  // Set the roll-out tray quantity for a specific cabinet, and reconcile the
-  // single roll-out-tray BOM add-on line so the total equals the sum of every
-  // cabinet's rolloutQty (priced once through the existing add-on mechanism).
-  const setRolloutFor = useCallback((uid: string, qty: number) => {
-    const clamped = Math.max(0, Math.round(qty));
-    setPlaced((prev) => {
-      const next = prev.map((p) => (p.uid === uid ? { ...p, rolloutQty: clamped } : p));
-      const totalTrays = next.reduce(
-        (s, p) => s + (typeof p.rolloutQty === "number" ? p.rolloutQty : 0),
-        0
-      );
-      const row = addOnRowFor("roll-out-tray");
-      if (row) {
-        setAddedAddOns((prevAdd) => {
-          const others = prevAdd.filter((a) => a.cabinetId !== row.id);
-          if (totalTrays <= 0) return others;
-          return [
-            ...others,
-            { cabinetId: row.id, masterCode: row.masterCode, description: row.description, qty: totalTrays },
-          ];
-        });
-      }
-      return next;
-    });
-  }, [addOnRowFor]);
 
   // ─── Custom sizing ─────────────────────────────────────────────────────────
   // Resize the selected cabinet's WIDTH to a custom value. The customer grabs a
@@ -3280,44 +3168,21 @@ export default function DesignTool() {
                     <span className="font-normal normal-case">({group.items.length})</span>
                   </button>
                   {open && group.items.map((c) => {
-                    // Accessories & Trim: PHYSICAL items (decorative/end panels,
-                    // skins, appliance garages) drop onto the drawing like a
-                    // cabinet box (click-to-place or drag); LOOSE trim/hardware
-                    // sold by the foot/each (crown, light rail, roll-out trays,
-                    // hinges, pulls) stays a bill-of-materials quantity line.
+                    // Accessories & Trim: only PHYSICAL placeable items
+                    // (decorative/end panels, skins, appliance garages) appear —
+                    // they drop onto the drawing like a cabinet box. Loose
+                    // add-on trim/hardware sold by the foot/each (crown, light
+                    // rail, roll-out trays, hinges, pulls) is no longer offered
+                    // as an add-on sale in the design tool and is hidden here.
                     if (paletteType === "accessory") {
-                      const placeable = isPlaceableAccessory(c);
-                      if (placeable) {
-                        return (
-                          <button
-                            key={c.masterCode}
-                            draggable
-                            onDragStart={() => { dragDataRef.current = c; }}
-                            onClick={() => addCabinet(c)}
-                            className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
-                          >
-                            <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
-                              <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
-                              <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                              <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
-                            </div>
-                            <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                          </button>
-                        );
-                      }
-                      const added = addedAddOnIds.has(c.id);
+                      if (!isPlaceableAccessory(c)) return null;
                       return (
                         <button
                           key={c.masterCode}
-                          onClick={() => addAddOn(c)}
-                          className={`w-full text-left p-2 rounded-lg border transition-colors group flex items-center gap-2 ${
-                            added
-                              ? "border-primary/60 bg-primary/5"
-                              : "border-border hover:border-primary/50 hover:bg-muted/50"
-                          }`}
+                          draggable
+                          onDragStart={() => { dragDataRef.current = c; }}
+                          onClick={() => addCabinet(c)}
+                          className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                         >
                           <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
                             <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
@@ -3325,12 +3190,9 @@ export default function DesignTool() {
                           <div className="min-w-0 flex-1">
                             <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
                             <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                            <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
                           </div>
-                          {added ? (
-                            <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                          ) : (
-                            <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                          )}
+                          <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
                         </button>
                       );
                     }
@@ -3777,7 +3639,7 @@ export default function DesignTool() {
                 );
               })()
             )}
-            {(fillers.length > 0 || ((crown || toeKick || batten || countertop) && placed.length > 0) || addedAddOns.length > 0) && (
+            {(fillers.length > 0 || ((crown || toeKick || batten || countertop) && placed.length > 0)) && (
             <SheetSection
               title={t("dt_bs_sec_extras")}
               collapsed={collapsedSheet.has("extras")}
@@ -3845,91 +3707,10 @@ export default function DesignTool() {
                 )}
               </div>
             )}
-
-            {/* Added add-on accessories (touch-up kit, roll-out trays) */}
-            {addedAddOns.length > 0 && (
-              <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
-                {addedAddOns.map((a) => {
-                  const unit = styleId ? addOnPriceFor(a.cabinetId) : null;
-                  return (
-                    <div key={a.cabinetId} className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-emerald-50 dark:bg-emerald-950/30">
-                      <div className="min-w-0">
-                        <div className="font-mono font-semibold truncate">{a.masterCode}{a.qty > 1 ? ` ×${a.qty}` : ""}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">{a.description}</div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="font-semibold">{styleId && unit != null ? `$${(unit * a.qty).toFixed(2)}` : "—"}</span>
-                        <button
-                          onClick={() => removeAddOn(a.cabinetId)}
-                          className="text-muted-foreground hover:text-destructive"
-                          aria-label={`Remove ${a.masterCode}`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
             </div>
             </SheetSection>
             )}
           </div>
-
-          {/* "Don't forget this" recommendations — touch-up kit always, roll-out
-              trays once base cabinets are placed. Only shown when the add-on is
-              actually buyable in the selected style. */}
-          {styleId && (() => {
-            const cards = recommendations
-              .map((rec) => ({ rec, row: addOnRowFor(rec.kind) }))
-              .filter((c) => c.row && !addedAddOnIds.has(c.row!.id));
-            if (cards.length === 0) return null;
-            return (
-              // Hidden on mobile — these upsell cards crowd the cabinet list in
-              // the Catalog sheet. Shown only on the desktop sidebar (lg+).
-              <div className="hidden lg:block px-3 pb-2 space-y-2">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Don&apos;t forget
-                </div>
-                {cards.map(({ rec, row }) => (
-                  <div
-                    key={rec.kind}
-                    className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2.5"
-                  >
-                    <div className="text-xs font-semibold text-foreground">
-                      {rec.kind === "touch-up-kit"
-                        ? "Add a touch-up kit"
-                        : rec.kind === "roll-out-tray"
-                          ? "Add roll-out trays?"
-                          : rec.kind === "end-panel"
-                            ? "Add a decorative end panel?"
-                            : "Add crown molding?"}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mb-2">
-                      {rec.kind === "touch-up-kit"
-                        ? "Match your finish for nicks & scratches — we recommend one on every order."
-                        : rec.kind === "roll-out-tray"
-                          ? "Pull-out shelves make your base cabinets easier to reach."
-                          : rec.kind === "end-panel"
-                            ? "Optional, looks only — your cabinet ends already come finished. A matching decorative panel can dress up an exposed island end or peninsula side if you want."
-                            : "A crown profile across the top of your wall cabinets gives the run a finished, built-in look."}
-                    </div>
-                    <Button
-                      size="sm"
-                      className="h-7 w-full gap-1.5 text-xs"
-                      onClick={() => {
-                        addAddOn(row!);
-                        toast.success(t("dt_toast_added_to_sheet", { code: row!.masterCode }));
-                      }}
-                    >
-                      <Plus className="h-3.5 w-3.5" /> {t("dt_add")} {row!.masterCode}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
 
           {/* Total */}
           <div className="p-3 border-t border-border">
@@ -4257,8 +4038,6 @@ export default function DesignTool() {
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
         onSetHandleSide={setHandleSideFor}
-        onSetRollout={setRolloutFor}
-        rolloutAvailable={!!addOnRowFor("roll-out-tray")}
       />
 
       {/* AI Design Consultant slide-in panel */}

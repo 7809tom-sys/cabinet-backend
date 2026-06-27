@@ -9,7 +9,12 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Users, Search, Building2, Mail, Clock } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Users, Search, Building2, Mail, Clock, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 type Tier = "homeowner" | "contractor" | "wholesale";
 
@@ -18,6 +23,26 @@ const TIER_LABEL: Record<Tier, string> = {
   contractor: "Contractor",
   wholesale: "Wholesale",
 };
+
+type ManageableRole = "user" | "designer" | "partner" | "admin";
+
+const ROLE_LABEL: Record<ManageableRole, string> = {
+  user: "Member",
+  designer: "Designer",
+  partner: "Affiliate",
+  admin: "Admin",
+};
+
+// Roles the owner can assign from this panel. Specialized accounts
+// (distributor / dealer / sales_rep) are provisioned elsewhere and are
+// shown read-only here.
+const MANAGEABLE_ROLES: ManageableRole[] = ["user", "designer", "partner", "admin"];
+
+function roleVariant(r: string): "default" | "secondary" | "outline" {
+  if (r === "admin") return "default";
+  if (r === "designer" || r === "partner") return "secondary";
+  return "outline";
+}
 
 function tierVariant(t: string): "default" | "secondary" | "outline" {
   if (t === "wholesale") return "default";
@@ -51,14 +76,13 @@ export default function CustomersAdmin() {
     onError: (e) => toast.error("Could not update tier", { description: e.message }),
   });
 
+  const { user: me } = useAuth();
+  const [confirmAdmin, setConfirmAdmin] = useState<{ id: number; name: string } | null>(null);
+
   const setRole = trpc.customers.setRole.useMutation({
     onSuccess: (res) => {
       utils.customers.list.invalidate();
-      toast.success(
-        res.role === "designer"
-          ? "Granted CRM-only Designer access"
-          : "Removed Designer access",
-      );
+      toast.success(`Role set to ${ROLE_LABEL[res.role as ManageableRole] ?? res.role}`);
     },
     onError: (e) => toast.error("Could not update role", { description: e.message }),
   });
@@ -125,9 +149,6 @@ export default function CustomersAdmin() {
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium truncate">{u.name || "Unnamed user"}</span>
-                      {u.role !== "user" && (
-                        <Badge variant="outline" className="capitalize">{u.role}</Badge>
-                      )}
                       <Badge variant={tierVariant(u.pricingTier)} className="capitalize">
                         {TIER_LABEL[u.pricingTier as Tier] ?? u.pricingTier}
                       </Badge>
@@ -151,22 +172,39 @@ export default function CustomersAdmin() {
                     </div>
                   </div>
                   <div className="shrink-0 flex items-center gap-2">
-                    {(u.role === "user" || u.role === "designer") && (
-                      <Button
-                        variant={u.role === "designer" ? "default" : "outline"}
-                        size="sm"
-                        className="h-9"
-                        disabled={setRole.isPending}
-                        onClick={() =>
-                          setRole.mutate({
-                            userId: u.id,
-                            role: u.role === "designer" ? "user" : "designer",
-                          })
-                        }
-                        title="Designers can log into the admin backend but only see the Sales CRM"
-                      >
-                        {u.role === "designer" ? "Designer ✓" : "Make Designer"}
-                      </Button>
+                    {MANAGEABLE_ROLES.includes(u.role as ManageableRole) ? (
+                      me?.id === u.id ? (
+                        <Badge variant={roleVariant(u.role)} className="h-9 px-3 flex items-center gap-1">
+                          <ShieldCheck className="h-3.5 w-3.5" /> You ({ROLE_LABEL[u.role as ManageableRole]})
+                        </Badge>
+                      ) : (
+                        <Select
+                          value={u.role}
+                          onValueChange={(v) => {
+                            const next = v as ManageableRole;
+                            if (next === u.role) return;
+                            if (next === "admin") {
+                              setConfirmAdmin({ id: u.id, name: u.name || u.email || `User #${u.id}` });
+                            } else {
+                              setRole.mutate({ userId: u.id, role: next });
+                            }
+                          }}
+                          disabled={setRole.isPending}
+                        >
+                          <SelectTrigger className="w-36 h-9" title="Assign this user's role">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {MANAGEABLE_ROLES.map((r) => (
+                              <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )
+                    ) : (
+                      <Badge variant="outline" className="h-9 px-3 flex items-center capitalize" title="This account type is managed elsewhere">
+                        {u.role}
+                      </Badge>
                     )}
                     <Select
                       value={u.pricingTier}
@@ -203,8 +241,33 @@ export default function CustomersAdmin() {
       <p className="text-xs text-muted-foreground border-t border-border pt-3">
         Tip: when the live-chat ping tells you a customer is on the site, find them here and set their
         tier. Their assigned tier controls the prices they see and check out at. Homeowner is the default
-        until you change it.
+        until you change it. Use the role dropdown to grant <strong>Designer</strong> (CRM-only staff),
+        <strong> Affiliate</strong> (partner store owner), or <strong>Admin</strong> (full access).
+        Distributor/dealer/sales-rep accounts are managed elsewhere and shown read-only.
       </p>
+
+      <AlertDialog open={!!confirmAdmin} onOpenChange={(o) => { if (!o) setConfirmAdmin(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Make {confirmAdmin?.name} an Admin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Admins get full access to the entire backend — pricing, orders, customers, and the ability
+              to change other users' roles. Only promote people you fully trust.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmAdmin) setRole.mutate({ userId: confirmAdmin.id, role: "admin" });
+                setConfirmAdmin(null);
+              }}
+            >
+              Yes, make Admin
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

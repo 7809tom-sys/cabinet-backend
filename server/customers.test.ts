@@ -50,3 +50,40 @@ describe("customers admin router", () => {
     ).rejects.toBeTruthy();
   });
 });
+
+describe("customers admin setRole", () => {
+  it("rejects non-admin callers on setRole", async () => {
+    await expect(
+      caller(USER).customers.setRole({ userId: 99, role: "designer" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("rejects an invalid role value", async () => {
+    await expect(
+      caller(ADMIN).customers.setRole({ userId: 2, role: "superuser" as any }),
+    ).rejects.toBeTruthy();
+  });
+
+  it("accepts the four manageable roles in the input schema", async () => {
+    // These should pass zod validation (they may still hit NOT_FOUND if the id
+    // doesn't exist, which proves validation passed, not a ZodError).
+    for (const role of ["user", "designer", "partner", "admin"] as const) {
+      await expect(
+        caller(ADMIN).customers.setRole({ userId: 99999999, role }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    }
+  });
+
+  it("prevents an admin from changing their own role", async () => {
+    // ADMIN.id === 1; target self should be rejected as BAD_REQUEST, not allowed.
+    await expect(
+      caller(ADMIN).customers.setRole({ userId: ADMIN.id, role: "user" }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("setRole on a missing user returns NOT_FOUND", async () => {
+    await expect(
+      caller(ADMIN).customers.setRole({ userId: 99999999, role: "designer" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
