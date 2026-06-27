@@ -568,9 +568,7 @@ export default function DesignTool() {
         if (paletteType === "base") return !isCornerBase(c) && !isVanity(c);
         return true;
       })
-      .filter((c) => matchesPaletteSearch(c, s))
-      // While searching, lift the per-tab cap so no matching size is hidden.
-      .slice(0, s ? 500 : paletteType === "accessory" ? 200 : 80);
+      .filter((c) => matchesPaletteSearch(c, s));
   }, [paletteCabinets, cornerWallCabinets, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
 
   // Total cabinets available in the active style for the CURRENT tab, ignoring
