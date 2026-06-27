@@ -5,8 +5,10 @@ import { TopNav } from "@/components/TopNav";
 import ChatWidget from "@/components/ChatWidget";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
+import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
 
 // Lazy-loaded pages
 const Catalog = lazy(() => import("@/pages/Catalog"));
@@ -49,6 +51,19 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Show a gentle, non-blocking refresh prompt when a newer build is deployed,
+    // so users (and customers) never get stuck on a stale cached version.
+    setVersionNotifier(({ onReload }) => {
+      toast("A new version is available", {
+        description: "Refresh to get the latest cabinets and fixes.",
+        duration: Infinity,
+        action: { label: "Refresh", onClick: onReload },
+      });
+    });
+    startVersionWatcher();
+  }, []);
+
   return (
       <ThemeProvider defaultTheme="light">
       <Switch>

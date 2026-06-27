@@ -1948,3 +1948,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Verify in browser (Front View + Corner View show slope), run full test suite, checkpoint
 
 - [x] Per-wall / sloped ceiling: model, render (Front+Corner), UI controls, fit checks, tests (994 passing)
+
+## Stale-cache safeguard (2026-06-27)
+- [ ] Add client-side version check that polls /__manus__/version.json (or build version) and prompts/auto-reloads on new build
+- [ ] Ensure index.html is served no-cache (verify) and bundles are content-hashed (verify)
+- [ ] Verify the reload prompt appears when version changes

@@ -9,6 +9,30 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerSeoRoutes } from "../seo";
+import fs from "fs";
+import path from "path";
+
+// Resolve the build version once at startup. The framework emits a build stamp
+// at client/public/__manus__/version.json during the build; if present we use
+// it, otherwise we fall back to the server boot time so dev still works.
+function resolveAppVersion(): string {
+  const candidates = [
+    path.resolve(process.cwd(), "dist/public/__manus__/version.json"),
+    path.resolve(process.cwd(), "client/public/__manus__/version.json"),
+  ];
+  for (const p of candidates) {
+    try {
+      const raw = fs.readFileSync(p, "utf8");
+      const data = JSON.parse(raw) as { version?: string };
+      if (data && typeof data.version === "string") return data.version;
+    } catch {
+      // ignore and try next
+    }
+  }
+  return `boot-${Date.now()}`;
+}
+
+const APP_VERSION = resolveAppVersion();
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -48,6 +72,12 @@ async function startServer() {
   // SEO: dynamic robots.txt + sitemap.xml (must be registered before the
   // Vite/static SPA fallback so they aren't swallowed by the catch-all).
   registerSeoRoutes(app);
+  // Build-version endpoint for the client-side stale-cache watcher. Registered
+  // before the SPA fallback so it always returns JSON (never the HTML shell).
+  app.get("/__manus__/app-version.json", (_req, res) => {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.json({ version: APP_VERSION });
+  });
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
