@@ -132,7 +132,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
   const [activeType, setActiveType] = useState("all");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [headerView, setHeaderView] = useState<"door" | "room">("door");
+
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim().toLowerCase()), 250);
@@ -340,123 +340,80 @@ export default function Family({ styleCode }: { styleCode: string }) {
             )}
           </div>
 
-          {/* Compact door+finish swatch for mobile — with room scene toggle. */}
-          <div className="md:hidden mt-4 rounded-xl bg-white/95 shadow-lg ring-1 ring-white/40 overflow-hidden">
-            {/* Toggle tabs */}
-            <div className="flex border-b border-border">
-              <button
-                onClick={() => setHeaderView("door")}
-                className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
-                  headerView === "door"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Door &amp; Finish
-              </button>
-              <button
-                onClick={() => setHeaderView("room")}
-                className={`flex-1 py-1.5 text-[11px] font-medium transition-colors ${
-                  headerView === "room"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Room Scene
-              </button>
+          {/* Mobile: door swatch + room scene side by side */}
+          <div className="md:hidden mt-4 flex gap-2">
+            {/* Door swatch */}
+            <div className="flex-1 rounded-xl bg-white/95 p-2 shadow-lg ring-1 ring-white/40 flex flex-col items-center">
+              {realDoor ? (
+                <img
+                  src={realDoor}
+                  alt={`${familyName} door sample`}
+                  className="h-24 w-full rounded object-cover ring-1 ring-border"
+                />
+              ) : (
+                <DoorStyleSwatch style={s} className="h-24 w-full" />
+              )}
+              <p className="text-[10px] text-muted-foreground mt-1 text-center truncate w-full">
+                {t("fam_door_finish")}
+              </p>
             </div>
-            {headerView === "door" ? (
-              <div className="flex items-center gap-3 p-3">
-                {realDoor ? (
-                  <img
-                    src={realDoor}
-                    alt={`${familyName} door sample`}
-                    className="h-16 w-14 shrink-0 rounded object-cover ring-1 ring-border"
-                  />
-                ) : (
-                  <DoorStyleSwatch style={s} className="h-16 w-14 shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate">
-                    {familyName} {t("fam_door_finish")}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
-                  </p>
-                </div>
-              </div>
-            ) : realScene ? (
-              <img
-                src={realScene}
-                alt={`${familyName} kitchen room scene`}
-                className="w-full h-44 object-cover"
-              />
-            ) : (
-              <div
-                className="w-full h-44 flex items-center justify-center text-[11px] text-muted-foreground"
-                style={{ backgroundColor: finish }}
-              >
-                No room scene available yet
-              </div>
-            )}
-          </div>
-
-          {/* Sample door for this family — desktop: toggle between door swatch and room scene. */}
-          <div className="hidden md:flex items-center justify-center">
-            <div className="rounded-xl bg-white/95 shadow-xl ring-1 ring-white/40 overflow-hidden">
-              {/* Toggle tabs */}
-              <div className="flex border-b border-border">
-                <button
-                  onClick={() => setHeaderView("door")}
-                  className={`flex-1 px-4 py-1.5 text-[11px] font-medium transition-colors ${
-                    headerView === "door"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Door &amp; Finish
-                </button>
-                <button
-                  onClick={() => setHeaderView("room")}
-                  className={`flex-1 px-4 py-1.5 text-[11px] font-medium transition-colors ${
-                    headerView === "room"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Room Scene
-                </button>
-              </div>
-              <div className="p-4">
-              {headerView === "door" ? (
-                <>
-                {realDoor ? (
-                  <img
-                    src={realDoor}
-                    alt={`${familyName} door sample`}
-                    className="h-44 w-44 rounded-lg object-cover ring-1 ring-border"
-                  />
-                ) : (
-                  <DoorStyleSwatch style={s} className="h-44 w-auto" />
-                )}
-                </>
-              ) : realScene ? (
+            {/* Room scene */}
+            <div className="flex-1 rounded-xl overflow-hidden shadow-lg ring-1 ring-white/40 flex flex-col">
+              {realScene ? (
                 <img
                   src={realScene}
                   alt={`${familyName} kitchen room scene`}
-                  className="h-44 w-44 rounded-lg object-cover ring-1 ring-border"
+                  className="h-24 w-full object-cover"
                 />
               ) : (
                 <div
-                  className="h-44 w-44 rounded-lg flex items-center justify-center text-[11px] text-muted-foreground"
+                  className="h-24 w-full flex items-center justify-center text-[10px] text-white/60"
                   style={{ backgroundColor: finish }}
                 >
-                  No room scene yet
+                  Room scene coming soon
                 </div>
               )}
-              </div>
-              <p className="text-center text-[11px] text-muted-foreground pb-2">
-                {headerView === "door" ? `${familyName} ${t("fam_door_finish")}` : `${familyName} kitchen`}
+              <p className="text-[10px] text-muted-foreground mt-1 text-center bg-white/95 py-0.5">
+                Room Scene
+              </p>
+            </div>
+          </div>
+
+          {/* Desktop: door swatch + room scene side by side */}
+          <div className="hidden md:flex items-center justify-center gap-3">
+            {/* Door swatch card */}
+            <div className="rounded-xl bg-white/95 p-4 shadow-xl ring-1 ring-white/40 flex flex-col items-center">
+              {realDoor ? (
+                <img
+                  src={realDoor}
+                  alt={`${familyName} door sample`}
+                  className="h-44 w-44 rounded-lg object-cover ring-1 ring-border"
+                />
+              ) : (
+                <DoorStyleSwatch style={s} className="h-44 w-auto" />
+              )}
+              <p className="text-center text-[11px] text-muted-foreground mt-2">
+                {familyName} {t("fam_door_finish")}
+              </p>
+            </div>
+            {/* Room scene card */}
+            <div className="rounded-xl overflow-hidden shadow-xl ring-1 ring-white/40 flex flex-col">
+              {realScene ? (
+                <img
+                  src={realScene}
+                  alt={`${familyName} kitchen room scene`}
+                  className="h-44 w-44 object-cover"
+                />
+              ) : (
+                <div
+                  className="h-44 w-44 flex items-center justify-center text-[11px] text-white/60"
+                  style={{ backgroundColor: finish }}
+                >
+                  Room scene coming soon
+                </div>
+              )}
+              <p className="text-center text-[11px] text-muted-foreground bg-white/95 py-2">
+                {familyName} kitchen
               </p>
             </div>
           </div>

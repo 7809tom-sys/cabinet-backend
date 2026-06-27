@@ -311,5 +311,7 @@ export function realImageUrl(url?: string | null): string | null {
   if (!u) return null;
   if (/^https?:\/\//i.test(u)) return u;
   if (/^data:image\//i.test(u)) return u;
+  // Accept webdev static storage paths served from the same origin
+  if (u.startsWith("/manus-storage/")) return u;
   return null;
 }
