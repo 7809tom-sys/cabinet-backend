@@ -3464,7 +3464,8 @@ export default function DesignTool() {
           open={mobilePanel === "cart"}
           onOpenChange={(o) => setMobilePanel(o ? "cart" : null)}
         >
-          <div className="p-3 border-b border-border space-y-2">
+          <div className="flex flex-col min-h-0 h-full">
+          <div className="p-3 border-b border-border space-y-2 shrink-0">
             {/* Door-style sample: a large, clear hero of the selected finish at the
                 very top of the build sheet so the look is obvious at a glance. */}
             <div className="relative overflow-hidden rounded-lg border border-border bg-white shadow-sm">
@@ -3496,7 +3497,7 @@ export default function DesignTool() {
               door-style hero sample above stays visible at all times. */}
           <SheetSection
             id="door-style-picker-card"
-            className="border-b border-border"
+            className="border-b border-border shrink-0"
             title={
               styleId
                 ? `${t("dt_bs_door_section")} · ${activeStyleName ?? ""} · ${tier === "Wholesale" ? t("dt_bs_wholesale") : t("dt_bs_contractor")}`
@@ -3993,6 +3994,7 @@ export default function DesignTool() {
               </div>
             )}
           </div>
+          </div>{/* end flex-col wrapper */}
         </PricingShell>
       </div>
 

@@ -2082,3 +2082,9 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Fixed DoorFront to split multi-door cabinets into N side-by-side panels with center stile(s) — 2-door cabinet now shows 2 panels, 3-door shows 3, etc.
 - [x] Extracted SingleDoorPanel helper so each door in a multi-door run gets its own style treatment (shaker/raised/slab/beaded/inset/double-shaker)
 - [x] Typecheck clean, design placeable tests pass (10/10), checkpoint + publish
+
+## Design Tool: Build Sheet mobile scroll fix + Color 2 warehouse filter
+- [x] Wrapped pricing shell children in flex-col container so BOM list scrolls on mobile (was clipped by overflow-hidden)
+- [x] Added shrink-0 to door-style hero block and SheetSection so BOM list gets remaining height
+- [x] Color 2 warehouse filter: doorStyles.list now returns distributorId in TypeScript type (server fix from checkpoint a8d86989) — uniqueDoorStyles filter now works correctly
+- [x] Typecheck clean, checkpoint + publish
