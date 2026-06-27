@@ -1953,3 +1953,6 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Add client-side version check that polls /__manus__/version.json (or build version) and prompts/auto-reloads on new build
 - [ ] Ensure index.html is served no-cache (verify) and bundles are content-hashed (verify)
 - [ ] Verify the reload prompt appears when version changes
+
+## Door-style picker scroll fix (user report: can't pan past first ~10 styles)
+- [x] ColorSlotButton picker: taller viewport-bounded list (max-h min(60vh,420px)) + touch-pan-y/overscroll-contain/WebkitOverflowScrolling so the full A→Z list scrolls on mobile. Verified Aero Alba … Zephyr Sage all reachable.

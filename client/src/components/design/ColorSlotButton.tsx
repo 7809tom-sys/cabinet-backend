@@ -117,8 +117,18 @@ export function ColorSlotButton({
             {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-56 p-1">
-          <div className="max-h-64 overflow-y-auto">
+        <PopoverContent
+          align="start"
+          side="bottom"
+          collisionPadding={12}
+          className="w-56 p-1"
+        >
+          <div
+            className="max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain touch-pan-y"
+            style={{ WebkitOverflowScrolling: "touch" }}
+            onWheelCapture={(e) => e.stopPropagation()}
+            onTouchMoveCapture={(e) => e.stopPropagation()}
+          >
             {styles.length === 0 ? (
               <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
                 {t("dt_cs_none_available")}
