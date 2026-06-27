@@ -10,6 +10,7 @@ import {
 } from "./routers/catalog";
 import { designRouter } from "./routers/design";
 import { prosRouter } from "./routers/pros";
+import { vendorRouter } from "./routers/vendor";
 import { ordersRouter } from "./routers/orders";
 import { affiliatesRouter } from "./routers/affiliates";
 import { storefrontRouter } from "./routers/storefront";
@@ -47,6 +48,7 @@ export const appRouter = router({
   pricing: pricingRouter,
   design: designRouter,
   pros: prosRouter,
+  vendor: vendorRouter,
   orders: ordersRouter,
   affiliates: affiliatesRouter,
   storefront: storefrontRouter,

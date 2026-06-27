@@ -19,6 +19,7 @@ const Family = lazy(() => import("@/pages/Family"));
 const DesignTool = lazy(() => import("@/pages/DesignTool"));
 const DesignSession = lazy(() => import("@/pages/DesignSession"));
 const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
+const BecomeVendor = lazy(() => import("@/pages/BecomeVendor"));
 const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const Storefront = lazy(() => import("@/pages/Storefront"));
@@ -135,6 +136,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <ProNetwork />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/become-a-vendor">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <BecomeVendor />
             </Suspense>
           </AppLayout>
         </Route>

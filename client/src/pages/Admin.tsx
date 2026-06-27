@@ -176,6 +176,149 @@ function ProApplications() {
   );
 }
 
+function VendorApplications() {
+  const utils = trpc.useUtils();
+  const { data: apps, isLoading, error, refetch } = trpc.vendor.adminList.useQuery();
+  const setStatus = trpc.vendor.adminSetStatus.useMutation({
+    onSuccess: () => {
+      utils.vendor.adminList.invalidate();
+      toast.success("Vendor application updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner className="h-6 w-6 text-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12 space-y-3">
+        <p className="text-destructive">Couldn't load vendor applications: {error.message}</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (!apps || apps.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        No vendor applications yet. Share the{" "}
+        <a href="/become-a-vendor" className="text-primary underline">
+          Become a Vendor
+        </a>{" "}
+        page to start receiving applications.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {apps.map((a) => (
+        <Card key={a.id}>
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-semibold">{a.companyName}</span>
+                  <Badge variant={statusVariant(a.status)} className="capitalize">
+                    {a.status}
+                  </Badge>
+                </div>
+                <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                  <span>{a.contactName}</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Mail className="h-3.5 w-3.5" /> {a.email}
+                  </span>
+                  {a.phone && (
+                    <span className="inline-flex items-center gap-1">
+                      <Phone className="h-3.5 w-3.5" /> {a.phone}
+                    </span>
+                  )}
+                  {a.headquarters && (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" /> {a.headquarters}
+                    </span>
+                  )}
+                  {a.website && (
+                    <a
+                      href={a.website.startsWith("http") ? a.website : `https://${a.website}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline"
+                    >
+                      Website
+                    </a>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {a.categories &&
+                    a.categories
+                      .split(",")
+                      .map((c) => c.trim())
+                      .filter(Boolean)
+                      .map((c) => (
+                        <Badge
+                          key={c}
+                          className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
+                        >
+                          {c}
+                        </Badge>
+                      ))}
+                  {a.productLines && <Badge variant="secondary">{a.productLines}</Badge>}
+                  {a.doorStyleCount != null && (
+                    <Badge variant="outline">{a.doorStyleCount} door styles</Badge>
+                  )}
+                  {a.leadTimeDays != null && (
+                    <Badge variant="outline">{a.leadTimeDays}-day lead</Badge>
+                  )}
+                  {a.offersTradePricing && (
+                    <Badge variant="outline" className="gap-1 text-emerald-600">
+                      <DollarSign className="h-3 w-3" /> Trade pricing
+                    </Badge>
+                  )}
+                  {a.hasCatalogImages && (
+                    <Badge variant="outline" className="gap-1">
+                      <Layers className="h-3 w-3" /> Has images/specs
+                    </Badge>
+                  )}
+                </div>
+                {a.message && <p className="text-sm text-muted-foreground pt-1">{a.message}</p>}
+              </div>
+
+              <div className="flex md:flex-col gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  disabled={a.status === "approved" || setStatus.isPending}
+                  onClick={() => setStatus.mutate({ id: a.id, status: "approved" })}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={a.status === "rejected" || setStatus.isPending}
+                  onClick={() => setStatus.mutate({ id: a.id, status: "rejected" })}
+                >
+                  Reject
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function CountertopQuotes() {
   const utils = trpc.useUtils();
   const { data: quotes, isLoading, error, refetch } = trpc.design.listCountertopQuotes.useQuery();
@@ -447,6 +590,7 @@ export default function Admin() {
           <TabsTrigger value="payouts">Payouts</TabsTrigger>
           <TabsTrigger value="commissions">Sales Commissions</TabsTrigger>
           <TabsTrigger value="pros">Pro Applications</TabsTrigger>
+          <TabsTrigger value="vendors">Vendors</TabsTrigger>
           <TabsTrigger value="quotes">Countertop Quotes</TabsTrigger>
           <TabsTrigger value="featured">Featured Styles</TabsTrigger>
           <TabsTrigger value="door-corrections">Door Corrections</TabsTrigger>
@@ -485,6 +629,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="pros" className="mt-6">
           <ProApplications />
+        </TabsContent>
+        <TabsContent value="vendors" className="mt-6">
+          <VendorApplications />
         </TabsContent>
         <TabsContent value="quotes" className="mt-6">
           <CountertopQuotes />

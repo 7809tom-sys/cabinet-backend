@@ -253,6 +253,20 @@
       "when": 1782420896838,
       "tag": "0035_narrow_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "5",
+      "when": 1782562978724,
+      "tag": "0036_milky_shatterstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "5",
+      "when": 1782563312651,
+      "tag": "0037_hot_sway",
+      "breakpoints": true
     }
   ]
 }

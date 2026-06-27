@@ -358,6 +358,44 @@ export const proApplications = mysqlTable("pro_applications", {
 export type ProApplication = typeof proApplications.$inferSelect;
 export type InsertProApplication = typeof proApplications.$inferInsert;
 
+// ─── Vendor Applications ────────────────────────────────────────
+// Inbound applications from cabinet manufacturers / suppliers who want to become
+// a vendor partner on Cabinet Dealz. Submitted from the public "Become a Vendor"
+// page; reviewed by an admin in the back office.
+
+export const vendorApplications = mysqlTable("vendor_applications", {
+  id: int("id").autoincrement().primaryKey(),
+  companyName: varchar("companyName", { length: 256 }).notNull(),
+  contactName: varchar("contactName", { length: 256 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  phone: varchar("phone", { length: 32 }),
+  website: varchar("website", { length: 512 }),
+  // Where they are based / ship from
+  headquarters: varchar("headquarters", { length: 256 }),
+  // Comma-separated product categories the vendor supplies across the whole
+  // home-remodel experience (Cabinets, Hardware, Countertops, Appliances,
+  // Flooring, Lighting, Plumbing/Fixtures, Tile/Backsplash, Decor, Other).
+  categories: varchar("categories", { length: 512 }),
+  // Rough scale of their catalog so we can prioritize onboarding
+  productLines: varchar("productLines", { length: 512 }), // e.g. "Shaker, Slab, Raised Panel"
+  doorStyleCount: int("doorStyleCount"), // approx number of door styles they offer
+  // Whether they can provide product imagery / specs
+  hasCatalogImages: boolean("hasCatalogImages").default(false).notNull(),
+  offersTradePricing: boolean("offersTradePricing").default(false).notNull(),
+  leadTimeDays: int("leadTimeDays"),
+  message: text("message"), // free-form note from the applicant
+  // Review workflow (mirrors pro_applications)
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  reviewedBy: int("reviewedBy"),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewNotes: text("reviewNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type VendorApplication = typeof vendorApplications.$inferSelect;
+export type InsertVendorApplication = typeof vendorApplications.$inferInsert;
+
 // ─── Trade Order Requests ──────────────────────────────────────────────────────
 // Trade-only order requests (NOT a consumer checkout). Built from OCR photo
 // extraction, CSV bulk import, the design tool export, or manual entry. The

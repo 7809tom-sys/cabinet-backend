@@ -1988,3 +1988,13 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Verified optimized images serve 200 image/jpeg (~52-63 KB) with cacheable headers; designer catalog renders door swatches. 1000 tests pass.
 - [x] Added storageProxy.test.ts (asserts cacheable header + redirect); 1001 tests pass
 - [x] Checkpoint + advise publish
+
+## Become a Vendor (all home-remodel categories — user request)
+- [x] vendor_applications table + vendor router (submit/adminList/adminSetStatus) + owner notification
+- [x] Public BecomeVendor page + /become-a-vendor route
+- [x] Admin Vendors tab to review applications
+- [x] Broadened scope beyond cabinets: category multi-select (Cabinets, Hardware, Countertops, Appliances, Flooring, Lighting, Plumbing/Fixtures, Tile/Backsplash, Doors/Trim, Decor, Other)
+- [x] Persist categories on the application + show as badges in admin
+- [x] Added "Become a Vendor" nav link (More dropdown; EN+ES i18n)
+- [x] server/vendor.test.ts (6 tests) + browser verified; full suite 1007 passing
+- [ ] Branded multi-category vendor pitch PDF

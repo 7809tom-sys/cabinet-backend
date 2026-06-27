@@ -20,6 +20,7 @@ export const SITE_STRINGS = {
     nav_build_an_order: "Build an Order",
     nav_photo_to_cart: "Photo to Cart",
     nav_pro_network: "Pro Network",
+    nav_become_vendor: "Become a Vendor",
     // --- Top nav: portals ---
     nav_supplier_portal: "Supplier Portal",
     nav_dealer_portal: "Dealer Portal",
@@ -1183,6 +1184,7 @@ export const SITE_STRINGS = {
     nav_build_an_order: "Armar un Pedido",
     nav_photo_to_cart: "Foto al Carrito",
     nav_pro_network: "Red de Profesionales",
+    nav_become_vendor: "Conviértete en Proveedor",
     // --- Barra superior: portales ---
     nav_supplier_portal: "Portal de Proveedores",
     nav_dealer_portal: "Portal de Distribuidores",
