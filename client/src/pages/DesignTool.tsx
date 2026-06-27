@@ -2063,6 +2063,22 @@ export default function DesignTool() {
   useEffect(() => {
     if (activeSlot === "A") setStyleA(styleId);
   }, [styleId, activeSlot]);
+
+  // Warehouse lock (one supply line per order): the moment the FIRST real
+  // cabinet is placed, pin the design to that cabinet's style's distributor
+  // (warehouse). From then on the palette + finish picker only offer items
+  // from that same warehouse, so the whole order ships from one place and the
+  // shopper never incurs cross-warehouse freight. No supplier name is shown
+  // anywhere; this only scopes which cabinets/finishes are selectable.
+  useEffect(() => {
+    if (lockedDistributorId != null) return;
+    // Ignore non-priced placements (appliances carry cabinetId 0); a real
+    // cabinet with a resolvable supply line is what locks the warehouse.
+    const hasRealCabinet = placed.some((p) => p.cabinetId > 0);
+    if (hasRealCabinet && selectedStyleDistributorId != null) {
+      setLockedDistributorId(selectedStyleDistributorId);
+    }
+  }, [placed, lockedDistributorId, selectedStyleDistributorId]);
   useEffect(() => { styleIdRef.current = styleId; }, [styleId]);
   useEffect(() => { styleBRef.current = styleB; }, [styleB]);
 

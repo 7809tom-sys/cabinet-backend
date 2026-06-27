@@ -2057,3 +2057,11 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Remove roll-out tray section + props from CabinetAttributesDialog (was an add-on sale)
 - [x] Hide loose non-placeable add-on items from Accessories palette; keep placeable physical panels
 - [x] Typecheck + full test suite green (1016 pass), save checkpoint
+
+## Design Tool: Lock to one warehouse on first cabinet (no supplier name shown)
+- [x] Clarified intent: once the FIRST cabinet is placed, only show options from that cabinet's distributor/warehouse so there are no cross-warehouse shipping charges; do NOT display any company/supplier name
+- [x] Add effect to set lockedDistributorId to the selected style's distributor when the first real cabinet (cabinetId > 0) is placed
+- [x] Confirmed palette queries + finish picker (uniqueDoorStyles) + Color 2 slot are all scoped to lockedDistributorId
+- [x] Removed the distributor-name display query (no name shown)
+- [x] Typecheck + full test suite green (1016 pass)
+- [x] Typecheck/tests verified; design canvas is behind an email gate so the place-a-cabinet flow was validated via code path + tests; checkpoint saved
