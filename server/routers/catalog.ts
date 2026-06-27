@@ -1208,6 +1208,93 @@ export const cabinetsRouter = router({
 
       return { updated, skipped, errors };
     }),
+
+  // ── Cabinet Line Export ───────────────────────────────────────────────────
+  // Returns an XLSX workbook with all cabinets available for a given door style,
+  // including description, dimensions, pricing, and catalog image URL.
+  // The caller can optionally pass a list of cabinetIds to restrict the export.
+  cabinetLineExport: adminProcedure
+    .input(
+      z.object({
+        styleId: z.number(),
+        cabinetIds: z.array(z.number()).optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { xlsx: "", filename: "cabinet-line.xlsx", count: 0 };
+
+      // Fetch all cabinets for this style with pricing.
+      const rows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          placement: cabinets.placementType,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          numberOfDoors: cabinets.numberOfDoors,
+          numberOfDrawers: cabinets.numberOfDrawers,
+          catalogImageUrl: cabinets.catalogImageUrl,
+          contractorPrice: distributorSkus.contractorPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+        })
+        .from(cabinets)
+        .innerJoin(
+          distributorSkus,
+          and(
+            eq(distributorSkus.cabinetId, cabinets.id),
+            eq(distributorSkus.styleId, input.styleId),
+            eq(distributorSkus.isPublished, true),
+            eq(distributorSkus.isAvailable, true)
+          )
+        )
+        .where(
+          and(
+            eq(cabinets.isActive, true),
+            input.cabinetIds && input.cabinetIds.length > 0
+              ? inArray(cabinets.id, input.cabinetIds)
+              : undefined
+          )
+        )
+        .orderBy(cabinets.category, cabinets.masterCode);
+
+      // Build XLSX.
+      const XLSX = await import("xlsx");
+      const wsData = [
+        ["masterCode", "description", "category", "subCategory", "placement",
+         "width", "height", "depth", "doors", "drawers",
+         "contractorPrice", "wholesalePrice", "homeownerPrice", "imageUrl"],
+        ...rows.map((r) => [
+          r.masterCode ?? "",
+          r.description ?? "",
+          r.category ?? "",
+          r.subCategory ?? "",
+          r.placement ?? "",
+          r.width ?? "",
+          r.height ?? "",
+          r.depth ?? "",
+          r.numberOfDoors ?? "",
+          r.numberOfDrawers ?? "",
+          r.contractorPrice != null ? Number(r.contractorPrice) : "",
+          r.wholesalePrice != null ? Number(r.wholesalePrice) : "",
+          r.homeownerPrice != null ? Number(r.homeownerPrice) : "",
+          r.catalogImageUrl ?? "",
+        ]),
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Cabinets");
+      const buf: Buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      const xlsx = buf.toString("base64");
+      const filename = `cabinet-line-style-${input.styleId}.xlsx`;
+      return { xlsx, filename, count: rows.length };
+    }),
 });
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────

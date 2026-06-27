@@ -33,7 +33,7 @@ import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths,
-  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, isOnIsland, isCornerCabinet, isAngledWallCabinet,
+  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
@@ -1194,9 +1194,15 @@ export default function DesignTool() {
     blindSpecIssues.forEach((_issue, uid) => set.add(uid));
     // Cabinet taller than the room's ceiling height.
     ceilingViolationUids.forEach((uid: string) => set.add(uid));
+    // Non-corner base cabinet placed at a room corner (needs BBC/ERB/LSB/CSB).
+    missingCornerBaseViolations(placed, room, island).forEach((uid: string) => set.add(uid));
     return set;
-  }, [placed, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
+  }, [placed, room, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
   const hasConflicts = conflictUids.size > 0;
+  const cornerBaseViolationUids = useMemo(
+    () => missingCornerBaseViolations(placed, room, island),
+    [placed, room, island]
+  );
   const blindMissingSpecCount = useMemo(
     () => Array.from(blindSpecIssues.values()).filter((v) => v === "missing-spec").length,
     [blindSpecIssues]
@@ -1365,7 +1371,24 @@ export default function DesignTool() {
           const segs = freeSegmentsOnWall(activeWall, room, prev, openings, Math.min(width, 9), 0, c.placement);
           const fit = segs.find((s) => s.length >= width) ?? segs[0];
           if (fit) {
-            const along = fit.start;
+            // For corner cabinets, snap to the nearest room corner so the
+            // cabinet sits flush against both walls. Without this, a corner
+            // cabinet placed at the end of a wall run would overflow the room
+            // by the difference between the segment length and the cabinet width.
+            const wallLen = (activeWall === "top" || activeWall === "bottom") ? room.width : room.depth;
+            const isCorner = isCornerCabinet(c.masterCode, c.description || undefined) || c.isCornerCabinet === true;
+            let along = fit.start;
+            if (isCorner) {
+              // Snap to whichever end of the wall the segment is closer to.
+              const distFromEnd = wallLen - (fit.start + width);
+              if (distFromEnd < fit.start) {
+                // Closer to the far end — pin the right edge to the wall.
+                along = Math.max(0, wallLen - width);
+              } else {
+                // Closer to the near end — pin the left edge to the wall.
+                along = 0;
+              }
+            }
             spot = wallPlacementAt(along, width, depth, activeWall, room);
           } else {
             // Wall is full: center the footprint in the room, clamped in-bounds.
@@ -3733,6 +3756,9 @@ export default function DesignTool() {
                     : ""}
                   {ceilingViolationUids.size > 0
                     ? `${ceilingViolationUids.size} cabinet${ceilingViolationUids.size > 1 ? "s are" : " is"} taller than the ${(() => { const c = inchesToFeetInches(roomCeiling(room)); return c.inches === 0 ? `${c.feet}'` : `${c.feet}'${c.inches}"`; })()} ceiling — pick a shorter box or raise the ceiling height. `
+                    : ""}
+                  {cornerBaseViolationUids.size > 0
+                    ? `${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a room corner — replace with a Blind Corner Base (BBC), Easy Reach Base (ERB), Lazy Susan (LSB), or Corner Sink Base (CSB). `
                     : ""}
                   An appliance running into a cabinet must be fixed before ordering.
                 </span>

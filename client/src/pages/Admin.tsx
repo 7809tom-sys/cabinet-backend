@@ -41,6 +41,7 @@ import ConsultationsAdmin from "@/components/admin/ConsultationsAdmin";
 import SalesCommissionsAdmin from "@/components/admin/SalesCommissionsAdmin";
 import AffiliateInvoicesAdmin from "@/components/admin/AffiliateInvoicesAdmin";
 import CabinetSpreadsheetAdmin from "@/components/admin/CabinetSpreadsheetAdmin";
+import CabinetLineDownload from "@/components/admin/CabinetLineDownload";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -673,6 +674,7 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="cabinets" className="mt-6">
           <CabinetSpreadsheetAdmin />
+          <CabinetLineDownload />
         </TabsContent>
       </Tabs>
     </div>
