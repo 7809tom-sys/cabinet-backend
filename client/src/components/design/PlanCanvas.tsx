@@ -445,7 +445,7 @@ export function PlanCanvas({
     <div
       ref={containerRef}
       className={`relative w-full h-full overflow-hidden bg-[#eef1f5] select-none touch-none ${drawMode ? "cursor-crosshair" : ""}`}
-      onClick={() => { if (!measureMode && !drawMode) onSelect(null); }}
+      onClick={(e) => { if (!measureMode && !drawMode && e.target === e.currentTarget) onSelect(null); }}
       onPointerDown={onCanvasPointerDown}
       onPointerMove={onCanvasPointerMove}
       onPointerUp={onCanvasPointerUp}
