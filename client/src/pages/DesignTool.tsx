@@ -2118,13 +2118,14 @@ export default function DesignTool() {
   // their own override are never touched.
   const changeDefaultStyle = useCallback((newStyleId: number) => {
     if (newStyleId === styleId) return;
+    if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
     const inheriting = placed.filter((p) => p.styleId == null).length;
     if (styleId != null && inheriting > 0) {
       const ok = window.confirm(t("dt_confirm_default_finish", { n: inheriting, s: inheriting === 1 ? "" : "s" }));
       if (!ok) return;
     }
     setStyleId(newStyleId);
-  }, [styleId, placed]);
+  }, [styleId, placed, cabinetsLocked]);
 
   // Two-tone bulk helper: give the SELECTED cabinet's finish to every other
   // cabinet that currently shares its effective finish. Lets the user set one
@@ -2994,7 +2995,7 @@ export default function DesignTool() {
               {/* Per-cabinet finish (two-tone): give THIS cabinet a different
                   color/finish than the design default, within the locked supply
                   line. "Match design" clears the override. */}
-              {styleId && uniqueDoorStyles.length > 0 && (
+              {styleId && uniqueDoorStyles.length > 0 && !cabinetsLocked && (
                 <>
                   <div className="h-4 w-px bg-border" />
                   <div className="flex items-center gap-1 rounded-md bg-[#d4a75a]/10 px-1.5 py-1 ring-1 ring-[#d4a75a]/30">
@@ -3719,8 +3720,14 @@ export default function DesignTool() {
                 active={activeSlot === "A"}
                 style={styleA != null ? (doorStyles?.find((d) => d.id === styleA) ?? null) : null}
                 styles={uniqueDoorStyles}
-                onSelect={() => selectColorSlot("A")}
-                onPick={(id) => setSlotStyle("A", id)}
+                onSelect={() => {
+                  if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
+                  selectColorSlot("A");
+                }}
+                onPick={(id) => {
+                  if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
+                  setSlotStyle("A", id);
+                }}
                 onClear={undefined}
               />
               <ColorSlotButton
@@ -3729,9 +3736,15 @@ export default function DesignTool() {
                 active={activeSlot === "B"}
                 style={styleB != null ? (doorStyles?.find((d) => d.id === styleB) ?? null) : null}
                 styles={uniqueDoorStyles}
-                onSelect={() => { if (styleB != null) selectColorSlot("B"); else toast.info(t("dt_t_second_style_first")); }}
-                onPick={(id) => setSlotStyle("B", id)}
-                onClear={styleB != null ? () => {
+                onSelect={() => {
+                  if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
+                  if (styleB != null) selectColorSlot("B"); else toast.info(t("dt_t_second_style_first"));
+                }}
+                onPick={(id) => {
+                  if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
+                  setSlotStyle("B", id);
+                }}
+                onClear={styleB != null && !cabinetsLocked ? () => {
                   // Drop the second color: clear B, re-color any cabinets that
                   // were placed in B back to the default, and return to Color 1.
                   setPlaced((prev) => prev.map((p) => (p.styleId === styleB ? { ...p, styleId: null } : p)));
@@ -3747,7 +3760,7 @@ export default function DesignTool() {
 
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-medium text-foreground shrink-0">{t("dt_bs_pricing")}</span>
-              <Select value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
+              <Select value={tier} disabled={cabinetsLocked} onValueChange={(v) => { if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change pricing tier"); return; } setTier(v as PricingTier); }}>
                 <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Wholesale">{t("dt_bs_wholesale")}</SelectItem>
