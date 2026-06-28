@@ -1054,3 +1054,52 @@ export const siteSettings = mysqlTable("site_settings", {
 });
 export type SiteSettings = typeof siteSettings.$inferSelect;
 export type InsertSiteSettings = typeof siteSettings.$inferInsert;
+
+// ─── Email / SMTP settings ────────────────────────────────────────────────────
+// Stored in DB so admins can configure without touching env vars.
+// smtpPass is write-only (never returned to the client).
+export const emailSettings = mysqlTable("email_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  smtpHost: varchar("smtpHost", { length: 255 }).default("").notNull(),
+  smtpPort: int("smtpPort").default(465).notNull(),
+  smtpUser: varchar("smtpUser", { length: 255 }).default("").notNull(),
+  smtpPass: varchar("smtpPass", { length: 255 }).default("").notNull(),
+  smtpFrom: varchar("smtpFrom", { length: 255 }).default("").notNull(),
+  enabled: boolean("enabled").default(false).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type EmailSettings = typeof emailSettings.$inferSelect;
+export type InsertEmailSettings = typeof emailSettings.$inferInsert;
+
+// ─── Site branding settings ───────────────────────────────────────────────────
+export const brandingSettings = mysqlTable("branding_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  siteName: varchar("siteName", { length: 128 }).default("Cabinet Dealz").notNull(),
+  logoUrl: varchar("logoUrl", { length: 512 }).default("").notNull(),
+  faviconUrl: varchar("faviconUrl", { length: 512 }).default("").notNull(),
+  primaryColor: varchar("primaryColor", { length: 16 }).default("#1a2b4a").notNull(),
+  accentColor: varchar("accentColor", { length: 16 }).default("#c9a227").notNull(),
+  tagline: varchar("tagline", { length: 255 }).default("").notNull(),
+  supportEmail: varchar("supportEmail", { length: 255 }).default("").notNull(),
+  supportPhone: varchar("supportPhone", { length: 64 }).default("").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type BrandingSettings = typeof brandingSettings.$inferSelect;
+export type InsertBrandingSettings = typeof brandingSettings.$inferInsert;
+
+// ─── Notification settings ────────────────────────────────────────────────────
+export const notificationSettings = mysqlTable("notification_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  // Comma-separated email addresses for each event type
+  onNewOrder: varchar("onNewOrder", { length: 1024 }).default("").notNull(),
+  onNewDesignLead: varchar("onNewDesignLead", { length: 1024 }).default("").notNull(),
+  onNewQuoteRequest: varchar("onNewQuoteRequest", { length: 1024 }).default("").notNull(),
+  onNewProApplication: varchar("onNewProApplication", { length: 1024 }).default("").notNull(),
+  onNewConsultation: varchar("onNewConsultation", { length: 1024 }).default("").notNull(),
+  onNewAffiliate: varchar("onNewAffiliate", { length: 1024 }).default("").notNull(),
+  // Global toggle — if false, no notification emails are sent
+  enabled: boolean("enabled").default(true).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type NotificationSettings = typeof notificationSettings.$inferSelect;
+export type InsertNotificationSettings = typeof notificationSettings.$inferInsert;

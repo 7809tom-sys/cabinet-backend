@@ -44,6 +44,10 @@ import CabinetSpreadsheetAdmin from "@/components/admin/CabinetSpreadsheetAdmin"
 import CabinetLineDownload from "@/components/admin/CabinetLineDownload";
 import { PricingAccessAdmin } from "@/components/admin/PricingAccessAdmin";
 import { DesignerAvailabilityAdmin } from "@/components/admin/DesignerAvailabilityAdmin";
+import EmailSettingsAdmin from "@/components/admin/EmailSettingsAdmin";
+import BrandingSettingsAdmin from "@/components/admin/BrandingSettingsAdmin";
+import NotificationSettingsAdmin from "@/components/admin/NotificationSettingsAdmin";
+import ApiStatusAdmin from "@/components/admin/ApiStatusAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -610,6 +614,10 @@ export default function Admin() {
           <TabsTrigger value="cabinets">Cabinets</TabsTrigger>
           <TabsTrigger value="pricing-access">Pricing Access</TabsTrigger>
           <TabsTrigger value="designer-availability">Designer Availability</TabsTrigger>
+          <TabsTrigger value="email-settings">Email Settings</TabsTrigger>
+          <TabsTrigger value="branding">Site Branding</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="api-status">API Status</TabsTrigger>
         </TabsList>
         <TabsContent value="crm" className="mt-6">
           <CrmBoard lang="en" />
@@ -685,6 +693,18 @@ export default function Admin() {
         <TabsContent value="cabinets" className="mt-6">
           <CabinetSpreadsheetAdmin />
           <CabinetLineDownload />
+        </TabsContent>
+        <TabsContent value="email-settings" className="mt-6">
+          <EmailSettingsAdmin />
+        </TabsContent>
+        <TabsContent value="branding" className="mt-6">
+          <BrandingSettingsAdmin />
+        </TabsContent>
+        <TabsContent value="notifications" className="mt-6">
+          <NotificationSettingsAdmin />
+        </TabsContent>
+        <TabsContent value="api-status" className="mt-6">
+          <ApiStatusAdmin />
         </TabsContent>
       </Tabs>
     </div>

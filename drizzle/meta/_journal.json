@@ -281,6 +281,13 @@
       "when": 1782614455059,
       "tag": "0039_kind_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "5",
+      "when": 1782649335986,
+      "tag": "0040_lean_winter_soldier",
+      "breakpoints": true
     }
   ]
 }

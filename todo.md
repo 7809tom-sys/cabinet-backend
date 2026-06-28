@@ -2100,3 +2100,10 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Build admin Brochures tab in Admin panel for uploading/managing brochures
 - [ ] Wire brochure picker into CRM email compose (attach brochure link to email body)
 - [ ] Add Resources link to main nav and footer
+
+## Admin Settings Panels (Expose All Backend Config)
+- [ ] SMTP/Email settings: DB table + backend router (save/test connection) + admin UI panel
+- [ ] Site branding settings: DB table + backend router + admin UI (site name, logo URL, colors)
+- [ ] Notification settings: DB table + backend router + admin UI (who gets alerted on orders/leads/quotes)
+- [ ] API Key Status dashboard: single page showing live/inactive status of all integrations (EasyPost, Authorize.Net, SMTP)
+- [ ] Wire all four new tabs into Admin page
