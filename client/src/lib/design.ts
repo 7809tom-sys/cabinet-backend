@@ -786,7 +786,19 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
   const { w, d } = rotatedSize(moving);
   for (const o of others) {
     if (o.uid === moving.uid) continue;
-    if (o.placement !== moving.placement) continue;
+    const samePlacement = o.placement === moving.placement;
+    const oneAppliance = moving.placement === "appliance" || o.placement === "appliance";
+    const bothAppliance = moving.placement === "appliance" && o.placement === "appliance";
+    if (!samePlacement) {
+      // Cross-placement: only flag when exactly one is an appliance in the same vertical zone.
+      if (!oneAppliance || bothAppliance) continue;
+      if (occupiesUpperZone(moving) !== occupiesUpperZone(o)) continue;
+      // Sink appliance over a sink-base cabinet is the intended layout — not a collision.
+      if (
+        (isSinkAppliance(moving) && isSinkBaseCabinet(o)) ||
+        (isSinkAppliance(o) && isSinkBaseCabinet(moving))
+      ) continue;
+    }
     const os = rotatedSize(o);
     const overlap =
       moving.x < o.x + os.w &&

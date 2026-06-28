@@ -585,7 +585,7 @@ export default function Admin() {
       </p>
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
-        <TabsList>
+        <TabsList className="h-auto w-full flex-wrap justify-start gap-y-1">
           <TabsTrigger value="crm">Sales CRM</TabsTrigger>
           <TabsTrigger value="consultations">Consultations</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
@@ -606,11 +606,11 @@ export default function Admin() {
           <TabsTrigger value="cost-lookup">Price Audit</TabsTrigger>
           <TabsTrigger value="shipping">Shipping</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
-            <TabsTrigger value="conflicts">Conflicts</TabsTrigger>
-            <TabsTrigger value="cabinets">Cabinets</TabsTrigger>
-            <TabsTrigger value="pricing-access">Pricing Access</TabsTrigger>
-            <TabsTrigger value="designer-availability">Designer Availability</TabsTrigger>
-          </TabsList>
+          <TabsTrigger value="conflicts">Conflicts</TabsTrigger>
+          <TabsTrigger value="cabinets">Cabinets</TabsTrigger>
+          <TabsTrigger value="pricing-access">Pricing Access</TabsTrigger>
+          <TabsTrigger value="designer-availability">Designer Availability</TabsTrigger>
+        </TabsList>
         <TabsContent value="crm" className="mt-6">
           <CrmBoard lang="en" />
         </TabsContent>

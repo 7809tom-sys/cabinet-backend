@@ -77,6 +77,7 @@ export function CrmBoard({ lang = "en" }: { lang?: Lang }) {
   const utils = trpc.useUtils();
   const { data, isLoading, error } = trpc.crm.board.useQuery();
   const [openDealId, setOpenDealId] = useState<number | null>(null);
+  const [mobileStage, setMobileStage] = useState<CrmStage>("new");
 
   const deals = (data?.deals ?? []) as DealRow[];
 
@@ -144,35 +145,76 @@ export function CrmBoard({ lang = "en" }: { lang?: Lang }) {
         <StatChip icon={<CircleDollarSign className="h-4 w-4" />} label={t.won} value={String(wonCount)} />
       </div>
 
+      {/* Mobile stage selector */}
+      <div className="md:hidden mb-4">
+        <Select value={mobileStage} onValueChange={(v) => setMobileStage(v as CrmStage)}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CRM_PIPELINE_STAGES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {CRM_STAGE_LABELS[s][lang]} ({byStage[s].length})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {isLoading ? (
         <div className="grid md:grid-cols-4 gap-4">
           {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-64 rounded-lg" />)}
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {CRM_PIPELINE_STAGES.map((stage) => (
+        <>
+          {/* Mobile: single active stage */}
+          <div className="md:hidden">
             <div
-              key={stage}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => onDropTo(stage, e)}
+              onDrop={(e) => onDropTo(mobileStage, e)}
               className="rounded-lg border border-border bg-muted/20 p-3 min-h-[16rem]"
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-foreground">{CRM_STAGE_LABELS[stage][lang]}</span>
-                <Badge variant="secondary">{byStage[stage].length}</Badge>
+                <span className="text-sm font-semibold text-foreground">{CRM_STAGE_LABELS[mobileStage][lang]}</span>
+                <Badge variant="secondary">{byStage[mobileStage].length}</Badge>
               </div>
               <div className="space-y-2">
-                {byStage[stage].length === 0 ? (
+                {byStage[mobileStage].length === 0 ? (
                   <p className="text-xs text-muted-foreground py-6 text-center">{t.empty}</p>
                 ) : (
-                  byStage[stage].map((d) => (
+                  byStage[mobileStage].map((d) => (
                     <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} />
                   ))
                 )}
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+          {/* Desktop: all columns */}
+          <div className="hidden md:grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {CRM_PIPELINE_STAGES.map((stage) => (
+              <div
+                key={stage}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => onDropTo(stage, e)}
+                className="rounded-lg border border-border bg-muted/20 p-3 min-h-[16rem]"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-semibold text-foreground">{CRM_STAGE_LABELS[stage][lang]}</span>
+                  <Badge variant="secondary">{byStage[stage].length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {byStage[stage].length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-6 text-center">{t.empty}</p>
+                  ) : (
+                    byStage[stage].map((d) => (
+                      <DealCard key={d.id} deal={d} lang={lang} onOpen={() => setOpenDealId(d.id)} />
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Closed lane */}

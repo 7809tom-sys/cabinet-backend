@@ -1813,7 +1813,7 @@ export default function DesignTool() {
         const snapped = snapPosition(
           rotated,
           room,
-          prev.filter((c) => c.placement === p.placement && c.uid !== p.uid)
+          prev.filter((c) => c.uid !== p.uid && (c.placement === p.placement || c.placement === "appliance" || p.placement === "appliance"))
         );
         return { ...rotated, x: snapped.x, y: snapped.y };
       })
@@ -2174,7 +2174,7 @@ export default function DesignTool() {
         const snapped = snapPosition(
           rotated,
           room,
-          prev.filter((c) => c.placement === p.placement && c.uid !== p.uid)
+          prev.filter((c) => c.uid !== p.uid && (c.placement === p.placement || c.placement === "appliance" || p.placement === "appliance"))
         );
         return { ...rotated, x: snapped.x, y: snapped.y };
       })

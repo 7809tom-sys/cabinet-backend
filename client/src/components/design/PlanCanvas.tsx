@@ -368,7 +368,12 @@ export function PlanCanvas({
       let candidate: PlacedCabinet = { ...cabinet, x: rawX, y: rawY };
       // Auto-rotate: if the cabinet is meeting a wall, turn it so its back is to
       // that wall BEFORE snapping, so the snapped x/y use the turned footprint.
-      const others = cabinets.filter((c) => c.placement === cabinet.placement);
+      // Include appliances in the others list so dragged cabinets push against
+      // appliances (fridge, range, dishwasher, etc.) and don't slide through them.
+      const others = cabinets.filter(
+        (c) => c.uid !== cabinet.uid &&
+          (c.placement === cabinet.placement || c.placement === "appliance" || cabinet.placement === "appliance")
+      );
       const targetRot = orientToWall(candidate, room);
       if (targetRot != null) {
         candidate = { ...candidate, rotation: targetRot };
@@ -746,10 +751,7 @@ export function PlanCanvas({
             const cabFinish = finishFor ? finishFor(p) : finish;
             const faceFill = isAppliance ? "#b9bdc4" : cabFinish.face;
             const edgeColor = isAppliance ? "#8a8f96" : cabFinish.edge;
-            const collides = hasCollision(
-              p,
-              cabinets.filter((c) => c.placement === p.placement)
-            );
+            const collides = hasCollision(p, cabinets);
             const inConflict = conflictUids?.has(p.uid) ?? false;
             return (
               <div
