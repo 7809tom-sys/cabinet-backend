@@ -1348,6 +1348,7 @@ export const cabinetsRouter = router({
       const filename = `cabinet-line-style-${input.styleId}.xlsx`;
       return { xlsx, filename, count: rows.length };
     }),
+
 });
 
 // ─── Pricing ──────────────────────────────────────────────────────────────────
@@ -1928,7 +1929,6 @@ export const pricingRouter = router({
         picks: matched.map((c) => ({ ...c, skus: (byCab.get(c.id) ?? []) as typeof skuRows })),
       };
     }),
-
   // Recent audit rows for a SKU or a cabinet number, newest first.
   adminCostHistory: adminProcedure
     .input(
@@ -1956,4 +1956,5 @@ export const pricingRouter = router({
         .orderBy(desc(costChangeLog.createdAt))
         .limit(input.limit ?? 50);
     }),
+
 });

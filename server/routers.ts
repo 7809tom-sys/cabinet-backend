@@ -29,6 +29,7 @@ import { paymentsRouter } from "./routers/payments";
 import { consultationsRouter } from "./routers/consultations";
 import { affiliateMembershipRouter } from "./routers/affiliateMembership";
 import { siteSettingsRouter } from "./routers/siteSettings";
+import { skuAdminRouter } from "./routers/skuAdmin";
 
 export const appRouter = router({
   system: systemRouter,
@@ -68,6 +69,7 @@ export const appRouter = router({
   consultations: consultationsRouter,
   affiliateMembership: affiliateMembershipRouter,
   siteSettings: siteSettingsRouter,
+  skuAdmin: skuAdminRouter,
 });
 
 export type AppRouter = typeof appRouter;
