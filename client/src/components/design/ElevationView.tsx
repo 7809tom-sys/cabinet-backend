@@ -346,8 +346,7 @@ export function ElevationView({
         {backsplashMaterialId && (() => {
           const bsMat = backsplashMaterial(backsplashMaterialId);
           const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS; // ~37.5"
-          const BACKSPLASH_STD_TOP = STD.WALL_MOUNT_BOTTOM; // 54" standard height
-          const ceilIn = roomCeiling(room);
+          const BACKSPLASH_TOP = STD.WALL_MOUNT_BOTTOM; // 54" — always standard zone
           const TOL = 1.5;
           // Include DW and RANGE in backsplash spans (same as countertop bridging)
           const isBsSpan = (p: PlacedCabinet) =>
@@ -358,21 +357,18 @@ export function ElevationView({
             .map((p) => {
               const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
               const posAlong = horizontal ? p.x : p.y;
-              // Over a RANGE, backsplash goes all the way to the ceiling
-              const isRange = p.placement === "appliance" && /^RANGE[-_]?\d/i.test(p.masterCode ?? "");
-              return { start: posAlong, end: posAlong + sizeAlong, toTop: isRange ? ceilIn : BACKSPLASH_STD_TOP };
+              return { start: posAlong, end: posAlong + sizeAlong };
             })
             .sort((a, b) => a.start - b.start);
           if (spans.length === 0) return null;
-          // Merge adjacent spans; track max top height per merged run
-          const runs: { start: number; end: number; top: number }[] = [];
+          // Merge adjacent spans
+          const runs: { start: number; end: number }[] = [];
           for (const s of spans) {
             const last = runs[runs.length - 1];
             if (last && s.start <= last.end + TOL) {
               last.end = Math.max(last.end, s.end);
-              last.top = Math.max(last.top, s.toTop);
             } else {
-              runs.push({ start: s.start, end: s.end, top: s.toTop });
+              runs.push({ start: s.start, end: s.end });
             }
           }
           // Window openings on this wall — backsplash wraps around them
@@ -396,7 +392,7 @@ export function ElevationView({
           for (const run of runs) {
             const runStart = run.start;
             const runEnd = run.end;
-            const runTop = run.top;
+            const runTop = BACKSPLASH_TOP;
             // Find windows that overlap this horizontal run
             const overlapping = winOpenings.filter(
               (o) => o.offset < runEnd && (o.offset + o.width) > runStart
@@ -457,7 +453,7 @@ export function ElevationView({
               // Above each window (sill+height to runTop)
               for (const w of wins) {
                 const wTop = w.sill + w.height;
-                if (wTop < runTop) {
+                if (wTop < BACKSPLASH_TOP) {
                   const segLeft = Math.max(runStart, w.offset);
                   const segRight = Math.min(runEnd, w.offset + w.width);
                   segments.push({
