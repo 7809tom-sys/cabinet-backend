@@ -293,7 +293,9 @@ export function ElevationView({
           // counter must stop at the fridge, not run through it.
           const isBridgeable = (p: PlacedCabinet) =>
             bearsCountertop(p) ||
-            (p.placement === "appliance" && /^DW[-_]?\d/i.test(p.masterCode ?? ""));
+            // Appliances that sit at counter height: DW, RANGE, MW (over-range
+            // microwave is wall-mounted so excluded). FRIDGE is tall and excluded.
+            (p.placement === "appliance" && /^(DW|RANGE)[-_]?\d/i.test(p.masterCode ?? ""));
           // Base-cabinet spans along this wall, sorted by start position.
           const spans = sorted
             .filter(isBridgeable)
@@ -344,24 +346,37 @@ export function ElevationView({
         {backsplashMaterialId && (() => {
           const bsMat = backsplashMaterial(backsplashMaterialId);
           const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS; // ~37.5"
-          const BACKSPLASH_TOP = STD.WALL_MOUNT_BOTTOM; // 54"
-          const BACKSPLASH_HEIGHT = BACKSPLASH_TOP - BACKSPLASH_BOTTOM;
+          const BACKSPLASH_STD_TOP = STD.WALL_MOUNT_BOTTOM; // 54" standard height
+          const ceilIn = roomCeiling(room);
           const TOL = 1.5;
+          // Include DW and RANGE in backsplash spans (same as countertop bridging)
+          const isBsSpan = (p: PlacedCabinet) =>
+            bearsCountertop(p) ||
+            (p.placement === "appliance" && /^(DW|RANGE)[-_]?\d/i.test(p.masterCode ?? ""));
           const spans = sorted
-            .filter((p) => bearsCountertop(p))
+            .filter(isBsSpan)
             .map((p) => {
               const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
               const posAlong = horizontal ? p.x : p.y;
-              return { start: posAlong, end: posAlong + sizeAlong };
+              // Over a RANGE, backsplash goes all the way to the ceiling
+              const isRange = p.placement === "appliance" && /^RANGE[-_]?\d/i.test(p.masterCode ?? "");
+              return { start: posAlong, end: posAlong + sizeAlong, toTop: isRange ? ceilIn : BACKSPLASH_STD_TOP };
             })
             .sort((a, b) => a.start - b.start);
           if (spans.length === 0) return null;
-          const runs: { start: number; end: number }[] = [];
+          // Merge adjacent spans; track max top height per merged run
+          const runs: { start: number; end: number; top: number }[] = [];
           for (const s of spans) {
             const last = runs[runs.length - 1];
-            if (last && s.start <= last.end + TOL) last.end = Math.max(last.end, s.end);
-            else runs.push({ start: s.start, end: s.end });
+            if (last && s.start <= last.end + TOL) {
+              last.end = Math.max(last.end, s.end);
+              last.top = Math.max(last.top, s.toTop);
+            } else {
+              runs.push({ start: s.start, end: s.end, top: s.toTop });
+            }
           }
+          // Window openings on this wall — backsplash wraps around them
+          const winOpenings = viewOpenings.filter((o) => o.kind === "window");
           const tileWPx = Math.max(8, (bsMat.pattern === "subway" ? 16 : bsMat.pattern === "mosaic" ? 5 : 12) * ppi / 12);
           const tileHPx = Math.max(6, (bsMat.pattern === "subway" ? 8 : bsMat.pattern === "mosaic" ? 5 : 12) * ppi / 12);
           const bgImage = bsMat.pattern === "subway"
@@ -375,17 +390,97 @@ export function ElevationView({
             : bsMat.pattern === "hexagon"
             ? `radial-gradient(circle at 50% 50%, ${bsMat.grout} 1px, transparent 1px)`
             : undefined;
+          // For each run, split it around any window openings that overlap it.
+          // Segments: below window sill, beside window (left/right), above window.
+          const segments: { left: number; width: number; bottom: number; height: number }[] = [];
+          for (const run of runs) {
+            const runStart = run.start;
+            const runEnd = run.end;
+            const runTop = run.top;
+            // Find windows that overlap this horizontal run
+            const overlapping = winOpenings.filter(
+              (o) => o.offset < runEnd && (o.offset + o.width) > runStart
+            );
+            if (overlapping.length === 0) {
+              // No windows — simple rectangle from counter to top
+              segments.push({
+                left: runStart * ppi,
+                width: (runEnd - runStart) * ppi,
+                bottom: BACKSPLASH_BOTTOM * ppi,
+                height: (runTop - BACKSPLASH_BOTTOM) * ppi,
+              });
+            } else {
+              // Sort windows by offset
+              const wins = [...overlapping].sort((a, b) => a.offset - b.offset);
+              // Below-window strip: from counter bottom to min window sill across full run
+              const minSill = Math.min(...wins.map((w) => w.sill));
+              if (minSill > BACKSPLASH_BOTTOM) {
+                segments.push({
+                  left: runStart * ppi,
+                  width: (runEnd - runStart) * ppi,
+                  bottom: BACKSPLASH_BOTTOM * ppi,
+                  height: (minSill - BACKSPLASH_BOTTOM) * ppi,
+                });
+              }
+              // Left of first window
+              if (wins[0].offset > runStart) {
+                segments.push({
+                  left: runStart * ppi,
+                  width: (wins[0].offset - runStart) * ppi,
+                  bottom: minSill * ppi,
+                  height: (runTop - minSill) * ppi,
+                });
+              }
+              // Between windows
+              for (let wi = 0; wi < wins.length - 1; wi++) {
+                const gapStart = wins[wi].offset + wins[wi].width;
+                const gapEnd = wins[wi + 1].offset;
+                if (gapEnd > gapStart) {
+                  segments.push({
+                    left: gapStart * ppi,
+                    width: (gapEnd - gapStart) * ppi,
+                    bottom: minSill * ppi,
+                    height: (runTop - minSill) * ppi,
+                  });
+                }
+              }
+              // Right of last window
+              const lastWin = wins[wins.length - 1];
+              if (lastWin.offset + lastWin.width < runEnd) {
+                segments.push({
+                  left: (lastWin.offset + lastWin.width) * ppi,
+                  width: (runEnd - (lastWin.offset + lastWin.width)) * ppi,
+                  bottom: minSill * ppi,
+                  height: (runTop - minSill) * ppi,
+                });
+              }
+              // Above each window (sill+height to runTop)
+              for (const w of wins) {
+                const wTop = w.sill + w.height;
+                if (wTop < runTop) {
+                  const segLeft = Math.max(runStart, w.offset);
+                  const segRight = Math.min(runEnd, w.offset + w.width);
+                  segments.push({
+                    left: segLeft * ppi,
+                    width: (segRight - segLeft) * ppi,
+                    bottom: wTop * ppi,
+                    height: (runTop - wTop) * ppi,
+                  });
+                }
+              }
+            }
+          }
           return (
             <>
-              {runs.map((r, i) => (
+              {segments.map((seg, i) => (
                 <div
                   key={`bs${i}`}
                   className="absolute z-10 pointer-events-none"
                   style={{
-                    left: r.start * ppi,
-                    width: (r.end - r.start) * ppi,
-                    bottom: BACKSPLASH_BOTTOM * ppi,
-                    height: BACKSPLASH_HEIGHT * ppi,
+                    left: seg.left,
+                    width: seg.width,
+                    bottom: seg.bottom,
+                    height: seg.height,
                     background: bsMat.fill,
                     backgroundImage: bgImage,
                     backgroundSize: bsMat.pattern === "hexagon" ? `${tileWPx}px ${tileHPx}px` : undefined,

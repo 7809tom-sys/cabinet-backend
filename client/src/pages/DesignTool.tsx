@@ -3773,30 +3773,24 @@ export default function DesignTool() {
           onOpenChange={(o) => setMobilePanel(o ? "cart" : null)}
         >
           <div className="flex flex-col min-h-0 h-full">
-          <div className="p-3 border-b border-border space-y-2 shrink-0">
-            {/* Door-style sample: a large, clear hero of the selected finish at the
-                very top of the build sheet so the look is obvious at a glance. */}
-            <div className="relative overflow-hidden rounded-lg border border-border bg-white shadow-sm">
-              {activeStyle ? (
-                <DoorStyleSwatch style={activeStyle} className="h-40 w-full object-contain" />
-              ) : (
-                <div className="flex h-40 w-full items-center justify-center text-xs text-muted-foreground">
-                  {t("dt_bs_select_finish_preview")}
+          <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-2">
+            {/* Compact door style badge — replaces the large hero image to save vertical space */}
+            {activeStyle ? (
+              <>
+                <DoorStyleSwatch style={activeStyle} className="h-10 w-10 rounded border border-border shrink-0 object-contain" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{t("dt_bs_door_sample")}</div>
+                  <div className="truncate text-xs font-bold">{activeStyleName}</div>
+                  {(activeStyle.doorStyle || activeStyle.finish || activeStyle.color) && (
+                    <div className="truncate text-[10px] text-muted-foreground">
+                      {[activeStyle.doorStyle, activeStyle.color || activeStyle.finish].filter(Boolean).join(" \u00b7 ")}
+                    </div>
+                  )}
                 </div>
-              )}
-              {/* Label overlay */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-3 pb-2 pt-8">
-                <div className="text-[10px] uppercase tracking-wider text-white/70">{t("dt_bs_door_sample")}</div>
-                <div className="truncate text-sm font-bold text-white">
-                  {activeStyleName ?? t("dt_bs_select_style")}
-                </div>
-                {activeStyle && (activeStyle.doorStyle || activeStyle.finish || activeStyle.color) && (
-                  <div className="truncate text-[11px] text-white/80">
-                    {[activeStyle.doorStyle, activeStyle.color || activeStyle.finish].filter(Boolean).join(" \u00b7 ")}
-                  </div>
-                )}
-              </div>
-            </div>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">{t("dt_bs_select_finish_preview")}</span>
+            )}
           </div>
 
           {/* Door style & pricing picker: collapses into an accordion once a door
