@@ -210,6 +210,9 @@ export default function DesignTool() {
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
+  // Manual ordering override for the BOM shopping list. Maps group key → position
+  // index within its section. Populated when the user clicks move-up/move-down.
+  const [bomOrder, setBomOrder] = useState<Record<string, number>>({});
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const v = new URLSearchParams(window.location.search).get("view");
@@ -1275,15 +1278,22 @@ export default function DesignTool() {
   const cabinetSections = useMemo(() => {
     const byCode = (a: typeof panelGroups[number], b: typeof panelGroups[number]) =>
       a.sample.masterCode.localeCompare(b.sample.masterCode, undefined, { numeric: true });
-    const base = panelGroups
-      .filter((g) => g.sample.placement === "base" || g.sample.placement === "tall")
-      .sort(byCode);
-    const wall = panelGroups.filter((g) => g.sample.placement === "wall").sort(byCode);
-    const other = panelGroups
-      .filter((g) => g.sample.placement !== "base" && g.sample.placement !== "tall" && g.sample.placement !== "wall")
-      .sort(byCode);
+    // Apply manual bomOrder if present, otherwise fall back to alphabetical by code.
+    const withOrder = (groups: typeof panelGroups) => {
+      const hasAny = groups.some((g) => bomOrder[g.key] !== undefined);
+      if (!hasAny) return [...groups].sort(byCode);
+      return [...groups].sort((a, b) => {
+        const ai = bomOrder[a.key] ?? 9999;
+        const bi = bomOrder[b.key] ?? 9999;
+        if (ai !== bi) return ai - bi;
+        return byCode(a, b);
+      });
+    };
+    const base = withOrder(panelGroups.filter((g) => g.sample.placement === "base" || g.sample.placement === "tall"));
+    const wall = withOrder(panelGroups.filter((g) => g.sample.placement === "wall"));
+    const other = withOrder(panelGroups.filter((g) => g.sample.placement !== "base" && g.sample.placement !== "tall" && g.sample.placement !== "wall"));
     return { base, wall, other };
-  }, [panelGroups]);
+  }, [panelGroups, bomOrder]);
 
   // Non-cabinet build-sheet lines (fillers, crown, toe kick, countertop note).
   const extraLines = useMemo(() => {
@@ -2213,6 +2223,34 @@ export default function DesignTool() {
     const last = uids[uids.length - 1];
     if (last) deleteCabinet(last);
   }, [deleteCabinet]);
+
+  // Remove ALL instances in a panel group (the whole line item).
+  const deleteWholeGroup = useCallback((uids: string[]) => {
+    setPlaced((prev) => prev.filter((p) => !uids.includes(p.uid)));
+    setSelectedUid((prev) => (prev && uids.includes(prev) ? null : prev));
+  }, []);
+
+  // Move a BOM line item up or down within its section list.
+  const moveBomItem = useCallback(
+    (sectionItems: Array<{ key: string }>, groupKey: string, direction: "up" | "down") => {
+      const idx = sectionItems.findIndex((g) => g.key === groupKey);
+      if (idx === -1) return;
+      const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (targetIdx < 0 || targetIdx >= sectionItems.length) return;
+      // Build a new order map: assign explicit indices to all items in this section.
+      setBomOrder((prev) => {
+        const next = { ...prev };
+        // Assign current positions first (preserving any existing order).
+        sectionItems.forEach((g, i) => { next[g.key] = i; });
+        // Swap the two affected items.
+        const tmp = next[sectionItems[idx].key];
+        next[sectionItems[idx].key] = next[sectionItems[targetIdx].key];
+        next[sectionItems[targetIdx].key] = tmp;
+        return next;
+      });
+    },
+    []
+  );
 
   // Keyboard: Delete/Backspace removes the selected cabinet; Escape clears
   // selection and exits measure mode. Ignored while typing in inputs.
@@ -3569,20 +3607,48 @@ export default function DesignTool() {
               </div>
             ) : (
               (() => {
-                // One line-item renderer reused by every cabinet section so base,
-                // wall and appliance lines look and behave identically.
-                const renderLine = (g: typeof panelGroups[number]) => {
+                // One line-item renderer reused by every cabinet section.
+                // sectionItems is passed so move-up/down knows the full list.
+                const renderLine = (g: typeof panelGroups[number], sectionItems: typeof panelGroups) => {
                   const selected = g.uids.includes(selectedUid ?? "");
                   const lineTotal = g.unitPrice != null ? g.unitPrice * g.qty : null;
+                  const idx = sectionItems.findIndex((s) => s.key === g.key);
+                  const canMoveUp = idx > 0;
+                  const canMoveDown = idx < sectionItems.length - 1;
                   return (
                     <div
                       key={g.key}
                       onClick={() => setSelectedUid(g.uids[g.uids.length - 1])}
-                      className={`group w-full text-left flex items-center justify-between gap-2 p-2 rounded-lg text-xs transition-colors cursor-pointer ${
+                      className={`group w-full text-left flex items-center gap-1.5 p-2 rounded-lg text-xs transition-colors cursor-pointer ${
                         selected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent"
                       }`}
                     >
-                      <div className="min-w-0">
+                      {/* Move up/down arrows */}
+                      <div className="flex flex-col gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          disabled={!canMoveUp}
+                          onClick={(e) => { e.stopPropagation(); moveBomItem(sectionItems, g.key, "up"); }}
+                          className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          aria-label="Move item up"
+                          title="Move up"
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!canMoveDown}
+                          onClick={(e) => { e.stopPropagation(); moveBomItem(sectionItems, g.key, "down"); }}
+                          className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          aria-label="Move item down"
+                          title="Move down"
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      </div>
+
+                      {/* Item info */}
+                      <div className="min-w-0 flex-1">
                         <div className="font-mono font-semibold truncate flex items-center gap-1.5">
                           {g.sample.masterCode}
                           {g.qty > 1 && (
@@ -3602,9 +3668,7 @@ export default function DesignTool() {
                             <span className="ml-1 font-semibold text-foreground/70">· {g.swing === "left" ? "L hinge" : "R hinge"}</span>
                           )}
                         </div>
-                        {/* Per-line color: always show the cabinet's specific door
-                            style / finish so the shopping list is unambiguous
-                            (critical for two-tone designs). */}
+                        {/* Per-line color */}
                         {g.colorName && (
                           <div className="mt-0.5 flex items-center gap-1">
                             <span
@@ -3615,7 +3679,9 @@ export default function DesignTool() {
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+
+                      {/* Price + delete controls */}
+                      <div className="flex items-center gap-1 shrink-0">
                         <div className="text-right">
                           <div className="font-semibold leading-none">
                             {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A") : "—"}
@@ -3624,12 +3690,25 @@ export default function DesignTool() {
                             <div className="text-[9px] text-muted-foreground mt-0.5">${g.unitPrice.toFixed(2)} ea</div>
                           )}
                         </div>
+                        {/* Remove one (decrement qty) */}
+                        {g.qty > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteOneFromGroup(g.uids); }}
+                            className="text-muted-foreground hover:text-amber-600 transition-colors"
+                            aria-label={`Remove one ${g.sample.masterCode}`}
+                            title="Remove one"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {/* Delete entire line */}
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); deleteOneFromGroup(g.uids); }}
-                          className="text-muted-foreground hover:text-destructive"
-                          aria-label={g.qty > 1 ? `Remove one ${g.sample.masterCode}` : `Remove ${g.sample.masterCode}`}
-                          title={g.qty > 1 ? "Remove one from the design" : "Remove from the design"}
+                          onClick={(e) => { e.stopPropagation(); deleteWholeGroup(g.uids); }}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          aria-label={`Delete all ${g.sample.masterCode}`}
+                          title="Remove all from design"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -3646,7 +3725,7 @@ export default function DesignTool() {
                         collapsed={collapsedSheet.has("base")}
                         onToggle={() => toggleSheetSection("base")}
                       >
-                        <div className="px-2 pb-1 space-y-1">{cabinetSections.base.map(renderLine)}</div>
+                        <div className="px-2 pb-1 space-y-1">{cabinetSections.base.map((g) => renderLine(g, cabinetSections.base))}</div>
                       </SheetSection>
                     )}
                     {cabinetSections.wall.length > 0 && (
@@ -3656,7 +3735,7 @@ export default function DesignTool() {
                         collapsed={collapsedSheet.has("wall")}
                         onToggle={() => toggleSheetSection("wall")}
                       >
-                        <div className="px-2 pb-1 space-y-1">{cabinetSections.wall.map(renderLine)}</div>
+                        <div className="px-2 pb-1 space-y-1">{cabinetSections.wall.map((g) => renderLine(g, cabinetSections.wall))}</div>
                       </SheetSection>
                     )}
                     {cabinetSections.other.length > 0 && (
@@ -3666,7 +3745,7 @@ export default function DesignTool() {
                         collapsed={collapsedSheet.has("other")}
                         onToggle={() => toggleSheetSection("other")}
                       >
-                        <div className="px-2 pb-1 space-y-1">{cabinetSections.other.map(renderLine)}</div>
+                        <div className="px-2 pb-1 space-y-1">{cabinetSections.other.map((g) => renderLine(g, cabinetSections.other))}</div>
                       </SheetSection>
                     )}
                   </>
