@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { ChevronLeft, ChevronRight, Package, Search, X, Expand } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -431,28 +432,29 @@ export default function Family({ styleCode }: { styleCode: string }) {
         </div>
       </div>
 
-      {/* ── Lightbox ─────────────────────────────────────────────────────────── */}
-      {lightboxOpen && realScene && (
+      {/* ── Lightbox (portal to body so no parent clip/transform can block it) ── */}
+      {lightboxOpen && realScene && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
           onClick={() => setLightboxOpen(false)}
         >
           <button
             className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-            onClick={() => setLightboxOpen(false)}
+            onClick={(e) => { e.stopPropagation(); setLightboxOpen(false); }}
           >
             <X className="w-6 h-6" />
           </button>
           <img
             src={realScene}
             alt={`${familyName} kitchen room scene`}
-            className="max-w-full max-h-full rounded-xl shadow-2xl object-contain"
+            className="max-w-full max-h-[90vh] rounded-xl shadow-2xl object-contain"
             onClick={(e) => e.stopPropagation()}
           />
           <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/70 text-sm">
             {familyName} kitchen
           </p>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Type filter + search ──────────────────────────────────────────────── */}
