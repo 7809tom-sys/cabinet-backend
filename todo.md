@@ -121,6 +121,8 @@
 
 ## Design Tool fixes & features (user request)
 
+- [ ] Move the selected-cabinet edit panel from the inline mobile header into a bottom sheet that auto-opens on cabinet selection while keeping the desktop inline row unchanged
+
 - [x] Fix: cannot delete a cabinet when off-category (on-cabinet X + toolbar Delete + keyboard Delete/Backspace work for any selected item)
 - [x] Add: tape-measure tool showing distance/gap between two objects on the canvas
 - [x] Render corner cabinets (Lazy Susan / blind/diagonal corner) as an L-shape in bird's-eye view instead of a plain square

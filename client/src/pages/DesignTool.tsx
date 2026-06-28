@@ -2563,6 +2563,20 @@ export default function DesignTool() {
   const selectedCab = placed.find((p) => p.uid === selectedUid);
   const selectedOpening = openings.find((o) => o.uid === selectedOpeningUid);
 
+  // Mobile cabinet-edit bottom sheet: auto-opens when a cabinet is selected on
+  // mobile, auto-closes when deselected. On desktop the inline contextual row
+  // is used instead.
+  const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
+  // Sync sheet open state with selection on mobile
+  useEffect(() => {
+    if (!isMobile) return;
+    if (selectedCab || selectedOpening) {
+      setCabEditSheetOpen(true);
+    } else {
+      setCabEditSheetOpen(false);
+    }
+  }, [isMobile, selectedCab?.uid, selectedOpening?.uid]);
+
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   if (!verified) {
@@ -3007,10 +3021,11 @@ export default function DesignTool() {
         </div>
       </div>
 
-      {/* Contextual row: wall picker for the selected cabinet, or draw-mode hint */}
-      {(selectedCab || selectedOpening || drawMode) && !measureMode && (
+      {/* Contextual row: keep desktop cabinet editing inline, but free up mobile
+          canvas space by moving cabinet editing into a bottom sheet. */}
+      {((!isMobile && selectedCab) || selectedOpening || drawMode) && !measureMode && (
         <div className="border-b border-border bg-[#f7f5f0] px-4 py-1.5 flex items-center gap-3 flex-wrap shrink-0">
-          {selectedCab && !drawMode && (
+          {selectedCab && !drawMode && !isMobile && (
             <>
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-white p-0.5">
                 <CabinetImage cabinet={selectedCab} className="h-full w-auto max-w-full" />
@@ -3235,6 +3250,228 @@ export default function DesignTool() {
             </span>
           )}
         </div>
+      )}
+
+      {isMobile && selectedCab && !drawMode && !measureMode && (
+        <Sheet open={cabEditSheetOpen} onOpenChange={setCabEditSheetOpen}>
+          <SheetContent
+            side="bottom"
+            className="bottom-14 max-h-[min(76vh,620px)] rounded-t-3xl border border-border px-0 pb-0"
+          >
+            <SheetHeader className="border-b border-border px-4 py-3 text-left">
+              <SheetTitle className="text-sm">
+                {t("dt_cx_selected")} {selectedCab.masterCode}
+              </SheetTitle>
+            </SheetHeader>
+            <div className="overflow-y-auto px-4 pb-6 pt-4">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-border bg-white p-1">
+                    <CabinetImage cabinet={selectedCab} className="h-full w-auto max-w-full" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-foreground">{selectedCab.masterCode}</div>
+                    <div className="text-xs text-muted-foreground">{selectedCab.description}</div>
+                  </div>
+                  {(paletteFinishSwatch || styleId) && (
+                    <div
+                      className="flex shrink-0 items-center gap-1.5"
+                      title={`Door style: ${activeStyleName || "selected style"}`}
+                    >
+                      {paletteFinishSwatch ? (
+                        <img
+                          src={paletteFinishSwatch}
+                          alt={`${activeStyleName || "Door"} door sample`}
+                          className="h-10 w-10 rounded border border-border object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span
+                          className="flex h-10 w-10 items-center justify-center rounded border text-[8px] font-semibold"
+                          style={{ backgroundColor: activeFinish.face, borderColor: activeFinish.edge, color: activeFinish.label }}
+                        >
+                          {t("dt_cx_door")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-border bg-muted/30 p-3">
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    {t("dt_snap_to_wall")}
+                  </div>
+                  <WallPicker onPick={snapSelectedToWall} />
+                </div>
+
+                <div className="rounded-xl border border-border bg-muted/30 p-3">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <Ruler className="h-4 w-4 text-muted-foreground" />
+                    <span>{t("dt_cx_custom_size")}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <DimStepper
+                      label="W"
+                      value={Math.round(selectedCab.width * 10) / 10}
+                      custom={isCustomWidth(selectedCab)}
+                      min={6}
+                      max={48}
+                      onStep={adjustWidth}
+                      onSet={setCustomWidth}
+                    />
+                    <DimStepper
+                      label="H"
+                      value={Math.round(placedHeight(selectedCab) * 10) / 10}
+                      custom={isCustomHeight(selectedCab)}
+                      min={6}
+                      max={96}
+                      onStep={adjustHeight}
+                      onSet={setCustomHeight}
+                    />
+                    <DimStepper
+                      label="D"
+                      value={Math.round(selectedCab.depth * 10) / 10}
+                      custom={isCustomDepth(selectedCab)}
+                      min={6}
+                      max={36}
+                      onStep={adjustDepth}
+                      onSet={setCustomDepth}
+                    />
+                  </div>
+                  {(isCustomWidth(selectedCab) || isCustomHeight(selectedCab) || isCustomDepth(selectedCab)) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary" className="text-[10px]">{t("dt_cx_custom_fee", { fee: CUSTOM_SIZE_FEE })}</Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-[11px] text-muted-foreground"
+                        title={t("dt_cx_reset_dims")}
+                        onClick={() => { resetWidth(); resetHeight(); resetDepth(); }}
+                      >
+                        {t("dt_cx_reset")}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {styleId && uniqueDoorStyles.length > 0 && !cabinetsLocked && (
+                  <div className="rounded-xl border border-border bg-[#d4a75a]/10 p-3 ring-1 ring-[#d4a75a]/30">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#1a2744]">
+                      <Palette className="h-4 w-4" />
+                      <span>{t("dt_cx_finish_this")}</span>
+                    </div>
+                    <Select
+                      value={selectedCab.styleId != null ? String(selectedCab.styleId) : "__match__"}
+                      onValueChange={(v) => setCabinetStyle(v === "__match__" ? null : Number(v))}
+                    >
+                      <SelectTrigger className="h-9 w-full bg-white text-[12px]">
+                        <SelectValue placeholder={t("dt_cx_match_design")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
+                        {uniqueDoorStyles.map((s) => (
+                          <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedCab.styleId != null && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 h-8 px-2 text-[11px] text-[#1a2744] hover:bg-[#d4a75a]/20"
+                        title={t("dt_cx_apply_all")}
+                        onClick={applySelectedFinishToMatching}
+                      >
+                        {t("dt_cx_apply_to_all")}
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {selectedCab.placement === "wall" && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3">
+                    <div className="mb-3 text-sm font-semibold text-foreground">{t("dt_cx_mount")}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        title={t("dt_cx_raise")}
+                        onClick={() => adjustMountHeight(1)}
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <span className="min-w-[42px] text-center font-mono text-sm tabular-nums text-foreground">
+                        {Math.round(elevationBox(selectedCab, room).bottom)}″
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        title={t("dt_cx_lower")}
+                        onClick={() => adjustMountHeight(-1)}
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+                      {typeof selectedCab.mountBottom === "number" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-[11px] text-muted-foreground"
+                          title={t("dt_cx_reset_mount")}
+                          onClick={resetMountHeight}
+                        >
+                          {t("dt_cx_reset")}
+                        </Button>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 h-8 gap-1 px-3 text-[11px]"
+                      title={t("dt_cx_drop_island")}
+                      onClick={() => dropToFloor(selectedCab.uid)}
+                    >
+                      <ChevronsDown className="h-3.5 w-3.5" />
+                      {t("dt_cx_drop_to_floor")}
+                    </Button>
+                  </div>
+                )}
+
+                {isBlindCorner(selectedCab.masterCode, selectedCab.description) && (
+                  <div
+                    className={`rounded-xl border border-border p-3 ${
+                      typeof selectedCab.pullMin === "number" && typeof selectedCab.pullMax === "number"
+                        ? "bg-muted/30"
+                        : "bg-red-50 ring-1 ring-red-300"
+                    }`}
+                    title={t("dt_cx_pull_spec_title")}
+                  >
+                    <div className="mb-2 text-sm font-semibold text-foreground">{t("dt_cx_pull_spec")}</div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={typeof selectedCab.pullMin === "number" ? selectedCab.pullMin : ""}
+                        placeholder={t("dt_cx_min")}
+                        className="h-9 w-20 text-[12px]"
+                        onChange={(e) => setBlindPull("pullMin", e.target.value === "" ? null : Number(e.target.value))}
+                      />
+                      <span className="text-sm text-muted-foreground">–</span>
+                      <Input
+                        type="number"
+                        value={typeof selectedCab.pullMax === "number" ? selectedCab.pullMax : ""}
+                        placeholder={t("dt_cx_max")}
+                        className="h-9 w-20 text-[12px]"
+                        onChange={(e) => setBlindPull("pullMax", e.target.value === "" ? null : Number(e.target.value))}
+                      />
+                      <span className="text-sm text-muted-foreground">{t("dt_cx_in")}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
 
       {/* Main area */}

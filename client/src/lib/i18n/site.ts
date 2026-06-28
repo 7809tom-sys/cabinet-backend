@@ -996,6 +996,7 @@ export const SITE_STRINGS = {
     dt_cx_apply_to_all: "Apply to all",
     dt_cx_drop_to_floor: "Drop to floor",
     dt_cx_in: "in",
+    dt_cx_custom_size: "Custom Size",
     dt_pl_search_closet: "Search parts by name or size...",
     dt_pl_search_kitchen: "Search by name, code, or size (e.g. \"DB-24\" or 24\")",
     dt_pl_clear_search: "Clear search",
@@ -2334,6 +2335,7 @@ export const SITE_STRINGS = {
     nf_title: "Página No Encontrada",
     nf_body: "Lo sentimos, la página que buscas no existe. Es posible que se haya movido o eliminado.",
     nf_home: "Ir al Inicio",
+    dt_cx_custom_size: "Tamaño Personalizado",
   },
 } as const;
 
