@@ -387,6 +387,24 @@ export default function DesignTool() {
     }
     return Array.from(map.values()).sort((a, b) => (a.ourName || "").localeCompare(b.ourName || ""));
   }, [doorStyles, lockedDistributorId]);
+
+  // Color 2 (slot B) must come from the same distributor as Color 1 (slot A).
+  // Build a filtered list scoped to that distributor so the picker only shows
+  // compatible options. Falls back to the full uniqueDoorStyles list when
+  // Color 1 has no distributor association (e.g. no style selected yet).
+  const slotBStyles = useMemo(() => {
+    if (styleA == null) return uniqueDoorStyles;
+    const source = (doorStyles ?? []) as Array<{ id: number; ourName: string | null; distributorId?: number }>;
+    const distA = source.find((d) => d.id === styleA)?.distributorId ?? null;
+    if (distA == null) return uniqueDoorStyles;
+    // Filter to same distributor, then de-duplicate by name (same as uniqueDoorStyles).
+    const map = new Map<string, { id: number; ourName: string | null }>();
+    for (const s of source.filter((s) => s.distributorId === distA)) {
+      const key = (s.ourName || String(s.id)).toLowerCase();
+      if (!map.has(key)) map.set(key, s);
+    }
+    return Array.from(map.values()).sort((a, b) => (a.ourName || "").localeCompare(b.ourName || ""));
+  }, [doorStyles, styleA, uniqueDoorStyles]);
   const { data: paletteCabinets, isLoading: paletteLoadingRaw } =
     trpc.design.placeableCabinets.useQuery(
       {
@@ -2190,6 +2208,17 @@ export default function DesignTool() {
   // Assign a door style to a slot (from the picker). Setting the active slot's
   // style also updates styleId. Slot B is the two-tone second color.
   const setSlotStyle = useCallback((slot: "A" | "B", newStyleId: number) => {
+    // Enforce same-distributor rule: Color 2 must come from the same distributor
+    // as Color 1 so the order stays within a single supply line.
+    if (slot === "B" && styleA != null) {
+      const source = (doorStyles ?? []) as Array<{ id: number; distributorId?: number }>;
+      const distA = source.find((d) => d.id === styleA)?.distributorId ?? null;
+      const distNew = source.find((d) => d.id === newStyleId)?.distributorId ?? null;
+      if (distA != null && distNew != null && distA !== distNew) {
+        toast.error("Color 2 must be from the same supplier as Color 1. Please choose a style from the same line.");
+        return;
+      }
+    }
     // If no active style is set yet (first pick), make THIS slot active so the
     // catalog populates immediately — otherwise picking a style into a
     // non-active slot would leave styleId null and the cabinet list empty
@@ -2208,7 +2237,7 @@ export default function DesignTool() {
         setStyleId(newStyleId);
       }
     }
-  }, [activeSlot, styleId]);
+  }, [activeSlot, styleId, styleA, doorStyles]);
 
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(
@@ -3735,7 +3764,7 @@ export default function DesignTool() {
                 slot="B"
                 active={activeSlot === "B"}
                 style={styleB != null ? (doorStyles?.find((d) => d.id === styleB) ?? null) : null}
-                styles={uniqueDoorStyles}
+                styles={slotBStyles}
                 onSelect={() => {
                   if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
                   if (styleB != null) selectColorSlot("B"); else toast.info(t("dt_t_second_style_first"));
