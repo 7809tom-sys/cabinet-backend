@@ -2849,3 +2849,54 @@ export function missingCornerBaseViolations(
 
   return violations;
 }
+
+// ─── Gap Intelligence ────────────────────────────────────────────────────────
+// Compute all gaps on every wall for a given placement layer, returning each
+// gap with its run-axis start, length, center position, and wall side so the
+// canvas can render a measurement label and fill-suggestion popover.
+export type WallGap = {
+  side: WallSide;
+  layer: "base" | "wall";
+  /** Run-axis start of the gap (inches from the wall's near corner). */
+  start: number;
+  /** Gap length in inches. */
+  length: number;
+  /** Run-axis center of the gap (for label placement). */
+  center: number;
+  /** True if the gap is exactly a standard cabinet width (9"–48" in 3" steps). */
+  isStandardSize: boolean;
+  /** True if the gap is small enough to be filled with a filler (≤ 6"). */
+  isFillerSize: boolean;
+};
+
+const STANDARD_WIDTHS_GAP = [9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48];
+
+export function wallGaps(
+  room: RoomData,
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  /** Minimum gap size to report (default 1" — show every gap). */
+  minLen = 1
+): WallGap[] {
+  const sides: WallSide[] = ["top", "bottom", "left", "right"];
+  const layers: Array<"base" | "wall"> = ["base", "wall"];
+  const gaps: WallGap[] = [];
+  for (const side of sides) {
+    for (const layer of layers) {
+      const segs = freeSegmentsOnWall(side, room, placed, openings, minLen, 0, layer);
+      for (const seg of segs) {
+        const len = seg.length;
+        gaps.push({
+          side,
+          layer,
+          start: seg.start,
+          length: len,
+          center: seg.start + len / 2,
+          isStandardSize: STANDARD_WIDTHS_GAP.some((w) => Math.abs(w - len) < 0.5),
+          isFillerSize: len <= 6,
+        });
+      }
+    }
+  }
+  return gaps;
+}

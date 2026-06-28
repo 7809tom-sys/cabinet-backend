@@ -7,6 +7,7 @@ import {
   clampRoomInches, inchesToFeetInches, WallSide,
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
+  wallGaps, type WallGap,
 } from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -213,6 +214,8 @@ export function PlanCanvas({
   // plus a live preview of the resulting room size (inches) for the readout.
   const wallDrag = useRef<{ side: WallSide; startX: number; startY: number } | null>(null);
   const [wallPreview, setWallPreview] = useState<{ side: WallSide; w: number; h: number } | null>(null);
+  // Gap intelligence: which gap label was clicked (shows fill suggestions).
+  const [activeGap, setActiveGap] = useState<WallGap | null>(null);
 
   const PADDING = 48;
 
@@ -989,6 +992,77 @@ export function PlanCanvas({
             {formatInches(measure.distIn)}
           </div>
         )}
+
+        {/* ─── Gap intelligence labels ─────────────────────────────────── */}
+        {!dragUid && !measureMode && (() => {
+          const gaps = wallGaps(room, cabinets, openings, 1);
+          // Helper: convert a gap's run-axis center to pixel x/y inside the room div.
+          const gapPx = (g: WallGap): { left: number; top: number } => {
+            const BAND = 10; // px inset from the wall
+            if (g.side === "top")    return { left: g.center * ppi, top: BAND };
+            if (g.side === "bottom") return { left: g.center * ppi, top: roomPxH - BAND };
+            if (g.side === "left")   return { left: BAND, top: g.center * ppi };
+            return { left: roomPxW - BAND, top: g.center * ppi };
+          };
+          // Only show base-layer gaps (most actionable for the user).
+          const baseGaps = gaps.filter((g) => g.layer === "base" && g.length >= 3);
+          return baseGaps.map((g, i) => {
+            const pos = gapPx(g);
+            const isActive = activeGap?.side === g.side && activeGap?.start === g.start && activeGap?.layer === g.layer;
+            const color = g.isFillerSize ? "#e07b39" : g.isStandardSize ? "#2e7d32" : "#1a2744";
+            const STANDARD_WIDTHS = [9,12,15,18,21,24,27,30,33,36,39,42,45,48];
+            const suggestions = STANDARD_WIDTHS.filter((w) => w <= g.length && g.length - w <= 3);
+            return (
+              <div key={`gap-${g.side}-${i}`}>
+                {/* Gap label chip */}
+                <div
+                  className="absolute z-30 cursor-pointer select-none -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md transition-transform hover:scale-110 active:scale-95"
+                  style={{ left: pos.left, top: pos.top, background: color, border: "1.5px solid white" }}
+                  onClick={(e) => { e.stopPropagation(); setActiveGap(isActive ? null : g); }}
+                  title={`${formatInches(g.length)} gap — click for fill suggestions`}
+                >
+                  {formatInches(g.length)}
+                </div>
+                {/* Fill suggestions popover */}
+                {isActive && (
+                  <div
+                    className="absolute z-50 rounded-lg bg-white shadow-xl border border-gray-200 p-3 min-w-[160px]"
+                    style={{ left: pos.left + 10, top: pos.top + 10 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="text-[10px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                      {formatInches(g.length)} gap
+                    </div>
+                    {g.isFillerSize && (
+                      <div className="text-[11px] text-orange-600 font-medium mb-1">Use a filler strip</div>
+                    )}
+                    {suggestions.length > 0 ? (
+                      <>
+                        <div className="text-[10px] text-gray-400 mb-1">Cabinet widths that fit:</div>
+                        {suggestions.map((w) => (
+                          <div key={w} className="flex items-center justify-between gap-2 py-0.5">
+                            <span className="text-[11px] font-medium text-gray-700">{w}" wide</span>
+                            {w === g.length ? (
+                              <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">Exact fit</span>
+                            ) : (
+                              <span className="text-[9px] text-gray-400">{formatInches(g.length - w)} filler</span>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="text-[11px] text-gray-400">No standard cabinet fits — use a custom filler</div>
+                    )}
+                    <button
+                      className="mt-2 w-full text-[10px] text-gray-400 hover:text-gray-600 text-right"
+                      onClick={() => setActiveGap(null)}
+                    >close ×</button>
+                  </div>
+                )}
+              </div>
+            );
+          });
+        })()}
 
         {xTicks.map((t) => (
           <div
