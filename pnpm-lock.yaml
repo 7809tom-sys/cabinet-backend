@@ -163,9 +163,6 @@ importers:
       lucide-react:
         specifier: ^0.453.0
         version: 0.453.0(react@19.2.1)
-      mysql2:
-        specifier: ^3.15.0
-        version: 3.15.1
       nanoid:
         specifier: ^5.1.5
         version: 5.1.6
@@ -269,6 +266,9 @@ importers:
       exceljs:
         specifier: ^4.4.0
         version: 4.4.0
+      mysql2:
+        specifier: ^3.15.1
+        version: 3.15.1
       pnpm:
         specifier: ^10.15.1
         version: 10.18.0
