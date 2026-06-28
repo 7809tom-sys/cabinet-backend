@@ -164,8 +164,37 @@ function AffiliateReferrals({ affiliateId }: { affiliateId: number }) {
   );
 }
 
+const TEMPLATES = [
+  {
+    id: "classic" as const,
+    name: "Classic",
+    desc: "Navy split hero with lifestyle photo and serif headline.",
+    badge: "Most popular",
+  },
+  {
+    id: "showcase" as const,
+    name: "Showcase",
+    desc: "Full-bleed kitchen photo with overlaid headline and CTAs.",
+    badge: "Bold",
+  },
+  {
+    id: "minimal" as const,
+    name: "Minimal",
+    desc: "Light, airy layout with thin rules and lots of whitespace.",
+    badge: "Clean",
+  },
+  {
+    id: "craftsman" as const,
+    name: "Craftsman",
+    desc: "Warm, bold type on an accent block — no photo required.",
+    badge: "Warm",
+  },
+];
+
 function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"template" | "details">("template");
+  const [selectedTemplate, setSelectedTemplate] = useState<"classic" | "showcase" | "minimal" | "craftsman">("classic");
   const [form, setForm] = useState({
     storeName: "", contactName: "", email: "", phone: "", website: "",
     location: "", slug: "", referralCode: "", commissionPct: "5",
@@ -175,13 +204,15 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
     onSuccess: () => {
       toast.success("Affiliate created");
       setOpen(false);
+      setStep("template");
+      setSelectedTemplate("classic");
       setForm({ storeName: "", contactName: "", email: "", phone: "", website: "", location: "", slug: "", referralCode: "", commissionPct: "5" });
       onCreated();
     },
     onError: (e) => toast.error("Could not create", { description: e.message }),
   });
 
-  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
+  function setField<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
@@ -200,69 +231,141 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
       referralCode: form.referralCode || undefined,
       commissionRate: isNaN(pct) ? 0.05 : pct / 100,
       status: "active",
+      template: selectedTemplate,
     });
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) { setStep("template"); setSelectedTemplate("classic"); }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2"><Plus className="h-4 w-4" /> Add Affiliate</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add Affiliate</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label>Store name *</Label>
-            <Input value={form.storeName} onChange={(e) => set("storeName", e.target.value)} placeholder="First Class Flooring & Cabinet Design" />
+
+      {/* ── Step 1: Template picker ── */}
+      {step === "template" && (
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Choose a Storefront Template</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Pick the layout that best fits this affiliate’s brand. They can change it later from their dashboard.
+            </p>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            {TEMPLATES.map((tpl) => {
+              const active = selectedTemplate === tpl.id;
+              return (
+                <div
+                  key={tpl.id}
+                  onClick={() => setSelectedTemplate(tpl.id)}
+                  className={
+                    "relative cursor-pointer rounded-xl border-2 p-4 transition-all " +
+                    (active
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border hover:border-primary/40 hover:bg-muted/50")
+                  }
+                >
+                  {active && (
+                    <div className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
+                      <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2 mb-2">
+                    <div className="font-semibold text-sm">{tpl.name}</div>
+                    <span className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5">{tpl.badge}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{tpl.desc}</p>
+                  <a
+                    href={`/store-preview/${tpl.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-3 w-3" /> Live preview
+                  </a>
+                </div>
+              );
+            })}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => setStep("details")}>
+              Continue with {TEMPLATES.find((t) => t.id === selectedTemplate)?.name} →
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      )}
+
+      {/* ── Step 2: Details form ── */}
+      {step === "details" && (
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Affiliate</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Template: <span className="font-medium text-foreground">{TEMPLATES.find((t) => t.id === selectedTemplate)?.name}</span>
+              {" — "}
+              <button onClick={() => setStep("template")} className="text-primary hover:underline text-sm">Change</button>
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Contact name</Label>
-              <Input value={form.contactName} onChange={(e) => set("contactName", e.target.value)} />
+              <Label>Store name *</Label>
+              <Input value={form.storeName} onChange={(e) => setField("storeName", e.target.value)} placeholder="First Class Flooring & Cabinet Design" />
             </div>
-            <div className="space-y-1.5">
-              <Label>Email *</Label>
-              <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="store@example.com" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Contact name</Label>
+                <Input value={form.contactName} onChange={(e) => setField("contactName", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Email *</Label>
+                <Input type="email" value={form.email} onChange={(e) => setField("email", e.target.value)} placeholder="store@example.com" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input value={form.phone} onChange={(e) => setField("phone", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Website</Label>
+                <Input value={form.website} onChange={(e) => setField("website", e.target.value)} placeholder="https://…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Location</Label>
+                <Input value={form.location} onChange={(e) => setField("location", e.target.value)} placeholder="Osprey, FL" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Commission %</Label>
+                <Input type="number" value={form.commissionPct} onChange={(e) => setField("commissionPct", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Storefront slug</Label>
+                <Input value={form.slug} onChange={(e) => setField("slug", e.target.value)} placeholder="auto from name" className="font-mono text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Referral code</Label>
+                <Input value={form.referralCode} onChange={(e) => setField("referralCode", e.target.value)} placeholder="auto from name" className="font-mono text-sm" />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Website</Label>
-              <Input value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://…" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Location</Label>
-              <Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="Osprey, FL" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Commission %</Label>
-              <Input type="number" value={form.commissionPct} onChange={(e) => set("commissionPct", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Storefront slug</Label>
-              <Input value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder="auto from name" className="font-mono text-sm" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Referral code</Label>
-              <Input value={form.referralCode} onChange={(e) => set("referralCode", e.target.value)} placeholder="auto from name" className="font-mono text-sm" />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              The affiliate signs in with this email to access their dashboard. Slug and referral code are
+              generated from the store name if left blank.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            The affiliate signs in with this email to access their dashboard. Slug and referral code are
-            generated from the store name if left blank.
-          </p>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={submit} disabled={create.isPending}>
-            {create.isPending ? "Creating…" : "Create affiliate"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStep("template")}>← Back</Button>
+            <Button onClick={submit} disabled={create.isPending}>
+              {create.isPending ? "Creating…" : "Create affiliate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      )}
     </Dialog>
   );
 }

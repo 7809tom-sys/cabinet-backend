@@ -118,6 +118,52 @@ export const affiliatesRouter = router({
       return { id: a.id, storeName: a.storeName, slug: a.slug, referralCode: a.referralCode };
     }),
 
+  // ─── Public: template preview — returns mock storefront data for a given template ──
+  previewTemplate: publicProcedure
+    .input(z.object({ template: z.enum(["classic", "showcase", "minimal", "craftsman"]) }))
+    .query(({ input }) => {
+      // Returns a fully-populated mock affiliate so the Storefront page can
+      // render a live preview without a real database row.
+      const names: Record<string, string> = {
+        classic: "Premier Kitchen & Bath",
+        showcase: "Showcase Cabinetry Co.",
+        minimal: "Studio Cabinet Design",
+        craftsman: "Craftsman Cabinet Works",
+      };
+      const taglines: Record<string, string> = {
+        classic: "Beautiful Kitchens, Built Around You.",
+        showcase: "Your Dream Kitchen Starts Here.",
+        minimal: "Clean Lines. Lasting Quality.",
+        craftsman: "Crafted for the Way You Live.",
+      };
+      return {
+        id: 0,
+        storeName: names[input.template] ?? "Example Cabinets",
+        slug: `preview-${input.template}`,
+        contactName: "Demo Contact",
+        email: "demo@cabinetdealz.com",
+        phone: "(555) 000-0000",
+        website: null,
+        location: "Sarasota, FL",
+        referralCode: "DEMO",
+        status: "active" as const,
+        logoUrl: null,
+        primaryColor: null,
+        accentColor: null,
+        heroImageUrl: null,
+        tagline: taglines[input.template] ?? "Quality Cabinets at Trade Prices.",
+        taglineEs: null,
+        aboutText: "This is a live preview of the storefront template. Your store name, logo, colors, and contact info will appear here after setup.",
+        aboutTextEs: null,
+        serviceArea: "Sarasota & Manatee Counties",
+        yearsInBusiness: null,
+        facebookUrl: null,
+        instagramUrl: null,
+        storefrontEnabled: true,
+        template: input.template,
+      };
+    }),
+
   // ─── Public: list active storefronts (directory) ───────────────────────────
   listActive: publicProcedure.query(async () => {
     const db = await getDb();

@@ -2088,3 +2088,15 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Added shrink-0 to door-style hero block and SheetSection so BOM list gets remaining height
 - [x] Color 2 warehouse filter: doorStyles.list now returns distributorId in TypeScript type (server fix from checkpoint a8d86989) — uniqueDoorStyles filter now works correctly
 - [x] Typecheck clean, checkpoint + publish
+
+## Email Integration & Sales Resources
+- [ ] Install nodemailer and add SMTP email service (server/email.ts)
+- [ ] Add SMTP secrets (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM) via webdev_request_secrets
+- [ ] Add tRPC procedure crm.sendEmail to send email from a deal with activity log entry
+- [ ] Add email compose UI in CRM deal drawer (To/Subject/Body + attach brochure)
+- [ ] Add brochures table to drizzle schema (id, title, description, fileKey, fileUrl, isPublic, createdAt)
+- [ ] Add tRPC procedures: brochures.list, brochures.upload (admin), brochures.delete (admin)
+- [ ] Build public Sales Resources page (/resources) with downloadable brochures
+- [ ] Build admin Brochures tab in Admin panel for uploading/managing brochures
+- [ ] Wire brochure picker into CRM email compose (attach brochure link to email body)
+- [ ] Add Resources link to main nav and footer

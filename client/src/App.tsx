@@ -23,6 +23,7 @@ const BecomeVendor = lazy(() => import("@/pages/BecomeVendor"));
 const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const Storefront = lazy(() => import("@/pages/Storefront"));
+const StorefrontPreview = lazy(() => import("@/pages/StorefrontPreview"));
 const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
 const Cart = lazy(() => import("@/pages/Cart"));
 const DistributorPortal = lazy(() => import("@/pages/DistributorPortal"));
@@ -76,6 +77,14 @@ export default function App() {
           {(params) => (
             <Suspense fallback={<PageLoader />}>
               <Storefront slug={params.slug} />
+            </Suspense>
+          )}
+        </Route>
+        {/* Live template preview — no real affiliate needed */}
+        <Route path="/store-preview/:template">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <StorefrontPreview template={params.template as "classic" | "showcase" | "minimal" | "craftsman"} />
             </Suspense>
           )}
         </Route>

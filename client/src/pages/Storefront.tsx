@@ -21,14 +21,21 @@ type TemplateId = "classic" | "showcase" | "minimal" | "craftsman";
 
 type Brand = { primary: string; accent: string };
 
+// Defined early so the Storefront function can reference it in its props
+type StorefrontData = NonNullable<inferRouterOutputs<AppRouter>["affiliates"]["bySlug"]>;
+
 function color(val: string | null | undefined, fallback: string): string {
   if (!val) return fallback;
   const v = val.trim();
   return /^#?[0-9a-fA-F]{3,8}$/.test(v) ? (v.startsWith("#") ? v : `#${v}`) : fallback;
 }
 
-export default function Storefront({ slug }: { slug: string }) {
-  const { data, isLoading } = trpc.affiliates.bySlug.useQuery({ slug }, { retry: false });
+export default function Storefront({ slug, previewData }: { slug: string; previewData?: StorefrontData }) {
+  const { data: fetchedData, isLoading } = trpc.affiliates.bySlug.useQuery(
+    { slug },
+    { retry: false, enabled: !previewData }
+  );
+  const data = previewData ?? fetchedData;
   const { lang, toggle, t } = useStorefrontLang();
 
   // Capture this affiliate's referral code for the visitor's session.
@@ -274,7 +281,6 @@ export default function Storefront({ slug }: { slug: string }) {
 }
 
 // ─── Shared header-nav props ─────────────────────────────────────────────────
-type StorefrontData = NonNullable<inferRouterOutputs<AppRouter>["affiliates"]["bySlug"]>;
 
 type TFn = ReturnType<typeof useStorefrontLang>["t"];
 
