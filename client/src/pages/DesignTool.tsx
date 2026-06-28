@@ -50,7 +50,7 @@ import {
   freeSegmentsOnWall, wallPlacementAt, cabinetWall,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-  elevationBox,
+  elevationBox, isStacker, wallCabinetTopLine,
 } from "@/lib/design";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import {
@@ -1407,6 +1407,34 @@ export default function DesignTool() {
             spot = { x: cx, y: cy, rotation: 0 };
           }
         }
+        // ── Stacker auto-snap ──────────────────────────────────────────────
+        // Glass stacker wall cabinets (12"/15"/18" GD stackers) should sit
+        // directly on top of a matching wall cabinet below. When one is placed,
+        // find the nearest wall cabinet on the same wall whose width matches
+        // (within 0.5") and snap the stacker's X to align with it. Also set
+        // mountBottom to wallCabinetTopLine so the elevation view places it
+        // correctly above the standard upper run.
+        let stackerMountBottom: number | undefined;
+        if (accPlacement === "wall" && isStacker(c)) {
+          const topLine = wallCabinetTopLine(room);
+          stackerMountBottom = topLine;
+          // Find wall cabinets on the same wall as the new stacker's spot.
+          const sameWallCabs = prev.filter((p) => {
+            if (p.placement !== "wall" || isStacker(p)) return false;
+            const pw = cabinetWall(p, room);
+            const sw = cabinetWall({ ...p, x: spot.x, y: spot.y, width, depth, rotation: spot.rotation }, room);
+            return pw === sw;
+          });
+          // Find the best match: same width (±0.5") and closest X.
+          const bestMatch = sameWallCabs
+            .filter((p) => Math.abs(p.width - width) <= 0.5)
+            .sort((a, b) => Math.abs(a.x - spot.x) - Math.abs(b.x - spot.x))[0];
+          if (bestMatch) {
+            // Snap stacker X to align with the wall cabinet below it.
+            spot = { ...spot, x: bestMatch.x, y: bestMatch.y };
+            toast.success("Stacker snapped above " + (bestMatch.masterCode ?? "wall cabinet"));
+          }
+        }
         const newCab: PlacedCabinet = {
           uid: makeUid(),
           cabinetId: c.id,
@@ -1441,6 +1469,9 @@ export default function DesignTool() {
           // to repaint the moment a 2nd color was activated.) When no style is
           // chosen yet, fall back to null so the cabinet tracks the single default.
           styleId: styleIdRef.current ?? null,
+          // Stacker: pin mountBottom to the wall-cabinet top line so the
+          // elevation view places it directly above the standard upper run.
+          ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
         };
         setSelectedUid(newCab.uid);
         // Sink-base auto-fixture: dropping a sink base (SB-*) means there's a
