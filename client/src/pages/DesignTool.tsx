@@ -1364,7 +1364,6 @@ export default function DesignTool() {
 
   const addCabinet = useCallback(
     (c: DesignCabinet, x?: number, y?: number) => {
-      if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
       // Placeable accessories (decorative/end panels, skins, appliance garages)
       // come in via the Accessories tab. Force a sensible placement (base vs
       // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they

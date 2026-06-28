@@ -494,7 +494,6 @@ export function PlanCanvas({
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
-        if (cabinetsLocked) return; // block new drops when locked
         const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement;
         if (roomEl && onDropNew) {
           onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi);
