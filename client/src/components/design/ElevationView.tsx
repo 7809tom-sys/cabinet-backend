@@ -2,7 +2,7 @@ import {
   PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
   type DoorPanelKind, type WallSide, cabinetWall,
-  countertopMaterial, roomCeiling, bearsCountertop,
+  countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial,
 } from "@/lib/design";
@@ -280,18 +280,23 @@ export function ElevationView({
 
         {/* Countertop band: a thin colored slab sitting on top of the base run,
             its top edge on the 36" counter line, colored by the chosen material.
-            Drawn as one band PER CONTIGUOUS RUN of base cabinets only — appliances
-            (refrigerator, range, dishwasher) and tall cabinets are excluded so the
-            counter never appears to run through the fridge or bridge an appliance
-            gap. */}
+            Drawn as one band PER CONTIGUOUS RUN of base cabinets + dishwasher-height
+            appliances (DW-*). Tall appliances like the refrigerator are excluded so
+            the counter breaks at the fridge but bridges over the dishwasher. */}
         {countertopMaterialId && (() => {
           const mat = countertopMaterial(countertopMaterialId);
           const THICKNESS_IN = 1.5;
           const OVERHANG_IN = 0.75; // a little nosing past the cabinet faces
           const TOL = 1.5; // inches: treat near-touching base cabinets as one run
+          // Dishwasher-height appliances (DW-*) are counter-height so the slab
+          // bridges over them. Tall appliances (FRIDGE-*) are excluded — the
+          // counter must stop at the fridge, not run through it.
+          const isBridgeable = (p: PlacedCabinet) =>
+            bearsCountertop(p) ||
+            (p.placement === "appliance" && /^DW[-_]?\d/i.test(p.masterCode ?? ""));
           // Base-cabinet spans along this wall, sorted by start position.
           const spans = sorted
-            .filter((p) => bearsCountertop(p))
+            .filter(isBridgeable)
             .map((p) => {
               const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
               const posAlong = horizontal ? p.x : p.y;
@@ -420,6 +425,46 @@ export function ElevationView({
               />
             );
           })}
+
+        {/* Faucet: drawn above sink base cabinets (SB-*). Shows a vertical
+            riser + horizontal spout + aerator + handle knob sitting on top of
+            the countertop so the faucet is visible in Front View even though
+            the sink bowl is cut into the counter. */}
+        {sorted.filter((p) => isSinkBaseCabinet(p)).map((p) => {
+          const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+          const posAlong = horizontal ? p.x : p.y;
+          const centerX = (posAlong + sizeAlong / 2) * ppi;
+          const riserH = 8 * ppi;          // 8" riser above countertop
+          const spoutW = 4 * ppi;          // 4" horizontal spout arm
+          const spoutThick = Math.max(2, 1.5 * ppi);
+          const riserThick = Math.max(2, 1.5 * ppi);
+          const knobR = Math.max(3, 1.5 * ppi);
+          const svgW = spoutW + knobR * 3;
+          const svgH = riserH + knobR * 2 + 4;
+          return (
+            <svg
+              key={`faucet-${p.uid}`}
+              className="absolute pointer-events-none"
+              style={{
+                left: centerX - svgW / 2,
+                bottom: (STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi,
+                width: svgW,
+                height: svgH,
+                overflow: "visible",
+                zIndex: 26,
+              }}
+            >
+              {/* Vertical riser */}
+              <rect x={svgW / 2 - riserThick / 2} y={0} width={riserThick} height={riserH} fill="#8a9bb0" rx={1} />
+              {/* Horizontal spout arm (goes left from riser top) */}
+              <rect x={svgW / 2 - spoutW} y={riserH * 0.15} width={spoutW} height={spoutThick} fill="#8a9bb0" rx={1} />
+              {/* Aerator / spout tip */}
+              <circle cx={svgW / 2 - spoutW} cy={riserH * 0.15 + spoutThick / 2} r={Math.max(2, 2 * ppi)} fill="#6b7d90" />
+              {/* Handle knob (right side of riser) */}
+              <circle cx={svgW / 2 + knobR * 1.2} cy={riserH * 0.5} r={knobR} fill="#c0ccd8" stroke="#8a9bb0" strokeWidth={1} />
+            </svg>
+          );
+        })}
 
         {/* Crown molding: band across the top of each wall cabinet */}
         {crown && sorted.filter((p) => p.placement === "wall").map((p) => {
