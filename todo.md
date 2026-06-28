@@ -2109,7 +2109,7 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Wire all four new tabs into Admin page
 
 ## Kitchen Designer Visual Enhancements
-- [ ] Furniture tab in palette (tables, chairs, stools, benches) - floor plan only
-- [ ] Furniture drag/rotate/delete in PlanCanvas
-- [ ] Backsplash material selector (tile patterns, colors) in elevation view
-- [ ] Flooring material selector (tile, hardwood, LVP patterns) in bird's-eye plan view
+- [x] Furniture tab in palette (tables, chairs, stools, benches) - floor plan only
+- [x] Furniture drag/rotate/delete in PlanCanvas
+- [x] Backsplash material selector (tile patterns, colors) in elevation view
+- [x] Flooring material selector (tile, hardwood, LVP patterns) in bird's-eye plan view

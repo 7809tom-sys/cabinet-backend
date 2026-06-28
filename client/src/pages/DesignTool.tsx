@@ -44,6 +44,8 @@ import {
   finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
+  BACKSPLASH_MATERIALS, backsplashMaterial,
+  FLOORING_MATERIALS, flooringMaterial,
   makeSink, SINK_PRESETS, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
@@ -266,6 +268,10 @@ export default function DesignTool() {
   const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory" | "furniture">("base");
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
+  // Backsplash material: shown in elevation view between countertop and wall cabinets.
+  const [backsplashMaterialId, setBacksplashMaterialId] = useState<string | null>(null);
+  // Flooring material: shown as a pattern in the bird's-eye plan view.
+  const [flooringMaterialId, setFlooringMaterialId] = useState<string | null>(null);
   // Accordion: which palette group headers the user has explicitly collapsed.
   // Keyed by `${paletteType}:${groupLabel}` so collapse state is per-tab. By
   // default every group is OPEN; toggling adds/removes the key here. While
@@ -2401,6 +2407,8 @@ export default function DesignTool() {
     lightRail,
     countertop,
     countertopMaterialId,
+    backsplashMaterialId,
+    flooringMaterialId,
     sinks,
     roomType,
     activeWall,
@@ -2462,6 +2470,8 @@ export default function DesignTool() {
           setLightRail(!!d.lightRail);
           setCountertop(!!d.countertop);
           if (typeof d.countertopMaterialId === "string") setCountertopMaterialId(d.countertopMaterialId);
+          if (typeof d.backsplashMaterialId === "string") setBacksplashMaterialId(d.backsplashMaterialId);
+          if (typeof d.flooringMaterialId === "string") setFlooringMaterialId(d.flooringMaterialId);
           if (Array.isArray(d.sinks)) setSinks(d.sinks);
           if (d.roomType) setRoomType(d.roomType);
           if (d.activeWall) setActiveWall(d.activeWall);
@@ -2486,7 +2496,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -3492,6 +3502,7 @@ export default function DesignTool() {
               onMoveFurn={(uid, x, y) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, x, y } : f))}
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
+              flooringMaterialId={flooringMaterialId}
             />
           )}
           {viewMode === "elevation" && (
@@ -3503,6 +3514,7 @@ export default function DesignTool() {
               wall={activeWall}
               onSelectWall={setActiveWall}
               countertopMaterialId={countertop ? countertopMaterialId : null}
+              backsplashMaterialId={backsplashMaterialId}
               openings={openings}
               finish={activeFinish}
               crown={crown}
@@ -3581,6 +3593,7 @@ export default function DesignTool() {
               onMoveFurn={(uid, x, y) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, x, y } : f))}
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
+              flooringMaterialId={flooringMaterialId}
                 />
               </div>
               <div className="flex-1 min-h-0">
@@ -3592,6 +3605,7 @@ export default function DesignTool() {
                   wall={activeWall}
                   onSelectWall={setActiveWall}
                   countertopMaterialId={countertop ? countertopMaterialId : null}
+                  backsplashMaterialId={backsplashMaterialId}
                   openings={openings}
                   finish={activeFinish}
                   crown={crown}
@@ -4184,6 +4198,76 @@ export default function DesignTool() {
                 <p className="text-[10px] text-muted-foreground mt-2">{t("dt_bs_sink_tip")}</p>
               </div>
             )}
+
+            {/* ── Backsplash Material Picker ─────────────────────────────── */}
+            <div className="mt-4 rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground mb-2">Backsplash</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {BACKSPLASH_MATERIALS.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setBacksplashMaterialId(backsplashMaterialId === m.id ? null : m.id)}
+                    className={`flex flex-col items-center gap-1 rounded-md border p-1.5 text-[9px] font-medium transition-colors ${
+                      backsplashMaterialId === m.id
+                        ? "border-[#1a2744] bg-[#1a2744]/10 text-[#1a2744]"
+                        : "border-border hover:border-[#1a2744]/40"
+                    }`}
+                    title={m.name}
+                  >
+                    <span
+                      className="w-8 h-5 rounded shrink-0"
+                      style={{
+                        background: m.fill,
+                        border: `1px solid ${m.grout}`,
+                        backgroundImage: m.pattern === "subway"
+                          ? `repeating-linear-gradient(0deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 8px), repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 16px)`
+                          : m.pattern === "large-format"
+                          ? `repeating-linear-gradient(0deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 10px)`
+                          : m.pattern === "mosaic"
+                          ? `repeating-linear-gradient(0deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 5px), repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 5px)`
+                          : undefined,
+                      }}
+                    />
+                    <span className="leading-tight text-center line-clamp-2">{m.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Flooring Material Picker ───────────────────────────────── */}
+            <div className="mt-4 rounded-lg border border-border p-3">
+              <p className="text-xs font-semibold text-foreground mb-2">Flooring</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {FLOORING_MATERIALS.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setFlooringMaterialId(flooringMaterialId === m.id ? null : m.id)}
+                    className={`flex flex-col items-center gap-1 rounded-md border p-1.5 text-[9px] font-medium transition-colors ${
+                      flooringMaterialId === m.id
+                        ? "border-[#1a2744] bg-[#1a2744]/10 text-[#1a2744]"
+                        : "border-border hover:border-[#1a2744]/40"
+                    }`}
+                    title={m.name}
+                  >
+                    <span
+                      className="w-8 h-5 rounded shrink-0"
+                      style={{
+                        background: m.fill,
+                        border: `1px solid ${m.grout}`,
+                        backgroundImage: m.pattern === "hardwood" || m.pattern === "plank"
+                          ? `repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 12px)`
+                          : m.pattern === "tile-grid"
+                          ? `repeating-linear-gradient(0deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 10px)`
+                          : m.pattern === "herringbone"
+                          ? `repeating-linear-gradient(45deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 8px)`
+                          : undefined,
+                      }}
+                    />
+                    <span className="leading-tight text-center line-clamp-2">{m.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           </div>{/* end flex-col wrapper */}
         </PricingShell>

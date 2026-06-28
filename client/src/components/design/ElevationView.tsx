@@ -4,6 +4,7 @@ import {
   type DoorPanelKind, type WallSide, cabinetWall,
   countertopMaterial, roomCeiling, bearsCountertop,
   wallCeiling, wallCeilingIsSloped,
+  backsplashMaterial,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -30,6 +31,9 @@ interface Props {
   // When set, draw a thin colored countertop band on top of the base run at the
   // 36" counter line, colored by the chosen material. null/undefined = no band.
   countertopMaterialId?: string | null;
+  // When set, draw a backsplash texture between the countertop (36") and wall
+  // cabinet bottom (54"). null/undefined = no backsplash drawn.
+  backsplashMaterialId?: string | null;
   openings?: WallOpening[];
   finish?: FinishColors;
   crown?: boolean;
@@ -59,7 +63,7 @@ interface Props {
 }
 
 export function ElevationView({
-  room, cabinets, selectedUid, onSelect, wall, onSelectWall, countertopMaterialId = null, openings = [],
+  room, cabinets, selectedUid, onSelect, wall, onSelectWall, countertopMaterialId = null, backsplashMaterialId = null, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
@@ -323,6 +327,68 @@ export function ElevationView({
                     boxShadow: "0 1px 2px rgba(0,0,0,0.18)",
                   }}
                   title={t("dt_ev_countertop", { material: mat.name })}
+                />
+              ))}
+            </>
+          );
+        })()}
+
+        {/* Backsplash: fills the zone between countertop (36") and wall cabinet
+            bottom (54"). Only drawn on walls that have at least one base cabinet
+            run (same spans as the countertop). */}
+        {backsplashMaterialId && (() => {
+          const bsMat = backsplashMaterial(backsplashMaterialId);
+          const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS; // ~37.5"
+          const BACKSPLASH_TOP = STD.WALL_MOUNT_BOTTOM; // 54"
+          const BACKSPLASH_HEIGHT = BACKSPLASH_TOP - BACKSPLASH_BOTTOM;
+          const TOL = 1.5;
+          const spans = sorted
+            .filter((p) => bearsCountertop(p))
+            .map((p) => {
+              const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+              const posAlong = horizontal ? p.x : p.y;
+              return { start: posAlong, end: posAlong + sizeAlong };
+            })
+            .sort((a, b) => a.start - b.start);
+          if (spans.length === 0) return null;
+          const runs: { start: number; end: number }[] = [];
+          for (const s of spans) {
+            const last = runs[runs.length - 1];
+            if (last && s.start <= last.end + TOL) last.end = Math.max(last.end, s.end);
+            else runs.push({ start: s.start, end: s.end });
+          }
+          const tileWPx = Math.max(8, (bsMat.pattern === "subway" ? 16 : bsMat.pattern === "mosaic" ? 5 : 12) * ppi / 12);
+          const tileHPx = Math.max(6, (bsMat.pattern === "subway" ? 8 : bsMat.pattern === "mosaic" ? 5 : 12) * ppi / 12);
+          const bgImage = bsMat.pattern === "subway"
+            ? `repeating-linear-gradient(0deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px), repeating-linear-gradient(90deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileWPx}px)`
+            : bsMat.pattern === "mosaic"
+            ? `repeating-linear-gradient(0deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px), repeating-linear-gradient(90deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileWPx}px)`
+            : bsMat.pattern === "large-format"
+            ? `repeating-linear-gradient(0deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx * 2}px), repeating-linear-gradient(90deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileWPx * 2}px)`
+            : bsMat.pattern === "herringbone"
+            ? `repeating-linear-gradient(45deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px), repeating-linear-gradient(-45deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px)`
+            : bsMat.pattern === "hexagon"
+            ? `radial-gradient(circle at 50% 50%, ${bsMat.grout} 1px, transparent 1px)`
+            : undefined;
+          return (
+            <>
+              {runs.map((r, i) => (
+                <div
+                  key={`bs${i}`}
+                  className="absolute z-10 pointer-events-none"
+                  style={{
+                    left: r.start * ppi,
+                    width: (r.end - r.start) * ppi,
+                    bottom: BACKSPLASH_BOTTOM * ppi,
+                    height: BACKSPLASH_HEIGHT * ppi,
+                    background: bsMat.fill,
+                    backgroundImage: bgImage,
+                    backgroundSize: bsMat.pattern === "hexagon" ? `${tileWPx}px ${tileHPx}px` : undefined,
+                    borderTop: `1px solid ${bsMat.grout}`,
+                    borderBottom: `1px solid ${bsMat.grout}`,
+                    opacity: 0.85,
+                  }}
+                  title={`Backsplash: ${bsMat.name}`}
                 />
               ))}
             </>

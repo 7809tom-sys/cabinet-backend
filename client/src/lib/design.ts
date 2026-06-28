@@ -2958,3 +2958,67 @@ export function furnitureFootprint(f: PlacedFurniture, def: FurnitureDef): { w: 
   if (f.rotation === 90 || f.rotation === 270) return { w: def.d, d: def.w };
   return { w: def.w, d: def.d };
 }
+
+// ─── Backsplash Materials ─────────────────────────────────────────────────────
+export interface BacksplashMaterial {
+  id: string;
+  name: string;
+  /** CSS background for the backsplash area in elevation view */
+  fill: string;
+  /** Grout/outline color */
+  grout: string;
+  /** Tile pattern type for rendering hints */
+  pattern: "solid" | "subway" | "hexagon" | "mosaic" | "large-format" | "herringbone";
+}
+
+export const BACKSPLASH_MATERIALS: BacksplashMaterial[] = [
+  { id: "white-subway",     name: "White Subway Tile",    fill: "#f5f5f5", grout: "#c8c8c8", pattern: "subway" },
+  { id: "gray-subway",      name: "Gray Subway Tile",     fill: "#b0b8c1", grout: "#8a9099", pattern: "subway" },
+  { id: "marble-hex",       name: "Marble Hexagon",       fill: "#e8e8e8", grout: "#d0d0d0", pattern: "hexagon" },
+  { id: "white-hex",        name: "White Hexagon",        fill: "#f0f0f0", grout: "#cccccc", pattern: "hexagon" },
+  { id: "black-mosaic",     name: "Black Mosaic",         fill: "#2a2a2a", grout: "#444444", pattern: "mosaic" },
+  { id: "blue-zellige",     name: "Blue Zellige",         fill: "#4a7fa5", grout: "#2d5f80", pattern: "mosaic" },
+  { id: "terracotta",       name: "Terracotta",           fill: "#c0714a", grout: "#8a4e30", pattern: "large-format" },
+  { id: "white-large",      name: "White Large Format",   fill: "#f8f8f8", grout: "#e0e0e0", pattern: "large-format" },
+  { id: "herringbone-wood", name: "Wood Herringbone",     fill: "#b08050", grout: "#8a6038", pattern: "herringbone" },
+  { id: "stainless",        name: "Stainless Steel",      fill: "#c0c4c8", grout: "#a0a4a8", pattern: "solid" },
+  { id: "none",             name: "None (Painted Wall)",  fill: "#f0ece4", grout: "#f0ece4", pattern: "solid" },
+];
+
+export function backsplashMaterial(id: string | null | undefined): BacksplashMaterial {
+  return BACKSPLASH_MATERIALS.find((m) => m.id === id) ?? BACKSPLASH_MATERIALS[0];
+}
+
+// ─── Flooring Materials ───────────────────────────────────────────────────────
+export interface FlooringMaterial {
+  id: string;
+  name: string;
+  /** Primary fill color for plan view */
+  fill: string;
+  /** Grout/joint color */
+  grout: string;
+  /** Pattern type for plan-view rendering */
+  pattern: "hardwood" | "tile-grid" | "tile-diagonal" | "herringbone" | "chevron" | "solid" | "plank";
+  /** Plank/tile width in inches (for scale rendering) */
+  tileW: number;
+  /** Plank/tile height in inches */
+  tileH: number;
+}
+
+export const FLOORING_MATERIALS: FlooringMaterial[] = [
+  { id: "oak-hardwood",      name: "Oak Hardwood",         fill: "#c8a060", grout: "#a07840", pattern: "hardwood",     tileW: 3,  tileH: 36 },
+  { id: "walnut-hardwood",   name: "Walnut Hardwood",      fill: "#7a5030", grout: "#5a3820", pattern: "hardwood",     tileW: 4,  tileH: 48 },
+  { id: "white-oak",         name: "White Oak",            fill: "#d8c090", grout: "#b09060", pattern: "hardwood",     tileW: 5,  tileH: 48 },
+  { id: "white-tile",        name: "White Ceramic Tile",   fill: "#f2f2f2", grout: "#d0d0d0", pattern: "tile-grid",    tileW: 12, tileH: 12 },
+  { id: "gray-tile",         name: "Gray Porcelain Tile",  fill: "#b8bec4", grout: "#8a9099", pattern: "tile-grid",    tileW: 24, tileH: 24 },
+  { id: "black-tile",        name: "Black Slate Tile",     fill: "#2a2e32", grout: "#444850", pattern: "tile-grid",    tileW: 12, tileH: 12 },
+  { id: "herringbone-tile",  name: "Herringbone Tile",     fill: "#e0d8cc", grout: "#c0b8a8", pattern: "herringbone",  tileW: 4,  tileH: 12 },
+  { id: "chevron-wood",      name: "Chevron Wood",         fill: "#b89060", grout: "#907040", pattern: "chevron",      tileW: 3,  tileH: 18 },
+  { id: "luxury-vinyl",      name: "Luxury Vinyl Plank",   fill: "#c0a870", grout: "#a08050", pattern: "plank",        tileW: 7,  tileH: 48 },
+  { id: "concrete",          name: "Polished Concrete",    fill: "#9a9ea2", grout: "#9a9ea2", pattern: "solid",        tileW: 24, tileH: 24 },
+  { id: "none",              name: "No Flooring",          fill: "#f5f3ef", grout: "#f5f3ef", pattern: "solid",        tileW: 12, tileH: 12 },
+];
+
+export function flooringMaterial(id: string | null | undefined): FlooringMaterial {
+  return FLOORING_MATERIALS.find((m) => m.id === id) ?? FLOORING_MATERIALS[10];
+}

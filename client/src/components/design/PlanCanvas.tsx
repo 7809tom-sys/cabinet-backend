@@ -9,6 +9,7 @@ import {
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
   wallGaps, type WallGap,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
+  flooringMaterial,
 } from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -79,6 +80,8 @@ interface Props {
   onMoveFurn?: (uid: string, x: number, y: number) => void;
   onDeleteFurn?: (uid: string) => void;
   onRotateFurn?: (uid: string) => void;
+  // Flooring: when set, draw a flooring pattern texture on the room floor.
+  flooringMaterialId?: string | null;
 }
 
 export function PlanCanvas({
@@ -92,6 +95,7 @@ export function PlanCanvas({
   countertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
   furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn,
+  flooringMaterialId = null,
 }: Props) {
   const { t } = useLanguage();
   // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
@@ -509,7 +513,7 @@ export function PlanCanvas({
       )}
       <div
         data-room
-        className="absolute bg-white shadow-inner"
+        className="absolute shadow-inner"
         style={{
           width: roomPxW,
           height: roomPxH,
@@ -517,9 +521,39 @@ export function PlanCanvas({
           top: "50%",
           transform: "translate(-50%, -50%)",
           border: "3px solid #1a2744",
-          backgroundImage:
-            "linear-gradient(#f1f4f8 1px, transparent 1px), linear-gradient(90deg, #f1f4f8 1px, transparent 1px)",
-          backgroundSize: `${12 * ppi}px ${12 * ppi}px`,
+          backgroundColor: flooringMaterialId
+            ? flooringMaterial(flooringMaterialId).fill
+            : "#ffffff",
+          backgroundImage: (() => {
+            if (!flooringMaterialId) {
+              return "linear-gradient(#f1f4f8 1px, transparent 1px), linear-gradient(90deg, #f1f4f8 1px, transparent 1px)";
+            }
+            const fm = flooringMaterial(flooringMaterialId);
+            const tw = Math.max(6, fm.tileW * ppi);
+            const th = Math.max(6, fm.tileH * ppi);
+            if (fm.pattern === "hardwood" || fm.pattern === "plank") {
+              // Horizontal planks (running left-right)
+              return `repeating-linear-gradient(0deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(90deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${tw}px)`;
+            }
+            if (fm.pattern === "tile-grid" || fm.pattern === "tile-diagonal") {
+              return `repeating-linear-gradient(0deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(90deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${tw}px)`;
+            }
+            if (fm.pattern === "herringbone") {
+              return `repeating-linear-gradient(45deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(-45deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px)`;
+            }
+            if (fm.pattern === "chevron") {
+              return `repeating-linear-gradient(60deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(-60deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px)`;
+            }
+            // solid / concrete
+            return undefined;
+          })(),
+          backgroundSize: (() => {
+            if (!flooringMaterialId) return `${12 * ppi}px ${12 * ppi}px`;
+            const fm = flooringMaterial(flooringMaterialId);
+            const tw = Math.max(6, fm.tileW * ppi);
+            const th = Math.max(6, fm.tileH * ppi);
+            return `${tw}px ${th}px`;
+          })(),
         }}
       >
         {/* Draggable wall bands: click to highlight, drag to resize the room on
