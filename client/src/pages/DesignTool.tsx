@@ -4301,7 +4301,7 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-5 h-14">
+          <div className="grid grid-cols-6 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
@@ -4324,6 +4324,15 @@ export default function DesignTool() {
               disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid) || measureMode}
               danger
               onClick={deleteSelected}
+            />
+            <MobileBarButton
+              icon={cabinetsLocked ? <Lock className="h-5 w-5" /> : <LockOpen className="h-5 w-5" />}
+              label={cabinetsLocked ? "Locked" : "Lock"}
+              active={cabinetsLocked}
+              onClick={() => {
+                setCabinetsLocked((v) => !v);
+                toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
+              }}
             />
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
@@ -4434,7 +4443,7 @@ export default function DesignTool() {
 
 // ─── Mobile bottom-bar button ───────────────────────────────────────────────
 function MobileBarButton({
-  icon, label, onClick, disabled, danger, badge,
+  icon, label, onClick, disabled, danger, badge, active,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -4442,6 +4451,7 @@ function MobileBarButton({
   disabled?: boolean;
   danger?: boolean;
   badge?: number;
+  active?: boolean;
 }) {
   return (
     <button
@@ -4449,7 +4459,7 @@ function MobileBarButton({
       disabled={disabled}
       onClick={onClick}
       className={`relative flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors active:scale-95 disabled:opacity-40 ${
-        danger ? "text-destructive" : "text-foreground"
+        danger ? "text-destructive" : active ? "text-amber-500" : "text-foreground"
       }`}
     >
       <span className="relative">
