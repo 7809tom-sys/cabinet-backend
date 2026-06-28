@@ -3765,6 +3765,8 @@ export default function DesignTool() {
                 active={activeSlot === "B"}
                 style={styleB != null ? (doorStyles?.find((d) => d.id === styleB) ?? null) : null}
                 styles={slotBStyles}
+                disabled={cabinetsLocked || styleA == null}
+                disabledReason={cabinetsLocked ? "Cabinets are locked — unlock to change door style" : "Set Color 1 first before choosing Color 2"}
                 onSelect={() => {
                   if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
                   if (styleB != null) selectColorSlot("B"); else toast.info(t("dt_t_second_style_first"));

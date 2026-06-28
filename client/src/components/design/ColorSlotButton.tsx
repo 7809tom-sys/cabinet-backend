@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Check, Palette, Pencil, X } from "lucide-react";
+import { toast } from "sonner";
 import { DoorStyleSwatch, type DoorStyleLike } from "@/components/DoorStyleSwatch";
 import {
   Popover,
@@ -47,6 +48,10 @@ interface ColorSlotButtonProps {
   onPick: (styleId: number) => void;
   /** Remove this slot's color (only offered for the optional second color). */
   onClear?: () => void;
+  /** When true, blocks the picker from opening (e.g. cabinets locked, or Color 1 not yet set). */
+  disabled?: boolean;
+  /** Tooltip shown when the user tries to open a disabled picker. */
+  disabledReason?: string;
 }
 
 export function ColorSlotButton({
@@ -57,6 +62,8 @@ export function ColorSlotButton({
   onSelect,
   onPick,
   onClear,
+  disabled = false,
+  disabledReason,
 }: ColorSlotButtonProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile(1024);
@@ -167,8 +174,14 @@ export function ColorSlotButton({
         <>
           <button
             type="button"
-            onClick={() => setPickerOpen(true)}
-            className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-[#1a2744] hover:underline"
+            onClick={() => {
+              if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); return; }
+              setPickerOpen(true);
+            }}
+            className={[
+              "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium hover:underline",
+              disabled ? "text-muted-foreground opacity-50 cursor-not-allowed" : "text-[#1a2744]",
+            ].join(" ")}
           >
             <Pencil className="h-3 w-3" />
             {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
@@ -193,11 +206,15 @@ export function ColorSlotButton({
           </Sheet>
         </>
       ) : (
-        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+        <Popover open={disabled ? false : pickerOpen} onOpenChange={(o) => { if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); return; } setPickerOpen(o); }}>
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-[#1a2744] hover:underline"
+              onClick={() => { if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); } }}
+              className={[
+                "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium hover:underline",
+                disabled ? "text-muted-foreground opacity-50 cursor-not-allowed" : "text-[#1a2744]",
+              ].join(" ")}
             >
               <Pencil className="h-3 w-3" />
               {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
