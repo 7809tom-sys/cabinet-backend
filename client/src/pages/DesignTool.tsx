@@ -1807,10 +1807,35 @@ export default function DesignTool() {
   );
 
   const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number) => {
-    setPlaced((prev) => prev.map((p) => (p.uid === uid
-      ? { ...p, x, y, ...(rotation != null ? { rotation } : {}) }
-      : p)));
-  }, []);
+    setPlaced((prev) => {
+      const cabinet = prev.find((p) => p.uid === uid);
+      if (cabinet && isSinkBaseCabinet(cabinet)) {
+        // Co-move any sink fixtures sitting on this sink base.
+        // Calculate the delta from the cabinet's old position to the new one.
+        const dx = x - cabinet.x;
+        const dy = y - cabinet.y;
+        if (dx !== 0 || dy !== 0) {
+          // Get the cabinet's current footprint to check which sinks are on it.
+          const fp = placedFootprint(cabinet);
+          // placedFootprint returns { w, d } — combine with cabinet.x/y for bounds.
+          const cabX = cabinet.x;
+          const cabY = cabinet.y;
+          setSinks((prevSinks) => prevSinks.map((s) => {
+            // Check if the sink's center is within the cabinet's footprint.
+            const sCx = s.x + s.width / 2;
+            const sCy = s.y + s.depth / 2;
+            const onCabinet =
+              sCx >= cabX && sCx <= cabX + fp.w &&
+              sCy >= cabY && sCy <= cabY + fp.d;
+            return onCabinet ? { ...s, x: s.x + dx, y: s.y + dy } : s;
+          }));
+        }
+      }
+      return prev.map((p) => (p.uid === uid
+        ? { ...p, x, y, ...(rotation != null ? { rotation } : {}) }
+        : p));
+    });
+  }, [setSinks]);
 
   const swingSelected = () => {
     if (!selectedUid) return;
