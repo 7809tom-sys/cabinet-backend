@@ -2763,6 +2763,78 @@ export default function DesignTool() {
               <DropdownMenuCheckboxItem checked={lightRail} onCheckedChange={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }}>{t("dt_sh_light_rail")}</DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem checked={countertop} disabled={!countertop && !hasBaseRun} onCheckedChange={toggleCountertop}>{t("dt_sh_countertop")}</DropdownMenuCheckboxItem>
               <DropdownMenuSeparator />
+              {/* ── Backsplash picker ── */}
+              <DropdownMenuLabel>Backsplash</DropdownMenuLabel>
+              <div className="px-2 pb-1.5">
+                <div className="grid grid-cols-3 gap-1">
+                  {BACKSPLASH_MATERIALS.map((bm) => (
+                    <button
+                      key={bm.id}
+                      type="button"
+                      onClick={() => setBacksplashMaterialId(backsplashMaterialId === bm.id ? null : bm.id)}
+                      className={`flex flex-col items-center gap-0.5 rounded border p-1 text-[8px] font-medium transition-colors ${
+                        backsplashMaterialId === bm.id
+                          ? "border-[#1a2744] bg-[#1a2744]/10 text-[#1a2744]"
+                          : "border-border hover:border-[#1a2744]/40"
+                      }`}
+                      title={bm.name}
+                    >
+                      <span
+                        className="w-8 h-4 rounded shrink-0"
+                        style={{
+                          background: bm.fill,
+                          border: `1px solid ${bm.grout}`,
+                          backgroundImage: bm.pattern === "subway"
+                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 8px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 16px)`
+                            : bm.pattern === "large-format"
+                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 10px)`
+                            : bm.pattern === "mosaic"
+                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 5px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 5px)`
+                            : undefined,
+                        }}
+                      />
+                      <span className="leading-tight text-center line-clamp-1">{bm.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <DropdownMenuSeparator />
+              {/* ── Flooring picker ── */}
+              <DropdownMenuLabel>Flooring</DropdownMenuLabel>
+              <div className="px-2 pb-1.5">
+                <div className="grid grid-cols-3 gap-1">
+                  {FLOORING_MATERIALS.map((fm) => (
+                    <button
+                      key={fm.id}
+                      type="button"
+                      onClick={() => setFlooringMaterialId(flooringMaterialId === fm.id ? null : fm.id)}
+                      className={`flex flex-col items-center gap-0.5 rounded border p-1 text-[8px] font-medium transition-colors ${
+                        flooringMaterialId === fm.id
+                          ? "border-[#1a2744] bg-[#1a2744]/10 text-[#1a2744]"
+                          : "border-border hover:border-[#1a2744]/40"
+                      }`}
+                      title={fm.name}
+                    >
+                      <span
+                        className="w-8 h-4 rounded shrink-0"
+                        style={{
+                          background: fm.fill,
+                          border: `1px solid ${fm.grout}`,
+                          backgroundImage: fm.pattern === "hardwood" || fm.pattern === "plank"
+                            ? `repeating-linear-gradient(90deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent 12px)`
+                            : fm.pattern === "tile-grid"
+                            ? `repeating-linear-gradient(0deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent 10px)`
+                            : fm.pattern === "herringbone"
+                            ? `repeating-linear-gradient(45deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent 8px)`
+                            : undefined,
+                        }}
+                      />
+                      <span className="leading-tight text-center line-clamp-1">{fm.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <DropdownMenuSeparator />
               <DropdownMenuLabel>{t("dt_sh_hardware")}</DropdownMenuLabel>
               {HARDWARE_STYLES.map((h) => (
                 <DropdownMenuCheckboxItem
@@ -2786,8 +2858,15 @@ export default function DesignTool() {
                   setIsland(null);
                   setSelectedUid(null);
                   setSelectedOpeningUid(null);
+                  setSinks([]);
+                  setSelectedSinkUid(null);
+                  setFurniture([]);
+                  setSelectedFurnUid(null);
                   setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false);
                   setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
+                  setBacksplashMaterialId(null);
+                  setFlooringMaterialId(null);
+                  setCabinetsLocked(false);
                   clearDraft();
                   toast.success(t("dt_sh_started_new"));
                 }}
@@ -4267,75 +4346,7 @@ export default function DesignTool() {
               </div>
             )}
 
-            {/* ── Backsplash Material Picker ─────────────────────────────── */}
-            <div className="mt-4 rounded-lg border border-border p-3">
-              <p className="text-xs font-semibold text-foreground mb-2">Backsplash</p>
-              <div className="grid grid-cols-3 gap-1.5">
-                {BACKSPLASH_MATERIALS.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setBacksplashMaterialId(backsplashMaterialId === m.id ? null : m.id)}
-                    className={`flex flex-col items-center gap-1 rounded-md border p-1.5 text-[9px] font-medium transition-colors ${
-                      backsplashMaterialId === m.id
-                        ? "border-[#1a2744] bg-[#1a2744]/10 text-[#1a2744]"
-                        : "border-border hover:border-[#1a2744]/40"
-                    }`}
-                    title={m.name}
-                  >
-                    <span
-                      className="w-8 h-5 rounded shrink-0"
-                      style={{
-                        background: m.fill,
-                        border: `1px solid ${m.grout}`,
-                        backgroundImage: m.pattern === "subway"
-                          ? `repeating-linear-gradient(0deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 8px), repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 16px)`
-                          : m.pattern === "large-format"
-                          ? `repeating-linear-gradient(0deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 10px)`
-                          : m.pattern === "mosaic"
-                          ? `repeating-linear-gradient(0deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 5px), repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 5px)`
-                          : undefined,
-                      }}
-                    />
-                    <span className="leading-tight text-center line-clamp-2">{m.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* ── Flooring Material Picker ───────────────────────────────── */}
-            <div className="mt-4 rounded-lg border border-border p-3">
-              <p className="text-xs font-semibold text-foreground mb-2">Flooring</p>
-              <div className="grid grid-cols-3 gap-1.5">
-                {FLOORING_MATERIALS.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setFlooringMaterialId(flooringMaterialId === m.id ? null : m.id)}
-                    className={`flex flex-col items-center gap-1 rounded-md border p-1.5 text-[9px] font-medium transition-colors ${
-                      flooringMaterialId === m.id
-                        ? "border-[#1a2744] bg-[#1a2744]/10 text-[#1a2744]"
-                        : "border-border hover:border-[#1a2744]/40"
-                    }`}
-                    title={m.name}
-                  >
-                    <span
-                      className="w-8 h-5 rounded shrink-0"
-                      style={{
-                        background: m.fill,
-                        border: `1px solid ${m.grout}`,
-                        backgroundImage: m.pattern === "hardwood" || m.pattern === "plank"
-                          ? `repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 12px)`
-                          : m.pattern === "tile-grid"
-                          ? `repeating-linear-gradient(0deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 10px)`
-                          : m.pattern === "herringbone"
-                          ? `repeating-linear-gradient(45deg, ${m.grout} 0px, ${m.grout} 1px, transparent 1px, transparent 8px)`
-                          : undefined,
-                      }}
-                    />
-                    <span className="leading-tight text-center line-clamp-2">{m.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Backsplash & Flooring pickers moved to the ··· More dropdown menu */}
           </div>
           </div>{/* end flex-col wrapper */}
         </PricingShell>
@@ -4562,7 +4573,7 @@ function PricingShell({
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[82vh] p-0 gap-0 flex flex-col rounded-t-2xl">
+        <SheetContent side="bottom" className="h-[92vh] p-0 gap-0 flex flex-col rounded-t-2xl">
           <SheetHeader className="px-3 py-2 border-b border-border text-left">
             <SheetTitle className="text-sm">{t("dt_bs_estimate_build")}</SheetTitle>
           </SheetHeader>
