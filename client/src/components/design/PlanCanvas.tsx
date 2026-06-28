@@ -82,6 +82,8 @@ interface Props {
   onRotateFurn?: (uid: string) => void;
   // Flooring: when set, draw a flooring pattern texture on the room floor.
   flooringMaterialId?: string | null;
+  // Cabinet lock: when true, cabinet drag/drop/delete are blocked.
+  cabinetsLocked?: boolean;
 }
 
 export function PlanCanvas({
@@ -96,6 +98,7 @@ export function PlanCanvas({
   finishFor,
   furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn,
   flooringMaterialId = null,
+  cabinetsLocked = false,
 }: Props) {
   const { t } = useLanguage();
   // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
@@ -382,6 +385,8 @@ export function PlanCanvas({
       return;
     }
     onSelect(p.uid);
+    // When cabinets are locked, allow selection but not dragging.
+    if (cabinetsLocked) return;
     setDragUid(p.uid);
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -489,6 +494,7 @@ export function PlanCanvas({
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
+        if (cabinetsLocked) return; // block new drops when locked
         const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement;
         if (roomEl && onDropNew) {
           onDropNew(e.clientX, e.clientY, roomEl.getBoundingClientRect(), ppi);
@@ -969,7 +975,7 @@ export function PlanCanvas({
                   </button>
                 )}
                 {/* Always-available delete control on the selected cabinet. */}
-                {isSelected && !measureMode && onDelete && (
+                {isSelected && !measureMode && onDelete && !cabinetsLocked && (
                   <button
                     type="button"
                     aria-label={t("dt_pc_delete_cabinet")}
@@ -980,6 +986,15 @@ export function PlanCanvas({
                   >
                     <X className="h-3 w-3" strokeWidth={3} />
                   </button>
+                )}
+                {/* Lock badge: shown on selected cabinet when cabinets are locked */}
+                {isSelected && !measureMode && cabinetsLocked && (
+                  <div
+                    className="absolute -top-2.5 -right-2.5 z-30 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-md"
+                    title="Cabinets are locked — click 'Lock Cabs' in toolbar to unlock"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  </div>
                 )}
               </div>
             );

@@ -272,6 +272,9 @@ export default function DesignTool() {
   const [backsplashMaterialId, setBacksplashMaterialId] = useState<string | null>(null);
   // Flooring material: shown as a pattern in the bird's-eye plan view.
   const [flooringMaterialId, setFlooringMaterialId] = useState<string | null>(null);
+  // Cabinet lock: when true, placed cabinets cannot be moved, deleted, or have
+  // new ones dropped. The room/walls/openings/island are still editable.
+  const [cabinetsLocked, setCabinetsLocked] = useState(false);
   // Accordion: which palette group headers the user has explicitly collapsed.
   // Keyed by `${paletteType}:${groupLabel}` so collapse state is per-tab. By
   // default every group is OPEN; toggling adds/removes the key here. While
@@ -1361,6 +1364,7 @@ export default function DesignTool() {
 
   const addCabinet = useCallback(
     (c: DesignCabinet, x?: number, y?: number) => {
+      if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
       // Placeable accessories (decorative/end panels, skins, appliance garages)
       // come in via the Accessories tab. Force a sensible placement (base vs
       // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they
@@ -1890,6 +1894,7 @@ export default function DesignTool() {
     // wall opening so EVERY selectable object on the canvas is removable from
     // the same Delete control (mobile toolbar + Delete/Backspace key).
     if (selectedUid) {
+      if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
       setPlaced((prev) => prev.filter((p) => p.uid !== selectedUid));
       setSelectedUid(null);
       return;
@@ -2409,6 +2414,7 @@ export default function DesignTool() {
     countertopMaterialId,
     backsplashMaterialId,
     flooringMaterialId,
+    cabinetsLocked,
     sinks,
     roomType,
     activeWall,
@@ -2472,6 +2478,7 @@ export default function DesignTool() {
           if (typeof d.countertopMaterialId === "string") setCountertopMaterialId(d.countertopMaterialId);
           if (typeof d.backsplashMaterialId === "string") setBacksplashMaterialId(d.backsplashMaterialId);
           if (typeof d.flooringMaterialId === "string") setFlooringMaterialId(d.flooringMaterialId);
+          if (typeof d.cabinetsLocked === "boolean") setCabinetsLocked(d.cabinetsLocked);
           if (Array.isArray(d.sinks)) setSinks(d.sinks);
           if (d.roomType) setRoomType(d.roomType);
           if (d.activeWall) setActiveWall(d.activeWall);
@@ -2496,7 +2503,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -2855,6 +2862,22 @@ export default function DesignTool() {
           </Button>
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
             <Trash2 className="h-3.5 w-3.5" /> {t("dt_sh_delete")}
+          </Button>
+          <div className="h-5 w-px bg-border" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setCabinetsLocked((v) => !v);
+              toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked — you can move them again");
+            }}
+            title={cabinetsLocked ? "Unlock cabinets (allow moving)" : "Lock cabinets (freeze positions)"}
+            className={`h-8 gap-1.5 ${
+              cabinetsLocked ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600" : ""
+            }`}
+          >
+            {cabinetsLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+            {cabinetsLocked ? "Locked" : "Lock Cabs"}
           </Button>
           <div className="h-5 w-px bg-border" />
           <DesignActions
@@ -3503,6 +3526,7 @@ export default function DesignTool() {
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
               flooringMaterialId={flooringMaterialId}
+              cabinetsLocked={cabinetsLocked}
             />
           )}
           {viewMode === "elevation" && (
@@ -3594,6 +3618,7 @@ export default function DesignTool() {
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
               flooringMaterialId={flooringMaterialId}
+              cabinetsLocked={cabinetsLocked}
                 />
               </div>
               <div className="flex-1 min-h-0">

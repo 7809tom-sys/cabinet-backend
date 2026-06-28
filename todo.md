@@ -2113,3 +2113,12 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Furniture drag/rotate/delete in PlanCanvas
 - [x] Backsplash material selector (tile patterns, colors) in elevation view
 - [x] Flooring material selector (tile, hardwood, LVP patterns) in bird's-eye plan view
+
+## Lock Cabinets Feature (user request, 2026-06-28)
+- [x] Add `cabinetsLocked` boolean state to DesignTool (saved/restored with design draft)
+- [x] Add Lock/Unlock toolbar button (Lock icon) with active visual state
+- [x] Block cabinet drag/move in PlanCanvas when locked
+- [x] Block cabinet delete (keyboard + toolbar) when locked
+- [x] Block new cabinet drops onto canvas when locked
+- [x] Show lock indicator badge on canvas when locked
+- [x] Save/restore lock state with design draft
