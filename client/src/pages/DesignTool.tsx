@@ -2747,7 +2747,7 @@ export default function DesignTool() {
                 <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-72 max-h-[80vh] overflow-y-auto">
               <DropdownMenuLabel>{t("dt_sh_active_wall")}</DropdownMenuLabel>
               <div className="grid grid-cols-4 gap-1 px-2 pb-1.5">
                 {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
@@ -2863,6 +2863,56 @@ export default function DesignTool() {
               <DropdownMenuSeparator />
               <DropdownMenuItem disabled={layoutLocked} onClick={addManualFiller}>{t("dt_sh_add_filler")}</DropdownMenuItem>
               <DropdownMenuItem disabled={!selectedUid || measureMode} onClick={swingSelected}>{t("dt_sh_swing_door")}</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {/* ── Order / Cart section ── */}
+              <DropdownMenuLabel>{t("dt_sh_order_section")}</DropdownMenuLabel>
+              {cartableLines.length === 0 ? (
+                <div className="px-3 py-2 text-[11px] text-muted-foreground">{t("dt_sh_order_empty")}</div>
+              ) : (
+                <>
+                  {hasConflicts && (
+                    <div className="mx-2 mb-1 flex items-start gap-1.5 rounded border border-red-300 bg-red-50 px-2 py-1.5 text-[10px] text-red-700">
+                      <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
+                      {t("dt_sh_order_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })}
+                    </div>
+                  )}
+                  <div className="max-h-48 overflow-y-auto">
+                    <ul className="divide-y divide-border">
+                      {cartableLines.map((line) => (
+                        <li key={`${line.masterCode}-${line.styleId}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-[11px]">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1 font-medium text-foreground">
+                              <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px]">{line.qty}×</span>
+                              <span className="truncate">{line.masterCode}</span>
+                            </div>
+                            {line.styleLabel && (
+                              <div className="truncate text-[10px] text-muted-foreground">{line.styleLabel}</div>
+                            )}
+                          </div>
+                          <span className="shrink-0 font-medium text-foreground">
+                            {line.unitPrice != null ? `$${(line.unitPrice * line.qty).toFixed(2)}` : "—"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="px-2 pb-2 pt-1">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-center gap-2 rounded-md bg-[#a87f33] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#a87f33]/90 active:scale-[0.97] disabled:opacity-50"
+                      disabled={cartableLines.length === 0}
+                      onClick={() => {
+                        if (hasConflicts && !window.confirm(
+                          t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
+                        )) return;
+                        addAllToCart();
+                      }}
+                    >
+                      <ShoppingCart className="h-3.5 w-3.5" /> {t("dt_sh_add_to_cart")}
+                    </button>
+                  </div>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
@@ -3894,6 +3944,8 @@ export default function DesignTool() {
               hardwareStyleId={hardwareStyleId}
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
+              onMove={cabinetsLocked ? undefined : moveCabinet}
+              moveLocked={cabinetsLocked}
             />
           )}
           {viewMode === "corner" && (
@@ -3986,6 +4038,8 @@ export default function DesignTool() {
                   hardwareStyleId={hardwareStyleId}
                   finishFor={finishForCab}
                   panelKindFor={panelKindForCab}
+                  onMove={cabinetsLocked ? undefined : moveCabinet}
+                  moveLocked={cabinetsLocked}
                 />
               </div>
             </div>
@@ -4328,7 +4382,7 @@ export default function DesignTool() {
           </div>
 
           {/* Total */}
-          <div className="p-3 border-t border-border">
+          <div className="p-3 border-t border-border shrink-0">
             {hasConflicts && (
               <div className="mb-2 flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-2 text-[11px] text-red-700">
                 <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-600" />

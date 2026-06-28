@@ -121,7 +121,7 @@
 
 ## Design Tool fixes & features (user request)
 
-- [ ] Move the selected-cabinet edit panel from the inline mobile header into a bottom sheet that auto-opens on cabinet selection while keeping the desktop inline row unchanged
+- [x] Move the selected-cabinet edit panel from the inline mobile header into a bottom sheet that auto-opens on cabinet selection while keeping the desktop inline row unchanged
 
 - [x] Fix: cannot delete a cabinet when off-category (on-cabinet X + toolbar Delete + keyboard Delete/Backspace work for any selected item)
 - [x] Add: tape-measure tool showing distance/gap between two objects on the canvas
@@ -2124,3 +2124,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Block new cabinet drops onto canvas when locked
 - [x] Show lock indicator badge on canvas when locked
 - [x] Save/restore lock state with design draft
+
+## Mobile Design Tool fixes (2nd round)
+- [ ] Estimate & Build Sheet: make cabinet list scrollable and add a "Request Order / Add to Cart" button at the bottom
+- [ ] Front View / Split elevation: enable horizontal drag to reposition a cabinet along the wall on mobile
+- [ ] Delete: ensure delete works from the mobile bottom sheet (selected cabinet) and from front view

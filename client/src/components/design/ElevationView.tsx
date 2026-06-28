@@ -13,7 +13,7 @@ import {
   drawerCountForCabinet,
   displayDrawerCount,
 } from "@/lib/hardware";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
@@ -60,6 +60,11 @@ interface Props {
   // corner unit is drawn on BOTH walls, pinned to the seam (corner end of the
   // wall = posAlong 0). These are render-only ghosts of the real placed cabinet.
   seamCabinets?: PlacedCabinet[];
+  // Optional: when provided, the elevation supports horizontal drag-to-reorder.
+  // The callback receives the uid and the new plan-space x/y coordinate.
+  onMove?: (uid: string, x: number, y: number) => void;
+  // When true, cabinets cannot be dragged (locked layout).
+  moveLocked?: boolean;
 }
 
 export function ElevationView({
@@ -68,6 +73,7 @@ export function ElevationView({
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
   finishFor, panelKindFor, seamCabinets = [],
+  onMove, moveLocked = false,
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
@@ -75,8 +81,13 @@ export function ElevationView({
   // elevation sits inside a scaleX(-1) container.
   const textFlip: React.CSSProperties | undefined = mirror ? { transform: "scaleX(-1)" } : undefined;
   const ref = useRef<HTMLDivElement>(null);
+  const wallInnerRef = useRef<HTMLDivElement>(null);
   const [ppi, setPpi] = useState(4);
   const PADDING = 40;
+
+  // Elevation drag state
+  const [dragUid, setDragUid] = useState<string | null>(null);
+  const dragOffset = useRef(0); // offset in px along the wall axis
 
   // Normalize legacy "front"/"back" to plan WallSide values.
   const side: WallSide =
@@ -146,21 +157,31 @@ export function ElevationView({
     const isWall = p.placement === "wall";
     const isAppliance = p.placement === "appliance";
     const isSelected = p.uid === selectedUid;
+    const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
     const faceFill = isAppliance
       ? "linear-gradient(to bottom, #d9dee6 0%, #c2c9d4 100%)"
       : cabFinish.face;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
+    const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
     return (
       <div
         key={seam ? `${p.uid}-seam` : p.uid}
+        onPointerDown={canDrag ? (e) => {
+          e.stopPropagation();
+          onSelect(p.uid);
+          setDragUid(p.uid);
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          dragOffset.current = horizontal ? e.clientX - rect.left : e.clientY - rect.top;
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        } : undefined}
         onClick={(e) => {
           e.stopPropagation();
           onSelect(p.uid);
         }}
-        className="absolute cursor-pointer flex flex-col items-center justify-center overflow-hidden"
+        className={`absolute flex flex-col items-center justify-center overflow-hidden ${canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
         style={{
           left: posAlong * ppi,
           width: sizeAlong * ppi,
@@ -171,7 +192,9 @@ export function ElevationView({
             ? "2px solid #1a2744"
             : `1.5px solid ${edgeColor}`,
           boxShadow: isSelected ? "0 0 0 3px rgba(212,167,90,0.5)" : undefined,
-          opacity: seam ? 0.96 : undefined,
+          opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
+          transition: isDragging ? undefined : "left 80ms ease-out",
+          zIndex: isDragging ? 10 : undefined,
         }}
         title={`${p.masterCode} — ${p.description}`}
       >
@@ -206,14 +229,50 @@ export function ElevationView({
     );
   };
 
+  const handleWallPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragUid || !onMove) return;
+    const cabinet = cabinets.find((c) => c.uid === dragUid);
+    if (!cabinet) return;
+    const wallEl = wallInnerRef.current;
+    if (!wallEl) return;
+    const wallRect = wallEl.getBoundingClientRect();
+    const sizeAlong = horizontal ? rotatedSize(cabinet).w : rotatedSize(cabinet).d;
+    const planSpanLen = horizontal ? room.width : room.depth;
+    const pxAlong = horizontal
+      ? e.clientX - wallRect.left - dragOffset.current
+      : e.clientY - wallRect.top - dragOffset.current;
+    let newAlong = pxAlong / ppi;
+    newAlong = Math.max(0, Math.min(newAlong, planSpanLen - sizeAlong));
+    // Snap to neighbors
+    const others = cabinets.filter((c) => c.uid !== dragUid && cabinetWall(c, room) === side);
+    const SNAP = 1.5;
+    for (const o of others) {
+      const oAlong = horizontal ? o.x : o.y;
+      const oSize = horizontal ? rotatedSize(o).w : rotatedSize(o).d;
+      if (Math.abs(newAlong + sizeAlong - oAlong) <= SNAP) newAlong = oAlong - sizeAlong;
+      if (Math.abs(newAlong - (oAlong + oSize)) <= SNAP) newAlong = oAlong + oSize;
+    }
+    const newX = horizontal ? newAlong : cabinet.x;
+    const newY = horizontal ? cabinet.y : newAlong;
+    onMove(dragUid, newX, newY);
+  };
+
+  const handleWallPointerUp = () => {
+    setDragUid(null);
+  };
+
   return (
     <div
       ref={ref}
-      className="relative w-full h-full overflow-hidden bg-gradient-to-b from-[#dde6f0] to-[#eef1f5] select-none"
+      className="relative w-full h-full overflow-hidden bg-gradient-to-b from-[#dde6f0] to-[#eef1f5] select-none touch-none"
       onClick={() => onSelect(null)}
     >
       <div
+        ref={wallInnerRef}
         className="absolute"
+        onPointerMove={handleWallPointerMove}
+        onPointerUp={handleWallPointerUp}
+        onPointerLeave={handleWallPointerUp}
         style={{
           width: wallPxW,
           height: wallPxH,
