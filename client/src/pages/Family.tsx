@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link } from "wouter";
-import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Search, X, Expand } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -201,6 +201,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
   // header renders a clean color-accurate door panel (in this family's exact
   // finish) instead of a stock kitchen.
   const realScene = realImageUrl(s?.roomSceneImageUrl);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const realDoor = realImageUrl(s?.doorSampleImageUrl);
 
   if (styleLoading) {
@@ -360,11 +361,16 @@ export default function Family({ styleCode }: { styleCode: string }) {
             {/* Room scene */}
             <div className="flex-1 rounded-xl overflow-hidden shadow-lg ring-1 ring-white/40 flex flex-col">
               {realScene ? (
-                <img
-                  src={realScene}
-                  alt={`${familyName} kitchen room scene`}
-                  className="h-24 w-full object-cover"
-                />
+                <div className="relative group cursor-zoom-in" onClick={() => setLightboxOpen(true)}>
+                  <img
+                    src={realScene}
+                    alt={`${familyName} kitchen room scene`}
+                    className="h-24 w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                    <Expand className="text-white opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 drop-shadow" />
+                  </div>
+                </div>
               ) : (
                 <div
                   className="h-24 w-full flex items-center justify-center text-[10px] text-white/60"
@@ -399,11 +405,16 @@ export default function Family({ styleCode }: { styleCode: string }) {
             {/* Room scene card */}
             <div className="rounded-xl overflow-hidden shadow-xl ring-1 ring-white/40 flex flex-col">
               {realScene ? (
-                <img
-                  src={realScene}
-                  alt={`${familyName} kitchen room scene`}
-                  className="h-44 w-44 object-cover"
-                />
+                <div className="relative group cursor-zoom-in" onClick={() => setLightboxOpen(true)}>
+                  <img
+                    src={realScene}
+                    alt={`${familyName} kitchen room scene`}
+                    className="h-44 w-44 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                    <Expand className="text-white opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 drop-shadow" />
+                  </div>
+                </div>
               ) : (
                 <div
                   className="h-44 w-44 flex items-center justify-center text-[11px] text-white/60"
@@ -419,6 +430,30 @@ export default function Family({ styleCode }: { styleCode: string }) {
           </div>
         </div>
       </div>
+
+      {/* ── Lightbox ─────────────────────────────────────────────────────────── */}
+      {lightboxOpen && realScene && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={realScene}
+            alt={`${familyName} kitchen room scene`}
+            className="max-w-full max-h-full rounded-xl shadow-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+            {familyName} kitchen
+          </p>
+        </div>
+      )}
 
       {/* ── Type filter + search ──────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 mb-6">
