@@ -2107,3 +2107,9 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Notification settings: DB table + backend router + admin UI (who gets alerted on orders/leads/quotes)
 - [ ] API Key Status dashboard: single page showing live/inactive status of all integrations (EasyPost, Authorize.Net, SMTP)
 - [ ] Wire all four new tabs into Admin page
+
+## Kitchen Designer Visual Enhancements
+- [ ] Furniture tab in palette (tables, chairs, stools, benches) - floor plan only
+- [ ] Furniture drag/rotate/delete in PlanCanvas
+- [ ] Backsplash material selector (tile patterns, colors) in elevation view
+- [ ] Flooring material selector (tile, hardwood, LVP patterns) in bird's-eye plan view

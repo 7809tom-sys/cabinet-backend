@@ -2900,3 +2900,61 @@ export function wallGaps(
   }
   return gaps;
 }
+
+// ─── Dining Furniture ─────────────────────────────────────────────────────────
+// Floor-plan-only space planning items (no pricing, no SKU, no elevation view).
+
+export type FurnitureShape = "rect" | "round";
+
+export interface FurnitureDef {
+  id: string;
+  name: string;
+  category: "table" | "chair" | "stool" | "bench" | "other";
+  shape: FurnitureShape;
+  /** Width in inches (diameter for round items) */
+  w: number;
+  /** Depth in inches (same as w for round items) */
+  d: number;
+  /** Recommended clearance around the item in inches */
+  clearance: number;
+  color: string;
+}
+
+export const FURNITURE_CATALOG: FurnitureDef[] = [
+  { id: "tbl-round-42",  name: "Round Table (4-person)",  category: "table", shape: "round", w: 42, d: 42, clearance: 36, color: "#d4a96a" },
+  { id: "tbl-round-54",  name: "Round Table (6-person)",  category: "table", shape: "round", w: 54, d: 54, clearance: 36, color: "#d4a96a" },
+  { id: "tbl-rect-4",    name: "Rect Table (4-person)",   category: "table", shape: "rect",  w: 60, d: 36, clearance: 36, color: "#d4a96a" },
+  { id: "tbl-rect-6",    name: "Rect Table (6-person)",   category: "table", shape: "rect",  w: 72, d: 36, clearance: 36, color: "#d4a96a" },
+  { id: "tbl-rect-8",    name: "Rect Table (8-person)",   category: "table", shape: "rect",  w: 84, d: 42, clearance: 36, color: "#d4a96a" },
+  { id: "tbl-square-4",  name: "Square Table (4-person)", category: "table", shape: "rect",  w: 42, d: 42, clearance: 36, color: "#d4a96a" },
+  { id: "chair-dining",  name: "Dining Chair",            category: "chair", shape: "rect",  w: 18, d: 20, clearance: 0,  color: "#8b7355" },
+  { id: "chair-arm",     name: "Arm Chair",               category: "chair", shape: "rect",  w: 24, d: 24, clearance: 0,  color: "#8b7355" },
+  { id: "stool-bar",     name: "Bar Stool",               category: "stool", shape: "round", w: 14, d: 14, clearance: 0,  color: "#6b5b45" },
+  { id: "stool-counter", name: "Counter Stool",           category: "stool", shape: "round", w: 16, d: 16, clearance: 0,  color: "#6b5b45" },
+  { id: "bench-48",      name: 'Bench 48"',               category: "bench", shape: "rect",  w: 48, d: 14, clearance: 0,  color: "#7a6a50" },
+  { id: "bench-60",      name: 'Bench 60"',               category: "bench", shape: "rect",  w: 60, d: 14, clearance: 0,  color: "#7a6a50" },
+];
+
+export interface PlacedFurniture {
+  uid: string;
+  defId: string;
+  x: number;
+  y: number;
+  rotation: number;
+}
+
+export function makeFurniture(defId: string, x: number, y: number): PlacedFurniture {
+  return {
+    uid: `furn-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+    defId,
+    x,
+    y,
+    rotation: 0,
+  };
+}
+
+export function furnitureFootprint(f: PlacedFurniture, def: FurnitureDef): { w: number; d: number } {
+  if (def.shape === "round") return { w: def.w, d: def.d };
+  if (f.rotation === 90 || f.rotation === 270) return { w: def.d, d: def.w };
+  return { w: def.w, d: def.d };
+}

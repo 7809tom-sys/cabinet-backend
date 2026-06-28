@@ -8,6 +8,7 @@ import {
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
   wallGaps, type WallGap,
+  type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
 } from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -71,6 +72,13 @@ interface Props {
   // Right-click a WALL cabinet to drop it to the floor as an island/peninsula
   // base (top lands at 34.5 in). Provided by DesignTool.
   onDropToFloor?: (uid: string) => void;
+  // Furniture (tables, chairs, stools) — floor-plan-only space planning items.
+  furniture?: import("@/lib/design").PlacedFurniture[];
+  selectedFurnUid?: string | null;
+  onSelectFurn?: (uid: string | null) => void;
+  onMoveFurn?: (uid: string, x: number, y: number) => void;
+  onDeleteFurn?: (uid: string) => void;
+  onRotateFurn?: (uid: string) => void;
 }
 
 export function PlanCanvas({
@@ -83,6 +91,7 @@ export function PlanCanvas({
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
+  furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn,
 }: Props) {
   const { t } = useLanguage();
   // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
@@ -216,6 +225,30 @@ export function PlanCanvas({
   const [wallPreview, setWallPreview] = useState<{ side: WallSide; w: number; h: number } | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
   const [activeGap, setActiveGap] = useState<WallGap | null>(null);
+  // Furniture drag state.
+  const furnDrag = useRef<{ uid: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const onFurnPointerDown = (e: React.PointerEvent, f: PlacedFurniture) => {
+    e.stopPropagation();
+    onSelectFurn?.(f.uid);
+    furnDrag.current = { uid: f.uid, startX: e.clientX, startY: e.clientY, origX: f.x, origY: f.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onFurnPointerMove = (e: React.PointerEvent) => {
+    const d = furnDrag.current;
+    if (!d || !onMoveFurn) return;
+    const placed = furniture.find((f) => f.uid === d.uid);
+    const def = placed ? FURNITURE_CATALOG.find((fd) => fd.id === placed.defId) : undefined;
+    const fp = (def && placed) ? furnitureFootprint(placed, def) : { w: 24, d: 24 };
+    const dx = (e.clientX - d.startX) / ppiRef.current;
+    const dy = (e.clientY - d.startY) / ppiRef.current;
+    const x = Math.max(0, Math.min(d.origX + dx, room.width - fp.w));
+    const y = Math.max(0, Math.min(d.origY + dy, room.depth - fp.d));
+    onMoveFurn(d.uid, x, y);
+  };
+  const onFurnPointerUp = (e: React.PointerEvent) => {
+    if (furnDrag.current) { try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ } }
+    furnDrag.current = null;
+  };
 
   const PADDING = 48;
 
@@ -1063,6 +1096,69 @@ export function PlanCanvas({
             );
           });
         })()}
+
+        {/* ── Furniture footprints (floor-plan only) ───────────────────── */}
+        {furniture.map((f) => {
+          const def = FURNITURE_CATALOG.find((fd) => fd.id === f.defId);
+          if (!def) return null;
+          const fp = furnitureFootprint(f, def);
+          const isSelected = selectedFurnUid === f.uid;
+          const pxW = fp.w * ppi;
+          const pxD = fp.d * ppi;
+          const isRound = def.shape === "round";
+          return (
+            <div
+              key={f.uid}
+              className="absolute cursor-grab active:cursor-grabbing select-none"
+              style={{
+                left: f.x * ppi,
+                top: f.y * ppi,
+                width: pxW,
+                height: pxD,
+                background: def.color + "33",
+                border: `2px solid ${isSelected ? "#1a2744" : def.color}`,
+                borderRadius: isRound ? "50%" : 4,
+                transform: `rotate(${f.rotation}deg)`,
+                transformOrigin: "center",
+                zIndex: 20,
+                boxShadow: isSelected ? `0 0 0 2px #1a274488` : undefined,
+              }}
+              onPointerDown={(e) => onFurnPointerDown(e, f)}
+              onPointerMove={onFurnPointerMove}
+              onPointerUp={onFurnPointerUp}
+            >
+              {/* Label */}
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                style={{ fontSize: Math.max(7, Math.min(10, pxW / 6)) }}
+              >
+                <span className="font-semibold leading-tight" style={{ color: def.color }}>{def.name}</span>
+                <span className="text-[8px] opacity-60" style={{ color: def.color }}>
+                  {isRound ? `${def.w}"⌀` : `${fp.w}"×${fp.d}"`}
+                </span>
+              </div>
+              {/* Selected controls */}
+              {isSelected && (
+                <>
+                  <button
+                    className="absolute -top-4 -right-4 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow z-30"
+                    onPointerDown={(e) => { e.stopPropagation(); onDeleteFurn?.(f.uid); }}
+                    title="Delete"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  <button
+                    className="absolute -top-4 -left-4 w-6 h-6 rounded-full bg-[#1a2744] text-white flex items-center justify-center shadow z-30"
+                    onPointerDown={(e) => { e.stopPropagation(); onRotateFurn?.(f.uid); }}
+                    title="Rotate 90°"
+                  >
+                    <RotateCw className="w-3 h-3" />
+                  </button>
+                </>
+              )}
+            </div>
+          );
+        })}
 
         {xTicks.map((t) => (
           <div

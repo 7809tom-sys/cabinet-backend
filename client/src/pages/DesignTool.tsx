@@ -39,6 +39,7 @@ import {
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
+  FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches,
@@ -262,7 +263,9 @@ export default function DesignTool() {
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory" | "furniture">("base");
+  const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
+  const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
   // Accordion: which palette group headers the user has explicitly collapsed.
   // Keyed by `${paletteType}:${groupLabel}` so collapse state is per-tab. By
   // default every group is OPEN; toggling adds/removes the key here. While
@@ -379,7 +382,7 @@ export default function DesignTool() {
     trpc.design.placeableCabinets.useQuery(
       {
         placement:
-          paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts"
+          paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture"
             ? "base"
             : paletteType === "corner" || paletteType === "vanity"
             ? "base"
@@ -394,9 +397,9 @@ export default function DesignTool() {
         // come from that distributor (member can still change color within it).
         distributorId: lockedDistributorId ?? undefined,
       },
-      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" }
+      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" }
     );
-  const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" ? false : paletteLoadingRaw;
+  const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" ? false : paletteLoadingRaw;
 
   // A dedicated, full base-cabinet list for the active line, used by the
   // Auto-Fill engine (independent of which palette tab/search is active).
@@ -3147,7 +3150,7 @@ export default function DesignTool() {
                 ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "opening", "accessory"] as const)
                 : roomType === "laundry"
                 ? (["appliance", "base", "corner", "wall", "wallht", "tall", "opening", "accessory"] as const)
-                : (["base", "corner", "wall", "wallht", "tall", "appliance", "opening", "accessory"] as const)
+                : (["base", "corner", "wall", "wallht", "tall", "appliance", "opening", "accessory", "furniture"] as const)
               ).map((tab) => (
                 <button
                   key={tab}
@@ -3170,6 +3173,8 @@ export default function DesignTool() {
                     ? t("dt_tab_closet")
                     : tab === "accessory"
                     ? t("dt_tab_accessories")
+                    : tab === "furniture"
+                    ? "Furniture"
                     : tab === "base"
                     ? t("dt_tab_base")
                     : tab === "wall"
@@ -3253,7 +3258,56 @@ export default function DesignTool() {
                   <span>{t("dt_pl_avail_lineup_note")}</span>
                 </div>
               )}
-            {paletteType === "opening" ? (
+            {paletteType === "furniture" ? (
+              (() => {
+                const cats = ["table", "chair", "stool", "bench"] as const;
+                const catLabels: Record<string, string> = { table: "Tables", chair: "Chairs", stool: "Stools", bench: "Benches" };
+                return cats.map((cat) => {
+                  const items = FURNITURE_CATALOG.filter((f) => f.category === cat);
+                  if (!items.length) return null;
+                  return (
+                    <div key={cat} className="space-y-1.5">
+                      <div className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">{catLabels[cat]}</div>
+                      {items.map((def) => (
+                        <button
+                          key={def.id}
+                          onClick={() => {
+                            const cx = room.width / 2;
+                            const cy = room.depth / 2;
+                            setFurniture((prev) => [...prev, makeFurniture(def.id, cx, cy)]);
+                            toast.success(`${def.name} added to floor plan`);
+                          }}
+                          className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                        >
+                          <div
+                            className="h-9 w-9 rounded border flex items-center justify-center shrink-0"
+                            style={{ background: def.color + "33", borderColor: def.color + "88" }}
+                          >
+                            <div
+                              className="rounded"
+                              style={{
+                                width: def.shape === "round" ? 20 : Math.min(28, def.w / 3),
+                                height: def.shape === "round" ? 20 : Math.min(20, def.d / 3),
+                                background: def.color,
+                                borderRadius: def.shape === "round" ? "50%" : 3,
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-semibold text-foreground truncate">{def.name}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {def.shape === "round" ? `${def.w}" dia` : `${def.w}"W × ${def.d}"D`}
+                              {def.clearance > 0 && ` · ${def.clearance}" clearance`}
+                            </div>
+                          </div>
+                          <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  );
+                });
+              })()
+            ) : paletteType === "opening" ? (
               OPENINGS.map((o) => (
                 <button
                   key={o.key}
@@ -3432,6 +3486,12 @@ export default function DesignTool() {
               onMoveSink={moveSink}
               onDropToFloor={dropToFloor}
               finishFor={finishForCab}
+              furniture={furniture}
+              selectedFurnUid={selectedFurnUid}
+              onSelectFurn={setSelectedFurnUid}
+              onMoveFurn={(uid, x, y) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, x, y } : f))}
+              onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
+              onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
             />
           )}
           {viewMode === "elevation" && (
@@ -3509,12 +3569,18 @@ export default function DesignTool() {
                   layoutLocked={layoutLocked}
                   lockedWalls={lockedWalls}
                   countertopMaterialId={countertop ? countertopMaterialId : null}
-                  sinks={sinks}
-                  selectedSinkUid={selectedSinkUid}
-                  onSelectSink={selectSink}
-                  onMoveSink={moveSink}
-                  onDropToFloor={dropToFloor}
-                  finishFor={finishForCab}
+              sinks={sinks}
+              selectedSinkUid={selectedSinkUid}
+              onSelectSink={selectSink}
+              onMoveSink={moveSink}
+              onDropToFloor={dropToFloor}
+              finishFor={finishForCab}
+              furniture={furniture}
+              selectedFurnUid={selectedFurnUid}
+              onSelectFurn={setSelectedFurnUid}
+              onMoveFurn={(uid, x, y) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, x, y } : f))}
+              onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
+              onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
                 />
               </div>
               <div className="flex-1 min-h-0">
