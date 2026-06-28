@@ -1,10 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useSearch } from "wouter";
 import {
   ChevronLeft, Package, Palette, DollarSign,
-  ShoppingCart, Info, Check, Lock
+  ShoppingCart, Info, Check, Lock,
+  Pencil, X, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -265,6 +270,73 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   const { addItem, lockedDistributorId, lockedStyleLabel, clear } = useCart();
 
+  // ── Admin inline edit ────────────────────────────────────────────────────────
+  const [editOpen, setEditOpen] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editSubCategory, setEditSubCategory] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+
+  // Pre-fill form when dialog opens
+  useEffect(() => {
+    if (editOpen && cabinet) {
+      setEditDescription(cabinet.description ?? "");
+      setEditCategory(cabinet.category ?? "");
+      setEditSubCategory(cabinet.subCategory ?? "");
+      setEditImageUrl(cabinet.catalogImageUrl ?? "");
+    }
+  }, [editOpen, cabinet]);
+
+  const utils = trpc.useUtils();
+  const updateCabinet = trpc.cabinets.adminUpdateCabinet.useMutation({
+    onSuccess: () => {
+      toast.success("Cabinet updated");
+      utils.cabinets.byCode.invalidate({ masterCode });
+      setEditOpen(false);
+    },
+    onError: (err) => toast.error(`Save failed: ${err.message}`),
+  });
+  const uploadImage = trpc.cabinets.adminUploadCatalogImage.useMutation({
+    onError: (err) => toast.error(`Upload failed: ${err.message}`),
+  });
+
+  async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageUploading(true);
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onerror = () => reject(new Error("Could not read file"));
+        reader.onload = () => resolve(String(reader.result));
+        reader.readAsDataURL(file);
+      });
+      const result = await uploadImage.mutateAsync({
+        filename: file.name,
+        dataBase64: dataUrl,
+        contentType: file.type || "image/jpeg",
+      });
+      setEditImageUrl(result.url);
+      toast.success("Image uploaded — click Save to apply");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setImageUploading(false);
+    }
+  }
+
+  function handleSaveEdit() {
+    if (!cabinet?.id) return;
+    updateCabinet.mutate({
+      id: cabinet.id,
+      description: editDescription.trim() || undefined,
+      category: editCategory.trim() || undefined,
+      subCategory: editSubCategory.trim() || null,
+      catalogImageUrl: editImageUrl.trim() || null,
+    });
+  }
+
   // Add a specific style row to the cart (used directly and after an auto-switch).
   const addRow = (row: StyleRow) => {
     const unitPrice = priceNumberForTier(row, tier);
@@ -521,9 +593,20 @@ export default function CabinetDetail({ masterCode }: Props) {
             </span>
             <Badge variant="secondary" className="ml-2 text-xs">{cabinetTypeLabel(cabinet)}</Badge>
           </div>
-          <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground mt-2 mb-1">
-            {translateSpec(cabinet.description, lang)}
-          </h1>
+          <div className="flex items-start justify-between gap-2 mt-2 mb-1">
+            <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
+              {translateSpec(cabinet.description, lang)}
+            </h1>
+            {isOwner && (
+              <button
+                onClick={() => setEditOpen(true)}
+                title="Edit cabinet (admin)"
+                className="shrink-0 mt-1 p-1.5 rounded-lg border border-amber-400/60 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-500/40 dark:hover:bg-amber-900/40"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
           {/* Door style selector (price follows the chosen style) */}
           <div className="mt-6">
@@ -643,6 +726,132 @@ export default function CabinetDetail({ masterCode }: Props) {
           )}
         </div>
       </div>
+
+      {/* Admin inline edit dialog — only rendered for admins */}
+      {isOwner && (
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-4 w-4 text-amber-600" />
+                Edit Cabinet
+                <span className="font-mono text-xs font-normal text-muted-foreground ml-1">{masterCode}</span>
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {/* Description */}
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-desc">Description</Label>
+                <Textarea
+                  id="edit-desc"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. Base Cabinet 12W x 34.5H x 24D"
+                />
+              </div>
+
+              {/* Category */}
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-cat">Category</Label>
+                <Input
+                  id="edit-cat"
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  placeholder="e.g. Base Cabinets"
+                />
+              </div>
+
+              {/* Sub-category */}
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-sub">
+                  Sub-Category{" "}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <Input
+                  id="edit-sub"
+                  value={editSubCategory}
+                  onChange={(e) => setEditSubCategory(e.target.value)}
+                  placeholder="e.g. Drawer Base, Angle Base, Sink Base"
+                />
+              </div>
+
+              {/* Catalog image */}
+              <div className="space-y-1.5">
+                <Label>Catalog Image</Label>
+                {editImageUrl && (
+                  <div className="relative w-24 h-24 rounded-lg border border-border overflow-hidden bg-muted/30 mb-2">
+                    <img
+                      src={editImageUrl}
+                      alt="Catalog preview"
+                      className="h-full w-full object-contain"
+                    />
+                    <button
+                      onClick={() => setEditImageUrl("")}
+                      className="absolute top-0.5 right-0.5 rounded-full bg-background/80 p-0.5 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={handleImageFile}
+                      disabled={imageUploading}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 pointer-events-none"
+                      disabled={imageUploading}
+                      asChild
+                    >
+                      <span>
+                        {imageUploading ? (
+                          <span className="inline-block animate-spin h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        {imageUploading ? "Uploading…" : "Upload image"}
+                      </span>
+                    </Button>
+                  </label>
+                  <span className="text-xs text-muted-foreground">or paste URL below</span>
+                </div>
+                <Input
+                  value={editImageUrl}
+                  onChange={(e) => setEditImageUrl(e.target.value)}
+                  placeholder="/manus-storage/... or https://..."
+                  className="text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveEdit}
+                disabled={updateCabinet.isPending || imageUploading}
+                className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {updateCabinet.isPending ? (
+                  <span className="inline-block animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

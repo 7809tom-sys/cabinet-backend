@@ -1209,6 +1209,53 @@ export const cabinetsRouter = router({
       return { updated, skipped, errors };
     }),
 
+  // ── Admin: Inline storefront edit ──────────────────────────────────────────
+  // Called from the CabinetDetail page when an admin clicks the pencil button.
+  // Only the fields provided are written; omitted fields are left unchanged.
+  adminUpdateCabinet: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        description: z.string().min(1).optional(),
+        category: z.string().min(1).optional(),
+        subCategory: z.string().nullable().optional(),
+        catalogImageUrl: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const patch: Record<string, unknown> = {};
+      if (input.description !== undefined) patch.description = input.description;
+      if (input.category !== undefined) patch.category = input.category;
+      if (input.subCategory !== undefined) patch.subCategory = input.subCategory;
+      if (input.catalogImageUrl !== undefined) patch.catalogImageUrl = input.catalogImageUrl;
+      if (Object.keys(patch).length === 0) return { ok: true };
+      await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
+      return { ok: true };
+    }),
+
+  // ── Admin: Upload catalog image for a cabinet ────────────────────────────
+  // Accepts a base64 data URL (from a file picker), uploads to storage, and
+  // returns the /manus-storage/ URL so the client can save it via adminUpdateCabinet.
+  adminUploadCatalogImage: adminProcedure
+    .input(
+      z.object({
+        filename: z.string().min(1),
+        dataBase64: z.string().min(1),
+        contentType: z.string().default("image/jpeg"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const raw = input.dataBase64.includes(",")
+        ? input.dataBase64.slice(input.dataBase64.indexOf(",") + 1)
+        : input.dataBase64;
+      const buf = Buffer.from(raw, "base64");
+      const safe = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const { url } = await storagePut(`catalog-images/${Date.now()}_${safe}`, buf, input.contentType);
+      return { url };
+    }),
+
   // ── Cabinet Line Export ───────────────────────────────────────────────────
   // Returns an XLSX workbook with all cabinets available for a given door style,
   // including description, dimensions, pricing, and catalog image URL.
