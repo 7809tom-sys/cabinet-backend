@@ -270,6 +270,23 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   const { addItem, lockedDistributorId, lockedStyleLabel, clear } = useCart();
 
+  // ── Pricing visibility gate ──────────────────────────────────────────────────
+  const { data: siteSettingsData } = trpc.siteSettings.getPublicSettings.useQuery();
+  const pricingVisibility = siteSettingsData?.pricingVisibility ?? "public";
+  const canSeePricing = (() => {
+    if (isOwner) return true; // admin always sees pricing
+    if (pricingVisibility === "hidden") return false;
+    if (pricingVisibility === "public") return true;
+    if (pricingVisibility === "logged_in") return !!user;
+    if (pricingVisibility === "dealer") {
+      const tradeRoles = ["admin", "dealer", "distributor", "partner"];
+      const tradeTiers = ["contractor", "wholesale"];
+      return !!user && (tradeRoles.includes(user.role ?? "") || tradeTiers.includes(user.pricingTier ?? ""));
+    }
+    if (pricingVisibility === "admin") return false; // only admin (handled above)
+    return true;
+  })();
+
   // ── Admin inline edit ────────────────────────────────────────────────────────
   const [editOpen, setEditOpen] = useState(false);
   const [editDescription, setEditDescription] = useState("");
@@ -661,24 +678,50 @@ export default function CabinetDetail({ masterCode }: Props) {
                 </span>
               </div>
 
-              {isPro ? (
-                <Tabs value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
-                  <TabsList className="w-full">
-                    {visibleTiers.map((t) => (
-                      <TabsTrigger key={t} value={t} className="flex-1 text-xs">
-                        {tierLabel(t)}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
+              {canSeePricing ? (
+                isPro ? (
+                  <Tabs value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
+                    <TabsList className="w-full">
+                      {visibleTiers.map((t) => (
+                        <TabsTrigger key={t} value={t} className="flex-1 text-xs">
+                          {tierLabel(t)}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
 
-                  {visibleTiers.map((t) => (
-                    <TabsContent key={t} value={t} className="mt-3">
-                      <PriceCard row={selectedRow} tier={t} isOwner={isOwner} />
-                    </TabsContent>
-                  ))}
-                </Tabs>
+                    {visibleTiers.map((t) => (
+                      <TabsContent key={t} value={t} className="mt-3">
+                        <PriceCard row={selectedRow} tier={t} isOwner={isOwner} />
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                ) : (
+                  <PriceCard row={selectedRow} tier="homeowner" isOwner={isOwner} />
+                )
               ) : (
-                <PriceCard row={selectedRow} tier="homeowner" isOwner={isOwner} />
+                <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground space-y-2">
+                  {pricingVisibility === "hidden" ? (
+                    <>
+                      <p className="font-medium text-foreground">Request a Quote</p>
+                      <p>Pricing is available upon request. Contact us for a custom quote on this item.</p>
+                    </>
+                  ) : pricingVisibility === "logged_in" ? (
+                    <>
+                      <p className="font-medium text-foreground">Sign in to view pricing</p>
+                      <p>Create a free account or sign in to see pricing for this product.</p>
+                    </>
+                  ) : pricingVisibility === "dealer" ? (
+                    <>
+                      <p className="font-medium text-foreground">Trade pricing available</p>
+                      <p>Pricing is available to approved dealers and trade professionals. Contact us to request trade access.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium text-foreground">Contact us for pricing</p>
+                      <p>Please reach out to get pricing information for this product.</p>
+                    </>
+                  )}
+                </div>
               )}
 
               {/* Qty + Add to Cart */}

@@ -1030,3 +1030,27 @@ export const salesCommissions = mysqlTable("sales_commissions", {
 
 export type SalesCommission = typeof salesCommissions.$inferSelect;
 export type InsertSalesCommission = typeof salesCommissions.$inferInsert;
+
+// ─── Site-wide settings ─────────────────────────────────────────────────────
+// A single-row key/value store for global admin-controlled settings.
+// pricingVisibility controls who can see pricing on the storefront:
+//   "public"      → everyone (guests + logged-in users)
+//   "logged_in"   → only authenticated users (any role)
+//   "dealer"      → only users with role dealer, wholesale, contractor, or admin
+//   "admin"       → only admins (owner)
+//   "hidden"      → nobody sees pricing (RFQ mode)
+export const siteSettings = mysqlTable("site_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  pricingVisibility: mysqlEnum("pricingVisibility", [
+    "public",
+    "logged_in",
+    "dealer",
+    "admin",
+    "hidden",
+  ])
+    .default("public")
+    .notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SiteSettings = typeof siteSettings.$inferSelect;
+export type InsertSiteSettings = typeof siteSettings.$inferInsert;

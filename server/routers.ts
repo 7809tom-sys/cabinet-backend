@@ -28,6 +28,7 @@ import { pantryRouter } from "./routers/pantry";
 import { paymentsRouter } from "./routers/payments";
 import { consultationsRouter } from "./routers/consultations";
 import { affiliateMembershipRouter } from "./routers/affiliateMembership";
+import { siteSettingsRouter } from "./routers/siteSettings";
 
 export const appRouter = router({
   system: systemRouter,
@@ -66,6 +67,7 @@ export const appRouter = router({
   payments: paymentsRouter,
   consultations: consultationsRouter,
   affiliateMembership: affiliateMembershipRouter,
+  siteSettings: siteSettingsRouter,
 });
 
 export type AppRouter = typeof appRouter;

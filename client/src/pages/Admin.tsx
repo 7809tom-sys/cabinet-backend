@@ -42,6 +42,7 @@ import SalesCommissionsAdmin from "@/components/admin/SalesCommissionsAdmin";
 import AffiliateInvoicesAdmin from "@/components/admin/AffiliateInvoicesAdmin";
 import CabinetSpreadsheetAdmin from "@/components/admin/CabinetSpreadsheetAdmin";
 import CabinetLineDownload from "@/components/admin/CabinetLineDownload";
+import { PricingAccessAdmin } from "@/components/admin/PricingAccessAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -606,6 +607,7 @@ export default function Admin() {
           <TabsTrigger value="payments">Payments</TabsTrigger>
             <TabsTrigger value="conflicts">Conflicts</TabsTrigger>
             <TabsTrigger value="cabinets">Cabinets</TabsTrigger>
+            <TabsTrigger value="pricing-access">Pricing Access</TabsTrigger>
           </TabsList>
         <TabsContent value="crm" className="mt-6">
           <CrmBoard lang="en" />
@@ -671,6 +673,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="conflicts" className="mt-6">
           <ConflictsAdmin />
+        </TabsContent>
+        <TabsContent value="pricing-access" className="mt-6">
+          <PricingAccessAdmin />
         </TabsContent>
         <TabsContent value="cabinets" className="mt-6">
           <CabinetSpreadsheetAdmin />
