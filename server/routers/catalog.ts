@@ -1220,6 +1220,9 @@ export const cabinetsRouter = router({
         category: z.string().min(1).optional(),
         subCategory: z.string().nullable().optional(),
         catalogImageUrl: z.string().nullable().optional(),
+        showInCatalog: z.boolean().optional(),
+        showInDesigner: z.boolean().optional(),
+        showIn2020: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1230,6 +1233,9 @@ export const cabinetsRouter = router({
       if (input.category !== undefined) patch.category = input.category;
       if (input.subCategory !== undefined) patch.subCategory = input.subCategory;
       if (input.catalogImageUrl !== undefined) patch.catalogImageUrl = input.catalogImageUrl;
+      if (input.showInCatalog !== undefined) patch.showInCatalog = input.showInCatalog;
+      if (input.showInDesigner !== undefined) patch.showInDesigner = input.showInDesigner;
+      if (input.showIn2020 !== undefined) patch.showIn2020 = input.showIn2020;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
       return { ok: true };

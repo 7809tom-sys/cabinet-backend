@@ -54,7 +54,9 @@ export const designRouter = router({
           catalogImageUrl: cabinets.catalogImageUrl,
         })
         .from(cabinets)
-        .where(and(eq(cabinets.isActive, true), notInConflict()));
+        // showInDesigner=false hides a cabinet from the Kitchen Designer palette
+        // without removing it from the public catalog or pricing.
+        .where(and(eq(cabinets.isActive, true), notInConflict(), eq(cabinets.showInDesigner, true)));
 
       // Availability gate: a cabinet is only offered in the designer if it has
       // at least one published + available distributor SKU. If a specific

@@ -151,6 +151,13 @@ export const cabinets = mysqlTable("cabinets", {
   priceVerified: boolean("priceVerified").default(false).notNull(),
   priceVerifiedAt: timestamp("priceVerifiedAt"),
   priceVerifiedByName: varchar("priceVerifiedByName", { length: 128 }),
+  // Visibility toggles — admins control where each cabinet appears.
+  // showInCatalog: visible on the public storefront catalog (default true).
+  // showInDesigner: appears in the Kitchen Designer palette (default true).
+  // showIn2020: included in 2020 Design export files (default true).
+  showInCatalog: boolean("showInCatalog").default(true).notNull(),
+  showInDesigner: boolean("showInDesigner").default(true).notNull(),
+  showIn2020: boolean("showIn2020").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

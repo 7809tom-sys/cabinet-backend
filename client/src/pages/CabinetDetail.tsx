@@ -277,6 +277,9 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editSubCategory, setEditSubCategory] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
+  const [editShowInCatalog, setEditShowInCatalog] = useState(true);
+  const [editShowInDesigner, setEditShowInDesigner] = useState(true);
+  const [editShowIn2020, setEditShowIn2020] = useState(true);
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -285,6 +288,9 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditCategory(cabinet.category ?? "");
       setEditSubCategory(cabinet.subCategory ?? "");
       setEditImageUrl(cabinet.catalogImageUrl ?? "");
+      setEditShowInCatalog(cabinet.showInCatalog ?? true);
+      setEditShowInDesigner(cabinet.showInDesigner ?? true);
+      setEditShowIn2020(cabinet.showIn2020 ?? true);
     }
   }, [editOpen, cabinet]);
 
@@ -334,6 +340,9 @@ export default function CabinetDetail({ masterCode }: Props) {
       category: editCategory.trim() || undefined,
       subCategory: editSubCategory.trim() || null,
       catalogImageUrl: editImageUrl.trim() || null,
+      showInCatalog: editShowInCatalog,
+      showInDesigner: editShowInDesigner,
+      showIn2020: editShowIn2020,
     });
   }
 
@@ -775,6 +784,52 @@ export default function CabinetDetail({ masterCode }: Props) {
                   onChange={(e) => setEditSubCategory(e.target.value)}
                   placeholder="e.g. Drawer Base, Angle Base, Sink Base"
                 />
+              </div>
+
+              {/* Visibility toggles */}
+              <div className="space-y-2">
+                <Label>Visibility</Label>
+                <div className="rounded-lg border border-border divide-y divide-border">
+                  {/* Public Catalog */}
+                  <label className="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors">
+                    <div>
+                      <p className="text-sm font-medium">Public Catalog</p>
+                      <p className="text-xs text-muted-foreground">Visible on the storefront catalog &amp; search</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editShowInCatalog}
+                      onChange={(e) => setEditShowInCatalog(e.target.checked)}
+                      className="h-4 w-4 rounded accent-amber-600"
+                    />
+                  </label>
+                  {/* Kitchen Designer */}
+                  <label className="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors">
+                    <div>
+                      <p className="text-sm font-medium">Kitchen Designer</p>
+                      <p className="text-xs text-muted-foreground">Appears in the drag-and-drop design tool palette</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editShowInDesigner}
+                      onChange={(e) => setEditShowInDesigner(e.target.checked)}
+                      className="h-4 w-4 rounded accent-amber-600"
+                    />
+                  </label>
+                  {/* 2020 Export */}
+                  <label className="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors">
+                    <div>
+                      <p className="text-sm font-medium">2020 Export</p>
+                      <p className="text-xs text-muted-foreground">Included when exporting catalog for 2020 Design software</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editShowIn2020}
+                      onChange={(e) => setEditShowIn2020(e.target.checked)}
+                      className="h-4 w-4 rounded accent-amber-600"
+                    />
+                  </label>
+                </div>
               </div>
 
               {/* Catalog image */}
