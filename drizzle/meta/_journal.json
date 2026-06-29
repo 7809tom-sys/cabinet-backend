@@ -295,6 +295,13 @@
       "when": 1782713009655,
       "tag": "0041_numerous_epoch",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "5",
+      "when": 1782725732180,
+      "tag": "0042_friendly_the_anarchist",
+      "breakpoints": true
     }
   ]
 }

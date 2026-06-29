@@ -1280,6 +1280,11 @@ export const cabinetsRouter = router({
         height: z.string().nullable().optional(),
         depth: z.string().nullable().optional(),
         weight: z.string().nullable().optional(),
+        // Package dimensions & weight
+        pkgLength: z.string().nullable().optional(),
+        pkgWidth: z.string().nullable().optional(),
+        pkgHeight: z.string().nullable().optional(),
+        pkgWeight: z.string().nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1297,6 +1302,10 @@ export const cabinetsRouter = router({
       if (input.height !== undefined) patch.height = input.height;
       if (input.depth !== undefined) patch.depth = input.depth;
       if (input.weight !== undefined) patch.weight = input.weight;
+      if (input.pkgLength !== undefined) patch.pkgLength = input.pkgLength;
+      if (input.pkgWidth !== undefined) patch.pkgWidth = input.pkgWidth;
+      if (input.pkgHeight !== undefined) patch.pkgHeight = input.pkgHeight;
+      if (input.pkgWeight !== undefined) patch.pkgWeight = input.pkgWeight;
       if (input.isActive !== undefined) patch.isActive = input.isActive;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
@@ -1418,6 +1427,68 @@ export const cabinetsRouter = router({
       const xlsx = buf.toString("base64");
       const filename = `cabinet-line-style-${input.styleId}.xlsx`;
       return { xlsx, filename, count: rows.length };
+    }),
+
+  // ── Admin: Bulk Dimensions & Weight editor ────────────────────────────────
+  // Returns all cabinets with their assembled + package dimensions and weight
+  // so the admin can review and correct them in a table view.
+  adminListDimensions: adminProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(200).default(100),
+        missingOnly: z.boolean().default(false),
+        search: z.string().optional(),
+        category: z.string().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [], total: 0 };
+      const conditions = [];
+      if (input.missingOnly) {
+        conditions.push(
+          sql`(${cabinets.weight} IS NULL OR ${cabinets.weight} = 0 OR ${cabinets.pkgLength} IS NULL OR ${cabinets.pkgWidth} IS NULL OR ${cabinets.pkgHeight} IS NULL OR ${cabinets.pkgWeight} IS NULL)`
+        );
+      }
+      if (input.search) {
+        const like = `%${input.search}%`;
+        conditions.push(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like})`
+        );
+      }
+      if (input.category) {
+        conditions.push(eq(cabinets.category, input.category));
+      }
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const [rows, countRows] = await Promise.all([
+        db
+          .select({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            weight: cabinets.weight,
+            pkgLength: cabinets.pkgLength,
+            pkgWidth: cabinets.pkgWidth,
+            pkgHeight: cabinets.pkgHeight,
+            pkgWeight: cabinets.pkgWeight,
+          })
+          .from(cabinets)
+          .where(where)
+          .orderBy(asc(cabinets.masterCode))
+          .limit(input.limit)
+          .offset(input.page * input.limit),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(cabinets)
+          .where(where),
+      ]);
+      return { rows, total: Number(countRows[0]?.count ?? 0) };
     }),
 
 });

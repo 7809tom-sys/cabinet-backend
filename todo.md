@@ -2150,3 +2150,9 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Cabinet line export: add yourCost column
 - [ ] Cabinet line export: compute contractor/homeowner prices using Margins tab markup bps (not raw DB columns)
 - [ ] Featured door style white-label: apply label to 100% of cabinets in the style, not just some
+
+## Bulk Dimensions & Weight Editor
+- [ ] Add pkgWeight column to cabinets schema and run migration
+- [ ] Expose pkgLength/pkgWidth/pkgHeight/pkgWeight/weight in adminUpdateCabinet procedure
+- [ ] Build BulkDimensionsAdmin component with inline editable table and missing-data filter
+- [ ] Add Dimensions tab to Admin.tsx

@@ -49,6 +49,7 @@ import BrandingSettingsAdmin from "@/components/admin/BrandingSettingsAdmin";
 import NotificationSettingsAdmin from "@/components/admin/NotificationSettingsAdmin";
 import ApiStatusAdmin from "@/components/admin/ApiStatusAdmin";
 import IncomingOrdersAdmin from "@/components/admin/IncomingOrdersAdmin";
+import { BulkDimensionsAdmin } from "@/components/admin/BulkDimensionsAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -614,6 +615,7 @@ export default function Admin() {
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="conflicts">Conflicts</TabsTrigger>
           <TabsTrigger value="cabinets">Cabinets</TabsTrigger>
+          <TabsTrigger value="dimensions">Dimensions & Weight</TabsTrigger>
           <TabsTrigger value="pricing-access">Pricing Access</TabsTrigger>
           <TabsTrigger value="designer-availability">Designer Availability</TabsTrigger>
           <TabsTrigger value="email-settings">Email Settings</TabsTrigger>
@@ -698,6 +700,9 @@ export default function Admin() {
         <TabsContent value="cabinets" className="mt-6">
           <CabinetSpreadsheetAdmin />
           <CabinetLineDownload />
+        </TabsContent>
+        <TabsContent value="dimensions" className="mt-6">
+          <BulkDimensionsAdmin />
         </TabsContent>
         <TabsContent value="email-settings" className="mt-6">
           <EmailSettingsAdmin />

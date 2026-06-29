@@ -140,6 +140,7 @@ export const cabinets = mysqlTable("cabinets", {
   pkgLength: decimal("pkgLength", { precision: 6, scale: 2 }),
   pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
   pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
+  pkgWeight: decimal("pkgWeight", { precision: 8, scale: 2 }), // packaged/shipping weight in lbs
   isActive: boolean("isActive").default(true).notNull(),
   // Conflict / Needs-Review status. When 'conflict', the product is held in the
   // admin back office only and hidden from the public catalog, storefront and
