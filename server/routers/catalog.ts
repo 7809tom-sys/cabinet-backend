@@ -770,7 +770,7 @@ export const cabinetsRouter = router({
         category: z.string().optional(),
         subCategory: z.string().optional(),
         search: z.string().optional(),
-        limit: z.number().min(1).max(200).default(48),
+        limit: z.number().min(1).max(1000).default(48),
         offset: z.number().min(0).default(0),
       })
     )
