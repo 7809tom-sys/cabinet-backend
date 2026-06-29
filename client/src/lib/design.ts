@@ -1201,15 +1201,22 @@ export function cornerLegRatioForPlaced(p: {
 export function cornerClipPath(rotation: number, legRatio = 0.667): string {
   const r = ((rotation % 360) + 360) % 360;
   const k = Math.round(legRatio * 100); // leg length as %
-  // Default (rot 0): legs along top + left, notch cut from bottom-right (interior).
+  const j = 100 - k; // complementary point used by the mirrored corners
+  // Each corner is an exact geometric mirror of the confirmed-correct rot 0
+  // (top-left) shape. rot 0 keeps a full-width strip along the TOP and a
+  // full-height strip along the LEFT, cutting the notch from the bottom-right
+  // so both legs hug the top + left walls and the L opens into the room.
+  //   rot 90  = horizontal mirror  → legs hug top + RIGHT   (notch bottom-left)
+  //   rot 180 = 180° rotation      → legs hug bottom + RIGHT (notch top-left)
+  //   rot 270 = vertical mirror    → legs hug bottom + LEFT   (notch top-right)
   switch (r) {
-    case 90: // notch bottom-left
-      return `polygon(0 0, 100% 0, 100% 100%, ${k}% 100%, ${k}% ${k}%, 0 ${k}%)`;
-    case 180: // notch top-left
-      return `polygon(${100 - k}% 0, 100% 0, 100% 100%, 0 100%, 0 ${k}%, ${100 - k}% ${k}%)`;
-    case 270: // notch top-right
-      return `polygon(0 0, ${k}% 0, ${k}% ${k}%, 100% ${k}%, 100% 100%, 0 100%)`;
-    default: // 0 — notch bottom-right
+    case 90: // top-right: legs hug top + right, notch bottom-left
+      return `polygon(0 0, 100% 0, 100% 100%, ${j}% 100%, ${j}% ${k}%, 0 ${k}%)`;
+    case 180: // bottom-right: legs hug bottom + right, notch top-left
+      return `polygon(${j}% 0, 100% 0, 100% 100%, 0 100%, 0 ${j}%, ${j}% ${j}%)`;
+    case 270: // bottom-left: legs hug bottom + left, notch top-right
+      return `polygon(0 0, ${k}% 0, ${k}% ${j}%, 100% ${j}%, 100% 100%, 0 100%)`;
+    default: // 0 — top-left: legs hug top + left, notch bottom-right
       return `polygon(0 0, 100% 0, 100% ${k}%, ${k}% ${k}%, ${k}% 100%, 0 100%)`;
   }
 }

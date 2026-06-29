@@ -52,3 +52,40 @@ describe("cornerRotationForPlaced — notch faces the interior in every corner",
     expect(cornerRotationForPlaced(erbAt(80, 80), ROOM)).toBe(180);
   });
 });
+
+// Lock in the exact clip-path polygon for each corner. The top-left (rot 0)
+// shape is the user-confirmed-correct reference; the other three corners MUST be
+// geometric mirrors of it so the L-notch always opens into the room interior.
+// k = round(0.667*100) = 67, j = 100 - k = 33.
+import { cornerClipPath } from "./design";
+
+describe("cornerClipPath — every corner mirrors the confirmed top-left shape", () => {
+  it("rot 0 (top-left): legs hug top+left, notch bottom-right", () => {
+    expect(cornerClipPath(0)).toBe(
+      "polygon(0 0, 100% 0, 100% 67%, 67% 67%, 67% 100%, 0 100%)"
+    );
+  });
+
+  it("rot 90 (top-right): legs hug top+right, notch bottom-left", () => {
+    expect(cornerClipPath(90)).toBe(
+      "polygon(0 0, 100% 0, 100% 100%, 33% 100%, 33% 67%, 0 67%)"
+    );
+  });
+
+  it("rot 180 (bottom-right): legs hug bottom+right, notch top-left", () => {
+    expect(cornerClipPath(180)).toBe(
+      "polygon(33% 0, 100% 0, 100% 100%, 0 100%, 0 33%, 33% 33%)"
+    );
+  });
+
+  it("rot 270 (bottom-left): legs hug bottom+left, notch top-right", () => {
+    expect(cornerClipPath(270)).toBe(
+      "polygon(0 0, 67% 0, 67% 33%, 100% 33%, 100% 100%, 0 100%)"
+    );
+  });
+
+  it("normalizes out-of-range rotations (450 ≡ 90, -90 ≡ 270)", () => {
+    expect(cornerClipPath(450)).toBe(cornerClipPath(90));
+    expect(cornerClipPath(-90)).toBe(cornerClipPath(270));
+  });
+});
