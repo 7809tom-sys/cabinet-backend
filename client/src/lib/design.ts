@@ -13,6 +13,13 @@ export const STD = {
   TALL_DEPTH: 24,
   TOE_KICK: 4.5,
   SNAP_THRESHOLD: 6,
+  // Standard plan footprint for an L-shaped corner cabinet. Regardless of the
+  // unit's nominal width (33" vs 36" easy-reach, lazy-Susan, drawer base, etc.)
+  // every L-corner BASE/TALL cabinet renders as a 36" square box with 24" legs
+  // (matching the corner drawer base, CDB-36), and wall L-corners as a 24" box
+  // with 12" legs. This keeps all corner cabinets visually identical in plan.
+  L_CORNER_BASE_BOX: 36,
+  L_CORNER_WALL_BOX: 24,
   // Finished end panels, decorative door panels, and skins are 3/4" stock.
   PANEL_THICKNESS: 0.75,
 };
@@ -599,8 +606,9 @@ export function footprintDepth(c: DesignCabinet): number {
   // corner. The actual leg depth (how far it projects from each wall) is the
   // cabinet's stored depth (~24") and is handled by cornerLegDepth().
   if (isLCornerCabinet(c.masterCode || "", c.description || undefined)) {
-    const w = dim(c.width, 24);
-    return w > 0 ? w : 24;
+    // Standard square corner box (36" base/tall, 24" wall) so every L-corner
+    // cabinet occupies an identical corner footprint regardless of nominal width.
+    return c.placement === "wall" ? STD.L_CORNER_WALL_BOX : STD.L_CORNER_BASE_BOX;
   }
   if (c.placement === "wall") return dim(c.depth, STD.WALL_DEPTH);
   if (c.placement === "tall") return dim(c.depth, STD.TALL_DEPTH);
@@ -623,9 +631,17 @@ export function rotatedSize(p: PlacedCabinet): { w: number; d: number } {
 // lazy-Susan stored as 36x24); squaring here makes both old and new placements
 // render correctly without a data migration. Non-corner cabinets fall back to
 // the plain rotated size.
+// The standard square plan-footprint side for an L-shaped corner cabinet, by
+// placement bucket. Wall corners use a 24" box; base/tall corners use a 36" box
+// — identical to the corner drawer base (CDB-36) — so every L-corner cabinet
+// (ERB-33, ERB-36, LSB, blind corner, etc.) renders the same size with 24" legs.
+export function lCornerBoxSide(p: { placement: Placement }): number {
+  return p.placement === "wall" ? STD.L_CORNER_WALL_BOX : STD.L_CORNER_BASE_BOX;
+}
+
 export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   if (isLCornerCabinet(p.masterCode, p.description)) {
-    const side = (p.width > 0 ? p.width : (p.depth > 0 ? p.depth : 24));
+    const side = lCornerBoxSide(p);
     return { w: side, d: side };
   }
   const sz = rotatedSize(p);
@@ -651,7 +667,7 @@ export function normalizeLCornerDepths(placed: PlacedCabinet[]): PlacedCabinet[]
   let changed = false;
   const next = placed.map((p) => {
     if (!isLCornerCabinet(p.masterCode, p.description)) return p;
-    const side = p.width > 0 ? p.width : (p.depth > 0 ? p.depth : 24);
+    const side = lCornerBoxSide(p);
     if (p.depth === side && p.width === side) return p;
     changed = true;
     return { ...p, width: side, depth: side };
@@ -1179,7 +1195,10 @@ export function cornerLegRatioForPlaced(p: {
   width: number;
   placement: Placement;
 }): number {
-  const box = p.width > 0 ? p.width : 24;
+  // The box side is the STANDARD L-corner square (36" base/tall, 24" wall), not
+  // the unit's nominal width — so a 33" easy-reach and a 36" drawer base share an
+  // identical notch. Legs are the standard run depth (24" base/tall, 12" wall).
+  const box = lCornerBoxSide(p);
   const legDepth = p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
   const ratio = legDepth / box;
   return Math.max(0.3, Math.min(0.95, ratio));

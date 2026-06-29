@@ -1708,15 +1708,17 @@ describe("lazy-Susan / L-corner footprint", () => {
       category: "Base", subCategory: "Lazy Susan Base", width: "33", height: "34.5", depth: "24",
       placement: "base", numberOfDoors: 2, numberOfDrawers: 0, isCornerCabinet: true,
     });
-    expect(lsb33).toBe(33); // 33x33 square
+    // Every base L-corner uses the SAME standard 36" square box regardless of
+    // nominal width, matching the corner drawer base (CDB-36).
+    expect(lsb33).toBe(36);
   });
 
-  it("keeps a 24\" leg on each wall: notch ratio = legDepth / boxWidth", () => {
-    // 36" lazy-Susan: 24/36 = 0.667 -> inner 12x12 notch
+  it("keeps a uniform 24\" leg on the standard 36\" box: every base L-corner shares 0.667", () => {
+    // All base L-corners use the standard 36" box + 24" legs => 24/36 = 0.667,
+    // independent of the unit's nominal width (a 33" ERB matches a 36" CDB).
     expect(cornerLegRatioForPlaced({ width: 36, placement: "base" })).toBeCloseTo(24 / 36, 3);
-    // 33" lazy-Susan: 24/33 = 0.727 -> inner 9x9 notch
-    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 33, 3);
-    // Wall corner uses the 12" wall depth.
+    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 36, 3);
+    // Wall corner uses the standard 24" wall box + 12" legs => 12/24 = 0.5.
     expect(cornerLegRatioForPlaced({ width: 24, placement: "wall" })).toBeCloseTo(12 / 24, 3);
   });
 
@@ -1737,11 +1739,12 @@ describe("lazy-Susan / L-corner footprint", () => {
     expect(fp.d).toBe(36); // squared, NOT the stale 24
   });
 
-  it("placedFootprint keeps a rotated L-corner square (rotation is irrelevant for a square)", () => {
+  it("placedFootprint renders a rotated L-corner as the standard 36\" square", () => {
     const rotated = cab({ masterCode: "LSB33", description: '33" Base Lazy Susan Cabinet', width: 33, depth: 24, rotation: 90 });
     const fp = placedFootprint(rotated);
-    expect(fp.w).toBe(33);
-    expect(fp.d).toBe(33);
+    // Standard 36" box regardless of the 33" nominal width or rotation.
+    expect(fp.w).toBe(36);
+    expect(fp.d).toBe(36);
   });
 
   it("placedFootprint leaves ordinary cabinets as their rotated size", () => {
