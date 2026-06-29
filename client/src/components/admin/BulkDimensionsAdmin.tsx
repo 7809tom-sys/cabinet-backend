@@ -337,7 +337,7 @@ export function BulkDimensionsAdmin() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Dimensions & Weight Editor</h2>
+          <h2 className="text-lg font-semibold">Designer Aid</h2>
           <p className="text-sm text-muted-foreground">
             Edit assembled weight, package dimensions, and catalog images for all cabinets.
           </p>
