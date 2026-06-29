@@ -1108,3 +1108,18 @@ export const notificationSettings = mysqlTable("notification_settings", {
 });
 export type NotificationSettings = typeof notificationSettings.$inferSelect;
 export type InsertNotificationSettings = typeof notificationSettings.$inferInsert;
+
+// ─── Cabinet Images (admin-uploaded product photos) ───────────────────────────
+// Admin can upload a product image per cabinet master code.
+// When present, this image replaces the auto-generated SVG line drawing
+// in the catalog detail page and designer palette thumbnail.
+export const cabinetImages = mysqlTable("cabinet_images", {
+  id: int("id").autoincrement().primaryKey(),
+  cabinetCode: varchar("cabinetCode", { length: 32 }).notNull().unique(), // e.g. "CDB-36"
+  s3Key: varchar("s3Key", { length: 512 }).notNull(),
+  s3Url: varchar("s3Url", { length: 1024 }).notNull(),
+  uploadedBy: int("uploadedBy"), // userId of the admin who uploaded
+  uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
+});
+export type CabinetImage = typeof cabinetImages.$inferSelect;
+export type InsertCabinetImage = typeof cabinetImages.$inferInsert;

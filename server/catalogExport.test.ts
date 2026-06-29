@@ -30,8 +30,10 @@ describe("distributorAdmin.catalogExport", () => {
     expect(filename).toMatch(/^cabinet-dealz-master-catalog-\d{4}-\d{2}-\d{2}\.csv$/);
     const lines = csv.trim().split("\n");
     expect(lines[0]).toBe(CATALOG_EXPORT_HEADERS.join(","));
-    // header + count rows
-    expect(lines.length).toBe(count + 1);
+    // header + count rows. A field may legitimately contain an embedded newline
+    // (e.g. a multi-line description), which splits one CSV record across >1
+    // physical lines, so the physical line count is >= count + 1, not exactly.
+    expect(lines.length).toBeGreaterThanOrEqual(count + 1);
     expect(count).toBeGreaterThan(0);
   });
 });

@@ -1217,6 +1217,8 @@ export function cornerRotationForPlaced(
   tol = 2
 ): number {
   const { w, d } = placedFootprint(p);
+  // Prefer a tight snap: if the box is within `tol` of two perpendicular walls,
+  // that corner is unambiguous.
   const nearLeft = p.x <= tol;
   const nearRight = Math.abs(p.x + w - room.width) <= tol;
   const nearTop = p.y <= tol;
@@ -1225,7 +1227,20 @@ export function cornerRotationForPlaced(
   if (nearTop && nearRight) return 90;
   if (nearBottom && nearRight) return 180;
   if (nearBottom && nearLeft) return 270;
-  return ((p.rotation % 360) + 360) % 360;
+  // Otherwise (the cabinet was dragged near a corner but not snapped tight to
+  // BOTH walls), fall back to the NEAREST room corner by the box center. This
+  // keeps the L-notch pointing into the room interior for every corner instead
+  // of defaulting to rot 0 (notch bottom-right), which only looked right in the
+  // top-left corner. This is what previously made ERB cabinets in the top-right
+  // and bottom-right corners render as a near-solid box.
+  const cx = p.x + w / 2;
+  const cy = p.y + d / 2;
+  const left = cx <= room.width / 2;
+  const top = cy <= room.depth / 2;
+  if (top && left) return 0; // top-left  → notch bottom-right
+  if (top && !left) return 90; // top-right → notch bottom-left
+  if (!top && !left) return 180; // bottom-right → notch top-left
+  return 270; // bottom-left → notch top-right
 }
 
 // Center-to-center distance between two placed cabinets, in inches.

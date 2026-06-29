@@ -226,9 +226,13 @@ describe("L-corner cabinet (lazy-Susan / blind / easy-reach) footprint", () => {
     expect(cornerRotationForPlaced(mkAt(0, room.depth - side), room)).toBe(270);
   });
 
-  it("falls back to the cabinet's own rotation when not seated in a corner", () => {
-    const floating = mk({ uid: "f", placement: "base", masterCode: "LSB36", description: "36\" Lazy Susan", width: 36, depth: 36, x: 50, y: 50, rotation: 90 });
-    expect(cornerRotationForPlaced(floating, room)).toBe(90);
+  it("snaps the notch to the NEAREST room corner when not tight to both walls", () => {
+    // Previously this fell back to the cabinet's own rotation, which let a
+    // not-quite-snapped corner cabinet point its notch at a wall (looked solid).
+    // Now it resolves to the nearest corner so the notch always faces the room.
+    // A box near the back-right area (center in the top-right quadrant) -> rot 90.
+    const nearBackRight = mk({ uid: "f", placement: "base", masterCode: "LSB36", description: "36\" Lazy Susan", width: 36, depth: 36, x: room.width - 40, y: 4, rotation: 90 });
+    expect(cornerRotationForPlaced(nearBackRight, room)).toBe(90);
   });
 });
 
