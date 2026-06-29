@@ -1223,6 +1223,11 @@ export const cabinetsRouter = router({
         showInCatalog: z.boolean().optional(),
         showInDesigner: z.boolean().optional(),
         showIn2020: z.boolean().optional(),
+        // Dimensions & weight
+        width: z.string().nullable().optional(),
+        height: z.string().nullable().optional(),
+        depth: z.string().nullable().optional(),
+        weight: z.string().nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1236,6 +1241,10 @@ export const cabinetsRouter = router({
       if (input.showInCatalog !== undefined) patch.showInCatalog = input.showInCatalog;
       if (input.showInDesigner !== undefined) patch.showInDesigner = input.showInDesigner;
       if (input.showIn2020 !== undefined) patch.showIn2020 = input.showIn2020;
+      if (input.width !== undefined) patch.width = input.width;
+      if (input.height !== undefined) patch.height = input.height;
+      if (input.depth !== undefined) patch.depth = input.depth;
+      if (input.weight !== undefined) patch.weight = input.weight;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
       return { ok: true };

@@ -297,6 +297,10 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editShowInCatalog, setEditShowInCatalog] = useState(true);
   const [editShowInDesigner, setEditShowInDesigner] = useState(true);
   const [editShowIn2020, setEditShowIn2020] = useState(true);
+  const [editWidth, setEditWidth] = useState("");
+  const [editHeight, setEditHeight] = useState("");
+  const [editDepth, setEditDepth] = useState("");
+  const [editWeight, setEditWeight] = useState("");
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -308,6 +312,10 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditShowInCatalog(cabinet.showInCatalog ?? true);
       setEditShowInDesigner(cabinet.showInDesigner ?? true);
       setEditShowIn2020(cabinet.showIn2020 ?? true);
+      setEditWidth(cabinet.width ?? "");
+      setEditHeight(cabinet.height ?? "");
+      setEditDepth(cabinet.depth ?? "");
+      setEditWeight(cabinet.weight ?? "");
     }
   }, [editOpen, cabinet]);
 
@@ -360,6 +368,10 @@ export default function CabinetDetail({ masterCode }: Props) {
       showInCatalog: editShowInCatalog,
       showInDesigner: editShowInDesigner,
       showIn2020: editShowIn2020,
+      width: editWidth.trim() || null,
+      height: editHeight.trim() || null,
+      depth: editDepth.trim() || null,
+      weight: editWeight.trim() || null,
     });
   }
 
@@ -873,6 +885,54 @@ export default function CabinetDetail({ masterCode }: Props) {
                     />
                   </label>
                 </div>
+              </div>
+
+              {/* Dimensions & Weight */}
+              <div className="space-y-2">
+                <Label>Dimensions &amp; Weight</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-width" className="text-xs text-muted-foreground">Width (in)</Label>
+                    <Input
+                      id="edit-width"
+                      value={editWidth}
+                      onChange={(e) => setEditWidth(e.target.value)}
+                      placeholder="e.g. 12"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-height" className="text-xs text-muted-foreground">Height (in)</Label>
+                    <Input
+                      id="edit-height"
+                      value={editHeight}
+                      onChange={(e) => setEditHeight(e.target.value)}
+                      placeholder="e.g. 34.5"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-depth" className="text-xs text-muted-foreground">Depth (in)</Label>
+                    <Input
+                      id="edit-depth"
+                      value={editDepth}
+                      onChange={(e) => setEditDepth(e.target.value)}
+                      placeholder="e.g. 24"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-weight" className="text-xs text-muted-foreground">Weight (lbs)</Label>
+                    <Input
+                      id="edit-weight"
+                      value={editWeight}
+                      onChange={(e) => setEditWeight(e.target.value)}
+                      placeholder="e.g. 45.5"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Enter numeric values in inches / pounds. Leave blank to keep current value.</p>
               </div>
 
               {/* Catalog image */}
