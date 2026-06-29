@@ -6,6 +6,7 @@ import {
   Pencil, X, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -301,6 +302,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editHeight, setEditHeight] = useState("");
   const [editDepth, setEditDepth] = useState("");
   const [editWeight, setEditWeight] = useState("");
+  const [editIsActive, setEditIsActive] = useState(true);
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -316,6 +318,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditHeight(cabinet.height ?? "");
       setEditDepth(cabinet.depth ?? "");
       setEditWeight(cabinet.weight ?? "");
+      setEditIsActive(cabinet.isActive ?? true);
     }
   }, [editOpen, cabinet]);
 
@@ -372,6 +375,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       height: editHeight.trim() || null,
       depth: editDepth.trim() || null,
       weight: editWeight.trim() || null,
+      isActive: editIsActive,
     });
   }
 
@@ -630,6 +634,9 @@ export default function CabinetDetail({ masterCode }: Props) {
               {masterCode}
             </span>
             <Badge variant="secondary" className="ml-2 text-xs">{cabinetTypeLabel(cabinet)}</Badge>
+            {isOwner && cabinet.isActive === false && (
+              <Badge variant="destructive" className="ml-2 text-xs">Inactive</Badge>
+            )}
           </div>
           <div className="flex items-start justify-between gap-2 mt-2 mb-1">
             <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
@@ -839,6 +846,24 @@ export default function CabinetDetail({ masterCode }: Props) {
                   onChange={(e) => setEditSubCategory(e.target.value)}
                   placeholder="e.g. Drawer Base, Angle Base, Sink Base"
                 />
+              </div>
+
+              {/* Active / Inactive toggle */}
+              <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Active</p>
+                    <p className="text-xs text-muted-foreground">Inactive cabinets are hidden from the public catalog and designer</p>
+                  </div>
+                  <Switch
+                    checked={editIsActive}
+                    onCheckedChange={setEditIsActive}
+                    aria-label="Active status"
+                  />
+                </div>
+                {!editIsActive && (
+                  <p className="mt-2 text-xs text-destructive font-medium">⚠ This cabinet will be hidden from all public views</p>
+                )}
               </div>
 
               {/* Visibility toggles */}

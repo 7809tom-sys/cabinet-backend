@@ -2129,3 +2129,11 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Estimate & Build Sheet: make cabinet list scrollable and add a "Request Order / Add to Cart" button at the bottom
 - [ ] Front View / Split elevation: enable horizontal drag to reposition a cabinet along the wall on mobile
 - [ ] Delete: ensure delete works from the mobile bottom sheet (selected cabinet) and from front view
+
+## Admin Cabinet Active/Inactive Toggle
+- [x] Add isActive boolean to adminUpdateCabinet server procedure (input schema + patch handler)
+- [x] Add editIsActive state to CabinetDetail.tsx admin edit form
+- [x] Pre-fill editIsActive from cabinet.isActive when dialog opens
+- [x] Wire editIsActive into handleSaveEdit mutation call
+- [x] Add Switch toggle UI in edit dialog (above Visibility section) with warning when inactive
+- [x] Show "Inactive" destructive badge in cabinet detail header when cabinet.isActive === false (admin only)

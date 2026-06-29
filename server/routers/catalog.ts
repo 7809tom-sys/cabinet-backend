@@ -1223,6 +1223,7 @@ export const cabinetsRouter = router({
         showInCatalog: z.boolean().optional(),
         showInDesigner: z.boolean().optional(),
         showIn2020: z.boolean().optional(),
+        isActive: z.boolean().optional(),
         // Dimensions & weight
         width: z.string().nullable().optional(),
         height: z.string().nullable().optional(),
@@ -1245,6 +1246,7 @@ export const cabinetsRouter = router({
       if (input.height !== undefined) patch.height = input.height;
       if (input.depth !== undefined) patch.depth = input.depth;
       if (input.weight !== undefined) patch.weight = input.weight;
+      if (input.isActive !== undefined) patch.isActive = input.isActive;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
       return { ok: true };
