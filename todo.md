@@ -2157,3 +2157,16 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Build BulkDimensionsAdmin component with inline editable table and missing-data filter
 - [x] Add Dimensions tab to Admin.tsx
 - [x] Designer Coverage admin view: per-cabinet style coverage matrix with gap highlighting
+
+## Manual SKU Entry (Admin)
+- [ ] Add adminUpsertSku procedure to server for manual SKU create/update
+- [ ] Build ManualSkuAdmin component: cabinet picker, style picker, part number + pricing form
+- [ ] Wire ManualSkuAdmin into Admin.tsx as a new "SKU Entry" tab
+
+## Door Style Alias Names (CD_STANDARDS White-Label)
+- [x] Add aliasName column to door_styles schema and run migration
+- [x] Populate aliasName from CD_STANDARDS spreadsheet data for all 62 styles
+- [x] Add aliasName to doorStyles.list server projection
+- [x] Add aliasName to adminUpdateDoorStyle procedure
+- [x] Update Catalog.tsx, DoorStyles.tsx, DesignTool.tsx, ColorSlotButton.tsx, AffiliateDashboard.tsx to use aliasName
+- [x] Add aliasName field to FeaturedStylesAdmin edit dialog (amber-highlighted, clearly labeled as CD_STANDARDS white-label name)

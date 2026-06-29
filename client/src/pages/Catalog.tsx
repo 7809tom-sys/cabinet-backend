@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
+import { styleDisplayName } from "@/lib/styleDisplayName";
 import { CabinetImage } from "@/components/CabinetImage";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
@@ -172,6 +173,7 @@ function CategoryLanding({
       id: number;
       styleCode: string;
       ourName: string | null;
+      aliasName?: string | null;
       featuredLabel?: string | null;
       doorStyle: string | null;
       color: string | null;
@@ -243,8 +245,8 @@ function CategoryLanding({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {(featuredStyles.length > 0
           ? featuredStyles.map((s) => ({
-              // Prefer white-label name when set by admin.
-              label: s.featuredLabel || s.ourName || s.styleCode,
+              // Prefer aliasName (CD_STANDARDS white-label), then featuredLabel, then ourName.
+              label: styleDisplayName(s) || s.featuredLabel || s.styleCode,
               href: `/family/${encodeURIComponent(s.styleCode)}`,
               // Real, verified per-style scene from the DB (guaranteed present by
               // the filter above) — matches the style's name, never a guess.
@@ -314,9 +316,9 @@ function CategoryView({
 
   const { data: styles } = trpc.doorStyles.list.useQuery();
   const styleOptions = useMemo(() => {
-    type S = { id: number; styleCode: string; ourName: string | null };
+    type S = { id: number; styleCode: string; ourName: string | null; aliasName?: string | null };
     return ((styles ?? []) as S[])
-      .map((s) => ({ id: s.id, label: s.ourName || s.styleCode }))
+      .map((s) => ({ id: s.id, label: styleDisplayName(s) || s.styleCode }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [styles]);
   const selectedStyleLabel =

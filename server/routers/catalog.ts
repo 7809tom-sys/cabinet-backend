@@ -83,6 +83,7 @@ export const doorStylesRouter = router({
         distributorId: doorStyles.distributorId,
         styleCode: doorStyles.styleCode,
         ourName: doorStyles.ourName,
+        aliasName: doorStyles.aliasName,
         doorStyle: doorStyles.doorStyle,
         woodSpecies: doorStyles.woodSpecies,
         finish: doorStyles.finish,
@@ -279,6 +280,7 @@ export const doorStylesRouter = router({
       z.object({
         id: z.number(),
         featuredLabel: z.string().max(128).nullable().optional(),
+        aliasName: z.string().max(128).nullable().optional(),
         ourName: z.string().min(1).max(128).optional(),
         doorStyle: z.string().max(64).nullable().optional(),
         color: z.string().max(64).nullable().optional(),
@@ -295,6 +297,7 @@ export const doorStylesRouter = router({
       const { id, ...fields } = input;
       const patch: Record<string, unknown> = {};
       if (fields.featuredLabel !== undefined) patch.featuredLabel = fields.featuredLabel?.trim() || null;
+      if (fields.aliasName !== undefined) patch.aliasName = fields.aliasName?.trim() || null;
       if (fields.ourName !== undefined) patch.ourName = fields.ourName.trim();
       if (fields.doorStyle !== undefined) patch.doorStyle = fields.doorStyle?.trim() || null;
       if (fields.color !== undefined) patch.color = fields.color?.trim() || null;

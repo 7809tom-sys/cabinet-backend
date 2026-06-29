@@ -302,6 +302,13 @@
       "when": 1782725732180,
       "tag": "0042_friendly_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "5",
+      "when": 1782730887342,
+      "tag": "0043_lethal_ser_duncan",
+      "breakpoints": true
     }
   ]
 }

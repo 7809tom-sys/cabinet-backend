@@ -27,6 +27,7 @@ import {
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
+import { styleDisplayName } from "@/lib/styleDisplayName";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -371,10 +372,11 @@ export default function DesignTool() {
   // When locked, only offer styles from the locked distributor so changing the
   // finish never silently switches supply lines.
   const uniqueDoorStyles = useMemo(() => {
-    const map = new Map<string, { id: number; ourName: string | null }>();
+    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null }>();
     const source = (doorStyles ?? []) as Array<{
       id: number;
       ourName: string | null;
+      aliasName?: string | null;
       distributorId?: number;
     }>;
     const scoped =
@@ -382,10 +384,10 @@ export default function DesignTool() {
         ? source.filter((s) => s.distributorId === lockedDistributorId)
         : source;
     for (const s of scoped) {
-      const key = (s.ourName || String(s.id)).toLowerCase();
+      const key = (styleDisplayName(s) || String(s.id)).toLowerCase();
       if (!map.has(key)) map.set(key, s);
     }
-    return Array.from(map.values()).sort((a, b) => (a.ourName || "").localeCompare(b.ourName || ""));
+    return Array.from(map.values()).sort((a, b) => (styleDisplayName(a) || "").localeCompare(styleDisplayName(b) || ""));
   }, [doorStyles, lockedDistributorId]);
 
   // Color 2 (slot B) must come from the same distributor as Color 1 (slot A).
@@ -394,16 +396,16 @@ export default function DesignTool() {
   // Color 1 has no distributor association (e.g. no style selected yet).
   const slotBStyles = useMemo(() => {
     if (styleA == null) return uniqueDoorStyles;
-    const source = (doorStyles ?? []) as Array<{ id: number; ourName: string | null; distributorId?: number }>;
+    const source = (doorStyles ?? []) as Array<{ id: number; ourName: string | null; aliasName?: string | null; distributorId?: number }>;
     const distA = source.find((d) => d.id === styleA)?.distributorId ?? null;
     if (distA == null) return uniqueDoorStyles;
     // Filter to same distributor, then de-duplicate by name (same as uniqueDoorStyles).
-    const map = new Map<string, { id: number; ourName: string | null }>();
+    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null }>();
     for (const s of source.filter((s) => s.distributorId === distA)) {
-      const key = (s.ourName || String(s.id)).toLowerCase();
+      const key = (styleDisplayName(s) || String(s.id)).toLowerCase();
       if (!map.has(key)) map.set(key, s);
     }
-    return Array.from(map.values()).sort((a, b) => (a.ourName || "").localeCompare(b.ourName || ""));
+    return Array.from(map.values()).sort((a, b) => (styleDisplayName(a) || "").localeCompare(styleDisplayName(b) || ""));
   }, [doorStyles, styleA, uniqueDoorStyles]);
   const { data: paletteCabinets, isLoading: paletteLoadingRaw } =
     trpc.design.placeableCabinets.useQuery(
@@ -818,10 +820,10 @@ export default function DesignTool() {
 
   // Active finish: derived from the selected door style name so picking a trim
   // instantly re-skins the placed cabinets on the canvas + elevation.
-  const activeStyleName = useMemo(
-    () => doorStyles?.find((s) => s.id === styleId)?.ourName ?? null,
-    [doorStyles, styleId]
-  );
+  const activeStyleName = useMemo(() => {
+    const s = doorStyles?.find((d) => d.id === styleId) as { ourName?: string | null; aliasName?: string | null } | undefined;
+    return s ? (styleDisplayName(s) || null) : null;
+  }, [doorStyles, styleId]);
   const activeFinish = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as
       | { ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null }
@@ -3184,9 +3186,8 @@ export default function DesignTool() {
                       <SelectContent>
                         <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
                         {uniqueDoorStyles.map((s) => (
-                          <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>
-                        ))}
-                      </SelectContent>
+                                    <SelectItem key={s.id} value={String(s.id)}>{styleDisplayName(s) || s.ourName}</SelectItem>
+                        ))}                      </SelectContent>
                     </Select>
                     {selectedCab.styleId != null && (
                       <Button
@@ -3420,9 +3421,8 @@ export default function DesignTool() {
                       <SelectContent>
                         <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
                         {uniqueDoorStyles.map((s) => (
-                          <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>
-                        ))}
-                      </SelectContent>
+                                    <SelectItem key={s.id} value={String(s.id)}>{styleDisplayName(s) || s.ourName}</SelectItem>
+                        ))}                      </SelectContent>
                     </Select>
                     {selectedCab.styleId != null && (
                       <Button

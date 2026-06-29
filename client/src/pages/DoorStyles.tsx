@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import DoorPhotoMatchWidget from "@/components/DoorPhotoMatchWidget";
+import { styleDisplayName } from "@/lib/styleDisplayName";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -20,6 +21,7 @@ interface DoorStyle {
   id: number;
   styleCode: string;
   ourName: string | null;
+  aliasName?: string | null;
   featuredLabel?: string | null;
   doorStyle: string | null;
   woodSpecies: string | null;
@@ -30,9 +32,9 @@ interface DoorStyle {
   roomSceneImageUrl: string | null;
 }
 
-/** Returns the public-facing display name: featuredLabel if set, else ourName, else styleCode */
+/** Returns the public-facing display name: aliasName → featuredLabel → ourName → styleCode */
 function displayName(style: DoorStyle): string {
-  return style.featuredLabel || style.ourName || style.styleCode;
+  return styleDisplayName(style) || style.featuredLabel || style.styleCode;
 }
 
 function StyleCard({ style }: { style: DoorStyle }) {

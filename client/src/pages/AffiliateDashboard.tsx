@@ -682,6 +682,7 @@ function CatalogBrandingEditor() {
 interface BrandingStyle {
   id: number;
   ourName: string | null;
+  aliasName?: string | null;
   styleCode: string | null;
   doorStyle: string | null;
   color: string | null;
@@ -745,14 +746,14 @@ function StyleBrandingRow({
   return (
     <TableRow>
       <TableCell className="text-sm">
-        <div className="font-medium">{style.ourName}</div>
+        <div className="font-medium">{style.aliasName || style.ourName}</div>
         {style.color && <div className="text-xs text-muted-foreground">{style.color}</div>}
       </TableCell>
       <TableCell>
         <Input
           value={brand}
           onChange={(e) => setBrand(e.target.value)}
-          placeholder={style.ourName ?? ""}
+          placeholder={style.aliasName || style.ourName || ""}
           className="min-w-[160px]"
         />
       </TableCell>

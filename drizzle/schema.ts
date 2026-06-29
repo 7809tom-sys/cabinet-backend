@@ -70,8 +70,9 @@ export const doorStyles = mysqlTable("door_styles", {
   id: int("id").autoincrement().primaryKey(),
   distributorId: int("distributorId").notNull(),
   styleCode: varchar("styleCode", { length: 32 }).notNull(), // ASP, SW, GR
-  ourName: varchar("ourName", { length: 128 }).notNull(), // Lumina White (white-label brand name)
-  distributorName: varchar("distributorName", { length: 128 }).notNull(), // Aspen White
+  ourName: varchar("ourName", { length: 128 }).notNull(), // internal name (e.g. Lumina Blanc)
+  aliasName: varchar("aliasName", { length: 128 }), // white-label public display name (e.g. Lumina White); shown everywhere customers see the style
+  distributorName: varchar("distributorName", { length: 128 }).notNull(), // Aspen White (distributor's own name)
   doorStyle: varchar("doorStyle", { length: 64 }), // Raised Panel, Shaker, Slab
   woodSpecies: varchar("woodSpecies", { length: 64 }),
   finish: varchar("finish", { length: 128 }),

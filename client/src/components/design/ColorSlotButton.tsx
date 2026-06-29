@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/useMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { styleDisplayName } from "@/lib/styleDisplayName";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ColorSlotButton
@@ -32,7 +33,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 // entire A→Z lineup is reachable on every mobile browser.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StyleOption = { id: number; ourName: string | null };
+type StyleOption = { id: number; ourName: string | null; aliasName?: string | null };
 
 interface ColorSlotButtonProps {
   label: string;
@@ -68,7 +69,7 @@ export function ColorSlotButton({
   const { t } = useLanguage();
   const isMobile = useIsMobile(1024);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const name = style?.ourName ?? null;
+  const name = style ? (styleDisplayName(style as { ourName?: string | null; aliasName?: string | null }) || null) : null;
   const hasStyle = style != null;
 
   // Shared list of selectable styles, reused by both the Popover (desktop) and
@@ -95,7 +96,7 @@ export function ColorSlotButton({
             ].join(" ")}
           >
             <span className="truncate">
-              {s.ourName ?? t("dt_cs_style_num", { id: s.id })}
+              {styleDisplayName(s) || t("dt_cs_style_num", { id: s.id })}
             </span>
             {style?.id === s.id && (
               <Check className="h-4 w-4 shrink-0 text-[#d4a75a]" />

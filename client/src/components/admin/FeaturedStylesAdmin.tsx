@@ -20,6 +20,7 @@ const MAX_FEATURED = 30;
 interface AdminStyle {
   id: number;
   ourName: string;
+  aliasName: string | null;
   featuredLabel: string | null;
   doorStyle: string | null;
   color: string | null;
@@ -48,6 +49,7 @@ interface EditDialogProps {
 
 function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [featuredLabel, setFeaturedLabel] = useState(style.featuredLabel ?? "");
+  const [aliasName, setAliasName] = useState(style.aliasName ?? "");
   const [ourName, setOurName] = useState(style.ourName);
   const [doorStyle, setDoorStyle] = useState(style.doorStyle ?? "");
   const [color, setColor] = useState(style.color ?? "");
@@ -60,6 +62,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   // Reset state when dialog opens for a different style
   const resetToStyle = (s: AdminStyle) => {
     setFeaturedLabel(s.featuredLabel ?? "");
+    setAliasName(s.aliasName ?? "");
     setOurName(s.ourName);
     setDoorStyle(s.doorStyle ?? "");
     setColor(s.color ?? "");
@@ -87,6 +90,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     update.mutate({
       id: style.id,
       featuredLabel: featuredLabel.trim() || null,
+      aliasName: aliasName.trim() || null,
       ourName: ourName.trim(),
       doorStyle: doorStyle.trim() || null,
       color: color.trim() || null,
@@ -115,11 +119,38 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
 
         <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
 
-          {/* Public label */}
+          {/* Alias Name (CD_STANDARDS white-label) */}
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-3 space-y-1.5">
+            <Label htmlFor="ed-alias">
+              Alias Name{" "}
+              <span className="text-muted-foreground font-normal text-xs">(white-label public name — what customers see)</span>
+            </Label>
+            <Input
+              id="ed-alias"
+              value={aliasName}
+              onChange={(e) => setAliasName(e.target.value)}
+              placeholder={`e.g. ${style.ourName}`}
+            />
+            {aliasName.trim() && (
+              <button
+                type="button"
+                onClick={() => setAliasName("")}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="h-3 w-3" /> Clear alias (show internal name)
+              </button>
+            )}
+            <p className="text-xs text-muted-foreground">
+              This is the CD_STANDARDS white-label name shown in the catalog, designer, and door styles page.
+              Leave blank to fall back to the internal name.
+            </p>
+          </div>
+
+          {/* Legacy public label (kept for backward compat) */}
           <div className="rounded-lg border border-border bg-muted/30 px-3 py-3 space-y-1.5">
             <Label htmlFor="ed-label">
-              Public Label{" "}
-              <span className="text-muted-foreground font-normal text-xs">(what customers see)</span>
+              Featured Label{" "}
+              <span className="text-muted-foreground font-normal text-xs">(legacy override)</span>
             </Label>
             <Input
               id="ed-label"
@@ -137,7 +168,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
               </button>
             )}
             <p className="text-xs text-muted-foreground">
-              Leave blank to use the internal name. Use this to white-label the style name for customers.
+              Legacy field. Use Alias Name above instead.
             </p>
           </div>
 
