@@ -888,6 +888,11 @@ export function PlanCanvas({
                   <span className="text-[7px] text-[#5a4a2f] leading-none mt-0.5">
                     {Math.round(p.width)}"
                   </span>
+                  {isCorner && !isDiagonal && (
+                    <span className="text-[6px] text-[#5a4a2f]/80 leading-none mt-0.5">
+                      {Math.round(cornerLegRatioForPlaced(p) * (p.width > 0 ? p.width : 24))}" legs
+                    </span>
+                  )}
                 </div>
                 {!isWall && !isCorner && (
                   <div
