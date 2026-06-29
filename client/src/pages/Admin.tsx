@@ -617,7 +617,7 @@ export default function Admin() {
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="conflicts">Conflicts</TabsTrigger>
           <TabsTrigger value="cabinets">Cabinets</TabsTrigger>
-          <TabsTrigger value="dimensions">Designer Aid</TabsTrigger>
+          <TabsTrigger value="dimensions">Dimensions & Weight</TabsTrigger>
           <TabsTrigger value="coverage">Designer Coverage</TabsTrigger>
           <TabsTrigger value="pricing-access">Pricing Access</TabsTrigger>
           <TabsTrigger value="designer-availability">Designer Availability</TabsTrigger>

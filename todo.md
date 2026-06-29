@@ -2183,13 +2183,3 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 ## Mobile More Menu Redesign (June 29)
 - [x] Convert More menu from DropdownMenu to bottom Sheet (drawer)
 - [x] Redesign More sheet as compact menu with individual popup sub-sheets for Flooring, Backsplash, Hardware, and Trim — each section button opens a dedicated full-screen bottom sheet with larger tap targets and a back-chevron to return to the main More menu
-
-## Admin Cabinet Image Manager
-- [ ] Add cabinet_images table to drizzle schema (cabinetCode, imageType, s3Key, s3Url, uploadedAt)
-- [ ] Add tRPC procedures: uploadCabinetImage, listCabinetImages, deleteCabinetImage
-- [ ] Build Admin Cabinet Image Manager page at /admin/cabinet-images
-- [ ] Show all cabinet codes in a searchable grid with current image or line-drawing placeholder
-- [ ] Allow admin to upload image per cabinet code (front elevation)
-- [ ] Show uploaded image preview with delete button
-- [ ] Update CabinetDrawing component to use uploaded image when available, fall back to SVG line drawing
-- [ ] Update catalog CabinetDetail page to use uploaded image when available

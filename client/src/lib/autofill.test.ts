@@ -75,11 +75,11 @@ describe("autoFillSpan", () => {
     expect(r.usedInches + r.leftoverInches).toBeCloseTo(96, 1);
   });
 
-  it("never emits a filler, even when forceFiller is requested (fillers disabled)", () => {
+  it("force-appends a clearance filler when requested (range/oven corner rule)", () => {
     const r = autoFillSpan(60, "kitchen", KITCHEN, { forceFiller: 3 });
     const fillers = r.items.filter((i) => i.isFiller);
-    expect(fillers.length).toBe(0);
-    expect(r.fillerInches).toBe(0);
+    expect(fillers.some((f) => Math.abs(f.width - 3) < 0.01)).toBe(true);
+    expect(r.fillerInches).toBeGreaterThanOrEqual(3);
   });
 
   it("covers the full span; used + leftover never exceeds span", () => {
@@ -90,15 +90,17 @@ describe("autoFillSpan", () => {
     }
   });
 
-  it("leaves a leftover gap instead of inserting a filler (fillers disabled)", () => {
-    // Fillers are no longer auto-added. A 28" span with a 24" smallest box places
-    // the 24" cabinet and reports the remaining 4" as an open reveal/gap.
+  it("adds a filler only when real cabinets can't close the gap tighter", () => {
+    // The varied planner prefers a tighter all-cabinet cover (24+15 ⇒ ~1" reveal)
+    // over forcing a filler, but when the only good cover leaves a 1.5"–6" gap a
+    // filler IS inserted. Use a catalog whose smallest box is 24 so a 28" span
+    // can only be covered by 24 + 4" filler.
     const BIG: DesignCabinet[] = [cab("B-24", 24), cab("B-30", 30), cab("B-36", 36)];
     const r = autoFillSpan(28, "kitchen", BIG);
     const fillers = r.items.filter((i) => i.isFiller);
-    expect(fillers.length).toBe(0);
-    expect(r.fillerInches).toBe(0);
-    expect(r.leftoverInches).toBeCloseTo(4, 2);
+    expect(fillers.length).toBe(1);
+    expect(r.fillerInches).toBeCloseTo(4, 2);
+    expect(r.leftoverInches).toBeCloseTo(0, 2);
   });
 
   it("absorbs a sub-threshold leftover as reveal, no filler (37\" → 36, ~1 reveal)", () => {

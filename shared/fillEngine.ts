@@ -229,14 +229,27 @@ export function autoFillSpan(
     items.push({ cabinet: c, width: w, isFiller: false });
   }
 
-  // Fillers are no longer auto-added to any run. Auto-Fill Wall places only real
-  // catalog cabinets; any leftover span is reported as `leftoverInches` (an open
-  // reveal/gap) for the user to handle, and the range/oven `forceFiller` request
-  // is intentionally ignored. Users can still drop a filler manually from the
-  // palette if they want one. `fillerInches` is always 0.
-  void MIN_FILLER;
-  void MAX_FILLER;
+  const placement: FillCabinet["placement"] = mode === "closet"
+    ? candidates[candidates.length - 1].placement
+    : "base";
+
+  let used = items.reduce((s, it) => s + it.width, 0);
+  let remaining = Math.round((span - used) * 100) / 100;
+
+  let fillerInches = 0;
+  if (remaining >= MIN_FILLER) {
+    fillerInches = Math.min(remaining, MAX_FILLER);
+    items.push({ cabinet: makeFiller(fillerInches, placement), width: fillerInches, isFiller: true });
+    remaining = Math.round((remaining - fillerInches) * 100) / 100;
+  }
+
+  if (opts.forceFiller && opts.forceFiller > 0) {
+    const fw = Math.round(opts.forceFiller * 100) / 100;
+    items.push({ cabinet: makeFiller(fw, placement), width: fw, isFiller: true });
+    fillerInches += fw;
+  }
+
   const usedInches = Math.round(items.reduce((s, it) => s + it.width, 0) * 100) / 100;
   const leftoverInches = Math.max(0, Math.round((span - usedInches) * 100) / 100);
-  return { items, usedInches, leftoverInches, fillerInches: 0 };
+  return { items, usedInches, leftoverInches, fillerInches };
 }

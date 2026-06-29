@@ -138,27 +138,8 @@ function DimRow({
           dataBase64,
           contentType: file.type || "image/jpeg",
         });
-        // Auto-save the new image URL immediately after upload
-        const newDraft = { ...draft, catalogImageUrl: url };
-        setDraft(newDraft);
-        setSaving(true);
-        try {
-          await updateMut.mutateAsync({
-            id: row.id,
-            weight: newDraft.weight || null,
-            pkgLength: newDraft.pkgLength || null,
-            pkgWidth: newDraft.pkgWidth || null,
-            pkgHeight: newDraft.pkgHeight || null,
-            pkgWeight: newDraft.pkgWeight || null,
-            catalogImageUrl: url,
-          });
-          toast.success(`${row.masterCode} image saved`);
-          onSaved();
-        } catch {
-          toast.error("Auto-save failed — click Save to retry");
-        } finally {
-          setSaving(false);
-        }
+        setDraft((d) => ({ ...d, catalogImageUrl: url }));
+        toast.success("Image uploaded");
       };
       reader.readAsDataURL(file);
     } catch {
@@ -302,12 +283,12 @@ function DimRow({
       <td className="px-2 py-2 align-middle">
         <Button
           size="sm"
-          variant={isDirty ? "default" : "outline"}
+          variant={isDirty ? "default" : "ghost"}
           className="h-7 px-2 text-xs"
           onClick={handleSave}
-          disabled={saving}
+          disabled={!isDirty || saving}
         >
-          {saving ? <Spinner className="w-3 h-3" /> : isDirty ? "Update" : "Saved ✓"}
+          {saving ? <Spinner className="w-3 h-3" /> : isDirty ? "Save" : "✓"}
         </Button>
       </td>
     </tr>
@@ -356,7 +337,7 @@ export function BulkDimensionsAdmin() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Designer Aid</h2>
+          <h2 className="text-lg font-semibold">Dimensions & Weight Editor</h2>
           <p className="text-sm text-muted-foreground">
             Edit assembled weight, package dimensions, and catalog images for all cabinets.
           </p>

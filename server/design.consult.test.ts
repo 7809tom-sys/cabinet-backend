@@ -93,12 +93,11 @@ describe("fillEngine determinism (consultant safety net)", () => {
     expect(res.leftoverInches).toBeLessThanOrEqual(1.5);
   });
 
-  it("leaves an awkward leftover as an open gap (fillers disabled)", () => {
-    // 39" → places a 36" cabinet and reports the remaining 3" as leftover; no
-    // filler is ever inserted.
+  it("adds a filler for an awkward leftover", () => {
+    // 39" → 36 + 3" filler.
     const res = autoFillSpan(39, "kitchen", catalog);
-    expect(res.items.some((it) => it.isFiller)).toBe(false);
-    expect(res.items.reduce((s, it) => s + it.width, 0)).toBeCloseTo(36, 1);
-    expect(res.leftoverInches).toBeCloseTo(3, 1);
+    const widths = res.items.reduce((s, it) => s + it.width, 0);
+    expect(widths).toBeCloseTo(39, 1);
+    expect(res.items.some((it) => it.isFiller)).toBe(true);
   });
 });
