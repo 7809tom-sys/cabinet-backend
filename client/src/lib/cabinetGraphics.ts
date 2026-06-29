@@ -7,6 +7,7 @@ export type CabinetDrawingType =
   | "sink-base" // false tilt-out top panel + sink cutout indication
   | "appliance-garage" // tambour roll-up slats
   | "blind-corner" // L-shaped footprint
+  | "corner-drawer-base" // L-shaped corner with stacked drawers on the main face (CDB-*)
   | "vanity" // vanity door/drawer combo
   | "ada" // ADA-height unit
   | "accessory-strip" // moldings, fillers, panels, shelves (thin)
@@ -125,6 +126,12 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "appliance-garage";
   }
 
+  // Corner drawer base (CDB-*): L-shaped footprint with stacked drawers on the main face.
+  // Must be detected BEFORE the generic blind-corner check.
+  const { doors: _cdbDoors, drawers: _cdbDrawers } = resolveDoorDrawerCounts(cab);
+  if (/^cdb[-_]?\d/.test(code) || (/corner.*drawer.*base|corner drawer base/.test(hay) && _cdbDrawers > 0 && _cdbDoors === 0)) {
+    return "corner-drawer-base";
+  }
   // Blind / corner cabinets render as an L-shape.
   if (cab.isCornerCabinet || /blind corner|corner|easy reach|lazy susan|diagonal/.test(hay)) {
     return "blind-corner";
@@ -204,6 +211,7 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
   //    end/wine/desk and other non-standard boxes.
   if (
     type === "blind-corner" ||
+    type === "corner-drawer-base" ||
     type === "appliance-garage" ||
     type === "ada" ||
     cab.isCornerCabinet ||
@@ -266,6 +274,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   }
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return /lazy susan|easy reach/.test(desc) ? `Corner ${placement}` : `Blind Corner ${placement}`;
+  if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;
   if (type === "appliance-garage") return "Appliance Garage";
   if (type === "glass-door") return doors >= 2 ? `Double Glass Door ${placement}` : `Single Glass Door ${placement}`;
   if (type === "accessory-strip") return sub || "Trim / Accessory";
@@ -326,6 +335,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "sink-base": "sink base cabinet with false tilt-out front",
     "appliance-garage": "appliance garage with tambour door",
     "blind-corner": "blind corner cabinet",
+    "corner-drawer-base": "corner drawer base cabinet",
     vanity: "vanity cabinet",
     ada: "ADA-compliant cabinet",
     "accessory-strip": "accessory / trim",
