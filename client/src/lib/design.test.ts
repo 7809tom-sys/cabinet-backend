@@ -1714,8 +1714,9 @@ describe("lazy-Susan / L-corner footprint", () => {
   it("keeps a 24\" leg on each wall: notch ratio = legDepth / boxWidth", () => {
     // 36" lazy-Susan: 24/36 = 0.667 -> inner 12x12 notch
     expect(cornerLegRatioForPlaced({ width: 36, placement: "base" })).toBeCloseTo(24 / 36, 3);
-    // 33" lazy-Susan: 24/33 = 0.727 -> inner 9x9 notch
-    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 33, 3);
+    // Every base L-corner cabinet uses the SAME standard 36" box as the Corner
+    // Drawer Base, so a 33" unit also keeps 24/36 = 0.667 (not 24/33).
+    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 36, 3);
     // Wall corner uses the 12" wall depth.
     expect(cornerLegRatioForPlaced({ width: 24, placement: "wall" })).toBeCloseTo(12 / 24, 3);
   });
@@ -1737,11 +1738,13 @@ describe("lazy-Susan / L-corner footprint", () => {
     expect(fp.d).toBe(36); // squared, NOT the stale 24
   });
 
-  it("placedFootprint keeps a rotated L-corner square (rotation is irrelevant for a square)", () => {
+  it("placedFootprint draws every base L-corner as the standard 36\" Corner Drawer Base box", () => {
+    // A 33" lazy-Susan is DRAWN with the same 36" square footprint + notch as the
+    // Corner Drawer Base (CDB-36), regardless of its nominal width or rotation.
     const rotated = cab({ masterCode: "LSB33", description: '33" Base Lazy Susan Cabinet', width: 33, depth: 24, rotation: 90 });
     const fp = placedFootprint(rotated);
-    expect(fp.w).toBe(33);
-    expect(fp.d).toBe(33);
+    expect(fp.w).toBe(36);
+    expect(fp.d).toBe(36);
   });
 
   it("placedFootprint leaves ordinary cabinets as their rotated size", () => {

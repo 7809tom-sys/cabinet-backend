@@ -623,9 +623,17 @@ export function rotatedSize(p: PlacedCabinet): { w: number; d: number } {
 // lazy-Susan stored as 36x24); squaring here makes both old and new placements
 // render correctly without a data migration. Non-corner cabinets fall back to
 // the plain rotated size.
+// Standard square box side for an L-corner cabinet, by placement. Every L-corner
+// cabinet (easy-reach, lazy-Susan, blind) is rendered with the SAME footprint as
+// the Corner Drawer Base (CDB-36): a 36" square for base/tall, 24" for wall —
+// regardless of the unit's nominal width (a 33" ERB still draws as a 36" box).
+export function lCornerBoxSide(placement: Placement): number {
+  return placement === "wall" ? 24 : 36;
+}
+
 export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   if (isLCornerCabinet(p.masterCode, p.description)) {
-    const side = (p.width > 0 ? p.width : (p.depth > 0 ? p.depth : 24));
+    const side = lCornerBoxSide(p.placement);
     return { w: side, d: side };
   }
   const sz = rotatedSize(p);
@@ -651,7 +659,7 @@ export function normalizeLCornerDepths(placed: PlacedCabinet[]): PlacedCabinet[]
   let changed = false;
   const next = placed.map((p) => {
     if (!isLCornerCabinet(p.masterCode, p.description)) return p;
-    const side = p.width > 0 ? p.width : (p.depth > 0 ? p.depth : 24);
+    const side = lCornerBoxSide(p.placement);
     if (p.depth === side && p.width === side) return p;
     changed = true;
     return { ...p, width: side, depth: side };
@@ -1177,7 +1185,10 @@ export function cornerLegRatioForPlaced(p: {
   width: number;
   placement: Placement;
 }): number {
-  const box = p.width > 0 ? p.width : 24;
+  // Use the SAME standard square box as the footprint (36" base / 24" wall) so the
+  // notch matches the Corner Drawer Base exactly: 24/36 = 0.667 for every base
+  // L-corner cabinet regardless of nominal width, 12/24 = 0.5 for wall.
+  const box = lCornerBoxSide(p.placement);
   const legDepth = p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
   const ratio = legDepth / box;
   return Math.max(0.3, Math.min(0.95, ratio));

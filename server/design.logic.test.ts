@@ -194,10 +194,11 @@ describe("L-corner cabinet (lazy-Susan / blind / easy-reach) footprint", () => {
     expect(fp.d).toBe(36);
   });
 
-  it("leg-keep ratio is 24/width so the notch grows with the box (36->0.667, 33->0.727)", () => {
+  it("leg-keep ratio matches the Corner Drawer Base (36\" box, 24\" legs = 0.667) for every base L-corner", () => {
     expect(cornerLegRatioForPlaced({ width: 36, placement: "base" })).toBeCloseTo(24 / 36, 5);
-    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 33, 5);
-    // wall corners return 12" deep
+    // A 33" unit draws with the SAME standard 36" box, so it also keeps 24/36.
+    expect(cornerLegRatioForPlaced({ width: 33, placement: "base" })).toBeCloseTo(24 / 36, 5);
+    // wall corners use the 24" box with 12" legs
     expect(cornerLegRatioForPlaced({ width: 24, placement: "wall" })).toBeCloseTo(12 / 24, 5);
   });
 

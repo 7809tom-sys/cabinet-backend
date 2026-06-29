@@ -16,7 +16,17 @@
 import {
   type PlacedCabinet,
   isPanelItem,
+  isLCornerCabinet,
 } from "./design";
+
+// True only for the genuine Corner Drawer Base (CDB), which legitimately shows a
+// drawer stack. All OTHER L-corner cabinets (easy-reach ERB, lazy-Susan LSB,
+// blind BBC) show DOORS, never drawers, in the elevation view.
+function isCornerDrawerBase(p: PlacedCabinet): boolean {
+  const code = `${p.masterCode ?? ""}`.toUpperCase();
+  const desc = `${p.description ?? ""}`.toLowerCase();
+  return /^CDB/.test(code) || /corner drawer/.test(desc);
+}
 
 // The hardware styles a customer can spec. "none" means no hardware (e.g. a
 // touch-latch / push-to-open job) and produces an empty schedule.
@@ -113,6 +123,9 @@ export function doorCountForCabinet(p: PlacedCabinet): number {
  */
 export function drawerCountForCabinet(p: PlacedCabinet): number {
   if (!carriesHardware(p)) return 0;
+  // Corner cabinets show DOORS, not drawers — the sole exception is the genuine
+  // Corner Drawer Base (CDB), which has a real drawer stack.
+  if (isLCornerCabinet(p.masterCode, p.description) && !isCornerDrawerBase(p)) return 0;
   if (typeof p.numberOfDrawers === "number") return Math.max(0, p.numberOfDrawers);
   const code = `${p.masterCode ?? ""}`.toUpperCase();
   const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
