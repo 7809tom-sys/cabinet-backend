@@ -346,61 +346,76 @@ function BlindCornerFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabin
   );
 }
 
-// Corner drawer base (CDB-36): L-shaped front with stacked drawers on the main face
-// and a plain return panel on the short side. Matches the real product image.
+// Corner drawer base (CDB-36): Pentagon-shaped front with 3 stacked drawers on the
+// angled 45° face. The cabinet is 36"×36" with 24" legs into each wall corner and
+// a 12" angled face cut diagonally across the front.
 function CornerDrawerBaseFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
   const n = Math.max(2, resolveDoorDrawerCounts(cabinet ?? {}).drawers || 3);
-  const inset = 4;
-  const gap = 3;
-  // Main face (~65% of width) has stacked drawers; short return (~35%) is a plain panel.
-  const returnW = Math.round(w * 0.35);
-  const mainW = w - returnW;
-  const returnH = Math.round(h * 0.6);
-  // L-shape: main face (full height) + short return (partial height on the right).
-  const path = `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + returnH} L ${x + mainW} ${y + returnH} L ${x + mainW} ${y + h} L ${x} ${y + h} Z`;
-  // Drawers fill the main face.
-  const drawerAreaH = h - inset * 2;
-  const dh = (drawerAreaH - (n - 1) * gap) / n;
-  const drawerW = mainW - inset * 2;
+  const inset = 3;
+  const gap = 2.5;
+  // Pentagon shape: back wall at top, two side legs, angled face at bottom.
+  // The angled face is ~36% of the total height; back wall legs are ~20% each side.
+  const legH = h * 0.22;   // height of the two back-wall legs
+  const angW = w * 0.28;   // horizontal inset of the angled face corners
+  const cx = x + w / 2;
+  const clipId = `cdb-clip-${Math.round(x)}-${Math.round(y)}`;
+  // Pentagon vertices:
+  //  TL(x,y) → TR(x+w,y) → BR(x+w, y+legH) → BRC(cx+angW, y+h) → BLC(cx-angW, y+h) → BL(x, y+legH) → close
+  const pts = [
+    [x,        y],
+    [x + w,    y],
+    [x + w,    y + legH],
+    [cx + angW, y + h],
+    [cx - angW, y + h],
+    [x,        y + legH],
+  ];
+  const outerPath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p[0]} ${p[1]}`).join(" ") + " Z";
+  // Drawer zone: spans from just below the leg to near the bottom, centered.
+  const dzTop = y + legH + inset;
+  const dzBottom = y + h - inset * 2;
+  const dzH = dzBottom - dzTop;
+  const dh = Math.max(5, (dzH - (n - 1) * gap) / n);
+  const drawerW = w * 0.68;
   return (
     <g>
-      <path d={path} fill={fill} stroke={STROKE} strokeWidth={1.6} strokeLinejoin="round" />
-      {/* Drawers on main face */}
-      {Array.from({ length: n }).map((_, i) => (
-        <g key={i}>
-          <rect
-            x={x + inset}
-            y={y + inset + i * (dh + gap)}
-            width={drawerW}
-            height={dh}
-            rx={1.5}
-            fill={PANEL_FILL}
-            stroke={STROKE_LIGHT}
-            strokeWidth={1}
-          />
-          {/* bar pull */}
-          <rect
-            x={x + inset + drawerW / 2 - drawerW * 0.18}
-            y={y + inset + i * (dh + gap) + dh / 2 - 0.8}
-            width={drawerW * 0.36}
-            height={1.6}
-            rx={0.8}
-            fill={STROKE}
-          />
-        </g>
-      ))}
-      {/* Short return panel outline (dashed = hidden/inaccessible face) */}
-      <rect
-        x={x + mainW + inset}
-        y={y + inset}
-        width={returnW - inset * 2}
-        height={returnH - inset * 2}
-        rx={1}
-        fill="none"
-        stroke={STROKE_LIGHT}
-        strokeWidth={0.8}
-        strokeDasharray="2 2"
-      />
+      <defs>
+        <clipPath id={clipId}>
+          <path d={outerPath} />
+        </clipPath>
+      </defs>
+      {/* Cabinet body */}
+      <path d={outerPath} fill={fill} stroke={STROKE} strokeWidth={1.6} strokeLinejoin="round" />
+      {/* Drawers clipped to pentagon */}
+      <g clipPath={`url(#${clipId})`}>
+        {Array.from({ length: n }).map((_, i) => (
+          <g key={i}>
+            <rect
+              x={cx - drawerW / 2}
+              y={dzTop + i * (dh + gap)}
+              width={drawerW}
+              height={dh}
+              rx={1.5}
+              fill={PANEL_FILL}
+              stroke={STROKE_LIGHT}
+              strokeWidth={1}
+            />
+            {/* bar pull */}
+            <rect
+              x={cx - drawerW * 0.18}
+              y={dzTop + i * (dh + gap) + dh / 2 - 0.8}
+              width={drawerW * 0.36}
+              height={1.6}
+              rx={0.8}
+              fill={STROKE}
+            />
+          </g>
+        ))}
+      </g>
+      {/* Dashed back-wall depth lines */}
+      <line x1={x + inset * 2} y1={y + inset} x2={x + inset * 2} y2={y + legH - inset}
+        stroke={STROKE_LIGHT} strokeWidth={0.8} strokeDasharray="2 2" />
+      <line x1={x + w - inset * 2} y1={y + inset} x2={x + w - inset * 2} y2={y + legH - inset}
+        stroke={STROKE_LIGHT} strokeWidth={0.8} strokeDasharray="2 2" />
     </g>
   );
 }
