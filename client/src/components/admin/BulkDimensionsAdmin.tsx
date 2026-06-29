@@ -138,8 +138,27 @@ function DimRow({
           dataBase64,
           contentType: file.type || "image/jpeg",
         });
-        setDraft((d) => ({ ...d, catalogImageUrl: url }));
-        toast.success("Image uploaded");
+        // Auto-save the new image URL immediately after upload
+        const newDraft = { ...draft, catalogImageUrl: url };
+        setDraft(newDraft);
+        setSaving(true);
+        try {
+          await updateMut.mutateAsync({
+            id: row.id,
+            weight: newDraft.weight || null,
+            pkgLength: newDraft.pkgLength || null,
+            pkgWidth: newDraft.pkgWidth || null,
+            pkgHeight: newDraft.pkgHeight || null,
+            pkgWeight: newDraft.pkgWeight || null,
+            catalogImageUrl: url,
+          });
+          toast.success(`${row.masterCode} image saved`);
+          onSaved();
+        } catch {
+          toast.error("Auto-save failed — click Save to retry");
+        } finally {
+          setSaving(false);
+        }
       };
       reader.readAsDataURL(file);
     } catch {
@@ -283,12 +302,12 @@ function DimRow({
       <td className="px-2 py-2 align-middle">
         <Button
           size="sm"
-          variant={isDirty ? "default" : "ghost"}
+          variant={isDirty ? "default" : "outline"}
           className="h-7 px-2 text-xs"
           onClick={handleSave}
-          disabled={!isDirty || saving}
+          disabled={saving}
         >
-          {saving ? <Spinner className="w-3 h-3" /> : isDirty ? "Save" : "✓"}
+          {saving ? <Spinner className="w-3 h-3" /> : isDirty ? "Update" : "Saved ✓"}
         </Button>
       </td>
     </tr>

@@ -2202,6 +2202,31 @@ export default function DesignTool() {
   }, [lockedDistributorId, selectedStyleDistributorId]);
   useEffect(() => { styleIdRef.current = styleId; }, [styleId]);
   useEffect(() => { styleBRef.current = styleB; }, [styleB]);
+  // Sync catalogImageUrl on placed cabinets from the live palette data.
+  // This ensures stale URLs saved in localStorage or a saved design are
+  // always replaced with the current value from the server.
+  useEffect(() => {
+    const allPalette = [
+      ...((paletteCabinets as DesignCabinet[]) ?? []),
+      ...((cornerWallCabinets as DesignCabinet[]) ?? []),
+    ];
+    if (allPalette.length === 0) return;
+    const byId = new Map<number, string | null>();
+    for (const c of allPalette) {
+      if (!byId.has(c.id)) byId.set(c.id, c.catalogImageUrl ?? null);
+    }
+    setPlaced((prev) => {
+      let changed = false;
+      const next = prev.map((p) => {
+        if (!byId.has(p.cabinetId)) return p;
+        const freshUrl = byId.get(p.cabinetId) ?? null;
+        if ((p.catalogImageUrl ?? null) === freshUrl) return p;
+        changed = true;
+        return { ...p, catalogImageUrl: freshUrl };
+      });
+      return changed ? next : prev;
+    });
+  }, [paletteCabinets, cornerWallCabinets]);
 
   // Click a color swatch: make that slot active. If the slot already has a
   // style, switch the active style to it so new cabinets use it.
