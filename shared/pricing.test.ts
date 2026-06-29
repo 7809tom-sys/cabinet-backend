@@ -52,7 +52,7 @@ describe("computeFeeStack — defaults (1% damage, 10% tech cap $100, 4% card)",
   it("card order under the tech cap", () => {
     // cabinets $500 = 50000; damage 1% = 500; tech 10% = 5000 (< $100 cap? no,
     // 5000 = $50 < $10000 cap → uncapped); freight $0.
-    const fs = computeFeeStack({ cabinetSubtotalCents: 50000, paymentMethod: "card" });
+    const fs = computeFeeStack({ cabinetSubtotalCents: 50000, paymentMethod: "card", isAffiliateOrder: true });
     expect(fs.damageFeeCents).toBe(500);
     expect(fs.techFeeCents).toBe(5000);
     expect(fs.techFeeCapped).toBe(false);
@@ -64,7 +64,7 @@ describe("computeFeeStack — defaults (1% damage, 10% tech cap $100, 4% card)",
 
   it("caps the tech fee at $100 for large orders", () => {
     // cabinets $2000 = 200000; tech 10% = 20000 → capped to 10000 ($100)
-    const fs = computeFeeStack({ cabinetSubtotalCents: 200000, paymentMethod: "ach", achApproved: true });
+    const fs = computeFeeStack({ cabinetSubtotalCents: 200000, paymentMethod: "ach", achApproved: true, isAffiliateOrder: true });
     expect(fs.techFeeCents).toBe(10000);
     expect(fs.techFeeCapped).toBe(true);
   });
