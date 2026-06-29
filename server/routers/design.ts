@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, inArray, desc, like, sql } from "drizzle-orm";
+import { eq, and, inArray, desc, like, sql, isNotNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
@@ -166,9 +166,34 @@ export const designRouter = router({
         return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
       });
 
+            // Enrich: for cabinets with no catalogImageUrl, pull the best SKU image
+      const missingImg = filtered.filter((r) => !r.catalogImageUrl).map((r) => r.id);
+      if (missingImg.length > 0) {
+        const skuImgs = await db
+          .select({ cabinetId: distributorSkus.cabinetId, imageUrl: distributorSkus.imageUrl })
+          .from(distributorSkus)
+          .where(
+            and(
+              inArray(distributorSkus.cabinetId, missingImg),
+              eq(distributorSkus.isAvailable, true),
+              eq(distributorSkus.isPublished, true),
+              isNotNull(distributorSkus.imageUrl)
+            )
+          );
+        const imgByCab = new Map<number, string>();
+        for (const r of skuImgs) {
+          if (r.imageUrl && !imgByCab.has(r.cabinetId)) imgByCab.set(r.cabinetId, r.imageUrl);
+        }
+        if (imgByCab.size > 0) {
+          filtered = filtered.map((r) =>
+            !r.catalogImageUrl && imgByCab.has(r.id)
+              ? { ...r, catalogImageUrl: imgByCab.get(r.id)! }
+              : r
+          );
+        }
+      }
       return filtered;
     }),
-
   // Resolve design add-on recommendations (touch-up kit, roll-out trays) to the
   // actual buyable cabinet rows for the locked style. Returns whatever is
   // available; the UI only shows recommendations that resolve to a real item.

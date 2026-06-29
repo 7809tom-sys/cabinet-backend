@@ -883,7 +883,29 @@ export const cabinetsRouter = router({
         .from(cabinets)
         .where(and(eq(cabinets.masterCode, input.masterCode), notInConflict()))
         .limit(1);
-      return rows[0] ? scrubCabinet(rows[0]) : null;
+      if (!rows[0]) return null;
+      const scrubbed = scrubCabinet(rows[0]);
+      // If no catalogImageUrl on the cabinet row, pull the best available SKU image
+      let skuImageUrl: string | null = null;
+      if (!scrubbed.catalogImageUrl) {
+        const skuImg = await db
+          .select({ imageUrl: distributorSkus.imageUrl })
+          .from(distributorSkus)
+          .where(
+            and(
+              eq(distributorSkus.cabinetId, rows[0].id),
+              eq(distributorSkus.isAvailable, true),
+              eq(distributorSkus.isPublished, true),
+              isNotNull(distributorSkus.imageUrl)
+            )
+          )
+          .limit(1);
+        skuImageUrl = skuImg[0]?.imageUrl ?? null;
+      }
+      return {
+        ...scrubbed,
+        catalogImageUrl: scrubbed.catalogImageUrl ?? skuImageUrl,
+      };
     }),
 
   // ── Admin: Conflict / Needs-Review back office ───────────────────────────
