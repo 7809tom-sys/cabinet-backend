@@ -881,28 +881,13 @@ export function PlanCanvas({
                 }}
                 title={`${p.masterCode} — ${p.description}`}
               >
-                {/* When a catalog product photo is assigned via the admin
-                    Designer Aid tool, show it as the cabinet's top-down tile
-                    so the user can visually recognize the unit in plan view.
-                    Wall cabinets keep their hatched fill. */}
-                {!isWall && p.catalogImageUrl && (
-                  <img
-                    src={p.catalogImageUrl}
-                    alt={p.masterCode}
-                    draggable={false}
-                    className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                )}
-                <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative z-[1]">
-                  <span className={`text-[9px] font-bold leading-none truncate max-w-full ${p.catalogImageUrl && !isWall ? "text-[#1a2744] bg-white/80 rounded px-1" : "text-[#1a2744]"}`}>
+                <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5">
+                  <span className="text-[9px] font-bold text-[#1a2744] leading-none truncate max-w-full">
                     {p.masterCode}
                   </span>
-                  {!(p.catalogImageUrl && !isWall) && (
-                    <span className="text-[7px] text-[#5a4a2f] leading-none mt-0.5">
-                      {Math.round(p.width)}"
-                    </span>
-                  )}
+                  <span className="text-[7px] text-[#5a4a2f] leading-none mt-0.5">
+                    {Math.round(p.width)}"
+                  </span>
                 </div>
                 {!isWall && !isCorner && (
                   <div
