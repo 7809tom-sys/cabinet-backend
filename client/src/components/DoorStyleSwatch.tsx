@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { doorPanelKind, type DoorPanelKind } from "@/lib/design";
+import { doorPanelKind } from "@/lib/design";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DoorStyleSwatch
@@ -16,9 +16,11 @@ import { doorPanelKind, type DoorPanelKind } from "@/lib/design";
 export interface DoorStyleLike {
   styleCode?: string | null;
   ourName?: string | null;
+  aliasName?: string | null;
   name?: string | null;
   doorStyle?: string | null;
   color?: string | null;
+  swColor?: string | null;
   finish?: string | null;
   woodSpecies?: string | null;
 }
@@ -28,16 +30,16 @@ interface DoorStyleSwatchProps {
   className?: string;
 }
 
-interface Swatch {
-  face: string; // door face fill
-  edge: string; // frame/edge shadow
-  panel: string; // inner panel fill (subtle contrast)
-  label: string; // legible text color on the face
+export interface Swatch {
+  face: string;
+  edge: string;
+  panel: string;
+  label: string;
+  isWood: boolean;
+  isGlass: boolean;
 }
 
-// Common Sherwin-Williams + descriptive color name → hex. Ordered by specificity
-// (more specific names first) so "tricorn black" wins before generic "black".
-const COLOR_BY_KEYWORD: { match: RegExp; hex: string }[] = [
+const COLOR_BY_KEYWORD: { match: RegExp; hex: string; wood?: boolean }[] = [
   { match: /snowbound|extra white|pure white|high reflective|marshmallow|alabaster|greek villa/, hex: "#f4f2ec" },
   { match: /creamy|antique white|natural choice|shoji|ivory|biscuit|almond|manila/, hex: "#ece2cf" },
   { match: /repose gray|agreeable gray|accessible beige|mindful gray|greige|mushroom/, hex: "#cabfae" },
@@ -46,12 +48,16 @@ const COLOR_BY_KEYWORD: { match: RegExp; hex: string }[] = [
   { match: /tricorn black|black magic|caviar|onyx|carbon|tricorn|cracked pepper|noir/, hex: "#2a2a2c" },
   { match: /naval|indigo|sea serpent|navy|cobalt|blue/, hex: "#36465c" },
   { match: /evergreen|pewter green|rosemary|sage|forest|hunter|green/, hex: "#56685b" },
-  { match: /cherry|mahogany|chestnut|cinnamon|brick|spice/, hex: "#7a4a32" },
-  { match: /walnut|mocha|coffee|java|espresso|chocolate|brown/, hex: "#6b4a32" },
-  { match: /white oak|natural|honey|maple|wheat|amber|toffee|oak/, hex: "#c79a63" },
-  { match: /gray|grey|stone/, hex: "#9aa0a6" },
-  { match: /white|snow|arctic|pearl|dove|frost|blanc/, hex: "#f3f1ec" },
-  { match: /cream|linen|sand|beige|tan|creme|ivoire/, hex: "#e6dcc6" },
+  { match: /hickory|rustic/, hex: "#a07850", wood: true },
+  { match: /cherry|mahogany|chestnut|cinnamon|brick|spice/, hex: "#7a4a32", wood: true },
+  { match: /walnut|mocha|coffee|java|espresso|chocolate|brown|umbra/, hex: "#6b4a32", wood: true },
+  { match: /white oak|natural|honey|maple|wheat|amber|toffee|oak|solis/, hex: "#c79a63", wood: true },
+  { match: /gray|grey|stone|cinder|slate|vesper|nimbus|sterling|carbon/, hex: "#9aa0a6" },
+  { match: /white|snow|arctic|pearl|dove|frost|blanc|nova|lumina|haven white|aura blanc|bloom blanc|edge blanc/, hex: "#f3f1ec" },
+  { match: /cream|linen|sand|beige|tan|creme|ivoire|aura cream|terra|vellum crema/, hex: "#e6dcc6" },
+  { match: /rust|copper|sylvan|bloom umbra/, hex: "#b5603a", wood: true },
+  { match: /sage|zenith|zephyr|oxford sage/, hex: "#7a9e7e" },
+  { match: /gold|brass|aurum|treasure/, hex: "#c9a84c" },
 ];
 
 const DEFAULT_HEX = "#c79a63"; // warm wood fallback
@@ -76,33 +82,77 @@ function luminance(hex: string): number {
 }
 
 export function resolveSwatch(style: DoorStyleLike): Swatch {
-  const haystack = `${style.color ?? ""} ${style.ourName ?? ""} ${style.name ?? ""} ${style.finish ?? ""} ${style.woodSpecies ?? ""}`.toLowerCase();
+  const haystack = `${style.color ?? ""} ${style.swColor ?? ""} ${style.ourName ?? ""} ${style.aliasName ?? ""} ${style.name ?? ""} ${style.finish ?? ""} ${style.woodSpecies ?? ""}`.toLowerCase();
   let face = DEFAULT_HEX;
-  for (const c of COLOR_BY_KEYWORD) {
-    if (c.match.test(haystack)) {
-      face = c.hex;
-      break;
+  let isWood = false;
+  let isGlass = false;
+
+  if (/glass|crystal|prism|nocturne glass|prism clear/.test(haystack)) {
+    isGlass = true;
+    face = "#b8d4e8";
+  } else {
+    for (const c of COLOR_BY_KEYWORD) {
+      if (c.match.test(haystack)) {
+        face = c.hex;
+        isWood = c.wood ?? false;
+        break;
+      }
     }
   }
+
   const lum = luminance(face);
   return {
     face,
-    edge: shade(face, lum > 0.6 ? -0.14 : -0.1),
-    panel: shade(face, lum > 0.6 ? -0.05 : 0.04),
+    edge: shade(face, lum > 0.6 ? -0.18 : -0.12),
+    panel: shade(face, lum > 0.6 ? -0.07 : 0.05),
     label: lum > 0.55 ? "#3a3a3a" : "#f5f5f5",
+    isWood,
+    isGlass,
   };
 }
 
-type PanelKind = DoorPanelKind;
+function mixHex(a: string, b: string, t: number): string {
+  const [ar, ag, ab] = hexToRgb(a);
+  const [br, bg, bb] = hexToRgb(b);
+  const mix = (x: number, y: number) => Math.round(x + (y - x) * t);
+  return `#${[mix(ar, br), mix(ag, bg), mix(ab, bb)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function WoodGrain({ W, H, edge, opacity = 0.15 }: { W: number; H: number; edge: string; opacity?: number }) {
+  const lines = [0.18, 0.32, 0.47, 0.61, 0.74, 0.87];
+  return (
+    <>
+      {lines.map((x, i) => (
+        <line
+          key={i}
+          x1={W * x}
+          y1={4}
+          x2={W * x + (i % 2 === 0 ? 1.5 : -1)}
+          y2={H - 4}
+          stroke={edge}
+          strokeWidth={0.6}
+          opacity={opacity}
+        />
+      ))}
+    </>
+  );
+}
 
 export function DoorStyleSwatch({ style, className }: DoorStyleSwatchProps) {
   const sw = useMemo(() => resolveSwatch(style), [style]);
-  const kind = useMemo(() => doorPanelKind(style.doorStyle), [style.doorStyle]);
+  const kind = useMemo(() => doorPanelKind(style.doorStyle ?? style.ourName ?? style.aliasName ?? style.name), [style]);
 
-  // viewBox: a portrait door, 100 wide x 130 tall
   const W = 100;
   const H = 130;
-  const stile = 14; // shaker rail/stile width
+  const stile = 13;
+  const lum = luminance(sw.face);
+
+  const gradId = `dg-${(style.ourName ?? style.aliasName ?? style.styleCode ?? "x").replace(/\s+/g, "").slice(0, 20)}`;
+  const shadowId = `ds-${gradId}`;
+  const grainClipId = `dgc-${gradId}`;
+
+  const highlight = mixHex(sw.face, "#ffffff", lum > 0.7 ? 0.1 : 0.2);
+  const shadowTone = shade(sw.face, lum > 0.6 ? -0.1 : -0.08);
 
   return (
     <svg
@@ -110,95 +160,126 @@ export function DoorStyleSwatch({ style, className }: DoorStyleSwatchProps) {
       className={className}
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label={`${style.ourName || style.name || style.styleCode || "Door"} — ${style.doorStyle || "door"} sample`}
+      aria-label={`${style.aliasName || style.ourName || style.name || style.styleCode || "Door"} door sample`}
     >
-      {/* outer door slab */}
-      <rect x="2" y="2" width={W - 4} height={H - 4} rx="3" fill={sw.face} stroke={sw.edge} strokeWidth="2" />
+      <defs>
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={highlight} />
+          <stop offset="45%" stopColor={sw.face} />
+          <stop offset="100%" stopColor={shadowTone} />
+        </linearGradient>
+        <filter id={shadowId} x="-10%" y="-10%" width="130%" height="130%">
+          <feDropShadow dx="1.5" dy="2" stdDeviation="2.5" floodColor="#00000030" />
+        </filter>
+        {sw.isWood && (
+          <clipPath id={grainClipId}>
+            <rect x="2" y="2" width={W - 4} height={H - 4} rx="3" />
+          </clipPath>
+        )}
+      </defs>
 
-      {kind === "slab" && (
-        <rect x="10" y="10" width={W - 20} height={H - 20} rx="2" fill="none" stroke={sw.edge} strokeWidth="0.75" opacity="0.5" />
+      {/* Outer door slab with gradient + drop shadow */}
+      <rect
+        x="2" y="2"
+        width={W - 4} height={H - 4}
+        rx="3"
+        fill={`url(#${gradId})`}
+        stroke={sw.edge}
+        strokeWidth="1.5"
+        filter={`url(#${shadowId})`}
+      />
+
+      {/* Wood grain lines */}
+      {sw.isWood && (
+        <g clipPath={`url(#${grainClipId})`}>
+          <WoodGrain W={W} H={H} edge={sw.edge} />
+        </g>
       )}
 
-      {kind === "beaded" && (
+      {/* Glass pane */}
+      {sw.isGlass && (
         <>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <line
-              key={i}
-              x1={16 + i * ((W - 32) / 5)}
-              y1="10"
-              x2={16 + i * ((W - 32) / 5)}
-              y2={H - 10}
-              stroke={sw.edge}
-              strokeWidth="0.9"
-              opacity="0.55"
-            />
-          ))}
-          <rect x="8" y="8" width={W - 16} height={H - 16} rx="2" fill="none" stroke={sw.edge} strokeWidth="1" opacity="0.6" />
+          <rect x={stile} y={stile} width={W - 2 * stile} height={H - 2 * stile} rx="2"
+            fill="none" stroke={sw.edge} strokeWidth="1.5" />
+          <rect x={stile + 3} y={stile + 3} width={W - 2 * stile - 6} height={H - 2 * stile - 6} rx="1.5"
+            fill="#c8dff0" fillOpacity="0.5" stroke="#a0c4d8" strokeWidth="0.75" />
+          <line x1={stile + 8} y1={stile + 6} x2={stile + 18} y2={stile + 28}
+            stroke="#ffffff" strokeWidth="2" strokeOpacity="0.45" strokeLinecap="round" />
         </>
       )}
 
+      {/* Slab */}
+      {kind === "slab" && (
+        <rect x="8" y="8" width={W - 16} height={H - 16} rx="2"
+          fill="none" stroke={sw.edge} strokeWidth="0.6" opacity="0.35" />
+      )}
+
+      {/* Beaded */}
+      {kind === "beaded" && (
+        <>
+          <rect x="8" y="8" width={W - 16} height={H - 16} rx="2"
+            fill="none" stroke={sw.edge} strokeWidth="1" opacity="0.45" />
+          {[0.22, 0.41, 0.59, 0.78].map((x, i) => (
+            <line key={i} x1={W * x} y1="10" x2={W * x} y2={H - 10}
+              stroke={sw.edge} strokeWidth="0.8" opacity="0.38" />
+          ))}
+        </>
+      )}
+
+      {/* Shaker / Inset / Raised */}
       {(kind === "shaker" || kind === "inset" || kind === "raised") && (
         <>
-          {/* recessed inner panel */}
-          <rect
-            x={stile}
-            y={stile}
-            width={W - 2 * stile}
-            height={H - 2 * stile}
-            rx="2"
-            fill={sw.panel}
-            stroke={sw.edge}
-            strokeWidth="1.25"
-          />
-          {/* inner bevel line for depth */}
-          <rect
-            x={stile + 2.5}
-            y={stile + 2.5}
-            width={W - 2 * stile - 5}
-            height={H - 2 * stile - 5}
-            rx="1.5"
-            fill="none"
-            stroke={shade(sw.face, 0.06)}
-            strokeWidth="0.75"
-            opacity="0.7"
-          />
+          {/* Panel drop shadow */}
+          <rect x={stile + 2} y={stile + 2} width={W - 2 * stile} height={H - 2 * stile}
+            rx="2" fill={sw.edge} opacity="0.18" />
+          {/* Panel face */}
+          <rect x={stile} y={stile} width={W - 2 * stile} height={H - 2 * stile}
+            rx="2" fill={sw.panel} stroke={sw.edge} strokeWidth="1.25" />
+          {/* Inner bevel highlight */}
+          <rect x={stile + 3} y={stile + 3} width={W - 2 * stile - 6} height={H - 2 * stile - 6}
+            rx="1.5" fill="none" stroke={shade(sw.face, 0.1)} strokeWidth="0.7" opacity="0.6" />
           {kind === "raised" && (
-            // raised center field
-            <rect
-              x={stile + 8}
-              y={stile + 8}
-              width={W - 2 * stile - 16}
-              height={H - 2 * stile - 16}
-              rx="2"
-              fill={shade(sw.face, 0.04)}
-              stroke={sw.edge}
-              strokeWidth="0.75"
-            />
+            <>
+              <rect x={stile + 9} y={stile + 9} width={W - 2 * stile - 18} height={H - 2 * stile - 18}
+                rx="2" fill={shade(sw.face, 0.05)} stroke={sw.edge} strokeWidth="0.8" />
+              <rect x={stile + 12} y={stile + 12} width={W - 2 * stile - 24} height={H - 2 * stile - 24}
+                rx="1.5" fill="none" stroke={shade(sw.face, 0.12)} strokeWidth="0.5" opacity="0.45" />
+            </>
           )}
         </>
       )}
 
+      {/* Double shaker */}
       {kind === "double-shaker" && (
         <>
           {[0, 1].map((row) => {
-            const y = stile + row * ((H - 2 * stile) / 2 + 1);
-            const h = (H - 2 * stile) / 2 - 3;
+            const panelH = (H - 2 * stile - 4) / 2;
+            const py = stile + row * (panelH + 4);
             return (
-              <rect
-                key={row}
-                x={stile}
-                y={y}
-                width={W - 2 * stile}
-                height={h}
-                rx="2"
-                fill={sw.panel}
-                stroke={sw.edge}
-                strokeWidth="1.25"
-              />
+              <g key={row}>
+                <rect x={stile + 2} y={py + 2} width={W - 2 * stile} height={panelH}
+                  rx="2" fill={sw.edge} opacity="0.18" />
+                <rect x={stile} y={py} width={W - 2 * stile} height={panelH}
+                  rx="2" fill={sw.panel} stroke={sw.edge} strokeWidth="1.2" />
+                <rect x={stile + 3} y={py + 3} width={W - 2 * stile - 6} height={panelH - 6}
+                  rx="1.5" fill="none" stroke={shade(sw.face, 0.08)} strokeWidth="0.6" opacity="0.55" />
+              </g>
             );
           })}
         </>
       )}
+
+      {/* Door knob */}
+      <circle cx={W - 10} cy={H / 2} r={3.5}
+        fill={lum > 0.55 ? "#b0a090" : "#d4c8b0"}
+        stroke={lum > 0.55 ? "#8a7a6a" : "#a09080"}
+        strokeWidth="0.75" />
+      <circle cx={W - 11.5} cy={H / 2 - 1.5} r={1.2}
+        fill="white" opacity={0.4} />
+
+      {/* Top edge highlight */}
+      <rect x="3" y="2" width={W - 6} height={3} rx="2"
+        fill="white" opacity={lum > 0.7 ? 0.22 : 0.15} />
     </svg>
   );
 }

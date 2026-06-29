@@ -72,38 +72,56 @@ export function ColorSlotButton({
   const name = style ? (styleDisplayName(style as { ourName?: string | null; aliasName?: string | null }) || null) : null;
   const hasStyle = style != null;
 
-  // Shared list of selectable styles, reused by both the Popover (desktop) and
-  // the Sheet (mobile) so behavior stays identical.
-  const StyleList = ({ rowClass }: { rowClass?: string }) =>
+  // Card-grid style picker — shows a door thumbnail + name for each style.
+  // On desktop (Popover) we use a 2-column grid; on mobile (Sheet) we use 3 columns.
+  const StyleList = ({ cols = 2 }: { cols?: 2 | 3 }) =>
     styles.length === 0 ? (
       <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
         {t("dt_cs_none_available")}
       </div>
     ) : (
-      <>
-        {styles.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => {
-              onPick(s.id);
-              setPickerOpen(false);
-            }}
-            className={[
-              "flex w-full items-center justify-between rounded px-2 text-left hover:bg-accent",
-              rowClass ?? "py-1.5 text-[12px]",
-              style?.id === s.id ? "bg-accent font-semibold" : "",
-            ].join(" ")}
-          >
-            <span className="truncate">
-              {styleDisplayName(s) || t("dt_cs_style_num", { id: s.id })}
-            </span>
-            {style?.id === s.id && (
-              <Check className="h-4 w-4 shrink-0 text-[#d4a75a]" />
-            )}
-          </button>
-        ))}
-      </>
+      <div className={`grid gap-2 p-1 ${cols === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+        {styles.map((s) => {
+          const isSelected = style?.id === s.id;
+          const name = styleDisplayName(s) || t("dt_cs_style_num", { id: s.id });
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => {
+                onPick(s.id);
+                setPickerOpen(false);
+              }}
+              title={name}
+              className={[
+                "relative flex flex-col items-center gap-1 rounded-lg border p-1.5 text-center transition-all",
+                "hover:border-[#d4a75a]/70 hover:bg-accent/60 active:scale-[0.97]",
+                isSelected
+                  ? "border-[#d4a75a] bg-[#d4a75a]/10 ring-1 ring-[#d4a75a] shadow-sm"
+                  : "border-border bg-white",
+              ].join(" ")}
+            >
+              {/* Door thumbnail */}
+              <div className="w-full aspect-[10/13] overflow-hidden rounded">
+                <DoorStyleSwatch
+                  style={s as Parameters<typeof DoorStyleSwatch>[0]["style"]}
+                  className="h-full w-full"
+                />
+              </div>
+              {/* Style name */}
+              <span className={`w-full truncate text-[10px] leading-tight ${isSelected ? "font-semibold text-[#1a2744]" : "text-muted-foreground"}`}>
+                {name}
+              </span>
+              {/* Selected checkmark badge */}
+              {isSelected && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#d4a75a] text-white shadow">
+                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     );
 
   return (
@@ -201,7 +219,7 @@ export function ColorSlotButton({
                 className="flex-1 overflow-y-auto overscroll-contain px-3 py-2"
                 style={{ WebkitOverflowScrolling: "touch" }}
               >
-                <StyleList rowClass="py-3 text-[15px] border-b border-border/40 last:border-0" />
+                <StyleList cols={3} />
               </div>
             </SheetContent>
           </Sheet>
