@@ -51,6 +51,7 @@ import ApiStatusAdmin from "@/components/admin/ApiStatusAdmin";
 import IncomingOrdersAdmin from "@/components/admin/IncomingOrdersAdmin";
 import { BulkDimensionsAdmin } from "@/components/admin/BulkDimensionsAdmin";
 import { DesignerCoverageAdmin } from "@/components/admin/DesignerCoverageAdmin";
+import { AdminTabHelp } from "@/components/admin/AdminTabHelp";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -626,96 +627,126 @@ export default function Admin() {
           <TabsTrigger value="api-status">API Status</TabsTrigger>
         </TabsList>
         <TabsContent value="orders" className="mt-6">
+          <AdminTabHelp tab="orders" />
           <IncomingOrdersAdmin />
         </TabsContent>
         <TabsContent value="crm" className="mt-6">
+          <AdminTabHelp tab="crm" />
           <CrmBoard lang="en" />
         </TabsContent>
         <TabsContent value="commissions" className="mt-6">
+          <AdminTabHelp tab="commissions" />
           <SalesCommissionsAdmin />
         </TabsContent>
         <TabsContent value="affiliate-invoices" className="mt-6">
+          <AdminTabHelp tab="affiliate-invoices" />
           <AffiliateInvoicesAdmin />
         </TabsContent>
 
         <TabsContent value="consultations" className="mt-6">
+          <AdminTabHelp tab="consultations" />
           <ConsultationsAdmin />
         </TabsContent>
         <TabsContent value="payouts" className="mt-6">
+          <AdminTabHelp tab="payouts" />
           <PayoutsAdmin />
         </TabsContent>
         <TabsContent value="design-leads" className="mt-6">
+          <AdminTabHelp tab="design-leads" />
           <DesignLeadsAdmin />
         </TabsContent>
         <TabsContent value="customers" className="mt-6">
+          <AdminTabHelp tab="customers" />
           <CustomersAdmin />
         </TabsContent>
         <TabsContent value="roles" className="mt-6">
+          <AdminTabHelp tab="roles" />
           <RolesAdmin />
         </TabsContent>
         <TabsContent value="affiliates" className="mt-6">
+          <AdminTabHelp tab="affiliates" />
           <AffiliatesAdmin />
         </TabsContent>
         <TabsContent value="pros" className="mt-6">
+          <AdminTabHelp tab="pros" />
           <ProApplications />
         </TabsContent>
         <TabsContent value="vendors" className="mt-6">
+          <AdminTabHelp tab="vendors" />
           <VendorApplications />
         </TabsContent>
         <TabsContent value="quotes" className="mt-6">
+          <AdminTabHelp tab="quotes" />
           <CountertopQuotes />
         </TabsContent>
         <TabsContent value="door-corrections" className="mt-6">
+          <AdminTabHelp tab="door-corrections" />
           <DoorCorrectionsAdmin />
         </TabsContent>
         <TabsContent value="featured" className="mt-6">
+          <AdminTabHelp tab="featured" />
           <FeaturedStylesAdmin />
         </TabsContent>
         <TabsContent value="images" className="mt-6">
+          <AdminTabHelp tab="images" />
           <SkuImageManager />
         </TabsContent>
         <TabsContent value="distributors" className="mt-6 space-y-6">
+          <AdminTabHelp tab="distributors" />
           <LineBrandingEditor />
           <DistributorImport />
         </TabsContent>
         <TabsContent value="margins" className="mt-6">
+          <AdminTabHelp tab="margins" />
           <MarginsAdmin />
         </TabsContent>
         <TabsContent value="cost-lookup" className="mt-6">
+          <AdminTabHelp tab="cost-lookup" />
           <CostLookupAdmin />
         </TabsContent>
         <TabsContent value="shipping" className="mt-6">
+          <AdminTabHelp tab="shipping" />
           <ShippingAdmin />
         </TabsContent>
         <TabsContent value="payments" className="mt-6">
+          <AdminTabHelp tab="payments" />
           <PaymentsAdmin />
         </TabsContent>
         <TabsContent value="conflicts" className="mt-6">
+          <AdminTabHelp tab="conflicts" />
           <ConflictsAdmin />
         </TabsContent>
         <TabsContent value="pricing-access" className="mt-6">
+          <AdminTabHelp tab="pricing-access" />
           <PricingAccessAdmin />
         </TabsContent>
         <TabsContent value="designer-availability" className="mt-6">
+          <AdminTabHelp tab="designer-availability" />
           <DesignerAvailabilityAdmin />
         </TabsContent>
         <TabsContent value="cabinets" className="mt-6">
+          <AdminTabHelp tab="cabinets" />
           <CabinetSpreadsheetAdmin />
           <CabinetLineDownload />
         </TabsContent>
         <TabsContent value="dimensions" className="mt-6">
+          <AdminTabHelp tab="dimensions" />
           <BulkDimensionsAdmin />
         </TabsContent>
         <TabsContent value="coverage" className="mt-6">
+          <AdminTabHelp tab="coverage" />
           <DesignerCoverageAdmin />
         </TabsContent>
         <TabsContent value="email-settings" className="mt-6">
+          <AdminTabHelp tab="email-settings" />
           <EmailSettingsAdmin />
         </TabsContent>
         <TabsContent value="branding" className="mt-6">
+          <AdminTabHelp tab="branding" />
           <BrandingSettingsAdmin />
         </TabsContent>
         <TabsContent value="notifications" className="mt-6">
+          <AdminTabHelp tab="notifications" />
           <NotificationSettingsAdmin />
         </TabsContent>
         <TabsContent value="api-status" className="mt-6">
