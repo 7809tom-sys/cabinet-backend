@@ -1,0 +1,1 @@
+ALTER TABLE `door_styles` ADD `featuredLabel` varchar(128);

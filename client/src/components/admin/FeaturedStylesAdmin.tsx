@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Star, Search, GripVertical, ArrowUp, ArrowDown, X, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Star, Search, GripVertical, ArrowUp, ArrowDown, X, AlertTriangle, CheckCircle2, Pencil, Check, RotateCcw } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ const MAX_FEATURED = 30;
 interface AdminStyle {
   id: number;
   ourName: string;
+  featuredLabel: string | null;
   doorStyle: string | null;
   color: string | null;
   finish: string | null;
@@ -26,6 +27,96 @@ interface AdminStyle {
 
 function thumb(s: AdminStyle): string | null {
   return s.thumbnailImageUrl || s.doorSampleImageUrl || s.roomSceneImageUrl || null;
+}
+
+/** Inline label editor for a single featured style row */
+function LabelEditor({ style, onSaved }: { style: AdminStyle; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(style.featuredLabel ?? "");
+
+  const setLabel = trpc.doorStyles.setFeaturedLabel.useMutation({
+    onSuccess: () => {
+      toast.success("Label updated");
+      onSaved();
+      setEditing(false);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function save() {
+    setLabel.mutate({ id: style.id, label: draft.trim() || null });
+  }
+
+  function clear() {
+    setLabel.mutate({ id: style.id, label: null });
+    setDraft("");
+  }
+
+  const displayLabel = style.featuredLabel || style.ourName;
+  const hasCustomLabel = !!style.featuredLabel;
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1 mt-1">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={style.ourName}
+          className="h-7 text-xs py-0 px-2 w-36"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+        />
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 text-emerald-600 hover:text-emerald-700"
+          onClick={save}
+          disabled={setLabel.isPending}
+          aria-label="Save label"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 text-muted-foreground"
+          onClick={() => setEditing(false)}
+          aria-label="Cancel"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 mt-0.5">
+      <span className={`text-xs truncate max-w-[120px] ${hasCustomLabel ? "text-primary font-medium" : "text-muted-foreground"}`}>
+        {hasCustomLabel ? displayLabel : <span className="italic">{displayLabel}</span>}
+      </span>
+      <button
+        onClick={() => { setDraft(style.featuredLabel ?? ""); setEditing(true); }}
+        className="text-muted-foreground hover:text-foreground transition-colors"
+        title="Edit public label"
+        aria-label="Edit public label"
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+      {hasCustomLabel && (
+        <button
+          onClick={clear}
+          className="text-muted-foreground hover:text-destructive transition-colors"
+          title="Reset to default name"
+          aria-label="Reset label to default"
+        >
+          <RotateCcw className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function FeaturedStylesAdmin() {
@@ -97,6 +188,11 @@ export default function FeaturedStylesAdmin() {
     reorder.mutate({ orderedIds: next.map((s) => s.id) });
   }
 
+  function invalidateAll() {
+    utils.doorStyles.listForAdmin.invalidate();
+    utils.doorStyles.featured.invalidate();
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -122,6 +218,11 @@ export default function FeaturedStylesAdmin() {
             Choose the door styles to push at the top of the Door Styles page. These are what
             shoppers and affiliates see first — your 80/20 winners. Drag the order with the arrows;
             top of the list shows first.
+          </p>
+          <p className="text-muted-foreground text-xs mt-1 max-w-2xl">
+            Each style has a <span className="font-medium text-foreground">Public Label</span> — the
+            name customers see. Click the <Pencil className="inline h-3 w-3" /> pencil to override
+            it with a white-label name. Leave it blank to use the default internal name.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
@@ -190,7 +291,9 @@ export default function FeaturedStylesAdmin() {
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  {/* Public label editor */}
+                  <LabelEditor style={s} onSaved={invalidateAll} />
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
                     {!s.doorSampleVerified && (
                       <span className="ml-1 text-amber-600 font-medium">· Wrong door? Upload the correct photo</span>

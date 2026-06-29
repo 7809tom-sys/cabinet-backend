@@ -257,6 +257,21 @@ export const doorStylesRouter = router({
       return { ok: true };
     }),
 
+  // Admin: set (or clear) the white-label display name for a featured style.
+  // Pass null / empty string to revert to the default ourName.
+  setFeaturedLabel: adminProcedure
+    .input(z.object({ id: z.number(), label: z.string().max(128).nullable() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const label = input.label?.trim() || null;
+      await db
+        .update(doorStyles)
+        .set({ featuredLabel: label })
+        .where(eq(doorStyles.id, input.id));
+      return { ok: true };
+    }),
+
   // Admin: persist a new order for the featured styles (array of ids, in order).
   reorderFeatured: adminProcedure
     .input(z.object({ orderedIds: z.array(z.number()).max(30) }))

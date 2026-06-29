@@ -20,6 +20,7 @@ interface DoorStyle {
   id: number;
   styleCode: string;
   ourName: string | null;
+  featuredLabel?: string | null;
   doorStyle: string | null;
   woodSpecies: string | null;
   color: string | null;
@@ -27,6 +28,11 @@ interface DoorStyle {
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
+}
+
+/** Returns the public-facing display name: featuredLabel if set, else ourName, else styleCode */
+function displayName(style: DoorStyle): string {
+  return style.featuredLabel || style.ourName || style.styleCode;
 }
 
 function StyleCard({ style }: { style: DoorStyle }) {
@@ -66,7 +72,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
           <div className="p-4">
             <div className="flex items-start justify-between gap-2 mb-2">
               <p className="font-semibold text-sm text-foreground leading-snug">
-                {style.ourName || style.styleCode}
+                {displayName(style)}
               </p>
               {style.doorStyle && (
                 <Badge variant="outline" className="text-xs shrink-0">{style.doorStyle}</Badge>
@@ -91,7 +97,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {style.ourName || style.styleCode}
+            {displayName(style)}
             {style.doorStyle && (
               <Badge variant="outline" className="text-xs">{style.doorStyle}</Badge>
             )}
@@ -127,7 +133,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
         {/* Primary path into shopping: see EVERY cabinet available in this family */}
         <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
           <Button className="w-full mt-1" size="lg">
-            {t("ds_shop_collection", { name: style.ourName || style.styleCode })}
+            {t("ds_shop_collection", { name: displayName(style) })}
             <ArrowRight className="h-4 w-4 ml-1" />
           </Button>
         </Link>

@@ -2137,3 +2137,10 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Wire editIsActive into handleSaveEdit mutation call
 - [x] Add Switch toggle UI in edit dialog (above Visibility section) with warning when inactive
 - [x] Show "Inactive" destructive badge in cabinet detail header when cabinet.isActive === false (admin only)
+
+## Featured Door Style White-Label Labels
+- [x] Add featuredLabel column (varchar 128, nullable) to door_styles table via schema + migration
+- [x] Add setFeaturedLabel adminProcedure to doorStyles router (sets or clears the label)
+- [x] Add inline LabelEditor component to FeaturedStylesAdmin: pencil to edit, check to save, reset icon to clear back to default
+- [x] Update DoorStyles page StyleCard to use featuredLabel when set (falls back to ourName)
+- [x] displayName() helper in DoorStyles.tsx: featuredLabel > ourName > styleCode
