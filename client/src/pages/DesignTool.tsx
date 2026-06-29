@@ -1508,6 +1508,7 @@ export default function DesignTool() {
           // elevation view places it directly above the standard upper run.
           ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
         };
+        justPlacedRef.current = true;
         setSelectedUid(newCab.uid);
         // Sink-base auto-fixture: dropping a sink base (SB-*) means there's a
         // sink there, so auto-place a default single-bowl sink WITH a faucet
@@ -2577,10 +2578,18 @@ export default function DesignTool() {
   const [backsplashSheetOpen, setBacksplashSheetOpen] = useState(false);
   const [hardwareSheetOpen, setHardwareSheetOpen] = useState(false);
   const [trimSheetOpen, setTrimSheetOpen] = useState(false);
+  // Flag: set to true when a cabinet is freshly placed from the palette so the
+  // edit sheet does NOT auto-open. Only open the sheet when the user taps an
+  // existing cabinet on the canvas.
+  const justPlacedRef = useRef(false);
   // Sync sheet open state with selection on mobile
   useEffect(() => {
     if (!isMobile) return;
     if (selectedCab || selectedOpening) {
+      if (justPlacedRef.current) {
+        justPlacedRef.current = false;
+        return;
+      }
       setCabEditSheetOpen(true);
     } else {
       setCabEditSheetOpen(false);
