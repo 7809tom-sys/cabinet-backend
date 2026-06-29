@@ -2170,3 +2170,12 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Add aliasName to adminUpdateDoorStyle procedure
 - [x] Update Catalog.tsx, DoorStyles.tsx, DesignTool.tsx, ColorSlotButton.tsx, AffiliateDashboard.tsx to use aliasName
 - [x] Add aliasName field to FeaturedStylesAdmin edit dialog (amber-highlighted, clearly labeled as CD_STANDARDS white-label name)
+
+## Designer Bug Fixes (June 29)
+- [ ] Fix mobile scroll blocked by More menu overlay in designer
+- [ ] Fix price list not editable in bill of materials
+- [ ] Fix CDB-36 corner drawer base cabinet missing from Corner tab
+
+## Designer Style Picker Fixes
+- [ ] Use aliasName in designer style picker (ColorSlotButton + DesignTool selects)
+- [ ] Use real thumbnailImageUrl photos in designer style picker cards instead of SVG illustrations

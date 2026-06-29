@@ -33,7 +33,7 @@ import { styleDisplayName } from "@/lib/styleDisplayName";
 // entire A→Z lineup is reachable on every mobile browser.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StyleOption = { id: number; ourName: string | null; aliasName?: string | null };
+type StyleOption = { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null };
 
 interface ColorSlotButtonProps {
   label: string;
