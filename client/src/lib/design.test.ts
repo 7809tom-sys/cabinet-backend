@@ -1771,6 +1771,23 @@ describe("lazy-Susan / L-corner footprint", () => {
     ];
     expect(normalizeLCornerDepths(input)).toBe(input);
   });
+
+  it("CDB (Corner Drawer Base) is an L-corner with the same square footprint as ERB/LS", () => {
+    // CDB-36 is a 36"-wide, 24"-deep corner drawer base. It must be classified as
+    // an L-shaped corner (NOT diagonal) so its bird's-eye footprint squares to
+    // 36x36 with a 12x12 inner notch and 24" legs — identical to ERB-36/LSB36.
+    expect(isLCornerCabinet("CDB-36", "Corner Drawer Base Cabinet three drawers")).toBe(true);
+    const cdb = cab({ masterCode: "CDB-36", description: "Corner Drawer Base Cabinet three drawers", width: 36, depth: 24 });
+    expect(placedFootprint(cdb)).toEqual({ w: 36, d: 36 });
+    const erb = cab({ masterCode: "ERB-36", description: '36" Base Easy Reach Cabinet', width: 36, depth: 24 });
+    expect(placedFootprint(cdb)).toEqual(placedFootprint(erb));
+    // Stale 36x24 saves get re-squared on load.
+    const out = normalizeLCornerDepths([
+      cab({ masterCode: "CDB-36", description: "Corner Drawer Base Cabinet three drawers", width: 36, depth: 24 }),
+    ]);
+    expect(out[0].width).toBe(36);
+    expect(out[0].depth).toBe(36);
+  });
 });
 
 
