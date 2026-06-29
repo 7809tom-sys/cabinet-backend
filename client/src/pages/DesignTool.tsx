@@ -6,6 +6,7 @@ import {
   DollarSign, PanelTop, Columns3, Ruler, Square, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
+  ChevronRight, Footprints, Layers2, Wrench, Crown as CrownIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -886,8 +887,8 @@ export default function DesignTool() {
   const styleNameById = useMemo(() => {
     const m = new Map<number, string>();
     doorStyles?.forEach((d) => {
-      const s = d as { id: number; ourName?: string | null };
-      m.set(s.id, s.ourName ?? `Style #${s.id}`);
+      const s = d as { id: number; ourName?: string | null; aliasName?: string | null };
+      m.set(s.id, styleDisplayName(s) || s.ourName || `Style #${s.id}`);
     });
     return m;
   }, [doorStyles]);
@@ -2571,6 +2572,11 @@ export default function DesignTool() {
   // mobile, auto-closes when deselected. On desktop the inline contextual row
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [flooringSheetOpen, setFlooringSheetOpen] = useState(false);
+  const [backsplashSheetOpen, setBacksplashSheetOpen] = useState(false);
+  const [hardwareSheetOpen, setHardwareSheetOpen] = useState(false);
+  const [trimSheetOpen, setTrimSheetOpen] = useState(false);
   // Sync sheet open state with selection on mobile
   useEffect(() => {
     if (!isMobile) return;
@@ -2743,98 +2749,255 @@ export default function DesignTool() {
           <Printer className="h-3.5 w-3.5" /> {t("dt_sh_print_sheet")}
         </a>
 
-        {/* Mobile: compact "More" menu with the toggles that live in the desktop toolbar */}
+        {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
         <div className="ml-auto flex items-center gap-2 lg:hidden">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72 max-h-[80vh] overflow-y-auto">
-              <DropdownMenuLabel>{t("dt_sh_active_wall")}</DropdownMenuLabel>
-              <div className="grid grid-cols-4 gap-1 px-2 pb-1.5">
-                {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
-                  <button
-                    key={w}
-                    onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                    className={`rounded-md py-1 text-[11px] font-medium transition-colors ${
-                      activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/40 text-muted-foreground"
-                    }`}
-                  >
-                    {wallLabel[w]}
-                  </button>
-                ))}
-              </div>
-              <DropdownMenuItem disabled={layoutLocked} onClick={autoFillActiveWall}>{t("dt_sh_autofill_active")}</DropdownMenuItem>
-              <DropdownMenuCheckboxItem checked={layoutLocked} onCheckedChange={() => { setLayoutLocked((v) => !v); setDrawMode(false); }}>{t("dt_sh_lock_layout")}</DropdownMenuCheckboxItem>
-              <DropdownMenuItem onClick={() => setConsultOpen((o) => !o)}>{t("dt_sh_consultant_menu")}</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>{t("dt_sh_tools")}</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem checked={measureMode} onCheckedChange={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}>{t("dt_sh_measure")}</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={!!island} onCheckedChange={() => setIsland((cur) => cur ? null : { width: Math.min(48, room.width - 24), depth: Math.min(24, room.depth - 24), x: Math.max(0, room.width / 2 - 24), y: Math.max(0, room.depth / 2 - 12) })}>{t("dt_sh_island_zone")}</DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>{t("dt_sh_trim_front")}</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem checked={crown} onCheckedChange={() => { trimOverride.current.crown = true; setCrown((c) => !c); }}>{t("dt_sh_crown")}</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={toeKick} onCheckedChange={() => { trimOverride.current.toeKick = true; setToeKick((tk) => !tk); }}>{t("dt_sh_toe_kick")}</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={batten} onCheckedChange={() => { trimOverride.current.batten = true; setBatten((b) => !b); }}>{t("dt_sh_batten")}</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={lightRail} onCheckedChange={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }}>{t("dt_sh_light_rail")}</DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={countertop} disabled={!countertop && !hasBaseRun} onCheckedChange={toggleCountertop}>{t("dt_sh_countertop")}</DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              {/* ── Backsplash picker ── */}
-              <DropdownMenuLabel>Backsplash</DropdownMenuLabel>
-              <div className="px-2 pb-1.5">
-                <div className="grid grid-cols-3 gap-1">
-                  {BACKSPLASH_MATERIALS.map((bm) => (
+          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setMoreSheetOpen(true)}>
+            <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
+          </Button>
+
+          {/* ── Main "More" sheet ─────────────────────────────────────── */}
+          <Sheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen}>
+            <SheetContent side="bottom" className="flex max-h-[80vh] flex-col rounded-t-2xl p-0">
+              <SheetHeader className="border-b px-4 py-3">
+                <SheetTitle className="text-base">{t("dt_sh_more")}</SheetTitle>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
+
+                {/* Active wall selector */}
+                <p className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dt_sh_active_wall")}</p>
+                <div className="grid grid-cols-4 gap-1 px-3 pb-2">
+                  {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
                     <button
-                      key={bm.id}
-                      type="button"
-                      onClick={() => setBacksplashMaterialId(backsplashMaterialId === bm.id ? null : bm.id)}
-                      className={`flex flex-col items-center gap-0.5 rounded border p-1 text-[8px] font-medium transition-colors ${
-                        backsplashMaterialId === bm.id
-                          ? "border-[#1a2744] bg-[#1a2744]/10 text-[#1a2744]"
-                          : "border-border hover:border-[#1a2744]/40"
+                      key={w}
+                      onClick={() => { setActiveWall(w); setDrawMode(false); }}
+                      className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                        activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
                       }`}
-                      title={bm.name}
                     >
-                      <span
-                        className="w-8 h-4 rounded shrink-0"
-                        style={{
-                          background: bm.fill,
-                          border: `1px solid ${bm.grout}`,
-                          backgroundImage: bm.pattern === "subway"
-                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 8px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 16px)`
-                            : bm.pattern === "large-format"
-                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 10px)`
-                            : bm.pattern === "mosaic"
-                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 5px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 5px)`
-                            : undefined,
-                        }}
-                      />
-                      <span className="leading-tight text-center line-clamp-1">{bm.name}</span>
+                      {wallLabel[w]}
                     </button>
                   ))}
                 </div>
+
+                {/* Quick-action rows */}
+                <div className="px-1 pb-1">
+                  <button disabled={layoutLocked} onClick={autoFillActiveWall} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                    <Wand2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_autofill_active")}</span>
+                  </button>
+                  <button onClick={() => { setLayoutLocked((v) => !v); setDrawMode(false); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                    {layoutLocked ? <Lock className="h-4 w-4 text-muted-foreground shrink-0" /> : <LockOpen className="h-4 w-4 text-muted-foreground shrink-0" />}
+                    <span className="flex-1 text-left">{t("dt_sh_lock_layout")}</span>
+                    {layoutLocked && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
+                  </button>
+                  <button onClick={() => { setMeasureMode((m) => !m); setSelectedUid(null); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                    <Ruler className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_measure")}</span>
+                    {measureMode && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
+                  </button>
+                  <button onClick={() => setIsland((cur) => cur ? null : { width: Math.min(48, room.width - 24), depth: Math.min(24, room.depth - 24), x: Math.max(0, room.width / 2 - 24), y: Math.max(0, room.depth / 2 - 12) })} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                    <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_island_zone")}</span>
+                    {!!island && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
+                  </button>
+                  <button disabled={layoutLocked} onClick={addManualFiller} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                    <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_add_filler")}</span>
+                  </button>
+                  <button disabled={!selectedUid || measureMode} onClick={swingSelected} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                    <DoorOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_swing_door")}</span>
+                  </button>
+                  <button onClick={() => setConsultOpen((o) => !o)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                    <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_consultant_menu")}</span>
+                  </button>
+                </div>
+
+                <div className="mx-3 my-1 border-t border-border" />
+
+                {/* Section popup launchers */}
+                <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Finishes &amp; Trim</p>
+                <div className="px-1 pb-1">
+
+                  {/* Flooring */}
+                  <button
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setFlooringSheetOpen(true), 120); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted transition-colors"
+                  >
+                    <Footprints className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left text-sm font-medium">Flooring</span>
+                    {flooringMaterialId && (
+                      <span className="text-[10px] text-muted-foreground mr-1">
+                        {FLOORING_MATERIALS.find((f) => f.id === flooringMaterialId)?.name}
+                      </span>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+
+                  {/* Backsplash */}
+                  <button
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setBacksplashSheetOpen(true), 120); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted transition-colors"
+                  >
+                    <Layers2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left text-sm font-medium">Backsplash</span>
+                    {backsplashMaterialId && (
+                      <span className="text-[10px] text-muted-foreground mr-1">
+                        {BACKSPLASH_MATERIALS.find((b) => b.id === backsplashMaterialId)?.name}
+                      </span>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+
+                  {/* Hardware */}
+                  <button
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setHardwareSheetOpen(true), 120); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted transition-colors"
+                  >
+                    <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left text-sm font-medium">{t("dt_sh_hardware")}</span>
+                    {hardwareStyleId !== "none" && (
+                      <span className="text-[10px] text-muted-foreground mr-1">
+                        {HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label}
+                      </span>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+
+                  {/* Trim */}
+                  <button
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setTrimSheetOpen(true), 120); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted transition-colors"
+                  >
+                    <CrownIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left text-sm font-medium">{t("dt_sh_trim_front")}</span>
+                    {(crown || toeKick || batten || lightRail || countertop) && (
+                      <span className="text-[10px] text-muted-foreground mr-1">
+                        {[crown && "Crown", toeKick && "Toe Kick", batten && "Batten", lightRail && "Light Rail", countertop && "Top"].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </div>
+
+                <div className="mx-3 my-1 border-t border-border" />
+
+                {/* Order summary */}
+                <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dt_sh_order_section")}</p>
+                {cartableLines.length === 0 ? (
+                  <div className="px-3 py-2 text-[11px] text-muted-foreground">{t("dt_sh_order_empty")}</div>
+                ) : (
+                  <div className="px-2 pb-2">
+                    {hasConflicts && (
+                      <div className="mb-1.5 flex items-start gap-1.5 rounded border border-red-300 bg-red-50 px-2 py-1.5 text-[10px] text-red-700">
+                        <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
+                        {t("dt_sh_order_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })}
+                      </div>
+                    )}
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-border">
+                      <ul className="divide-y divide-border">
+                        {cartableLines.map((line) => (
+                          <li key={`${line.masterCode}-${line.styleId}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-[11px]">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1 font-medium text-foreground">
+                                <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px]">{line.qty}×</span>
+                                <span className="truncate">{line.masterCode}</span>
+                              </div>
+                              {line.styleLabel && (
+                                <div className="truncate text-[10px] text-muted-foreground">{line.styleLabel}</div>
+                              )}
+                            </div>
+                            <span className="shrink-0 font-medium text-foreground">
+                              {line.unitPrice != null ? `$${(line.unitPrice * line.qty).toFixed(2)}` : "—"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button
+                      type="button"
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-[#a87f33] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#a87f33]/90 active:scale-[0.97] disabled:opacity-50"
+                      disabled={cartableLines.length === 0}
+                      onClick={() => {
+                        if (hasConflicts && !window.confirm(
+                          t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
+                        )) return;
+                        addAllToCart();
+                      }}
+                    >
+                      <ShoppingCart className="h-4 w-4" /> {t("dt_sh_add_to_cart")}
+                    </button>
+                  </div>
+                )}
+
+                <div className="mx-3 my-1 border-t border-border" />
+
+                {/* Danger zone */}
+                <div className="px-1 pb-4">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    onClick={() => {
+                      if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
+                      setPlaced([]);
+                      setOpenings([]);
+                      setIsland(null);
+                      setSelectedUid(null);
+                      setSelectedOpeningUid(null);
+                      setSinks([]);
+                      setSelectedSinkUid(null);
+                      setFurniture([]);
+                      setSelectedFurnUid(null);
+                      setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false);
+                      setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
+                      setBacksplashMaterialId(null);
+                      setFlooringMaterialId(null);
+                      setCabinetsLocked(false);
+                      clearDraft();
+                      toast.success(t("dt_sh_started_new"));
+                      setMoreSheetOpen(false);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 shrink-0" />
+                    <span>{t("dt_sh_start_new")}</span>
+                  </button>
+                </div>
               </div>
-              <DropdownMenuSeparator />
-              {/* ── Flooring picker ── */}
-              <DropdownMenuLabel>Flooring</DropdownMenuLabel>
-              <div className="px-2 pb-1.5">
-                <div className="grid grid-cols-3 gap-1">
+            </SheetContent>
+          </Sheet>
+
+          {/* ── Flooring sub-sheet ──────────────────────────────────────── */}
+          <Sheet open={flooringSheetOpen} onOpenChange={setFlooringSheetOpen}>
+            <SheetContent side="bottom" className="flex max-h-[75vh] flex-col rounded-t-2xl p-0">
+              <SheetHeader className="border-b px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setFlooringSheetOpen(false); setTimeout(() => setMoreSheetOpen(true), 120); }}
+                    className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted"
+                  >
+                    <ChevronRight className="h-4 w-4 rotate-180" />
+                  </button>
+                  <SheetTitle className="text-base">Flooring</SheetTitle>
+                </div>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto overscroll-contain p-3" style={{ WebkitOverflowScrolling: "touch" }}>
+                <p className="mb-2 text-xs text-muted-foreground">Tap a material to apply it to the floor view. Tap again to remove.</p>
+                <div className="grid grid-cols-2 gap-2">
                   {FLOORING_MATERIALS.map((fm) => (
                     <button
                       key={fm.id}
                       type="button"
                       onClick={() => setFlooringMaterialId(flooringMaterialId === fm.id ? null : fm.id)}
-                      className={`flex flex-col items-center gap-0.5 rounded border p-1 text-[8px] font-medium transition-colors ${
+                      className={`flex items-center gap-3 rounded-xl border p-3 text-left text-sm font-medium transition-colors ${
                         flooringMaterialId === fm.id
-                          ? "border-[#1a2744] bg-[#1a2744]/10 text-[#1a2744]"
-                          : "border-border hover:border-[#1a2744]/40"
+                          ? "border-[#1a2744] bg-[#1a2744]/8 text-[#1a2744]"
+                          : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40"
                       }`}
-                      title={fm.name}
                     >
                       <span
-                        className="w-8 h-4 rounded shrink-0"
+                        className="h-10 w-10 rounded-lg shrink-0"
                         style={{
                           background: fm.fill,
                           border: `1px solid ${fm.grout}`,
@@ -2847,102 +3010,170 @@ export default function DesignTool() {
                             : undefined,
                         }}
                       />
-                      <span className="leading-tight text-center line-clamp-1">{fm.name}</span>
+                      <span className="leading-tight">{fm.name}</span>
+                      {flooringMaterialId === fm.id && <Check className="ml-auto h-4 w-4 shrink-0 text-[#1a2744]" />}
                     </button>
                   ))}
                 </div>
               </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>{t("dt_sh_hardware")}</DropdownMenuLabel>
-              {HARDWARE_STYLES.map((h) => (
-                <DropdownMenuCheckboxItem
-                  key={h.id}
-                  checked={hardwareStyleId === h.id}
-                  onCheckedChange={() => setHardwareStyleId(h.id)}
-                  title={h.description}
-                >
-                  {h.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem disabled={layoutLocked} onClick={addManualFiller}>{t("dt_sh_add_filler")}</DropdownMenuItem>
-              <DropdownMenuItem disabled={!selectedUid || measureMode} onClick={swingSelected}>{t("dt_sh_swing_door")}</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {/* ── Order / Cart section ── */}
-              <DropdownMenuLabel>{t("dt_sh_order_section")}</DropdownMenuLabel>
-              {cartableLines.length === 0 ? (
-                <div className="px-3 py-2 text-[11px] text-muted-foreground">{t("dt_sh_order_empty")}</div>
-              ) : (
-                <>
-                  {hasConflicts && (
-                    <div className="mx-2 mb-1 flex items-start gap-1.5 rounded border border-red-300 bg-red-50 px-2 py-1.5 text-[10px] text-red-700">
-                      <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
-                      {t("dt_sh_order_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })}
-                    </div>
-                  )}
-                  <div className="max-h-48 overflow-y-auto">
-                    <ul className="divide-y divide-border">
-                      {cartableLines.map((line) => (
-                        <li key={`${line.masterCode}-${line.styleId}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-[11px]">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1 font-medium text-foreground">
-                              <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px]">{line.qty}×</span>
-                              <span className="truncate">{line.masterCode}</span>
-                            </div>
-                            {line.styleLabel && (
-                              <div className="truncate text-[10px] text-muted-foreground">{line.styleLabel}</div>
-                            )}
-                          </div>
-                          <span className="shrink-0 font-medium text-foreground">
-                            {line.unitPrice != null ? `$${(line.unitPrice * line.qty).toFixed(2)}` : "—"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="px-2 pb-2 pt-1">
+            </SheetContent>
+          </Sheet>
+
+          {/* ── Backsplash sub-sheet ─────────────────────────────────────── */}
+          <Sheet open={backsplashSheetOpen} onOpenChange={setBacksplashSheetOpen}>
+            <SheetContent side="bottom" className="flex max-h-[75vh] flex-col rounded-t-2xl p-0">
+              <SheetHeader className="border-b px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setBacksplashSheetOpen(false); setTimeout(() => setMoreSheetOpen(true), 120); }}
+                    className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted"
+                  >
+                    <ChevronRight className="h-4 w-4 rotate-180" />
+                  </button>
+                  <SheetTitle className="text-base">Backsplash</SheetTitle>
+                </div>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto overscroll-contain p-3" style={{ WebkitOverflowScrolling: "touch" }}>
+                <p className="mb-2 text-xs text-muted-foreground">Tap a tile style to apply it to the backsplash area. Tap again to remove.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {BACKSPLASH_MATERIALS.map((bm) => (
                     <button
+                      key={bm.id}
                       type="button"
-                      className="flex w-full items-center justify-center gap-2 rounded-md bg-[#a87f33] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#a87f33]/90 active:scale-[0.97] disabled:opacity-50"
-                      disabled={cartableLines.length === 0}
-                      onClick={() => {
-                        if (hasConflicts && !window.confirm(
-                          t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
-                        )) return;
-                        addAllToCart();
-                      }}
+                      onClick={() => setBacksplashMaterialId(backsplashMaterialId === bm.id ? null : bm.id)}
+                      className={`flex items-center gap-3 rounded-xl border p-3 text-left text-sm font-medium transition-colors ${
+                        backsplashMaterialId === bm.id
+                          ? "border-[#1a2744] bg-[#1a2744]/8 text-[#1a2744]"
+                          : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40"
+                      }`}
                     >
-                      <ShoppingCart className="h-3.5 w-3.5" /> {t("dt_sh_add_to_cart")}
+                      <span
+                        className="h-10 w-10 rounded-lg shrink-0"
+                        style={{
+                          background: bm.fill,
+                          border: `1px solid ${bm.grout}`,
+                          backgroundImage: bm.pattern === "subway"
+                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 8px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 16px)`
+                            : bm.pattern === "large-format"
+                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 10px)`
+                            : bm.pattern === "mosaic"
+                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 5px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 5px)`
+                            : undefined,
+                        }}
+                      />
+                      <span className="leading-tight">{bm.name}</span>
+                      {backsplashMaterialId === bm.id && <Check className="ml-auto h-4 w-4 shrink-0 text-[#1a2744]" />}
                     </button>
-                  </div>
-                </>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
-                  setPlaced([]);
-                  setOpenings([]);
-                  setIsland(null);
-                  setSelectedUid(null);
-                  setSelectedOpeningUid(null);
-                  setSinks([]);
-                  setSelectedSinkUid(null);
-                  setFurniture([]);
-                  setSelectedFurnUid(null);
-                  setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false);
-                  setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
-                  setBacksplashMaterialId(null);
-                  setFlooringMaterialId(null);
-                  setCabinetsLocked(false);
-                  clearDraft();
-                  toast.success(t("dt_sh_started_new"));
-                }}
-              >
-                {t("dt_sh_start_new")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  ))}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* ── Hardware sub-sheet ───────────────────────────────────────── */}
+          <Sheet open={hardwareSheetOpen} onOpenChange={setHardwareSheetOpen}>
+            <SheetContent side="bottom" className="flex max-h-[70vh] flex-col rounded-t-2xl p-0">
+              <SheetHeader className="border-b px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setHardwareSheetOpen(false); setTimeout(() => setMoreSheetOpen(true), 120); }}
+                    className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted"
+                  >
+                    <ChevronRight className="h-4 w-4 rotate-180" />
+                  </button>
+                  <SheetTitle className="text-base">{t("dt_sh_hardware")}</SheetTitle>
+                </div>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto overscroll-contain p-3" style={{ WebkitOverflowScrolling: "touch" }}>
+                <p className="mb-3 text-xs text-muted-foreground">Choose the hardware style for doors and drawers. This is a finishing spec — hardware is not priced in the catalog.</p>
+                <div className="space-y-2">
+                  {HARDWARE_STYLES.map((h) => (
+                    <button
+                      key={h.id}
+                      onClick={() => setHardwareStyleId(h.id)}
+                      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                        hardwareStyleId === h.id
+                          ? "border-[#1a2744] bg-[#1a2744]/8"
+                          : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40"
+                      }`}
+                    >
+                      <Wrench className={`h-5 w-5 shrink-0 ${hardwareStyleId === h.id ? "text-[#1a2744]" : "text-muted-foreground"}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className={`text-sm font-semibold ${hardwareStyleId === h.id ? "text-[#1a2744]" : "text-foreground"}`}>{h.label}</div>
+                        <div className="text-[11px] text-muted-foreground leading-tight">{h.description}</div>
+                      </div>
+                      {hardwareStyleId === h.id && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* ── Trim sub-sheet ───────────────────────────────────────────── */}
+          <Sheet open={trimSheetOpen} onOpenChange={setTrimSheetOpen}>
+            <SheetContent side="bottom" className="flex max-h-[70vh] flex-col rounded-t-2xl p-0">
+              <SheetHeader className="border-b px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setTrimSheetOpen(false); setTimeout(() => setMoreSheetOpen(true), 120); }}
+                    className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted"
+                  >
+                    <ChevronRight className="h-4 w-4 rotate-180" />
+                  </button>
+                  <SheetTitle className="text-base">{t("dt_sh_trim_front")}</SheetTitle>
+                </div>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto overscroll-contain p-3" style={{ WebkitOverflowScrolling: "touch" }}>
+                <p className="mb-3 text-xs text-muted-foreground">Toggle trim items on or off. These are auto-calculated for the front-view elevation and included in the build sheet.</p>
+                <div className="space-y-2">
+                  <button onClick={() => { trimOverride.current.crown = true; setCrown((c) => !c); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${ crown ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>
+                    <CrownIcon className={`h-5 w-5 shrink-0 ${crown ? "text-[#1a2744]" : "text-muted-foreground"}`} />
+                    <div className="flex-1">
+                      <div className={`text-sm font-semibold ${crown ? "text-[#1a2744]" : "text-foreground"}`}>{t("dt_sh_crown")}</div>
+                      <div className="text-[11px] text-muted-foreground">Applied to top of wall cabinets</div>
+                    </div>
+                    {crown && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
+                  </button>
+                  <button onClick={() => { trimOverride.current.toeKick = true; setToeKick((tk) => !tk); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${ toeKick ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>
+                    <Columns3 className={`h-5 w-5 shrink-0 ${toeKick ? "text-[#1a2744]" : "text-muted-foreground"}`} />
+                    <div className="flex-1">
+                      <div className={`text-sm font-semibold ${toeKick ? "text-[#1a2744]" : "text-foreground"}`}>{t("dt_sh_toe_kick")}</div>
+                      <div className="text-[11px] text-muted-foreground">Applied to base of base cabinets</div>
+                    </div>
+                    {toeKick && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
+                  </button>
+                  <button onClick={() => { trimOverride.current.batten = true; setBatten((b) => !b); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${ batten ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>
+                    <PanelTop className={`h-5 w-5 shrink-0 ${batten ? "text-[#1a2744]" : "text-muted-foreground"}`} />
+                    <div className="flex-1">
+                      <div className={`text-sm font-semibold ${batten ? "text-[#1a2744]" : "text-foreground"}`}>{t("dt_sh_batten")}</div>
+                      <div className="text-[11px] text-muted-foreground">Batten molding (BAM) at cabinet seams</div>
+                    </div>
+                    {batten && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
+                  </button>
+                  <button onClick={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${ lightRail ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>
+                    <Ruler className={`h-5 w-5 shrink-0 ${lightRail ? "text-[#1a2744]" : "text-muted-foreground"}`} />
+                    <div className="flex-1">
+                      <div className={`text-sm font-semibold ${lightRail ? "text-[#1a2744]" : "text-foreground"}`}>{t("dt_sh_light_rail")}</div>
+                      <div className="text-[11px] text-muted-foreground">Under-cabinet light rail molding</div>
+                    </div>
+                    {lightRail && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
+                  </button>
+                  <button onClick={toggleCountertop} disabled={!countertop && !hasBaseRun} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors disabled:opacity-50 ${ countertop ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>
+                    <Square className={`h-5 w-5 shrink-0 ${countertop ? "text-[#1a2744]" : "text-muted-foreground"}`} />
+                    <div className="flex-1">
+                      <div className={`text-sm font-semibold ${countertop ? "text-[#1a2744]" : "text-foreground"}`}>{t("dt_sh_countertop")}</div>
+                      <div className="text-[11px] text-muted-foreground">Measured for a countertop quote</div>
+                    </div>
+                    {countertop && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
+                  </button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
 
         {/* Desktop action cluster */}
