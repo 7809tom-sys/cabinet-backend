@@ -48,6 +48,7 @@ import EmailSettingsAdmin from "@/components/admin/EmailSettingsAdmin";
 import BrandingSettingsAdmin from "@/components/admin/BrandingSettingsAdmin";
 import NotificationSettingsAdmin from "@/components/admin/NotificationSettingsAdmin";
 import ApiStatusAdmin from "@/components/admin/ApiStatusAdmin";
+import IncomingOrdersAdmin from "@/components/admin/IncomingOrdersAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -590,6 +591,7 @@ export default function Admin() {
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
         <TabsList className="h-auto w-full flex-wrap justify-start gap-y-1">
+          <TabsTrigger value="orders">Incoming Orders</TabsTrigger>
           <TabsTrigger value="crm">Sales CRM</TabsTrigger>
           <TabsTrigger value="consultations">Consultations</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
@@ -619,6 +621,9 @@ export default function Admin() {
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="api-status">API Status</TabsTrigger>
         </TabsList>
+        <TabsContent value="orders" className="mt-6">
+          <IncomingOrdersAdmin />
+        </TabsContent>
         <TabsContent value="crm" className="mt-6">
           <CrmBoard lang="en" />
         </TabsContent>

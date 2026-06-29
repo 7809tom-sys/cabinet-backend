@@ -7,6 +7,7 @@ import {
   cabinets,
   distributorSkus,
   doorStyles,
+  distributors,
   orderRequests,
   affiliates,
   codeAliases,
@@ -710,6 +711,92 @@ export const ordersRouter = router({
         .orderBy(desc(orderRequests.createdAt));
       if (input?.status) return rows.filter((r) => r.status === input.status);
       return rows;
+    }),
+
+  // ─── Admin: orders with resolved PO SKUs ─────────────────────────────────
+  // Returns every order request enriched with a `poSku` field per line item.
+  // Format: {distributorCode}-{styleCode}-{distributorSku}  e.g. usd-sw-3db24
+  adminListWithPoSkus: protectedProcedure
+    .input(
+      z
+        .object({
+          status: z.enum(["draft", "submitted", "confirmed", "cancelled"]).optional(),
+        })
+        .optional()
+    )
+    .query(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) return [];
+
+      // Fetch all orders
+      const rows = await db
+        .select()
+        .from(orderRequests)
+        .orderBy(desc(orderRequests.createdAt));
+      const filtered = input?.status ? rows.filter((r) => r.status === input.status) : rows;
+
+      // Collect all unique cabinetIds and styleIds across all orders
+      const cabinetIdSet = new Set<number>();
+      const styleIdSet = new Set<number>();
+      for (const row of filtered) {
+        const lines = (row.lineItems ?? []) as OrderLineItem[];
+        for (const l of lines) {
+          if (l.cabinetId) cabinetIdSet.add(l.cabinetId);
+          if (l.styleId) styleIdSet.add(l.styleId);
+        }
+        if (row.styleId) styleIdSet.add(row.styleId);
+      }
+
+      // Build a lookup: cabinetId+styleId → { distributorSku, distributorCode, styleCode }
+      type SkuKey = `${number}-${number}`;
+      const skuMap = new Map<SkuKey, { distributorSku: string; distributorCode: string; styleCode: string }>();
+
+      if (cabinetIdSet.size > 0 && styleIdSet.size > 0) {
+        const skuRows = await db
+          .select({
+            cabinetId: distributorSkus.cabinetId,
+            styleId: distributorSkus.styleId,
+            distributorSku: distributorSkus.distributorSku,
+            distributorCode: distributors.code,
+            styleCode: doorStyles.styleCode,
+          })
+          .from(distributorSkus)
+          .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+          .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+          .where(
+            and(
+              inArray(distributorSkus.cabinetId, Array.from(cabinetIdSet)),
+              inArray(distributorSkus.styleId, Array.from(styleIdSet)),
+              eq(distributorSkus.isAvailable, true)
+            )
+          );
+        for (const r of skuRows) {
+          const key: SkuKey = `${r.cabinetId}-${r.styleId}`;
+          if (!skuMap.has(key)) {
+            skuMap.set(key, {
+              distributorSku: r.distributorSku,
+              distributorCode: r.distributorCode,
+              styleCode: r.styleCode,
+            });
+          }
+        }
+      }
+
+      // Enrich each order's line items with a formatted poSku
+      return filtered.map((row) => {
+        const styleId = row.styleId;
+        const enrichedLines = ((row.lineItems ?? []) as OrderLineItem[]).map((l) => {
+          const sid = l.styleId ?? styleId ?? null;
+          const key: SkuKey | null = l.cabinetId && sid ? `${l.cabinetId}-${sid}` : null;
+          const sku = key ? skuMap.get(key) : undefined;
+          const poSku = sku
+            ? `${sku.distributorCode.toLowerCase()}-${sku.styleCode.toLowerCase()}-${sku.distributorSku.toLowerCase()}`
+            : null;
+          return { ...l, poSku };
+        });
+        return { ...row, lineItems: enrichedLines };
+      });
     }),
 
   // ─── Persisted manual-fix alias ────────────────────────────────────────────
