@@ -346,77 +346,75 @@ function BlindCornerFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabin
   );
 }
 
-// Corner drawer base (CDB-36): L-shaped front elevation.
-// Main face: full height on the LEFT (24" wide) — 3 stacked drawers with bar pulls.
-// Return panel: short panel on the RIGHT (~33% of total width, ~60% of height) —
-// the inaccessible side that wraps into the corner, shown with a dashed outline.
-// This matches the product photo exactly.
+// Corner drawer base (CDB-36): front elevation as seen in the product photo.
+// The cabinet sits in a corner. Viewed from the front:
+//   LEFT side:  24" wide BLANK side panel — full height, no drawers/doors (wall-facing)
+//   RIGHT side: 12" wide drawer stack — full height, 3 stacked drawers with bar pulls
+// Total width = 36" (24" side panel + 12" drawer face)
 function CornerDrawerBaseFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
   const n = Math.max(2, resolveDoorDrawerCounts(cabinet ?? {}).drawers || 3);
   const inset = 3;
   const gap = 2;
-  // Return panel is ~33% of total width (12" of 36"); main face is ~67% (24").
-  const returnW = w * 0.33;
-  const mainW = w - returnW;
-  // Return panel height is ~60% of total height (shorter — wraps into corner).
-  const returnH = h * 0.60;
-  // L-shape: main face full height on left, short return panel on right.
-  const path = `
-    M ${x} ${y}
-    L ${x + w} ${y}
-    L ${x + w} ${y + returnH}
-    L ${x + mainW} ${y + returnH}
-    L ${x + mainW} ${y + h}
-    L ${x} ${y + h}
-    Z`;
-  // 3 drawers fill the main (left) face.
-  const dzTop = y + inset;
-  const dzBottom = y + h - inset;
-  const dzH = dzBottom - dzTop;
-  const dh = Math.max(5, (dzH - (n - 1) * gap) / n);
-  const drawerX = x + inset;
-  const drawerW = mainW - inset * 2;
-  const pullCx = drawerX + drawerW / 2;
+  // Side panel is 24" of 36" = 67% of total width; drawer face is 12" = 33%.
+  const sidePanelW = w * 0.67;
+  const drawerFaceW = w - sidePanelW;
   return (
     <g>
-      {/* Cabinet L-shaped body */}
-      <path d={path} fill={fill} stroke={STROKE} strokeWidth={1.6} strokeLinejoin="round" />
-      {/* 3 stacked drawers on the main (left) face */}
-      {Array.from({ length: n }).map((_, i) => (
-        <g key={i}>
-          <rect
-            x={drawerX}
-            y={dzTop + i * (dh + gap)}
-            width={drawerW}
-            height={dh}
-            rx={1.5}
-            fill={PANEL_FILL}
-            stroke={STROKE_LIGHT}
-            strokeWidth={1}
-          />
-          {/* bar pull centered on drawer */}
-          <rect
-            x={pullCx - drawerW * 0.18}
-            y={dzTop + i * (dh + gap) + dh / 2 - 0.8}
-            width={drawerW * 0.36}
-            height={1.6}
-            rx={0.8}
-            fill={STROKE}
-          />
-        </g>
-      ))}
-      {/* Dashed outline on return panel — inaccessible corner side */}
+      {/* Outer box — full rectangle */}
+      <Box x={x} y={y} w={w} h={h} fill={fill} />
+      {/* Vertical divider between side panel and drawer face */}
+      <line
+        x1={x + sidePanelW}
+        y1={y}
+        x2={x + sidePanelW}
+        y2={y + h}
+        stroke={STROKE_LIGHT}
+        strokeWidth={1}
+      />
+      {/* LEFT: blank side panel — just a subtle inset rect to show it's a panel */}
       <rect
-        x={x + mainW + inset}
+        x={x + inset}
         y={y + inset}
-        width={returnW - inset * 2}
-        height={returnH - inset * 2}
-        rx={1}
-        fill="none"
+        width={sidePanelW - inset * 2}
+        height={h - inset * 2}
+        rx={1.5}
+        fill={PANEL_FILL}
         stroke={STROKE_LIGHT}
         strokeWidth={0.8}
-        strokeDasharray="2 2"
+        strokeDasharray="0"
       />
+      {/* RIGHT: 3 stacked drawers on the 12" drawer face */}
+      {Array.from({ length: n }).map((_, i) => {
+        const dzTop = y + inset;
+        const dzH = h - inset * 2;
+        const dh = Math.max(5, (dzH - (n - 1) * gap) / n);
+        const dX = x + sidePanelW + inset;
+        const dW = drawerFaceW - inset * 2;
+        const pullCx = dX + dW / 2;
+        return (
+          <g key={i}>
+            <rect
+              x={dX}
+              y={dzTop + i * (dh + gap)}
+              width={dW}
+              height={dh}
+              rx={1.5}
+              fill={PANEL_FILL}
+              stroke={STROKE_LIGHT}
+              strokeWidth={1}
+            />
+            {/* bar pull */}
+            <rect
+              x={pullCx - dW * 0.25}
+              y={dzTop + i * (dh + gap) + dh / 2 - 0.8}
+              width={dW * 0.5}
+              height={1.6}
+              rx={0.8}
+              fill={STROKE}
+            />
+          </g>
+        );
+      })}
     </g>
   );
 }
