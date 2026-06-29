@@ -1477,6 +1477,9 @@ export const cabinetsRouter = router({
             pkgWidth: cabinets.pkgWidth,
             pkgHeight: cabinets.pkgHeight,
             pkgWeight: cabinets.pkgWeight,
+            catalogImageUrl: cabinets.catalogImageUrl,
+            // Pull the first available SKU image as a thumbnail fallback
+            skuImageUrl: sql<string | null>`(SELECT imageUrl FROM distributor_skus WHERE cabinetId = ${cabinets.id} AND imageUrl IS NOT NULL AND isAvailable = 1 AND isPublished = 1 LIMIT 1)`,
           })
           .from(cabinets)
           .where(where)
@@ -1488,7 +1491,12 @@ export const cabinetsRouter = router({
           .from(cabinets)
           .where(where),
       ]);
-      return { rows, total: Number(countRows[0]?.count ?? 0) };
+      // Merge: prefer catalogImageUrl, fall back to first SKU image
+      const enriched = rows.map((r) => ({
+        ...r,
+        catalogImageUrl: r.catalogImageUrl || r.skuImageUrl || null,
+      }));
+      return { rows: enriched, total: Number(countRows[0]?.count ?? 0) };
     }),
 
 });
