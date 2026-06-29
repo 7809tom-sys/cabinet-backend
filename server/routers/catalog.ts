@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, like, inArray, isNotNull, sql, desc, asc } from "drizzle-orm";
+import { eq, and, like, inArray, isNotNull, sql, desc, asc, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
@@ -1497,6 +1497,105 @@ export const cabinetsRouter = router({
         catalogImageUrl: r.catalogImageUrl || r.skuImageUrl || null,
       }));
       return { rows: enriched, total: Number(countRows[0]?.count ?? 0) };
+    }),
+
+  // Returns a coverage matrix: for each cabinet, which door styles have at least
+  // one published+available SKU, and which are missing. Used in the Designer
+  // Coverage admin view to spot gaps.
+  adminDesignerCoverage: adminProcedure
+    .input(
+      z.object({
+        search: z.string().optional(),
+        category: z.string().optional(),
+        gapsOnly: z.boolean().default(false),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { cabinets: [], styles: [] };
+
+      // 1. All active door styles
+      const allStyles = await db
+        .select({
+          id: doorStyles.id,
+          ourName: doorStyles.ourName,
+          styleCode: doorStyles.styleCode,
+          featuredLabel: doorStyles.featuredLabel,
+          distributorId: doorStyles.distributorId,
+        })
+        .from(doorStyles)
+        .where(eq(doorStyles.isActive, true))
+        .orderBy(asc(doorStyles.ourName));
+
+      // 2. All cabinets matching filters
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const conditions: any[] = [eq(cabinets.isActive, true)];
+      if (input.search) {
+        const like = `%${input.search}%`;
+        conditions.push(
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like})`
+        );
+      }
+      if (input.category) {
+        conditions.push(eq(cabinets.category, input.category));
+      }
+      const cabinetRows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          showInDesigner: cabinets.showInDesigner,
+        })
+        .from(cabinets)
+        .where(and(...conditions))
+        .orderBy(asc(cabinets.masterCode));
+
+      if (cabinetRows.length === 0) return { cabinets: [], styles: allStyles };
+
+      // 3. All coverage rows: which (cabinetId, styleId) pairs have a SKU
+      const cabinetIds = cabinetRows.map((c) => c.id);
+      const coverageRows = await db
+        .select({
+          cabinetId: distributorSkus.cabinetId,
+          styleId: distributorSkus.styleId,
+        })
+        .from(distributorSkus)
+        .where(
+          and(
+            inArray(distributorSkus.cabinetId, cabinetIds),
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true)
+          )
+        );
+
+      // Build a Set of "cabinetId:styleId" for O(1) lookup
+      const covered = new Set(coverageRows.map((r) => `${r.cabinetId}:${r.styleId}`));
+
+      // 4. Enrich each cabinet with per-style coverage flags
+      const styleIds = allStyles.map((s) => s.id);
+      const enrichedCabinets = cabinetRows.map((cab) => {
+        const coverage: Record<number, boolean> = {};
+        let coveredCount = 0;
+        for (const sid of styleIds) {
+          const has = covered.has(`${cab.id}:${sid}`);
+          coverage[sid] = has;
+          if (has) coveredCount++;
+        }
+        return {
+          ...cab,
+          coverage,
+          coveredCount,
+          totalStyles: styleIds.length,
+          hasGaps: coveredCount < styleIds.length,
+        };
+      });
+
+      const result = input.gapsOnly
+        ? enrichedCabinets.filter((c) => c.hasGaps)
+        : enrichedCabinets;
+
+      return { cabinets: result, styles: allStyles };
     }),
 
 });

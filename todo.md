@@ -2152,7 +2152,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Featured door style white-label: apply label to 100% of cabinets in the style, not just some
 
 ## Bulk Dimensions & Weight Editor
-- [ ] Add pkgWeight column to cabinets schema and run migration
-- [ ] Expose pkgLength/pkgWidth/pkgHeight/pkgWeight/weight in adminUpdateCabinet procedure
-- [ ] Build BulkDimensionsAdmin component with inline editable table and missing-data filter
-- [ ] Add Dimensions tab to Admin.tsx
+- [x] Add pkgWeight column to cabinets schema and run migration
+- [x] Expose pkgLength/pkgWidth/pkgHeight/pkgWeight/weight in adminUpdateCabinet procedure
+- [x] Build BulkDimensionsAdmin component with inline editable table and missing-data filter
+- [x] Add Dimensions tab to Admin.tsx
+- [x] Designer Coverage admin view: per-cabinet style coverage matrix with gap highlighting
