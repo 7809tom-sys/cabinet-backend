@@ -172,6 +172,7 @@ function CategoryLanding({
       id: number;
       styleCode: string;
       ourName: string | null;
+      featuredLabel?: string | null;
       doorStyle: string | null;
       color: string | null;
       woodSpecies: string | null;
@@ -242,7 +243,8 @@ function CategoryLanding({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {(featuredStyles.length > 0
           ? featuredStyles.map((s) => ({
-              label: s.ourName || s.styleCode,
+              // Prefer white-label name when set by admin.
+              label: s.featuredLabel || s.ourName || s.styleCode,
               href: `/family/${encodeURIComponent(s.styleCode)}`,
               // Real, verified per-style scene from the DB (guaranteed present by
               // the filter above) — matches the style's name, never a guess.

@@ -29,6 +29,7 @@ interface FamilyStyle {
   id: number;
   styleCode: string;
   ourName: string | null;
+  featuredLabel?: string | null;
   doorStyle: string | null;
   woodSpecies: string | null;
   color: string | null;
@@ -189,7 +190,8 @@ export default function Family({ styleCode }: { styleCode: string }) {
   }, [items, activeType, debounced]);
 
   const s = style as FamilyStyle | null;
-  const familyName = s?.ourName || s?.styleCode || "Door Style";
+  // Prefer white-label name (set by admin) over internal name for all public display.
+  const familyName = s?.featuredLabel || s?.ourName || s?.styleCode || "Door Style";
   useSeo({
     title: t("seo_family_t", { name: familyName }),
     description: t("seo_family_d", { name: familyName }),

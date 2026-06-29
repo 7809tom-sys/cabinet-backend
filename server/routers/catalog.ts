@@ -101,6 +101,7 @@ export const doorStylesRouter = router({
         thumbnailImageUrl: doorStyles.thumbnailImageUrl,
         isFeatured: doorStyles.isFeatured,
         featuredRank: doorStyles.featuredRank,
+        featuredLabel: doorStyles.featuredLabel,
         isActive: doorStyles.isActive,
         createdAt: doorStyles.createdAt,
       };
@@ -1338,6 +1339,9 @@ export const cabinetsRouter = router({
       const db = await getDb();
       if (!db) return { xlsx: "", filename: "cabinet-line.xlsx", count: 0 };
 
+      // Load the Margins tab settings so we can compute correct tier prices.
+      const ps = await getPricingSettings();
+
       // Fetch all cabinets for this style with pricing.
       const rows = await db
         .select({
@@ -1353,9 +1357,8 @@ export const cabinetsRouter = router({
           numberOfDoors: cabinets.numberOfDoors,
           numberOfDrawers: cabinets.numberOfDrawers,
           catalogImageUrl: cabinets.catalogImageUrl,
-          contractorPrice: distributorSkus.contractorPrice,
           wholesalePrice: distributorSkus.wholesalePrice,
-          homeownerPrice: distributorSkus.homeownerPrice,
+          yourCost: distributorSkus.yourCost,
         })
         .from(cabinets)
         .innerJoin(
@@ -1377,28 +1380,35 @@ export const cabinetsRouter = router({
         )
         .orderBy(cabinets.category, cabinets.masterCode);
 
-      // Build XLSX.
+      // Build XLSX — compute contractor/homeowner prices from Margins tab markup settings.
+      const { applyTierMarkup } = await import("../../shared/margins");
       const XLSX = await import("xlsx");
       const wsData = [
         ["masterCode", "description", "category", "subCategory", "placement",
          "width", "height", "depth", "doors", "drawers",
-         "contractorPrice", "wholesalePrice", "homeownerPrice", "imageUrl"],
-        ...rows.map((r) => [
-          r.masterCode ?? "",
-          r.description ?? "",
-          r.category ?? "",
-          r.subCategory ?? "",
-          r.placement ?? "",
-          r.width ?? "",
-          r.height ?? "",
-          r.depth ?? "",
-          r.numberOfDoors ?? "",
-          r.numberOfDrawers ?? "",
-          r.contractorPrice != null ? Number(r.contractorPrice) : "",
-          r.wholesalePrice != null ? Number(r.wholesalePrice) : "",
-          r.homeownerPrice != null ? Number(r.homeownerPrice) : "",
-          r.catalogImageUrl ?? "",
-        ]),
+         "yourCost", "wholesalePrice", "contractorPrice", "homeownerPrice", "imageUrl"],
+        ...rows.map((r) => {
+          const base = r.wholesalePrice ?? r.yourCost;
+          const contractorPrice = applyTierMarkup(base, ps, "contractor");
+          const homeownerPrice = applyTierMarkup(base, ps, "homeowner");
+          return [
+            r.masterCode ?? "",
+            r.description ?? "",
+            r.category ?? "",
+            r.subCategory ?? "",
+            r.placement ?? "",
+            r.width ?? "",
+            r.height ?? "",
+            r.depth ?? "",
+            r.numberOfDoors ?? "",
+            r.numberOfDrawers ?? "",
+            r.yourCost != null ? Number(r.yourCost) : "",
+            r.wholesalePrice != null ? Number(r.wholesalePrice) : "",
+            contractorPrice ?? "",
+            homeownerPrice ?? "",
+            r.catalogImageUrl ?? "",
+          ];
+        }),
       ];
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);

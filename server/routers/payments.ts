@@ -147,12 +147,14 @@ export const paymentsRouter = router({
       }
 
       // Recompute the fee stack + grand total on the server (card payment).
+      // Tech fee is ONLY charged on affiliate-referred orders.
       const feeSettings = await getPlatformPricingSettings();
       const stack = computeFeeStack(
         {
           cabinetSubtotalCents: merchandiseCents,
           freightCents: input.freightCents,
           paymentMethod: "card",
+          isAffiliateOrder: order.affiliateId != null,
         },
         feeSettings,
       );

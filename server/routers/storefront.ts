@@ -26,6 +26,7 @@ function toFamily(row: {
   id: number;
   styleCode: string;
   ourName: string;
+  featuredLabel?: string | null;
   doorStyle: string | null;
   woodSpecies: string | null;
   finish: string | null;
@@ -39,7 +40,9 @@ function toFamily(row: {
   return {
     styleId: row.id,
     styleCode: row.styleCode,
-    name: row.ourName,
+    // Use white-label name when set; fall back to internal name.
+    name: row.featuredLabel || row.ourName,
+    ourName: row.ourName,
     doorStyle: row.doorStyle,
     woodSpecies: row.woodSpecies,
     finish: row.finish,
@@ -130,6 +133,7 @@ export const storefrontRouter = router({
           id: doorStyles.id,
           styleCode: doorStyles.styleCode,
           ourName: doorStyles.ourName,
+          featuredLabel: doorStyles.featuredLabel,
           doorStyle: doorStyles.doorStyle,
           woodSpecies: doorStyles.woodSpecies,
           finish: doorStyles.finish,
@@ -180,6 +184,7 @@ export const storefrontRouter = router({
           id: doorStyles.id,
           styleCode: doorStyles.styleCode,
           ourName: doorStyles.ourName,
+          featuredLabel: doorStyles.featuredLabel,
           doorStyle: doorStyles.doorStyle,
           woodSpecies: doorStyles.woodSpecies,
           finish: doorStyles.finish,

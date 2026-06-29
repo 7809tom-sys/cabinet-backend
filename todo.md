@@ -2144,3 +2144,9 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Add inline LabelEditor component to FeaturedStylesAdmin: pencil to edit, check to save, reset icon to clear back to default
 - [x] Update DoorStyles page StyleCard to use featuredLabel when set (falls back to ourName)
 - [x] displayName() helper in DoorStyles.tsx: featuredLabel > ourName > styleCode
+
+## Pricing Bug Fixes (2026-06-29)
+- [ ] Tech fee (10%, $100 cap) must only apply to affiliate orders — not direct contractor/wholesale/homeowner orders
+- [ ] Cabinet line export: add yourCost column
+- [ ] Cabinet line export: compute contractor/homeowner prices using Margins tab markup bps (not raw DB columns)
+- [ ] Featured door style white-label: apply label to 100% of cabinets in the style, not just some

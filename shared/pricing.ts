@@ -13,6 +13,7 @@
 // Order fee stack (on the cabinet subtotal unless noted):
 //   • Damage fee  — damageFeeBps of cabinet subtotal, EVERY order, all tiers
 //   • Tech fee    — techFeeBps of cabinet subtotal, CAPPED at techFeeCapCents
+//                   *** AFFILIATE ORDERS ONLY — waived for direct contractor/wholesale/homeowner ***
 //   • Card fee    — cardFeeBps of the FINAL total (cabinets+freight+damage+tech),
 //                   CARD payments only; ACH/bank transfer waives it
 //
@@ -129,6 +130,12 @@ export interface FeeStackInput {
   /** Only matters for ACH: an unapproved ACH still pays the card fee until the
    *  admin approves the transfer. Defaults to true (approved) for card. */
   achApproved?: boolean;
+  /**
+   * Tech fee (10%, capped at $100) is charged ONLY on affiliate-referred orders.
+   * Direct contractor / wholesale / homeowner orders are exempt.
+   * Defaults to false (no tech fee) when omitted.
+   */
+  isAffiliateOrder?: boolean;
 }
 
 export interface FeeStack {
@@ -136,7 +143,7 @@ export interface FeeStack {
   freightCents: number;
   /** 1% of cabinet subtotal (all orders). */
   damageFeeCents: number;
-  /** 10% of cabinet subtotal, capped at $100. */
+  /** 10% of cabinet subtotal, capped at $100. Affiliate orders only — 0 for direct orders. */
   techFeeCents: number;
   /** True when the cap clipped the tech fee. */
   techFeeCapped: boolean;
@@ -164,9 +171,11 @@ export function computeFeeStack(
   // Damage fee — every order, all tiers, on the cabinet subtotal.
   const damageFeeCents = applyBps(cabinetSubtotalCents, settings.damageFeeBps);
 
-  // Tech fee — on cabinet subtotal, capped.
-  const techFeeRaw = applyBps(cabinetSubtotalCents, settings.techFeeBps);
-  const techFeeCapped = settings.techFeeCapCents > 0 && techFeeRaw > settings.techFeeCapCents;
+  // Tech fee — affiliate orders ONLY. Direct contractor/wholesale/homeowner orders are exempt.
+  const techFeeRaw = input.isAffiliateOrder
+    ? applyBps(cabinetSubtotalCents, settings.techFeeBps)
+    : 0;
+  const techFeeCapped = !!(input.isAffiliateOrder && settings.techFeeCapCents > 0 && techFeeRaw > settings.techFeeCapCents);
   const techFeeCents = techFeeCapped ? settings.techFeeCapCents : techFeeRaw;
 
   const preCardTotalCents = cabinetSubtotalCents + freightCents + damageFeeCents + techFeeCents;
