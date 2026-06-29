@@ -1108,9 +1108,9 @@ export function isDiagonalCorner(masterCode: string, description?: string): bool
   const code = (masterCode || "").toUpperCase();
   // Diagonal corner wall/base, angled wall (AW), and corner appliance garages
   // (AG) all sit across the corner at 45 degrees and share the same footprint.
-  if (/^(DCW|WDC|KWD|DCB|CDB|DCFF|AW-|AW\d|AG-|AG\d|CAG)/.test(code)) return true;
+  if (/^(DCW|WDC|KWD|DCB|DCFF|AW-|AW\d|AG-|AG\d|CAG)/.test(code)) return true;
   const desc = (description || "").toLowerCase();
-  if (/diagonal|angled (wall|corner)|appliance garage|corner drawer base/.test(desc)) return true;
+  if (/diagonal|angled (wall|corner)|appliance garage/.test(desc)) return true;
   return false;
 }
 
