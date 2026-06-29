@@ -851,7 +851,9 @@ export function PlanCanvas({
                   top: p.y * ppi,
                   width: w * ppi,
                   height: d * ppi,
-                  background: isWall
+                  background: p.catalogImageUrl && !isWall
+                    ? `url(${p.catalogImageUrl}) center/cover no-repeat, ${faceFill}`
+                    : isWall
                     ? `repeating-linear-gradient(45deg, ${edgeColor}33, ${edgeColor}33 6px, ${edgeColor}55 6px, ${edgeColor}55 12px), ${faceFill}`
                     : faceFill,
                   border: inConflict
