@@ -794,8 +794,8 @@ export default function CabinetDetail({ masterCode }: Props) {
       {/* Admin inline edit dialog — only rendered for admins */}
       {isOwner && (
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
+          <DialogContent className="max-w-lg flex flex-col max-h-[90dvh]">
+            <DialogHeader className="shrink-0">
               <DialogTitle className="flex items-center gap-2">
                 <Pencil className="h-4 w-4 text-amber-600" />
                 Edit Cabinet
@@ -803,7 +803,7 @@ export default function CabinetDetail({ masterCode }: Props) {
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
               {/* Description */}
               <div className="space-y-1.5">
                 <Label htmlFor="edit-desc">Description</Label>
@@ -990,7 +990,7 @@ export default function CabinetDetail({ masterCode }: Props) {
               </div>
             </div>
 
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 shrink-0 border-t border-border pt-4">
               <Button variant="outline" onClick={() => setEditOpen(false)}>
                 Cancel
               </Button>
