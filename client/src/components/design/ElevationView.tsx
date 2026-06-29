@@ -199,7 +199,20 @@ export function ElevationView({
         title={`${p.masterCode} — ${p.description}`}
       >
         <div className="w-full h-full relative">
-          {!isAppliance && (
+          {!isAppliance && p.catalogImageUrl ? (
+            // When a catalog product photo is assigned via the admin Designer
+            // Aid tool, show it on the cabinet front instead of the generic
+            // SVG door panel. This is the front/elevation view, where a
+            // front-facing product photo reads correctly.
+            <img
+              src={p.catalogImageUrl}
+              alt={p.masterCode}
+              draggable={false}
+              className="absolute inset-0 w-full h-full object-contain bg-white pointer-events-none select-none"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          ) : null}
+          {!isAppliance && !p.catalogImageUrl && (
             <DoorFront
               kind={cabPanelKind}
               edge={edgeColor}
@@ -209,7 +222,7 @@ export function ElevationView({
               isWall={isWall}
             />
           )}
-          {!isAppliance && hw.id !== "none" && (
+          {!isAppliance && !p.catalogImageUrl && hw.id !== "none" && (
             <HardwareOverlay
               doors={doorCountForCabinet(p)}
               drawers={drawerCountForCabinet(p)}
