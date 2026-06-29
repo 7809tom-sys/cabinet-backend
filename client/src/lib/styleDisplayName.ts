@@ -4,7 +4,7 @@
  * Priority: aliasName → ourName → styleCode
  *
  * - aliasName: the white-label name set in CD_STANDARDS (e.g. "Lumina White")
- * - ourName:   the internal platform name (e.g. "Lumina Blanc")
+ * - ourName:   the internal platform name (e.g. "Lumina White")
  * - styleCode: fallback code (e.g. "ASP")
  *
  * Use this everywhere a door style name is shown to customers or in the designer.

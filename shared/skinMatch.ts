@@ -3,7 +3,7 @@
 // Rule (from the showroom): a cabinet with an EXPOSED visible side needs a
 // matching skin / end panel in the SAME door style so the exposed side reads as
 // finished cabinetry instead of raw box. This is especially mandatory for
-// Hickory lines (HS "Silva Shaker", RH "Sylvan Rust"), which ship unfinished on
+// Hickory lines (HS "Silver Shaker", RH "Forest Rust"), which ship unfinished on
 // the exterior — every exposed side must order a Hickory skin.
 //
 // This module is PURE (no DB / React) so both the server (BOM resolver) and the
@@ -139,7 +139,7 @@ export function requiresMandatorySkin(styleCode: string | null | undefined): boo
 
 /**
  * Name-based fallback when only the door-style display name is available (e.g.
- * the Order Review knows "Silva Shaker" / "Sylvan Rust" but not the styleCode).
+ * the Order Review knows "Silver Shaker" / "Forest Rust" but not the styleCode).
  * The two Hickory lines ship unfinished on the exterior, so any exposed side
  * needs a matching Hickory skin.
  */
@@ -150,6 +150,9 @@ export function isUnfinishedExteriorStyleName(
   const s = styleName.toLowerCase();
   return (
     s.includes("hickory") ||
+    s.includes("silver shaker") ||
+    s.includes("forest rust") ||
+    // legacy names kept for backward compat with saved designs
     s.includes("silva shaker") ||
     s.includes("sylvan rust")
   );

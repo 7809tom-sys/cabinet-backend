@@ -49,17 +49,17 @@ const COLOR_BY_KEYWORD: { match: RegExp; hex: string; wood?: boolean }[] = [
   { match: /repose gray|agreeable gray|accessible beige|mindful gray|greige|mushroom/, hex: "#cabfae" },
   { match: /mineral|dorian gray|gauntlet|dovetail|pewter|repose|fog/, hex: "#a7a39a" },
   { match: /grizzle|peppercorn|iron ore|urbane bronze|graphite|charcoal|slate|gris/, hex: "#5b5b58" },
-  { match: /tricorn black|black magic|caviar|onyx|carbon|tricorn|cracked pepper|noir/, hex: "#2a2a2c" },
+  { match: /tricorn black|black magic|caviar|onyx|carbon|tricorn|cracked pepper|noir|velvet black/, hex: "#2a2a2c" },
   { match: /naval|indigo|sea serpent|navy|cobalt|blue/, hex: "#36465c" },
   { match: /evergreen|pewter green|rosemary|sage|forest|hunter|green/, hex: "#56685b" },
   { match: /hickory|rustic/, hex: "#a07850", wood: true },
   { match: /cherry|mahogany|chestnut|cinnamon|brick|spice/, hex: "#7a4a32", wood: true },
-  { match: /walnut|mocha|coffee|java|espresso|chocolate|brown|umbra/, hex: "#6b4a32", wood: true },
-  { match: /white oak|natural|honey|maple|wheat|amber|toffee|oak|solis/, hex: "#c79a63", wood: true },
+  { match: /walnut|mocha|coffee|java|espresso|chocolate|brown|umbra|shadow/, hex: "#6b4a32", wood: true },
+  { match: /white oak|natural|honey|maple|wheat|amber|toffee|oak|solis|solar/, hex: "#c79a63", wood: true },
   { match: /gray|grey|stone|cinder|slate|vesper|nimbus|sterling|carbon/, hex: "#9aa0a6" },
-  { match: /white|snow|arctic|pearl|dove|frost|blanc|nova|lumina|haven white|aura blanc|bloom blanc|edge blanc/, hex: "#f3f1ec" },
-  { match: /cream|linen|sand|beige|tan|creme|ivoire|aura cream|terra|vellum crema/, hex: "#e6dcc6" },
-  { match: /rust|copper|sylvan|bloom umbra/, hex: "#b5603a", wood: true },
+  { match: /white|snow|arctic|pearl|dove|frost|blanc|nova|lumina|haven white|aura blanc|bloom blanc|edge blanc|dawn|air white|ice white|aura white|nimbus white|nova white|edge white|oxford white|casselberry white|white core|dual white|bloom white/, hex: "#f3f1ec" },
+  { match: /cream|linen|sand|beige|tan|creme|ivoire|aura cream|terra|vellum crema|velvet cream|earth shaker/, hex: "#e6dcc6" },
+  { match: /rust|copper|sylvan|bloom umbra|forest rust|bloom shadow/, hex: "#b5603a", wood: true },
   { match: /sage|zenith|zephyr|oxford sage/, hex: "#7a9e7e" },
   { match: /gold|brass|aurum|treasure/, hex: "#c9a84c" },
 ];
@@ -91,7 +91,7 @@ export function resolveSwatch(style: DoorStyleLike): Swatch {
   let isWood = false;
   let isGlass = false;
 
-  if (/glass|crystal|prism|nocturne glass|prism clear/.test(haystack)) {
+  if (/glass|crystal|prism|nocturne glass|prism clear|night glass/.test(haystack)) {
     isGlass = true;
     face = "#b8d4e8";
   } else {

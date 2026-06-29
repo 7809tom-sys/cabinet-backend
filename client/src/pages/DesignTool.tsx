@@ -612,7 +612,7 @@ export default function DesignTool() {
   // Total cabinets available in the active style for the CURRENT tab, ignoring
   // the search box (so the hint reflects the real lineup size, not the filtered
   // view). Used to show "N cabinets available in <style>" so a smaller per-finish
-  // lineup (e.g. Aero Alba) is obvious instead of looking "empty/broken".
+  // lineup (e.g. Air Dawn) is obvious instead of looking "empty/broken".
   const availableInStyleCount = useMemo(() => {
     if (paletteType === "opening" || paletteType === "closetparts" || paletteType === "appliance") {
       return null;

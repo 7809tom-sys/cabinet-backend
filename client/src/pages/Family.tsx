@@ -18,7 +18,7 @@ import { translateSpec } from "@/lib/i18n/specPhrases";
 // ─────────────────────────────────────────────────────────────────────────────
 // Family page — the DOOR-STYLE-FAMILY-first shopping experience.
 //
-// A door style (e.g. "Silva Shaker" / Hickory) IS the product line. Landing
+// A door style (e.g. "Silver Shaker" / Hickory) IS the product line. Landing
 // here shows the family's room scene + sample door + facts, then EVERY cabinet
 // available in that family (base, wall, tall, vanity, accessory) together,
 // filterable by type. Each cabinet is drawn to scale and recolored to this
