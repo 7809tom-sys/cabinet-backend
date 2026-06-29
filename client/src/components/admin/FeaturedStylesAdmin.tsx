@@ -1,10 +1,17 @@
 import { useMemo, useState } from "react";
-import { Star, Search, GripVertical, ArrowUp, ArrowDown, X, AlertTriangle, CheckCircle2, Pencil, Check, RotateCcw } from "lucide-react";
+import {
+  Star, Search, GripVertical, ArrowUp, ArrowDown, X,
+  AlertTriangle, CheckCircle2, Pencil, RotateCcw,
+} from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import DoorPhotoCorrectButton from "./DoorPhotoCorrectButton";
 
@@ -17,10 +24,11 @@ interface AdminStyle {
   doorStyle: string | null;
   color: string | null;
   finish: string | null;
+  woodSpecies: string | null;
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
-  doorSampleVerified: boolean;
   roomSceneImageUrl: string | null;
+  doorSampleVerified: boolean;
   isFeatured: boolean;
   featuredRank: number;
 }
@@ -29,98 +37,241 @@ function thumb(s: AdminStyle): string | null {
   return s.thumbnailImageUrl || s.doorSampleImageUrl || s.roomSceneImageUrl || null;
 }
 
-/** Inline label editor for a single featured style row */
-function LabelEditor({ style, onSaved }: { style: AdminStyle; onSaved: () => void }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(style.featuredLabel ?? "");
+// ── Quick-edit dialog ─────────────────────────────────────────────────────────
 
-  const setLabel = trpc.doorStyles.setFeaturedLabel.useMutation({
+interface EditDialogProps {
+  style: AdminStyle;
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
+  const [featuredLabel, setFeaturedLabel] = useState(style.featuredLabel ?? "");
+  const [ourName, setOurName] = useState(style.ourName);
+  const [doorStyle, setDoorStyle] = useState(style.doorStyle ?? "");
+  const [color, setColor] = useState(style.color ?? "");
+  const [finish, setFinish] = useState(style.finish ?? "");
+  const [woodSpecies, setWoodSpecies] = useState(style.woodSpecies ?? "");
+  const [doorSampleImageUrl, setDoorSampleImageUrl] = useState(style.doorSampleImageUrl ?? "");
+  const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
+  const [thumbnailImageUrl, setThumbnailImageUrl] = useState(style.thumbnailImageUrl ?? "");
+
+  // Reset state when dialog opens for a different style
+  const resetToStyle = (s: AdminStyle) => {
+    setFeaturedLabel(s.featuredLabel ?? "");
+    setOurName(s.ourName);
+    setDoorStyle(s.doorStyle ?? "");
+    setColor(s.color ?? "");
+    setFinish(s.finish ?? "");
+    setWoodSpecies(s.woodSpecies ?? "");
+    setDoorSampleImageUrl(s.doorSampleImageUrl ?? "");
+    setRoomSceneImageUrl(s.roomSceneImageUrl ?? "");
+    setThumbnailImageUrl(s.thumbnailImageUrl ?? "");
+  };
+
+  const update = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
     onSuccess: () => {
-      toast.success("Label updated");
+      toast.success("Style updated");
       onSaved();
-      setEditing(false);
+      onClose();
     },
     onError: (e) => toast.error(e.message),
   });
 
-  function save() {
-    setLabel.mutate({ id: style.id, label: draft.trim() || null });
+  function handleSave() {
+    if (!ourName.trim()) {
+      toast.error("Internal name is required");
+      return;
+    }
+    update.mutate({
+      id: style.id,
+      featuredLabel: featuredLabel.trim() || null,
+      ourName: ourName.trim(),
+      doorStyle: doorStyle.trim() || null,
+      color: color.trim() || null,
+      finish: finish.trim() || null,
+      woodSpecies: woodSpecies.trim() || null,
+      doorSampleImageUrl: doorSampleImageUrl.trim() || null,
+      roomSceneImageUrl: roomSceneImageUrl.trim() || null,
+      thumbnailImageUrl: thumbnailImageUrl.trim() || null,
+    });
   }
 
-  function clear() {
-    setLabel.mutate({ id: style.id, label: null });
-    setDraft("");
-  }
-
-  const displayLabel = style.featuredLabel || style.ourName;
-  const hasCustomLabel = !!style.featuredLabel;
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1 mt-1">
-        <Input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={style.ourName}
-          className="h-7 text-xs py-0 px-2 w-36"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === "Enter") save();
-            if (e.key === "Escape") setEditing(false);
-          }}
-        />
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 text-emerald-600 hover:text-emerald-700"
-          onClick={save}
-          disabled={setLabel.isPending}
-          aria-label="Save label"
-        >
-          <Check className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 text-muted-foreground"
-          onClick={() => setEditing(false)}
-          aria-label="Cancel"
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-    );
-  }
+  // Sync fields when the style prop changes (e.g. list refreshes)
+  const prevId = useMemo(() => style.id, [style.id]);
+  if (open && style.id !== prevId) resetToStyle(style);
 
   return (
-    <div className="flex items-center gap-1 mt-0.5">
-      <span className={`text-xs truncate max-w-[120px] ${hasCustomLabel ? "text-primary font-medium" : "text-muted-foreground"}`}>
-        {hasCustomLabel ? displayLabel : <span className="italic">{displayLabel}</span>}
-      </span>
-      <button
-        onClick={() => { setDraft(style.featuredLabel ?? ""); setEditing(true); }}
-        className="text-muted-foreground hover:text-foreground transition-colors"
-        title="Edit public label"
-        aria-label="Edit public label"
-      >
-        <Pencil className="h-3 w-3" />
-      </button>
-      {hasCustomLabel && (
-        <button
-          onClick={clear}
-          className="text-muted-foreground hover:text-destructive transition-colors"
-          title="Reset to default name"
-          aria-label="Reset label to default"
-        >
-          <RotateCcw className="h-3 w-3" />
-        </button>
-      )}
-    </div>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg flex flex-col max-h-[90dvh]">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-amber-600" />
+            Edit Door Style
+            <span className="font-mono text-xs font-normal text-muted-foreground ml-1">{style.ourName}</span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
+
+          {/* Public label */}
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-3 space-y-1.5">
+            <Label htmlFor="ed-label">
+              Public Label{" "}
+              <span className="text-muted-foreground font-normal text-xs">(what customers see)</span>
+            </Label>
+            <Input
+              id="ed-label"
+              value={featuredLabel}
+              onChange={(e) => setFeaturedLabel(e.target.value)}
+              placeholder={`Default: ${style.ourName}`}
+            />
+            {featuredLabel.trim() && (
+              <button
+                type="button"
+                onClick={() => setFeaturedLabel("")}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <RotateCcw className="h-3 w-3" /> Reset to default
+              </button>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Leave blank to use the internal name. Use this to white-label the style name for customers.
+            </p>
+          </div>
+
+          {/* Internal name */}
+          <div className="space-y-1.5">
+            <Label htmlFor="ed-name">
+              Internal Name{" "}
+              <span className="text-muted-foreground font-normal text-xs">(admin only)</span>
+            </Label>
+            <Input
+              id="ed-name"
+              value={ourName}
+              onChange={(e) => setOurName(e.target.value)}
+              placeholder="e.g. Lumina White"
+            />
+          </div>
+
+          {/* Door style type + Color */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-doorstyle">Door Style Type</Label>
+              <Input
+                id="ed-doorstyle"
+                value={doorStyle}
+                onChange={(e) => setDoorStyle(e.target.value)}
+                placeholder="e.g. Shaker"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-color">Color</Label>
+              <Input
+                id="ed-color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="e.g. White"
+              />
+            </div>
+          </div>
+
+          {/* Finish + Wood species */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-finish">Finish</Label>
+              <Input
+                id="ed-finish"
+                value={finish}
+                onChange={(e) => setFinish(e.target.value)}
+                placeholder="e.g. Painted"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-wood">Wood Species</Label>
+              <Input
+                id="ed-wood"
+                value={woodSpecies}
+                onChange={(e) => setWoodSpecies(e.target.value)}
+                placeholder="e.g. Maple"
+              />
+            </div>
+          </div>
+
+          {/* Image URLs */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Image URLs</Label>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor="ed-door-img" className="text-xs text-muted-foreground">Door Sample Image</Label>
+                <Input
+                  id="ed-door-img"
+                  value={doorSampleImageUrl}
+                  onChange={(e) => setDoorSampleImageUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ed-thumb-img" className="text-xs text-muted-foreground">Thumbnail Image</Label>
+                <Input
+                  id="ed-thumb-img"
+                  value={thumbnailImageUrl}
+                  onChange={(e) => setThumbnailImageUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="ed-room-img" className="text-xs text-muted-foreground">Room Scene Image</Label>
+                <Input
+                  id="ed-room-img"
+                  value={roomSceneImageUrl}
+                  onChange={(e) => setRoomSceneImageUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Preview */}
+          {(doorSampleImageUrl || thumbnailImageUrl) && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Preview</Label>
+              <img
+                src={doorSampleImageUrl || thumbnailImageUrl}
+                alt="Preview"
+                className="h-28 w-auto rounded-lg object-cover border border-border"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="shrink-0 pt-2 border-t border-border">
+          <Button variant="outline" onClick={onClose} disabled={update.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={update.isPending || !ourName.trim()}
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            {update.isPending ? "Saving…" : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function FeaturedStylesAdmin() {
   const [search, setSearch] = useState("");
+  const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.doorStyles.listForAdmin.useQuery();
 
@@ -215,14 +366,9 @@ export default function FeaturedStylesAdmin() {
             <Star className="h-5 w-5 text-primary" /> Featured Door Styles
           </h2>
           <p className="text-muted-foreground text-sm mt-1 max-w-2xl">
-            Choose the door styles to push at the top of the Door Styles page. These are what
-            shoppers and affiliates see first — your 80/20 winners. Drag the order with the arrows;
-            top of the list shows first.
-          </p>
-          <p className="text-muted-foreground text-xs mt-1 max-w-2xl">
-            Each style has a <span className="font-medium text-foreground">Public Label</span> — the
-            name customers see. Click the <Pencil className="inline h-3 w-3" /> pencil to override
-            it with a white-label name. Leave it blank to use the default internal name.
+            Choose the door styles to push at the top of the Door Styles page. Click the{" "}
+            <Pencil className="inline h-3.5 w-3.5" /> pencil on any featured style to edit its
+            public label, color, finish, images, and more.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
@@ -232,10 +378,7 @@ export default function FeaturedStylesAdmin() {
               {unverifiedCount} need correct photo
             </Badge>
           )}
-          <Badge
-            variant={atCap ? "destructive" : "secondary"}
-            className="text-sm"
-          >
+          <Badge variant={atCap ? "destructive" : "secondary"} className="text-sm">
             {featured.length} / {MAX_FEATURED} featured
           </Badge>
         </div>
@@ -271,36 +414,44 @@ export default function FeaturedStylesAdmin() {
                   <div className="h-12 w-12 rounded bg-muted shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
+                  {/* Public label (if set) vs internal name */}
                   <p className="font-medium text-sm truncate flex items-center gap-1.5">
-                    {s.ourName}
-                    {s.doorSampleVerified ? (
-                      <span
-                        title="Sample photo verified"
-                        aria-label="Sample photo verified"
-                        className="inline-flex items-center text-emerald-600"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                      </span>
+                    {s.featuredLabel ? (
+                      <>
+                        <span className="text-primary">{s.featuredLabel}</span>
+                        <span className="text-muted-foreground font-normal text-xs">({s.ourName})</span>
+                      </>
                     ) : (
-                      <span
-                        title="Unverified door — confirm this is the correct door or upload the correct photo"
-                        aria-label="Unverified door photo"
-                        className="inline-flex items-center text-amber-600"
-                      >
-                        <AlertTriangle className="h-4 w-4" />
-                      </span>
+                      <>
+                        {s.ourName}
+                        {s.doorSampleVerified ? (
+                          <span title="Sample photo verified" className="inline-flex items-center text-emerald-600">
+                            <CheckCircle2 className="h-4 w-4" />
+                          </span>
+                        ) : (
+                          <span title="Unverified door photo" className="inline-flex items-center text-amber-600">
+                            <AlertTriangle className="h-4 w-4" />
+                          </span>
+                        )}
+                      </>
                     )}
                   </p>
-                  {/* Public label editor */}
-                  <LabelEditor style={s} onSaved={invalidateAll} />
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
-                    {!s.doorSampleVerified && (
-                      <span className="ml-1 text-amber-600 font-medium">· Wrong door? Upload the correct photo</span>
-                    )}
+                  <p className="text-xs text-muted-foreground truncate">
+                    {[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  {/* Quick-edit button */}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                    onClick={() => setEditingStyle(s)}
+                    aria-label="Edit style"
+                    title="Edit style"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                   <DoorPhotoCorrectButton styleId={s.id} styleName={s.ourName} compact />
                   <Button
                     size="icon"
@@ -392,6 +543,16 @@ export default function FeaturedStylesAdmin() {
           </p>
         )}
       </div>
+
+      {/* Quick-edit dialog */}
+      {editingStyle && (
+        <EditDialog
+          style={editingStyle}
+          open={!!editingStyle}
+          onClose={() => setEditingStyle(null)}
+          onSaved={invalidateAll}
+        />
+      )}
     </div>
   );
 }

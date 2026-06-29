@@ -272,6 +272,41 @@ export const doorStylesRouter = router({
       return { ok: true };
     }),
 
+  // Admin: quick-edit key fields of a door style (from the featured list editor).
+  adminUpdateDoorStyle: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        featuredLabel: z.string().max(128).nullable().optional(),
+        ourName: z.string().min(1).max(128).optional(),
+        doorStyle: z.string().max(64).nullable().optional(),
+        color: z.string().max(64).nullable().optional(),
+        finish: z.string().max(128).nullable().optional(),
+        woodSpecies: z.string().max(64).nullable().optional(),
+        doorSampleImageUrl: z.string().max(512).nullable().optional(),
+        roomSceneImageUrl: z.string().max(512).nullable().optional(),
+        thumbnailImageUrl: z.string().max(512).nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const { id, ...fields } = input;
+      const patch: Record<string, unknown> = {};
+      if (fields.featuredLabel !== undefined) patch.featuredLabel = fields.featuredLabel?.trim() || null;
+      if (fields.ourName !== undefined) patch.ourName = fields.ourName.trim();
+      if (fields.doorStyle !== undefined) patch.doorStyle = fields.doorStyle?.trim() || null;
+      if (fields.color !== undefined) patch.color = fields.color?.trim() || null;
+      if (fields.finish !== undefined) patch.finish = fields.finish?.trim() || null;
+      if (fields.woodSpecies !== undefined) patch.woodSpecies = fields.woodSpecies?.trim() || null;
+      if (fields.doorSampleImageUrl !== undefined) patch.doorSampleImageUrl = fields.doorSampleImageUrl?.trim() || null;
+      if (fields.roomSceneImageUrl !== undefined) patch.roomSceneImageUrl = fields.roomSceneImageUrl?.trim() || null;
+      if (fields.thumbnailImageUrl !== undefined) patch.thumbnailImageUrl = fields.thumbnailImageUrl?.trim() || null;
+      if (Object.keys(patch).length === 0) return { ok: true };
+      await db.update(doorStyles).set(patch).where(eq(doorStyles.id, id));
+      return { ok: true };
+    }),
+
   // Admin: persist a new order for the featured styles (array of ids, in order).
   reorderFeatured: adminProcedure
     .input(z.object({ orderedIds: z.array(z.number()).max(30) }))
