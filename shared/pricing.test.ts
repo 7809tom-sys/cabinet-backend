@@ -31,14 +31,14 @@ describe("normalizePricingSettings", () => {
 });
 
 describe("priceLadder", () => {
-  it("compounds markup on markup up the ladder", () => {
-    // base $100, wholesale +15% = $115, affiliate +5% = $120.75 → 12075,
-    // retail +25% = $150.9375 → 15094
+  it("marks up every tier off the base cost (no chaining)", () => {
+    // base $100: wholesale +15% = $115, affiliate +5% = $105, retail +25% =
+    // $125. Each tier is computed off the SAME $100 cost, not off the tier below.
     const l = priceLadder(10000);
     expect(l.baseCostCents).toBe(10000);
     expect(l.wholesaleCents).toBe(11500);
-    expect(l.affiliateCents).toBe(12075);
-    expect(l.suggestedRetailCents).toBe(15094);
+    expect(l.affiliateCents).toBe(10500);
+    expect(l.suggestedRetailCents).toBe(12500);
   });
 
   it("never goes negative", () => {

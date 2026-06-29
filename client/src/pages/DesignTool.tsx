@@ -6,7 +6,7 @@ import {
   DollarSign, PanelTop, Columns3, Ruler, Square, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
-  ChevronRight, Footprints, Layers2, Wrench, Crown as CrownIcon,
+  ChevronRight, Footprints, Layers2, Wrench, Crown as CrownIcon, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -4490,7 +4490,7 @@ export default function DesignTool() {
                         )}
                       </div>
 
-                      {/* Price + delete controls */}
+                      {/* Price + edit/delete controls */}
                       <div className="flex items-center gap-1 shrink-0">
                         <div className="text-right">
                           <div className="font-semibold leading-none">
@@ -4500,6 +4500,18 @@ export default function DesignTool() {
                             <div className="text-[9px] text-muted-foreground mt-0.5">${g.unitPrice.toFixed(2)} ea</div>
                           )}
                         </div>
+                        {/* Edit / resolve: jump to this cabinet and open its editor so
+                            the user can correct whatever caused a conflict (size,
+                            swing, blind-corner pull spec, finish, position, etc.). */}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); openAttributes(g.uids[g.uids.length - 1]); }}
+                          className={`transition-colors ${g.hasConflict ? "text-amber-600 hover:text-amber-700" : "text-muted-foreground hover:text-foreground"}`}
+                          aria-label={`Edit ${g.sample.masterCode}`}
+                          title={g.hasConflict ? "Edit to resolve conflict" : "Edit cabinet"}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
                         {/* Remove one (decrement qty) */}
                         {g.qty > 1 && (
                           <button

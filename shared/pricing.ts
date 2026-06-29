@@ -7,8 +7,10 @@
 // Price ladder (per cabinet line, derived from internal base cost):
 //   base cost (internal)
 //     → Wholesale  = base × (1 + wholesaleMarkupBps)
-//     → Affiliate  = wholesale × (1 + affiliateMarkupBps)   (~5%)
-//     → Suggested Retail = affiliate × (1 + retailMarkupBps) (customer fallback)
+//     → Affiliate  = base × (1 + affiliateMarkupBps)
+//     → Suggested Retail = base × (1 + retailMarkupBps)
+//   Every tier marks up off the SAME base cost (independent margins) — no
+//   markup-on-markup chaining. Each percentage is measured against cost.
 //
 // Order fee stack (on the cabinet subtotal unless noted):
 //   • Damage fee  — damageFeeBps of cabinet subtotal, EVERY order, all tiers
@@ -38,9 +40,9 @@ export function applyBps(amountCents: number, bps: number): number {
 export interface PlatformPricingSettings {
   /** Internal base cost → wholesale markup. */
   wholesaleMarkupBps: number;
-  /** Wholesale → affiliate markup (default ~5%). */
+  /** Base cost → affiliate markup (off cost). */
   affiliateMarkupBps: number;
-  /** Affiliate → suggested retail markup (customer-facing fallback). */
+  /** Base cost → suggested retail markup (off cost; customer-facing fallback). */
   retailMarkupBps: number;
   /** Damage coverage fee on cabinet subtotal — every order, all tiers. */
   damageFeeBps: number;
@@ -90,16 +92,16 @@ export interface PriceLadder {
   baseCostCents: number;
   /** base × (1 + wholesale%). */
   wholesaleCents: number;
-  /** wholesale × (1 + affiliate%) — what an affiliate pays. */
+  /** base × (1 + affiliate%) — what an affiliate pays. */
   affiliateCents: number;
-  /** affiliate × (1 + retail%) — customer-facing suggested retail. */
+  /** base × (1 + retail%) — customer-facing suggested retail. */
   suggestedRetailCents: number;
 }
 
 /**
  * Derive the full price ladder for a single cabinet line from its internal base
- * cost. Each rung compounds on the previous one (markup-on-markup), matching how
- * the supply chain actually stacks margin.
+ * cost. Every tier marks up off the SAME base cost (independent margins) — there
+ * is no markup-on-markup chaining, so each percentage is measured against cost.
  */
 export function priceLadder(
   baseCostCents: number,
@@ -107,8 +109,8 @@ export function priceLadder(
 ): PriceLadder {
   const base = Math.max(0, roundCents(baseCostCents));
   const wholesale = base + applyBps(base, settings.wholesaleMarkupBps);
-  const affiliate = wholesale + applyBps(wholesale, settings.affiliateMarkupBps);
-  const suggestedRetail = affiliate + applyBps(affiliate, settings.retailMarkupBps);
+  const affiliate = base + applyBps(base, settings.affiliateMarkupBps);
+  const suggestedRetail = base + applyBps(base, settings.retailMarkupBps);
   return {
     baseCostCents: base,
     wholesaleCents: wholesale,
