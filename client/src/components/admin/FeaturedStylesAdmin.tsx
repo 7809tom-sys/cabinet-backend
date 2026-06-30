@@ -12,6 +12,9 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import DoorPhotoCorrectButton from "./DoorPhotoCorrectButton";
 
@@ -32,6 +35,8 @@ interface AdminStyle {
   doorSampleVerified: boolean;
   isFeatured: boolean;
   featuredRank: number;
+  distributorId: number;
+  distributorName: string | null;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -406,6 +411,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
 
 export default function FeaturedStylesAdmin() {
   const [search, setSearch] = useState("");
+  const [distributorFilter, setDistributorFilter] = useState<string>("all");
   const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.doorStyles.listForAdmin.useQuery();
@@ -420,19 +426,34 @@ export default function FeaturedStylesAdmin() {
     [styles],
   );
 
+  // Distinct distributors present in the catalog, for the filter dropdown.
+  const distributorOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of styles) {
+      if (!map.has(s.distributorId)) {
+        map.set(s.distributorId, s.distributorName?.trim() || `Distributor #${s.distributorId}`);
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [styles]);
+
   const available = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const distId = distributorFilter === "all" ? null : Number(distributorFilter);
     return styles
       .filter((s) => !s.isFeatured)
+      .filter((s) => (distId === null ? true : s.distributorId === distId))
       .filter((s) =>
         q
-          ? `${s.ourName} ${s.doorStyle ?? ""} ${s.color ?? ""} ${s.finish ?? ""}`
+          ? `${s.ourName} ${s.doorStyle ?? ""} ${s.color ?? ""} ${s.finish ?? ""} ${s.distributorName ?? ""}`
               .toLowerCase()
               .includes(q)
           : true,
       )
       .sort((a, b) => a.ourName.localeCompare(b.ourName));
-  }, [styles, search]);
+  }, [styles, search, distributorFilter]);
 
   const setFeatured = trpc.doorStyles.setFeatured.useMutation({
     onSuccess: () => {
@@ -628,18 +649,37 @@ export default function FeaturedStylesAdmin() {
 
       {/* All other styles — edit any of them, or feature them */}
       <div>
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            All door styles
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground shrink-0">
+            All door styles{" "}
+            <span className="text-muted-foreground/60 normal-case font-normal">
+              ({available.length})
+            </span>
           </h3>
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search door styles…"
-              className="pl-9 h-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {/* Filter by distributor (supply line) */}
+            <Select value={distributorFilter} onValueChange={setDistributorFilter}>
+              <SelectTrigger className="h-9 w-full sm:w-56">
+                <SelectValue placeholder="All distributors" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All distributors</SelectItem>
+                {distributorOptions.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search door styles…"
+                className="pl-9 h-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </div>
         </div>
         {available.length === 0 ? (
