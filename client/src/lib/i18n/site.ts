@@ -596,6 +596,9 @@ export const SITE_STRINGS = {
     dt_cs_choose_style: "Choose door style",
     dt_cs_none_available: "No door styles available.",
     dt_cs_style_num: "Style #{id}",
+    dt_cs_line_fallback: "Line {id}",
+    dt_cs_line_other: "Other",
+    dt_cs_group_count: "{count} styles",
 
     // --- Design Tool: Room Size Control ---
     dt_room_label: "Room: {w} × {d}",
@@ -1774,6 +1777,9 @@ export const SITE_STRINGS = {
     dt_cs_choose_style: "Elegir estilo de puerta",
     dt_cs_none_available: "No hay estilos de puerta disponibles.",
     dt_cs_style_num: "Estilo n.º {id}",
+    dt_cs_line_fallback: "Línea {id}",
+    dt_cs_line_other: "Otros",
+    dt_cs_group_count: "{count} estilos",
 
     // --- Herramienta de Diseño: Tamaño de la Habitación ---
     dt_room_label: "Habitación: {w} × {d}",

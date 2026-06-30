@@ -2201,3 +2201,6 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Door Styles: desktop 4x4 (16/page) pagination with Prev/Next + page indicator; mobile keeps scroll; image decoding=async speed-up
 - [x] Slim Shaker = 1/2" frame: new slim-shaker panel kind, rendered with a thin rail in DoorStyleSwatch, RoomScenePreview, and ElevationView; doorPanelKind tests updated
 - [x] Corrected door-style upload now clears roomSceneImageUrl (admin upload + approved correction) so the room scene auto-refreshes to the generated scene matching the corrected door
+
+## Session: Designer door picker grouped by distributor (Jun 30)
+- [x] Kitchen Designer door-style picker: group styles by distributor (neutral white-label headers via trpc.distributors.list) in a one-open-at-a-time accordion instead of one flat ~60-style list

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Check, Palette, Pencil, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, ChevronDown, Palette, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { DoorStyleSwatch, type DoorStyleLike } from "@/components/DoorStyleSwatch";
 import {
@@ -30,10 +30,25 @@ import { styleDisplayName } from "@/lib/styleDisplayName";
 // bottom of a phone screen could only grow ~10 rows tall and its internal scroll
 // gesture was being captured by the canvas behind it ("only see ~10 styles, won't
 // scroll"). A bottom Sheet is full-height and natively touch-scrollable, so the
-// entire A→Z lineup is reachable on every mobile browser.
+// entire lineup is reachable on every mobile browser.
+//
+// GROUPING: instead of one long flat list of every door style, styles are grouped
+// by their distributor (supply line) into a one-open-at-a-time accordion. Headers
+// use the NEUTRAL white-label distributor label only (never the hidden supplier
+// brand). Opening one line collapses the others so the picker stays compact.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StyleOption = { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null };
+type StyleOption = {
+  id: number;
+  ourName: string | null;
+  aliasName?: string | null;
+  thumbnailImageUrl?: string | null;
+  doorSampleImageUrl?: string | null;
+  distributorId?: number | null;
+};
+
+/** Neutral, customer-safe distributor label (no hidden supplier brand). */
+export type DistributorLabel = { id: number; name: string | null };
 
 interface ColorSlotButtonProps {
   label: string;
@@ -43,6 +58,8 @@ interface ColorSlotButtonProps {
   style: (DoorStyleLike & { id?: number }) | null;
   /** All selectable door styles (already scoped to the locked supply line). */
   styles: StyleOption[];
+  /** Neutral distributor labels for grouping headers (from trpc.distributors.list). */
+  distributors?: DistributorLabel[];
   /** Make this slot the active color. */
   onSelect: () => void;
   /** Assign a door style id to this slot. */
@@ -55,11 +72,18 @@ interface ColorSlotButtonProps {
   disabledReason?: string;
 }
 
+interface StyleGroup {
+  distributorId: number | null;
+  label: string;
+  styles: StyleOption[];
+}
+
 export function ColorSlotButton({
   label,
   active,
   style,
   styles,
+  distributors,
   onSelect,
   onPick,
   onClear,
@@ -72,53 +96,146 @@ export function ColorSlotButton({
   const name = style ? (styleDisplayName(style as { ourName?: string | null; aliasName?: string | null }) || null) : null;
   const hasStyle = style != null;
 
-  // Card-grid style picker — shows a door thumbnail + name for each style.
-  // On desktop (Popover) we use a 2-column grid; on mobile (Sheet) we use 3 columns.
+  // Map distributorId → neutral label for the group headers.
+  const labelById = useMemo(() => {
+    const m = new Map<number, string>();
+    (distributors ?? []).forEach((d) => {
+      if (d.name) m.set(d.id, d.name);
+    });
+    return m;
+  }, [distributors]);
+
+  // Group the styles by distributor (supply line). Groups are ordered by their
+  // neutral label so the list is stable; styles inside keep their incoming order.
+  const groups = useMemo<StyleGroup[]>(() => {
+    const byDist = new Map<number | null, StyleOption[]>();
+    for (const s of styles) {
+      const key = s.distributorId ?? null;
+      const arr = byDist.get(key);
+      if (arr) arr.push(s);
+      else byDist.set(key, [s]);
+    }
+    const out: StyleGroup[] = [];
+    byDist.forEach((list, distributorId) => {
+      const label =
+        distributorId != null
+          ? labelById.get(distributorId) ?? t("dt_cs_line_fallback", { id: distributorId })
+          : t("dt_cs_line_other");
+      out.push({ distributorId, label, styles: list });
+    });
+    out.sort((a, b) => a.label.localeCompare(b.label));
+    return out;
+  }, [styles, labelById, t]);
+
+  // Which distributor group is currently expanded (one at a time). Defaults to
+  // the group that holds the selected style, else the first group.
+  const selectedDistId = useMemo(() => {
+    const sid = (style as { id?: number } | null)?.id;
+    if (sid == null) return undefined;
+    return styles.find((s) => s.id === sid)?.distributorId ?? null;
+  }, [style, styles]);
+
+  const [openGroup, setOpenGroup] = useState<number | null | undefined>(undefined);
+  // Resolve the effective open group: explicit user choice wins, else the group
+  // with the selected style, else the first group.
+  const effectiveOpen =
+    openGroup !== undefined
+      ? openGroup
+      : selectedDistId !== undefined
+        ? selectedDistId
+        : groups[0]?.distributorId ?? null;
+
+  // Card-grid of door styles within one open distributor group.
+  const StyleGrid = ({ list, cols }: { list: StyleOption[]; cols: 2 | 3 }) => (
+    <div className={`grid gap-2 p-1 ${cols === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+      {list.map((s) => {
+        const isSelected = (style as { id?: number } | null)?.id === s.id;
+        const sName = styleDisplayName(s) || t("dt_cs_style_num", { id: s.id });
+        return (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => {
+              onPick(s.id);
+              setPickerOpen(false);
+            }}
+            title={sName}
+            className={[
+              "relative flex flex-col items-center gap-1 rounded-lg border p-1.5 text-center transition-all",
+              "hover:border-[#d4a75a]/70 hover:bg-accent/60 active:scale-[0.97]",
+              isSelected
+                ? "border-[#d4a75a] bg-[#d4a75a]/10 ring-1 ring-[#d4a75a] shadow-sm"
+                : "border-border bg-white",
+            ].join(" ")}
+          >
+            <div className="w-full aspect-[10/13] overflow-hidden rounded">
+              <DoorStyleSwatch
+                style={s as Parameters<typeof DoorStyleSwatch>[0]["style"]}
+                className="h-full w-full"
+              />
+            </div>
+            <span className={`w-full truncate text-[10px] leading-tight ${isSelected ? "font-semibold text-[#1a2744]" : "text-muted-foreground"}`}>
+              {sName}
+            </span>
+            {isSelected && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#d4a75a] text-white shadow">
+                <Check className="h-2.5 w-2.5" strokeWidth={3} />
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // Accordion: one distributor line open at a time.
   const StyleList = ({ cols = 2 }: { cols?: 2 | 3 }) =>
     styles.length === 0 ? (
       <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
         {t("dt_cs_none_available")}
       </div>
+    ) : groups.length <= 1 ? (
+      // Only one supply line in scope — no need for accordion chrome.
+      <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} />
     ) : (
-      <div className={`grid gap-2 p-1 ${cols === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-        {styles.map((s) => {
-          const isSelected = style?.id === s.id;
-          const name = styleDisplayName(s) || t("dt_cs_style_num", { id: s.id });
+      <div className="space-y-1">
+        {groups.map((g) => {
+          const isOpen = effectiveOpen === g.distributorId;
+          const hasSelected = g.styles.some(
+            (s) => (style as { id?: number } | null)?.id === s.id
+          );
           return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => {
-                onPick(s.id);
-                setPickerOpen(false);
-              }}
-              title={name}
-              className={[
-                "relative flex flex-col items-center gap-1 rounded-lg border p-1.5 text-center transition-all",
-                "hover:border-[#d4a75a]/70 hover:bg-accent/60 active:scale-[0.97]",
-                isSelected
-                  ? "border-[#d4a75a] bg-[#d4a75a]/10 ring-1 ring-[#d4a75a] shadow-sm"
-                  : "border-border bg-white",
-              ].join(" ")}
-            >
-              {/* Door thumbnail */}
-              <div className="w-full aspect-[10/13] overflow-hidden rounded">
-                <DoorStyleSwatch
-                  style={s as Parameters<typeof DoorStyleSwatch>[0]["style"]}
-                  className="h-full w-full"
-                />
-              </div>
-              {/* Style name */}
-              <span className={`w-full truncate text-[10px] leading-tight ${isSelected ? "font-semibold text-[#1a2744]" : "text-muted-foreground"}`}>
-                {name}
-              </span>
-              {/* Selected checkmark badge */}
-              {isSelected && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#d4a75a] text-white shadow">
-                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+            <div key={String(g.distributorId)} className="rounded-lg border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpenGroup(isOpen ? null : g.distributorId)}
+                aria-expanded={isOpen}
+                className={[
+                  "flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left transition-colors",
+                  isOpen ? "bg-[#d4a75a]/10" : "bg-muted/40 hover:bg-muted/70",
+                ].join(" ")}
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-[12px] font-semibold text-foreground">{g.label}</span>
+                  {hasSelected && (
+                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#d4a75a] text-white">
+                      <Check className="h-2 w-2" strokeWidth={3} />
+                    </span>
+                  )}
                 </span>
+                <span className="flex shrink-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+                  {t("dt_cs_group_count", { count: g.styles.length })}
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                  />
+                </span>
+              </button>
+              {isOpen && (
+                <div className="border-t border-border bg-white">
+                  <StyleGrid list={g.styles} cols={cols} />
+                </div>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
@@ -239,7 +356,7 @@ export function ColorSlotButton({
               {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" side="bottom" collisionPadding={12} className="w-56 p-1">
+          <PopoverContent align="start" side="bottom" collisionPadding={12} className="w-64 p-1">
             <div
               className="max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain touch-pan-y"
               style={{ WebkitOverflowScrolling: "touch" }}

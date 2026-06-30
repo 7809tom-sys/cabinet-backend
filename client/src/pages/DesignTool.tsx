@@ -349,6 +349,9 @@ export default function DesignTool() {
   // Data — door-style-first: members pick a door style; the supply line behind
   // it is resolved server-side and never shown.
   const { data: doorStyles } = trpc.doorStyles.list.useQuery();
+  // Neutral, customer-safe distributor labels (white-label safe) used to group the
+  // door-style picker by supply line. Never carries the hidden supplier brand.
+  const { data: distributorLabels } = trpc.distributors.list.useQuery();
   // The distributor (supply line) behind the currently selected style.
   const selectedStyleDistributorId = useMemo(() => {
     const s = (doorStyles ?? []).find(
@@ -373,7 +376,7 @@ export default function DesignTool() {
   // When locked, only offer styles from the locked distributor so changing the
   // finish never silently switches supply lines.
   const uniqueDoorStyles = useMemo(() => {
-    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null }>();
+    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number }>();
     const source = (doorStyles ?? []) as Array<{
       id: number;
       ourName: string | null;
@@ -403,7 +406,7 @@ export default function DesignTool() {
     const distA = source.find((d) => d.id === styleA)?.distributorId ?? null;
     if (distA == null) return uniqueDoorStyles;
     // Filter to same distributor, then de-duplicate by name (same as uniqueDoorStyles).
-    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null }>();
+    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number }>();
     for (const s of source.filter((s) => s.distributorId === distA)) {
       const key = (styleDisplayName(s) || String(s.id)).toLowerCase();
       if (!map.has(key)) map.set(key, s);
@@ -4355,6 +4358,7 @@ export default function DesignTool() {
                 active={activeSlot === "A"}
                 style={styleA != null ? (doorStyles?.find((d) => d.id === styleA) ?? null) : null}
                 styles={uniqueDoorStyles}
+                distributors={distributorLabels ?? []}
                 onSelect={() => {
                   if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
                   selectColorSlot("A");
@@ -4371,6 +4375,7 @@ export default function DesignTool() {
                 active={activeSlot === "B"}
                 style={styleB != null ? (doorStyles?.find((d) => d.id === styleB) ?? null) : null}
                 styles={slotBStyles}
+                distributors={distributorLabels ?? []}
                 disabled={cabinetsLocked || styleA == null}
                 disabledReason={cabinetsLocked ? "Cabinets are locked — unlock to change door style" : "Set Color 1 first before choosing Color 2"}
                 onSelect={() => {
