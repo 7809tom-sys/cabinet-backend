@@ -4896,34 +4896,6 @@ export default function DesignTool() {
                 </div>
               );
             })()}
-            {/* Itemized purchase list: every priced cabinet in the design, shown
-                with its door-style color so the shopper sees exactly what they
-                are buying before ordering. */}
-            {cartableLines.length > 0 && (
-              <div className="mt-1 rounded-lg border border-border">
-                <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t("dt_cart_items_title")}
-                </div>
-                <ul className="divide-y divide-border">
-                  {cartableLines.map((line) => (
-                    <li key={`${line.masterCode}-${line.styleId}`} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 font-medium text-foreground">
-                          <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px]">{line.qty}×</span>
-                          <span className="truncate">{line.masterCode}</span>
-                        </div>
-                        {line.styleLabel && (
-                          <div className="truncate text-[11px] text-muted-foreground">{line.styleLabel}</div>
-                        )}
-                      </div>
-                      <span className="shrink-0 font-medium text-foreground">
-                        {line.unitPrice != null ? `$${(line.unitPrice * line.qty).toFixed(2)}` : "—"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
             {/* PRIMARY action: turn the design into a real, orderable cart. */}
             <Button
               className="w-full mt-2 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 gap-2"
