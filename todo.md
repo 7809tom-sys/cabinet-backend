@@ -2222,10 +2222,12 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Tests + type-check + full suite
 
 ## Session: Per-cabinet roll-out trays — CONFIRMED RULES (Jun 30)
-- [ ] Checkpoint the unsaved admin-delete + double-tap work FIRST
-- [ ] Tray width = cabinet NOMINAL width exactly (B18 -> 18" tray, B24 -> 24" tray)
-- [ ] UNLIMITED quantity — customer can add as many trays as they want (no cap); default qty 0/1 with a stepper
-- [ ] Eligibility: base cabinets with doors; exclude wall/tall-pantry exception/drawer-only/fillers/corners; sink bases still offered (uses don't know)
-- [ ] Add-ons section in CabinetAttributesDialog (double-tap edit panel) with auto-matched tray + stepper
-- [ ] Flow add-ons into BOM/order as RS-* line items with qty
-- [ ] i18n EN + ES; tests for matching + flow; tsc + full suite; checkpoint
+- [x] Checkpoint the unsaved admin-delete + double-tap work FIRST
+- [x] Tray width = cabinet NOMINAL width exactly (B18 -> 18" tray, B24 -> 24" tray) — helper picks largest RS shelf <= nominal width; 21 tests pass
+- [x] UNLIMITED quantity — customer can add as many trays as they want (no cap); stepper starts at 0, no upper cap
+- [x] Eligibility: base cabinets with doors; exclude wall/tall/drawer-only/fillers/corners; sink bases still offered (isRollOutEligible)
+- [x] Add-ons section in CabinetAttributesDialog (desktop) + mobile sheet with auto-matched same-line tray + stepper (RollOutTrayPicker)
+- [x] Flow add-ons into BOM (buildRows) + cart (cartableLines) as aggregated RS-* line items with qty, priced from the cabinet's own line
+- [x] i18n EN + ES added; 29 unit tests for matching + aggregation pass; tsc clean
+- [x] CONSTRAINT honored: trays resolved by the cabinet's effective styleId only (same-line), priced from that line; batched rollOutTraysForStyles + per-cabinet resolveRollOutTray both filter by styleId
+- [x] Run full vitest suite (1069 pass) + checkpoint + deliver

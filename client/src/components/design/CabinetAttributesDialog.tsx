@@ -24,6 +24,7 @@ import {
   isCustomHeight,
   isCustomDepth,
 } from "@/lib/design";
+import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 
 // A single dimension stepper (−/value/+) used inside the dialog.
 function Dim({
@@ -101,6 +102,12 @@ export interface CabinetAttributesDialogProps {
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
   onSetHandleSide: (uid: string, side: "left" | "right") => void;
+  // Per-cabinet roll-out shelf add-on: the design's default door style + locked
+  // line let the picker resolve the correct same-line RS shelf, and onSetRolloutQty
+  // persists the (unlimited) quantity onto the cabinet.
+  designStyleId: number | null;
+  distributorId: number | null;
+  onSetRolloutQty: (uid: string, qty: number) => void;
 }
 
 // Right-click attributes editor for a single placed cabinet (email item 1):
@@ -119,6 +126,9 @@ export function CabinetAttributesDialog({
   onSetSwing,
   onSetNoDoor,
   onSetHandleSide,
+  designStyleId,
+  distributorId,
+  onSetRolloutQty,
 }: CabinetAttributesDialogProps) {
   const { t } = useLanguage();
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
@@ -286,6 +296,15 @@ export function CabinetAttributesDialog({
               </div>
             </div>
           </section>
+
+          {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
+          <RollOutTrayPicker
+            cabinet={cabinet}
+            designStyleId={designStyleId}
+            distributorId={distributorId}
+            qty={cabinet.rolloutQty ?? 0}
+            onSetQty={(q) => onSetRolloutQty(uid, q)}
+          />
         </div>
 
         <DialogFooter>

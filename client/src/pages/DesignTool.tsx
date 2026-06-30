@@ -88,6 +88,8 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
+import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
+import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import type { SiteStringKey } from "@/lib/i18n/site";
@@ -824,6 +826,67 @@ export default function DesignTool() {
     [placed, unitPriceFor]
   );
 
+  // ─── Per-cabinet roll-out shelves (add-on) → BOM / cart line items ───────────
+  // Distinct effective door-style ids in the design (only cabinets that actually
+  // carry roll-out shelves matter). We batch-fetch the available RS shelves for
+  // those lines, then resolve + aggregate the shelf lines on the client with the
+  // SAME rule the edit-panel picker uses, so the two never diverge. Shelves
+  // never cross lines because we only match within a cabinet's own styleId.
+  const rolloutStyleIds = useMemo(() => {
+    if (!styleId) return [] as number[];
+    const ids = new Set<number>();
+    for (const p of placed) {
+      if ((p.rolloutQty ?? 0) > 0) {
+        const sid = effectiveStyleId(p, styleId) ?? styleId;
+        if (sid != null) ids.add(sid);
+      }
+    }
+    return Array.from(ids).sort((a, b) => a - b);
+  }, [placed, styleId]);
+
+  const { data: rolloutTrayRows } = trpc.design.rollOutTraysForStyles.useQuery(
+    { styleIds: rolloutStyleIds, distributorId: lockedDistributorId ?? undefined },
+    { enabled: rolloutStyleIds.length > 0, staleTime: 60_000 }
+  );
+
+  // styleId -> available RS shelves in that line (priced at the active tier).
+  const rolloutOptionsByStyle = useMemo(() => {
+    const m = new Map<number, TrayOptionForStyle[]>();
+    rolloutTrayRows?.forEach((r) => {
+      const arr = m.get(r.styleId) ?? [];
+      arr.push({
+        cabinetId: r.cabinetId,
+        masterCode: r.masterCode,
+        width: r.width,
+        styleId: r.styleId,
+        description: r.description,
+        unitPrice: priceOf(r, tier),
+      });
+      m.set(r.styleId, arr);
+    });
+    return m;
+  }, [rolloutTrayRows, tier]);
+
+  // Aggregated roll-out shelf lines for the whole design (same-line, summed qty).
+  const rolloutLines = useMemo(() => {
+    if (!styleId || rolloutStyleIds.length === 0) return [];
+    const targets: TrayPlaced[] = placed.map((p) => ({
+      placement: p.placement,
+      category: p.category,
+      subCategory: p.subCategory,
+      masterCode: p.masterCode,
+      numberOfDoors: p.numberOfDoors,
+      // Placed items don't always carry the catalog corner flag; derive it from
+      // the code/description so corners are reliably excluded.
+      isCornerCabinet: isCornerCabinet(p.masterCode, p.description),
+      nominalWidth: p.nominalWidth ?? null,
+      width: p.width,
+      effectiveStyleId: effectiveStyleId(p, styleId) ?? styleId,
+      rolloutQty: p.rolloutQty ?? 0,
+    }));
+    return buildRollOutLines(targets, rolloutOptionsByStyle);
+  }, [placed, styleId, rolloutStyleIds, rolloutOptionsByStyle]);
+
   // Active finish: derived from the selected door style name so picking a trim
   // instantly re-skins the placed cabinets on the canvas + elevation.
   const activeStyleName = useMemo(() => {
@@ -993,8 +1056,24 @@ export default function DesignTool() {
         unitPrice: CUSTOM_SIZE_FEE,
       });
     }
+    // Per-cabinet roll-out shelves (add-on). One aggregated line per matched
+    // same-line RS shelf, labeled with its line color so two-tone designs read
+    // clearly. Priced from the cabinet's own line.
+    for (const line of rolloutLines) {
+      rows.push({
+        code: line.masterCode,
+        description: line.description ?? `Roll-Out Shelf ${Math.round(line.width)}"`,
+        color: styleNameById.get(line.styleId) ?? null,
+        widthIn: line.width,
+        heightIn: 0,
+        depthIn: 0,
+        placement: "accessory",
+        qty: line.qty,
+        unitPrice: line.unitPrice,
+      });
+    }
     return rows;
-  }, [placed, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, styleNameById]);
+  }, [placed, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, styleNameById, rolloutLines]);
   // ── Add the whole design to the shopping cart ───────────────────────────────
   // Turns the placed cabinets into cart line items (aggregated by master code +
   // effective door style), so a shopper can review and buy the exact kitchen they
@@ -1027,8 +1106,28 @@ export default function DesignTool() {
           qty: 1,
         });
     }
+    // Per-cabinet roll-out shelves (add-on) flow into the cart/order as their own
+    // RS-* line items, priced + locked to the SAME distributor line as the design.
+    for (const line of rolloutLines) {
+      if (line.unitPrice == null) continue; // skip unpriced (no buyable SKU)
+      const styleLabel = styleNameById.get(line.styleId) ?? "";
+      const key = `${line.masterCode}::${line.styleId}`;
+      const existing = map.get(key);
+      if (existing) existing.qty += line.qty;
+      else
+        map.set(key, {
+          masterCode: line.masterCode,
+          name: line.description ?? line.masterCode,
+          styleId: line.styleId,
+          styleLabel,
+          distributorId: lockedDistributorId ?? null,
+          tier: tier === "Wholesale" ? "wholesale" : "contractor",
+          unitPrice: line.unitPrice,
+          qty: line.qty,
+        });
+    }
     return Array.from(map.values());
-  }, [placed, styleId, unitPriceFor, styleNameById, lockedDistributorId, tier]);
+  }, [placed, styleId, unitPriceFor, styleNameById, lockedDistributorId, tier, rolloutLines]);
 
   const addAllToCart = useCallback(() => {
     if (cartableLines.length === 0) {
@@ -2028,6 +2127,13 @@ export default function DesignTool() {
   // Set the handle/pull side for a specific cabinet.
   const setHandleSideFor = useCallback((uid: string, side: "left" | "right") => {
     setCabAttr(uid, { handleSide: side });
+  }, [setCabAttr]);
+
+  // Set the number of roll-out shelves added inside a specific base cabinet.
+  // Unlimited quantity (clamped to >= 0); the matching same-line RS shelf is
+  // resolved by the RollOutTrayPicker and flows into the BOM/order as line items.
+  const setRolloutQtyFor = useCallback((uid: string, qty: number) => {
+    setCabAttr(uid, { rolloutQty: Math.max(0, Math.floor(qty)) });
   }, [setCabAttr]);
 
   // ─── Custom sizing ─────────────────────────────────────────────────────────
@@ -3767,6 +3873,15 @@ export default function DesignTool() {
                     </div>
                   </div>
                 )}
+
+                {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
+                <RollOutTrayPicker
+                  cabinet={selectedCab}
+                  designStyleId={styleId}
+                  distributorId={lockedDistributorId}
+                  qty={selectedCab.rolloutQty ?? 0}
+                  onSetQty={(q) => setRolloutQtyFor(selectedCab.uid, q)}
+                />
               </div>
             </div>
           </SheetContent>
@@ -4983,6 +5098,9 @@ export default function DesignTool() {
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
         onSetHandleSide={setHandleSideFor}
+        designStyleId={styleId}
+        distributorId={lockedDistributorId}
+        onSetRolloutQty={setRolloutQtyFor}
       />
 
       {/* AI Design Consultant slide-in panel */}

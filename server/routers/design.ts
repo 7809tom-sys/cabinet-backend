@@ -350,6 +350,167 @@ export const designRouter = router({
       return Array.from(best.values());
     }),
 
+  // Batched roll-out shelf availability per door style, used by the BOM/cart to
+  // resolve the matching same-line RS shelf for EVERY base cabinet at once
+  // (instead of one round-trip per cabinet). Returns, per requested styleId, the
+  // list of available + published RS shelves in that line with their priced row.
+  // The client applies the same "largest width <= cabinet nominal width" rule
+  // (matchRollOutTray) so the picker and the aggregate agree exactly.
+  rollOutTraysForStyles: publicProcedure
+    .input(
+      z.object({
+        styleIds: z.array(z.number()).max(50),
+        distributorId: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || input.styleIds.length === 0) {
+        return [] as Array<{
+          styleId: number;
+          cabinetId: number;
+          masterCode: string;
+          description: string | null;
+          width: number;
+          listPrice: string | null;
+          wholesalePrice: string | null;
+          contractorPrice: string | null;
+        }>;
+      }
+      const conditions = [
+        eq(cabinets.subCategory, "Roll Out Shelf"),
+        eq(cabinets.isActive, true),
+        notInConflict(),
+        inArray(distributorSkus.styleId, input.styleIds),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+      ];
+      if (input.distributorId) {
+        conditions.push(eq(distributorSkus.distributorId, input.distributorId));
+      }
+      const rows = await db
+        .select({
+          styleId: distributorSkus.styleId,
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          width: cabinets.width,
+          listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+        })
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(...conditions));
+      // Dedup to ONE priced row per (styleId, cabinetId): keep the cheapest
+      // contractor price across distributors in the same line.
+      const best = new Map<string, (typeof rows)[number]>();
+      for (const r of rows) {
+        const key = `${r.styleId}:${r.cabinetId}`;
+        const cur = best.get(key);
+        if (!cur) {
+          best.set(key, r);
+          continue;
+        }
+        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+        const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
+        if (a < b) best.set(key, r);
+      }
+      return Array.from(best.values()).map((r) => ({
+        styleId: Number(r.styleId),
+        cabinetId: r.cabinetId,
+        masterCode: r.masterCode,
+        description: r.description,
+        width: Number(r.width ?? 0),
+        listPrice: r.listPrice,
+        wholesalePrice: r.wholesalePrice,
+        contractorPrice: r.contractorPrice,
+      }));
+    }),
+
+  // Resolve the per-cabinet ROLL-OUT SHELF add-on for the edit panel. Each
+  // distributor line carries its own RS-* shelves and you cannot mix lines, so
+  // we only consider shelves AVAILABLE + PUBLISHED for the cabinet's effective
+  // styleId. The shelf is sized to the cabinet: largest RS width <= the
+  // cabinet's nominal width (see matchRollOutTray on the client; the same rule
+  // is applied here against the same-line shelf set). Returns the matched shelf
+  // with its priced row, or null when the cabinet is too narrow / the line has
+  // no buyable shelf.
+  resolveRollOutTray: publicProcedure
+    .input(
+      z.object({
+        styleId: z.number(),
+        // Cabinet nominal width in inches to size the shelf against.
+        width: z.number(),
+        distributorId: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || !(input.width > 0)) return null;
+
+      const conditions = [
+        eq(cabinets.subCategory, "Roll Out Shelf"),
+        eq(cabinets.isActive, true),
+        notInConflict(),
+        eq(distributorSkus.styleId, input.styleId),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+      ];
+      if (input.distributorId) {
+        conditions.push(eq(distributorSkus.distributorId, input.distributorId));
+      }
+
+      const rows = await db
+        .select({
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          width: cabinets.width,
+          platformSku: distributorSkus.platformSku,
+          listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+        })
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(...conditions));
+
+      // Largest shelf whose width <= cabinet nominal width (0.25" rounding
+      // tolerance). One priced row per shelf (cheapest contractor price).
+      const limit = input.width + 0.25;
+      let best:
+        | {
+            cabinetId: number;
+            masterCode: string;
+            description: string | null;
+            width: number;
+            platformSku: string | null;
+            listPrice: string | null;
+            wholesalePrice: string | null;
+            contractorPrice: string | null;
+          }
+        | null = null;
+      for (const r of rows) {
+        const w = Number(r.width ?? 0);
+        if (!(w > 0) || w > limit) continue;
+        const cand = { ...r, width: w };
+        if (best == null) {
+          best = cand;
+          continue;
+        }
+        if (w > best.width) {
+          best = cand;
+        } else if (w === best.width) {
+          // Same width across lines: keep the cheaper contractor price.
+          const a = Number(cand.contractorPrice ?? cand.wholesalePrice ?? Infinity);
+          const b = Number(best.contractorPrice ?? best.wholesalePrice ?? Infinity);
+          if (a < b) best = cand;
+        }
+      }
+      return best;
+    }),
+
   save: publicProcedure
     .input(
       z.object({
