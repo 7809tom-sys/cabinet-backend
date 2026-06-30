@@ -2188,3 +2188,16 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 
 ## Corner cabinet wall-seating fix (June 30)
 - [x] Root cause: snapPosition used rotatedSize (36x24) not the square placedFootprint (36x36) for L-corner cabinets, so they only seat tight in top-left corner; the other 3 corners fall back to a wrong notch rotation. Fix snapPosition + related wall-snap to use placedFootprint for L-corner cabinets so they seat flush in ALL four corners.
+
+## Door Styles desktop pagination + image speed (June 30)
+- [x] Paginate the main "All Door Styles" grid to 16 per page (4x4) on desktop with Next/Previous + "Page X of Y"; mobile keeps current scroll; Featured row unchanged
+- [x] Speed up door photos: only load the current page images, async decoding, lightweight swatch placeholder so the grid renders instantly
+
+## Slim Shaker frame + door-style upload trigger (June 30)
+- [ ] Render every Slim Shaker door style with a thin 1/2 inch rail/stile (frame) in the swatch/preview visuals instead of the standard wide Shaker frame
+- [x] Investigate door-style image upload flow; ensure uploading a corrected door style actually updates/refreshes the room-scene picture (find or add the trigger)
+
+## Session: Door Styles UX + slim shaker + correction trigger (Jun 30)
+- [x] Door Styles: desktop 4x4 (16/page) pagination with Prev/Next + page indicator; mobile keeps scroll; image decoding=async speed-up
+- [x] Slim Shaker = 1/2" frame: new slim-shaker panel kind, rendered with a thin rail in DoorStyleSwatch, RoomScenePreview, and ElevationView; doorPanelKind tests updated
+- [x] Corrected door-style upload now clears roomSceneImageUrl (admin upload + approved correction) so the room scene auto-refreshes to the generated scene matching the corrected door

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Palette, ArrowRight } from "lucide-react";
+import { Palette, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,6 +10,7 @@ import { useSeo } from "@/hooks/useSeo";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import DoorPhotoMatchWidget from "@/components/DoorPhotoMatchWidget";
 import { styleDisplayName } from "@/lib/styleDisplayName";
+import { useIsMobile } from "@/hooks/useMobile";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -58,6 +59,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
                 src={realDoor}
                 alt={`${style.ourName || style.styleCode} door sample`}
                 loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
             ) : (
@@ -158,6 +160,13 @@ export default function DoorStyles() {
     return p && p.trim() ? p.trim() : null;
   })();
   const [selectedType, setSelectedType] = useState<string | null>(initialType);
+  const isMobile = useIsMobile();
+  // Desktop pages the main grid 16-at-a-time (a 4x4 grid) so the photos load
+  // fast and the page stays light. Mobile keeps the familiar single scroll.
+  const PER_PAGE = 16;
+  const [page, setPage] = useState(0);
+  // Reset to the first page whenever the active filter changes.
+  useEffect(() => { setPage(0); }, [selectedType]);
 
   // Keep the URL in sync so the filtered view is shareable/back-button friendly.
   useEffect(() => {
@@ -230,6 +239,15 @@ export default function DoorStyles() {
   const gridStyles = showFeatured
     ? visible.filter((s) => !isFeatured(s))
     : visible;
+
+  // Desktop pages the main grid by 16 (4x4). Mobile shows the full list so the
+  // familiar scroll is preserved. Clamp the page if the list shrank.
+  const paginate = !isMobile;
+  const pageCount = paginate ? Math.max(1, Math.ceil(gridStyles.length / PER_PAGE)) : 1;
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedStyles = paginate
+    ? gridStyles.slice(safePage * PER_PAGE, safePage * PER_PAGE + PER_PAGE)
+    : gridStyles;
 
   return (
     <div className="container py-8">
@@ -315,11 +333,46 @@ export default function DoorStyles() {
           <p className="text-sm">{t("ds_none")}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {gridStyles.map((style) => (
-            <StyleCard key={style.id} style={style} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {pagedStyles.map((style) => (
+              <StyleCard key={style.id} style={style} />
+            ))}
+          </div>
+
+          {/* Desktop pager: 16 styles per page, Prev / Next + position. */}
+          {paginate && pageCount > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={safePage <= 0}
+                onClick={() => {
+                  setPage((p) => Math.max(0, p - 1));
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                {t("ds_prev")}
+              </Button>
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {t("ds_page_of", { page: String(safePage + 1), total: String(pageCount) })}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={safePage >= pageCount - 1}
+                onClick={() => {
+                  setPage((p) => Math.min(pageCount - 1, p + 1));
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              >
+                {t("ds_next")}
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

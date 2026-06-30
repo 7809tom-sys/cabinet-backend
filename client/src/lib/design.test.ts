@@ -936,7 +936,9 @@ describe("countertopArea", () => {
 describe("doorPanelKind", () => {
   it("maps door-style families to the correct panel treatment", () => {
     expect(doorPanelKind("Shaker")).toBe("shaker");
-    expect(doorPanelKind("Slim Shaker")).toBe("shaker");
+    expect(doorPanelKind("Slim Shaker")).toBe("slim-shaker");
+    expect(doorPanelKind("Narrow Shaker")).toBe("slim-shaker");
+    expect(doorPanelKind("Slim-Frame Shaker")).toBe("slim-shaker");
     expect(doorPanelKind("Double Shaker")).toBe("double-shaker");
     expect(doorPanelKind("Raised Panel")).toBe("raised");
     expect(doorPanelKind("Cathedral Arch")).toBe("raised");

@@ -65,6 +65,16 @@ function Door({
           <rect x={x + inset * 0.6} y={y + inset * 0.6} width={w - inset * 1.2} height={h - inset * 1.2} fill="none" stroke={edge} strokeWidth={0.6} />
         </g>
       );
+    case "slim-shaker": {
+      // Narrow ~1/2" rail: pull the panel frame much closer to the edge.
+      const slim = inset * 0.45;
+      return (
+        <g>
+          {common}
+          <rect x={x + slim} y={y + slim} width={w - slim * 2} height={h - slim * 2} fill="none" stroke={edge} strokeWidth={0.8} />
+        </g>
+      );
+    }
     case "shaker":
     default:
       return (

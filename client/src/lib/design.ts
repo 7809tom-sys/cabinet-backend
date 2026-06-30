@@ -1437,10 +1437,15 @@ export const DEFAULT_FINISH_COLORS = DEFAULT_FINISH;
 // the correct front detail (recessed Shaker frame, raised center, flat slab,
 // beaded boards, stacked double-shaker) on door swatches AND on placed cabinets
 // in the elevation view, so picking a style visibly changes the door look.
-export type DoorPanelKind = "shaker" | "raised" | "slab" | "beaded" | "inset" | "double-shaker";
+export type DoorPanelKind = "shaker" | "slim-shaker" | "raised" | "slab" | "beaded" | "inset" | "double-shaker";
 export function doorPanelKind(doorStyle?: string | null): DoorPanelKind {
   const s = (doorStyle ?? "").toLowerCase();
   if (/double/.test(s)) return "double-shaker";
+  // Slim / narrow Shaker: a Shaker door built with a narrow ~1/2" rail & stile
+  // instead of the standard ~2.25". Detect it before the generic shaker so the
+  // swatch can draw the thin frame.
+  if (/slim|narrow|thin[ -]?frame|skinny/.test(s) && /shaker/.test(s)) return "slim-shaker";
+  if (/slim shaker|narrow shaker/.test(s)) return "slim-shaker";
   if (/raised|cathedral|arch/.test(s)) return "raised";
   if (/slab|flat|contemporary|euro|modern/.test(s)) return "slab";
   if (/bead/.test(s)) return "beaded";

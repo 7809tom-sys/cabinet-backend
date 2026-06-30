@@ -1008,6 +1008,15 @@ function SingleDoorPanel({ kind, edge, face, stroke }: { kind: DoorPanelKind; ed
           <div className="absolute inset-[6px] rounded-[1px]" style={{ border: `1px solid ${stroke}` }} />
         </>
       );
+    case "slim-shaker":
+      // Narrow ~1/2" rail: the inner panel sits much closer to the edge than the
+      // standard shaker (inset 7px), so the frame reads thin.
+      return (
+        <>
+          <div className="absolute inset-[1.5px] border rounded-[1px]" style={{ borderColor: stroke }} />
+          <div className="absolute inset-[3.5px] rounded-[1px]" style={{ border: `1px solid ${stroke}` }} />
+        </>
+      );
     case "shaker":
     default:
       return (

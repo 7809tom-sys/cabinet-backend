@@ -385,10 +385,12 @@ export const doorStylesRouter = router({
       });
 
       // Admin submissions update the live sample immediately + mark verified.
+      // Also clear any stale room-scene override so the room picture refreshes to
+      // the generated scene that matches the corrected door's family + finish.
       if (isAdmin) {
         await db
           .update(doorStyles)
-          .set({ doorSampleImageUrl: url, doorSampleVerified: true })
+          .set({ doorSampleImageUrl: url, doorSampleVerified: true, roomSceneImageUrl: null })
           .where(eq(doorStyles.id, input.styleId));
       }
 
@@ -481,9 +483,11 @@ export const doorStylesRouter = router({
         })
         .where(eq(doorStyleCorrections.id, input.id));
       if (input.approve) {
+        // Apply the corrected door image and clear any stale room-scene override so
+        // the room picture refreshes to the generated scene matching the door.
         await db
           .update(doorStyles)
-          .set({ doorSampleImageUrl: corr.imageUrl, doorSampleVerified: true })
+          .set({ doorSampleImageUrl: corr.imageUrl, doorSampleVerified: true, roomSceneImageUrl: null })
           .where(eq(doorStyles.id, corr.styleId));
       }
       return { ok: true, approved: input.approve };

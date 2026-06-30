@@ -167,7 +167,10 @@ export function DoorStyleSwatch({ style, className }: DoorStyleSwatchProps) {
 
   const W = 100;
   const H = 130;
-  const stile = 13;
+  // Standard Shaker rail/stile reads ~2.25". A Slim/Narrow Shaker uses a ~1/2"
+  // rail, so its frame is roughly a fifth as wide — draw a visibly thinner stile.
+  const isSlim = kind === "slim-shaker";
+  const stile = isSlim ? 6 : 13;
   const lum = luminance(sw.face);
 
   const gradId = `dg-${(style.ourName ?? style.aliasName ?? style.styleCode ?? "x").replace(/\s+/g, "").slice(0, 20)}`;
@@ -249,15 +252,15 @@ export function DoorStyleSwatch({ style, className }: DoorStyleSwatchProps) {
         </>
       )}
 
-      {/* Shaker / Inset / Raised */}
-      {(kind === "shaker" || kind === "inset" || kind === "raised") && (
+      {/* Shaker / Slim Shaker / Inset / Raised */}
+      {(kind === "shaker" || kind === "slim-shaker" || kind === "inset" || kind === "raised") && (
         <>
-          {/* Panel drop shadow */}
-          <rect x={stile + 2} y={stile + 2} width={W - 2 * stile} height={H - 2 * stile}
+          {/* Panel drop shadow (tighter for a slim frame so it doesn't swallow it) */}
+          <rect x={stile + (isSlim ? 1 : 2)} y={stile + (isSlim ? 1 : 2)} width={W - 2 * stile} height={H - 2 * stile}
             rx="2" fill={sw.edge} opacity="0.18" />
           {/* Panel face */}
           <rect x={stile} y={stile} width={W - 2 * stile} height={H - 2 * stile}
-            rx="2" fill={sw.panel} stroke={sw.edge} strokeWidth="1.25" />
+            rx="2" fill={sw.panel} stroke={sw.edge} strokeWidth={isSlim ? 1 : 1.25} />
           {/* Inner bevel highlight */}
           <rect x={stile + 3} y={stile + 3} width={W - 2 * stile - 6} height={H - 2 * stile - 6}
             rx="1.5" fill="none" stroke={shade(sw.face, 0.1)} strokeWidth="0.7" opacity="0.6" />

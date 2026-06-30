@@ -13,7 +13,7 @@ export interface DoorFamilyLike {
 }
 
 // Compressed webp URLs (preferred for page loads).
-const PHOTOS: Record<Exclude<DoorPanelKind, "double-shaker"> | "shaker", string> = {
+const PHOTOS: Record<Exclude<DoorPanelKind, "double-shaker" | "slim-shaker"> | "shaker", string> = {
   shaker:
     "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/door-shaker-6rdTMsADtNgxjohki84YKU.webp",
   raised:
@@ -32,7 +32,7 @@ const PHOTOS: Record<Exclude<DoorPanelKind, "double-shaker"> | "shaker", string>
  */
 export function doorFamilyPhoto(style: DoorFamilyLike): string | null {
   const kind = doorPanelKind(style.doorStyle);
-  if (kind === "double-shaker") return PHOTOS.shaker;
+  if (kind === "double-shaker" || kind === "slim-shaker") return PHOTOS.shaker;
   return PHOTOS[kind] ?? null;
 }
 

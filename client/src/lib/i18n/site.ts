@@ -206,6 +206,9 @@ export const SITE_STRINGS = {
     ds_editors_picks: "Editor's Picks",
     ds_all_door_styles: "All Door Styles",
     ds_none: "No door styles match this filter.",
+    ds_prev: "Previous",
+    ds_next: "Next",
+    ds_page_of: "Page {page} of {total}",
 
     // --- Cart page ---
     crt_quoted: "Quoted",
@@ -1381,6 +1384,9 @@ export const SITE_STRINGS = {
     ds_editors_picks: "Selección del Editor",
     ds_all_door_styles: "Todos los Estilos de Puerta",
     ds_none: "Ningún estilo de puerta coincide con este filtro.",
+    ds_prev: "Anterior",
+    ds_next: "Siguiente",
+    ds_page_of: "Página {page} de {total}",
 
     // --- Página del carrito ---
     crt_quoted: "A cotizar",
