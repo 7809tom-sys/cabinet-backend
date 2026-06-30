@@ -2183,3 +2183,5 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 ## Mobile More Menu Redesign (June 29)
 - [x] Convert More menu from DropdownMenu to bottom Sheet (drawer)
 - [x] Redesign More sheet as compact menu with individual popup sub-sheets for Flooring, Backsplash, Hardware, and Trim — each section button opens a dedicated full-screen bottom sheet with larger tap targets and a back-chevron to return to the main More menu
+
+- [x] Design Tool: mobile-friendly controls to MOVE a door/window opening along its wall (nudge left/right + numeric "from corner" inches field + center button)

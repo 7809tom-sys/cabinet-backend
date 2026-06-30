@@ -621,6 +621,11 @@ export const SITE_STRINGS = {
     dt_op_in: "in",
     dt_op_delete: "Delete",
     dt_op_delete_title: "Delete this opening",
+    dt_op_position: "Position",
+    dt_op_from_corner: "Inches from the wall corner",
+    dt_op_move_left: "Move toward start of wall",
+    dt_op_move_right: "Move toward end of wall",
+    dt_op_center: "Center on wall",
     // --- Design Tool: cabinet attributes dialog ---
     dt_ca_width: "Width",
     dt_ca_height: "Height",
@@ -1791,6 +1796,11 @@ export const SITE_STRINGS = {
     dt_op_in: "pulg",
     dt_op_delete: "Eliminar",
     dt_op_delete_title: "Eliminar esta abertura",
+    dt_op_position: "Posición",
+    dt_op_from_corner: "Pulgadas desde la esquina de la pared",
+    dt_op_move_left: "Mover hacia el inicio de la pared",
+    dt_op_move_right: "Mover hacia el final de la pared",
+    dt_op_center: "Centrar en la pared",
     // --- Herramienta de Diseño: diálogo de atributos del gabinete ---
     dt_ca_width: "Ancho",
     dt_ca_height: "Alto",
