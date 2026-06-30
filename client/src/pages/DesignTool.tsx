@@ -2004,6 +2004,9 @@ export default function DesignTool() {
     setSelectedUid(uid);
     setAttrUid(uid);
     setAttrOpen(true);
+    // On mobile the editor lives in a bottom sheet (selection no longer auto-opens
+    // it), so opening attributes must also open that sheet.
+    setCabEditSheetOpen(true);
   }, []);
 
   // Set the door swing to an exact side for a specific cabinet.
@@ -2588,14 +2591,15 @@ export default function DesignTool() {
   // Sync sheet open state with selection on mobile
   useEffect(() => {
     if (!isMobile) return;
-    if (selectedCab || selectedOpening) {
-      if (justPlacedRef.current) {
-        justPlacedRef.current = false;
-        return;
-      }
-      setCabEditSheetOpen(true);
-    } else {
+    // Single tap only SELECTS a cabinet/opening — it no longer auto-opens the edit
+    // sheet (which felt like it "popped up too easily"). The editor now opens via an
+    // explicit double-tap on the cabinet (or the pencil Edit button / long-press).
+    // We still auto-close the sheet when the selection is cleared.
+    if (!selectedCab && !selectedOpening) {
       setCabEditSheetOpen(false);
+    }
+    if (justPlacedRef.current) {
+      justPlacedRef.current = false;
     }
   }, [isMobile, selectedCab?.uid, selectedOpening?.uid]);
 

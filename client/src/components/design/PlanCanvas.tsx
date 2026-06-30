@@ -373,6 +373,11 @@ export function PlanCanvas({
     onResizeWall(d.side, deltaIn);
   };
 
+  // Manual double-tap detector (iOS Safari does not reliably synthesize
+  // dblclick from two quick taps). A second tap on the same cabinet within
+  // ~320ms opens the attributes editor; a single tap only selects.
+  const lastTapRef = useRef<{ uid: string; t: number }>({ uid: "", t: 0 });
+
   const handlePointerDown = (e: React.PointerEvent, p: PlacedCabinet) => {
     e.stopPropagation();
     if (measureMode) {
@@ -385,6 +390,15 @@ export function PlanCanvas({
       return;
     }
     onSelect(p.uid);
+    // Double-tap / double-click → open the attributes editor.
+    const now = Date.now();
+    const last = lastTapRef.current;
+    if (onOpenAttributes && last.uid === p.uid && now - last.t < 320) {
+      lastTapRef.current = { uid: "", t: 0 };
+      onOpenAttributes(p.uid);
+      return;
+    }
+    lastTapRef.current = { uid: p.uid, t: now };
     // When cabinets are locked, allow selection but not dragging.
     if (cabinetsLocked) return;
     setDragUid(p.uid);
@@ -838,6 +852,16 @@ export function PlanCanvas({
                   onOpenAttributes
                     ? (e) => {
                         e.preventDefault();
+                        onSelect(p.uid);
+                        onOpenAttributes(p.uid);
+                      }
+                    : undefined
+                }
+                onDoubleClick={
+                  onOpenAttributes
+                    ? (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         onSelect(p.uid);
                         onOpenAttributes(p.uid);
                       }

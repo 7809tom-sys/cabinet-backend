@@ -863,4 +863,41 @@ export const ordersRouter = router({
       .leftJoin(cabinets, eq(codeAliases.cabinetId, cabinets.id))
       .orderBy(desc(codeAliases.updatedAt));
   }),
+
+  // ─── Admin: delete order request(s) (for testing/cleanup) ──────────────────
+  // orderRequests is self-contained (line items live in the JSON `lineItems`
+  // column), so deleting a row removes the whole order — no separate cascade.
+  // adminDelete: remove one or more orders by id.
+  adminDelete: protectedProcedure
+    .input(z.object({ ids: z.array(z.number().int().positive()).min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db.delete(orderRequests).where(inArray(orderRequests.id, input.ids));
+      return { deleted: input.ids.length };
+    }),
+
+  // adminDeleteAll: clear all orders, optionally only those matching a status
+  // (e.g. all "draft"/"submitted" test orders). Omit status to wipe everything.
+  adminDeleteAll: protectedProcedure
+    .input(
+      z
+        .object({
+          status: z.enum(["draft", "submitted", "confirmed", "cancelled"]).optional(),
+        })
+        .optional()
+    )
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const rows = input?.status
+        ? await db.select({ id: orderRequests.id }).from(orderRequests).where(eq(orderRequests.status, input.status))
+        : await db.select({ id: orderRequests.id }).from(orderRequests);
+      const ids = rows.map((r) => r.id);
+      if (ids.length === 0) return { deleted: 0 };
+      await db.delete(orderRequests).where(inArray(orderRequests.id, ids));
+      return { deleted: ids.length };
+    }),
 });

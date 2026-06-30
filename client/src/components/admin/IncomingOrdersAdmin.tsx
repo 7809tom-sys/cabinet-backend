@@ -7,8 +7,19 @@ import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Copy, Package } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Package, Trash2 } from "lucide-react";
 
 type Status = "draft" | "submitted" | "confirmed" | "cancelled";
 
@@ -201,6 +212,22 @@ export default function IncomingOrdersAdmin() {
     statusFilter !== "all" ? { status: statusFilter as Status } : undefined
   );
 
+  const utils = trpc.useUtils();
+  const deleteOrder = trpc.orders.adminDelete.useMutation({
+    onSuccess: (res) => {
+      toast.success(`Deleted ${res.deleted} order${res.deleted === 1 ? "" : "s"}`);
+      utils.orders.adminListWithPoSkus.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not delete order"),
+  });
+  const deleteAllOrders = trpc.orders.adminDeleteAll.useMutation({
+    onSuccess: (res) => {
+      toast.success(`Cleared ${res.deleted} order${res.deleted === 1 ? "" : "s"}`);
+      utils.orders.adminListWithPoSkus.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not clear orders"),
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -236,18 +263,54 @@ export default function IncomingOrdersAdmin() {
             format (e.g. <span className="font-mono text-xs text-primary">usd-sw-3db24</span>).
           </p>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="submitted">Submitted</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="submitted">Submitted</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          {rows.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {statusFilter === "all" ? "Clear all" : `Clear ${statusFilter}`}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Delete {statusFilter === "all" ? "all orders" : `all \u201c${statusFilter}\u201d orders`}?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently removes {rows.length} order{rows.length === 1 ? "" : "s"} and cannot be undone.
+                    Use this to clear out test orders.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() =>
+                      deleteAllOrders.mutate(
+                        statusFilter === "all" ? undefined : { status: statusFilter as Status }
+                      )
+                    }
+                  >
+                    Delete {rows.length}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -300,6 +363,36 @@ export default function IncomingOrdersAdmin() {
                     >
                       View
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          aria-label={`Delete order ${order.requestNumber}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete order {order.requestNumber}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This permanently removes the order and all of its line items. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => deleteOrder.mutate({ ids: [order.id] })}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </CardHeader>
 

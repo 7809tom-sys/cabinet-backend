@@ -2204,3 +2204,28 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 
 ## Session: Designer door picker grouped by distributor (Jun 30)
 - [x] Kitchen Designer door-style picker: group styles by distributor (neutral white-label headers via trpc.distributors.list) in a one-open-at-a-time accordion instead of one flat ~60-style list
+
+## Session: Admin delete TEST ORDERS (user scope: orders only, not catalog)
+- [x] Add admin-only order delete mutation (single + multi by ids) — orderRequests is self-contained (lineItems JSON), so no separate cascade needed
+- [x] Add admin-only bulk delete (adminDeleteAll, optional status filter)
+- [x] Add Delete button + confirm dialog per order in admin Orders screen
+- [x] Add bulk "Clear test orders" control with confirm dialog (status-aware)
+- [ ] Tests (admin-gated + cascade) + type-check + full suite
+
+## Session: Designer edit panel double-tap + per-cabinet add-ons (user: opens too easily; add-ons like roll-out trays go in the edit panel)
+- [x] Single tap on a placed cabinet only selects it; require double-tap (or double-click) to open the edit panel/sheet
+- [x] Stop the mobile sheet from auto-opening on selection
+- [ ] Inspect add-on data model + cabinet edit panel; design per-cabinet add-on attach + pricing
+- [ ] Add an Add-ons/Accessories section in the edit panel (roll-out trays + common in-cabinet upsells) persisted on the cabinet
+- [ ] AUTO-select the correct roll-out tray (size + qty) based on the picked cabinet's width/type; hide roll-outs for cabinet types that can't take them
+- [ ] Flow selected add-ons into pricing + order/BOM as line items
+- [ ] Tests + type-check + full suite
+
+## Session: Per-cabinet roll-out trays — CONFIRMED RULES (Jun 30)
+- [ ] Checkpoint the unsaved admin-delete + double-tap work FIRST
+- [ ] Tray width = cabinet NOMINAL width exactly (B18 -> 18" tray, B24 -> 24" tray)
+- [ ] UNLIMITED quantity — customer can add as many trays as they want (no cap); default qty 0/1 with a stepper
+- [ ] Eligibility: base cabinets with doors; exclude wall/tall-pantry exception/drawer-only/fillers/corners; sink bases still offered (uses don't know)
+- [ ] Add-ons section in CabinetAttributesDialog (double-tap edit panel) with auto-matched tray + stepper
+- [ ] Flow add-ons into BOM/order as RS-* line items with qty
+- [ ] i18n EN + ES; tests for matching + flow; tsc + full suite; checkpoint
