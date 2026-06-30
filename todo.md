@@ -2231,3 +2231,12 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] i18n EN + ES added; 29 unit tests for matching + aggregation pass; tsc clean
 - [x] CONSTRAINT honored: trays resolved by the cabinet's effective styleId only (same-line), priced from that line; batched rollOutTraysForStyles + per-cabinet resolveRollOutTray both filter by styleId
 - [x] Run full vitest suite (1069 pass) + checkpoint + deliver
+
+## Session: Distributor-first door-style picker (Jun 30, eve)
+- [x] BUG: unlocked door-style picker showed ALL distributors flat (name-dedup across lines jumbled distributorId).
+- [x] Distributor-first selection in ColorSlotButton: line-chooser step first, then that line's door styles; picking a style still locks the design to that distributor.
+- [x] uniqueDoorStyles now de-dups by name WITHIN each distributor (key = distributorId::name), so each line keeps its full lineup.
+- [x] slot B (Color 2) still scoped to slot A's distributor (onlyOneGroup path skips the chooser) — verified.
+- [x] Back button ("All supply lines") returns to the line list while unlocked.
+- [x] i18n EN + ES for the line-chooser step (dt_cs_pick_line_help, dt_cs_back_to_lines).
+- [x] tsc clean; full vitest 1069 pass + new grouping test (7) pass; ready to checkpoint.

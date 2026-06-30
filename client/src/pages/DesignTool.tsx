@@ -391,8 +391,11 @@ export default function DesignTool() {
       lockedDistributorId != null
         ? source.filter((s) => s.distributorId === lockedDistributorId)
         : source;
+    // De-dup by name WITHIN each distributor (key includes distributorId), so two
+    // supply lines that happen to share a style name (e.g. both have "Air White")
+    // each keep their own entry instead of one silently shadowing the other.
     for (const s of scoped) {
-      const key = (styleDisplayName(s) || String(s.id)).toLowerCase();
+      const key = `${s.distributorId ?? "_"}::${(styleDisplayName(s) || String(s.id)).toLowerCase()}`;
       if (!map.has(key)) map.set(key, s);
     }
     return Array.from(map.values()).sort((a, b) => (styleDisplayName(a) || "").localeCompare(styleDisplayName(b) || ""));

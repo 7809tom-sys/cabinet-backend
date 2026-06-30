@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Check, ChevronDown, Palette, Pencil, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Layers, Palette, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { DoorStyleSwatch, type DoorStyleLike } from "@/components/DoorStyleSwatch";
 import {
@@ -117,15 +117,32 @@ export function ColorSlotButton({
     return styles.find((s) => s.id === sid)?.distributorId ?? null;
   }, [style, styles]);
 
-  const [openGroup, setOpenGroup] = useState<number | null | undefined>(undefined);
-  // Resolve the effective open group: explicit user choice wins, else the group
-  // with the selected style, else the first group.
-  const effectiveOpen =
-    openGroup !== undefined
-      ? openGroup
-      : selectedDistId !== undefined
-        ? selectedDistId
-        : groups[0]?.distributorId ?? null;
+  // Distributor-first flow: the picker opens on a list of SUPPLY LINES; choosing
+  // one drills into that line's door-style grid. `chosenGroup` is the line the
+  // user has drilled into (null = still on the line list). When a style is
+  // already selected we deep-link straight into its line; when only one line is
+  // in scope (e.g. slot B, or a locked design) we skip the chooser entirely.
+  const onlyOneGroup = groups.length <= 1;
+  const [chosenGroup, setChosenGroup] = useState<number | null | undefined>(undefined);
+  // Effective drilled-in line: explicit choice wins; otherwise auto-enter when
+  // there's a single line OR a style is already selected.
+  const effectiveGroup =
+    chosenGroup !== undefined
+      ? chosenGroup
+      : onlyOneGroup
+        ? groups[0]?.distributorId ?? null
+        : selectedDistId !== undefined
+          ? selectedDistId
+          : null;
+
+  // Reset to the line list each time the picker is (re)opened, unless we should
+  // deep-link into a line (single line, or an already-selected style).
+  useEffect(() => {
+    if (!pickerOpen) return;
+    setChosenGroup(undefined);
+  }, [pickerOpen]);
+
+  const activeGroup = groups.find((g) => g.distributorId === effectiveGroup) ?? null;
 
   // Card-grid of door styles within one open distributor group.
   const StyleGrid = ({ list, cols }: { list: StyleOption[]; cols: 2 | 3 }) => (
@@ -170,56 +187,80 @@ export function ColorSlotButton({
     </div>
   );
 
-  // Accordion: one distributor line open at a time.
+  // The list of SUPPLY LINES to choose from (step 1). Each row shows the neutral
+  // line label + how many door styles it carries.
+  const LineChooser = () => (
+    <div className="space-y-1.5">
+      <p className="px-1 pb-1 text-[11px] leading-snug text-muted-foreground">
+        {t("dt_cs_pick_line_help")}
+      </p>
+      {groups.map((g) => {
+        const hasSelected = g.styles.some(
+          (s) => (style as { id?: number } | null)?.id === s.id
+        );
+        return (
+          <button
+            key={String(g.distributorId)}
+            type="button"
+            onClick={() => setChosenGroup(g.distributorId)}
+            className={[
+              "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left transition-all active:scale-[0.99]",
+              hasSelected
+                ? "border-[#d4a75a] bg-[#d4a75a]/10"
+                : "border-border bg-white hover:border-[#d4a75a]/60 hover:bg-accent/50",
+            ].join(" ")}
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <Layers className="h-4 w-4 shrink-0 text-[#d4a75a]" />
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-semibold text-foreground">{g.label}</span>
+                <span className="block text-[10px] text-muted-foreground">
+                  {t("dt_cs_group_count", { count: g.styles.length })}
+                </span>
+              </span>
+              {hasSelected && (
+                <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#d4a75a] text-white">
+                  <Check className="h-2 w-2" strokeWidth={3} />
+                </span>
+              )}
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // Distributor-first picker: step 1 = choose a supply line, step 2 = its styles.
+  // When only one line is in scope (slot B, or a locked design) we skip step 1.
   const StyleList = ({ cols = 2 }: { cols?: 2 | 3 }) =>
     styles.length === 0 ? (
       <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
         {t("dt_cs_none_available")}
       </div>
-    ) : groups.length <= 1 ? (
-      // Only one supply line in scope — no need for accordion chrome.
+    ) : onlyOneGroup ? (
       <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} />
+    ) : activeGroup == null ? (
+      <LineChooser />
     ) : (
-      <div className="space-y-1">
-        {groups.map((g) => {
-          const isOpen = effectiveOpen === g.distributorId;
-          const hasSelected = g.styles.some(
-            (s) => (style as { id?: number } | null)?.id === s.id
-          );
-          return (
-            <div key={String(g.distributorId)} className="rounded-lg border border-border overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setOpenGroup(isOpen ? null : g.distributorId)}
-                aria-expanded={isOpen}
-                className={[
-                  "flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left transition-colors",
-                  isOpen ? "bg-[#d4a75a]/10" : "bg-muted/40 hover:bg-muted/70",
-                ].join(" ")}
-              >
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-[12px] font-semibold text-foreground">{g.label}</span>
-                  {hasSelected && (
-                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#d4a75a] text-white">
-                      <Check className="h-2 w-2" strokeWidth={3} />
-                    </span>
-                  )}
-                </span>
-                <span className="flex shrink-0 items-center gap-1.5 text-[10px] text-muted-foreground">
-                  {t("dt_cs_group_count", { count: g.styles.length })}
-                  <ChevronDown
-                    className={`h-3.5 w-3.5 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-                  />
-                </span>
-              </button>
-              {isOpen && (
-                <div className="border-t border-border bg-white">
-                  <StyleGrid list={g.styles} cols={cols} />
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="space-y-2">
+        {/* Back to supply-line list */}
+        <button
+          type="button"
+          onClick={() => setChosenGroup(null)}
+          className="flex items-center gap-1 rounded-md px-1 py-1 text-[11px] font-medium text-[#1a2744] hover:underline"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          {t("dt_cs_back_to_lines")}
+        </button>
+        <div className="flex items-center gap-1.5 px-1">
+          <Layers className="h-3.5 w-3.5 text-[#d4a75a]" />
+          <span className="truncate text-[12px] font-semibold text-foreground">{activeGroup.label}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {t("dt_cs_group_count", { count: activeGroup.styles.length })}
+          </span>
+        </div>
+        <StyleGrid list={activeGroup.styles} cols={cols} />
       </div>
     );
 

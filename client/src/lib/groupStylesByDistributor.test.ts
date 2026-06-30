@@ -71,3 +71,25 @@ describe("groupStylesByDistributor", () => {
     expect(groups[0].styles.map((s) => s.id)).toEqual([5, 2, 9]);
   });
 });
+
+describe("groupStylesByDistributor — distributor-first picker", () => {
+  it("keeps same-named styles from different lines in their own groups (no cross-line shadowing)", () => {
+    // Two lines both carry an "Air White" style. They must remain distinct so the
+    // line-chooser shows each line's full lineup, not a name-deduped mash-up.
+    const styles = [
+      { id: 11, distributorId: 1, ourName: "Air White" },
+      { id: 12, distributorId: 1, ourName: "Bloom Cinder" },
+      { id: 21, distributorId: 2, ourName: "Air White" },
+      { id: 22, distributorId: 2, ourName: "Carbon Frost" },
+    ];
+    const groups = groupStylesByDistributor(styles, distributors, opts);
+    expect(groups).toHaveLength(2);
+    const a = groups.find((g) => g.label === "Line A")!;
+    const b = groups.find((g) => g.label === "Line B")!;
+    expect(a.styles.map((s) => s.id)).toEqual([11, 12]);
+    expect(b.styles.map((s) => s.id)).toEqual([21, 22]);
+    // The same display name exists in BOTH lines — neither one is dropped.
+    expect(a.styles.some((s) => (s as { ourName?: string }).ourName === "Air White")).toBe(true);
+    expect(b.styles.some((s) => (s as { ourName?: string }).ourName === "Air White")).toBe(true);
+  });
+});
