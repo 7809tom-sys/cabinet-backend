@@ -89,3 +89,57 @@ describe("cornerClipPath — every corner mirrors the confirmed top-left shape",
     expect(cornerClipPath(-90)).toBe(cornerClipPath(270));
   });
 });
+
+// Regression for the REAL root cause: corner cabinets only seated flush in the
+// top-left corner because snapPosition used the raw rotated size. A lazy-Susan
+// can carry a shallow stored depth (e.g. 36x24); snapping by 24 on the depth
+// axis left it short of the bottom/right walls, so cornerRotationForPlaced (which
+// uses the SQUARE 36x36 footprint) saw it as "not in the corner" and mis-rotated
+// the notch. snapPosition + snapToWall now use the square plan footprint, so the
+// box seats tight to BOTH walls in every corner and the rotation resolves right.
+import { snapPosition, snapToWall, cornerRotationForPlaced as rot } from "./design";
+
+// A lazy-Susan stored with the legacy shallow depth (width 36, depth 24).
+function lazyShallow(x: number, y: number): PlacedCabinet {
+  return {
+    uid: "ls",
+    masterCode: "LS-36",
+    description: "Lazy Susan Corner Base",
+    width: 36,
+    depth: 24,
+    x,
+    y,
+    rotation: 0,
+    placement: "base",
+  } as PlacedCabinet;
+}
+
+describe("corner cabinet seats flush in every corner (snap uses square footprint)", () => {
+  // 36" square box in a 120x120 room → far-wall coordinate is 120 - 36 = 84.
+  const corners: Array<{ name: string; drop: [number, number]; seat: [number, number]; rot: number }> = [
+    { name: "top-left", drop: [1, 1], seat: [0, 0], rot: 0 },
+    { name: "top-right", drop: [83, 1], seat: [84, 0], rot: 90 },
+    { name: "bottom-right", drop: [83, 95], seat: [84, 84], rot: 180 },
+    { name: "bottom-left", drop: [1, 95], seat: [0, 84], rot: 270 },
+  ];
+
+  for (const c of corners) {
+    it(`${c.name}: snaps flush to both walls and resolves rotation ${c.rot}`, () => {
+      const snapped = snapPosition(lazyShallow(c.drop[0], c.drop[1]), ROOM, []);
+      expect(snapped.x).toBeCloseTo(c.seat[0], 5);
+      expect(snapped.y).toBeCloseTo(c.seat[1], 5);
+      const placed = { ...lazyShallow(snapped.x, snapped.y), x: snapped.x, y: snapped.y };
+      expect(rot(placed, ROOM)).toBe(c.rot);
+    });
+  }
+
+  it("snapToWall(bottom) seats a shallow-depth corner cabinet flush to the bottom wall", () => {
+    const { y } = snapToWall(lazyShallow(40, 10), "bottom", ROOM);
+    expect(y).toBeCloseTo(84, 5); // 120 - 36 (square side), NOT 120 - 24
+  });
+
+  it("snapToWall(right) seats a shallow-depth corner cabinet flush to the right wall", () => {
+    const { x } = snapToWall(lazyShallow(10, 40), "right", ROOM);
+    expect(x).toBeCloseTo(84, 5);
+  });
+});

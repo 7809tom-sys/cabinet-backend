@@ -2185,3 +2185,6 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Redesign More sheet as compact menu with individual popup sub-sheets for Flooring, Backsplash, Hardware, and Trim — each section button opens a dedicated full-screen bottom sheet with larger tap targets and a back-chevron to return to the main More menu
 
 - [x] Design Tool: mobile-friendly controls to MOVE a door/window opening along its wall (nudge left/right + numeric "from corner" inches field + center button)
+
+## Corner cabinet wall-seating fix (June 30)
+- [x] Root cause: snapPosition used rotatedSize (36x24) not the square placedFootprint (36x36) for L-corner cabinets, so they only seat tight in top-left corner; the other 3 corners fall back to a wrong notch rotation. Fix snapPosition + related wall-snap to use placedFootprint for L-corner cabinets so they seat flush in ALL four corners.

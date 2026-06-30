@@ -687,7 +687,11 @@ export function snapPosition(
   room: RoomData,
   others: PlacedCabinet[]
 ): { x: number; y: number; snappedWall: boolean } {
-  const { w, d } = rotatedSize(moving);
+  // Use the PLAN footprint (not the raw rotated size) so L-corner cabinets
+  // (lazy-Susan / corner base) snap by their true SQUARE box. Their stored depth
+  // can be the shallow ~24" leg depth, which would leave the box short of the
+  // right/bottom walls and break corner-notch rotation in 3 of the 4 corners.
+  const { w, d } = placedFootprint(moving);
   let x = moving.x;
   let y = moving.y;
   let snappedWall = false;
@@ -701,7 +705,7 @@ export function snapPosition(
 
   for (const o of others) {
     if (o.uid === moving.uid) continue;
-    const os = rotatedSize(o);
+    const os = placedFootprint(o);
 
     const yOverlap = y < o.y + os.d && y + d > o.y;
     if (yOverlap) {
@@ -725,7 +729,7 @@ export function snapPosition(
     let moved = false;
     for (const o of others) {
       if (o.uid === moving.uid) continue;
-      const os = rotatedSize(o);
+      const os = placedFootprint(o);
       const overlapX = Math.min(x + w, o.x + os.w) - Math.max(x, o.x);
       const overlapY = Math.min(y + d, o.y + os.d) - Math.max(y, o.y);
       if (overlapX > 0.01 && overlapY > 0.01) {
@@ -1843,7 +1847,10 @@ export function blindCornerAutoFiller(
 // UI so a user can place a cabinet on the wall they actually want instead of
 // relying on drag-proximity guessing.
 export function snapToWall(p: PlacedCabinet, side: WallSide, room: RoomData): { x: number; y: number } {
-  const { w, d } = rotatedSize(p);
+  // Use the square plan footprint so L-corner cabinets seat flush to the wall
+  // (their stored depth may be the shallow leg depth, which would leave a gap on
+  // the bottom/right walls and break corner-notch rotation).
+  const { w, d } = placedFootprint(p);
   // Keep the position along the wall but clamp it inside the room.
   let x = Math.max(0, Math.min(p.x, Math.max(0, room.width - w)));
   let y = Math.max(0, Math.min(p.y, Math.max(0, room.depth - d)));
@@ -2412,7 +2419,9 @@ export function wallPlacementAt(
 // wall must be pulled back inside. Keeps the design valid instead of leaving
 // cabinets floating outside the room rectangle.
 export function clampCabinetToRoom(p: PlacedCabinet, room: RoomData): PlacedCabinet {
-  const { w, d } = rotatedSize(p);
+  // Square footprint for L-corner cabinets so a resize keeps them flush in the
+  // corner instead of pulling them in by the shallow stored leg depth.
+  const { w, d } = placedFootprint(p);
   const x = Math.max(0, Math.min(p.x, Math.max(0, room.width - w)));
   const y = Math.max(0, Math.min(p.y, Math.max(0, room.depth - d)));
   return p.x === x && p.y === y ? p : { ...p, x, y };
