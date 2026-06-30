@@ -16,6 +16,7 @@ import {
 import { useIsMobile } from "@/hooks/useMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { styleDisplayName } from "@/lib/styleDisplayName";
+import { groupStylesByDistributor } from "@/lib/groupStylesByDistributor";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ColorSlotButton
@@ -96,36 +97,17 @@ export function ColorSlotButton({
   const name = style ? (styleDisplayName(style as { ourName?: string | null; aliasName?: string | null }) || null) : null;
   const hasStyle = style != null;
 
-  // Map distributorId → neutral label for the group headers.
-  const labelById = useMemo(() => {
-    const m = new Map<number, string>();
-    (distributors ?? []).forEach((d) => {
-      if (d.name) m.set(d.id, d.name);
-    });
-    return m;
-  }, [distributors]);
-
-  // Group the styles by distributor (supply line). Groups are ordered by their
-  // neutral label so the list is stable; styles inside keep their incoming order.
-  const groups = useMemo<StyleGroup[]>(() => {
-    const byDist = new Map<number | null, StyleOption[]>();
-    for (const s of styles) {
-      const key = s.distributorId ?? null;
-      const arr = byDist.get(key);
-      if (arr) arr.push(s);
-      else byDist.set(key, [s]);
-    }
-    const out: StyleGroup[] = [];
-    byDist.forEach((list, distributorId) => {
-      const label =
-        distributorId != null
-          ? labelById.get(distributorId) ?? t("dt_cs_line_fallback", { id: distributorId })
-          : t("dt_cs_line_other");
-      out.push({ distributorId, label, styles: list });
-    });
-    out.sort((a, b) => a.label.localeCompare(b.label));
-    return out;
-  }, [styles, labelById, t]);
+  // Group the styles by distributor (supply line) via the shared, unit-tested
+  // helper. Groups are ordered by their neutral label so the list is stable;
+  // styles inside keep their incoming order.
+  const groups = useMemo<StyleGroup[]>(
+    () =>
+      groupStylesByDistributor(styles, distributors ?? [], {
+        fallback: (id) => t("dt_cs_line_fallback", { id }),
+        other: t("dt_cs_line_other"),
+      }),
+    [styles, distributors, t],
+  );
 
   // Which distributor group is currently expanded (one at a time). Defaults to
   // the group that holds the selected style, else the first group.
