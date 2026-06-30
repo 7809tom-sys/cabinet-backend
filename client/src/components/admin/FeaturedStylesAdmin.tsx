@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
-  AlertTriangle, CheckCircle2, Pencil, RotateCcw,
+  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,129 @@ interface AdminStyle {
 
 function thumb(s: AdminStyle): string | null {
   return s.thumbnailImageUrl || s.doorSampleImageUrl || s.roomSceneImageUrl || null;
+}
+
+// ── Reusable image field: paste a URL OR upload from device, with live preview ──
+
+function ImageField({
+  label,
+  hint,
+  value,
+  onChange,
+  big,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (url: string) => void;
+  /** When true, render a larger preview (used for the room scene). */
+  big?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const upload = trpc.cabinets.adminUploadCatalogImage.useMutation();
+
+  async function handleFile(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image too large (max 10MB).");
+      return;
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    try {
+      const { url } = await upload.mutateAsync({
+        filename: file.name || "door-image.jpg",
+        dataBase64: dataUrl,
+        contentType: file.type || "image/jpeg",
+      });
+      onChange(url);
+      toast.success("Image uploaded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className={`flex ${big ? "flex-col sm:flex-row" : "flex-row"} gap-3`}>
+        {/* Preview */}
+        <div
+          className={`shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 flex items-center justify-center ${
+            big ? "h-36 w-full sm:w-56" : "h-16 w-16"
+          }`}
+        >
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={value}
+              alt={label}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+          )}
+        </div>
+        {/* Controls */}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <Input
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="https://… or upload below"
+            className="text-xs"
+          />
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+                e.currentTarget.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              disabled={upload.isPending}
+              onClick={() => inputRef.current?.click()}
+            >
+              {upload.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {upload.isPending ? "Uploading…" : "Upload"}
+            </Button>
+            {value && (
+              <button
+                type="button"
+                onClick={() => onChange("")}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" /> Remove
+              </button>
+            )}
+          </div>
+          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Quick-edit dialog ─────────────────────────────────────────────────────────
@@ -230,55 +353,36 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
             </div>
           </div>
 
-          {/* Image URLs */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Image URLs</Label>
-            <div className="space-y-2">
-              <div className="space-y-1">
-                <Label htmlFor="ed-door-img" className="text-xs text-muted-foreground">Door Sample Image</Label>
-                <Input
-                  id="ed-door-img"
-                  value={doorSampleImageUrl}
-                  onChange={(e) => setDoorSampleImageUrl(e.target.value)}
-                  placeholder="https://…"
-                  className="text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ed-thumb-img" className="text-xs text-muted-foreground">Thumbnail Image</Label>
-                <Input
-                  id="ed-thumb-img"
-                  value={thumbnailImageUrl}
-                  onChange={(e) => setThumbnailImageUrl(e.target.value)}
-                  placeholder="https://…"
-                  className="text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="ed-room-img" className="text-xs text-muted-foreground">Room Scene Image</Label>
-                <Input
-                  id="ed-room-img"
-                  value={roomSceneImageUrl}
-                  onChange={(e) => setRoomSceneImageUrl(e.target.value)}
-                  placeholder="https://…"
-                  className="text-xs"
-                />
-              </div>
-            </div>
-          </div>
+          {/* Images — upload from device or paste a URL; changes save site-wide */}
+          <div className="space-y-4">
+            <Label className="text-sm font-medium">Images</Label>
+            <p className="text-xs text-muted-foreground -mt-2">
+              Upload a photo from your device or paste an image URL. Saving applies the change
+              everywhere this door style appears — catalog, door styles page, the kitchen designer,
+              and the family/product page.
+            </p>
 
-          {/* Preview */}
-          {(doorSampleImageUrl || thumbnailImageUrl) && (
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Preview</Label>
-              <img
-                src={doorSampleImageUrl || thumbnailImageUrl}
-                alt="Preview"
-                className="h-28 w-auto rounded-lg object-cover border border-border"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
-            </div>
-          )}
+            {/* Room scene gets the prominent, larger preview */}
+            <ImageField
+              label="Room Scene Photo"
+              hint="The full kitchen scene shown on the family/product page and home showcase."
+              value={roomSceneImageUrl}
+              onChange={setRoomSceneImageUrl}
+              big
+            />
+            <ImageField
+              label="Door Sample Photo"
+              hint="Close-up of the door, used as the main catalog/designer thumbnail."
+              value={doorSampleImageUrl}
+              onChange={setDoorSampleImageUrl}
+            />
+            <ImageField
+              label="Thumbnail (optional override)"
+              hint="Overrides the door sample as the small thumbnail when set."
+              value={thumbnailImageUrl}
+              onChange={setThumbnailImageUrl}
+            />
+          </div>
         </div>
 
         <DialogFooter className="shrink-0 pt-2 border-t border-border">
@@ -397,9 +501,10 @@ export default function FeaturedStylesAdmin() {
             <Star className="h-5 w-5 text-primary" /> Featured Door Styles
           </h2>
           <p className="text-muted-foreground text-sm mt-1 max-w-2xl">
-            Choose the door styles to push at the top of the Door Styles page. Click the{" "}
-            <Pencil className="inline h-3.5 w-3.5" /> pencil on any featured style to edit its
-            public label, color, finish, images, and more.
+            Choose the door styles to push at the top of the Door Styles page, and edit any door
+            style here. Click the <Pencil className="inline h-3.5 w-3.5" /> pencil on any style
+            (featured or not, in the list below) to change its name, color, finish, and its
+            room-scene / door photos — uploads apply everywhere that style appears on the site.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
@@ -521,11 +626,11 @@ export default function FeaturedStylesAdmin() {
         )}
       </div>
 
-      {/* Available list */}
+      {/* All other styles — edit any of them, or feature them */}
       <div>
         <div className="flex items-center justify-between gap-3 mb-3">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Add a style
+            All door styles
           </h3>
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -542,29 +647,63 @@ export default function FeaturedStylesAdmin() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
             {available.map((s) => (
-              <button
+              <div
                 key={s.id}
-                onClick={() => add(s)}
-                disabled={atCap || setFeatured.isPending}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5 text-left hover:border-primary/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5"
               >
-                {thumb(s) ? (
-                  <img
-                    src={thumb(s)!}
-                    alt={s.ourName}
-                    className="h-11 w-11 rounded object-cover ring-1 ring-border shrink-0"
-                  />
-                ) : (
-                  <div className="h-11 w-11 rounded bg-muted shrink-0" />
-                )}
-                <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => setEditingStyle(s)}
+                  title="Edit this door style"
+                  className="shrink-0"
+                >
+                  {thumb(s) ? (
+                    <img
+                      src={thumb(s)!}
+                      alt={s.ourName}
+                      className="h-11 w-11 rounded object-cover ring-1 ring-border"
+                    />
+                  ) : (
+                    <div className="h-11 w-11 rounded bg-muted flex items-center justify-center">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground/40" />
+                    </div>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingStyle(s)}
+                  className="min-w-0 flex-1 text-left"
+                  title="Edit this door style"
+                >
                   <p className="font-medium text-sm truncate">{s.ourName}</p>
                   <p className="text-xs text-muted-foreground truncate">
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
                   </p>
+                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                    onClick={() => setEditingStyle(s)}
+                    aria-label="Edit style"
+                    title="Edit style"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => add(s)}
+                    disabled={atCap || setFeatured.isPending}
+                    aria-label="Feature this style"
+                    title={atCap ? `At ${MAX_FEATURED}-style limit` : "Add to featured"}
+                  >
+                    <Star className="h-4 w-4 text-muted-foreground/60" />
+                  </Button>
                 </div>
-                <Star className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-              </button>
+              </div>
             ))}
           </div>
         )}

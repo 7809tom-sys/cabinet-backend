@@ -2240,3 +2240,10 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Back button ("All supply lines") returns to the line list while unlocked.
 - [x] i18n EN + ES for the line-chooser step (dt_cs_pick_line_help, dt_cs_back_to_lines).
 - [x] tsc clean; full vitest 1069 pass + new grouping test (7) pass; ready to checkpoint.
+
+## Session: Admin all-door-styles image manager (Jun 30, late)
+- [x] Featured Styles tab: "All door styles" list (every style, not just featured), each row opens the editor; Feature star kept as a separate action.
+- [x] Edit dialog: prominent Room Scene preview (big) + door sample + thumbnail previews; changing any is supported.
+- [x] Image UPLOAD to S3 via cabinets.adminUploadCatalogImage (reusable ImageField), alongside paste-URL, with live preview + 10MB guard.
+- [x] Edits save via doorStyles.adminUpdateDoorStyle and propagate site-wide (catalog, family, designer swatch, home showcase) — those pages already read these fields.
+- [x] tsc clean; full vitest 1070 pass; checkpoint + deliver.
