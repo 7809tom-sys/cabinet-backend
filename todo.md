@@ -2336,3 +2336,12 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Line A base 0.23 + freight 0.07 = 0.30; Line B 0.38; Line C (Skyline) 0.35
 - [x] Recompute all stored yourCost from effective multipliers (zero mismatches)
 - [x] Tests: sellPrice.test.ts + distributorMultiplier.test.ts (base+freight); full suite 1092 passing; type-check clean
+
+
+## Session: Photoreal Kitchen Designer (A + C)
+- [x] (A) Photoreal in-tool elevation: finish textures/gradients per finish color, soft shadows + ambient occlusion between cabinets, beveled shaker rails/panels, realistic metal hardware, reflective countertop, tiled backsplash — keep live-editable + pricing intact
+- [x] (A) Preserve two-tone finishFor/panelKindFor, crown/toe-kick/batten/light-rail, openings, corner seam cabinets in the upgraded render
+- [x] (C) Server render procedure: generate a photoreal image from current layout + finish (image generation API) — design.photorealPreview mutation builds a detailed prompt + calls generateImage
+- [x] (C) Client "Photoreal Preview" button + modal with loading/error/empty states; consistent artistic style across renders — PhotorealPreview component (toolbar button + mobile More entry), buildPhotorealScene helper derives room/finish/door/counter/hardware/per-wall summaries from live state; disabled when no cabinets placed
+- [x] Tests (vitest) + type-check clean — 9 buildPhotorealScene tests; full suite 1101 pass; tsc clean
+- [x] Visual verify in browser (plan + front + photoreal preview), checkpoint, deliver

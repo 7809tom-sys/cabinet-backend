@@ -1,0 +1,172 @@
+import { useState, useCallback } from "react";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
+import { Sparkles, Loader2, Download, RotateCcw, X, ImageOff } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+
+/**
+ * Input the caller assembles from the current design state. This mirrors the
+ * `design.photorealPreview` server mutation input schema.
+ */
+export type PhotorealSceneInput = {
+  roomWidthFt: number;
+  roomDepthFt: number;
+  ceilingFt?: number;
+  finishName?: string;
+  doorStyle?: string;
+  secondFinishName?: string;
+  countertop?: string;
+  hardware?: string;
+  wallSummaries?: string[];
+  hasIsland?: boolean;
+  notes?: string;
+};
+
+type Props = {
+  /** Whether the trigger button is enabled (e.g. false when nothing placed). */
+  disabled?: boolean;
+  /**
+   * Lazily builds the scene input at click time from the LIVE design state.
+   * Returning null aborts (e.g. no cabinets placed).
+   */
+  buildScene: () => PhotorealSceneInput | null;
+  /** Optional compact styling for the mobile "More" menu. */
+  variant?: "toolbar" | "menu";
+  /** Localized label for the trigger (defaults to "AI Preview"). */
+  label?: string;
+};
+
+/**
+ * AI Photoreal Preview: renders a magazine-quality photo of the user's current
+ * kitchen design via the `design.photorealPreview` mutation. The heavy lifting
+ * (prompt building + image generation) happens server-side; this component only
+ * assembles the scene input, shows a loading state (generation can take 10-30s),
+ * and displays / lets the user download the result.
+ */
+export function PhotorealPreview({ disabled, buildScene, variant = "toolbar", label = "AI Preview" }: Props) {
+  const [open, setOpen] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  const gen = trpc.design.photorealPreview.useMutation({
+    onSuccess: (data) => {
+      setImageUrl(data.url);
+    },
+    onError: (err) => {
+      toast.error(err.message || "Could not generate a preview. Please try again.");
+    },
+  });
+
+  const run = useCallback(() => {
+    const scene = buildScene();
+    if (!scene) {
+      toast.error("Place at least one cabinet before generating a preview.");
+      return;
+    }
+    setImageUrl(null);
+    gen.mutate(scene);
+  }, [buildScene, gen]);
+
+  const onOpen = useCallback(() => {
+    setOpen(true);
+    run();
+  }, [run]);
+
+  const download = useCallback(() => {
+    if (!imageUrl) return;
+    const a = document.createElement("a");
+    a.href = imageUrl;
+    a.download = `cabinet-dealz-preview-${Date.now()}.png`;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, [imageUrl]);
+
+  const loading = gen.isPending;
+
+  return (
+    <>
+      {variant === "toolbar" ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={disabled}
+          title="Generate a photorealistic AI preview of your design"
+          className="hidden lg:flex items-center gap-1.5 rounded-lg border border-[#1a2744]/25 bg-gradient-to-r from-[#1a2744] to-[#2d3f66] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:from-muted disabled:to-muted disabled:text-muted-foreground disabled:shadow-none"
+        >
+          <Sparkles className="h-3.5 w-3.5" /> {label}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={disabled}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Sparkles className="h-5 w-5 shrink-0 text-[#1a2744]" />
+          <span className="font-medium">{label}</span>
+        </button>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden gap-0">
+          <DialogHeader className="px-6 pt-6 pb-3">
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Sparkles className="h-5 w-5 text-[#1a2744]" /> AI Photoreal Preview
+            </DialogTitle>
+            <DialogDescription>
+              A magazine-quality render of your current design. This is an illustrative concept, not an exact
+              construction drawing.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 pb-6">
+            <div className="relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-border bg-muted/40">
+              {loading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#1a2744]" />
+                  <div className="text-sm font-medium text-foreground">Rendering your kitchen…</div>
+                  <div className="text-xs text-muted-foreground max-w-xs">
+                    This usually takes 10–30 seconds. Hang tight while we stage the lighting.
+                  </div>
+                </div>
+              )}
+
+              {!loading && gen.isError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
+                  <ImageOff className="h-8 w-8 text-muted-foreground" />
+                  <div className="text-sm font-medium text-foreground">We couldn't generate a preview.</div>
+                  <div className="text-xs text-muted-foreground max-w-xs">
+                    {gen.error?.message || "Something went wrong. Please try again."}
+                  </div>
+                </div>
+              )}
+
+              {!loading && imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt="AI photoreal preview of your kitchen design"
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+              <Button variant="outline" onClick={() => setOpen(false)} className="bg-background">
+                <X className="mr-1.5 h-4 w-4" /> Close
+              </Button>
+              <Button variant="outline" onClick={run} disabled={loading} className="bg-background">
+                <RotateCcw className="mr-1.5 h-4 w-4" /> Generate Again
+              </Button>
+              <Button onClick={download} disabled={loading || !imageUrl} className="bg-[#1a2744] hover:bg-[#2d3f66]">
+                <Download className="mr-1.5 h-4 w-4" /> Download
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

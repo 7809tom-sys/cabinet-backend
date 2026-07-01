@@ -90,6 +90,8 @@ import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
+import { PhotorealPreview, type PhotorealSceneInput } from "@/components/design/PhotorealPreview";
+import { buildPhotorealScene } from "@/lib/photorealScene";
 import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
@@ -1191,6 +1193,24 @@ export default function DesignTool() {
     const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
     return doorPanelKind(s?.doorStyle ?? activeStyleName);
   }, [doorStyles, styleId, activeStyleName]);
+
+  // ─── AI Photoreal Preview ───────────────────────────────────────────────────
+  // Lazily assembles the scene description (room + finish + door style +
+  // countertop + hardware + per-wall cabinet runs) from LIVE state at click
+  // time, so the render always matches what is currently on the canvas.
+  const buildPhotorealSceneInput = useCallback((): PhotorealSceneInput | null => {
+    const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
+    const hw = HARDWARE_STYLES.find((h) => h.id === hardwareStyleId);
+    return buildPhotorealScene({
+      room,
+      placed,
+      island,
+      finishName: activeStyleName,
+      doorStyle: s?.doorStyle ?? activeStyleName,
+      countertop: countertopMaterial(countertopMaterialId)?.name ?? null,
+      hardware: hw && hw.id !== "none" ? hw.description : null,
+    });
+  }, [doorStyles, styleId, hardwareStyleId, room, placed, island, activeStyleName, countertopMaterialId]);
 
   // ─── TWO-TONE per-cabinet finish + door-panel resolvers ─────────────────────
   // Each cabinet renders in its EFFECTIVE finish (per-cabinet override, else the
@@ -2891,6 +2911,13 @@ export default function DesignTool() {
           <Printer className="h-3.5 w-3.5" /> {t("dt_sh_print_sheet")}
         </a>
 
+        {/* AI Photoreal Preview — magazine render of the current design */}
+        <PhotorealPreview
+          disabled={placed.filter((p) => p.placement !== "appliance").length === 0}
+          buildScene={buildPhotorealSceneInput}
+          label={t("dt_sh_ai_preview")}
+        />
+
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
         <div className="ml-auto flex items-center gap-2 lg:hidden">
           <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setMoreSheetOpen(true)}>
@@ -2954,6 +2981,14 @@ export default function DesignTool() {
                     <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_consultant_menu")}</span>
                   </button>
+                  <div onClick={() => setMoreSheetOpen(false)}>
+                    <PhotorealPreview
+                      variant="menu"
+                      disabled={placed.filter((p) => p.placement !== "appliance").length === 0}
+                      buildScene={buildPhotorealSceneInput}
+                      label={t("dt_sh_ai_preview")}
+                    />
+                  </div>
                 </div>
 
                 <div className="mx-3 my-1 border-t border-border" />

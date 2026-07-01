@@ -6,6 +6,7 @@ import { getDb, notInConflict } from "../db";
 import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { invokeLLM } from "../_core/llm";
+import { generateImage } from "../_core/imageGeneration";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
 import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
@@ -1435,5 +1436,84 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         }));
 
       return { mandatory, styleCode, lines };
+    }),
+
+  // ---------------------------------------------------------------------------
+  // Photoreal Preview (AI): turn the current in-tool layout + chosen finish into
+  // a single photographic kitchen render. This is a "money shot" preview — it is
+  // NOT live-editable and does not affect pricing; it simply visualizes the
+  // design the customer built so far. The client passes a compact, already-
+  // resolved description of the scene (finish name, door style, counter, and the
+  // cabinet runs per wall) so the server does not need to re-derive geometry.
+  photorealPreview: publicProcedure
+    .input(
+      z.object({
+        roomWidthFt: z.number().min(1).max(60),
+        roomDepthFt: z.number().min(1).max(60),
+        ceilingFt: z.number().min(6).max(20).optional(),
+        // Human-readable finish, e.g. "Aspen White" / "Repose Gray".
+        finishName: z.string().max(80).optional(),
+        // Door style label, e.g. "Shaker", "Raised Panel", "Slim Shaker".
+        doorStyle: z.string().max(80).optional(),
+        // Optional second finish for two-tone designs.
+        secondFinishName: z.string().max(80).optional(),
+        // Countertop material name, e.g. "White Quartz".
+        countertop: z.string().max(80).optional(),
+        // Hardware finish/type, e.g. "brushed nickel bar pulls".
+        hardware: z.string().max(80).optional(),
+        // Ordered summary of what is on each wall so the render matches layout.
+        // e.g. ["Back wall: 12ft run of base + wall cabinets with a sink and
+        // range", "Left wall: tall pantry column"].
+        wallSummaries: z.array(z.string().max(300)).max(8).optional(),
+        // Whether the design includes an island.
+        hasIsland: z.boolean().optional(),
+        // Free-form extra notes (appliances, open shelving, etc.).
+        notes: z.string().max(400).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const finish = (input.finishName || "").trim();
+      const door = (input.doorStyle || "").trim();
+      const counter = (input.countertop || "").trim();
+      const hardware = (input.hardware || "").trim();
+      const ceiling = input.ceilingFt ?? 8;
+
+      const parts: string[] = [];
+      parts.push(
+        "Professional photorealistic interior photograph of a modern residential kitchen, wide-angle real-estate listing photo, natural daylight from a window, soft realistic shadows, shallow depth of field, high detail, magazine quality."
+      );
+      parts.push(
+        `The kitchen room is approximately ${input.roomWidthFt} feet wide by ${input.roomDepthFt} feet deep with an ${ceiling}-foot ceiling.`
+      );
+      if (door || finish) {
+        const twoTone = input.secondFinishName?.trim()
+          ? ` with a two-tone scheme accented by ${input.secondFinishName.trim()} cabinets`
+          : "";
+        parts.push(
+          `The cabinetry is ${[finish, door && `${door}-style`].filter(Boolean).join(" ")} kitchen cabinets${twoTone}.`
+        );
+      }
+      if (counter) parts.push(`Countertops are ${counter}.`);
+      if (hardware) parts.push(`Cabinet hardware is ${hardware}.`);
+      if (input.wallSummaries && input.wallSummaries.length > 0) {
+        parts.push("Layout: " + input.wallSummaries.join("; ") + ".");
+      }
+      if (input.hasIsland) parts.push("There is a central kitchen island with cabinetry matching the perimeter.");
+      if (input.notes?.trim()) parts.push(input.notes.trim());
+      parts.push(
+        "Render only the kitchen — no people, no text, no watermark, no floor plan overlay. Realistic proportions, clean staging, warm inviting lighting."
+      );
+
+      const prompt = parts.join(" ");
+      try {
+        const { url } = await generateImage({ prompt });
+        if (!url) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No image was returned." });
+        }
+        return { url, prompt };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Image generation failed.";
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+      }
     }),
 });
