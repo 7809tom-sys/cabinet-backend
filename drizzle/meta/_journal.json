@@ -323,6 +323,13 @@
       "when": 1782935316908,
       "tag": "0045_puzzling_crystal",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "5",
+      "when": 1782947907455,
+      "tag": "0046_brave_speed",
+      "breakpoints": true
     }
   ]
 }

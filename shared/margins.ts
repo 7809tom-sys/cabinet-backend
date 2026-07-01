@@ -56,3 +56,63 @@ export function applyTierMarkup(
   const bps = clampBps(markupBpsForTier(s, tier));
   return Math.round(n * (bps / NEUTRAL_BPS) * 100) / 100;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Single source of truth for the customer-facing SELL price.
+//
+// The sell price for a tier is ALWAYS computed from our COST base times the
+// per-tier markup multiplier — never from a pre-stored, already-marked-up price
+// column (doing that double-applies the markup). The global default markup does
+// NOT participate here: it is only guidance for new supply lines, so it can
+// never compound onto a live price.
+//
+//   sell(tier) = costBase × (tierMarkupBps / 10000)
+//
+// Cost base precedence (first non-null wins). Our TRUE cost is `yourCost`,
+// which equals the distributor's listPrice × their costMultiplier (the single
+// cost lever on the admin Multiplier tab). Fallbacks only apply when a SKU is
+// missing yourCost, so a row still resolves a base:
+//   yourCost → wholesalePrice → adjustedListPrice → listPrice
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CostBaseRow {
+  yourCost?: number | string | null;
+  wholesalePrice?: number | string | null;
+  adjustedListPrice?: number | string | null;
+  listPrice?: number | string | null;
+}
+
+function toNum(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Resolve our COST base for a SKU — the number the per-tier markup multiplies.
+ * Returns null when no usable cost column exists.
+ */
+export function resolveCostBase(row: CostBaseRow): number | null {
+  return (
+    toNum(row.yourCost) ??
+    toNum(row.wholesalePrice) ??
+    toNum(row.adjustedListPrice) ??
+    toNum(row.listPrice)
+  );
+}
+
+/**
+ * Compute the customer-facing sell price for a tier from the cost base and the
+ * per-tier markup. Returns a 2-dp number, or null when no cost base exists.
+ * The global default markup is intentionally ignored.
+ */
+export function sellPriceForTier(
+  row: CostBaseRow,
+  s: TierMarkupBps,
+  tier: PricingTier,
+): number | null {
+  const base = resolveCostBase(row);
+  if (base === null) return null;
+  const bps = clampBps(markupBpsForTier(s, tier));
+  return Math.round(base * (bps / NEUTRAL_BPS) * 100) / 100;
+}

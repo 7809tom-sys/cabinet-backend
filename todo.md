@@ -2311,3 +2311,28 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [ ] Keep both DB rows; dedupe display only; resolve best-priced available SKU across the two lines
 - [ ] Never expose distributor/line names publicly
 - [ ] Add/adjust unit tests for the dedupe/merge logic; tsc + full suite green
+
+
+## Session: Pricing markup fix + per-distributor Multiplier tab
+- [x] Sell price = cost base × per-tier markup (shared sellPriceForTier); Global default markup OFF (neutral 10000 bps in DB)
+- [x] Cost base = yourCost (= distributor listPrice × costMultiplier) with fallbacks
+- [x] Wire all server price paths (storefront, catalog detail, design, pantry, orders, admin XLSX export) to yourCost-based sell; owner "My Cost" uses yourCost
+- [x] Update sellPrice unit tests; full suite green (1086)
+- [ ] Backend: admin get/set distributor multiplier procedures; on save recompute yourCost = listPrice × multiplier (and keep wholesale/adjustedList derivations) for every SKU on the line
+- [ ] Frontend: admin Multiplier tab — per-distributor multiplier list, edit + save, live preview of resulting cost/sell
+- [ ] Verify end-to-end (changing a multiplier moves cost and sell prices), checkpoint, deliver
+
+
+## Session: Pricing markup fix + Distributor Multipliers tab
+- [x] Diagnose markup mismatch: storefront was multiplying an already-marked-up column (double markup)
+- [x] Add shared sellPriceForTier helper: sell = cost base (yourCost) x per-tier markup; ignore global markup
+- [x] Route all customer-facing price paths through cost base (storefront list/recommend/glass upsell, product detail, designer placeable + cross-sell, pantry, orders trade, admin XLSX export)
+- [x] Turn Global Default Markup off (neutral 10000 bps), removed from price math
+- [x] Owner "My Cost" now uses yourCost (true acquisition cost)
+- [x] Confirm cost model: cost = listPrice x distributor multiplier (= yourCost)
+- [x] Add per-distributor Multiplier tab (admin): base + freight/tariff -> effective = base + freight
+- [x] baseMultiplier + freightMultiplier columns on distributors (migration + backfill)
+- [x] adminSetDistributorMultiplier recomputes yourCost = list x effective for the whole line
+- [x] Line A base 0.23 + freight 0.07 = 0.30; Line B 0.38; Line C (Skyline) 0.35
+- [x] Recompute all stored yourCost from effective multipliers (zero mismatches)
+- [x] Tests: sellPrice.test.ts + distributorMultiplier.test.ts (base+freight); full suite 1092 passing; type-check clean

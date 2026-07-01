@@ -12,11 +12,12 @@ import {
 } from "../db";
 import { cabinets, distributorSkus, pantryBundles } from "../../drizzle/schema";
 import {
-  resolveTierPrice,
   resolveStorefrontTier,
   tierLabel,
   type PricingTier,
 } from "../../shared/pricingTier";
+import { sellPriceForTier, type TierMarkupBps } from "@shared/margins";
+import { getPricingSettings } from "../db";
 
 // A split-pantry part as presented to the client: the viewer-tier unit price for
 // that single piece, plus enough identity to add it to the cart as a real SKU.
@@ -44,6 +45,7 @@ export type SplitPantryView = {
 };
 
 function partPrices(p: SplitPantryPartPrices | null): {
+  yourCost: string | null;
   wholesalePrice: string | null;
   contractorPrice: string | null;
   homeownerPrice: string | null;
@@ -51,6 +53,7 @@ function partPrices(p: SplitPantryPartPrices | null): {
   listPrice: string | null;
 } {
   return {
+    yourCost: p?.yourCost ?? null,
     wholesalePrice: p?.wholesalePrice ?? null,
     contractorPrice: p?.contractorPrice ?? null,
     homeownerPrice: p?.homeownerPrice ?? null,
@@ -62,9 +65,16 @@ function partPrices(p: SplitPantryPartPrices | null): {
 // Build the viewer-facing Split Pantry from a raw bundle row (with real parts).
 // The combined price is the SUM of the two parts priced at the viewer's tier —
 // exactly what the customer would pay adding the top and bottom individually.
-function toView(b: SplitPantryBundleRow, tier: PricingTier, styleLabel: string): SplitPantryView {
-  const topUnit = b.top ? resolveTierPrice(tier, partPrices(b.top)) : null;
-  const botUnit = b.bottom ? resolveTierPrice(tier, partPrices(b.bottom)) : null;
+// Each part's tier price is computed from our cost base × the per-tier markup
+// (matches the admin Margins tab), never from a pre-marked-up stored column.
+function toView(
+  b: SplitPantryBundleRow,
+  tier: PricingTier,
+  styleLabel: string,
+  ps: TierMarkupBps,
+): SplitPantryView {
+  const topUnit = b.top ? sellPriceForTier(partPrices(b.top), ps, tier) : null;
+  const botUnit = b.bottom ? sellPriceForTier(partPrices(b.bottom), ps, tier) : null;
   const combined = topUnit != null && botUnit != null ? Math.round((topUnit + botUnit) * 100) / 100 : null;
   const topHeight = b.totalHeight - 54; // bottom is always 54" tall
   return {
@@ -258,13 +268,14 @@ export const pantryRouter = router({
     .input(z.object({ styleId: z.number().int().positive() }))
     .query(async ({ ctx, input }): Promise<SplitPantryView[]> => {
       const tier = resolveStorefrontTier(ctx.user);
-      const [bundles, style] = await Promise.all([
+      const [bundles, style, ps] = await Promise.all([
         getSplitPantriesByStyle(input.styleId),
         getDoorStyleById(input.styleId),
+        getPricingSettings(),
       ]);
       const label = styleLabelOf(style);
       return bundles
-        .map((b) => toView(b, tier, label))
+        .map((b) => toView(b, tier, label, ps))
         // Only surface pantries whose both parts have a usable price.
         .filter((v) => v.combinedPrice != null)
         .sort((a, b) => a.width - b.width || a.totalHeight - b.totalHeight);
@@ -277,7 +288,10 @@ export const pantryRouter = router({
       const tier = resolveStorefrontTier(ctx.user);
       const bundle = await getSplitPantryBySku(input.platformSku);
       if (!bundle) return null;
-      const style = await getDoorStyleById(bundle.styleId);
-      return toView(bundle, tier, styleLabelOf(style));
+      const [style, ps] = await Promise.all([
+        getDoorStyleById(bundle.styleId),
+        getPricingSettings(),
+      ]);
+      return toView(bundle, tier, styleLabelOf(style), ps);
     }),
 });

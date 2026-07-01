@@ -98,16 +98,17 @@ export default function MarginsAdmin() {
             <TrendingUp className="h-5 w-5" /> Pricing & Margins
           </CardTitle>
           <CardDescription>
-            One control center for selling margins. The per-tier markup nudges a
-            whole tier up or down on top of the stored base prices. The global
-            default is guidance for new supply lines. <strong>0% leaves prices
-            unchanged.</strong>
+            One control center for selling margins. Each tier's sell price is
+            computed as <strong>our cost × (1 + this markup)</strong>, where our
+            cost comes from the per-line multiplier on the Multipliers tab. The
+            global default is only guidance for new lines and does <strong>not</strong>{" "}
+            affect live prices.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-              Global default markup
+              Global default markup (guidance only — not applied)
             </Label>
             <div className="relative mt-1 max-w-[180px]">
               <Input

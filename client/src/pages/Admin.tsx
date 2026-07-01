@@ -32,6 +32,7 @@ import SkuImageManager from "@/components/admin/SkuImageManager";
 import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
 import ShippingAdmin from "@/components/admin/ShippingAdmin";
 import MarginsAdmin from "@/components/admin/MarginsAdmin";
+import DistributorMultipliersAdmin from "@/components/admin/DistributorMultipliersAdmin";
 import ConflictsAdmin from "@/components/admin/ConflictsAdmin";
 import PayoutsAdmin from "@/components/admin/PayoutsAdmin";
 import CostLookupAdmin from "@/components/admin/CostLookupAdmin";
@@ -630,6 +631,7 @@ export default function Admin() {
           <TabsTrigger value="door-corrections">Door Corrections</TabsTrigger>
           <TabsTrigger value="distributors">Distributors</TabsTrigger>
           <TabsTrigger value="images">Product Images</TabsTrigger>
+          <TabsTrigger value="multipliers">Multipliers</TabsTrigger>
           <TabsTrigger value="margins">Pricing & Margins</TabsTrigger>
           <TabsTrigger value="cost-lookup">Price Audit</TabsTrigger>
           <TabsTrigger value="shipping">Shipping</TabsTrigger>
@@ -714,6 +716,9 @@ export default function Admin() {
           <AdminTabHelp tab="distributors" />
           <LineBrandingEditor />
           <DistributorImport />
+        </TabsContent>
+        <TabsContent value="multipliers" className="mt-6">
+          <DistributorMultipliersAdmin />
         </TabsContent>
         <TabsContent value="margins" className="mt-6">
           <AdminTabHelp tab="margins" />

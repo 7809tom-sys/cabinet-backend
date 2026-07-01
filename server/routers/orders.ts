@@ -24,6 +24,12 @@ import {
   type CodeMatch,
 } from "@shared/codeMatch";
 import { invokeLLM } from "../_core/llm";
+import { sellPriceForTier } from "@shared/margins";
+import { getPricingSettings } from "../db";
+
+// Map the order tierEnum ("Wholesale" | "Contractor") to the shared PricingTier.
+const orderTier = (t: "Wholesale" | "Contractor") =>
+  t === "Wholesale" ? ("wholesale" as const) : ("contractor" as const);
 
 // ─── Shared types surfaced to the client ───────────────────────────────────────
 export type RecAddOn = {
@@ -289,10 +295,7 @@ export const ordersRouter = router({
       };
       if (!db) return empty;
 
-      const priceCol =
-        input.tier === "Wholesale"
-          ? distributorSkus.wholesalePrice
-          : distributorSkus.contractorPrice;
+      const ps = await getPricingSettings();
       const cols = {
         id: cabinets.id,
         masterCode: cabinets.masterCode,
@@ -302,9 +305,12 @@ export const ordersRouter = router({
         width: cabinets.width,
         height: cabinets.height,
         depth: cabinets.depth,
-        unitPrice: priceCol,
+        // Cost columns — the base the per-tier markup multiplies.
+        yourCost: distributorSkus.yourCost,
         contractorPrice: distributorSkus.contractorPrice,
         wholesalePrice: distributorSkus.wholesalePrice,
+        adjustedListPrice: distributorSkus.adjustedListPrice,
+        listPrice: distributorSkus.listPrice,
       };
       const gate = and(
         eq(cabinets.isActive, true),
@@ -331,12 +337,8 @@ export const ordersRouter = router({
         const best = new Map<number, RecAddOn>();
         for (const r of rows) {
           if (onOrder.has(r.id)) continue;
-          const price = Number(
-            input.tier === "Wholesale"
-              ? r.wholesalePrice ?? r.contractorPrice
-              : r.contractorPrice ?? r.wholesalePrice
-          );
-          const unitPrice = Number.isFinite(price) ? price : null;
+          // Sell price = cost base × per-tier markup (matches the admin tab).
+          const unitPrice = sellPriceForTier(r, ps, orderTier(input.tier));
           const existing = best.get(r.id);
           if (
             !existing ||
@@ -420,11 +422,15 @@ export const ordersRouter = router({
       if (!db || input.cabinetIds.length === 0) {
         return { prices: [] as { cabinetId: number; unitPrice: number | null; myCost: number | null }[] };
       }
+      const ps = await getPricingSettings();
       const rows = await db
         .select({
           cabinetId: distributorSkus.cabinetId,
+          yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          listPrice: distributorSkus.listPrice,
         })
         .from(distributorSkus)
         .where(
@@ -436,22 +442,18 @@ export const ordersRouter = router({
           )
         );
 
-      // Best (lowest) price per cabinet for the chosen tier.
+      // Best (lowest) SELL price per cabinet for the chosen tier (cost × markup).
       const best = new Map<number, number>();
       // Best (lowest) WHOLESALE floor per cabinet — owner-only "My Cost".
       const bestCost = new Map<number, number>();
       for (const r of rows) {
-        const price = Number(
-          input.tier === "Wholesale"
-            ? r.wholesalePrice ?? r.contractorPrice
-            : r.contractorPrice ?? r.wholesalePrice
-        );
-        if (Number.isFinite(price)) {
+        const price = sellPriceForTier(r, ps, orderTier(input.tier));
+        if (price !== null && Number.isFinite(price)) {
           const cur = best.get(r.cabinetId);
           if (cur === undefined || price < cur) best.set(r.cabinetId, price);
         }
         if (isAdmin) {
-          const cost = Number(r.wholesalePrice ?? r.contractorPrice);
+          const cost = Number(r.yourCost ?? r.wholesalePrice ?? r.contractorPrice);
           if (Number.isFinite(cost)) {
             const curC = bestCost.get(r.cabinetId);
             if (curC === undefined || cost < curC) bestCost.set(r.cabinetId, cost);

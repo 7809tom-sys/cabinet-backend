@@ -7,7 +7,8 @@ import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, co
 import { notifyOwner } from "../_core/notification";
 import { invokeLLM } from "../_core/llm";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
-import { resolveTierPrice } from "../../shared/pricingTier";
+import { sellPriceForTier } from "@shared/margins";
+import { getPricingSettings } from "../db";
 import {
   relevantCategories,
   selectRecommendations,
@@ -400,6 +401,7 @@ export const designRouter = router({
           description: cabinets.description,
           width: cabinets.width,
           listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
@@ -422,6 +424,9 @@ export const designRouter = router({
         const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
         if (a < b) best.set(key, r);
       }
+      // Tier prices are computed from our cost base × the per-tier markup (matches
+      // the admin Margins tab), never from a pre-marked-up stored column.
+      const ps = await getPricingSettings();
       return Array.from(best.values()).map((r) => ({
         styleId: Number(r.styleId),
         cabinetId: r.cabinetId,
@@ -429,9 +434,9 @@ export const designRouter = router({
         description: r.description,
         width: Number(r.width ?? 0),
         listPrice: r.listPrice,
-        wholesalePrice: r.wholesalePrice,
-        contractorPrice: r.contractorPrice,
-        homeownerPrice: r.homeownerPrice,
+        wholesalePrice: sellPriceForTier(r, ps, "wholesale")?.toFixed(2) ?? null,
+        contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
+        homeownerPrice: sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
         adjustedListPrice: r.adjustedListPrice,
       }));
     }),
@@ -1233,6 +1238,9 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       const relevant = relevantCategories(lines);
       if (relevant.length === 0) return { items: [] as CrossSellItem[] };
 
+      // Accessory unit prices are computed from cost base × per-tier markup.
+      const csPs = await getPricingSettings();
+
       // Pull candidate accessory SKUs buyable in the chosen style, with the
       // tier price columns needed to resolve a unit price.
       const rows = await db
@@ -1240,6 +1248,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           masterCode: cabinets.masterCode,
           description: cabinets.description,
           subCategory: cabinets.subCategory,
+          yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
@@ -1288,13 +1297,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       for (const r of rows) {
         const cls = classify(r.subCategory, r.masterCode);
         if (!cls) continue;
-        const unitPrice = resolveTierPrice(input.tier, {
-          wholesalePrice: r.wholesalePrice,
-          contractorPrice: r.contractorPrice,
-          homeownerPrice: r.homeownerPrice,
-          adjustedListPrice: r.adjustedListPrice,
-          listPrice: r.listPrice,
-        });
+        const unitPrice = sellPriceForTier(r, csPs, input.tier);
         candidates.push({
           category: cls.category,
           masterCode: r.masterCode,

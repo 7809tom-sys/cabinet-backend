@@ -15,6 +15,7 @@ import {
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
+import { sellPriceForTier } from "@shared/margins";
 import { invokeLLM } from "../_core/llm";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
@@ -1375,6 +1376,8 @@ export const cabinetsRouter = router({
           numberOfDrawers: cabinets.numberOfDrawers,
           catalogImageUrl: cabinets.catalogImageUrl,
           wholesalePrice: distributorSkus.wholesalePrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          listPrice: distributorSkus.listPrice,
           yourCost: distributorSkus.yourCost,
         })
         .from(cabinets)
@@ -1398,16 +1401,21 @@ export const cabinetsRouter = router({
         .orderBy(cabinets.category, cabinets.masterCode);
 
       // Build XLSX — compute contractor/homeowner prices from Margins tab markup settings.
-      const { applyTierMarkup } = await import("../../shared/margins");
+      const { sellPriceForTier } = await import("../../shared/margins");
       const XLSX = await import("xlsx");
       const wsData = [
         ["masterCode", "description", "category", "subCategory", "placement",
          "width", "height", "depth", "doors", "drawers",
          "yourCost", "wholesalePrice", "contractorPrice", "homeownerPrice", "imageUrl"],
         ...rows.map((r) => {
-          const base = r.wholesalePrice ?? r.yourCost;
-          const contractorPrice = applyTierMarkup(base, ps, "contractor");
-          const homeownerPrice = applyTierMarkup(base, ps, "homeowner");
+          const costRow = {
+            yourCost: r.yourCost,
+            wholesalePrice: r.wholesalePrice,
+            adjustedListPrice: r.adjustedListPrice,
+            listPrice: r.listPrice,
+          };
+          const contractorPrice = sellPriceForTier(costRow, ps, "contractor");
+          const homeownerPrice = sellPriceForTier(costRow, ps, "homeowner");
           return [
             r.masterCode ?? "",
             r.description ?? "",
@@ -1626,6 +1634,7 @@ export const pricingRouter = router({
       // their assigned tier (guests default to homeowner/retail).
       const viewerTier = resolveStorefrontTier(ctx.user);
       const isAdmin = ctx.user?.role === "admin";
+      const ps = await getPricingSettings();
       const rows = await db
         .select({
           styleId: distributorSkus.styleId,
@@ -1680,13 +1689,26 @@ export const pricingRouter = router({
 
       return Array.from(byStyle.values())
         .map((r) => {
+          // Sell prices are ALWAYS computed from our cost base × the per-tier
+          // markup (matches the admin Margins tab). We never surface the stored,
+          // pre-marked-up price columns to the customer, so the markup can't be
+          // double-applied. The cost base itself stays entitlement-gated below.
+          const costRow = {
+            wholesalePrice: r.wholesalePrice,
+            adjustedListPrice: r.adjustedListPrice,
+            yourCost: r.yourCost,
+            listPrice: r.listPrice,
+          };
+          const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
+          const sellContractor = sellPriceForTier(costRow, ps, "contractor");
+          const sellWholesale = sellPriceForTier(costRow, ps, "wholesale");
           const gated = visiblePricesForViewer(
             {
               listPrice: r.listPrice,
               adjustedListPrice: r.adjustedListPrice,
-              wholesalePrice: r.wholesalePrice,
-              contractorPrice: r.contractorPrice,
-              homeownerPrice: r.homeownerPrice,
+              wholesalePrice: sellWholesale?.toFixed(2) ?? null,
+              contractorPrice: sellContractor?.toFixed(2) ?? null,
+              homeownerPrice: sellHomeowner?.toFixed(2) ?? null,
             },
             viewerTier,
             isAdmin,
@@ -1792,6 +1814,101 @@ export const pricingRouter = router({
         .set({ markupPercent: String(input.markupPercent) })
         .where(eq(distributors.id, input.distributorId));
       return { success: true } as const;
+    }),
+
+  // ─── Per-distributor cost Multiplier tab ─────────────────────────────────────
+  // ONE list-price multiplier per distributor line, applied to EVERY cabinet
+  // that line carries. Our true cost = listPrice × multiplier (stored in
+  // distributor_skus.yourCost), and every sell price is cost × the per-tier
+  // markup. This is the single lever for cost: when a supplier's list changes,
+  // the owner just updates the multiplier here and all costs/sell prices follow.
+  adminListDistributorMultipliers: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { rows: [] as unknown[] };
+    const rows = await db
+      .select({
+        id: distributors.id,
+        code: distributors.code,
+        name: distributors.name,
+        brandName: distributors.brandName,
+        costMultiplier: distributors.costMultiplier,
+        baseMultiplier: distributors.baseMultiplier,
+        freightMultiplier: distributors.freightMultiplier,
+        skuCount: sql<number>`COUNT(${distributorSkus.id})`,
+        avgListPrice: sql<number | null>`AVG(${distributorSkus.listPrice})`,
+      })
+      .from(distributors)
+      .leftJoin(distributorSkus, eq(distributorSkus.distributorId, distributors.id))
+      .where(eq(distributors.isActive, true))
+      .groupBy(
+        distributors.id,
+        distributors.code,
+        distributors.name,
+        distributors.brandName,
+        distributors.costMultiplier,
+        distributors.baseMultiplier,
+        distributors.freightMultiplier
+      )
+      .orderBy(asc(distributors.name));
+    return { rows };
+  }),
+
+  adminSetDistributorMultiplier: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number().int(),
+        // Two-part cost multiplier. base = the distributor's core cost fraction of
+        // list; freight = the freight/tariff add-on (can change independently, e.g.
+        // a tariff is lowered). Effective = base + freight, and cost = list × effective.
+        baseMultiplier: z.number().min(0).max(1),
+        freightMultiplier: z.number().min(0).max(1),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      const base = Math.round(input.baseMultiplier * 10000) / 10000;
+      const freight = Math.round(input.freightMultiplier * 10000) / 10000;
+      const mult = Math.round((base + freight) * 10000) / 10000;
+      if (mult < 0.01 || mult > 1) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Effective multiplier (base + freight) must be between 0.01 and 1.00.",
+        });
+      }
+      // 1) Persist the line's base/freight split and the computed effective multiplier.
+      await db
+        .update(distributors)
+        .set({
+          baseMultiplier: String(base),
+          freightMultiplier: String(freight),
+          costMultiplier: String(mult),
+        })
+        .where(eq(distributors.id, input.distributorId));
+      // 2) Recompute our cost for EVERY SKU on the line: yourCost = listPrice × multiplier.
+      //    Sell prices are derived at read time from yourCost, so nothing else
+      //    needs backfilling. Rows without a listPrice are left untouched.
+      const res = await db
+        .update(distributorSkus)
+        .set({ yourCost: sql`ROUND(${distributorSkus.listPrice} * ${mult}, 2)` })
+        .where(
+          and(
+            eq(distributorSkus.distributorId, input.distributorId),
+            sql`${distributorSkus.listPrice} IS NOT NULL`
+          )
+        );
+      const updated =
+        (res as unknown as { rowsAffected?: number; affectedRows?: number })
+          ?.rowsAffected ??
+        (res as unknown as { affectedRows?: number })?.affectedRows ??
+        0;
+      return {
+        success: true,
+        baseMultiplier: base,
+        freightMultiplier: freight,
+        multiplier: mult,
+        skusRecomputed: updated,
+      } as const;
     }),
 
   // ─── Cost Lookup / Verify & Correct (admin / owner) ──────────────────────────

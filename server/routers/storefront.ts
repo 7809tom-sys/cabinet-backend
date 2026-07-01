@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPricingSettings } from "../db";
-import { applyTierMarkup } from "@shared/margins";
+import { sellPriceForTier } from "@shared/margins";
 import {
   cabinets,
   distributors,
@@ -336,6 +336,11 @@ export const storefrontRouter = router({
         platformSku: distributorSkus.platformSku,
         homeownerPrice: distributorSkus.homeownerPrice,
         listPrice: distributorSkus.listPrice,
+        // Cost columns — the base the per-tier markup multiplies. Never shipped
+        // raw to the client; only used server-side to compute the sell price.
+        wholesalePrice: distributorSkus.wholesalePrice,
+        adjustedListPrice: distributorSkus.adjustedListPrice,
+        yourCost: distributorSkus.yourCost,
       };
 
       // When filtering by an Accessory group label, the group maps to several
@@ -354,11 +359,16 @@ export const storefrontRouter = router({
         const psAcc = await getPricingSettings();
         const pricedAcc = grouped
           .slice(input.offset, input.offset + input.limit)
-          .map((r) => ({
+          .map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
             ...r,
+            // Retail = cost base × homeowner markup (matches the admin tab). We
+            // strip the raw cost columns from the client payload.
             homeownerPrice:
-              applyTierMarkup(r.homeownerPrice, psAcc, "homeowner")?.toFixed(2) ??
-              r.homeownerPrice,
+              sellPriceForTier(
+                { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
+                psAcc,
+                "homeowner"
+              )?.toFixed(2) ?? r.homeownerPrice,
           }));
         return {
           items: pricedAcc,
@@ -384,11 +394,16 @@ export const storefrontRouter = router({
       // Apply the platform homeowner tier markup so the displayed retail price
       // reflects the admin's Pricing & Margins setting (0% => unchanged).
       const ps = await getPricingSettings();
-      const priced = rows.map((r) => ({
+      const priced = rows.map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
         ...r,
+        // Retail = cost base × homeowner markup (matches the admin tab). The raw
+        // cost columns are stripped from the client payload.
         homeownerPrice:
-          applyTierMarkup(r.homeownerPrice, ps, "homeowner")?.toFixed(2) ??
-          r.homeownerPrice,
+          sellPriceForTier(
+            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
+            ps,
+            "homeowner"
+          )?.toFixed(2) ?? r.homeownerPrice,
       }));
 
       return {
@@ -468,6 +483,10 @@ export const storefrontRouter = router({
         width: cabinets.width,
         platformSku: distributorSkus.platformSku,
         homeownerPrice: distributorSkus.homeownerPrice,
+        listPrice: distributorSkus.listPrice,
+        wholesalePrice: distributorSkus.wholesalePrice,
+        adjustedListPrice: distributorSkus.adjustedListPrice,
+        yourCost: distributorSkus.yourCost,
       };
 
       const runQuery = async (conds: typeof baseConditions) =>
@@ -501,7 +520,19 @@ export const storefrontRouter = router({
         ]);
       }
 
-      return { intent: input.intent, items: rows };
+      // Retail = cost base × homeowner markup; strip raw cost columns.
+      const psRec = await getPricingSettings();
+      const items = rows.map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
+        ...r,
+        homeownerPrice:
+          sellPriceForTier(
+            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
+            psRec,
+            "homeowner"
+          )?.toFixed(2) ?? r.homeownerPrice,
+      }));
+
+      return { intent: input.intent, items };
     }),
 
   // Glass-door upsell: given a solid-door WALL cabinet, return its glass-door
@@ -538,6 +569,9 @@ export const storefrontRouter = router({
           platformSku: distributorSkus.platformSku,
           homeownerPrice: distributorSkus.homeownerPrice,
           listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          yourCost: distributorSkus.yourCost,
         })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
@@ -554,7 +588,20 @@ export const storefrontRouter = router({
         )
         .limit(1);
 
-      return rows[0] ?? null;
+      const g = rows[0];
+      if (!g) return null;
+      // Retail = cost base × homeowner markup; strip raw cost columns.
+      const psG = await getPricingSettings();
+      const { wholesalePrice, adjustedListPrice, yourCost, ...rest } = g;
+      return {
+        ...rest,
+        homeownerPrice:
+          sellPriceForTier(
+            { wholesalePrice, adjustedListPrice, yourCost, listPrice: rest.listPrice },
+            psG,
+            "homeowner"
+          )?.toFixed(2) ?? rest.homeownerPrice,
+      };
     }),
 
   // ─── Affiliate white-label branding for a storefront ──────────────────────
