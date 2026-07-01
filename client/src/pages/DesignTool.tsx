@@ -1355,13 +1355,13 @@ export default function DesignTool() {
     // Cabinet taller than the room's ceiling height.
     ceilingViolationUids.forEach((uid: string) => set.add(uid));
     // Non-corner base cabinet placed at a room corner (needs BBC/ERB/LSB/CSB).
-    missingCornerBaseViolations(placed, room, island).forEach((uid: string) => set.add(uid));
+    missingCornerBaseViolations(placed, room, island, openings).forEach((uid: string) => set.add(uid));
     return set;
-  }, [placed, room, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
+  }, [placed, room, island, openings, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
   const hasConflicts = conflictUids.size > 0;
   const cornerBaseViolationUids = useMemo(
-    () => missingCornerBaseViolations(placed, room, island),
-    [placed, room, island]
+    () => missingCornerBaseViolations(placed, room, island, openings),
+    [placed, room, island, openings]
   );
   const blindMissingSpecCount = useMemo(
     () => Array.from(blindSpecIssues.values()).filter((v) => v === "missing-spec").length,

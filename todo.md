@@ -2274,3 +2274,10 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Add homeowner i18n keys (EN/ES); widen DesignActions tier types
 - [x] tsc clean + full vitest suite (1072 passing)
 - [ ] (DNS, not code) Apex cabinetdealz.com SSL fails — repoint apex to Manus; www works. Deferred per user.
+
+## Session: Corner conflict rule + Split Pantry
+- [x] Corner rule: only flag a standard base at a room corner when a door/opening is actually at that corner (wall-only corner = no conflict)
+- [x] Thread room openings into missingCornerBaseViolations (caller in DesignTool)
+- [x] Update/adjust design.test.ts corner-violation tests for new behavior
+- [x] tsc + vitest green
+- [ ] (next) Combined Clark & Son Split Pantry product: top(W-series)+bottom(UCB-series), one orderable item, price = top+bottom per style

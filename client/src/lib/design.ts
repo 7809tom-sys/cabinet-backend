@@ -2840,27 +2840,52 @@ export function makeSink(type: SinkType, x: number, y: number): SinkFixture {
 }
 
 // ─── Corner-base conflict detection ──────────────────────────────────────────
-// A standard base cabinet placed at a room corner (touching two walls) is a
-// layout problem: the cabinet door will hit the perpendicular wall or the
-// adjacent run, and a corner-specific cabinet (Blind Corner Base, Easy Reach,
-// Lazy Susan, Corner Sink Base) is needed instead.
+// A standard base cabinet placed at a room corner (touching two walls) is only a
+// layout problem when a DOOR / cased OPENING sits at that same corner — then the
+// cabinet would block the door swing/access and a corner-specific cabinet
+// (Blind Corner Base, Easy Reach, Lazy Susan, Corner Sink Base) or clearance is
+// needed instead. When the corner is just solid WALL on both sides, a standard
+// base in the corner is perfectly valid and must NOT be flagged.
 //
 // Detection: a base cabinet is "at a corner" when its footprint simultaneously
-// touches two perpendicular room walls (within a 2" snap tolerance).
+// touches two perpendicular room walls (within a 2" snap tolerance) AND at least
+// one door/opening on either of those two walls reaches that corner.
 //
 // Exemptions:
 //  - Cabinets that ARE corner types (BBC, CSB, ERB, LSB, UV-SBF, diagonal)
 //  - Fillers, panels, accessories, appliances, wall/tall cabinets
 //  - Island cabinets (they don't sit against room walls)
+//  - Corners with no door/opening reaching them (solid wall = OK)
+//
+// `openingReach` is how close (inches) a door/opening edge must come to the
+// corner to count as "at the corner".
 //
 // Returns the set of UIDs that should be flagged.
 export function missingCornerBaseViolations(
   placed: PlacedCabinet[],
   room: RoomData,
   island?: { x: number; y: number; width: number; depth: number } | null,
-  tol = 2
+  openings: WallOpening[] = [],
+  tol = 2,
+  openingReach = 2
 ): Set<string> {
   const violations = new Set<string>();
+
+  // Does a door/cased opening reach the given end ("near" = wall start, "far" =
+  // wall end) of the wall on `side`? Windows never block floor access, so only
+  // doors and cased openings count.
+  const openingAtWallEnd = (side: WallSide, end: "near" | "far"): boolean => {
+    const len = wallLength(side, room);
+    for (const o of openings) {
+      if (o.side !== side) continue;
+      if (o.kind !== "door" && o.kind !== "opening") continue;
+      const start = o.offset;
+      const finish = o.offset + o.width;
+      if (end === "near" && start <= openingReach) return true;
+      if (end === "far" && finish >= len - openingReach) return true;
+    }
+    return false;
+  };
 
   for (const p of placed) {
     // Only base-placement cabinets can have this violation.
@@ -2883,13 +2908,25 @@ export function missingCornerBaseViolations(
     const nearTop    = p.y <= tol;
     const nearBottom = Math.abs(p.y + d - room.depth) <= tol;
 
-    const atCorner =
-      (nearTop && nearLeft) ||
-      (nearTop && nearRight) ||
-      (nearBottom && nearLeft) ||
-      (nearBottom && nearRight);
+    // For each corner the cabinet occupies, only flag it when a door/opening
+    // actually reaches that corner on either of the two forming walls. The
+    // wall-start/end mapping: top/bottom run left→right (near=left corner),
+    // left/right run top→bottom (near=top corner).
+    let flag = false;
+    if (nearTop && nearLeft) {
+      if (openingAtWallEnd("top", "near") || openingAtWallEnd("left", "near")) flag = true;
+    }
+    if (nearTop && nearRight) {
+      if (openingAtWallEnd("top", "far") || openingAtWallEnd("right", "near")) flag = true;
+    }
+    if (nearBottom && nearLeft) {
+      if (openingAtWallEnd("bottom", "near") || openingAtWallEnd("left", "far")) flag = true;
+    }
+    if (nearBottom && nearRight) {
+      if (openingAtWallEnd("bottom", "far") || openingAtWallEnd("right", "far")) flag = true;
+    }
 
-    if (atCorner) {
+    if (flag) {
       violations.add(p.uid);
     }
   }

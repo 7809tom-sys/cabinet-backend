@@ -24,7 +24,7 @@ import {
   isStacker,
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedFootprint, normalizeLCornerDepths,
-  baseOpeningOverlaps, blocksFloorRun,
+  baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
   snapPosition, orientToWall, hasCollision,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
@@ -2222,5 +2222,109 @@ describe("ceiling height fit checks", () => {
   it("never flags base or appliance cabinets", () => {
     const base = cab({ uid: "b1", placement: "base", x: 0, y: 0, width: 24, depth: 24, height: 34.5 });
     expect(ceilingFitViolations([base], { ceilingHeight: 84 }).size).toBe(0);
+  });
+});
+
+
+describe("missingCornerBaseViolations (only flags a corner base when a door/opening is at that corner)", () => {
+  // 10ft x 10ft room so the bottom-left corner is at (0, room.depth).
+  const ROOM: RoomData = { width: 120, depth: 120 };
+
+  // A plain 18" base sitting in the bottom-left corner: touches the LEFT wall
+  // (x=0) and the BOTTOM wall (y + depth == room.depth).
+  const cornerBase = (): PlacedCabinet =>
+    cab({
+      uid: "b18",
+      masterCode: "B-18",
+      description: "Base 18",
+      placement: "base",
+      x: 0,
+      y: ROOM.depth - 24,
+      width: 18,
+      depth: 24,
+      rotation: 0,
+    });
+
+  it("does NOT flag a standard base in a wall-only corner (no door there)", () => {
+    const v = missingCornerBaseViolations([cornerBase()], ROOM, null, []);
+    expect(v.has("b18")).toBe(false);
+    expect(v.size).toBe(0);
+  });
+
+  it("does NOT flag when the only opening is far from the corner", () => {
+    // A door in the MIDDLE of the bottom wall (offset 48..78 on a 120" wall).
+    const door = makeOpening(
+      OPENINGS.find((o) => o.key === "interior-door")!,
+      "bottom",
+      ROOM,
+    );
+    // makeOpening centers it; that's mid-wall, nowhere near the left corner.
+    const v = missingCornerBaseViolations([cornerBase()], ROOM, null, [door]);
+    expect(v.has("b18")).toBe(false);
+  });
+
+  it("DOES flag a standard base when a door reaches that corner", () => {
+    // Door on the bottom wall pushed to the left corner (offset 0).
+    const door: WallOpening = {
+      uid: "d1",
+      kind: "door",
+      label: "Interior Door 30\"",
+      side: "bottom",
+      offset: 0,
+      width: 30,
+      height: 80,
+      sill: 0,
+    };
+    const v = missingCornerBaseViolations([cornerBase()], ROOM, null, [door]);
+    expect(v.has("b18")).toBe(true);
+  });
+
+  it("DOES flag when a door reaches the corner from the perpendicular (left) wall", () => {
+    // Door on the LEFT wall pushed to its far end (bottom corner).
+    const door: WallOpening = {
+      uid: "d2",
+      kind: "door",
+      label: "Interior Door 30\"",
+      side: "left",
+      offset: ROOM.depth - 30,
+      width: 30,
+      height: 80,
+      sill: 0,
+    };
+    const v = missingCornerBaseViolations([cornerBase()], ROOM, null, [door]);
+    expect(v.has("b18")).toBe(true);
+  });
+
+  it("a WINDOW at the corner does NOT flag (windows don't block floor access)", () => {
+    const win: WallOpening = {
+      uid: "w1",
+      kind: "window",
+      label: "Window 36\"",
+      side: "bottom",
+      offset: 0,
+      width: 36,
+      height: 36,
+      sill: 42,
+    };
+    const v = missingCornerBaseViolations([cornerBase()], ROOM, null, [win]);
+    expect(v.has("b18")).toBe(false);
+  });
+
+  it("never flags a proper corner cabinet (e.g. BBC) even with a door at the corner", () => {
+    const bbc = cab({
+      uid: "bbc",
+      masterCode: "BBC-42",
+      description: "Blind Base Corner 42",
+      placement: "base",
+      x: 0,
+      y: ROOM.depth - 24,
+      width: 42,
+      depth: 24,
+    });
+    const door: WallOpening = {
+      uid: "d3", kind: "door", label: "d", side: "bottom", offset: 0, width: 30, height: 80, sill: 0,
+    };
+    const v = missingCornerBaseViolations([bbc], ROOM, null, [door]);
+    expect(v.has("bbc")).toBe(false);
   });
 });
