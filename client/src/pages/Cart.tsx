@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Link } from "wouter";
 import {
-  ShoppingCart, Trash2, Plus, Minus, MapPin, Truck, AlertTriangle, Check, Loader2,
+  ShoppingCart, Trash2, Plus, Minus, MapPin, Truck, AlertTriangle, Check, Loader2, Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,13 +131,37 @@ export default function Cart() {
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         {/* Items */}
         <div className="space-y-4">
-          {items.map((item) => {
+          {(() => {
+            // Group bundle parts (e.g. a Split Pantry's top + bottom) into a
+            // single visual group under one heading; loose items render standalone.
+            type Grp =
+              | { kind: "single"; item: (typeof items)[number] }
+              | { kind: "bundle"; bundleId: string; label: string; parts: typeof items };
+            const groups: Grp[] = [];
+            const idxByBundle = new Map<string, number>();
+            for (const item of items) {
+              if (item.bundleId) {
+                const idx = idxByBundle.get(item.bundleId);
+                if (idx == null) {
+                  idxByBundle.set(item.bundleId, groups.length);
+                  groups.push({ kind: "bundle", bundleId: item.bundleId, label: item.bundleLabel ?? "Split Pantry", parts: [item] });
+                } else {
+                  (groups[idx] as Extract<Grp, { kind: "bundle" }>).parts.push(item);
+                }
+              } else {
+                groups.push({ kind: "single", item });
+              }
+            }
+
+            const renderRow = (item: (typeof items)[number], inBundle: boolean) => {
             const a = itemAvailability(item.distributorId);
             const lineTotal = item.unitPrice != null ? item.unitPrice * item.qty : null;
             return (
               <div
-                key={`${item.masterCode}-${item.styleId}-${item.tier}`}
-                className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center"
+                key={`${item.masterCode}-${item.styleId}-${item.tier}-${item.bundleId ?? ""}`}
+                className={inBundle
+                  ? "flex flex-col gap-3 p-3 sm:flex-row sm:items-center"
+                  : "flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center"}
               >
                 {/* Shared cabinet artwork — same CabinetImage used in the catalog,
                     detail page, and Design Tool palette (falls back to an accurate
@@ -214,7 +238,50 @@ export default function Cart() {
                 </Button>
               </div>
             );
-          })}
+            };
+
+            return groups.map((g) => {
+              if (g.kind === "single") return renderRow(g.item, false);
+              const groupTotal = g.parts.reduce(
+                (sum, p) => (p.unitPrice != null ? sum + p.unitPrice * p.qty : sum),
+                0
+              );
+              const first = g.parts[0];
+              return (
+                <div
+                  key={`bundle-${g.bundleId}`}
+                  className="overflow-hidden rounded-xl border border-border bg-card"
+                >
+                  <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-4 py-2.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Package className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate text-sm font-semibold">{g.label}</span>
+                      <span className="hidden text-xs text-muted-foreground sm:inline">
+                        {first?.styleLabel} · {g.parts.length} {t("crt_pieces")}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold">{money(groupTotal || null)}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() =>
+                          first && removeItem(first.masterCode, first.styleId, first.tier)
+                        }
+                        aria-label={t("crt_remove_item")}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-border">
+                    {g.parts.map((p) => renderRow(p, true))}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
 
         {/* Summary */}

@@ -286,3 +286,145 @@ export async function updatePlatformPricingSettings(
     await db.update(platformPricingSettings).set(values).where(eq(platformPricingSettings.id, rows[0].id));
   }
 }
+
+
+// ─── Split Pantry bundles ───────────────────────────────────────────────────
+// A Split Pantry is a top wall cabinet (W-series) stacked on a tall bottom wall
+// cabinet (UCB-series). The pantry_bundles table pairs the two part master codes
+// per distributor + door style + width + total height. We price a bundle by
+// summing the two REAL part SKUs' tier prices (the stored bundle price columns
+// were seeded equal across tiers and are not authoritative), so a Split Pantry
+// prices exactly like adding its two parts individually.
+import { pantryBundles, distributorSkus, doorStyles } from "../drizzle/schema";
+import { and, inArray } from "drizzle-orm";
+
+export type SplitPantryPartPrices = {
+  masterCode: string;
+  description: string;
+  distributorSku: string | null;
+  listPrice: string | null;
+  adjustedListPrice: string | null;
+  wholesalePrice: string | null;
+  contractorPrice: string | null;
+  homeownerPrice: string | null;
+  yourCost: string | null;
+};
+
+export type SplitPantryBundleRow = {
+  platformSku: string;
+  distributorId: number;
+  styleId: number;
+  width: number;
+  totalHeight: number;
+  topSku: string;
+  bottomSku: string;
+  top: SplitPantryPartPrices | null;
+  bottom: SplitPantryPartPrices | null;
+};
+
+// Fetch the real part-SKU price rows for a set of (distributor, style, masterCode).
+async function loadPartPrices(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  distributorId: number,
+  styleId: number,
+  masterCodes: string[],
+): Promise<Map<string, SplitPantryPartPrices>> {
+  const map = new Map<string, SplitPantryPartPrices>();
+  if (masterCodes.length === 0) return map;
+  const rows = await db
+    .select({
+      masterCode: cabinets.masterCode,
+      description: cabinets.description,
+      distributorSku: distributorSkus.distributorSku,
+      listPrice: distributorSkus.listPrice,
+      adjustedListPrice: distributorSkus.adjustedListPrice,
+      wholesalePrice: distributorSkus.wholesalePrice,
+      contractorPrice: distributorSkus.contractorPrice,
+      homeownerPrice: distributorSkus.homeownerPrice,
+      yourCost: distributorSkus.yourCost,
+    })
+    .from(distributorSkus)
+    .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+    .where(
+      and(
+        eq(distributorSkus.distributorId, distributorId),
+        eq(distributorSkus.styleId, styleId),
+        inArray(cabinets.masterCode, masterCodes),
+      ),
+    );
+  for (const r of rows) {
+    map.set(r.masterCode, r as SplitPantryPartPrices);
+  }
+  return map;
+}
+
+/** All split-pantry bundles for one door style, with real part prices attached. */
+export async function getSplitPantriesByStyle(styleId: number): Promise<SplitPantryBundleRow[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const bundles = await db
+    .select()
+    .from(pantryBundles)
+    .where(eq(pantryBundles.styleId, styleId));
+  if (bundles.length === 0) return [];
+  const distributorId = bundles[0].distributorId;
+  const codes = Array.from(
+    new Set(bundles.flatMap((b) => [b.topSku, b.bottomSku])),
+  );
+  const parts = await loadPartPrices(db, distributorId, styleId, codes);
+  return bundles.map((b) => ({
+    platformSku: b.platformSku,
+    distributorId: b.distributorId,
+    styleId: b.styleId,
+    width: b.width,
+    totalHeight: b.totalHeight,
+    topSku: b.topSku,
+    bottomSku: b.bottomSku,
+    top: parts.get(b.topSku) ?? null,
+    bottom: parts.get(b.bottomSku) ?? null,
+  }));
+}
+
+/** One split-pantry bundle by its platform SKU, with real part prices attached. */
+export async function getSplitPantryBySku(platformSku: string): Promise<SplitPantryBundleRow | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(pantryBundles)
+    .where(eq(pantryBundles.platformSku, platformSku))
+    .limit(1);
+  const b = rows[0];
+  if (!b) return null;
+  const parts = await loadPartPrices(db, b.distributorId, b.styleId, [b.topSku, b.bottomSku]);
+  return {
+    platformSku: b.platformSku,
+    distributorId: b.distributorId,
+    styleId: b.styleId,
+    width: b.width,
+    totalHeight: b.totalHeight,
+    topSku: b.topSku,
+    bottomSku: b.bottomSku,
+    top: parts.get(b.topSku) ?? null,
+    bottom: parts.get(b.bottomSku) ?? null,
+  };
+}
+
+/** Door styles that actually have split-pantry bundles (for gating UI entry points). */
+export async function getSplitPantryStyleIds(): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({ styleId: pantryBundles.styleId })
+    .from(pantryBundles)
+    .groupBy(pantryBundles.styleId);
+  return rows.map((r) => r.styleId);
+}
+
+/** Resolve a door style row (id, code, label) for split-pantry presentation. */
+export async function getDoorStyleById(styleId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(doorStyles).where(eq(doorStyles.id, styleId)).limit(1);
+  return rows[0] ?? null;
+}

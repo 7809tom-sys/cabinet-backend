@@ -1,8 +1,103 @@
 import { z } from "zod";
 import { and, eq, inArray } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
-import { getDb, notInConflict } from "../db";
+import {
+  getDb,
+  notInConflict,
+  getSplitPantriesByStyle,
+  getSplitPantryBySku,
+  getDoorStyleById,
+  type SplitPantryBundleRow,
+  type SplitPantryPartPrices,
+} from "../db";
 import { cabinets, distributorSkus, pantryBundles } from "../../drizzle/schema";
+import {
+  resolveTierPrice,
+  resolveStorefrontTier,
+  tierLabel,
+  type PricingTier,
+} from "../../shared/pricingTier";
+
+// A split-pantry part as presented to the client: the viewer-tier unit price for
+// that single piece, plus enough identity to add it to the cart as a real SKU.
+export type SplitPantryPartView = {
+  role: "top" | "bottom";
+  masterCode: string;
+  name: string;
+  unitPrice: number | null;
+};
+
+// One orderable Split Pantry: the two parts + the combined viewer-tier price.
+export type SplitPantryView = {
+  platformSku: string;
+  distributorId: number;
+  styleId: number;
+  styleLabel: string;
+  width: number;
+  topHeight: number;
+  totalHeight: number;
+  tier: PricingTier;
+  tierLabel: string;
+  combinedPrice: number | null;
+  top: SplitPantryPartView;
+  bottom: SplitPantryPartView;
+};
+
+function partPrices(p: SplitPantryPartPrices | null): {
+  wholesalePrice: string | null;
+  contractorPrice: string | null;
+  homeownerPrice: string | null;
+  adjustedListPrice: string | null;
+  listPrice: string | null;
+} {
+  return {
+    wholesalePrice: p?.wholesalePrice ?? null,
+    contractorPrice: p?.contractorPrice ?? null,
+    homeownerPrice: p?.homeownerPrice ?? null,
+    adjustedListPrice: p?.adjustedListPrice ?? null,
+    listPrice: p?.listPrice ?? null,
+  };
+}
+
+// Build the viewer-facing Split Pantry from a raw bundle row (with real parts).
+// The combined price is the SUM of the two parts priced at the viewer's tier —
+// exactly what the customer would pay adding the top and bottom individually.
+function toView(b: SplitPantryBundleRow, tier: PricingTier, styleLabel: string): SplitPantryView {
+  const topUnit = b.top ? resolveTierPrice(tier, partPrices(b.top)) : null;
+  const botUnit = b.bottom ? resolveTierPrice(tier, partPrices(b.bottom)) : null;
+  const combined = topUnit != null && botUnit != null ? Math.round((topUnit + botUnit) * 100) / 100 : null;
+  const topHeight = b.totalHeight - 54; // bottom is always 54" tall
+  return {
+    platformSku: b.platformSku,
+    distributorId: b.distributorId,
+    styleId: b.styleId,
+    styleLabel,
+    width: b.width,
+    topHeight,
+    totalHeight: b.totalHeight,
+    tier,
+    tierLabel: tierLabel(tier),
+    combinedPrice: combined,
+    top: {
+      role: "top",
+      masterCode: b.topSku,
+      name: b.top?.description ?? `${b.width}\" Wall Cabinet (top)`,
+      unitPrice: topUnit,
+    },
+    bottom: {
+      role: "bottom",
+      masterCode: b.bottomSku,
+      name: b.bottom?.description ?? `${b.width}\" x 54\" Base (bottom)`,
+      unitPrice: botUnit,
+    },
+  };
+}
+
+// Resolve the public-facing style label (alias > ourName > code).
+function styleLabelOf(style: Awaited<ReturnType<typeof getDoorStyleById>>): string {
+  if (!style) return "";
+  return style.aliasName || style.ourName || style.styleCode || "";
+}
 
 // ─── Split Pantry pairing ──────────────────────────────────────────────────────
 // Faircrest (Clark & Son) tall pantries are sold as TWO pieces: a 54"H bottom
@@ -153,5 +248,36 @@ export const pantryRouter = router({
         platformSku: sku?.platformSku ?? null,
         styleId: input.styleId,
       };
+    }),
+
+  // ── Customer-facing Split Pantry catalog ──────────────────────────────────
+  // List every orderable Split Pantry for a door style, priced at the viewer's
+  // tier (guests see homeowner/retail). Each entry carries its two real parts so
+  // the client can add both to the cart under one grouped heading.
+  listByStyle: publicProcedure
+    .input(z.object({ styleId: z.number().int().positive() }))
+    .query(async ({ ctx, input }): Promise<SplitPantryView[]> => {
+      const tier = resolveStorefrontTier(ctx.user);
+      const [bundles, style] = await Promise.all([
+        getSplitPantriesByStyle(input.styleId),
+        getDoorStyleById(input.styleId),
+      ]);
+      const label = styleLabelOf(style);
+      return bundles
+        .map((b) => toView(b, tier, label))
+        // Only surface pantries whose both parts have a usable price.
+        .filter((v) => v.combinedPrice != null)
+        .sort((a, b) => a.width - b.width || a.totalHeight - b.totalHeight);
+    }),
+
+  // Fetch a single Split Pantry by its platform SKU, priced at the viewer's tier.
+  getBySku: publicProcedure
+    .input(z.object({ platformSku: z.string().min(1) }))
+    .query(async ({ ctx, input }): Promise<SplitPantryView | null> => {
+      const tier = resolveStorefrontTier(ctx.user);
+      const bundle = await getSplitPantryBySku(input.platformSku);
+      if (!bundle) return null;
+      const style = await getDoorStyleById(bundle.styleId);
+      return toView(bundle, tier, styleLabelOf(style));
     }),
 });

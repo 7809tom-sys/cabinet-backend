@@ -2281,3 +2281,33 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Update/adjust design.test.ts corner-violation tests for new behavior
 - [x] tsc + vitest green
 - [ ] (next) Combined Clark & Son Split Pantry product: top(W-series)+bottom(UCB-series), one orderable item, price = top+bottom per style
+
+## Session: Split Pantry (combined product)
+- [ ] Add pantryBundles helpers in server/db.ts (list by style, get by platformSku) joining top/bottom SKUs
+- [ ] Server: splitPantry router — listByStyle + get, computing correct per-tier prices from the two part SKUs (not the equal stored columns)
+- [ ] Cart: allow adding a Split Pantry so it shows as two grouped lines (top+bottom) under one "Split Pantry" heading
+- [ ] UI: Split Pantry configurator (width 24/30/36 + top height 30/36/42 -> total 84/90/96) per door style, combined price, add-to-cart
+- [ ] Surface Split Pantry entry on the family/style page (Clark & Son / distributor 2 styles only)
+- [ ] Tests for pricing + bundle lookup; tsc + vitest green
+
+
+## Session: Split Pantry + W-30-12 + Auto-fillers
+- [x] Corner-conflict rule: only flag corner base when a door/opening is at that corner
+- [x] Split Pantry server: pantry.listByStyle + getBySku with per-tier combined pricing
+- [x] Cart: group Split Pantry parts (top+bottom) under one heading (Option B)
+- [ ] Split Pantry configurator UI on Family page (pick width + total height, add both parts)
+- [ ] Fix W-30-12 (30x12 wall) missing from Design Tool palette
+- [ ] Auto-fillers between adjacent cabinets: gap<=3" bills 3", 3"<gap<=6" bills 6", >6" nothing; billed line + build sheet
+
+## Session: Missing cabinets in designer (price backfill)
+- [ ] Analyze: infer per-cabinet price bands from existing SKUs and map every door style to its band (per distributor/line)
+- [ ] Report backfill scope: how many missing cabinet x style SKUs would be created, with a verification sample (W-30-12 etc.)
+- [ ] Get owner approval on inferred band-to-style mapping BEFORE creating any SKUs
+- [ ] Backfill missing cabinet x style SKUs at the correct band price (real prices only, never fabricated flat numbers)
+- [ ] Verify W-30-12 and other previously-missing cabinets now appear in the designer for the relevant styles
+
+## Session: Merge duplicate "Lumina White" (Option 1 — confirmed)
+- [ ] Merge styles 30001 (ASP/Line2, 144 SKUs) + 30022 (AW/Line3, 249 SKUs) into ONE customer-facing "Lumina White" in every picker (Door Styles list, designer picker, family/catalog)
+- [ ] Keep both DB rows; dedupe display only; resolve best-priced available SKU across the two lines
+- [ ] Never expose distributor/line names publicly
+- [ ] Add/adjust unit tests for the dedupe/merge logic; tsc + full suite green

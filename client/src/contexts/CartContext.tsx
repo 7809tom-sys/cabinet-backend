@@ -17,6 +17,12 @@ export type CartItem = {
   tier: import("@shared/pricingTier").PricingTier;
   unitPrice: number | null; // null = quoted later
   qty: number;
+  // Optional bundle grouping (e.g. a Split Pantry made of a top + bottom part).
+  // Both parts share the same bundleId so the cart UI can group them under one
+  // heading; pricing/keying stay per-part. `bundleRole` marks top vs bottom.
+  bundleId?: string;
+  bundleLabel?: string;
+  bundleRole?: "top" | "bottom";
 };
 
 // Result of an addItem attempt. The cart is locked to ONE DISTRIBUTOR (supply
@@ -55,8 +61,12 @@ const CartContext = createContext<CartState | null>(null);
 const STORAGE_KEY = "cd_cart_v1";
 const ZIP_KEY = "cd_cart_zip_v1";
 
-function lineKey(i: Pick<CartItem, "masterCode" | "styleId" | "tier">) {
-  return `${i.masterCode}::${i.styleId}::${i.tier}`;
+function lineKey(
+  i: Pick<CartItem, "masterCode" | "styleId" | "tier"> & { bundleId?: string },
+) {
+  // Bundle parts are keyed with their bundleId so two different Split Pantries
+  // (or a loose part vs a bundled part) never collapse into one line.
+  return `${i.masterCode}::${i.styleId}::${i.tier}::${i.bundleId ?? ""}`;
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -129,16 +139,39 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     };
     const removeItem: CartState["removeItem"] = (masterCode, styleId, tier) => {
-      const k = lineKey({ masterCode, styleId, tier });
-      setItems((prev) => prev.filter((p) => lineKey(p) !== k));
+      setItems((prev) => {
+        const target = prev.find(
+          (p) => p.masterCode === masterCode && p.styleId === styleId && p.tier === tier,
+        );
+        // Removing one part of a Split Pantry removes the whole bundle group.
+        if (target?.bundleId) {
+          return prev.filter((p) => p.bundleId !== target.bundleId);
+        }
+        return prev.filter(
+          (p) => !(p.masterCode === masterCode && p.styleId === styleId && p.tier === tier && !p.bundleId),
+        );
+      });
     };
     const setQty: CartState["setQty"] = (masterCode, styleId, tier, qty) => {
-      const k = lineKey({ masterCode, styleId, tier });
-      setItems((prev) =>
-        prev
-          .map((p) => (lineKey(p) === k ? { ...p, qty: Math.max(0, qty) } : p))
-          .filter((p) => p.qty > 0)
-      );
+      setItems((prev) => {
+        const target = prev.find(
+          (p) => p.masterCode === masterCode && p.styleId === styleId && p.tier === tier,
+        );
+        const next = Math.max(0, qty);
+        // A Split Pantry's two parts move together (1 pantry = 1 top + 1 bottom).
+        if (target?.bundleId) {
+          return prev
+            .map((p) => (p.bundleId === target.bundleId ? { ...p, qty: next } : p))
+            .filter((p) => p.qty > 0);
+        }
+        return prev
+          .map((p) =>
+            p.masterCode === masterCode && p.styleId === styleId && p.tier === tier && !p.bundleId
+              ? { ...p, qty: next }
+              : p,
+          )
+          .filter((p) => p.qty > 0);
+      });
     };
     const clear = () => setItems([]);
     const setZip = (z: string | null) => setZipState(z);
