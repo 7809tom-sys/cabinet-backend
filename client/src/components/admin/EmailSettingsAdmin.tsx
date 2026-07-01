@@ -100,8 +100,9 @@ export default function EmailSettingsAdmin() {
             </Badge>
           </div>
           <CardDescription>
-            Configure your Hostinger (or any SMTP) email account. Credentials are stored securely in the
-            database — you never need to touch environment variables.
+            Configure your Titan (or any SMTP) email account for outbound mail — order confirmations,
+            quote replies, and test emails. Credentials are stored securely in the database; you never
+            need to touch environment variables.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -121,7 +122,7 @@ export default function EmailSettingsAdmin() {
             <div className="space-y-1.5">
               <Label>SMTP Host</Label>
               <Input
-                placeholder="smtp.hostinger.com"
+                placeholder="smtp.titan.email"
                 value={form.smtpHost}
                 onChange={(e) => set({ smtpHost: e.target.value })}
               />
@@ -139,7 +140,7 @@ export default function EmailSettingsAdmin() {
             <div className="space-y-1.5">
               <Label>Username (email address)</Label>
               <Input
-                placeholder="info@cabinetdealz.com"
+                placeholder="sales@cabinetdealz.com"
                 value={form.smtpUser}
                 onChange={(e) => set({ smtpUser: e.target.value })}
               />
@@ -163,7 +164,7 @@ export default function EmailSettingsAdmin() {
             <div className="space-y-1.5 sm:col-span-2">
               <Label>From address (optional)</Label>
               <Input
-                placeholder="Cabinet Dealz &lt;info@cabinetdealz.com&gt;"
+                placeholder="Cabinet Dealz &lt;sales@cabinetdealz.com&gt;"
                 value={form.smtpFrom}
                 onChange={(e) => set({ smtpFrom: e.target.value })}
               />
@@ -225,24 +226,26 @@ export default function EmailSettingsAdmin() {
         </CardContent>
       </Card>
 
-      {/* Hostinger quick-reference */}
+      {/* Titan quick-reference */}
       <Card className="bg-muted/30">
         <CardContent className="pt-4">
-          <p className="text-sm font-medium mb-2">Hostinger SMTP Quick Reference</p>
+          <p className="text-sm font-medium mb-2">Titan Email SMTP Quick Reference</p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Host</span>
-            <span>smtp.hostinger.com</span>
+            <span>smtp.titan.email</span>
             <span className="font-medium text-foreground">Port (SSL)</span>
             <span>465</span>
-            <span className="font-medium text-foreground">Port (TLS)</span>
+            <span className="font-medium text-foreground">Port (STARTTLS)</span>
             <span>587</span>
             <span className="font-medium text-foreground">Username</span>
-            <span>Your full email address (e.g. info@cabinetdealz.com)</span>
+            <span>Your full email address (e.g. sales@cabinetdealz.com)</span>
             <span className="font-medium text-foreground">Password</span>
-            <span>Your Hostinger email account password</span>
+            <span>Your Titan mailbox password</span>
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            Find these in Hostinger → Email → Email Accounts → Manage → Connect Devices → Manual Setup.
+            These are your Titan Email settings for cabinetdealz.com. Enter the mailbox password for the
+            address above, Save, then use Send Test Email to confirm it works. If you use 587, sending uses
+            STARTTLS; 465 uses SSL.
           </p>
         </CardContent>
       </Card>

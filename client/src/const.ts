@@ -9,6 +9,11 @@ export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
  */
 export type LoginProvider = "google" | "apple" | "microsoft" | "github" | "email";
 
+// Titan-hosted webmail for the cabinetdealz.com mailboxes (sales@, etc.).
+// The admin panel links to this so staff can open the real inbox in a new tab
+// instead of the app trying to embed a full email client.
+export const WEBMAIL_URL = "https://mail.titan.email";
+
 // Generate login URL at runtime so redirect URI reflects the current origin.
 // This is what makes the flow work on localhost, the *.manus.space preview,
 // AND a custom domain like cabinetdeals.com without any code change — the

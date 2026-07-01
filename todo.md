@@ -2247,3 +2247,13 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Image UPLOAD to S3 via cabinets.adminUploadCatalogImage (reusable ImageField), alongside paste-URL, with live preview + 10MB guard.
 - [x] Edits save via doorStyles.adminUpdateDoorStyle and propagate site-wide (catalog, family, designer swatch, home showcase) — those pages already read these fields.
 - [x] tsc clean; full vitest 1070 pass; checkpoint + deliver.
+
+
+## Session: CRM email (send from deal card via Titan SMTP)
+- [x] Point Email Settings tab at Titan (smtp.titan.email, sales@cabinetdealz.com) instead of Hostinger
+- [x] Added "Email Inbox" link in admin header (opens Titan webmail)
+- [ ] Server: sendCrmEmail procedure that sends via saved SMTP settings, from smtpFrom
+- [ ] Persist a crm_email_log row per sent email (leadId, to, subject, body, sentBy, sentAt)
+- [ ] UI: Email button + composer dialog on CRM deal cards; show sent history on the card
+- [ ] Guard: block send if SMTP not configured/enabled, with a helpful message pointing to Email Settings
+- [ ] Tests + tsc clean + checkpoint + deliver

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+import { getLoginUrl, WEBMAIL_URL } from "@/const";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import {
   Search,
   UserRound,
   DollarSign,
+  Inbox,
 } from "lucide-react";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
@@ -565,10 +566,19 @@ export default function Admin() {
   if (isDesigner) {
     return (
       <div className="container py-10">
-        <h1 className="font-serif text-3xl font-bold mb-1">Designer Workspace</h1>
-        <p className="text-muted-foreground mb-8">
-          Manage your consultation availability and track your leads and deals.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-8">
+          <div>
+            <h1 className="font-serif text-3xl font-bold mb-1">Designer Workspace</h1>
+            <p className="text-muted-foreground">
+              Manage your consultation availability and track your leads and deals.
+            </p>
+          </div>
+          <a href={WEBMAIL_URL} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" className="gap-2">
+              <Inbox className="h-4 w-4" /> Email Inbox
+            </Button>
+          </a>
+        </div>
         <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
           <TabsList>
             <TabsTrigger value="crm">Sales CRM</TabsTrigger>
@@ -587,10 +597,19 @@ export default function Admin() {
 
   return (
     <div className="container py-10">
-      <h1 className="font-serif text-3xl font-bold mb-1">Admin</h1>
-      <p className="text-muted-foreground mb-8">
-        Manage affiliates, review Pro Network applications, and handle countertop quote requests.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-8">
+        <div>
+          <h1 className="font-serif text-3xl font-bold mb-1">Admin</h1>
+          <p className="text-muted-foreground">
+            Manage affiliates, review Pro Network applications, and handle countertop quote requests.
+          </p>
+        </div>
+        <a href={WEBMAIL_URL} target="_blank" rel="noopener noreferrer">
+          <Button variant="outline" className="gap-2">
+            <Inbox className="h-4 w-4" /> Email Inbox
+          </Button>
+        </a>
+      </div>
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
         <TabsList className="h-auto w-full flex-wrap justify-start gap-y-1">
