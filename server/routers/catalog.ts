@@ -1649,6 +1649,7 @@ export const pricingRouter = router({
         .from(distributorSkus)
         .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
         .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .where(
           and(
             eq(distributorSkus.cabinetId, input.cabinetId),
