@@ -7,6 +7,8 @@ import {
   crmDeals,
   crmActivities,
   crmDealDesigns,
+  crmEmailLog,
+  emailSettings,
   kitchenDesigns,
   affiliates,
   orderRequests,
@@ -14,12 +16,15 @@ import {
   salesCommissions,
   users,
 } from "../../drizzle/schema";
+import nodemailer from "nodemailer";
 import {
   CRM_STAGES,
   CRM_PRIORITIES,
   CRM_ACTIVITY_KINDS,
   CRM_LANGUAGES,
   isClosedStage,
+  crmEmailBlockedReason,
+  crmEmailBodyToHtml,
   type CrmStage,
 } from "@shared/crm";
 import {
@@ -187,7 +192,12 @@ export const crmRouter = router({
         .from(crmDealDesigns)
         .where(eq(crmDealDesigns.dealId, deal.id))
         .orderBy(desc(crmDealDesigns.createdAt));
-      return { deal, activities, linkedDesigns };
+      const emails = await db
+        .select()
+        .from(crmEmailLog)
+        .where(eq(crmEmailLog.dealId, deal.id))
+        .orderBy(desc(crmEmailLog.sentAt));
+      return { deal, activities, linkedDesigns, emails };
     }),
 
   // ── Saved designs the caller can attach (their own, by name) ────────────────
@@ -374,6 +384,105 @@ export const crmRouter = router({
         dueAt: input.dueAt != null ? new Date(input.dueAt) : null,
       });
       // touch the deal so it sorts to the top of its column
+      await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
+      return { ok: true };
+    }),
+
+  // ── Sent-email history for a deal ────────────────────────────────────────────
+  emailLog: protectedProcedure
+    .input(z.object({ dealId: z.number().int() }))
+    .query(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+      return db
+        .select()
+        .from(crmEmailLog)
+        .where(eq(crmEmailLog.dealId, deal.id))
+        .orderBy(desc(crmEmailLog.sentAt));
+    }),
+
+  // ── SMTP readiness for the composer (no secrets returned) ────────────────────
+  emailReadiness: protectedProcedure.query(async ({ ctx }) => {
+    // Any CRM-scoped caller may check; scope is enforced on send.
+    await resolveScope(ctx);
+    const db = await getDb();
+    if (!db) return { configured: false, enabled: false, from: "" };
+    const rows = await db.select().from(emailSettings).limit(1);
+    const s = rows[0];
+    const configured = !!(s?.smtpHost && s?.smtpUser && s?.smtpPass);
+    return {
+      configured,
+      enabled: s?.enabled ?? false,
+      from: s?.smtpFrom || s?.smtpUser || "",
+    };
+  }),
+
+  // ── Send an email to the deal contact via the site's saved SMTP ──────────────
+  // Sends from the saved smtpFrom (e.g. sales@cabinetdealz.com), logs the email
+  // on the deal (crm_email_log) and drops an "email" activity on the timeline.
+  // Blocks with a helpful reason when SMTP is not configured or disabled.
+  sendEmail: protectedProcedure
+    .input(
+      z.object({
+        dealId: z.number().int(),
+        to: z.string().email(),
+        subject: z.string().min(1).max(512),
+        body: z.string().min(1).max(20000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+
+      // Load SMTP settings + evaluate readiness (shared, unit-tested guard).
+      const rows = await db.select().from(emailSettings).limit(1);
+      const s = rows[0];
+      const configured = !!(s?.smtpHost && s?.smtpUser && s?.smtpPass);
+      const blocked = crmEmailBlockedReason({ configured, enabled: s?.enabled ?? false });
+      if (blocked) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: blocked, // "not_configured" | "disabled" — client maps to a friendly message
+        });
+      }
+
+      const from = (s!.smtpFrom || s!.smtpUser).trim();
+      const senderName = ctx.user.email ?? String(ctx.user.id);
+
+      // Send via nodemailer using the saved transport.
+      try {
+        const transport = nodemailer.createTransport({
+          host: s!.smtpHost,
+          port: s!.smtpPort,
+          secure: s!.smtpPort === 465,
+          auth: { user: s!.smtpUser, pass: s!.smtpPass },
+        });
+        await transport.sendMail({
+          from,
+          to: input.to,
+          subject: input.subject,
+          text: input.body,
+          html: crmEmailBodyToHtml(input.body),
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Send failed: ${msg}` });
+      }
+
+      // Persist a durable log row + timeline activity.
+      await db.insert(crmEmailLog).values({
+        dealId: deal.id,
+        toEmail: input.to,
+        fromEmail: from,
+        subject: input.subject,
+        body: input.body,
+        sentByUserId: ctx.user.id,
+        sentByName: senderName,
+      });
+      await db.insert(crmActivities).values({
+        dealId: deal.id,
+        authorUserId: ctx.user.id,
+        kind: "email",
+        body: `Email sent to ${input.to} — ${input.subject}`,
+      });
       await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
       return { ok: true };
     }),

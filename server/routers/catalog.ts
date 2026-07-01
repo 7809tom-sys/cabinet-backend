@@ -663,6 +663,7 @@ export const doorStylesRouter = router({
           homeownerPrice: distributorSkus.homeownerPrice,
           platformSku: distributorSkus.platformSku,
           skuImageUrl: distributorSkus.imageUrl,
+          distributorId: distributorSkus.distributorId,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
@@ -1641,6 +1642,7 @@ export const pricingRouter = router({
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
+          yourCost: distributorSkus.yourCost,
           platformSku: distributorSkus.platformSku,
           skuImageUrl: distributorSkus.imageUrl,
           leadTimeDays: distributors.leadTimeDays,
@@ -1704,6 +1706,9 @@ export const pricingRouter = router({
             wholesalePrice: gated.wholesalePrice,
             contractorPrice: gated.contractorPrice,
             homeownerPrice: gated.homeownerPrice,
+            // True acquisition cost is owner-only intelligence — never send it to
+            // non-admin viewers. Used by the owner “My Cost / margin” panel.
+            yourCost: isAdmin ? r.yourCost : null,
             platformSku: r.platformSku,
             skuImageUrl: r.skuImageUrl,
             leadTimeDays: r.leadTimeDays,

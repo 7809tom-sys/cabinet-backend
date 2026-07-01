@@ -67,7 +67,7 @@ interface Props {
   // Locked supply line (distributor) for this design, or null when unlocked.
   lockedDistributorId: number | null;
   styleName: string | null;
-  tier: "Wholesale" | "Contractor";
+  tier: "Wholesale" | "Contractor" | "Homeowner";
   total: number;
   // Extra non-cabinet lines (fillers, crown, toe kick, countertop) for export.
   extraLines: { label: string; detail: string }[];
@@ -96,7 +96,7 @@ function csvEscape(v: string | number): string {
 export interface BuildSheetArgs {
   room: RoomData;
   styleName: string | null;
-  tier: "Wholesale" | "Contractor";
+  tier: "Wholesale" | "Contractor" | "Homeowner";
   total: number;
   buildRows: BuildSheetRow[];
   extraLines: { label: string; detail: string }[];

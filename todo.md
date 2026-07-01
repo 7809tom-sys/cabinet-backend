@@ -2252,8 +2252,25 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 ## Session: CRM email (send from deal card via Titan SMTP)
 - [x] Point Email Settings tab at Titan (smtp.titan.email, sales@cabinetdealz.com) instead of Hostinger
 - [x] Added "Email Inbox" link in admin header (opens Titan webmail)
-- [ ] Server: sendCrmEmail procedure that sends via saved SMTP settings, from smtpFrom
-- [ ] Persist a crm_email_log row per sent email (leadId, to, subject, body, sentBy, sentAt)
-- [ ] UI: Email button + composer dialog on CRM deal cards; show sent history on the card
-- [ ] Guard: block send if SMTP not configured/enabled, with a helpful message pointing to Email Settings
+- [x] Server: sendCrmEmail procedure that sends via saved SMTP settings, from smtpFrom (crm.sendEmail)
+- [x] Persist a crm_email_log row per sent email (dealId, to, subject, body, sentBy, sentAt) + email activity
+- [x] UI: Email button + composer dialog on CRM deal cards; show sent history on the card (EmailSection in deal drawer)
+- [x] Guard: block send if SMTP not configured/enabled, with a helpful message + link to Email Settings
 - [ ] Tests + tsc clean + checkpoint + deliver
+
+## Session: Family catalog page — price + qty on each card (user request w/ screenshot)
+- [ ] On /family/:slug cabinet cards, show the member price directly on the card (not just "View pricing")
+- [ ] Add a quantity control (stepper) on each card
+- [ ] Wire card qty/price into the existing cart/add-to-order flow (same-distributor lock respected)
+- [ ] Keep white-label (neutral line label, no distributor brand names)
+- [ ] tsc clean + tests + checkpoint
+
+## Session: My Cost fix + Design Tool Homeowner tier
+- [x] Fix owner "My Cost" to use true yourCost (not wholesale sell price); admin-only exposure
+- [x] Thread yourCost through detail styles procedure + StyleRow (null for non-admins)
+- [x] Update ownerCostBreakdown + tests (myCost = yourCost, wholesale fallback)
+- [x] Design Tool: add Homeowner pricing tier option (dropdown + priceOf + cart + build sheet)
+- [x] Server: return homeownerPrice from design pricing procedures
+- [x] Add homeowner i18n keys (EN/ES); widen DesignActions tier types
+- [x] tsc clean + full vitest suite (1072 passing)
+- [ ] (DNS, not code) Apex cabinetdealz.com SSL fails — repoint apex to Manus; www works. Deferred per user.

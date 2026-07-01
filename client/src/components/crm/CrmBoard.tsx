@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
@@ -19,11 +20,12 @@ import {
 import {
   CRM_STAGES, CRM_PIPELINE_STAGES, CRM_CLOSED_STAGES, CRM_STAGE_LABELS,
   CRM_PRIORITY_LABELS, isClosedStage,
+  crmEmailBlockedReason, CRM_EMAIL_BLOCK_MESSAGES,
   type CrmStage, type CrmPriority, type CrmLanguage,
 } from "@shared/crm";
 import {
   Plus, Phone, Mail, MapPin, Building2, ChevronRight, Inbox,
-  CircleDollarSign, Languages, Trash2,
+  CircleDollarSign, Languages, Trash2, Send, AlertTriangle, Settings2,
 } from "lucide-react";
 
 type Lang = CrmLanguage;
@@ -489,6 +491,10 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
   const deal = data?.deal as DealRow | undefined;
   const activities = (data?.activities ?? []) as { id: number; kind: string; body: string; createdAt: string | Date }[];
   const linkedDesigns = (data?.linkedDesigns ?? []) as { id: number; designId: number; designName: string }[];
+  const emails = (data?.emails ?? []) as {
+    id: number; toEmail: string; fromEmail: string; subject: string; body: string;
+    sentByName: string | null; sentAt: string | Date;
+  }[];
   const linkedIds = new Set(linkedDesigns.map((l) => l.designId));
   const availableDesigns = (linkable ?? []).filter((d) => !linkedIds.has(d.id));
 
@@ -542,6 +548,9 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                 </div>
               </div>
 
+              {/* Email the contact */}
+              <EmailSection deal={deal} lang={lang} emails={emails} dealId={deal.id} />
+
               {/* Linked designs */}
               <div>
                 <p className="text-xs font-semibold text-muted-foreground mb-2">{lang === "es" ? "Dise\u00f1os vinculados" : "Linked Designs"}</p>
@@ -576,5 +585,176 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ─── Email the deal contact ───────────────────────────────────────────────────
+function EmailSection({
+  deal,
+  lang,
+  emails,
+  dealId,
+}: {
+  deal: DealRow;
+  lang: Lang;
+  emails: {
+    id: number; toEmail: string; fromEmail: string; subject: string; body: string;
+    sentByName: string | null; sentAt: string | Date;
+  }[];
+  dealId: number;
+}) {
+  const utils = trpc.useUtils();
+  const { data: readiness } = trpc.crm.emailReadiness.useQuery();
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState(deal.contactEmail ?? "");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+
+  const configured = readiness?.configured ?? false;
+  const enabled = readiness?.enabled ?? false;
+  const blockReason = crmEmailBlockedReason({ configured, enabled });
+  const canSend = blockReason == null;
+
+  // Keep the To field synced with the deal's contact email when a new deal opens.
+  const [seededFor, setSeededFor] = useState<number | null>(null);
+  if (seededFor !== dealId) {
+    setSeededFor(dealId);
+    setTo(deal.contactEmail ?? "");
+    setSubject("");
+    setBody("");
+  }
+
+  const send = trpc.crm.sendEmail.useMutation({
+    onSuccess: () => {
+      toast.success(lang === "es" ? "Correo enviado" : "Email sent");
+      setOpen(false);
+      setSubject("");
+      setBody("");
+      utils.crm.deal.invalidate({ id: dealId });
+      utils.crm.emailLog.invalidate({ dealId });
+      utils.crm.board.invalidate();
+    },
+    onError: (e) => {
+      // The server returns "not_configured" / "disabled" for guard failures.
+      const raw = e.message;
+      if (raw === "not_configured" || raw === "disabled") {
+        toast.error(CRM_EMAIL_BLOCK_MESSAGES[raw][lang]);
+      } else {
+        toast.error(raw || (lang === "es" ? "No se pudo enviar" : "Couldn't send email"));
+      }
+    },
+  });
+
+  function submit() {
+    const t = to.trim();
+    if (!t) { toast.error(lang === "es" ? "Falta el destinatario" : "Recipient is required"); return; }
+    if (!subject.trim()) { toast.error(lang === "es" ? "Falta el asunto" : "Subject is required"); return; }
+    if (!body.trim()) { toast.error(lang === "es" ? "El mensaje está vacío" : "Message is empty"); return; }
+    send.mutate({ dealId, to: t, subject: subject.trim(), body: body.trim() });
+  }
+
+  const heading = lang === "es" ? "Correo" : "Email";
+  const sentLabel = lang === "es" ? "Enviados" : "Sent";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold text-muted-foreground">{heading}</p>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="bg-card h-7">
+              <Send className="h-3.5 w-3.5 mr-1" />
+              {lang === "es" ? "Enviar correo" : "Send email"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{lang === "es" ? "Enviar correo" : "Send email"}</DialogTitle>
+            </DialogHeader>
+
+            {!canSend ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p>{CRM_EMAIL_BLOCK_MESSAGES[blockReason!][lang]}</p>
+                    <a
+                      href="/admin?tab=email-settings"
+                      className="mt-2 inline-flex items-center gap-1 font-medium text-amber-900 underline"
+                    >
+                      <Settings2 className="h-3.5 w-3.5" />
+                      {lang === "es" ? "Abrir Configuración de correo" : "Open Email Settings"}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {readiness?.from && (
+                  <p className="text-xs text-muted-foreground">
+                    {lang === "es" ? "Desde" : "From"}: <span className="font-medium text-foreground">{readiness.from}</span>
+                  </p>
+                )}
+                <Field label={lang === "es" ? "Para" : "To"}>
+                  <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@example.com" type="email" />
+                </Field>
+                <Field label={lang === "es" ? "Asunto" : "Subject"}>
+                  <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+                </Field>
+                <Field label={lang === "es" ? "Mensaje" : "Message"}>
+                  <Textarea rows={8} value={body} onChange={(e) => setBody(e.target.value)} />
+                </Field>
+              </div>
+            )}
+
+            <DialogFooter>
+              {canSend && (
+                <Button onClick={submit} disabled={send.isPending} className="bg-[var(--color-navy,#1a2b4a)] text-white">
+                  {send.isPending ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Spinner className="h-4 w-4" />
+                      {lang === "es" ? "Enviando…" : "Sending…"}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <Send className="h-4 w-4" />
+                      {lang === "es" ? "Enviar" : "Send"}
+                    </span>
+                  )}
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Sent history */}
+      {emails.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{lang === "es" ? "Ningún correo enviado aún." : "No emails sent yet."}</p>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{sentLabel} ({emails.length})</p>
+          {emails.map((m) => (
+            <details key={m.id} className="text-xs rounded-md border border-border bg-card px-3 py-2">
+              <summary className="cursor-pointer list-none">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-foreground truncate">{m.subject}</span>
+                  <span className="shrink-0 text-muted-foreground">{new Date(m.sentAt).toLocaleDateString()}</span>
+                </div>
+                <div className="text-muted-foreground truncate">
+                  {lang === "es" ? "Para" : "To"}: {m.toEmail}
+                </div>
+              </summary>
+              <div className="mt-2 border-t border-border pt-2 text-muted-foreground">
+                <div>{lang === "es" ? "De" : "From"}: {m.fromEmail}</div>
+                {m.sentByName && <div>{lang === "es" ? "Enviado por" : "Sent by"}: {m.sentByName}</div>}
+                <div>{new Date(m.sentAt).toLocaleString()}</div>
+                <p className="mt-2 whitespace-pre-wrap text-foreground">{m.body}</p>
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

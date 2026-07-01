@@ -70,6 +70,8 @@ interface StyleRow {
   wholesalePrice: string | null;
   contractorPrice: string | null;
   homeownerPrice: string | null;
+  // Owner-only true acquisition cost; only present when an admin is logged in.
+  yourCost?: string | null;
   platformSku: string;
   leadTimeDays: number | null;
   distributorId: number | null;

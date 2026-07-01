@@ -1,7 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "wouter";
-import { ChevronLeft, ChevronRight, Package, Search, X, Expand } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +16,14 @@ import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { translateSpec } from "@/lib/i18n/specPhrases";
+import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  resolveStorefrontTier,
+  resolveTierPrice,
+  tierLabel,
+  type PricingTier,
+} from "@shared/pricingTier";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Family page — the DOOR-STYLE-FAMILY-first shopping experience.
@@ -48,6 +58,22 @@ interface FamilyItem extends CabinetLike {
   height: string | null;
   depth: string | null;
   skuImageUrl?: string | null;
+  // Pricing + supply line for on-card price + add-to-cart
+  listPrice?: string | null;
+  adjustedListPrice?: string | null;
+  wholesalePrice?: string | null;
+  contractorPrice?: string | null;
+  homeownerPrice?: string | null;
+  distributorId?: number | null;
+}
+
+function fmtPrice(n: number | null): string {
+  if (n == null) return "";
+  return n.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 }
 
 // Group the DB categories into the buyer-facing room-section filters.
@@ -65,19 +91,68 @@ function FamilyCabinetCard({
   item,
   finish,
   styleId,
+  styleLabel,
+  tier,
 }: {
   item: FamilyItem;
   finish: string;
   styleId: number;
+  styleLabel: string;
+  tier: PricingTier;
 }) {
   const { lang } = useLanguage();
+  const { addItem, lockedDistributorId, lockedStyleLabel } = useCart();
+  const [qty, setQty] = useState(1);
+  const [justAdded, setJustAdded] = useState(false);
+
+  const unitPrice = resolveTierPrice(tier, {
+    listPrice: item.listPrice,
+    adjustedListPrice: item.adjustedListPrice,
+    wholesalePrice: item.wholesalePrice,
+    contractorPrice: item.contractorPrice,
+    homeownerPrice: item.homeownerPrice,
+  });
+
+  function handleAdd() {
+    const res = addItem({
+      masterCode: item.masterCode,
+      name: translateSpec(item.description, lang) || item.masterCode,
+      styleId,
+      styleLabel,
+      distributorId: item.distributorId ?? null,
+      tier,
+      unitPrice,
+      qty,
+    });
+    if (!res.ok && res.reason === "distributor_locked") {
+      toast.error(
+        lang === "es"
+          ? `Tu carrito ya tiene artículos de “${res.lockedStyleLabel}”. Para evitar cargos de envío extra, todos los artículos deben venir de la misma línea.`
+          : `Your cart already has items from “${res.lockedStyleLabel}.” To avoid extra shipping, every item must come from the same supply line.`,
+      );
+      return;
+    }
+    setJustAdded(true);
+    window.setTimeout(() => setJustAdded(false), 1400);
+    toast.success(
+      lang === "es"
+        ? `Añadido: ${qty} × ${item.masterCode}`
+        : `Added ${qty} × ${item.masterCode} to cart`,
+    );
+  }
+
+  // A friendly note when this card is from a different supply line than the
+  // one the cart is already locked to (add is blocked to protect freight).
+  const blockedByLock =
+    lockedDistributorId != null &&
+    item.distributorId != null &&
+    item.distributorId !== lockedDistributorId;
+
   return (
-    <Link href={`/catalog/${item.masterCode}?style=${styleId}`}>
-      <div className="cabinet-card group rounded-xl border border-border bg-card hover:border-primary/40 cursor-pointer overflow-hidden transition-colors">
-        {/* Accurate, to-scale drawing recolored to THIS family's finish — always
-            matches the real item type (drawer base draws drawers, sink base shows
-            the sink, glass walls show glass, corners show the L-shape, etc.). */}
-        <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3">
+    <div className="cabinet-card group rounded-xl border border-border bg-card hover:border-primary/40 overflow-hidden transition-colors flex flex-col">
+      {/* Image + specs link through to the detail page */}
+      <Link href={`/catalog/${item.masterCode}?style=${styleId}`} className="block">
+        <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3 cursor-pointer">
           {item.skuImageUrl ? (
             <img
               src={item.skuImageUrl}
@@ -93,7 +168,7 @@ function FamilyCabinetCard({
           )}
         </div>
 
-        <div className="p-4">
+        <div className="p-4 pb-2 cursor-pointer">
           <div className="flex items-start justify-between gap-2 mb-1">
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
               {item.masterCode}
@@ -118,14 +193,96 @@ function FamilyCabinetCard({
                 .join(" · ")}
             </p>
           )}
-
-          <div className="mt-3 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">View pricing →</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-          </div>
         </div>
+      </Link>
+
+      {/* Price + quantity + add-to-cart (NOT inside the Link) */}
+      <div className="mt-auto px-4 pb-4">
+        <div className="flex items-end justify-between gap-2 mb-2">
+          <div>
+            {unitPrice != null ? (
+              <>
+                <span className="text-lg font-bold text-foreground">{fmtPrice(unitPrice)}</span>
+                <span className="ml-1 text-[11px] text-muted-foreground">/ ea</span>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {tierLabel(tier)}
+                </div>
+              </>
+            ) : (
+              <Link
+                href={`/catalog/${item.masterCode}?style=${styleId}`}
+                className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+              >
+                {lang === "es" ? "Ver precio" : "View pricing"}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
+          </div>
+
+          {/* Quantity stepper */}
+          {unitPrice != null && (
+            <div className="flex items-center rounded-md border border-border">
+              <button
+                type="button"
+                aria-label={lang === "es" ? "Disminuir cantidad" : "Decrease quantity"}
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                className="h-8 w-8 flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-40"
+                disabled={qty <= 1}
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+              <input
+                type="number"
+                min={1}
+                value={qty}
+                onChange={(e) => {
+                  const n = Math.floor(Number(e.target.value));
+                  setQty(Number.isFinite(n) && n >= 1 ? n : 1);
+                }}
+                className="h-8 w-10 border-x border-border bg-transparent text-center text-sm outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                aria-label={lang === "es" ? "Cantidad" : "Quantity"}
+              />
+              <button
+                type="button"
+                aria-label={lang === "es" ? "Aumentar cantidad" : "Increase quantity"}
+                onClick={() => setQty((q) => q + 1)}
+                className="h-8 w-8 flex items-center justify-center text-muted-foreground hover:bg-muted"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {unitPrice != null && (
+          <Button
+            onClick={handleAdd}
+            className="w-full bg-[var(--color-navy,#1a2b4a)] text-white"
+            size="sm"
+          >
+            {justAdded ? (
+              <span className="inline-flex items-center gap-1">
+                <Check className="h-4 w-4" />
+                {lang === "es" ? "Añadido" : "Added"}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <ShoppingCart className="h-4 w-4" />
+                {lang === "es" ? "Añadir al carrito" : "Add to cart"}
+              </span>
+            )}
+          </Button>
+        )}
+
+        {blockedByLock && (
+          <p className="mt-1.5 text-[10px] leading-tight text-amber-700">
+            {lang === "es"
+              ? `El carrito está bloqueado a “${lockedStyleLabel}”. Este artículo es de otra línea.`
+              : `Cart is locked to “${lockedStyleLabel}.” This item is from another supply line.`}
+          </p>
+        )}
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -153,6 +310,10 @@ export default function Family({ styleCode }: { styleCode: string }) {
   );
 
   const items = useMemo(() => (data?.items ?? []) as FamilyItem[], [data]);
+
+  // The viewer's storefront tier drives which price shows on each card.
+  const { user } = useAuth();
+  const viewerTier = resolveStorefrontTier(user);
 
   // Color variations within the same door profile (in-place finish picker).
   const { data: siblingsData } = trpc.doorStyles.siblings.useQuery(
@@ -519,6 +680,8 @@ export default function Family({ styleCode }: { styleCode: string }) {
                 item={item}
                 finish={finish}
                 styleId={s.id}
+                styleLabel={familyName}
+                tier={viewerTier}
               />
             ))}
           </div>

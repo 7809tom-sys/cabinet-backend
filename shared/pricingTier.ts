@@ -48,6 +48,9 @@ export interface TierPrices {
   // Fallbacks used when a tier-specific column is missing.
   adjustedListPrice?: number | string | null;
   listPrice?: number | string | null;
+  // The owner's TRUE acquisition cost (what CabinetDealz pays the supplier).
+  // This is NOT a sell tier — it is only used for the owner-only margin view.
+  yourCost?: number | string | null;
 }
 
 function num(v: number | string | null | undefined): number | null {
@@ -144,8 +147,11 @@ export function ownerCostBreakdown(
   prices: TierPrices,
   sellTier: PricingTier,
 ): OwnerCostBreakdown {
-  // Owner's cost is always the wholesale floor (fall back up the ladder).
-  const myCost = resolveTierPrice("wholesale", prices);
+  // Owner's cost is the TRUE acquisition cost (`yourCost`) — what CabinetDealz
+  // actually pays the supplier. Only when that is missing do we fall back to the
+  // wholesale price as an approximation. (Previously this always used wholesale,
+  // which overstated cost and understated margin.)
+  const myCost = num(prices.yourCost) ?? resolveTierPrice("wholesale", prices);
   const sellPrice = resolveTierPrice(sellTier, prices);
   let marginDollars: number | null = null;
   let marginPct: number | null = null;

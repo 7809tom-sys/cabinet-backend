@@ -624,6 +624,25 @@ export const crmDealDesigns = mysqlTable("crm_deal_designs", {
 export type CrmDealDesign = typeof crmDealDesigns.$inferSelect;
 export type InsertCrmDealDesign = typeof crmDealDesigns.$inferInsert;
 
+// ─── CRM: sent-email log ────────────────────────────────────────────────────────
+// One row per email sent from a deal card via the site's saved SMTP. Provides a
+// durable "sent history" independent of the activity timeline, capturing exactly
+// what went out (to/subject/body), who sent it, and the from-address used.
+export const crmEmailLog = mysqlTable("crm_email_log", {
+  id: int("id").autoincrement().primaryKey(),
+  dealId: int("dealId").notNull(),
+  toEmail: varchar("toEmail", { length: 320 }).notNull(),
+  fromEmail: varchar("fromEmail", { length: 320 }).notNull(),
+  subject: varchar("subject", { length: 512 }).notNull(),
+  body: text("body").notNull(),
+  sentByUserId: int("sentByUserId"),
+  sentByName: varchar("sentByName", { length: 256 }),
+  sentAt: timestamp("sentAt").defaultNow().notNull(),
+});
+
+export type CrmEmailLog = typeof crmEmailLog.$inferSelect;
+export type InsertCrmEmailLog = typeof crmEmailLog.$inferInsert;
+
 // ─── Build-an-Order code aliases ───────────────────────────────────────────────
 // Remembers a human's manual "Fix"/swap choice so an unrecognized order code
 // resolves automatically next time. Keyed by the CANONICALIZED raw code (uppercase

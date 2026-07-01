@@ -70,6 +70,7 @@ import {
   closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
 } from "@/lib/closet";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
+import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { ElevationView } from "@/components/design/ElevationView";
@@ -106,11 +107,27 @@ type ConsultPlanWall = {
 };
 
 type ViewMode = "plan" | "elevation" | "split" | "corner";
-type PricingTier = "Wholesale" | "Contractor";
+type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
 
-function priceOf(row: { wholesalePrice: string | null; contractorPrice: string | null }, tier: PricingTier): number {
-  const v = tier === "Wholesale" ? row.wholesalePrice : row.contractorPrice;
-  return v ? parseFloat(v) : 0;
+// Map the Design Tool's title-case tier onto the shared lowercase pricing tier
+// used across the storefront, so the same resolution + fallbacks apply here.
+const DESIGN_TIER_TO_SHARED: Record<PricingTier, "wholesale" | "contractor" | "homeowner"> = {
+  Wholesale: "wholesale",
+  Contractor: "contractor",
+  Homeowner: "homeowner",
+};
+
+function priceOf(
+  row: {
+    wholesalePrice: string | null;
+    contractorPrice: string | null;
+    homeownerPrice?: string | null;
+    adjustedListPrice?: string | null;
+    listPrice?: string | null;
+  },
+  tier: PricingTier,
+): number {
+  return resolveTierPrice(DESIGN_TIER_TO_SHARED[tier], row) ?? 0;
 }
 
 // Compact inch stepper for one cabinet dimension (W/H/D). Shows the dimension
@@ -1104,7 +1121,7 @@ export default function DesignTool() {
           styleId: sid,
           styleLabel,
           distributorId: lockedDistributorId ?? null,
-          tier: tier === "Wholesale" ? "wholesale" : "contractor",
+          tier: DESIGN_TIER_TO_SHARED[tier],
           unitPrice: unit,
           qty: 1,
         });
@@ -1124,7 +1141,7 @@ export default function DesignTool() {
           styleId: line.styleId,
           styleLabel,
           distributorId: lockedDistributorId ?? null,
-          tier: tier === "Wholesale" ? "wholesale" : "contractor",
+          tier: DESIGN_TIER_TO_SHARED[tier],
           unitPrice: line.unitPrice,
           qty: line.qty,
         });
@@ -4460,7 +4477,7 @@ export default function DesignTool() {
             className="border-b border-border shrink-0"
             title={
               styleId
-                ? `${t("dt_bs_door_section")} · ${activeStyleName ?? ""} · ${tier === "Wholesale" ? t("dt_bs_wholesale") : t("dt_bs_contractor")}`
+                ? `${t("dt_bs_door_section")} · ${activeStyleName ?? ""} · ${tier === "Wholesale" ? t("dt_bs_wholesale") : tier === "Homeowner" ? t("dt_bs_homeowner") : t("dt_bs_contractor")}`
                 : t("dt_bs_door_section_none")
             }
             collapsed={sheetCollapsed("door-style-picker", styleId != null)}
@@ -4529,6 +4546,7 @@ export default function DesignTool() {
                 <SelectContent>
                   <SelectItem value="Wholesale">{t("dt_bs_wholesale")}</SelectItem>
                   <SelectItem value="Contractor">{t("dt_bs_contractor")}</SelectItem>
+                  <SelectItem value="Homeowner">{t("dt_bs_homeowner")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

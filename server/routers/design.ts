@@ -331,6 +331,8 @@ export const designRouter = router({
           listPrice: distributorSkus.listPrice,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
         })
         .from(distributorSkus)
         .where(and(...conditions));
@@ -375,6 +377,8 @@ export const designRouter = router({
           listPrice: string | null;
           wholesalePrice: string | null;
           contractorPrice: string | null;
+          homeownerPrice: string | null;
+          adjustedListPrice: string | null;
         }>;
       }
       const conditions = [
@@ -398,6 +402,8 @@ export const designRouter = router({
           listPrice: distributorSkus.listPrice,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
         })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
@@ -425,6 +431,8 @@ export const designRouter = router({
         listPrice: r.listPrice,
         wholesalePrice: r.wholesalePrice,
         contractorPrice: r.contractorPrice,
+        homeownerPrice: r.homeownerPrice,
+        adjustedListPrice: r.adjustedListPrice,
       }));
     }),
 

@@ -40,3 +40,55 @@ export type CrmLanguage = (typeof CRM_LANGUAGES)[number];
 export function isClosedStage(stage: CrmStage): boolean {
   return stage === "won" || stage === "lost";
 }
+
+// ─── CRM email (send-from-card) ─────────────────────────────────────────────────
+// Pure, unit-testable helpers shared by the server procedure and the client
+// composer. Keep free of DB/nodemailer imports.
+
+export type SmtpReadiness = {
+  configured: boolean; // host + user + pass all present
+  enabled: boolean; // admin toggled sending on
+};
+
+/**
+ * Decide whether an email may be sent given the saved SMTP state.
+ * Returns null when OK, or a machine-readable reason when blocked.
+ */
+export function crmEmailBlockedReason(s: SmtpReadiness): "not_configured" | "disabled" | null {
+  if (!s.configured) return "not_configured";
+  if (!s.enabled) return "disabled";
+  return null;
+}
+
+export const CRM_EMAIL_BLOCK_MESSAGES: Record<
+  NonNullable<ReturnType<typeof crmEmailBlockedReason>>,
+  { en: string; es: string }
+> = {
+  not_configured: {
+    en: "Email sending isn't set up yet. Add your SMTP details in Email Settings first.",
+    es: "El envío de correo aún no está configurado. Agregue su SMTP en Configuración de correo.",
+  },
+  disabled: {
+    en: "Email sending is turned off. Enable it in Email Settings to send from a deal.",
+    es: "El envío de correo está desactivado. Actívelo en Configuración de correo.",
+  },
+};
+
+/** Escape user-provided text for safe embedding in an HTML email body. */
+export function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Build a simple, safe HTML email body from a plain-text message. Preserves line
+ * breaks and escapes HTML so nothing the sender types can break the markup.
+ */
+export function crmEmailBodyToHtml(body: string): string {
+  const safe = escapeHtml(body).replace(/\r\n/g, "\n").replace(/\n/g, "<br/>");
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1a2b4a;white-space:normal;">${safe}</div>`;
+}

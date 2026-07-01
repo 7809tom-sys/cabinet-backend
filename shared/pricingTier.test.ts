@@ -87,7 +87,10 @@ describe("resolveTierPrice", () => {
 });
 
 describe("ownerCostBreakdown (owner-only cost vs sell)", () => {
+  // `full` has an explicit true acquisition cost (`yourCost`) distinct from the
+  // wholesale SELL price — this is the real-world case that surfaced the bug.
   const full = {
+    yourCost: 60,
     wholesalePrice: 100,
     contractorPrice: 120,
     homeownerPrice: 160,
@@ -95,10 +98,16 @@ describe("ownerCostBreakdown (owner-only cost vs sell)", () => {
     listPrice: 220,
   };
 
-  it("myCost is always the wholesale floor regardless of sell tier", () => {
-    expect(ownerCostBreakdown(full, "homeowner").myCost).toBe(100);
-    expect(ownerCostBreakdown(full, "contractor").myCost).toBe(100);
-    expect(ownerCostBreakdown(full, "wholesale").myCost).toBe(100);
+  it("myCost uses the true acquisition cost (yourCost), not the wholesale price", () => {
+    expect(ownerCostBreakdown(full, "homeowner").myCost).toBe(60);
+    expect(ownerCostBreakdown(full, "contractor").myCost).toBe(60);
+    expect(ownerCostBreakdown(full, "wholesale").myCost).toBe(60);
+  });
+
+  it("falls back to the wholesale floor when yourCost is missing", () => {
+    const noCost = { ...full, yourCost: undefined };
+    expect(ownerCostBreakdown(noCost, "homeowner").myCost).toBe(100);
+    expect(ownerCostBreakdown(noCost, "wholesale").myCost).toBe(100);
   });
 
   it("sellPrice follows the supplied tier", () => {
@@ -109,14 +118,14 @@ describe("ownerCostBreakdown (owner-only cost vs sell)", () => {
 
   it("computes margin dollars and percent for a homeowner sale", () => {
     const b = ownerCostBreakdown(full, "homeowner");
-    expect(b.marginDollars).toBe(60); // 160 - 100
-    expect(b.marginPct).toBe(37.5); // 60 / 160
+    expect(b.marginDollars).toBe(100); // 160 - 60
+    expect(b.marginPct).toBe(62.5); // 100 / 160
   });
 
-  it("a wholesale-to-wholesale sale has zero margin", () => {
+  it("a wholesale sale still nets margin over the true cost", () => {
     const b = ownerCostBreakdown(full, "wholesale");
-    expect(b.marginDollars).toBe(0);
-    expect(b.marginPct).toBe(0);
+    expect(b.marginDollars).toBe(40); // 100 - 60
+    expect(b.marginPct).toBe(40); // 40 / 100
   });
 
   it("returns nulls when cost or sell price is unknown", () => {
