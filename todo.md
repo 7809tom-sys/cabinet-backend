@@ -2491,3 +2491,8 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Hint when no style picked; filler note for sub-9" gaps; no-fit note otherwise
 - [x] Pure helper gapFillCandidatesByWidth() extracted to design.ts + 6 unit tests (gapFill.test.ts)
 - [x] i18n keys EN+ES (dt_gap_*); typecheck clean; full suite passing
+
+## Design Tool: idle clearance tape (measurement polish)
+- [x] Two-sided clearance tape (to neighbor cabinet edge or wall) now also shows when a cabinet is SELECTED (idle), not only while dragging
+- [x] Drag still takes priority; suppressed in measure mode
+- [x] Typecheck clean; design + gapFill tests pass

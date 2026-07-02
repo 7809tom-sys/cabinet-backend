@@ -471,9 +471,13 @@ export function PlanCanvas({
   // Live drag tape-measure: while dragging a cabinet, bracket it along its wall
   // and show the clearance on BOTH sides (to the neighbor cabinet edge, else the
   // wall). Built in inches then scaled to px for the overlay.
+  // The tape shows while a cabinet is being dragged AND, for convenience, when a
+  // cabinet is simply selected (idle) so the designer can read the clearance to
+  // each neighbor/wall without nudging it. Drag takes priority.
+  const tapeUid = dragUid ?? (measureMode ? null : selectedUid);
   const dragTape = (() => {
-    if (!dragUid) return null;
-    const p = cabinets.find((c) => c.uid === dragUid);
+    if (!tapeUid) return null;
+    const p = cabinets.find((c) => c.uid === tapeUid);
     if (!p) return null;
     const side = cabinetWall(p, room);
     const m = wallSpanMeasure(p, room, cabinets, side);
