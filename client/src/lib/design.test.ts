@@ -880,6 +880,39 @@ describe("cabinetWall inference", () => {
     const right = cab({ placement: "wall", width: 30, depth: 12, x: 144 - 12, y: 40, rotation: 90 });
     expect(cabinetWall(right, ROOM_12x10)).toBe("right");
   });
+
+  // Corner cabinets are flush against TWO walls at once. Orientation must decide
+  // which wall (elevation) they belong to, so a vertically-oriented range in a
+  // corner is NOT mis-drawn on the Front (bottom) elevation. Regression guard
+  // for the reported bug where left-wall cabinets appeared on the Front view.
+  it("assigns a vertical cabinet in the bottom-left corner to the LEFT wall (not bottom)", () => {
+    // rotation 90 => vertical; rotatedSize => w:24 (into room), d:30 (along wall)
+    // Seated in the bottom-left corner: flush to left (x=0) AND bottom (y+d=depth).
+    const range = cab({ placement: "base", width: 30, depth: 24, x: 0, y: 120 - 30, rotation: 90 });
+    expect(cabinetWall(range, ROOM_12x10)).toBe("left");
+  });
+
+  it("assigns a horizontal cabinet in the bottom-left corner to the BOTTOM wall", () => {
+    // rotation 0 => horizontal; flush to bottom (y+depth=depth) AND left (x=0).
+    const base = cab({ placement: "base", width: 30, depth: 24, x: 0, y: 120 - 24, rotation: 0 });
+    expect(cabinetWall(base, ROOM_12x10)).toBe("bottom");
+  });
+
+  it("assigns a vertical cabinet in the top-right corner to the RIGHT wall", () => {
+    // rotation 270 => vertical; flush to right (x+w=width) AND top (y=0).
+    const wallCab = cab({ placement: "wall", width: 30, depth: 12, x: 144 - 12, y: 0, rotation: 270 });
+    expect(cabinetWall(wallCab, ROOM_12x10)).toBe("right");
+  });
+
+  it("assigns a horizontal cabinet in the top-right corner to the TOP wall", () => {
+    const wallCab = cab({ placement: "wall", width: 30, depth: 12, x: 144 - 30, y: 0, rotation: 0 });
+    expect(cabinetWall(wallCab, ROOM_12x10)).toBe("top");
+  });
+
+  it("assigns a vertical cabinet in the bottom-right corner to the RIGHT wall (not bottom)", () => {
+    const range = cab({ placement: "base", width: 30, depth: 24, x: 144 - 24, y: 120 - 30, rotation: 90 });
+    expect(cabinetWall(range, ROOM_12x10)).toBe("right");
+  });
 });
 
 describe("trimPiecesNeeded (stick rounding)", () => {
@@ -1335,8 +1368,13 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
     // One range in the top-left corner, one in the left-wall top corner.
     const r1 = cab({ uid: "r1", masterCode: "RANGE-30", placement: "appliance", x: 0, y: 0, width: 30, depth: 25 });
     const b1 = cab({ uid: "b1", masterCode: "B-24", placement: "base", x: 30, y: 0, width: 24, depth: 24 });
+    // Left-wall corner range (rotation 90 => vertical, so it belongs to the LEFT
+    // wall). With rot90 the along-wall span is rotatedSize.d = the cabinet's
+    // WIDTH (25), so r2 occupies y:0..25 flush in the top-left corner. b2 butts
+    // its interior end at y=25 (gap 0 < 3") and is also vertical on the left
+    // wall -> triggers a filler.
     const r2 = cab({ uid: "r2", masterCode: "RANGE-30", placement: "appliance", x: 0, y: 0, width: 25, depth: 30, rotation: 90 });
-    const b2 = cab({ uid: "b2", masterCode: "B-24", placement: "base", x: 0, y: 30, width: 24, depth: 24, rotation: 90 });
+    const b2 = cab({ uid: "b2", masterCode: "B-24", placement: "base", x: 0, y: 25, width: 24, depth: 24, rotation: 90 });
     const { placed, added } = autoPlaceRangeFillers([r1, b1, r2, b2], ROOM_12x10);
     expect(added).toHaveLength(2);
     expect(rangeOvenClearanceViolations(placed, ROOM_12x10).size).toBe(0);

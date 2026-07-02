@@ -19,6 +19,7 @@ import { sellPriceForTier } from "@shared/margins";
 import { invokeLLM } from "../_core/llm";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
+import { filterStylesByAvailability } from "@shared/styleAvailability";
 
 // ─── Supplier-identity scrubbing ───────────────────────────────────────────────
 // Cabinet Dealz never exposes the underlying supplier. These helpers strip any
@@ -69,6 +70,31 @@ export const distributorsRouter = router({
 
 // ─── Door Styles ──────────────────────────────────────────────────────────────
 
+// A style is only shown publicly if it has at least one *orderable* cabinet:
+// a published + available SKU whose cabinet is active, shown in the designer,
+// and not held in admin "conflict". This prevents empty lines/styles (e.g. a
+// style whose SKUs were never imported) from appearing in the storefront or the
+// Design Tool picker. Empty styles remain visible in the admin back office.
+// Returns the SET of styleIds that qualify; callers intersect their result with it.
+async function availableStyleIds(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>
+): Promise<Set<number>> {
+  const rows = await db
+    .selectDistinct({ styleId: distributorSkus.styleId })
+    .from(distributorSkus)
+    .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+    .where(
+      and(
+        eq(distributorSkus.isPublished, true),
+        eq(distributorSkus.isAvailable, true),
+        eq(cabinets.isActive, true),
+        eq(cabinets.showInDesigner, true),
+        notInConflict()
+      )
+    );
+  return new Set(rows.map((r) => r.styleId));
+}
+
 export const doorStylesRouter = router({
   list: publicProcedure
     .input(z.object({ distributorId: z.number().optional() }).optional())
@@ -108,18 +134,21 @@ export const doorStylesRouter = router({
         isActive: doorStyles.isActive,
         createdAt: doorStyles.createdAt,
       };
-      if (input?.distributorId) {
-        return db
-          .select(projection)
-          .from(doorStyles)
-          .where(
-            and(
-              eq(doorStyles.distributorId, input.distributorId),
-              eq(doorStyles.isActive, true)
+      const available = await availableStyleIds(db);
+      const rows = input?.distributorId
+        ? await db
+            .select(projection)
+            .from(doorStyles)
+            .where(
+              and(
+                eq(doorStyles.distributorId, input.distributorId),
+                eq(doorStyles.isActive, true)
+              )
             )
-          );
-      }
-      return db.select(projection).from(doorStyles).where(eq(doorStyles.isActive, true));
+        : await db.select(projection).from(doorStyles).where(eq(doorStyles.isActive, true));
+      // Hide active-but-empty styles from every public surface (storefront +
+      // Design Tool picker). Admin back-office queries do not use this router.
+      return filterStylesByAvailability(rows, available);
     }),
 
   byId: publicProcedure

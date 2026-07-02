@@ -1518,19 +1518,30 @@ export const MITER_ALLOWANCE_IN = 3;
 // Back-compat alias.
 export const CROWN_MITER_ALLOWANCE_IN = MITER_ALLOWANCE_IN;
 
-// Which of the four walls is this cabinet sitting against? Falls back to the
-// nearest wall by orientation when it's not flush within tolerance.
+// Which of the four walls is this cabinet sitting against?
+//
+// ORIENTATION-FIRST: a cabinet's rotation tells us which PAIR of walls it can
+// belong to — horizontal (rot 0/180) faces off the top/bottom walls, vertical
+// (rot 90/270) faces off the left/right walls. We must decide the pair before
+// proximity, because a cabinet parked in a CORNER is flush against two walls at
+// once (e.g. a range in the bottom-left corner touches BOTH the bottom and the
+// left wall). A naive "first flush wall wins" check would mis-assign such a
+// cabinet to the wrong elevation (it would show a left-wall range on the Front
+// view). Using orientation first keeps a vertical corner cabinet on Left/Right
+// and a horizontal one on Top/Bottom; proximity only breaks the tie WITHIN the
+// oriented pair.
 export function cabinetWall(p: PlacedCabinet, room: RoomData): WallSide {
-  const sides: WallSide[] = ["top", "bottom", "left", "right"];
-  for (const s of sides) {
-    if (isAgainstWall(p, s, room)) return s;
-  }
-  // Not flush: pick by rotation orientation, then nearest edge.
   const horizontal = ((Math.round(p.rotation) % 180) + 180) % 180 === 0;
   const { w, d } = rotatedSize(p);
   if (horizontal) {
+    // Belongs to top or bottom. Prefer the flush edge; else nearest by center.
+    if (isAgainstWall(p, "top", room)) return "top";
+    if (isAgainstWall(p, "bottom", room)) return "bottom";
     return p.y + d / 2 < room.depth / 2 ? "top" : "bottom";
   }
+  // Vertical: belongs to left or right. Prefer the flush edge; else nearest.
+  if (isAgainstWall(p, "left", room)) return "left";
+  if (isAgainstWall(p, "right", room)) return "right";
   return p.x + w / 2 < room.width / 2 ? "left" : "right";
 }
 

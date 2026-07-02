@@ -54,7 +54,7 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, wallPlacementAt, cabinetWall,
-  rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
+  rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine,
 } from "@/lib/design";
@@ -1863,21 +1863,9 @@ export default function DesignTool() {
   }, [layoutLocked, activeWall, room, roomType, autoFillCabinets, placed, openings, t]);
 
   // ── Range/oven corner clearance: one-click fix ──────────────────────────────
-  // For each range/oven flagged by the clearance rule, nudge the neighboring
-  // cabinets on its interior side outward by the filler width and drop a real
-  // filler/scribe between the appliance and that cabinet so the handles clear.
-  const addClearanceFiller = useCallback(() => {
-    if (layoutLocked) { toast.info(t("dt_t_unlock_clearance")); return; }
-    const bad = rangeOvenClearanceViolations(placed, room);
-    if (bad.size === 0) { toast.info(t("dt_t_no_clearance")); return; }
-    const W = RANGE_CLEARANCE_FILLER_IN;
-    setPlaced((prev) => {
-      const { placed: next, added } = autoPlaceRangeFillers(prev, room, W, makeUid);
-      if (added.length === 0) { toast.info(t("dt_t_clearance_fail")); return prev; }
-      toast.success(t("dt_toast_added_clearance", { n: added.length, s: added.length === 1 ? "" : "s", w: W }));
-      return next;
-    });
-  }, [layoutLocked, placed, room]);
+  // NOTE: Range/oven corner clearance is a WARNING ONLY. We intentionally do not
+  // auto-insert fillers or shift cabinets — the designer places the clearance
+  // filler manually with the Filler tool. (Former auto-fix removed by request.)
 
   // ── AI Design Consultant ────────────────────────────────────────────────────
   // The consultant takes the user's marked walls + request, asks the server
@@ -4982,7 +4970,7 @@ export default function DesignTool() {
                   <strong>{conflictUids.size} item{conflictUids.size > 1 ? "s" : ""} in conflict.</strong>{" "}
 
                   {rangeClearanceUids.size > 0
-                    ? `A range/oven in the corner needs a ${RANGE_CLEARANCE_FILLER_IN}" filler beside it so the range handle clears the cabinet handle. `
+                    ? `A range/oven in the corner needs a ${RANGE_CLEARANCE_FILLER_IN}" filler beside it so the range handle clears the cabinet handle — add one with the Filler tool. `
                     : ""}
                   {wallOpeningUids.size > 0
                     ? `A wall cabinet is within ${WALL_OPENING_CLEARANCE_IN}" of a door or window — wall cabinets must stay at least ${WALL_OPENING_CLEARANCE_IN}" away from openings. `
@@ -5003,16 +4991,10 @@ export default function DesignTool() {
                 </span>
               </div>
             )}
-            {rangeClearanceUids.size > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mb-2 w-full gap-2 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-300"
-                onClick={addClearanceFiller}
-              >
-                <Plus className="h-4 w-4" /> {t("dt_bs_add_clearance", { n: RANGE_CLEARANCE_FILLER_IN })}
-              </Button>
-            )}
+            {/* Range/oven corner clearance is now a WARNING ONLY. Per product
+                decision, Cabinet Dealz does not auto-insert or auto-shift
+                cabinets — the designer places the clearance filler manually
+                with the Filler tool wherever they want it. */}
             {(() => {
               // Non-blocking informational notes are tucked behind a small info
               // icon next to the Estimated Total so the panel stays uncluttered.

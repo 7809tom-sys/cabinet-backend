@@ -2440,3 +2440,18 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Confirm Design Tool door-style picker shows series names with supplier hidden
 - [x] Update Admin → Distributors "Cabinet line branding" editor copy to use "Madison Series" example (rename any line anytime here)
 - [x] whitelabel + grouping tests pass (13 tests)
+
+## Design Tool: elevation wall-assignment fix (user report)
+- [x] Fix cabinetWall() so corner cabinets flush to two walls are assigned by ORIENTATION first (rot 0/180 -> top/bottom, rot 90/270 -> left/right), then nearest edge — so side-wall cabinets stop appearing on the Front elevation
+- [x] Add unit tests for cabinetWall across all four corners in both orientations
+- [x] Verify Front elevation only shows Front-wall cabinets in browser
+
+## Design Tool: manual filler placement (user request)
+- [x] Stop auto-inserting range/oven clearance fillers and stop auto-shifting cabinets; user places fillers manually with the Filler tool
+- [x] Keep the tight-clearance WARNING (rangeOvenClearanceViolations) so designer is still notified
+- [x] Update/adjust tests that assumed auto-filler behavior
+
+## Design Tool: don't publish styles/lines with no available cabinets (user request)
+- [x] Public doorStyles.list must exclude active styles that have zero published+available SKUs (Villa Blanc 120001 currently empty)
+- [x] Keep such styles visible in admin back office
+- [x] Add DB helper + unit test for availability guard
