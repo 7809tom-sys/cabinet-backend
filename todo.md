@@ -2522,3 +2522,15 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Pickup within radius: location.pickupOptions procedure (precise geocode + haversine) + customer order-review Ship/Pickup choice when a distributor is within the (admin-adjustable, default 100mi) radius
 - [x] Admin DistributorFulfillmentEditor under the Distributors tab
 - [x] Tests: shared/netsuiteOrder.test.ts (17), server/email.settings.test.ts (4); full suite 1213 passing; typecheck clean
+
+## US Cabinet Depot catalog audit vs. PDF (Apr 2026 price sheet)
+- [x] Parse UCD PDF into structured source of truth (348 rows, 4 price tiers, availability footnotes)
+- [x] Map 19 DB door styles to the 4 PDF price tiers
+- [x] Reconcile DB SKUs vs PDF (exact code match + normalization for CC-/RS/ERB/CDB)
+- [x] Delete unpriced/not-offered items (B39 in Casselberry, CDB-36, 2DB27/2DB33) and 129 mis-linked LSB duplicates
+- [x] Remove availability violations (142 Shaker-White-only + 16 Casselberry-only in wrong styles)
+- [x] Correct systematic tier mispricing (Oxford=T2, Haven Dune/Essence Oak=T4) and flat-priced wide wall cabs
+- [x] Recompute full price ladder for all rows (fix inconsistent wholesale/contractor/homeowner); 0 inconsistent rows
+- [x] Verify: 0 price mismatches, 0 availability violations, 0 orphans; full DB backup saved (reversible)
+- [ ] (Follow-up, needs user) Add 152 PDF products missing from catalog (FH/ADA/TD/RS variants) as needed
+- [ ] (Follow-up, optional) Standardize drawer-base display naming (e.g. "Drawer Base 12 (3-drawer)")
