@@ -1,0 +1,10 @@
+import 'dotenv/config';
+import mysql from 'mysql2/promise';
+const conn = await mysql.createConnection(process.env.DATABASE_URL);
+const [r] = await conn.query("SELECT COUNT(*) n FROM distributor_skus WHERE styleId=30063 AND (listPrice IS NULL AND yourCost IS NULL)");
+console.log("DN skus with NO price at all:", r[0].n);
+const [r2] = await conn.query("SELECT COUNT(*) n FROM distributor_skus WHERE styleId=30063 AND yourCost IS NULL");
+console.log("DN skus missing yourCost:", r2[0].n);
+const [r3] = await conn.query("SELECT COUNT(*) n FROM distributor_skus WHERE styleId=30063 AND listPrice IS NULL");
+console.log("DN skus missing listPrice:", r3[0].n);
+await conn.end();

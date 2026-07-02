@@ -443,6 +443,90 @@ export const designRouter = router({
       }));
     }),
 
+  // Batched TRIM SKU availability per door style, used by the BOM/cart to price
+  // trim (toe kick, light rail, batten, fillers, scribe) at the SELECTED door
+  // style. Because each trim SKU is scoped to a styleId, resolving it against the
+  // design's style makes the trim's finish/color inherit the cabinets. Returns,
+  // per requested styleId, one tier-priced row per trim master code available in
+  // that line. Master codes that have no SKU for a style are simply absent, and
+  // the client leaves that trim as a quote-only (unpriced) line.
+  trimSkusForStyles: publicProcedure
+    .input(
+      z.object({
+        styleIds: z.array(z.number()).max(50),
+        distributorId: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || input.styleIds.length === 0) {
+        return [] as Array<{
+          styleId: number;
+          cabinetId: number;
+          masterCode: string;
+          description: string | null;
+          listPrice: string | null;
+          wholesalePrice: string | null;
+          contractorPrice: string | null;
+          homeownerPrice: string | null;
+          adjustedListPrice: string | null;
+        }>;
+      }
+      // The trim master codes the designer can auto-add. Kept in sync with the
+      // client TRIM_MASTER_CODES map in lib/trimCart.ts.
+      const TRIM_CODES = ["TK-8", "LRM-8", "BAM", "SM-8", "BF-3", "BFF-3", "WFF-3-42"];
+      const conditions = [
+        inArray(cabinets.masterCode, TRIM_CODES),
+        eq(cabinets.isActive, true),
+        notInConflict(),
+        inArray(distributorSkus.styleId, input.styleIds),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+      ];
+      if (input.distributorId) {
+        conditions.push(eq(distributorSkus.distributorId, input.distributorId));
+      }
+      const rows = await db
+        .select({
+          styleId: distributorSkus.styleId,
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+        })
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(...conditions));
+      // One priced row per (styleId, masterCode): keep the cheapest contractor
+      // price across distributors in the same line.
+      const best = new Map<string, (typeof rows)[number]>();
+      for (const r of rows) {
+        const key = `${r.styleId}:${r.masterCode}`;
+        const cur = best.get(key);
+        if (!cur) { best.set(key, r); continue; }
+        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+        const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
+        if (a < b) best.set(key, r);
+      }
+      const psTrim = await getPricingSettings();
+      return Array.from(best.values()).map((r) => ({
+        styleId: Number(r.styleId),
+        cabinetId: r.cabinetId,
+        masterCode: r.masterCode,
+        description: r.description,
+        listPrice: r.listPrice,
+        wholesalePrice: sellPriceForTier(r, psTrim, "wholesale")?.toFixed(2) ?? null,
+        contractorPrice: sellPriceForTier(r, psTrim, "contractor")?.toFixed(2) ?? null,
+        homeownerPrice: sellPriceForTier(r, psTrim, "homeowner")?.toFixed(2) ?? null,
+        adjustedListPrice: r.adjustedListPrice,
+      }));
+    }),
+
   // Resolve the per-cabinet ROLL-OUT SHELF add-on for the edit panel. Each
   // distributor line carries its own RS-* shelves and you cannot mix lines, so
   // we only consider shelves AVAILABLE + PUBLISHED for the cabinet's effective

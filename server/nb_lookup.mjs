@@ -1,0 +1,10 @@
+import 'dotenv/config';
+import mysql from 'mysql2/promise';
+const conn = await mysql.createConnection(process.env.DATABASE_URL);
+const [dn] = await conn.query("SELECT id, styleCode, distributorName, ourName, doorStyle, woodSpecies, finish, color, doorSampleImageUrl FROM door_styles WHERE styleCode LIKE '%DN%' OR distributorName LIKE '%Designer%' OR ourName LIKE '%Designer%' OR ourName LIKE '%Nature%'");
+console.log("=== DN / Designer matches ===");
+console.log(JSON.stringify(dn, null, 2));
+const [all] = await conn.query("SELECT id, styleCode, distributorName, ourName, doorStyle FROM door_styles WHERE distributorId = 2 ORDER BY styleCode");
+console.log("=== All Clark And Son (distId 2), count=" + all.length + " ===");
+for (const r of all) console.log(`${r.id} | ${r.styleCode} | ${r.distributorName} | ${r.ourName} | ${r.doorStyle}`);
+await conn.end();

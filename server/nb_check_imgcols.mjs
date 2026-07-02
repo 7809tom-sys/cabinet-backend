@@ -1,0 +1,10 @@
+import 'dotenv/config';
+import mysql from 'mysql2/promise';
+const c = await mysql.createConnection(process.env.DATABASE_URL);
+const [dn] = await c.query("SELECT id,styleCode,ourName,doorStyle,doorSampleImageUrl,thumbnailImageUrl,doorSampleVerified,isActive FROM door_styles WHERE distributorId=2 AND styleCode='DN'");
+const [gv] = await c.query("SELECT id,styleCode,ourName FROM door_styles WHERE distributorId=2 AND styleCode='GV'");
+const [cs] = await c.query("SELECT styleCode,ourName,doorStyle,doorSampleImageUrl,thumbnailImageUrl FROM door_styles WHERE distributorId=2 AND styleCode IN ('ASP','RH','CC') ORDER BY styleCode");
+console.log('DN:', JSON.stringify(dn,null,1));
+console.log('GV:', JSON.stringify(gv));
+console.log('sample rows:', JSON.stringify(cs,null,1));
+await c.end();

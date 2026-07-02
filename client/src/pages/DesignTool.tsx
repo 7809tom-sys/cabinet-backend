@@ -58,6 +58,11 @@ import {
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine,
 } from "@/lib/design";
+import {
+  buildTrimCartLines,
+  type ActiveTrim,
+  type TrimPrice,
+} from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import {
   type HardwareStyleId,
@@ -910,6 +915,35 @@ export default function DesignTool() {
     return buildRollOutLines(targets, rolloutOptionsByStyle);
   }, [placed, styleId, rolloutStyleIds, rolloutOptionsByStyle]);
 
+  // ─── Trim pricing (toe kick / light rail / batten) → BOM / cart ──────────────
+  // Trim SKUs are per door style, so we fetch the priced trim rows for the
+  // design's selected style and build a masterCode -> priced SKU map. Because the
+  // map is scoped to styleId, any trim we price inherits the cabinets' finish.
+  const trimStyleIds = useMemo(
+    () => (styleId ? [styleId] : ([] as number[])),
+    [styleId]
+  );
+  const { data: trimSkuRows } = trpc.design.trimSkusForStyles.useQuery(
+    { styleIds: trimStyleIds, distributorId: lockedDistributorId ?? undefined },
+    { enabled: trimStyleIds.length > 0, staleTime: 60_000 }
+  );
+  // masterCode -> tier-resolved priced trim SKU for the SELECTED style.
+  const trimPriceByCode = useMemo(() => {
+    const m = new Map<string, TrimPrice>();
+    trimSkuRows?.forEach((r) => {
+      if (styleId != null && r.styleId !== styleId) return;
+      m.set(r.masterCode, {
+        cabinetId: r.cabinetId,
+        masterCode: r.masterCode,
+        description: r.description,
+        unitPrice: priceOf(r, tier),
+      });
+    });
+    return m;
+  }, [trimSkuRows, styleId, tier]);
+  // NOTE: activeTrims + trimCartLines are defined lower down, after the trim
+  // order memos (crownOrder/toeKickOrder/...) and activeStyleName they depend on.
+
   // Active finish: derived from the selected door style name so picking a trim
   // instantly re-skins the placed cabinets on the canvas + elevation.
   const activeStyleName = useMemo(() => {
@@ -1104,7 +1138,7 @@ export default function DesignTool() {
   // pending-SKU end panels) are NOT added — only real, priced catalog cabinets.
   // The cart is locked to ONE distributor (supply line); the whole design shares
   // the design's locked distributor, so there is never a cross-distributor mix.
-  const cartableLines = useMemo(() => {
+  const cabinetCartLines = useMemo(() => {
     if (!styleId) return [] as CartItem[];
     const map = new Map<string, CartItem>();
     for (const p of placed) {
@@ -1152,36 +1186,6 @@ export default function DesignTool() {
     return Array.from(map.values());
   }, [placed, styleId, unitPriceFor, styleNameById, lockedDistributorId, tier, rolloutLines]);
 
-  const addAllToCart = useCallback(() => {
-    if (cartableLines.length === 0) {
-      toast.info(t("dt_cart_nothing"));
-      return;
-    }
-    // If the cart already holds items from a DIFFERENT distributor, adding would
-    // be rejected line-by-line. Offer to clear and start fresh with this design.
-    if (
-      cartLockedDistributorId != null &&
-      lockedDistributorId != null &&
-      cartLockedDistributorId !== lockedDistributorId
-    ) {
-      const ok = window.confirm(
-        t("dt_cart_distributor_conflict", { name: cartLockedStyleLabel ?? "" })
-      );
-      if (!ok) return;
-      clearCart();
-    }
-    let added = 0;
-    for (const line of cartableLines) {
-      const res = addItem(line);
-      if (res.ok) added += line.qty;
-    }
-    if (added > 0) {
-      toast.success(t("dt_cart_added", { n: added }));
-      navigate("/cart");
-    } else {
-      toast.error(t("dt_cart_failed"));
-    }
-  }, [cartableLines, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, navigate, t]);
 
   // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
   // note for the build sheet — carries no price (hardware is not a catalog SKU).
@@ -1284,6 +1288,82 @@ export default function DesignTool() {
     () => (lightRail ? trimPiecesNeeded(lightRailLinearInches(placed, room)) : null),
     [lightRail, placed, room]
   );
+
+  // Active trims + their piece counts, in the shape the cart helper consumes.
+  const activeTrims = useMemo<ActiveTrim[]>(() => {
+    const list: ActiveTrim[] = [];
+    if (crown && crownOrder) list.push({ kind: "crown", pieces: crownOrder.pieces });
+    if (toeKick && toeKickOrder) list.push({ kind: "toeKick", pieces: toeKickOrder.pieces });
+    if (batten && battenOrder) list.push({ kind: "batten", pieces: battenOrder.pieces });
+    if (lightRail && lightRailOrder) list.push({ kind: "lightRail", pieces: lightRailOrder.pieces });
+    return list;
+  }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder]);
+
+  // Priced trim cart lines (styleId-scoped). Trims without a buyable SKU for the
+  // style (crown, or a style missing that trim) are omitted → quote-only.
+  const trimCartLines = useMemo(
+    () => buildTrimCartLines(activeTrims, styleId, activeStyleName ?? "", trimPriceByCode),
+    [activeTrims, styleId, activeStyleName, trimPriceByCode]
+  );
+
+  // Final cart lines = cabinets + roll-out shelves + priced trim. Trim is folded
+  // in here (aggregated by masterCode+styleId) so every consumer of cartableLines
+  // (Add to Cart, the review list, the running total) includes trim automatically.
+  const cartableLines = useMemo(() => {
+    if (trimCartLines.length === 0) return cabinetCartLines;
+    const map = new Map<string, CartItem>();
+    for (const line of cabinetCartLines) {
+      map.set(`${line.masterCode}::${line.styleId}`, { ...line });
+    }
+    for (const t of trimCartLines) {
+      const key = `${t.masterCode}::${t.styleId}`;
+      const existing = map.get(key);
+      if (existing) existing.qty += t.qty;
+      else
+        map.set(key, {
+          masterCode: t.masterCode,
+          name: t.name,
+          styleId: t.styleId,
+          styleLabel: t.styleLabel,
+          distributorId: lockedDistributorId ?? null,
+          tier: DESIGN_TIER_TO_SHARED[tier],
+          unitPrice: t.unitPrice,
+          qty: t.qty,
+        });
+    }
+    return Array.from(map.values());
+  }, [cabinetCartLines, trimCartLines, lockedDistributorId, tier]);
+
+  const addAllToCart = useCallback(() => {
+    if (cartableLines.length === 0) {
+      toast.info(t("dt_cart_nothing"));
+      return;
+    }
+    // If the cart already holds items from a DIFFERENT distributor, adding would
+    // be rejected line-by-line. Offer to clear and start fresh with this design.
+    if (
+      cartLockedDistributorId != null &&
+      lockedDistributorId != null &&
+      cartLockedDistributorId !== lockedDistributorId
+    ) {
+      const ok = window.confirm(
+        t("dt_cart_distributor_conflict", { name: cartLockedStyleLabel ?? "" })
+      );
+      if (!ok) return;
+      clearCart();
+    }
+    let added = 0;
+    for (const line of cartableLines) {
+      const res = addItem(line);
+      if (res.ok) added += line.qty;
+    }
+    if (added > 0) {
+      toast.success(t("dt_cart_added", { n: added }));
+      navigate("/cart");
+    } else {
+      toast.error(t("dt_cart_failed"));
+    }
+  }, [cartableLines, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, navigate, t]);
 
   // ─── Trim auto-apply ────────────────────────────────────────────────────────
   // Every trim that crown/toe kick do is now AUTOMATIC: when the layout warrants
@@ -4809,7 +4889,7 @@ export default function DesignTool() {
                 );
               })()
             )}
-            {((crown || toeKick || batten || countertop) && placed.length > 0) && (
+            {((crown || toeKick || batten || lightRail || countertop) && placed.length > 0) && (
             <SheetSection
               title={t("dt_bs_sec_extras")}
               collapsed={collapsedSheet.has("extras")}
@@ -4817,7 +4897,7 @@ export default function DesignTool() {
             >
             <div className="px-2 pb-1 space-y-1">
 {/* Auto-filler removed: user places corner fillers manually */}
-            {(crown || toeKick || batten || countertop) && placed.length > 0 && (
+            {(crown || toeKick || batten || lightRail || countertop) && placed.length > 0 && (
               <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
                 {crown && crownOrder && crownOrder.pieces > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
@@ -4830,7 +4910,10 @@ export default function DesignTool() {
                     <span className="font-semibold shrink-0 text-muted-foreground">{t("dt_bs_incl")}</span>
                   </div>
                 )}
-                {toeKick && toeKickOrder && toeKickOrder.pieces > 0 && (
+                {toeKick && toeKickOrder && toeKickOrder.pieces > 0 && (() => {
+                  const p = trimPriceByCode.get("TK-8");
+                  const ext = p && p.unitPrice > 0 ? p.unitPrice * toeKickOrder.pieces : null;
+                  return (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_toe_kick")}</div>
@@ -4838,10 +4921,14 @@ export default function DesignTool() {
                         {toeKickOrder.pieces} pc{toeKickOrder.pieces > 1 ? "s" : ""} @ {toeKickOrder.stickFeet}&apos; · {toeKickOrder.measuredFeet} ft run
                       </div>
                     </div>
-                    <span className="font-semibold shrink-0 text-muted-foreground">{t("dt_bs_incl")}</span>
+                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
                   </div>
-                )}
-                {batten && battenOrder && battenOrder.pieces > 0 && (
+                  );
+                })()}
+                {batten && battenOrder && battenOrder.pieces > 0 && (() => {
+                  const p = trimPriceByCode.get("BAM");
+                  const ext = p && p.unitPrice > 0 ? p.unitPrice * battenOrder.pieces : null;
+                  return (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_batten_molding")}</div>
@@ -4849,9 +4936,25 @@ export default function DesignTool() {
                         {battenOrder.pieces} pc{battenOrder.pieces > 1 ? "s" : ""} @ {battenOrder.stickFeet}&apos; · {battenOrder.measuredFeet} ft run · 3/4&quot; × 3/16&quot;
                       </div>
                     </div>
-                    <span className="font-semibold shrink-0 text-muted-foreground">{t("dt_bs_incl")}</span>
+                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
                   </div>
-                )}
+                  );
+                })()}
+                {lightRail && lightRailOrder && lightRailOrder.pieces > 0 && (() => {
+                  const p = trimPriceByCode.get("LRM-8");
+                  const ext = p && p.unitPrice > 0 ? p.unitPrice * lightRailOrder.pieces : null;
+                  return (
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
+                    <div className="min-w-0">
+                      <div className="font-mono font-semibold truncate">{t("dt_sh_light_rail_btn")}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {lightRailOrder.pieces} pc{lightRailOrder.pieces > 1 ? "s" : ""} @ {lightRailOrder.stickFeet}&apos; · {lightRailOrder.measuredFeet} ft run
+                      </div>
+                    </div>
+                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
+                  </div>
+                  );
+                })()}
                 {countertop && counter && counter.squareFeet > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30">
                     <div className="min-w-0">

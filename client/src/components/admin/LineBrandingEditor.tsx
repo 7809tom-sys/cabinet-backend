@@ -21,7 +21,7 @@ type DisplayMode = "neutral" | "branded" | "series";
 const MODE_HELP: Record<DisplayMode, string> = {
   neutral: "Hide the supplier. Members see a plain neutral label (e.g. \"Line A\").",
   branded: "Show the supplier's real brand name and initials to members.",
-  series: "Present this line as a Cabinet Dealz series (e.g. \"Elegant Series\"); supplier stays hidden.",
+  series: "Present this line as a Cabinet Dealz series (e.g. \"Madison Series\"); supplier stays hidden.",
 };
 
 const MODE_LABEL_FIELD: Record<DisplayMode, string> = {
@@ -153,7 +153,7 @@ export default function LineBrandingEditor() {
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   placeholder={
-                    mode === "series" ? "Cabinet Dealz Elegant Series" : mode === "branded" ? "ACME Cabinetry" : "Line A"
+                    mode === "series" ? "Madison Series" : mode === "branded" ? "ACME Cabinetry" : "Line A"
                   }
                   maxLength={128}
                   disabled={!selectedId}

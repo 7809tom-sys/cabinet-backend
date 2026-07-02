@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerSeoRoutes } from "../seo";
+import { apexRedirectMiddleware } from "../apexRedirect";
 import fs from "fs";
 import path from "path";
 
@@ -56,6 +57,13 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
+  // Trust the proxy so req.headers.host reflects the original public host
+  // (Cloud Run / Manus edge terminate TLS in front of us).
+  app.set("trust proxy", true);
+  // Redirect the naked apex domain (cabinetdealz.com) to https://www.cabinetdealz.com.
+  // No-op for localhost, *.manus.space/.manus.computer, and the www host, so it is
+  // safe to run before everything else.
+  app.use(apexRedirectMiddleware);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

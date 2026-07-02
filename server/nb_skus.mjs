@@ -1,0 +1,10 @@
+import 'dotenv/config';
+import mysql from 'mysql2/promise';
+const conn = await mysql.createConnection(process.env.DATABASE_URL);
+const [dn] = await conn.query("SELECT COUNT(*) n FROM distributor_skus WHERE distributorSku LIKE 'DN-%' OR platformSku LIKE 'DN-%'");
+console.log("existing DN skus in distributor_skus:", JSON.stringify(dn[0]));
+const [asp] = await conn.query("SELECT id, cabinetId, distributorId, styleId, platformSku, distributorSku, listPrice, yourCost, wholesalePrice, contractorPrice, homeownerPrice, isAvailable, isPublished, supplierCabinetName FROM distributor_skus WHERE distributorId=2 ORDER BY id LIMIT 4");
+console.log("sample distId2 rows:", JSON.stringify(asp, null, 2));
+const [byStyle] = await conn.query(`SELECT ds.styleId, dst.styleCode, dst.ourName, COUNT(*) n FROM distributor_skus ds LEFT JOIN door_styles dst ON ds.styleId=dst.id WHERE ds.distributorId=2 GROUP BY ds.styleId, dst.styleCode, dst.ourName ORDER BY dst.styleCode`);
+console.log("distId2 SKU counts by style:", JSON.stringify(byStyle, null, 2));
+await conn.end();

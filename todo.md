@@ -2421,3 +2421,22 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Highlight/flag Builder Grade in UI: added isBuilderGrade boolean column (migration 0048), exposed in doorStyles.list + byCode/byId; amber "BUILDER GRADE" badge on DoorStyles cards + dialog, plus a hardware spec row and builder-grade note. i18n keys ds_hardware / ds_builder_grade / ds_builder_grade_note (EN+ES). Verified badge shows only on the 3 Bloom styles.
 - [x] tsc clean; full suite 1150 tests pass. Checkpoint saved.
 - [x] Tests + type-check clean; verified in UI; checkpoint saved.
+
+
+## Apex domain -> www redirect (user report: cabinetdealz.com Error 1001)
+- [x] Root cause: domain is registered at HOSTINGER (ns1/ns2.dns-parking.com = Hostinger parking, which sits behind Cloudflare -> hence the 1001 on the apex). www CNAME already points to Manus and works. DNS fix for the apex is done in Hostinger hPanel DNS Zone (add apex domain in Manus Settings->Domains, then point @ record in Hostinger). User has NO Cloudflare account -> ignore Cloudflare entirely. Advised user.
+- [x] App safety net: added server/apexRedirect.ts (resolveApexRedirect + apexRedirectMiddleware) that 301-redirects cabinetdealz.com -> https://www.cabinetdealz.com preserving path+query. Mounted first in server/_core/index.ts with app.set('trust proxy', true).
+- [x] No-op for localhost, 127.0.0.1, *.manus.space, *.manus.computer, www host, and unrelated/empty hosts (verified by tests). Preview still loads after restart.
+- [x] Added server/apexRedirect.test.ts (7 tests); tsc clean. Checkpoint pending.
+
+
+## Designer Trim Bugs (user report, this session)
+- [ ] BUG: Trim/moulding items added in the designer (crown, light rail, toe kick, filler, scribe, etc.) do NOT get added to the shopping cart / order — they appear in the design but are missing from the cart total
+- [ ] BUG: Trim color does not reflect the rest of the cabinets — trim pieces should inherit the selected door style/finish color instead of showing a default/wrong finish
+- [ ] Add/extend vitest coverage for trim-in-cart inclusion and trim color inheritance
+
+## Supply-line branding (user request: named Series instead of "Line A/B/C")
+- [x] Brand the three supply lines as named Series (Madison / Ashford / Preston) via series display mode
+- [x] Confirm Design Tool door-style picker shows series names with supplier hidden
+- [x] Update Admin → Distributors "Cabinet line branding" editor copy to use "Madison Series" example (rename any line anytime here)
+- [x] whitelabel + grouping tests pass (13 tests)
