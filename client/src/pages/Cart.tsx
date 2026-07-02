@@ -190,9 +190,9 @@ export default function Cart() {
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-xs text-amber-600">
-                          <AlertTriangle className="h-3 w-3" />
+                          <Truck className="h-3 w-3" />
                           {t("crt_out_of_range_for")} {normalizedZip}
-                          {a.nearestMiles != null ? ` (${t("crt_nearest")} ~${a.nearestMiles} mi)` : ""}
+                          {a.nearestMiles != null ? ` · ${t("crt_nearest")} ~${a.nearestMiles} mi` : ""}
                         </span>
                       )}
                     </div>

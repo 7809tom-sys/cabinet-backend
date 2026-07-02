@@ -73,6 +73,24 @@ describe("door / drawer counting", () => {
     expect(doorCountForCabinet(cab({ masterCode: "WSV-30", description: "Wall Skin Panel" }))).toBe(0);
     expect(drawerCountForCabinet(cab({ placement: "appliance", cabinetId: 0 }))).toBe(0);
   });
+
+  it("infers a SINGLE door for narrow bases when no door count is stored", () => {
+    // P9 .. B-21 range: one door.
+    expect(doorCountForCabinet(cab({ masterCode: "P9", description: "Base 9", width: 9 }))).toBe(1);
+    expect(doorCountForCabinet(cab({ masterCode: "B-12", description: "Base 12", width: 12 }))).toBe(1);
+    expect(doorCountForCabinet(cab({ masterCode: "B-18", description: "Base 18", width: 18 }))).toBe(1);
+    expect(doorCountForCabinet(cab({ masterCode: "B-21", description: "Base 21", width: 21 }))).toBe(1);
+  });
+
+  it("infers TWO doors for wide bases (B-24 and up) when no door count is stored", () => {
+    expect(doorCountForCabinet(cab({ masterCode: "B-24", description: "Base 24", width: 24 }))).toBe(2);
+    expect(doorCountForCabinet(cab({ masterCode: "B-30", description: "Base 30", width: 30 }))).toBe(2);
+    expect(doorCountForCabinet(cab({ masterCode: "B-36", description: "Base 36", width: 36 }))).toBe(2);
+  });
+
+  it("falls back to nominalWidth when live width is missing", () => {
+    expect(doorCountForCabinet(cab({ masterCode: "B-30", description: "Base 30", width: 0, nominalWidth: 30 }))).toBe(2);
+  });
 });
 
 describe("display drawer count (elevation drawer fronts)", () => {
@@ -80,8 +98,14 @@ describe("display drawer count (elevation drawer fronts)", () => {
     expect(displayDrawerCount(cab({ masterCode: "DB-24-3", description: "Drawer Base" }))).toBe(3);
   });
 
-  it("gives a standard base cabinet a single top drawer front", () => {
+  it("gives a single-door base ONE top drawer front", () => {
+    expect(displayDrawerCount(cab({ masterCode: "B-18", description: "Base 18", width: 18 }))).toBe(1);
     expect(displayDrawerCount(cab({ masterCode: "B-24", description: "Base 24", numberOfDoors: 1 }))).toBe(1);
+  });
+
+  it("gives a two-door base TWO top drawer fronts (one over each door)", () => {
+    expect(displayDrawerCount(cab({ masterCode: "B-30", description: "Base 30", width: 30 }))).toBe(2);
+    expect(displayDrawerCount(cab({ masterCode: "B-36", description: "Base 36", numberOfDoors: 2 }))).toBe(2);
   });
 
   it("does not add a top drawer to wall cabinets", () => {

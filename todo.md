@@ -2370,3 +2370,11 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 
 - [x] Front/elevation view now renders a wood-look floor plane + baseboard/contact shadow at y=0 so the room reads correctly.
 - [x] Sliding a cabinet along the wall now STOPS against same-band neighbours (hard block via free-interval clamp + magnet), so base cabinets can't overlap; wall cabinets still slide freely over bases, and bridge-over-microwave / stacker pairings are exempt.
+
+## Base cabinet elevation profile (user report)
+
+- [x] Standard base cabinets now render a TOP DRAWER band over the door(s): doorCountForCabinet infers 1 door <24" / 2 doors >=24" by width when no stored count; displayDrawerCount returns one top drawer per door; DoorFront lays the top drawers side-by-side (one over each door) with a rail, and keeps drawer bases as a vertical stack. 10 new/updated hardware tests.
+
+## Cart: sell regardless of distance (user report)
+
+- [x] Confirmed checkout/requestOrder is NOT gated by range (only by mixed-supplier) and add-to-cart has no range gate, so cabinets were always sellable. Reworded the cart copy (EN+ES) from "Out of service range" to a freight note ("Long-haul freight to <zip> · nearest hub ~N mi") with a truck icon, so it reads as a shipping detail, not a blocker.

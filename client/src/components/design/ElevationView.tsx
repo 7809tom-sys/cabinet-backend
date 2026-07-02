@@ -1152,13 +1152,52 @@ function StylePanel({ kind, edge, face, drawer = false }: { kind: DoorPanelKind;
 function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
+  const stroke = `${edge}99`;
   // When a cabinet has drawers, draw the drawer stack + (optional) door region.
   if (drawerCount > 0) {
     const hasDoors = doorCount > 0;
-    // Drawer band height: all-drawer cabinets fill the face; mixed bases give a
-    // generous slice to drawers (top) and the rest to the door(s) below.
-    const drawerBandPct = hasDoors ? 42 : 100;
-    const sliceH = drawerBandPct / drawerCount;
+    if (hasDoors) {
+      // STANDARD BASE: a short TOP drawer band (one drawer front per door, laid
+      // out SIDE-BY-SIDE so they line up over the doors) above a door region
+      // split into the same number of side-by-side doors below.
+      const drawerBandPct = 26;
+      const cols = Math.max(1, doorCount);
+      const colW = 100 / cols;
+      return (
+        <>
+          {/* top drawer band: one drawer front per column */}
+          {Array.from({ length: cols }).map((_, i) => (
+            <div
+              key={`tdrw-${i}`}
+              className="absolute top-0"
+              style={{ left: `${colW * i}%`, width: `${colW}%`, height: `${drawerBandPct}%` }}
+            >
+              {i > 0 && (
+                <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+              )}
+              <StylePanel kind={kind} edge={edge} face={face} drawer />
+            </div>
+          ))}
+          {/* rail between the drawer band and the doors */}
+          <div className="absolute left-0 right-0" style={{ top: `${drawerBandPct}%`, height: 2, background: stroke }} />
+          {/* door region: N side-by-side doors */}
+          {Array.from({ length: cols }).map((_, i) => (
+            <div
+              key={`bdoor-${i}`}
+              className="absolute"
+              style={{ left: `${colW * i}%`, width: `${colW}%`, top: `${drawerBandPct}%`, bottom: 0 }}
+            >
+              {i > 0 && (
+                <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+              )}
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} />
+            </div>
+          ))}
+        </>
+      );
+    }
+    // DRAWER BASE (all-drawer, no doors): a vertical STACK of drawer fronts.
+    const sliceH = 100 / drawerCount;
     return (
       <>
         {Array.from({ length: drawerCount }).map((_, i) => (
@@ -1167,19 +1206,16 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
             className="absolute left-0 right-0"
             style={{ top: `${sliceH * i}%`, height: `${sliceH}%` }}
           >
+            {i > 0 && (
+              <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
+            )}
             <StylePanel kind={kind} edge={edge} face={face} drawer />
           </div>
         ))}
-        {hasDoors && (
-          <div className="absolute left-0 right-0" style={{ top: `${drawerBandPct}%`, bottom: 0 }}>
-            <StylePanel kind={kind} edge={edge} face={face} />
-          </div>
-        )}
       </>
     );
   }
   void isWall;
-  const stroke = `${edge}99`;
   // For multi-door cabinets, split the face into N side-by-side door panels
   // separated by a center stile. Each panel gets its own style treatment.
   const numDoors = Math.max(1, doorCount);

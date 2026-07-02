@@ -101,6 +101,19 @@ function carriesHardware(p: PlacedCabinet): boolean {
   return true;
 }
 
+// At/above this width (inches) a standard door cabinet is built with TWO doors
+// (and, on a base, two side-by-side top drawers). Below it, one door + one
+// full-width top drawer. 24" is the industry break: B-24 up = two doors.
+const TWO_DOOR_MIN_WIDTH_IN = 24;
+
+// The cabinet's width in inches: the live width the customer sees, falling back
+// to the original catalog (nominal) width for older saved designs.
+function cabinetWidthIn(p: PlacedCabinet): number {
+  if (typeof p.width === "number" && p.width > 0) return p.width;
+  if (typeof p.nominalWidth === "number" && p.nominalWidth > 0) return p.nominalWidth;
+  return 0;
+}
+
 /**
  * Infer how many DOORS a placed cabinet shows on its front. Trust the stored
  * door count when present; otherwise fall back to the description/code:
@@ -112,6 +125,11 @@ export function doorCountForCabinet(p: PlacedCabinet): number {
   if (typeof p.numberOfDoors === "number") return Math.max(0, p.numberOfDoors);
   const hay = `${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
   if ((/\bdrawer base\b|^db|drawer\b/.test(hay)) && !/door/.test(hay)) return 0;
+  // No stored door count: infer by width the way real cabinetry is built. A
+  // narrow box (up to ~21" — e.g. P9 through B-21) is a SINGLE door; a wide box
+  // (B-24 and up) is a TWO-door cabinet. This applies to bog-standard door
+  // bases and door wall cabinets; corners/blinds are handled by their own code.
+  if (cabinetWidthIn(p) >= TWO_DOOR_MIN_WIDTH_IN) return 2;
   return 1;
 }
 
@@ -158,7 +176,10 @@ export function displayDrawerCount(p: PlacedCabinet): number {
   if (/lazy|susan|\bls\b|corner|blind|\bbwb\b|trash|waste|\bfhd\b|full height|farm|apron/.test(hay)) return 0;
   const doors = doorCountForCabinet(p);
   if (doors <= 0) return 0;
-  return 1;
+  // A standard base gets ONE top drawer per door: a single-door base (≤21")
+  // shows one full-width top drawer; a two-door base (B-24, B-30, …) shows two
+  // side-by-side top drawers that line up over its two doors.
+  return Math.max(1, doors);
 }
 
 export interface HardwarePieceCount {
