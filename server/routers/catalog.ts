@@ -104,6 +104,7 @@ export const doorStylesRouter = router({
         isFeatured: doorStyles.isFeatured,
         featuredRank: doorStyles.featuredRank,
         featuredLabel: doorStyles.featuredLabel,
+        isBuilderGrade: doorStyles.isBuilderGrade,
         isActive: doorStyles.isActive,
         createdAt: doorStyles.createdAt,
       };

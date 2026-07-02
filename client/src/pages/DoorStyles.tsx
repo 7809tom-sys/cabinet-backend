@@ -28,6 +28,8 @@ interface DoorStyle {
   woodSpecies: string | null;
   color: string | null;
   finish: string | null;
+  hardware?: string | null;
+  isBuilderGrade?: boolean | null;
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
@@ -50,7 +52,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
       <DialogTrigger asChild>
         <button
           type="button"
-          className="cabinet-card group rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="cabinet-card group relative rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {/* Clean studio door sample as the primary visual on a neutral ground */}
           <div className="h-48 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
@@ -72,6 +74,13 @@ function StyleCard({ style }: { style: DoorStyle }) {
               {t("ds_view_details")}
             </span>
           </div>
+
+          {/* Builder Grade line marker — standard hardware, value line */}
+          {style.isBuilderGrade && (
+            <span className="absolute top-2 left-2 z-10 text-[10px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-300/95 px-2 py-0.5 rounded-full shadow-sm">
+              {t("ds_builder_grade")}
+            </span>
+          )}
 
           <div className="p-4">
             <div className="flex items-start justify-between gap-2 mb-2">
@@ -100,10 +109,13 @@ function StyleCard({ style }: { style: DoorStyle }) {
 
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
             {displayName(style)}
             {style.doorStyle && (
               <Badge variant="outline" className="text-xs">{style.doorStyle}</Badge>
+            )}
+            {style.isBuilderGrade && (
+              <Badge className="text-xs bg-amber-300 text-amber-950 hover:bg-amber-300">{t("ds_builder_grade")}</Badge>
             )}
           </DialogTitle>
         </DialogHeader>
@@ -131,8 +143,16 @@ function StyleCard({ style }: { style: DoorStyle }) {
             {style.woodSpecies && <p className="text-xs"><span className="text-muted-foreground">{t("ds_wood")}:</span> {style.woodSpecies}</p>}
             {style.finish && <p className="text-xs"><span className="text-muted-foreground">{t("ds_finish")}:</span> {style.finish}</p>}
             {style.color && <p className="text-xs"><span className="text-muted-foreground">{t("ds_color")}:</span> {style.color}</p>}
+            {style.hardware && <p className="text-xs"><span className="text-muted-foreground">{t("ds_hardware")}:</span> {style.hardware}</p>}
           </div>
         </div>
+
+        {/* Builder Grade advisory: this value line ships standard hardware, not soft-close */}
+        {style.isBuilderGrade && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {t("ds_builder_grade_note")}
+          </div>
+        )}
 
         {/* Primary path into shopping: see EVERY cabinet available in this family */}
         <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>

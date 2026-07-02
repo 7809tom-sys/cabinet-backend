@@ -73,3 +73,42 @@ DB door_styles: 62 rows, use distributorName = distributor's real name, ourName/
 
 ### PENDING OWNER DECISION (asked next)
 Recommend: (A) FIX the 14 conflicts (WRC wine rack, pantry door counts, ERB lazy susan) — real errors. (B) Do NOT overwrite the other ~211 descriptions (DB better). (C) Optionally add the handful of new filler/trim SKUs. Deliver both xlsx workbooks for review first.
+
+
+## SESSION: Builder hardware + Double Shaker images + Builder highlight
+
+### door_styles hardware audit (all 62 rows currently "Soft-Close")
+- Line 1 US Cabinet Depot: 19 styles, all Soft-Close (premium, KEEP).
+- Line 2 Clark & Son: 10 Soft-Close + 1 null (premium, KEEP).
+- Line 3 Skyline (distributorId=3): 29 Soft-Close + 3 "Undermount Soft-Close Glides, 6-Way Adjustable Hinges" (slim shaker).
+
+### KEY ROWS (distributorId=3 Skyline)
+BUILDER GRADE = the 3 Floral/Bloom styles (Spring Forest builder-grade). These get STANDARD hardware + highlight:
+- id=30040 code=FW our="Bloom White" dist="Floral White" door=Shaker hw=Soft-Close img=door-bloom-blanc_opt_1ab33268.jpg
+- id=30041 code=FG our="Bloom Cinder" dist="Floral Gray" door=Shaker hw=Soft-Close img=door-bloom-cinder_opt_97623192.jpg
+- id=30042 code=FE our="Bloom Shadow" dist="Floral Expresso" door=Shaker hw=Soft-Close img=door-bloom-umbra_opt_7a15aee2.jpg
+
+DOUBLE SHAKER = 2 styles with WRONG images (need correct double-shaker door render: TWO stacked shaker panels w/ center rail):
+- id=30025 code=DDW our="Dual White" dist="Double Dove White" door="Double Shaker" img=door-dual-blanc_opt_cc3e382e.jpg  -> WHITE double shaker
+- id=30024 code=DSG our="Dual Dusk" dist="Double Smokey Gray" door="Double Shaker" img=door-dual-vesper_opt_353fd02c.jpg -> SMOKEY GRAY double shaker
+
+### schema facts
+- door_styles has: hardware varchar(128), doorStyle varchar(64), doorSampleImageUrl varchar(512), thumbnailImageUrl, isFeatured, featuredLabel, isActive. NO grade/series/tier column on door_styles.
+- distributors table HAS: displayMode enum(neutral|branded|series), seriesName varchar, markupPercent decimal. (distributor-level, not per door style.)
+- No per-doorstyle "grade" flag exists -> for Builder highlight, options: (a) add a builderGrade boolean column to door_styles, or (b) derive from hardware != 'Soft-Close' + Floral finish. Prefer adding a small boolean column `isBuilderGrade` for clarity + a UI badge.
+
+### Double shaker reference images saved (search results, representative only - do NOT use as real product photos):
+- /home/ubuntu/upload/search_images/3q6ju7sMtbG9.jpg (double shaker white kitchen, CabinetSelect)
+- /home/ubuntu/upload/search_images/LT6SuvCCkpni.jpg (double shaker white kitchen 2, CabinetSelect)
+Plan: GENERATE 2 clean watermark-free door-front renders (white + smokey gray), double/mullion shaker profile (two stacked recessed panels), upload via manus-upload-file --webdev, set doorSampleImageUrl for ids 30025 + 30024.
+
+### how door images are referenced in UI
+- DoorStyleSwatch.tsx uses style.thumbnailImageUrl || style.doorSampleImageUrl.
+- DoorStyles.tsx realDoor = style.doorSampleImageUrl.
+- CabinetDetail, DesignTool, Family all read doorSampleImageUrl.
+- Public catalog router scrubs distributorName/descriptionSource for white-label; hardware field exposure TBD (check catalog router select).
+
+## Double Shaker image regen (user feedback: "it has a small little edge to it")
+- Earlier renders too flat; real double/two-panel shaker door has a SMALL STEPPED BEVEL (slight chamfered ledge) around inner edge of each recessed panel where frame steps down to panel. Reference: /home/ubuntu/upload/search_images/MfLG2V30iX4L.jpg (Shaker Slight Bevel).
+- Regenerate ids 30025 (Dual White) + 30024 (Dual Dusk) with stepped bevel visible; repoint via server/doubleShakerImage.apply.test.ts.
+- Local asset files: /home/ubuntu/webdev-static-assets/door-dual-shaker-white.png, door-dual-shaker-gray.png

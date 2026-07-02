@@ -2413,3 +2413,11 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] ERB-33, ERB-36: description now "Base Easy Reach Corner Cabinet w/Lazy Susan".
 - [x] "Dictate to other lines": corrections live on the MASTER cabinet record (one description per master code, shared across ALL door styles / finish lines / distributors) — so a single fix propagates to every line automatically. Confirmed the W-*-*-24 above-fridge cabinets are genuinely "Refrigerator Wall Cabinet" and were correctly left untouched (only the WRC prefix = wine rack).
 - [x] Applied via idempotent server/skylineCorrect.apply.test.ts (sets descriptionSource='Skyline Catalog Correction'); originals preserved in notes/skyline-refresh.md. Verified live via cabinets.byCode. tsc clean; full suite 1146 pass. One-off dump/discover tests removed.
+
+## Builder Grade hardware + Double Shaker images + Builder highlight (user report)
+- [x] Builder Grade line ships STANDARD hardware, not soft-close. The 3 Bloom/Floral styles (ids 30040/30041/30042) set to hardware="Standard (Self-Close) Hinges & Slides"; premium lines (US Cabinet Depot + Skyline premium + Slim Shaker) left as Soft-Close. Applied via idempotent server/builderGrade.apply.test.ts.
+- [x] Identified Builder Grade rows = the 3 Floral/Bloom finishes (Bloom White/Cinder/Shadow) per Spring Forest builder catalog.
+- [x] Double Shaker door styles (ids 30025 Dual White, 30024 Dual Dusk) had wrong images. Generated accurate double/two-panel shaker renders (white + Dorian gray) WITH the small stepped bevel around each recessed panel (per user feedback "it has a small little edge to it"), repointed via server/doubleShakerImage.apply.test.ts. Verified on /styles?door=Double Shaker.
+- [x] Highlight/flag Builder Grade in UI: added isBuilderGrade boolean column (migration 0048), exposed in doorStyles.list + byCode/byId; amber "BUILDER GRADE" badge on DoorStyles cards + dialog, plus a hardware spec row and builder-grade note. i18n keys ds_hardware / ds_builder_grade / ds_builder_grade_note (EN+ES). Verified badge shows only on the 3 Bloom styles.
+- [x] tsc clean; full suite 1150 tests pass. Checkpoint saved.
+- [x] Tests + type-check clean; verified in UI; checkpoint saved.

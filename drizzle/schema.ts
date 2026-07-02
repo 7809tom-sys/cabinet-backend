@@ -105,6 +105,10 @@ export const doorStyles = mysqlTable("door_styles", {
   isFeatured: boolean("isFeatured").default(false).notNull(),
   featuredRank: int("featuredRank").default(0).notNull(),
   featuredLabel: varchar("featuredLabel", { length: 128 }),
+  // Builder Grade line (Skyline Builder / Spring Forest "Floral" finishes):
+  // ships STANDARD hardware (not soft-close) and is a lower-spec value line.
+  // Drives a UI badge + hardware note so it is clearly distinguished from premium lines.
+  isBuilderGrade: boolean("isBuilderGrade").default(false).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
