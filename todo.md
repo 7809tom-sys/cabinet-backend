@@ -2365,3 +2365,8 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Countertop band in elevation: runs over base cabinets + bridges the dishwasher AND wine cooler, but BREAKS at the range and refrigerator (backsplash spans match).
 - [x] Wine cooler appliance fixture (WINE-24, 24" undercounter, kitchen) added to the appliance palette; countertop bridges over it; photoreal scene mentions it.
 - [x] Unit tests for all rules (17 in designStackingRules.test.ts); type-check clean; full suite 1130 pass; verified in browser; checkpoint.
+
+## Elevation view fixes (user report)
+
+- [x] Front/elevation view now renders a wood-look floor plane + baseboard/contact shadow at y=0 so the room reads correctly.
+- [x] Sliding a cabinet along the wall now STOPS against same-band neighbours (hard block via free-interval clamp + magnet), so base cabinets can't overlap; wall cabinets still slide freely over bases, and bridge-over-microwave / stacker pairings are exempt.

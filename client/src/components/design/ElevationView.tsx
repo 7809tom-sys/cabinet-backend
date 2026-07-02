@@ -4,7 +4,7 @@ import {
   type DoorPanelKind, type WallSide, cabinetWall,
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet,
   wallCeiling, wallCeilingIsSloped,
-  backsplashMaterial,
+  backsplashMaterial, isStacker, isBridgeOverRange,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -299,15 +299,66 @@ export function ElevationView({
       : e.clientY - wallRect.top - dragOffset.current;
     let newAlong = pxAlong / ppi;
     newAlong = Math.max(0, Math.min(newAlong, planSpanLen - sizeAlong));
-    // Snap to neighbors
-    const others = cabinets.filter((c) => c.uid !== dragUid && cabinetWall(c, room) === side);
-    const SNAP = 1.5;
+
+    // Neighbours on the SAME wall that occupy the SAME vertical band as the
+    // dragged cabinet (so a wall cabinet can slide freely over a base cabinet,
+    // but two base cabinets block each other). Appliances/cabinets that are
+    // intentionally allowed to overlap (e.g. a bridge over a microwave, a sink
+    // over a sink base, a stacker over its host) are excluded so they don't
+    // block the slide.
+    const dBox = elevationBox(cabinet, room);
+    const dTop = dBox.bottom + dBox.height;
+    const bandOverlap = (o: PlacedCabinet) => {
+      const oBox = elevationBox(o, room);
+      const oTop = oBox.bottom + oBox.height;
+      // Two boxes share a vertical band if their [bottom, top] ranges overlap.
+      return dBox.bottom < oTop - 0.01 && oBox.bottom < dTop - 0.01;
+    };
+    const others = cabinets.filter(
+      (c) =>
+        c.uid !== dragUid &&
+        cabinetWall(c, room) === side &&
+        bandOverlap(c) &&
+        !isStacker(c) &&
+        !isStacker(cabinet) &&
+        !isBridgeOverRange(cabinet, c) &&
+        !isBridgeOverRange(c, cabinet),
+    );
+
+    // Build the free interval [lo, hi] the dragged cabinet's START may occupy so
+    // it never overlaps a same-band neighbour. We pick the interval that
+    // contains the raw target; if the target lands inside a neighbour, clamp to
+    // the nearest free edge (this makes the cabinet STOP against its neighbour
+    // rather than passing through).
+    const SNAP = 2;
+    let lo = 0;
+    let hi = planSpanLen - sizeAlong;
+    for (const o of others) {
+      const oAlong = horizontal ? o.x : o.y;
+      const oSize = horizontal ? rotatedSize(o).w : rotatedSize(o).d;
+      const leftLimit = oAlong - sizeAlong; // start must be <= this to sit left of o
+      const rightLimit = oAlong + oSize; // start must be >= this to sit right of o
+      const center = newAlong + sizeAlong / 2;
+      const oCenter = oAlong + oSize / 2;
+      if (center <= oCenter) {
+        // dragged cabinet is to the LEFT of this neighbour → cap the high edge
+        hi = Math.min(hi, leftLimit);
+      } else {
+        // to the RIGHT → raise the low edge
+        lo = Math.max(lo, rightLimit);
+      }
+    }
+    if (lo <= hi) {
+      newAlong = Math.max(lo, Math.min(newAlong, hi));
+    }
+    // Gentle magnet: if we're within SNAP of a neighbour edge, sit flush.
     for (const o of others) {
       const oAlong = horizontal ? o.x : o.y;
       const oSize = horizontal ? rotatedSize(o).w : rotatedSize(o).d;
       if (Math.abs(newAlong + sizeAlong - oAlong) <= SNAP) newAlong = oAlong - sizeAlong;
       if (Math.abs(newAlong - (oAlong + oSize)) <= SNAP) newAlong = oAlong + oSize;
     }
+    newAlong = Math.max(0, Math.min(newAlong, planSpanLen - sizeAlong));
     const newX = horizontal ? newAlong : cabinet.x;
     const newY = horizontal ? cabinet.y : newAlong;
     onMove(dragUid, newX, newY);
@@ -366,6 +417,33 @@ export function ElevationView({
       className="relative w-full h-full overflow-hidden bg-gradient-to-b from-[#dde6f0] to-[#eef1f5] select-none touch-none"
       onClick={() => onSelect(null)}
     >
+      {/* Floor plane: a wood-look band across the bottom so the room reads as
+          sitting ON a floor (rather than cabinets floating). Its TOP edge lines
+          up with the wall box bottom (y=0), i.e. at `bottom: PADDING`. A darker
+          baseboard/contact line sits right at that seam. */}
+      <div
+        className="absolute left-0 right-0 pointer-events-none"
+        style={{
+          bottom: 0,
+          height: PADDING,
+          background:
+            "repeating-linear-gradient(90deg, #d8bd97 0px, #cbae86 3px, #d8bd97 6px, #d2b389 9px), linear-gradient(180deg, #d8bd97 0%, #c2a271 100%)",
+          borderTop: "3px solid #8a6f49",
+          boxShadow: "inset 0 6px 10px -6px rgba(0,0,0,0.35)",
+        }}
+      />
+      {/* Soft contact shadow where the wall/cabinets meet the floor. */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          bottom: PADDING - 2,
+          height: 8,
+          left: "50%",
+          width: wallPxW,
+          transform: "translateX(-50%)",
+          background: "linear-gradient(180deg, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 100%)",
+        }}
+      />
       <div
         ref={wallInnerRef}
         className="absolute"
