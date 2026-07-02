@@ -1,9 +1,14 @@
 import { useState, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Download, RotateCcw, X, ImageOff } from "lucide-react";
+import { Sparkles, Loader2, Download, RotateCcw, X, ImageOff, Camera, Sun } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+
+/** Camera framing options exposed in the preview modal. */
+export type CameraAngle = "three-quarter" | "straight-on" | "wide";
+/** Lighting mood options exposed in the preview modal. */
+export type TimeOfDay = "daylight" | "golden-hour" | "evening";
 
 /**
  * Input the caller assembles from the current design state. This mirrors the
@@ -21,6 +26,8 @@ export type PhotorealSceneInput = {
   wallSummaries?: string[];
   hasIsland?: boolean;
   notes?: string;
+  cameraAngle?: CameraAngle;
+  timeOfDay?: TimeOfDay;
 };
 
 type Props = {
@@ -37,16 +44,31 @@ type Props = {
   label?: string;
 };
 
+const ANGLE_OPTIONS: { value: CameraAngle; label: string }[] = [
+  { value: "three-quarter", label: "Angle view" },
+  { value: "straight-on", label: "Straight on" },
+  { value: "wide", label: "Wide room" },
+];
+
+const LIGHT_OPTIONS: { value: TimeOfDay; label: string }[] = [
+  { value: "daylight", label: "Daylight" },
+  { value: "golden-hour", label: "Golden hour" },
+  { value: "evening", label: "Evening" },
+];
+
 /**
  * AI Photoreal Preview: renders a magazine-quality photo of the user's current
  * kitchen design via the `design.photorealPreview` mutation. The heavy lifting
  * (prompt building + image generation) happens server-side; this component only
- * assembles the scene input, shows a loading state (generation can take 10-30s),
- * and displays / lets the user download the result.
+ * assembles the scene input, exposes a couple of photographic controls (camera
+ * angle + lighting), shows a loading state (generation can take 10-30s), and
+ * displays / lets the user download the result.
  */
 export function PhotorealPreview({ disabled, buildScene, variant = "toolbar", label = "AI Preview" }: Props) {
   const [open, setOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [angle, setAngle] = useState<CameraAngle>("three-quarter");
+  const [light, setLight] = useState<TimeOfDay>("daylight");
 
   const gen = trpc.design.photorealPreview.useMutation({
     onSuccess: (data) => {
@@ -57,20 +79,44 @@ export function PhotorealPreview({ disabled, buildScene, variant = "toolbar", la
     },
   });
 
-  const run = useCallback(() => {
-    const scene = buildScene();
-    if (!scene) {
-      toast.error("Place at least one cabinet before generating a preview.");
-      return;
-    }
-    setImageUrl(null);
-    gen.mutate(scene);
-  }, [buildScene, gen]);
+  const run = useCallback(
+    (opts?: { cameraAngle?: CameraAngle; timeOfDay?: TimeOfDay }) => {
+      const scene = buildScene();
+      if (!scene) {
+        toast.error("Place at least one cabinet before generating a preview.");
+        return;
+      }
+      setImageUrl(null);
+      gen.mutate({
+        ...scene,
+        cameraAngle: opts?.cameraAngle ?? angle,
+        timeOfDay: opts?.timeOfDay ?? light,
+      });
+    },
+    [buildScene, gen, angle, light]
+  );
 
   const onOpen = useCallback(() => {
     setOpen(true);
     run();
   }, [run]);
+
+  // Changing a control re-renders immediately with the new setting so the
+  // controls feel live rather than requiring a separate "apply" click.
+  const pickAngle = useCallback(
+    (value: CameraAngle) => {
+      setAngle(value);
+      if (!gen.isPending) run({ cameraAngle: value });
+    },
+    [gen.isPending, run]
+  );
+  const pickLight = useCallback(
+    (value: TimeOfDay) => {
+      setLight(value);
+      if (!gen.isPending) run({ timeOfDay: value });
+    },
+    [gen.isPending, run]
+  );
 
   const download = useCallback(() => {
     if (!imageUrl) return;
@@ -123,6 +169,46 @@ export function PhotorealPreview({ disabled, buildScene, variant = "toolbar", la
           </DialogHeader>
 
           <div className="px-6 pb-6">
+            {/* Photographic controls */}
+            <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <div className="flex items-center gap-1.5">
+                <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                <div className="flex rounded-lg border border-border p-0.5">
+                  {ANGLE_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => pickAngle(o.value)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+                        angle === o.value ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Sun className="h-3.5 w-3.5 text-muted-foreground" />
+                <div className="flex rounded-lg border border-border p-0.5">
+                  {LIGHT_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => pickLight(o.value)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+                        light === o.value ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-border bg-muted/40">
               {loading && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center">
@@ -157,7 +243,7 @@ export function PhotorealPreview({ disabled, buildScene, variant = "toolbar", la
               <Button variant="outline" onClick={() => setOpen(false)} className="bg-background">
                 <X className="mr-1.5 h-4 w-4" /> Close
               </Button>
-              <Button variant="outline" onClick={run} disabled={loading} className="bg-background">
+              <Button variant="outline" onClick={() => run()} disabled={loading} className="bg-background">
                 <RotateCcw className="mr-1.5 h-4 w-4" /> Generate Again
               </Button>
               <Button onClick={download} disabled={loading || !imageUrl} className="bg-[#1a2744] hover:bg-[#2d3f66]">

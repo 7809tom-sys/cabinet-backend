@@ -566,6 +566,30 @@ export function ElevationView({
           );
         })()}
 
+        {/* Floor contact shadow: a soft dark strip along the bottom of each
+            base/tall run so cabinets read as sitting ON the floor rather than
+            floating. Drawn BEHIND the cabinet boxes. */}
+        {sorted
+          .filter((p) => (p.placement === "base" || p.placement === "tall" || p.placement === "appliance") && p.cabinetId !== 0)
+          .map((p) => {
+            const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+            const posAlong = horizontal ? p.x : p.y;
+            return (
+              <div
+                key={`floorshadow-${p.uid}`}
+                className="absolute pointer-events-none"
+                style={{
+                  left: posAlong * ppi - 2,
+                  width: sizeAlong * ppi + 4,
+                  bottom: -2,
+                  height: Math.max(4, 4 * ppi),
+                  background: "radial-gradient(ellipse at center bottom, rgba(15,23,42,0.30) 0%, rgba(15,23,42,0.12) 55%, transparent 80%)",
+                  zIndex: 0,
+                }}
+              />
+            );
+          })}
+
         {sorted.map((p) => renderCabinetBox(p))}
 
         {/* Corner cabinets that wrap this corner from the adjoining wall, drawn
@@ -573,24 +597,40 @@ export function ElevationView({
             BOTH walls of the corner view. */}
         {seamCabinets.map((p) => renderCabinetBox(p, true))}
 
-        {sorted
-          .filter((p) => p.placement === "base" && p.cabinetId !== 0)
-          .map((p) => {
-            const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
-            const posAlong = horizontal ? p.x : p.y;
-            return (
-              <div
-                key={`ct-${p.uid}`}
-                className="absolute bg-[#3a3a3a]"
-                style={{
-                  left: posAlong * ppi - 1,
-                  width: sizeAlong * ppi + 2,
-                  bottom: STD.COUNTERTOP_HEIGHT * ppi,
-                  height: Math.max(2, STD.COUNTERTOP_THICKNESS * ppi),
-                }}
-              />
-            );
-          })}
+        {(() => {
+          // Countertop slab colored by the chosen material (falls back to the
+          // default material). A polished top gradient + a slightly darker
+          // front-edge lip make the counter read as a real stone/wood slab
+          // instead of a flat black band.
+          const ct = countertopMaterial(countertopMaterialId);
+          const slabFill = `linear-gradient(180deg, color-mix(in srgb, ${ct.fill} 82%, #ffffff) 0%, ${ct.fill} 45%, color-mix(in srgb, ${ct.fill} 88%, #000000) 100%)`;
+          const thickPx = Math.max(2, STD.COUNTERTOP_THICKNESS * ppi);
+          return sorted
+            .filter((p) => p.placement === "base" && p.cabinetId !== 0)
+            .map((p) => {
+              const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+              const posAlong = horizontal ? p.x : p.y;
+              return (
+                <div
+                  key={`ct-${p.uid}`}
+                  className="absolute"
+                  style={{
+                    left: posAlong * ppi - 1,
+                    width: sizeAlong * ppi + 2,
+                    bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                    height: thickPx,
+                    background: slabFill,
+                    borderBottom: `1px solid ${ct.edge}`,
+                    // Thin top sheen highlight + a soft cast shadow onto the
+                    // cabinet doors just below the counter.
+                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 4px rgba(15,23,42,0.22)`,
+                    zIndex: 6,
+                  }}
+                  title={`Countertop: ${ct.name}`}
+                />
+              );
+            });
+        })()}
 
         {/* Faucet: drawn above sink base cabinets (SB-*). Shows a vertical
             riser + horizontal spout + aerator + handle knob sitting on top of
@@ -1014,8 +1054,8 @@ function RecessedPanel({ inset, face, edge, raised = false }: { inset: number; f
         inset,
         // Reveal groove around the panel: dark shadow top-left where the rail
         // casts onto the recess, subtle light at the bottom lip.
-        boxShadow: `inset 0 2px 4px rgba(0,0,0,0.26), inset 0 -1px 0 rgba(255,255,255,0.16), 0 0 0 0.5px ${edge}66`,
-        background: `linear-gradient(180deg, color-mix(in srgb, ${face} 86%, #000) 0%, color-mix(in srgb, ${face} 95%, #000) 55%, color-mix(in srgb, ${face} 99%, #000) 100%)`,
+        boxShadow: `inset 0 2.5px 5px rgba(0,0,0,0.32), inset 0 -1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px ${edge}80`,
+        background: `linear-gradient(180deg, color-mix(in srgb, ${face} 82%, #000) 0%, color-mix(in srgb, ${face} 93%, #000) 55%, color-mix(in srgb, ${face} 99%, #000) 100%)`,
       }}
     >
       {raised && (

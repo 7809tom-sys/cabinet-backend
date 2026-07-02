@@ -7,6 +7,7 @@ import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, co
 import { notifyOwner } from "../_core/notification";
 import { invokeLLM } from "../_core/llm";
 import { generateImage } from "../_core/imageGeneration";
+import { buildPhotorealPrompt } from "@shared/photorealPrompt";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
 import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
@@ -1469,42 +1470,13 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         hasIsland: z.boolean().optional(),
         // Free-form extra notes (appliances, open shelving, etc.).
         notes: z.string().max(400).optional(),
+        // Camera framing + lighting mood for a consistent photographic look.
+        cameraAngle: z.enum(["three-quarter", "straight-on", "wide"]).optional(),
+        timeOfDay: z.enum(["daylight", "golden-hour", "evening"]).optional(),
       })
     )
     .mutation(async ({ input }) => {
-      const finish = (input.finishName || "").trim();
-      const door = (input.doorStyle || "").trim();
-      const counter = (input.countertop || "").trim();
-      const hardware = (input.hardware || "").trim();
-      const ceiling = input.ceilingFt ?? 8;
-
-      const parts: string[] = [];
-      parts.push(
-        "Professional photorealistic interior photograph of a modern residential kitchen, wide-angle real-estate listing photo, natural daylight from a window, soft realistic shadows, shallow depth of field, high detail, magazine quality."
-      );
-      parts.push(
-        `The kitchen room is approximately ${input.roomWidthFt} feet wide by ${input.roomDepthFt} feet deep with an ${ceiling}-foot ceiling.`
-      );
-      if (door || finish) {
-        const twoTone = input.secondFinishName?.trim()
-          ? ` with a two-tone scheme accented by ${input.secondFinishName.trim()} cabinets`
-          : "";
-        parts.push(
-          `The cabinetry is ${[finish, door && `${door}-style`].filter(Boolean).join(" ")} kitchen cabinets${twoTone}.`
-        );
-      }
-      if (counter) parts.push(`Countertops are ${counter}.`);
-      if (hardware) parts.push(`Cabinet hardware is ${hardware}.`);
-      if (input.wallSummaries && input.wallSummaries.length > 0) {
-        parts.push("Layout: " + input.wallSummaries.join("; ") + ".");
-      }
-      if (input.hasIsland) parts.push("There is a central kitchen island with cabinetry matching the perimeter.");
-      if (input.notes?.trim()) parts.push(input.notes.trim());
-      parts.push(
-        "Render only the kitchen — no people, no text, no watermark, no floor plan overlay. Realistic proportions, clean staging, warm inviting lighting."
-      );
-
-      const prompt = parts.join(" ");
+      const prompt = buildPhotorealPrompt(input);
       try {
         const { url } = await generateImage({ prompt });
         if (!url) {

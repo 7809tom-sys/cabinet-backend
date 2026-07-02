@@ -2345,3 +2345,14 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] (C) Client "Photoreal Preview" button + modal with loading/error/empty states; consistent artistic style across renders — PhotorealPreview component (toolbar button + mobile More entry), buildPhotorealScene helper derives room/finish/door/counter/hardware/per-wall summaries from live state; disabled when no cabinets placed
 - [x] Tests (vitest) + type-check clean — 9 buildPhotorealScene tests; full suite 1101 pass; tsc clean
 - [x] Visual verify in browser (plan + front + photoreal preview), checkpoint, deliver
+
+## Designer image quality upgrades (session: better images #1 + #2)
+
+- [x] (#1) AI Photoreal Preview: extract prompt into pure `shared/photorealPrompt.ts` buildPhotorealPrompt
+- [x] (#1) Stronger directive prompt: fixed lens/camera clause, PBR materials, HDR quality bar, negative-prompt constraints (no people/text/watermark/floor-plan/CAD/CGI/distortion)
+- [x] (#1) Camera-angle control (Angle view / Straight on / Wide room) + lighting control (Daylight / Golden hour / Evening) in the preview modal, wired through the mutation input
+- [x] (#1) 12 vitest tests for buildPhotorealPrompt
+- [x] (#2) ElevationView countertop band now colored by selected material (fill/edge/speckle) with polished gradient + front-edge lip (was flat #3a3a3a)
+- [x] (#2) Soft floor contact shadow under base/tall/appliance runs so cabinets read as grounded
+- [x] (#2) Deeper recessed-panel reveal for crisper shaker/framed door realism
+- [x] Type-check clean; full suite 1113 pass
