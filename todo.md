@@ -2389,4 +2389,4 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Contractor admin area is a CRM-ONLY screen: new /contractor route + ContractorDashboard page (onboarding CTA for members, CRM board for contractors); TopNav "My CRM" button for contractors + "For Contractors" entry in More.
 - [x] Deal routing: CRM scope extended with a contractor kind (ownerUserId = them); contractor-saved plans appear on their board; the house (admin/distributor) scope now sees ALL deals (homeowner + contractor + affiliate) so both parties have the info.
 - [x] Tests + type-check clean: 4 new contractor tests (crm.contractorRole.test.ts), tsc clean, full suite 1138 pass. Checkpoint pending.
-- [ ] My Plans list grouping by customer/house (nested rooms per customer) — NOT YET done; plans currently list flat. Follow-up if the user wants the nested grouping UI.
+- [x] My Plans list grouping by customer/house: already implemented via groupByProject in DesignActions (rooms nested under each customer/house, newest-project-first, whitespace-normalized key, trailing ungrouped bucket, per-project totals). Locked in with 4 unit tests (groupByProject.test.ts).
