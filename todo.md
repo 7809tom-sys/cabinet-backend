@@ -2534,3 +2534,31 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Verify: 0 price mismatches, 0 availability violations, 0 orphans; full DB backup saved (reversible)
 - [ ] (Follow-up, needs user) Add 152 PDF products missing from catalog (FH/ADA/TD/RS variants) as needed
 - [ ] (Follow-up, optional) Standardize drawer-base display naming (e.g. "Drawer Base 12 (3-drawer)")
+
+## Cabinet ID legibility + OTR microwave rule (user request)
+- [x] Auto-contrast in-cabinet ID label (light text on dark finishes, dark on light)
+- [x] Selected-cabinet ID callout: leader line + chip placed just outside the room perimeter
+- [ ] OTR microwave: detect a range/cooktop directly below the placed OTR microwave
+- [ ] OTR microwave: mount over the range (correct wall-cabinet height) instead of floor placement
+- [ ] OTR microwave: suppress false collision with the wall/bridge cabinet layer above the range
+- [ ] OTR microwave: suggest the matching bridge wall cabinet to pair with the OTR unit
+- [ ] Verify (typecheck + tests + screenshots), checkpoint, summarize
+
+## OTR Microwave + Refrigerator "cabinet above" rules (user request)
+- [x] Pure helpers isOverRangeMicrowave + bridgeCabinetCodeForWidth (design.ts) + unit tests
+- [x] OTR microwave: auto-snap over range + bridge-cabinet suggestion in DesignTool addCabinet
+- [x] Refrigerator: choice of refrigerator wall cabinet vs standard bridge wall cabinet above, no false collision
+- [x] i18n EN/ES keys for OTR + fridge messages
+- [x] Typecheck + full test suite pass
+- [x] Screenshot design tool + checkpoint
+- [x] Refrigerator: end panel choice — left / right / both / none (refrigerator end panel = base end panel, deep upright panel beside fridge)
+- [x] Refrigerator: refrigerator END PANELS = tall deep (24") finished panels on left/right side of fridge (REPV-24-96); choice Left/Right/Both/None
+- [x] Refrigerator: refrigerator PANEL = plain smooth flat paneling sheet (finished flat panel), optional add
+- [x] One-click "Built-in Refrigerator + Pantry End" preset: 96" pantry at wall end + fridge with deep 96" end panels + 24"-tall refrigerator bridge over fridge (top-aligned to pantry) + surrounding 36" wall cabinets + continuous crown flushing into fridge end panel & pantry
+
+- [x] Stagger rule: refrigerator/corner deep upper projects 27" and is +6" taller than standard wall cabinets
+- [x] Stagger rule: end cabinets on BOTH ends of an upper run are +6" taller than standard wall cabinets
+- [x] Furred-out corner: optional ~3" pack-out on a corner wall cabinet so its face steps proud (crown wraps the stagger)
+- [x] Unit tests for stagger height/depth helpers
+- [x] Built-in Refrigerator + Pantry End preset (pantry + fridge + REPV end panels + taller deep fridge upper + surrounding uppers + wrapping crown)
+- [x] i18n EN/ES keys for stagger + preset

@@ -245,6 +245,170 @@ export const designRouter = router({
       };
     }),
 
+  // Resolve the pieces that surround a refrigerator to real, buyable-in-style
+  // cabinet rows so the Refrigerator Options dialog can place priced items that
+  // match the locked door style. Given the fridge width we return:
+  //  - deepAbove:  the 24"-deep refrigerator WALL cabinet options (W-30-*-24 ...)
+  //  - bridgeAbove: the 12"-deep short bridge wall cabinet options (W-30-12 ...)
+  //  - endPanels:  tall/deep refrigerator end panels (REPV-24-96 / REPV-27-96)
+  //  - smoothPanel: a plain smooth skin panel sheet (WSV-*) cut-to-fit
+  // Each is availability-gated to the chosen style so it prices + colors right.
+  surroundForFridge: publicProcedure
+    .input(z.object({ styleId: z.number(), fridgeWidth: z.number().optional() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db)
+        return {
+          deepAbove: [] as unknown[],
+          bridgeAbove: [] as unknown[],
+          endPanels: [] as unknown[],
+          smoothPanels: [] as unknown[],
+        };
+
+      const cols = {
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        numberOfDoors: cabinets.numberOfDoors,
+        numberOfDrawers: cabinets.numberOfDrawers,
+        isCornerCabinet: cabinets.isCornerCabinet,
+        catalogImageUrl: cabinets.catalogImageUrl,
+      };
+      const gate = and(
+        eq(cabinets.isActive, true),
+        notInConflict(),
+        eq(distributorSkus.styleId, input.styleId),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true)
+      );
+      const sortByWidth = (rows: { width: unknown; masterCode: string }[]) =>
+        [...rows].sort((a, b) => {
+          const na = parseFloat(String(a.width ?? ""));
+          const nb = parseFloat(String(b.width ?? ""));
+          const da = Number.isFinite(na) ? na : Number.POSITIVE_INFINITY;
+          const dbn = Number.isFinite(nb) ? nb : Number.POSITIVE_INFINITY;
+          if (da !== dbn) return da - dbn;
+          return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
+        });
+
+      // Deep refrigerator wall cabinets end in "-24" (24" deep) e.g. W-30-12-24.
+      const deepRows = await db
+        .select(cols)
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(gate, like(cabinets.masterCode, "W-%-24")));
+      // Shallow bridge wall cabinets: short W-* that are NOT the deep "-24" ones.
+      const wallRows = await db
+        .select(cols)
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(gate, like(cabinets.masterCode, "W-%")));
+      const bridgeRows = wallRows.filter((r) => {
+        const h = parseFloat(String(r.height ?? ""));
+        // A bridge is a short (≤ 18") wall cabinet, and NOT a deep 24" fridge box.
+        return !/-24$/.test(r.masterCode) && Number.isFinite(h) && h <= 18;
+      });
+      // Refrigerator end panels + smooth skin panels.
+      const panelRows = await db
+        .select(cols)
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(gate, sql`(${cabinets.masterCode} LIKE 'REPV-%' OR ${cabinets.masterCode} LIKE 'WSV-%')`));
+      const endPanels = panelRows.filter((r) => /^REPV-/.test(r.masterCode));
+      const smoothPanels = panelRows.filter((r) => /^WSV-/.test(r.masterCode));
+
+      // Dedupe helper (a cabinet can join multiple SKU rows).
+      const uniq = <T extends { id: number }>(rows: T[]) => {
+        const seen = new Set<number>();
+        return rows.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+      };
+
+      return {
+        deepAbove: sortByWidth(uniq(deepRows)),
+        bridgeAbove: sortByWidth(uniq(bridgeRows)),
+        endPanels: sortByWidth(uniq(endPanels)),
+        smoothPanels: sortByWidth(uniq(smoothPanels)),
+      };
+    }),
+
+  // Resolve the pieces for the one-click "Built-in Refrigerator + Pantry End"
+  // preset to real, buyable-in-style cabinet rows: a 96" pantry (U-*-96-24), the
+  // deep refrigerator wall cabinet over the fridge (W-*-*-24), refrigerator end
+  // panels (REPV-*), and the standard wall cabinets used to fill the rest of the
+  // run (W-*). The client composes these into a stepped run with wrapping crown.
+  builtinFridgeRun: publicProcedure
+    .input(z.object({ styleId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const empty = { pantry: [], deepAbove: [], endPanels: [], wallCabs: [] } as {
+        pantry: unknown[]; deepAbove: unknown[]; endPanels: unknown[]; wallCabs: unknown[];
+      };
+      if (!db) return empty;
+
+      const cols = {
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        numberOfDoors: cabinets.numberOfDoors,
+        numberOfDrawers: cabinets.numberOfDrawers,
+        isCornerCabinet: cabinets.isCornerCabinet,
+        catalogImageUrl: cabinets.catalogImageUrl,
+      };
+      const gate = and(
+        eq(cabinets.isActive, true),
+        notInConflict(),
+        eq(distributorSkus.styleId, input.styleId),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true)
+      );
+      const sortByWidth = (rows: { width: unknown; masterCode: string }[]) =>
+        [...rows].sort((a, b) => {
+          const na = parseFloat(String(a.width ?? ""));
+          const nb = parseFloat(String(b.width ?? ""));
+          const da = Number.isFinite(na) ? na : Number.POSITIVE_INFINITY;
+          const dbn = Number.isFinite(nb) ? nb : Number.POSITIVE_INFINITY;
+          if (da !== dbn) return da - dbn;
+          return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
+        });
+      const uniq = <T extends { id: number }>(rows: T[]) => {
+        const seen = new Set<number>();
+        return rows.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+      };
+      const run = async (cond: ReturnType<typeof and> | ReturnType<typeof like>) =>
+        db
+          .select(cols)
+          .from(cabinets)
+          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+          .where(and(gate, cond));
+
+      // Pantry: 96"-tall utility (U-*-96-24). Fall back to any ≥ 84" utility.
+      let pantryRows = await run(like(cabinets.masterCode, "U-%-96-24"));
+      if (pantryRows.length === 0) pantryRows = await run(like(cabinets.masterCode, "UC%96"));
+      const deepRows = await run(like(cabinets.masterCode, "W-%-24"));
+      const panelRows = await run(like(cabinets.masterCode, "REPV-%"));
+      // Standard wall cabinets (short/tall boxes) minus the deep "-24" fridge box.
+      const wallRows = (await run(like(cabinets.masterCode, "W-%"))).filter(
+        (r) => !/-24$/.test(r.masterCode)
+      );
+
+      return {
+        pantry: sortByWidth(uniq(pantryRows)),
+        deepAbove: sortByWidth(uniq(deepRows)),
+        endPanels: sortByWidth(uniq(panelRows)),
+        wallCabs: sortByWidth(uniq(wallRows)),
+      };
+    }),
+
   priceForCabinets: publicProcedure
     .input(
       z.object({

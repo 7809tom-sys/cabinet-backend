@@ -7,7 +7,7 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Footprints, Layers2, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen,
+  Save, FolderOpen, Refrigerator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +58,8 @@ import {
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine,
+  isRangeOrOven, isOverRangeMicrowave, bridgeCabinetCodeForWidth, isRefrigerator,
+  staggeredWallCabinetHeight, staggeredMountBottom, fridgeCornerUpperDepth,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -96,6 +98,7 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
+import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { PhotorealPreview, type PhotorealSceneInput } from "@/components/design/PhotorealPreview";
 import { buildPhotorealScene } from "@/lib/photorealScene";
@@ -1726,6 +1729,52 @@ export default function DesignTool() {
             toast.success("Stacker snapped above " + (bestMatch.masterCode ?? "wall cabinet"));
           }
         }
+        // ── OTR microwave auto-snap over a range ───────────────────────────
+        // An over-the-range (OTR) microwave (MW-*) belongs directly above the
+        // range/cooktop. When one is placed, find the nearest range/cooktop on
+        // the same wall and center the microwave over its footprint at the wall
+        // (its wall-mounted elevation, 54" bottom, is already correct). Then
+        // suggest the matching short "bridge" wall cabinet that caps the run
+        // above the microwave. The bridge-over-OTR pairing is already exempt in
+        // the collision engine (isBridgeOverRange), so no false alarm is raised.
+        let otrMountBottom: number | undefined;
+        if (isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement })) {
+          const targetWall = cabinetWall(
+            { ...(prev[0] as PlacedCabinet), x: spot.x, y: spot.y, width, depth, rotation: spot.rotation },
+            room
+          );
+          const ranges = prev.filter(
+            (p) =>
+              isRangeOrOven(p.masterCode, p.description) &&
+              cabinetWall(p, room) === targetWall
+          );
+          // Prefer the nearest range along the run axis to the drop point.
+          const byDist = [...ranges].sort(
+            (a, b) =>
+              Math.hypot(a.x - spot.x, a.y - spot.y) -
+              Math.hypot(b.x - spot.x, b.y - spot.y)
+          );
+          const range = byDist[0];
+          if (range) {
+            const rs = rotatedSize(range);
+            const horizontal = targetWall === "top" || targetWall === "bottom";
+            // Center the microwave over the range footprint along the wall run,
+            // keeping it flush to the same wall (its cross-axis position from
+            // wallPlacementAt is already correct).
+            if (horizontal) {
+              spot = { ...spot, x: range.x + rs.w / 2 - width / 2 };
+            } else {
+              spot = { ...spot, y: range.y + rs.d / 2 - depth / 2 };
+            }
+            // OTR microwaves hang above the counter at their catalog elevation.
+            const mwDef = APPLIANCES.find((a) => a.masterCode === "MW-30");
+            otrMountBottom = mwDef?.elevBottom ?? 54;
+            toast.success(t("dt_otr_snapped_over_range"));
+            // Suggest the matching bridge wall cabinet to cap the run above it.
+            const bridgeCode = bridgeCabinetCodeForWidth(width);
+            toast.info(t("dt_otr_bridge_suggestion", { code: bridgeCode }));
+          }
+        }
         const newCab: PlacedCabinet = {
           uid: makeUid(),
           cabinetId: c.id,
@@ -1763,6 +1812,9 @@ export default function DesignTool() {
           // Stacker: pin mountBottom to the wall-cabinet top line so the
           // elevation view places it directly above the standard upper run.
           ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
+          // OTR microwave: pin mountBottom to its catalog elevation so the
+          // elevation view hangs it above the range at the correct height.
+          ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
         };
         justPlacedRef.current = true;
         setSelectedUid(newCab.uid);
@@ -1787,6 +1839,14 @@ export default function DesignTool() {
           setSelectedSinkUid(autoSink.uid);
           setCountertop(true); // a sink implies a counter
           toast.success(t("dt_t_sink_added"));
+        }
+        // Refrigerator: after the fridge lands, open the Refrigerator Options
+        // dialog so the user can add the cabinet above (deep fridge wall cabinet
+        // or shallow bridge), end panels (L/R/both), and/or a smooth panel. The
+        // dialog places everything flush to THIS fridge's footprint. We seed it
+        // from the just-placed fridge; the wall it sits on drives panel sides.
+        if (isRefrigerator(newCab)) {
+          setFridgeDialog({ fridgeUid: newCab.uid });
         }
         return [...prev, newCab];
       });
@@ -1955,6 +2015,310 @@ export default function DesignTool() {
     };
   }, [consultOpen]);
   const [consultMessages, setConsultMessages] = useState<AIMessage[]>([]);
+
+  // ── Refrigerator Options dialog ─────────────────────────────────────────────
+  // Opened right after a refrigerator (FRIDGE-*) is dropped. Lets the user add
+  // a cabinet ABOVE the fridge (deep 24" fridge wall cabinet or shallow 12"
+  // bridge, or none), refrigerator END PANELS (left / right / both / none), and
+  // an optional smooth refrigerator PANEL. Everything is placed flush to the
+  // dropped fridge's footprint and is fully movable/deletable afterward.
+  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string } | null>(null);
+  const fridgeForDialog = useMemo(
+    () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
+    [fridgeDialog, placed]
+  );
+  const { data: fridgeSurround } = trpc.design.surroundForFridge.useQuery(
+    { styleId: styleId ?? 0, fridgeWidth: fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined },
+    { enabled: !!fridgeDialog && !!styleId }
+  );
+
+  // Place the chosen refrigerator surround pieces flush to the seeded fridge.
+  const applyFridgeSurround = useCallback(
+    (opts: {
+      above: "deep" | "bridge" | "none";
+      panels: "left" | "right" | "both" | "none";
+      smooth: boolean;
+    }) => {
+      const fridge = fridgeForDialog;
+      const surround = fridgeSurround as
+        | { deepAbove: DesignCabinet[]; bridgeAbove: DesignCabinet[]; endPanels: DesignCabinet[]; smoothPanels: DesignCabinet[] }
+        | undefined;
+      if (!fridge || !surround) { setFridgeDialog(null); return; }
+      const side = cabinetWall(fridge, room);
+      const horizontal = side === "top" || side === "bottom";
+      const fp = placedFootprint(fridge);
+      const fw = fp.w; // width along the wall run
+      const fd = fp.d; // depth into the room
+
+      // Pick the surround row whose width best matches the fridge width.
+      const pickByWidth = (rows: DesignCabinet[] | undefined, target: number): DesignCabinet | undefined => {
+        if (!rows || rows.length === 0) return undefined;
+        return [...rows].sort(
+          (a, b) => Math.abs(parseFloat(String(a.width ?? "999")) - target) - Math.abs(parseFloat(String(b.width ?? "999")) - target)
+        )[0];
+      };
+
+      const toPlace: PlacedCabinet[] = [];
+
+      // 1) Cabinet ABOVE the fridge (upper zone → exempt from appliance collision).
+      if (opts.above !== "none") {
+        const src = opts.above === "deep" ? surround.deepAbove : surround.bridgeAbove;
+        const chosen = pickByWidth(src, rotatedSize(fridge).w);
+        if (chosen) {
+          const aWidth = parseFloat(String(chosen.width ?? rotatedSize(fridge).w)) || rotatedSize(fridge).w;
+          const isDeep = opts.above === "deep";
+          // Deep refrigerator/corner upper: project 27" and step UP 6" taller
+          // than a standard wall cabinet for the staggered built-in look. The
+          // shallow bridge stays a normal-height, 12"-deep upper.
+          const aDepth = isDeep ? fridgeCornerUpperDepth() : STD.WALL_DEPTH;
+          const catalogH = parseFloat(String(chosen.height ?? STD.WALL_HEIGHT)) || STD.WALL_HEIGHT;
+          const aHeight = isDeep ? staggeredWallCabinetHeight(STD.WALL_HEIGHT) : catalogH;
+          // Center the upper over the fridge run, flush to the same wall.
+          const along = horizontal ? fridge.x + fw / 2 - aWidth / 2 : fridge.y + fw / 2 - aWidth / 2;
+          const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
+          // Hang so its TOP finishes at the wall-cabinet top line (flush with a
+          // pantry/tall run cap); a taller stepped box hangs lower at the bottom
+          // while sharing that top line. mountBottom = topLine - height.
+          const topLine = wallCabinetTopLine(room);
+          toPlace.push({
+            uid: makeUid(),
+            cabinetId: chosen.id,
+            masterCode: chosen.masterCode,
+            description: chosen.description,
+            placement: "wall",
+            x: spot.x,
+            y: spot.y,
+            width: aWidth,
+            depth: aDepth,
+            height: aHeight,
+            rotation: spot.rotation,
+            numberOfDoors: chosen.numberOfDoors ?? undefined,
+            catalogImageUrl: chosen.catalogImageUrl ?? null,
+            styleId: styleIdRef.current ?? null,
+            mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, aHeight)),
+          });
+        }
+      }
+
+      // 2) Refrigerator END PANELS: tall/deep panels flush to the fridge L/R edge.
+      const panelRow = pickByWidth(surround.endPanels, fd) ?? surround.endPanels?.[0];
+      const placePanel = (leftEdge: boolean) => {
+        if (!panelRow) return;
+        const pDepth = parseFloat(String(panelRow.width ?? fd)) || fd; // panel spans the fridge depth
+        const pThick = 1; // REPV panels are ~1" thick flat stock
+        const pHeight = parseFloat(String(panelRow.height ?? 96)) || 96;
+        // Along-wall position: just outside the fridge edge on the chosen side.
+        let along: number;
+        if (horizontal) {
+          along = leftEdge ? fridge.x - pThick : fridge.x + fw;
+        } else {
+          along = leftEdge ? fridge.y - pThick : fridge.y + fw;
+        }
+        const spot = wallPlacementAt(along, pThick, pDepth, side, room);
+        toPlace.push({
+          uid: makeUid(),
+          cabinetId: panelRow.id,
+          masterCode: panelRow.masterCode,
+          description: panelRow.description,
+          placement: "tall",
+          x: spot.x,
+          y: spot.y,
+          width: pThick,
+          depth: pDepth,
+          height: pHeight,
+          rotation: spot.rotation,
+          catalogImageUrl: panelRow.catalogImageUrl ?? null,
+          styleId: styleIdRef.current ?? null,
+        });
+      };
+      if (opts.panels === "left" || opts.panels === "both") placePanel(true);
+      if (opts.panels === "right" || opts.panels === "both") placePanel(false);
+
+      // 3) Optional smooth refrigerator PANEL (flat skin sheet) — added as a BOM
+      // flat-stock item flush to the fridge face; carried as a thin wall panel.
+      if (opts.smooth) {
+        const skin = pickByWidth(surround.smoothPanels, rotatedSize(fridge).w) ?? surround.smoothPanels?.[0];
+        if (skin) {
+          const sWidth = parseFloat(String(skin.width ?? rotatedSize(fridge).w)) || rotatedSize(fridge).w;
+          const along = horizontal ? fridge.x + fw / 2 - sWidth / 2 : fridge.y + fw / 2 - sWidth / 2;
+          const spot = wallPlacementAt(along, sWidth, 0.75, side, room);
+          toPlace.push({
+            uid: makeUid(),
+            cabinetId: skin.id,
+            masterCode: skin.masterCode,
+            description: skin.description,
+            placement: "wall",
+            x: spot.x,
+            y: spot.y,
+            width: sWidth,
+            depth: 0.75,
+            height: parseFloat(String(skin.height ?? 15)) || 15,
+            rotation: spot.rotation,
+            catalogImageUrl: skin.catalogImageUrl ?? null,
+            styleId: styleIdRef.current ?? null,
+            mountBottom: STD.WALL_MOUNT_BOTTOM,
+          });
+        }
+      }
+
+      if (toPlace.length > 0) {
+        setPlaced((prev) => [...prev, ...toPlace]);
+        toast.success(t("dt_fridge_added_toast"));
+      }
+      setFridgeDialog(null);
+    },
+    [fridgeForDialog, fridgeSurround, room, t]
+  );
+
+  // ── One-click "Built-in Refrigerator + Pantry End" preset ──────────────────
+  // Composes a finished built-in run at the ACTIVE wall's largest open segment,
+  // from the wall corner inward: a 96" pantry → the refrigerator flanked by tall
+  // REPV end panels → the deep 27", +6"-taller refrigerator wall cabinet over the
+  // fridge (top-aligned to the run cap) → standard uppers filling the remainder.
+  // Continuous crown is enabled so it wraps the stepped top line. Everything is
+  // movable/deletable afterward. Fires a fetch, then places when data lands.
+  const [builtinRunArmed, setBuiltinRunArmed] = useState(false);
+  const { data: builtinRunData } = trpc.design.builtinFridgeRun.useQuery(
+    { styleId: styleId ?? 0 },
+    { enabled: builtinRunArmed && !!styleId }
+  );
+  const buildBuiltinFridgeRun = useCallback(() => {
+    if (layoutLocked) { toast.info(t("dt_t_unlock_autofill")); return; }
+    if (roomType !== "kitchen") { toast.info(t("dt_builtin_kitchen_only")); return; }
+    if (!styleId) { toast.error(t("dt_t_pick_style_first")); return; }
+    setBuiltinRunArmed(true);
+  }, [layoutLocked, roomType, styleId, t]);
+
+  // Place the built-in run once the resolved pieces arrive.
+  useEffect(() => {
+    if (!builtinRunArmed || !builtinRunData) return;
+    setBuiltinRunArmed(false);
+    const data = builtinRunData as {
+      pantry: DesignCabinet[]; deepAbove: DesignCabinet[]; endPanels: DesignCabinet[]; wallCabs: DesignCabinet[];
+    };
+    // Largest open segment on the active wall.
+    const segments = freeSegmentsOnWall(activeWall, room, placed, openings, 9);
+    if (segments.length === 0) { toast.info(t("dt_t_wall_full")); return; }
+    const seg = [...segments].sort((a, b) => b.length - a.length)[0];
+    const side = activeWall;
+    const topLine = wallCabinetTopLine(room);
+    const num = (v: unknown, d: number) => { const n = parseFloat(String(v ?? "")); return Number.isFinite(n) && n > 0 ? n : d; };
+    const widest = (rows: DesignCabinet[] | undefined) =>
+      rows && rows.length ? [...rows].sort((a, b) => num(b.width, 0) - num(a.width, 0))[0] : undefined;
+    const pickW = (rows: DesignCabinet[] | undefined, target: number) =>
+      rows && rows.length ? [...rows].sort((a, b) => Math.abs(num(a.width, 999) - target) - Math.abs(num(b.width, 999) - target))[0] : undefined;
+
+    const fridgeDef = APPLIANCES.find((a) => a.masterCode === "FRIDGE-36") ?? APPLIANCES.find((a) => a.masterCode === "FRIDGE-30");
+    const pantry = widest(data.pantry);
+    if (!fridgeDef || !pantry) { toast.error(t("dt_builtin_missing")); return; }
+    const fridgeW = fridgeDef.width;
+    const fridgeD = fridgeDef.depth;
+    const pantryW = num(pantry.width, 24);
+    const panel = pickW(data.endPanels, fridgeD);
+    const panelThick = 1;
+    const deep = pickW(data.deepAbove, fridgeW);
+
+    // Layout budget along the wall: pantry + fridge + (two end panels).
+    const panelsW = panel ? panelThick * 2 : 0;
+    const need = pantryW + fridgeW + panelsW;
+    if (seg.length < need - 0.5) { toast.info(t("dt_builtin_no_room")); return; }
+
+    const out: PlacedCabinet[] = [];
+    let along = seg.start; // build from the wall corner inward
+
+    // 1) Pantry (96" tall).
+    {
+      const spot = wallPlacementAt(along, pantryW, num(pantry.depth, 24), side, room);
+      out.push({
+        uid: makeUid(), cabinetId: pantry.id, masterCode: pantry.masterCode, description: pantry.description,
+        category: pantry.category ?? null, subCategory: pantry.subCategory ?? null, placement: "tall",
+        x: spot.x, y: spot.y, width: pantryW, depth: num(pantry.depth, 24), height: num(pantry.height, 96),
+        rotation: spot.rotation, numberOfDoors: pantry.numberOfDoors, numberOfDrawers: pantry.numberOfDrawers,
+        catalogImageUrl: pantry.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
+      });
+      along += pantryW;
+    }
+
+    // 2) Left end panel (between pantry and fridge).
+    if (panel) {
+      const spot = wallPlacementAt(along, panelThick, num(panel.width, fridgeD), side, room);
+      out.push({
+        uid: makeUid(), cabinetId: panel.id, masterCode: panel.masterCode, description: panel.description,
+        placement: "tall", x: spot.x, y: spot.y, width: panelThick, depth: num(panel.width, fridgeD),
+        height: num(panel.height, 96), rotation: spot.rotation, catalogImageUrl: panel.catalogImageUrl ?? null,
+        styleId: styleIdRef.current ?? null,
+      });
+      along += panelThick;
+    }
+
+    // 3) Refrigerator + deep taller upper over it.
+    {
+      const spot = wallPlacementAt(along, fridgeW, fridgeD, side, room);
+      out.push({
+        uid: makeUid(), cabinetId: 0, masterCode: fridgeDef.masterCode, description: fridgeDef.description,
+        category: "Appliance", subCategory: null, placement: "appliance",
+        x: spot.x, y: spot.y, width: fridgeW, depth: fridgeD, height: fridgeDef.elevHeight,
+        rotation: spot.rotation, numberOfDoors: null, numberOfDrawers: null, catalogImageUrl: null,
+        styleId: styleIdRef.current ?? null,
+      });
+      if (deep) {
+        const aWidth = num(deep.width, fridgeW);
+        const aDepth = fridgeCornerUpperDepth();
+        const aHeight = staggeredWallCabinetHeight(STD.WALL_HEIGHT);
+        const upAlong = along + fridgeW / 2 - aWidth / 2;
+        const upSpot = wallPlacementAt(upAlong, aWidth, aDepth, side, room);
+        out.push({
+          uid: makeUid(), cabinetId: deep.id, masterCode: deep.masterCode, description: deep.description,
+          placement: "wall", x: upSpot.x, y: upSpot.y, width: aWidth, depth: aDepth, height: aHeight,
+          rotation: upSpot.rotation, numberOfDoors: deep.numberOfDoors ?? undefined,
+          catalogImageUrl: deep.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
+          mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, aHeight)),
+        });
+      }
+      along += fridgeW;
+    }
+
+    // 4) Right end panel (outside edge of the fridge).
+    if (panel) {
+      const spot = wallPlacementAt(along, panelThick, num(panel.width, fridgeD), side, room);
+      out.push({
+        uid: makeUid(), cabinetId: panel.id, masterCode: panel.masterCode, description: panel.description,
+        placement: "tall", x: spot.x, y: spot.y, width: panelThick, depth: num(panel.width, fridgeD),
+        height: num(panel.height, 96), rotation: spot.rotation, catalogImageUrl: panel.catalogImageUrl ?? null,
+        styleId: styleIdRef.current ?? null,
+      });
+      along += panelThick;
+    }
+
+    // 5) Fill the remaining run with standard uppers (mounted at the run cap).
+    let remaining = seg.start + seg.length - along;
+    const wallPool = [...(data.wallCabs || [])].sort((a, b) => num(b.width, 0) - num(a.width, 0));
+    let guard = 0;
+    while (remaining >= 9 && wallPool.length > 0 && guard < 40) {
+      guard++;
+      const cab = wallPool.find((c) => num(c.width, 999) <= remaining + 0.01) ?? undefined;
+      if (!cab) break;
+      const cw = num(cab.width, 12);
+      const ch = num(cab.height, STD.WALL_HEIGHT);
+      const spot = wallPlacementAt(along, cw, STD.WALL_DEPTH, side, room);
+      out.push({
+        uid: makeUid(), cabinetId: cab.id, masterCode: cab.masterCode, description: cab.description,
+        placement: "wall", x: spot.x, y: spot.y, width: cw, depth: STD.WALL_DEPTH, height: ch,
+        rotation: spot.rotation, numberOfDoors: cab.numberOfDoors ?? undefined,
+        catalogImageUrl: cab.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
+        mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, ch)),
+      });
+      along += cw;
+      remaining -= cw;
+    }
+
+    setPlaced((prev) => [...prev, ...out]);
+    // Turn on crown so it wraps the stepped top line of the built-in.
+    trimOverride.current.crown = true;
+    setCrown(true);
+    toast.success(t("dt_builtin_added_toast", { n: out.length }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [builtinRunArmed, builtinRunData]);
 
   // The room's four walls as spans (usable length = full wall minus the openings
   // on it), so the consultant works with realistic numbers.
@@ -3133,6 +3497,10 @@ export default function DesignTool() {
                   <button disabled={layoutLocked} onClick={autoFillActiveWall} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <Wand2 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_autofill_active")}</span>
+                  </button>
+                  <button disabled={layoutLocked || roomType !== "kitchen"} onClick={() => { setMoreSheetOpen(false); buildBuiltinFridgeRun(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                    <Refrigerator className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_builtin_fridge")}</span>
                   </button>
                   <button onClick={() => { setLayoutLocked((v) => !v); setDrawMode(false); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                     {layoutLocked ? <Lock className="h-4 w-4 text-muted-foreground shrink-0" /> : <LockOpen className="h-4 w-4 text-muted-foreground shrink-0" />}
@@ -5393,6 +5761,18 @@ export default function DesignTool() {
         designStyleId={styleId}
         distributorId={lockedDistributorId}
         onSetRolloutQty={setRolloutQtyFor}
+      />
+
+      {/* Refrigerator Options: opens right after a fridge is dropped */}
+      <RefrigeratorOptionsDialog
+        open={!!fridgeDialog}
+        onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
+        hasDeepAbove={((fridgeSurround as { deepAbove?: unknown[] } | undefined)?.deepAbove?.length ?? 0) > 0}
+        hasBridgeAbove={((fridgeSurround as { bridgeAbove?: unknown[] } | undefined)?.bridgeAbove?.length ?? 0) > 0}
+        hasEndPanels={((fridgeSurround as { endPanels?: unknown[] } | undefined)?.endPanels?.length ?? 0) > 0}
+        hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
+        onApply={applyFridgeSurround}
+        onSkip={() => setFridgeDialog(null)}
       />
 
       {/* AI Design Consultant slide-in panel */}

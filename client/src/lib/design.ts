@@ -2120,6 +2120,87 @@ export function isRangeOrOven(masterCode?: string | null, description?: string |
   return /\brange\b|\boven\b|\bstove\b|\bcooktop\b/.test(desc);
 }
 
+// An OVER-THE-RANGE microwave specifically (MW-*), as opposed to a range hood.
+// This is the appliance that auto-mounts over the cooktop/range and pairs with a
+// short "bridge" wall cabinet above it. Hoods (HOOD-*) are excluded because they
+// vent rather than hang a cabinet above.
+export function isOverRangeMicrowave(p: {
+  masterCode?: string | null;
+  placement?: Placement;
+}): boolean {
+  if (p.placement !== "appliance") return false;
+  return /^MW-/.test((p.masterCode || "").toUpperCase());
+}
+
+// The standard short "bridge" wall cabinet SKU that mounts directly above an
+// over-range microwave of a given width. Bridge cabinets are 12"-tall wall
+// cabinets (the shortest stock height) whose width matches the appliance below,
+// so a 30" OTR pairs with W-30-12 and a 36" cooktop pairs with W-36-12. Widths
+// that are not a stock bridge width snap to the nearest available stock width
+// (30, 33, or 36) so we always suggest a real, orderable SKU.
+export const BRIDGE_STOCK_WIDTHS = [30, 33, 36] as const;
+export function bridgeCabinetCodeForWidth(width: number): string {
+  const w = Number.isFinite(width) ? width : 30;
+  // Snap to the nearest stock bridge width.
+  const nearest = BRIDGE_STOCK_WIDTHS.reduce((best, cand) =>
+    Math.abs(cand - w) < Math.abs(best - w) ? cand : best
+  , BRIDGE_STOCK_WIDTHS[0]);
+  return `W-${nearest}-12`;
+}
+
+// True for a refrigerator appliance (FRIDGE-*). Refrigerators trigger the
+// Refrigerator Options flow (cabinet above + end panels + smooth panel) when
+// dropped, and the surround pieces mounted above/beside them are exempt from
+// the appliance-vs-cabinet collision check because they live in a different
+// vertical zone (upper) or are thin flat panels flush to the fridge side.
+export function isRefrigerator(p: {
+  masterCode?: string | null;
+  placement?: Placement;
+}): boolean {
+  if (p.placement !== "appliance") return false;
+  return /^FRIDGE-/.test((p.masterCode || "").toUpperCase());
+}
+
+// ── Staggered built-in look ────────────────────────────────────────────────
+// A custom "stepped" upper run reads richer than a flat wall of identical
+// cabinets: the ends and the refrigerator/corner cabinet step UP (taller) and
+// the fridge/corner box steps OUT (deeper), and crown wraps the stagger. These
+// constants + helpers capture the shop rules the owner uses:
+//   - End cabinets on BOTH ends of an upper run are +6" TALLER than the
+//     standard wall cabinet (finished taller bookends).
+//   - The refrigerator / corner deep upper projects to 27" DEEP (proud of the
+//     24" fridge box / 12" standard uppers) and is also +6" TALLER.
+//   - A furred-out corner packs a corner wall cabinet out ~3" (a 2x4 behind it)
+//     so its FACE steps proud of the neighbors for the same stepped look.
+export const STAGGER_TALLER_IN = 6; // ends + fridge/corner upper are 6" taller
+export const FRIDGE_CORNER_UPPER_DEPTH_IN = 27; // deep proud projection
+export const FURRED_OUT_CORNER_IN = 3; // 2x4 pack-out behind a corner cabinet
+
+// The finished height of a standard wall cabinet (before any stagger bump).
+export function standardWallCabinetHeight(): number {
+  return STD.WALL_HEIGHT;
+}
+
+// The height of a "stepped-up" cabinet (an end cabinet or the fridge/corner
+// upper): the standard wall height plus the stagger bump.
+export function staggeredWallCabinetHeight(baseHeight: number = STD.WALL_HEIGHT): number {
+  const h = Number.isFinite(baseHeight) && baseHeight > 0 ? baseHeight : STD.WALL_HEIGHT;
+  return h + STAGGER_TALLER_IN;
+}
+
+// Mount bottom for a stepped-up cabinet so its TOP finishes at the same top
+// line as the rest of the run (the run caps flush; only the step is taller, so
+// a taller box hangs LOWER at the bottom while sharing the top line). Given the
+// run's top line and the stepped height, bottom = topLine - height.
+export function staggeredMountBottom(topLine: number, height: number): number {
+  return topLine - height;
+}
+
+// Depth of the refrigerator/corner deep upper for the proud stagger look.
+export function fridgeCornerUpperDepth(): number {
+  return FRIDGE_CORNER_UPPER_DEPTH_IN;
+}
+
 export function rangeOvenClearanceViolations(
   placed: PlacedCabinet[],
   room: RoomData,

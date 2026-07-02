@@ -120,3 +120,108 @@ describe("wine cooler appliance fixture", () => {
     expect(appliancesForRoom("laundry").map((a) => a.masterCode)).not.toContain("WINE-24");
   });
 });
+
+import {
+  isOverRangeMicrowave,
+  bridgeCabinetCodeForWidth,
+  isRangeOrOven,
+  isRefrigerator,
+  staggeredWallCabinetHeight,
+  staggeredMountBottom,
+  fridgeCornerUpperDepth,
+  standardWallCabinetHeight,
+  STAGGER_TALLER_IN,
+  FRIDGE_CORNER_UPPER_DEPTH_IN,
+} from "../client/src/lib/design";
+
+describe("isOverRangeMicrowave", () => {
+  it("flags an over-range microwave (MW-*) placed as an appliance", () => {
+    expect(isOverRangeMicrowave({ masterCode: "MW-30", placement: "appliance" })).toBe(true);
+  });
+  it("does NOT flag a range hood (hoods vent, no cabinet hangs above)", () => {
+    expect(isOverRangeMicrowave({ masterCode: "HOOD-30", placement: "appliance" })).toBe(false);
+  });
+  it("does NOT flag a range/cooktop itself", () => {
+    expect(isOverRangeMicrowave({ masterCode: "RANGE-30", placement: "appliance" })).toBe(false);
+  });
+  it("does NOT flag an MW code that is not placed as an appliance", () => {
+    expect(isOverRangeMicrowave({ masterCode: "MW-30", placement: "wall" })).toBe(false);
+  });
+});
+
+describe("bridgeCabinetCodeForWidth", () => {
+  it("suggests the 30\" bridge (W-30-12) for a standard 30\" OTR microwave", () => {
+    expect(bridgeCabinetCodeForWidth(30)).toBe("W-30-12");
+  });
+  it("suggests the 36\" bridge for a 36\" cooktop opening", () => {
+    expect(bridgeCabinetCodeForWidth(36)).toBe("W-36-12");
+  });
+  it("suggests the 33\" bridge for a 33\" opening", () => {
+    expect(bridgeCabinetCodeForWidth(33)).toBe("W-33-12");
+  });
+  it("snaps an odd width up to the nearest stock bridge width", () => {
+    expect(bridgeCabinetCodeForWidth(31)).toBe("W-30-12");
+    expect(bridgeCabinetCodeForWidth(35)).toBe("W-36-12");
+    expect(bridgeCabinetCodeForWidth(32)).toBe("W-33-12");
+  });
+  it("falls back to the 30\" bridge for a non-finite width", () => {
+    expect(bridgeCabinetCodeForWidth(Number.NaN)).toBe("W-30-12");
+  });
+  it("always returns a real stock bridge SKU (W-30/33/36-12)", () => {
+    for (const w of [24, 30, 33, 36, 42, 48]) {
+      expect(["W-30-12", "W-33-12", "W-36-12"]).toContain(bridgeCabinetCodeForWidth(w));
+    }
+  });
+});
+
+describe("isRefrigerator", () => {
+  it("flags a refrigerator (FRIDGE-*) placed as an appliance", () => {
+    expect(isRefrigerator({ masterCode: "FRIDGE-36", placement: "appliance" })).toBe(true);
+    expect(isRefrigerator({ masterCode: "FRIDGE-30", placement: "appliance" })).toBe(true);
+  });
+  it("does NOT flag other appliances", () => {
+    expect(isRefrigerator({ masterCode: "RANGE-30", placement: "appliance" })).toBe(false);
+    expect(isRefrigerator({ masterCode: "DW-24", placement: "appliance" })).toBe(false);
+    expect(isRefrigerator({ masterCode: "MW-30", placement: "appliance" })).toBe(false);
+  });
+  it("does NOT flag a FRIDGE code that is not placed as an appliance", () => {
+    expect(isRefrigerator({ masterCode: "FRIDGE-36", placement: "base" })).toBe(false);
+  });
+  it("is safe with missing master code", () => {
+    expect(isRefrigerator({ placement: "appliance" })).toBe(false);
+  });
+});
+
+describe("staggered built-in look", () => {
+  it("makes end / fridge-corner cabinets 6\" taller than a standard wall cabinet", () => {
+    const std = standardWallCabinetHeight();
+    expect(staggeredWallCabinetHeight(std)).toBe(std + STAGGER_TALLER_IN);
+    // Default arg uses the standard wall height.
+    expect(staggeredWallCabinetHeight()).toBe(std + 6);
+  });
+  it("falls back to a standard-height bump for bad input", () => {
+    expect(staggeredWallCabinetHeight(0)).toBe(standardWallCabinetHeight() + 6);
+    expect(staggeredWallCabinetHeight(Number.NaN)).toBe(standardWallCabinetHeight() + 6);
+  });
+  it("hangs a taller stepped cabinet so its TOP shares the run top line", () => {
+    const topLine = 84;
+    const stepped = staggeredWallCabinetHeight(); // 36
+    const bottom = staggeredMountBottom(topLine, stepped);
+    expect(bottom).toBe(84 - stepped); // 48
+    expect(bottom + stepped).toBe(topLine); // top flush at 84
+  });
+  it("projects the refrigerator/corner deep upper to 27\"", () => {
+    expect(fridgeCornerUpperDepth()).toBe(FRIDGE_CORNER_UPPER_DEPTH_IN);
+    expect(fridgeCornerUpperDepth()).toBe(27);
+  });
+});
+
+describe("OTR microwave pairs with a detected range on the same wall", () => {
+  // Sanity guard that the two building blocks the DesignTool auto-snap relies on
+  // are consistent: the placed item is recognized as an OTR microwave, and a
+  // RANGE-* appliance is recognized as a range so the snap target can be found.
+  it("recognizes MW as OTR and RANGE as a range so the snap can pair them", () => {
+    expect(isOverRangeMicrowave({ masterCode: "MW-30", placement: "appliance" })).toBe(true);
+    expect(isRangeOrOven("RANGE-30", "Range / Stove 30\"")).toBe(true);
+  });
+});

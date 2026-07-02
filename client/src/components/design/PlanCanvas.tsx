@@ -93,6 +93,25 @@ interface Props {
   onFillGap?: (gap: WallGap, cabinet: DesignCabinet) => void;
 }
 
+// Compute a readable label color for text drawn directly on a cabinet fill.
+// Parses a #rgb/#rrggbb hex fill, estimates perceived luminance, and returns
+// dark ink on light fills / light ink on dark fills, plus a matching subtle
+// text-shadow so the ID stays legible on any finish.
+function readableLabel(fillHex: string): { color: string; shadow: string; isDarkFill: boolean } {
+  let hex = (fillHex || "").trim().replace(/^#/, "");
+  if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  // Fallback: treat unparseable fills as light.
+  const valid = hex.length === 6 && [r, g, b].every((n) => !Number.isNaN(n));
+  const lum = valid ? (0.299 * r + 0.587 * g + 0.114 * b) / 255 : 1;
+  const isDarkFill = lum < 0.55;
+  return isDarkFill
+    ? { color: "#f8fafc", shadow: "0 1px 2px rgba(0,0,0,0.65)", isDarkFill }
+    : { color: "#1a2744", shadow: "0 1px 1px rgba(255,255,255,0.55)", isDarkFill };
+}
+
 export function PlanCanvas({
   room, cabinets, selectedUid, onSelect, onMove, onDelete, onRotate, onOpenAttributes, onDropNew, onDropToFloor,
   showWallLayer, measureMode = false, island = null, onIslandChange, onIslandMove,
@@ -853,6 +872,7 @@ export function PlanCanvas({
             const cabFinish = finishFor ? finishFor(p) : finish;
             const faceFill = isAppliance ? "#b9bdc4" : cabFinish.face;
             const edgeColor = isAppliance ? "#8a8f96" : cabFinish.edge;
+            const lbl = readableLabel(faceFill);
             const collides = hasCollision(p, cabinets);
             const inConflict = conflictUids?.has(p.uid) ?? false;
             return (
@@ -919,10 +939,16 @@ export function PlanCanvas({
                 title={`${p.masterCode} — ${p.description}`}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5">
-                  <span className="text-[9px] font-bold text-[#1a2744] leading-none truncate max-w-full">
+                  <span
+                    className="text-[9px] font-bold leading-none truncate max-w-full"
+                    style={{ color: lbl.color, textShadow: lbl.shadow }}
+                  >
                     {p.masterCode}
                   </span>
-                  <span className="text-[7px] text-[#5a4a2f] leading-none mt-0.5">
+                  <span
+                    className="text-[7px] leading-none mt-0.5"
+                    style={{ color: lbl.color, opacity: 0.8, textShadow: lbl.shadow }}
+                  >
                     {Math.round(p.width)}"
                   </span>
                 </div>
@@ -1035,6 +1061,52 @@ export function PlanCanvas({
               </div>
             );
           })}
+
+        {/* Selected-cabinet ID callout: a leader line from the cabinet out to a
+            high-contrast ID chip placed just outside the nearest room edge, so
+            the code is readable even when the cabinet is narrow / dark / packed
+            against neighbors. Only for the selected cabinet, and skipped while
+            drawing or measuring to avoid clutter. */}
+        {!drawMode && !measureMode && selectedUid && (() => {
+          const sel = cabinets.find((c) => c.uid === selectedUid);
+          if (!sel) return null;
+          const { w: fw, d: fd } = placedFootprint(sel);
+          const cx = (sel.x + fw / 2) * ppi;
+          const cy = (sel.y + fd / 2) * ppi;
+          // Choose the nearest perimeter edge to exit toward.
+          const distTop = cy, distBottom = roomPxH - cy, distLeft = cx, distRight = roomPxW - cx;
+          const minD = Math.min(distTop, distBottom, distLeft, distRight);
+          const gap = 26; // how far outside the wall to place the chip
+          let ex = cx, ey = cy;
+          if (minD === distTop) { ey = -gap; }
+          else if (minD === distBottom) { ey = roomPxH + gap; }
+          else if (minD === distLeft) { ex = -gap; }
+          else { ex = roomPxW + gap; }
+          const label = sel.masterCode;
+          const horizontalExit = minD === distTop || minD === distBottom;
+          return (
+            <>
+              <svg className="pointer-events-none absolute inset-0 z-[45] overflow-visible" width={roomPxW} height={roomPxH}>
+                <line x1={cx} y1={cy} x2={ex} y2={ey} stroke="#d4a75a" strokeWidth={1.5} strokeDasharray="3 2" />
+                <circle cx={cx} cy={cy} r={2.5} fill="#d4a75a" stroke="#1a2744" strokeWidth={1} />
+                <polygon
+                  points={
+                    horizontalExit
+                      ? `${ex},${ey} ${ex - 4},${ey + (ey < cy ? 6 : -6)} ${ex + 4},${ey + (ey < cy ? 6 : -6)}`
+                      : `${ex},${ey} ${ex + (ex < cx ? 6 : -6)},${ey - 4} ${ex + (ex < cx ? 6 : -6)},${ey + 4}`
+                  }
+                  fill="#d4a75a"
+                />
+              </svg>
+              <div
+                className="pointer-events-none absolute z-[46] -translate-x-1/2 -translate-y-1/2 rounded-md bg-[#1a2744] px-2 py-0.5 text-[10px] font-bold text-white shadow-lg ring-1 ring-[#d4a75a] whitespace-nowrap"
+                style={{ left: ex, top: ey }}
+              >
+                {label}
+              </div>
+            </>
+          );
+        })()}
 
         {/* Live drag tape-measure: two-sided clearance along the wall */}
         {dragTape && (() => {
