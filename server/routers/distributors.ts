@@ -87,10 +87,68 @@ export const distributorImportRouter = router({
         isActive: distributors.isActive,
         leadTimeDays: distributors.leadTimeDays,
         warehouseZips: distributors.warehouseZips,
+        orderEmail: distributors.orderEmail,
+        ccEmails: distributors.ccEmails,
+        fulfillmentMode: distributors.fulfillmentMode,
+        netsuiteAccountId: distributors.netsuiteAccountId,
+        pickupEnabled: distributors.pickupEnabled,
+        pickupZip: distributors.pickupZip,
+        pickupAddress: distributors.pickupAddress,
+        pickupRadiusMiles: distributors.pickupRadiusMiles,
       })
       .from(distributors)
       .orderBy(distributors.name);
   }),
+
+  /**
+   * Update the fulfillment / order-routing + pickup settings for one supply
+   * line. All fields optional so the admin form can patch a subset. Emails are
+   * lightly validated; blank strings clear the field.
+   */
+  updateFulfillment: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number().int().positive(),
+        orderEmail: z.string().trim().max(320).optional(),
+        ccEmails: z.string().trim().max(1024).optional(),
+        fulfillmentMode: z.enum(["email", "netsuite_email", "netsuite_api"]).optional(),
+        netsuiteAccountId: z.string().trim().max(64).optional(),
+        pickupEnabled: z.boolean().optional(),
+        pickupZip: z.string().trim().max(16).optional(),
+        pickupAddress: z.string().trim().max(512).optional(),
+        pickupRadiusMiles: z.number().int().min(1).max(1000).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+
+      const normEmail = (v: string | undefined): string | null | undefined => {
+        if (v === undefined) return undefined;
+        const t = v.trim();
+        return t.length ? t : null;
+      };
+      // Validate a plain single email when provided (non-empty).
+      const oe = normEmail(input.orderEmail);
+      if (typeof oe === "string" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(oe)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Order email is not a valid address." });
+      }
+
+      const patch: Partial<typeof distributors.$inferInsert> = {};
+      if (oe !== undefined) patch.orderEmail = oe;
+      if (input.ccEmails !== undefined) patch.ccEmails = normEmail(input.ccEmails) ?? null;
+      if (input.fulfillmentMode !== undefined) patch.fulfillmentMode = input.fulfillmentMode;
+      if (input.netsuiteAccountId !== undefined)
+        patch.netsuiteAccountId = normEmail(input.netsuiteAccountId) ?? null;
+      if (input.pickupEnabled !== undefined) patch.pickupEnabled = input.pickupEnabled;
+      if (input.pickupZip !== undefined) patch.pickupZip = input.pickupZip.trim() || null;
+      if (input.pickupAddress !== undefined) patch.pickupAddress = input.pickupAddress.trim() || null;
+      if (input.pickupRadiusMiles !== undefined) patch.pickupRadiusMiles = input.pickupRadiusMiles;
+
+      if (Object.keys(patch).length === 0) return { id: input.distributorId, updated: false };
+      await db.update(distributors).set(patch).where(eq(distributors.id, input.distributorId));
+      return { id: input.distributorId, updated: true };
+    }),
 
   /**
    * White-label a cabinet line from the Admin panel (no direct DB edits).

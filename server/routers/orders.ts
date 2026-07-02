@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { eq, and, or, desc, inArray, like, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
+import { sendEmailViaSettings, emailSettingsReady } from "../email";
+import { resolvePresentation } from "../lib/presentation";
+import {
+  buildNetsuiteOrderCsv,
+  buildOrderEmailText,
+  type NetsuiteOrderLine,
+} from "@shared/netsuiteOrder";
 import { getDb, notInConflict } from "../db";
 import {
   cabinets,
@@ -11,6 +18,7 @@ import {
   orderRequests,
   affiliates,
   codeAliases,
+  emailSettings,
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { normalizeReferralCode } from "@shared/affiliate";
@@ -562,6 +570,8 @@ export const ordersRouter = router({
         lineItems: z.array(lineItemInput).min(1, "Add at least one line item"),
         notes: z.string().max(2000).optional(),
         referralCode: z.string().max(32).optional(),
+        deliveryMethod: z.enum(["ship", "pickup"]).optional(),
+        pickupDistributorId: z.number().int().positive().nullable().optional(),
         submit: z.boolean().default(false),
       })
     )
@@ -643,6 +653,8 @@ export const ordersRouter = router({
         notes: input.notes ?? null,
         affiliateId,
         referralCode,
+        deliveryMethod: input.deliveryMethod ?? "ship",
+        pickupDistributorId: input.deliveryMethod === "pickup" ? input.pickupDistributorId ?? null : null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 
@@ -750,9 +762,12 @@ export const ordersRouter = router({
         if (row.styleId) styleIdSet.add(row.styleId);
       }
 
-      // Build a lookup: cabinetId+styleId → { distributorSku, distributorCode, styleCode }
+      // Build a lookup: cabinetId+styleId → { distributorSku, distributorCode, styleCode, distributorId }
       type SkuKey = `${number}-${number}`;
-      const skuMap = new Map<SkuKey, { distributorSku: string; distributorCode: string; styleCode: string }>();
+      const skuMap = new Map<
+        SkuKey,
+        { distributorSku: string; distributorCode: string; styleCode: string; distributorId: number }
+      >();
 
       if (cabinetIdSet.size > 0 && styleIdSet.size > 0) {
         const skuRows = await db
@@ -760,6 +775,7 @@ export const ordersRouter = router({
             cabinetId: distributorSkus.cabinetId,
             styleId: distributorSkus.styleId,
             distributorSku: distributorSkus.distributorSku,
+            distributorId: distributorSkus.distributorId,
             distributorCode: distributors.code,
             styleCode: doorStyles.styleCode,
           })
@@ -780,25 +796,282 @@ export const ordersRouter = router({
               distributorSku: r.distributorSku,
               distributorCode: r.distributorCode,
               styleCode: r.styleCode,
+              distributorId: r.distributorId,
             });
           }
         }
       }
 
-      // Enrich each order's line items with a formatted poSku
+      // Per-style color/finish + owning distributor (for the internal build sheet).
+      // The invoice is ADMIN-ONLY, so we surface the REAL supplier identity here.
+      type StyleMeta = {
+        distributorId: number;
+        doorStyle: string | null;
+        finish: string | null;
+        color: string | null;
+        woodSpecies: string | null;
+        distributorName: string;
+        distributorCode: string;
+      };
+      const styleMetaMap = new Map<number, StyleMeta>();
+      if (styleIdSet.size > 0) {
+        const styleRows = await db
+          .select({
+            id: doorStyles.id,
+            distributorId: doorStyles.distributorId,
+            doorStyle: doorStyles.doorStyle,
+            finish: doorStyles.finish,
+            color: doorStyles.color,
+            woodSpecies: doorStyles.woodSpecies,
+            dName: distributors.name,
+            dBrandName: distributors.brandName,
+            dCode: distributors.code,
+          })
+          .from(doorStyles)
+          .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
+          .where(inArray(doorStyles.id, Array.from(styleIdSet)));
+        for (const r of styleRows) {
+          styleMetaMap.set(r.id, {
+            distributorId: r.distributorId,
+            doorStyle: r.doorStyle,
+            finish: r.finish,
+            color: r.color,
+            woodSpecies: r.woodSpecies,
+            // Admin build sheet: prefer the real brand name, else the line name.
+            distributorName: r.dBrandName || r.dName,
+            distributorCode: r.dCode,
+          });
+        }
+      }
+
+      // Enrich each order's line items with a formatted poSku + color/finish, and
+      // resolve the order's owning distributor (most common across lines).
       return filtered.map((row) => {
         const styleId = row.styleId;
+        const distCount = new Map<number, number>();
         const enrichedLines = ((row.lineItems ?? []) as OrderLineItem[]).map((l) => {
           const sid = l.styleId ?? styleId ?? null;
           const key: SkuKey | null = l.cabinetId && sid ? `${l.cabinetId}-${sid}` : null;
           const sku = key ? skuMap.get(key) : undefined;
+          if (sku) distCount.set(sku.distributorId, (distCount.get(sku.distributorId) ?? 0) + 1);
           const poSku = sku
             ? `${sku.distributorCode.toLowerCase()}-${sku.styleCode.toLowerCase()}-${sku.distributorSku.toLowerCase()}`
             : null;
-          return { ...l, poSku };
+          const meta = sid ? styleMetaMap.get(sid) : undefined;
+          const colorFinish =
+            meta && (meta.color || meta.finish)
+              ? [meta.color, meta.finish].filter(Boolean).join(" · ")
+              : null;
+          return {
+            ...l,
+            poSku,
+            distributorName: meta?.distributorName ?? null,
+            colorFinish,
+          };
         });
-        return { ...row, lineItems: enrichedLines };
+        // Resolve the order-level distributor: prefer the most common per-line, else the order style's.
+        let orderDistId: number | null = null;
+        let bestN = -1;
+        for (const [id, n] of Array.from(distCount.entries())) {
+          if (n > bestN) {
+            bestN = n;
+            orderDistId = id;
+          }
+        }
+        if (orderDistId == null && styleId) orderDistId = styleMetaMap.get(styleId)?.distributorId ?? null;
+        const orderDistName =
+          (orderDistId != null
+            ? Array.from(styleMetaMap.values()).find((m) => m.distributorId === orderDistId)?.distributorName
+            : null) ?? null;
+        return {
+          ...row,
+          lineItems: enrichedLines,
+          distributorId: orderDistId,
+          distributorName: orderDistName,
+        };
       });
+    }),
+
+  // ─── Send confirmed order to the distributor ───────────────────────────────
+  // Admin-triggered after review. Resolves the order's owning distributor, builds
+  // a human-readable PO plus a NetSuite-ready CSV, and emails it to the
+  // distributor's order-intake inbox with CC copies (affiliate/sales). The
+  // NetSuite direct-API mode is stubbed: when a line is set to "netsuite_api" we
+  // still email the CSV and note that direct push is pending credentials.
+  sendToDistributor: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      const rows = await db
+        .select()
+        .from(orderRequests)
+        .where(eq(orderRequests.id, input.id))
+        .limit(1);
+      const order = rows[0];
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+
+      const lines = (order.lineItems ?? []) as OrderLineItem[];
+      if (lines.length === 0)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Order has no line items." });
+
+      // Resolve the owning distributor from the line items' SKUs (most common),
+      // falling back to the order-level style's distributor.
+      const cabinetIds = lines.map((l) => l.cabinetId).filter((x): x is number => typeof x === "number");
+      const styleIds = new Set<number>();
+      for (const l of lines) if (l.styleId) styleIds.add(l.styleId);
+      if (order.styleId) styleIds.add(order.styleId);
+
+      const skuRows =
+        cabinetIds.length && styleIds.size
+          ? await db
+              .select({
+                cabinetId: distributorSkus.cabinetId,
+                styleId: distributorSkus.styleId,
+                distributorId: distributorSkus.distributorId,
+                distributorSku: distributorSkus.distributorSku,
+                distributorCode: distributors.code,
+                styleCode: doorStyles.styleCode,
+              })
+              .from(distributorSkus)
+              .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+              .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+              .where(
+                and(
+                  inArray(distributorSkus.cabinetId, cabinetIds),
+                  inArray(distributorSkus.styleId, Array.from(styleIds)),
+                  eq(distributorSkus.isAvailable, true)
+                )
+              )
+          : [];
+
+      const skuByKey = new Map<string, { poSku: string; distributorId: number }>();
+      const distCount = new Map<number, number>();
+      for (const r of skuRows) {
+        const key = `${r.cabinetId}-${r.styleId}`;
+        if (!skuByKey.has(key)) {
+          skuByKey.set(key, {
+            poSku: `${r.distributorCode.toLowerCase()}-${r.styleCode.toLowerCase()}-${r.distributorSku.toLowerCase()}`,
+            distributorId: r.distributorId,
+          });
+        }
+        distCount.set(r.distributorId, (distCount.get(r.distributorId) ?? 0) + 1);
+      }
+      let distributorId: number | null = null;
+      let bestN = -1;
+      for (const [id, n] of Array.from(distCount.entries())) {
+        if (n > bestN) {
+          bestN = n;
+          distributorId = id;
+        }
+      }
+      if (distributorId == null) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Could not resolve a distributor for this order (no matched SKUs).",
+        });
+      }
+
+      const distRows = await db
+        .select()
+        .from(distributors)
+        .where(eq(distributors.id, distributorId))
+        .limit(1);
+      const dist = distRows[0];
+      if (!dist) throw new TRPCError({ code: "NOT_FOUND", message: "Distributor not found" });
+      if (!dist.orderEmail) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `No order email is set for ${dist.brandName || dist.name}. Add one in Distributor Fulfillment settings.`,
+        });
+      }
+      const emailRows = await db.select().from(emailSettings).limit(1);
+      const emailCfg = emailRows[0];
+      if (!emailSettingsReady(emailCfg)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "Email is not configured or is disabled. Set up SMTP in Admin → Email Settings before sending orders.",
+        });
+      }
+
+      // Build the NetSuite-ready lines + CSV + text body.
+      const nsLines: NetsuiteOrderLine[] = lines.map((l) => {
+        const sid = l.styleId ?? order.styleId ?? null;
+        const key = l.cabinetId && sid ? `${l.cabinetId}-${sid}` : null;
+        const poSku = key ? skuByKey.get(key)?.poSku ?? null : null;
+        return {
+          poSku,
+          masterCode: l.masterCode,
+          rawCode: l.rawCode,
+          description: l.description,
+          qty: l.qty,
+          unitPrice: l.unitPrice ?? null,
+        };
+      });
+      const header = {
+        orderNumber: order.requestNumber,
+        customerName: order.originatorName,
+        styleName: order.styleName,
+        deliveryMethod: order.deliveryMethod,
+        orderDate: new Date(order.createdAt).toISOString(),
+      };
+      const csv = buildNetsuiteOrderCsv(header, nsLines);
+      const distName = dist.brandName || dist.name;
+      const text = buildOrderEmailText(header, nsLines, {
+        distributorName: distName,
+        pickupAddress: dist.pickupAddress,
+        totalAmount: order.totalAmount,
+      });
+
+      const cc = (dist.ccEmails ?? "")
+        .split(/[,;]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const apiNote =
+        dist.fulfillmentMode === "netsuite_api"
+          ? "\n\n[Note] This line is configured for NetSuite direct-API push, which is not yet activated. The order is delivered by email with the NetSuite CSV attached in the meantime."
+          : "";
+
+      const result = await sendEmailViaSettings(emailCfg!, {
+        to: dist.orderEmail,
+        cc: cc.length ? cc : undefined,
+        subject: `Purchase Order ${order.requestNumber} — Cabinet Dealz`,
+        text: text + apiNote,
+        replyTo: order.originatorEmail ?? undefined,
+        attachments: [
+          {
+            filename: `PO-${order.requestNumber}.csv`,
+            content: csv,
+            contentType: "text/csv",
+          },
+        ],
+      });
+      if (!result.success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.error || "Failed to send the order email.",
+        });
+      }
+
+      const recipients = [dist.orderEmail, ...cc].join(", ");
+      await db
+        .update(orderRequests)
+        .set({
+          distributorId,
+          sentToDistributorAt: new Date(),
+          sentToDistributorEmail: recipients,
+        })
+        .where(eq(orderRequests.id, order.id));
+
+      return {
+        id: order.id,
+        sentTo: recipients,
+        distributorName: distName,
+        fulfillmentMode: dist.fulfillmentMode,
+      };
     }),
 
   // ─── Persisted manual-fix alias ────────────────────────────────────────────

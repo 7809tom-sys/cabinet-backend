@@ -20,7 +20,7 @@ import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from "@/components/ui/tabs";
 import {
-  CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil, Lock,
+  CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil, Lock, Truck, MapPin,
 } from "lucide-react";
 import { CabinetImage } from "@/components/CabinetImage";
 import PayWithCard from "@/components/order/PayWithCard";
@@ -188,6 +188,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
   const [phone, setPhone] = useState("");
   const [zip, setZip] = useState("");
   const [notes, setNotes] = useState("");
+  // Fulfillment: default ship; switched to pickup only when the customer picks a
+  // nearby distributor's pickup location (offered when ZIP is within radius).
+  const [deliveryMethod, setDeliveryMethod] = useState<"ship" | "pickup">("ship");
+  const [pickupDistributorId, setPickupDistributorId] = useState<number | null>(null);
   const [submittedId, setSubmittedId] = useState<number | null>(null);
   // Referral attribution captured from a storefront visit or ?ref= link.
   const [referralCode, setReferralCode] = useState<string | null>(() => readReferralCode());
@@ -214,6 +218,27 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
     if (user?.email && !email) setEmail(user.email);
     if (user?.name && !name) setName(user.name);
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounce the ZIP so we only query pickup options once typing settles.
+  const [zipDebounced, setZipDebounced] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setZipDebounced(zip.trim()), 350);
+    return () => clearTimeout(id);
+  }, [zip]);
+  const pickupQuery = trpc.location.pickupOptions.useQuery(
+    { zip: zipDebounced },
+    { enabled: zipDebounced.length >= 5, retry: false }
+  );
+  const pickupOptions = pickupQuery.data?.options ?? [];
+  // If the ZIP changes and the chosen pickup distributor is no longer eligible,
+  // fall back to shipping so we never submit a stale pickup selection.
+  useEffect(() => {
+    if (deliveryMethod !== "pickup") return;
+    if (!pickupOptions.some((o) => o.distributorId === pickupDistributorId)) {
+      setDeliveryMethod("ship");
+      setPickupDistributorId(null);
+    }
+  }, [pickupOptions, deliveryMethod, pickupDistributorId]);
 
   const matchedCabinetIds = useMemo(
     () => lines.filter((l) => l.matched && l.cabinetId != null).map((l) => l.cabinetId as number),
@@ -510,6 +535,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       tier,
       notes: composedNotes || undefined,
       referralCode: referralCode ?? undefined,
+      deliveryMethod,
+      pickupDistributorId: deliveryMethod === "pickup" ? pickupDistributorId : null,
       submit: true,
       lineItems: pricedLines.map((l) => ({
         cabinetId: l.cabinetId,
@@ -905,6 +932,65 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
             <Input id="ord-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder={t("or_zip_ph")} />
           </div>
         </div>
+
+        {/* Delivery method: Ship (default) vs local Pickup when a distributor is
+            within its pickup radius of the entered ZIP. */}
+        {pickupOptions.length > 0 && (
+          <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <p className="text-sm font-medium flex items-center gap-2">
+              <MapPin className="h-4 w-4" /> {t("or_delivery_method")}
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeliveryMethod("ship");
+                  setPickupDistributorId(null);
+                }}
+                className={`flex items-start gap-2 rounded-md border p-3 text-left transition-colors ${
+                  deliveryMethod === "ship"
+                    ? "border-primary bg-background ring-1 ring-primary"
+                    : "border-border bg-background hover:bg-muted"
+                }`}
+              >
+                <Truck className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>
+                  <span className="block text-sm font-medium">{t("or_ship_option")}</span>
+                  <span className="block text-xs text-muted-foreground">{t("or_ship_hint")}</span>
+                </span>
+              </button>
+              {pickupOptions.map((o) => {
+                const active = deliveryMethod === "pickup" && pickupDistributorId === o.distributorId;
+                return (
+                  <button
+                    key={o.distributorId}
+                    type="button"
+                    onClick={() => {
+                      setDeliveryMethod("pickup");
+                      setPickupDistributorId(o.distributorId);
+                    }}
+                    className={`flex items-start gap-2 rounded-md border p-3 text-left transition-colors ${
+                      active
+                        ? "border-primary bg-background ring-1 ring-primary"
+                        : "border-border bg-background hover:bg-muted"
+                    }`}
+                  >
+                    <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      <span className="block text-sm font-medium">
+                        {t("or_pickup_option", { name: o.displayName })}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {t("or_pickup_hint", { miles: o.distanceMiles })}
+                        {o.pickupAddress ? ` · ${o.pickupAddress}` : ""}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="ord-notes">{t("or_notes")}</Label>
           <Textarea id="ord-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("or_notes_ph")} rows={3} />

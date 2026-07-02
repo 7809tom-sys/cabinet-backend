@@ -8,8 +8,11 @@ import {
   normalizeZip,
   approxZipCentroid,
   nearestWarehouseMiles,
+  haversineMiles,
   DEFAULT_SERVICE_RADIUS_MI,
 } from "../../shared/availability";
+import { resolvePickupOriginZip, type PickupCandidate } from "../../shared/netsuiteOrder";
+import { resolvePresentation } from "../lib/presentation";
 
 // In-memory geocode cache (zip → coord). Process-lifetime only; fine for our use.
 const zipCoordCache = new Map<string, LatLng | null>();
@@ -94,4 +97,65 @@ export const locationRouter = router({
         inRangeDistributorIds: lines.filter((l) => l.inRange).map((l) => l.distributorId),
       };
     }),
+
+  // Given a customer ZIP, list the supply lines that offer LOCAL PICKUP within
+  // their configured radius (default 100 miles). Distance is measured from the
+  // line's pickup ZIP (or first warehouse ZIP) to the delivery ZIP using precise
+  // geocoding when available, falling back to ZIP3 centroids. Never leaks the
+  // real supplier name to customers — uses the white-label presentation name.
+  pickupOptions: publicProcedure
+    .input(z.object({ zip: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const zip = normalizeZip(input.zip);
+      if (!zip) return { zip: null, resolved: false, options: [] as PickupOptionOut[] };
+
+      const customer = await geocodeZip(zip);
+      const db = await getDb();
+      if (!db) return { zip, resolved: !!customer, options: [] as PickupOptionOut[] };
+
+      const rows = await db
+        .select()
+        .from(distributors)
+        .where(eq(distributors.isActive, true));
+
+      const options: PickupOptionOut[] = [];
+      for (const r of rows) {
+        if (!r.pickupEnabled) continue;
+        const candidate: PickupCandidate = {
+          distributorId: r.id,
+          displayName: resolvePresentation(r).displayName,
+          pickupEnabled: r.pickupEnabled,
+          pickupRadiusMiles: r.pickupRadiusMiles ?? 100,
+          pickupZip: r.pickupZip,
+          pickupAddress: r.pickupAddress,
+          warehouseZips: (r.warehouseZips ?? []) as string[],
+        };
+        const originZip = resolvePickupOriginZip(candidate);
+        if (!originZip) continue;
+        const origin = await geocodeZip(originZip);
+        if (!customer || !origin) continue;
+        const distance = haversineMiles(customer, origin);
+        const radius = candidate.pickupRadiusMiles > 0 ? candidate.pickupRadiusMiles : 100;
+        if (distance > radius) continue;
+        options.push({
+          distributorId: r.id,
+          displayName: candidate.displayName,
+          pickupAddress: r.pickupAddress ?? null,
+          originZip,
+          distanceMiles: Math.round(distance * 10) / 10,
+          radiusMiles: radius,
+        });
+      }
+      options.sort((a, b) => a.distanceMiles - b.distanceMiles);
+      return { zip, resolved: !!customer, options };
+    }),
 });
+
+type PickupOptionOut = {
+  distributorId: number;
+  displayName: string;
+  pickupAddress: string | null;
+  originZip: string;
+  distanceMiles: number;
+  radiusMiles: number;
+};

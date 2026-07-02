@@ -65,6 +65,25 @@ export const distributors = mysqlTable("distributors", {
   shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }).default("0").notNull(),
   warehouseZips: json("warehouseZips").$type<string[]>(),
   leadTimeDays: int("leadTimeDays").default(7),
+  // ─── Fulfillment / order routing ───────────────────────────────────────────
+  // Where confirmed purchase orders for this line are SENT. orderEmail is the
+  // distributor's order-intake inbox; ccEmails is an optional comma-separated
+  // list (affiliate/sales copies). fulfillmentMode selects HOW we deliver the
+  // PO: a plain email, an email carrying a NetSuite-ready CSV, or (future) a
+  // direct NetSuite API push once the distributor provisions credentials.
+  orderEmail: varchar("orderEmail", { length: 320 }),
+  ccEmails: varchar("ccEmails", { length: 1024 }),
+  fulfillmentMode: mysqlEnum("fulfillmentMode", ["email", "netsuite_email", "netsuite_api"]).default("email").notNull(),
+  // Opt-in NetSuite direct-API config (only used when fulfillmentMode = netsuite_api).
+  // Left null until the distributor shares credentials; API push is stubbed for now.
+  netsuiteAccountId: varchar("netsuiteAccountId", { length: 64 }),
+  // ─── Local pickup ───────────────────────────────────────────────────────────
+  // When enabled, a customer whose delivery ZIP is within pickupRadiusMiles of
+  // this line's pickup warehouse is offered free local pickup instead of freight.
+  pickupEnabled: boolean("pickupEnabled").default(false).notNull(),
+  pickupZip: varchar("pickupZip", { length: 16 }), // origin for the pickup distance test; falls back to first warehouseZip
+  pickupAddress: varchar("pickupAddress", { length: 512 }), // human-readable pickup location shown to the customer
+  pickupRadiusMiles: int("pickupRadiusMiles").default(100).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -460,6 +479,16 @@ export const orderRequests = mysqlTable("order_requests", {
   itemCount: int("itemCount").default(0).notNull(),
   totalAmount: decimal("totalAmount", { precision: 12, scale: 2 }),
   notes: text("notes"),
+  // Fulfillment: how the customer wants the order delivered. "pickup" is only
+  // offered when a distributor near the delivery ZIP has pickup enabled.
+  deliveryMethod: mysqlEnum("deliveryMethod", ["ship", "pickup"]).default("ship").notNull(),
+  // When pickup is chosen, which distributor's pickup location was selected.
+  pickupDistributorId: int("pickupDistributorId"),
+  // Which distributor line the confirmed PO is routed to (resolved from lines).
+  distributorId: int("distributorId"),
+  // Audit of the send-to-distributor action: when it was sent + to whom.
+  sentToDistributorAt: timestamp("sentToDistributorAt"),
+  sentToDistributorEmail: varchar("sentToDistributorEmail", { length: 1024 }),
   confirmedAt: timestamp("confirmedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

@@ -2496,3 +2496,29 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Two-sided clearance tape (to neighbor cabinet edge or wall) now also shows when a cabinet is SELECTED (idle), not only while dragging
 - [x] Drag still takes priority; suppressed in measure mode
 - [x] Typecheck clean; design + gapFill tests pass
+
+## Distributor fulfillment features (invoice + auto-send + pickup)
+- [x] Schema: distributors get orderEmail, ccEmails, fulfillmentMode, netsuiteAccountId, pickupEnabled, pickupZip, pickupAddress, pickupRadiusMiles
+- [x] Schema: order_requests get deliveryMethod, distributorId, sentToDistributorAt, sentToDistributorEmail; migration applied
+- [ ] Shared NetSuite-ready CSV builder (pure) + pickup-eligibility helper + tests
+- [ ] Backend: extend sendEmail with cc + attachments
+- [ ] Backend: distributorAdmin.updateFulfillment procedure
+- [ ] Backend: distributorAdmin.getFulfillment / adminList includes fulfillment fields
+- [ ] Backend: orders.adminListWithPoSkus enriches distributor name + door color/finish per line
+- [ ] Backend: orders.sendToDistributor procedure (email PO + NetSuite CSV, audit fields)
+- [ ] Backend: location.pickupOptions procedure (which lines offer pickup within radius for a ZIP)
+- [ ] Frontend: admin Distributor Fulfillment settings editor
+- [ ] Frontend: internal invoice shows distributor + color/finish + Send-to-distributor button
+- [ ] Frontend: OrderReview offers pickup when eligible
+- [ ] Tests + typecheck + screenshot + checkpoint
+
+## Distributor fulfillment, auto-send & pickup (user request — done)
+
+- [x] Schema: distributor orderEmail/ccEmails/fulfillmentMode/netsuiteAccountId + pickupEnabled/pickupZip/pickupAddress/pickupRadiusMiles; orderRequests deliveryMethod/pickupDistributorId/distributorId/sentToDistributorAt/sentToDistributorEmail (migrations 0049, 0050)
+- [x] Invoice/build sheet (admin-only) shows the real distributor name + door color/finish per line and at order level
+- [x] Send-to-Distributor button on the order detail: emails a PO body + NetSuite-ready CSV to the distributor order email, CC list supported, records sent timestamp + recipients; re-send supported
+- [x] Uses DB-backed SMTP (Admin -> Email Settings), consistent with the CRM email feature (sendEmailViaSettings + emailSettingsReady guard)
+- [x] NetSuite: shared buildNetsuiteOrderCsv() (External ID/PO Number/Item/Qty/Rate/Amount) + fulfillmentMode email / netsuite_email / netsuite_api (API stubbed opt-in, falls back to CSV email)
+- [x] Pickup within radius: location.pickupOptions procedure (precise geocode + haversine) + customer order-review Ship/Pickup choice when a distributor is within the (admin-adjustable, default 100mi) radius
+- [x] Admin DistributorFulfillmentEditor under the Distributors tab
+- [x] Tests: shared/netsuiteOrder.test.ts (17), server/email.settings.test.ts (4); full suite 1213 passing; typecheck clean

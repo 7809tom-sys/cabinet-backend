@@ -19,7 +19,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Copy, Package, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Package, Trash2, Send, Building2, Palette, CheckCircle2, Truck, MapPin } from "lucide-react";
 
 type Status = "draft" | "submitted" | "confirmed" | "cancelled";
 
@@ -36,6 +36,8 @@ type EnrichedLine = {
   tier?: string | null;
   matched: boolean;
   poSku: string | null;
+  distributorName?: string | null;
+  colorFinish?: string | null;
 };
 
 type OrderRow = {
@@ -52,6 +54,11 @@ type OrderRow = {
   notes: string | null;
   lineItems: EnrichedLine[];
   createdAt: Date;
+  distributorId?: number | null;
+  distributorName?: string | null;
+  deliveryMethod?: "ship" | "pickup";
+  sentToDistributorAt?: Date | null;
+  sentToDistributorEmail?: string | null;
 };
 
 const STATUS_COLORS: Record<Status, string> = {
@@ -78,6 +85,7 @@ function OrderDetailDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const utils = trpc.useUtils();
   const confirm = trpc.orders.confirm.useMutation({
     onSuccess: () => {
       toast.success("Order confirmed");
@@ -85,6 +93,19 @@ function OrderDetailDialog({
     },
     onError: (e) => toast.error(e.message),
   });
+  const sendToDistributor = trpc.orders.sendToDistributor.useMutation({
+    onSuccess: (res) => {
+      toast.success(`Order sent to ${res.distributorName} (${res.sentTo})`);
+      utils.orders.adminListWithPoSkus.invalidate();
+      onClose();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // Color/finish per line, de-duplicated, for the build-sheet summary.
+  const colorFinishes = Array.from(
+    new Set(order.lineItems.map((l) => l.colorFinish).filter((v): v is string => !!v))
+  );
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -112,6 +133,39 @@ function OrderDetailDialog({
             <p><span className="text-muted-foreground">Total:</span> {order.totalAmount ? `$${order.totalAmount}` : "—"}</p>
             <p><span className="text-muted-foreground">Date:</span> {new Date(order.createdAt).toLocaleDateString()}</p>
           </div>
+        </div>
+
+        {/* Fulfillment / distributor build-sheet block (admin-only) */}
+        <div className="grid grid-cols-2 gap-4 text-sm border rounded-lg p-4 bg-primary/5 border-primary/20">
+          <div>
+            <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5" /> Distributor
+            </p>
+            <p className="font-medium">{order.distributorName || "— (no matched SKUs)"}</p>
+            <p className="text-muted-foreground flex items-center gap-1.5 mt-1">
+              {order.deliveryMethod === "pickup" ? (
+                <><MapPin className="h-3.5 w-3.5" /> Local pickup</>
+              ) : (
+                <><Truck className="h-3.5 w-3.5" /> Ship</>
+              )}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5" /> Cabinet Color / Finish
+            </p>
+            {colorFinishes.length ? (
+              colorFinishes.map((c, i) => <p key={i} className="font-medium">{c}</p>)
+            ) : (
+              <p className="text-muted-foreground">—</p>
+            )}
+          </div>
+          {order.sentToDistributorAt && (
+            <div className="col-span-2 text-xs text-green-700 dark:text-green-400 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Sent {new Date(order.sentToDistributorAt).toLocaleString()} to {order.sentToDistributorEmail}
+            </div>
+          )}
         </div>
 
         {order.notes && (
@@ -186,9 +240,10 @@ function OrderDetailDialog({
         </div>
 
         {/* Actions */}
-        {order.status === "submitted" && (
-          <div className="flex justify-end gap-2 pt-2 border-t">
+        <div className="flex justify-end gap-2 pt-2 border-t">
+          {order.status === "submitted" && (
             <Button
+              variant="outline"
               onClick={() => confirm.mutate({ id: order.id })}
               disabled={confirm.isPending}
               className="gap-2"
@@ -196,8 +251,18 @@ function OrderDetailDialog({
               {confirm.isPending && <Spinner className="h-4 w-4" />}
               Confirm Order
             </Button>
-          </div>
-        )}
+          )}
+          {(order.status === "submitted" || order.status === "confirmed") && (
+            <Button
+              onClick={() => sendToDistributor.mutate({ id: order.id })}
+              disabled={sendToDistributor.isPending}
+              className="gap-2"
+            >
+              {sendToDistributor.isPending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+              {order.sentToDistributorAt ? "Re-send to Distributor" : "Send to Distributor"}
+            </Button>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

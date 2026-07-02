@@ -28,12 +28,20 @@ function createTransport() {
   });
 }
 
+export interface EmailAttachment {
+  filename: string;
+  content: string | Buffer;
+  contentType?: string;
+}
+
 export interface SendEmailOptions {
   to: string;
+  cc?: string | string[];
   subject: string;
   text?: string;
   html?: string;
   replyTo?: string;
+  attachments?: EmailAttachment[];
 }
 
 export interface SendEmailResult {
@@ -54,10 +62,12 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
     const info = await transporter.sendMail({
       from: SMTP_FROM,
       to: opts.to,
+      cc: opts.cc,
       subject: opts.subject,
       text: opts.text,
       html: opts.html,
       replyTo: opts.replyTo,
+      attachments: opts.attachments,
     });
     console.log(`[Email] Sent to ${opts.to} — messageId: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
@@ -80,5 +90,63 @@ export async function verifySmtpConnection(): Promise<{ ok: boolean; error?: str
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: message };
+  }
+}
+
+// ─── DB-backed send (email_settings table) ───────────────────────────────────
+// The app stores SMTP config in the `email_settings` table (managed via Admin →
+// Email Settings) and toggles it with `enabled`. The CRM email feature uses this
+// source, so the distributor PO email uses it too for a single, consistent
+// configuration surface. Env-based `sendEmail()` above remains as a fallback.
+
+export interface EmailSettingsRow {
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPass: string;
+  smtpFrom: string;
+  enabled: boolean;
+}
+
+/** True when the saved settings row has host+user+pass AND sending is enabled. */
+export function emailSettingsReady(s: EmailSettingsRow | null | undefined): boolean {
+  return !!(s && s.enabled && s.smtpHost && s.smtpUser && s.smtpPass);
+}
+
+/**
+ * Send an email using a settings row loaded from the database. Supports cc,
+ * replyTo, and attachments (used for the NetSuite CSV). Returns the same shape
+ * as `sendEmail()`.
+ */
+export async function sendEmailViaSettings(
+  s: EmailSettingsRow,
+  opts: SendEmailOptions
+): Promise<SendEmailResult> {
+  if (!emailSettingsReady(s)) {
+    return { success: false, notConfigured: true, error: "Email is not configured or is disabled" };
+  }
+  try {
+    const transporter = nodemailer.createTransport({
+      host: s.smtpHost,
+      port: s.smtpPort,
+      secure: s.smtpPort === 465,
+      auth: { user: s.smtpUser, pass: s.smtpPass },
+    });
+    const info = await transporter.sendMail({
+      from: (s.smtpFrom || s.smtpUser).trim(),
+      to: opts.to,
+      cc: opts.cc,
+      subject: opts.subject,
+      text: opts.text,
+      html: opts.html,
+      replyTo: opts.replyTo,
+      attachments: opts.attachments,
+    });
+    console.log(`[Email] (settings) Sent to ${opts.to} — messageId: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[Email] (settings) Failed to send to ${opts.to}:`, message);
+    return { success: false, error: message };
   }
 }

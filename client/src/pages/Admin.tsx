@@ -26,6 +26,7 @@ import {
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
 import LineBrandingEditor from "@/components/admin/LineBrandingEditor";
+import DistributorFulfillmentEditor from "@/components/admin/DistributorFulfillmentEditor";
 import CustomersAdmin from "@/components/admin/CustomersAdmin";
 import RolesAdmin from "@/components/admin/RolesAdmin";
 import SkuImageManager from "@/components/admin/SkuImageManager";
@@ -715,6 +716,7 @@ export default function Admin() {
         <TabsContent value="distributors" className="mt-6 space-y-6">
           <AdminTabHelp tab="distributors" />
           <LineBrandingEditor />
+          <DistributorFulfillmentEditor />
           <DistributorImport />
         </TabsContent>
         <TabsContent value="multipliers" className="mt-6">
