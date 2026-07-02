@@ -2396,3 +2396,20 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] Fix: familyCatalog now resolves the viewer's tier (resolveStorefrontTier), computes sell prices via sellPriceForTier(costRow, ps, tier) with cost base yourCost→wholesale→adjustedList→list (added yourCost to the SELECT so it prices IDENTICALLY to stylesForCabinet / the Cabinet Detail page), and gates columns via visiblePricesForViewer. Homeowners never receive wholesale/contractor columns.
 - [x] Confirmed other entry points are already correct: storefront.familyCatalog computes sell prices; PhotoToCart adds unitPrice=null (priced at quote); DesignTool prices via design router's sellPriceForTier.
 - [x] Tests: added server/family.tierPrice.test.ts (3 tests: trade columns redacted for homeowner + anon, homeowner price equals computed sell-price math from the SKU cost base). Fixed server/family.test.ts (it had asserted the old leaky trade columns). tsc clean; full suite 1145 pass.
+
+## Skyline 20-20 catalog product-data refresh (user report)
+Goal: refresh cabinet PRODUCT DATA (descriptions, door/finish options, new/updated SKUs) from the four Skyline/Spring Forest 20-20 design catalogs. DO NOT change pricing (same multiplier → prices already correct in DB).
+Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shaker, European Frameless, Builder lines. Manufacturer = Spring Forest Cabinetry; Skyline finish SKUs SKYGR/SKYCW/SKYSE/SKYSW/SKYNB.
+- [ ] Inventory current DB catalog: cabinets (master_code, description, dims, category), door_styles, distributor_skus — count + samples, note description quality issues.
+- [ ] Extract clean product data from all four catalogs (base code, description, dimensions, door/finish options) from paf.xml + kit*rec.dat strings + ManufCodes.txt.
+- [ ] Reconcile catalog vs DB: matched codes with better descriptions, new codes not in DB, codes in DB missing from catalog. Produce a review report (spreadsheet) BEFORE any DB writes.
+- [ ] NO price changes — leave list/wholesale/yourCost/tier columns untouched.
+- [ ] Apply approved description/door-option/SKU updates via schema-safe SQL; add tests; verify in UI; checkpoint.
+
+### Conflict corrections — owner approved ("please correct") + "dictate to the other lines too"
+- [x] WRC-24-30, WRC-30-15, WRC-30-18: relabeled "Refrigerator Wall Cabinet" -> "Wall Wine Rack Cabinet" (doors 2 -> 0). All 3 WRC codes in DB fixed.
+- [x] U-18-84/90/96-24: tall pantry -> 2 Doors (stacked upper & lower). numberOfDoors 1 -> 2.
+- [x] U-24-84/90/96-24 and U-30-84/90/96-24: tall pantry -> 4 Doors (2 upper & 2 lower). numberOfDoors 2 -> 4.
+- [x] ERB-33, ERB-36: description now "Base Easy Reach Corner Cabinet w/Lazy Susan".
+- [x] "Dictate to other lines": corrections live on the MASTER cabinet record (one description per master code, shared across ALL door styles / finish lines / distributors) — so a single fix propagates to every line automatically. Confirmed the W-*-*-24 above-fridge cabinets are genuinely "Refrigerator Wall Cabinet" and were correctly left untouched (only the WRC prefix = wine rack).
+- [x] Applied via idempotent server/skylineCorrect.apply.test.ts (sets descriptionSource='Skyline Catalog Correction'); originals preserved in notes/skyline-refresh.md. Verified live via cabinets.byCode. tsc clean; full suite 1146 pass. One-off dump/discover tests removed.
