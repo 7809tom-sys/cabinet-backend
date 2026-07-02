@@ -2475,3 +2475,10 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Derive member/contractor price using the same cost ratio as existing USCD wall cabinets (cost 30%, adjList 80%, wholesale 50%, contractor 60%, homeowner round(51%))
 - [x] Publish + available + showInDesigner so they appear in the designer
 - [x] Verify Nimbus White now shows W-30-12 / W-30-15, and pricing is correct (palette API returns all 8 bridge codes; W-30-12 = $375 list / $225 contractor)
+
+## Design Tool: editable trim piece counts (user request)
+- [x] Add per-trim +/- stepper (crown, toe kick, batten, light rail) in the build sheet to override the auto stick count
+- [x] Effective pieces drive BOTH build-sheet display and cart pricing (buildTrimCartLines)
+- [x] "auto (N)" reset link restores the auto-calculated count
+- [x] Persist overrides in the saved draft (snapshotDraft + restore + writeDraft deps)
+- [x] Typecheck clean, 392 tests pass, design page renders without runtime error

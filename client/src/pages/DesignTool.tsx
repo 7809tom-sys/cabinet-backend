@@ -273,6 +273,10 @@ export default function DesignTool() {
   const trimOverride = useRef<{ crown: boolean; toeKick: boolean; batten: boolean; lightRail: boolean }>({
     crown: false, toeKick: false, batten: false, lightRail: false,
   });
+  // Manual piece-count overrides per trim. undefined = use the auto-calculated
+  // stick count; a number = the user explicitly set how many sticks to order.
+  type TrimKind = "crown" | "toeKick" | "batten" | "lightRail";
+  const [trimQtyOverride, setTrimQtyOverride] = useState<Partial<Record<TrimKind, number>>>({});
   // Countertop tool: measures base + island runs; not auto-priced (quote request).
   const [countertop, setCountertop] = useState(false);
   // Countertop material: when set, a visible slab is drawn over base cabinets.
@@ -1289,15 +1293,31 @@ export default function DesignTool() {
     [lightRail, placed, room]
   );
 
-  // Active trims + their piece counts, in the shape the cart helper consumes.
+  // Effective piece count per trim = manual override (if set) else the auto
+  // stick count. Clamped to >= 0. This is what drives BOTH the build sheet
+  // display and the cart pricing, so an override changes the quote in real time.
+  const effectiveTrimPieces = useMemo<Record<TrimKind, number>>(() => {
+    const pick = (kind: TrimKind, auto: number | null | undefined) => {
+      const o = trimQtyOverride[kind];
+      return o !== undefined ? Math.max(0, o) : (auto ?? 0);
+    };
+    return {
+      crown: pick("crown", crownOrder?.pieces),
+      toeKick: pick("toeKick", toeKickOrder?.pieces),
+      batten: pick("batten", battenOrder?.pieces),
+      lightRail: pick("lightRail", lightRailOrder?.pieces),
+    };
+  }, [trimQtyOverride, crownOrder, toeKickOrder, battenOrder, lightRailOrder]);
+
+  // Active trims + their (effective) piece counts, in the shape the cart helper consumes.
   const activeTrims = useMemo<ActiveTrim[]>(() => {
     const list: ActiveTrim[] = [];
-    if (crown && crownOrder) list.push({ kind: "crown", pieces: crownOrder.pieces });
-    if (toeKick && toeKickOrder) list.push({ kind: "toeKick", pieces: toeKickOrder.pieces });
-    if (batten && battenOrder) list.push({ kind: "batten", pieces: battenOrder.pieces });
-    if (lightRail && lightRailOrder) list.push({ kind: "lightRail", pieces: lightRailOrder.pieces });
+    if (crown && effectiveTrimPieces.crown > 0) list.push({ kind: "crown", pieces: effectiveTrimPieces.crown });
+    if (toeKick && effectiveTrimPieces.toeKick > 0) list.push({ kind: "toeKick", pieces: effectiveTrimPieces.toeKick });
+    if (batten && effectiveTrimPieces.batten > 0) list.push({ kind: "batten", pieces: effectiveTrimPieces.batten });
+    if (lightRail && effectiveTrimPieces.lightRail > 0) list.push({ kind: "lightRail", pieces: effectiveTrimPieces.lightRail });
     return list;
-  }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder]);
+  }, [crown, toeKick, batten, lightRail, effectiveTrimPieces]);
 
   // Priced trim cart lines (styleId-scoped). Trims without a buyable SKU for the
   // style (crown, or a style missing that trim) are omitted → quote-only.
@@ -2690,6 +2710,7 @@ export default function DesignTool() {
     toeKick,
     batten,
     lightRail,
+    trimQtyOverride,
     countertop,
     countertopMaterialId,
     backsplashMaterialId,
@@ -2754,6 +2775,14 @@ export default function DesignTool() {
           setToeKick(!!d.toeKick);
           setBatten(!!d.batten);
           setLightRail(!!d.lightRail);
+          if (d.trimQtyOverride && typeof d.trimQtyOverride === "object") {
+            const src = d.trimQtyOverride as Record<string, unknown>;
+            const clean: Partial<Record<TrimKind, number>> = {};
+            for (const k of ["crown", "toeKick", "batten", "lightRail"] as TrimKind[]) {
+              if (typeof src[k] === "number") clean[k] = Math.max(0, Math.min(99, src[k] as number));
+            }
+            setTrimQtyOverride(clean);
+          }
           setCountertop(!!d.countertop);
           if (typeof d.countertopMaterialId === "string") setCountertopMaterialId(d.countertopMaterialId);
           if (typeof d.backsplashMaterialId === "string") setBacksplashMaterialId(d.backsplashMaterialId);
@@ -2783,7 +2812,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, trimQtyOverride, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -4887,64 +4916,71 @@ export default function DesignTool() {
 {/* Auto-filler removed: user places corner fillers manually */}
             {(crown || toeKick || batten || lightRail || countertop) && placed.length > 0 && (
               <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
-                {crown && crownOrder && crownOrder.pieces > 0 && (
+                {crown && crownOrder && effectiveTrimPieces.crown > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_crown_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {crownOrder.pieces} pc{crownOrder.pieces > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft run (incl. 3&quot; miter/wall)
+                        {effectiveTrimPieces.crown} pc{effectiveTrimPieces.crown > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft run (incl. 3&quot; miter/wall)
                         {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>
+                      <TrimQtyStepper kind="crown" value={effectiveTrimPieces.crown} auto={crownOrder.pieces} override={trimQtyOverride.crown} setOverride={setTrimQtyOverride} />
                     </div>
                     <span className="font-semibold shrink-0 text-amber-600">{t("dt_bs_quote")}</span>
                   </div>
                 )}
-                {toeKick && toeKickOrder && toeKickOrder.pieces > 0 && (() => {
+                {toeKick && toeKickOrder && effectiveTrimPieces.toeKick > 0 && (() => {
                   const p = trimPriceByCode.get("TK-8");
-                  const ext = p && p.unitPrice > 0 ? p.unitPrice * toeKickOrder.pieces : null;
+                  const pcs = effectiveTrimPieces.toeKick;
+                  const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_toe_kick")}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {toeKickOrder.pieces} pc{toeKickOrder.pieces > 1 ? "s" : ""} @ {toeKickOrder.stickFeet}&apos; · {toeKickOrder.measuredFeet} ft run
-                        {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${toeKickOrder.pieces}` : ""}
+                        {pcs} pc{pcs > 1 ? "s" : ""} @ {toeKickOrder.stickFeet}&apos; · {toeKickOrder.measuredFeet} ft run
+                        {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${pcs}` : ""}
                         {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>
+                      <TrimQtyStepper kind="toeKick" value={pcs} auto={toeKickOrder.pieces} override={trimQtyOverride.toeKick} setOverride={setTrimQtyOverride} />
                     </div>
                     <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
                   </div>
                   );
                 })()}
-                {batten && battenOrder && battenOrder.pieces > 0 && (() => {
+                {batten && battenOrder && effectiveTrimPieces.batten > 0 && (() => {
                   const p = trimPriceByCode.get("BAM");
-                  const ext = p && p.unitPrice > 0 ? p.unitPrice * battenOrder.pieces : null;
+                  const pcs = effectiveTrimPieces.batten;
+                  const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_batten_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {battenOrder.pieces} pc{battenOrder.pieces > 1 ? "s" : ""} @ {battenOrder.stickFeet}&apos; · {battenOrder.measuredFeet} ft run · 3/4&quot; × 3/16&quot;
-                        {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${battenOrder.pieces}` : ""}
+                        {pcs} pc{pcs > 1 ? "s" : ""} @ {battenOrder.stickFeet}&apos; · {battenOrder.measuredFeet} ft run · 3/4&quot; × 3/16&quot;
+                        {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${pcs}` : ""}
                         {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>
+                      <TrimQtyStepper kind="batten" value={pcs} auto={battenOrder.pieces} override={trimQtyOverride.batten} setOverride={setTrimQtyOverride} />
                     </div>
                     <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
                   </div>
                   );
                 })()}
-                {lightRail && lightRailOrder && lightRailOrder.pieces > 0 && (() => {
+                {lightRail && lightRailOrder && effectiveTrimPieces.lightRail > 0 && (() => {
                   const p = trimPriceByCode.get("LRM-8");
-                  const ext = p && p.unitPrice > 0 ? p.unitPrice * lightRailOrder.pieces : null;
+                  const pcs = effectiveTrimPieces.lightRail;
+                  const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_sh_light_rail_btn")}</div>
                       <div className="text-[10px] text-muted-foreground">
-                        {lightRailOrder.pieces} pc{lightRailOrder.pieces > 1 ? "s" : ""} @ {lightRailOrder.stickFeet}&apos; · {lightRailOrder.measuredFeet} ft run
-                        {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${lightRailOrder.pieces}` : ""}
+                        {pcs} pc{pcs > 1 ? "s" : ""} @ {lightRailOrder.stickFeet}&apos; · {lightRailOrder.measuredFeet} ft run
+                        {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${pcs}` : ""}
                         {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>
+                      <TrimQtyStepper kind="lightRail" value={pcs} auto={lightRailOrder.pieces} override={trimQtyOverride.lightRail} setOverride={setTrimQtyOverride} />
                     </div>
                     <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
                   </div>
@@ -4968,9 +5004,9 @@ export default function DesignTool() {
                   const bam = trimPriceByCode.get("BAM");
                   const lrm = trimPriceByCode.get("LRM-8");
                   let sub = 0;
-                  if (toeKick && toeKickOrder && toeKickOrder.pieces > 0 && tk && tk.unitPrice > 0) sub += tk.unitPrice * toeKickOrder.pieces;
-                  if (batten && battenOrder && battenOrder.pieces > 0 && bam && bam.unitPrice > 0) sub += bam.unitPrice * battenOrder.pieces;
-                  if (lightRail && lightRailOrder && lightRailOrder.pieces > 0 && lrm && lrm.unitPrice > 0) sub += lrm.unitPrice * lightRailOrder.pieces;
+                  if (toeKick && effectiveTrimPieces.toeKick > 0 && tk && tk.unitPrice > 0) sub += tk.unitPrice * effectiveTrimPieces.toeKick;
+                  if (batten && effectiveTrimPieces.batten > 0 && bam && bam.unitPrice > 0) sub += bam.unitPrice * effectiveTrimPieces.batten;
+                  if (lightRail && effectiveTrimPieces.lightRail > 0 && lrm && lrm.unitPrice > 0) sub += lrm.unitPrice * effectiveTrimPieces.lightRail;
                   if (sub <= 0) return null;
                   return (
                     <div className="flex items-center justify-between gap-2 px-2 pt-1.5 text-xs">
@@ -5457,6 +5493,63 @@ function PricingShell({
 // same in the desktop sidebar and the mobile drawer (both render the same
 // children). The Estimated Total + Export CTA are intentionally NOT wrapped in
 // this so they always stay visible.
+// Small +/- stepper to override a trim's ordered stick count in the build sheet.
+// undefined override = auto; setting a value pins the quantity; the reset link
+// returns to the auto-calculated count.
+function TrimQtyStepper({
+  kind, value, auto, override, setOverride,
+}: {
+  kind: "crown" | "toeKick" | "batten" | "lightRail";
+  value: number;
+  auto: number;
+  override: number | undefined;
+  setOverride: React.Dispatch<React.SetStateAction<Partial<Record<"crown" | "toeKick" | "batten" | "lightRail", number>>>>;
+}) {
+  const set = (n: number) =>
+    setOverride((prev) => ({ ...prev, [kind]: Math.max(0, Math.min(99, n)) }));
+  const reset = () =>
+    setOverride((prev) => {
+      const next = { ...prev };
+      delete next[kind];
+      return next;
+    });
+  return (
+    <div className="mt-1 flex items-center gap-1.5">
+      <div className="inline-flex items-center rounded-md border border-border overflow-hidden">
+        <button
+          type="button"
+          aria-label="Decrease quantity"
+          onClick={() => set(value - 1)}
+          disabled={value <= 0}
+          className="flex h-5 w-5 items-center justify-center text-xs text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+        >
+          &minus;
+        </button>
+        <span className="min-w-[1.5rem] px-1 text-center text-[11px] font-semibold tabular-nums">{value}</span>
+        <button
+          type="button"
+          aria-label="Increase quantity"
+          onClick={() => set(value + 1)}
+          className="flex h-5 w-5 items-center justify-center text-xs text-muted-foreground transition-colors hover:bg-muted"
+        >
+          +
+        </button>
+      </div>
+      {override !== undefined ? (
+        <button
+          type="button"
+          onClick={reset}
+          className="text-[10px] text-[#1a2744] underline underline-offset-2 hover:opacity-80"
+        >
+          auto ({auto})
+        </button>
+      ) : (
+        <span className="text-[10px] text-muted-foreground">auto</span>
+      )}
+    </div>
+  );
+}
+
 function SheetSection({
   title, count, collapsed, onToggle, children, className, id,
 }: {
