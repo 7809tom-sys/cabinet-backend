@@ -36,11 +36,14 @@ describe("doorStyles.familyCatalog — family-first catalog", () => {
     expect(cats.size).toBeGreaterThan(1);
 
     // Every item is collapsed to a single priced row with the fields the UI needs.
+    // NOTE: this is an anonymous (homeowner-tier) caller, so trade columns
+    // (wholesale/contractor) are correctly redacted — the card shows the
+    // homeowner SELL price (computed from the cost base × markup), never list.
     for (const item of result.items.slice(0, 25)) {
       expect(item.cabinetId).toBeGreaterThan(0);
       expect(item.masterCode).toBeTruthy();
-      // A price must be present (contractor or wholesale) so the card can show one.
-      const price = Number(item.contractorPrice ?? item.wholesalePrice ?? 0);
+      // A homeowner-facing price must be present so the card can show one.
+      const price = Number(item.homeownerPrice ?? item.listPrice ?? 0);
       expect(price).toBeGreaterThan(0);
     }
 

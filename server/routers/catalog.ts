@@ -631,9 +631,18 @@ export const doorStylesRouter = router({
   // family first and then sees all cabinet types in that one look.
   familyCatalog: publicProcedure
     .input(z.object({ styleId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { style: null, items: [] };
+
+      // Price entitlement: guests/homeowners see retail; approved pros see the
+      // tier the owner assigned them; admin sees all. Sell prices are ALWAYS
+      // computed from the cost base × per-tier markup (never the raw stored
+      // price columns) so the markup can't be double-applied or fall back to
+      // list price. This mirrors `stylesForCabinet` above.
+      const viewerTier = resolveStorefrontTier(ctx.user);
+      const isAdmin = ctx.user?.role === "admin";
+      const ps = await getPricingSettings();
 
       const styleRows = await db
         .select()
@@ -662,6 +671,7 @@ export const doorStylesRouter = router({
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
+          yourCost: distributorSkus.yourCost,
           platformSku: distributorSkus.platformSku,
           skuImageUrl: distributorSkus.imageUrl,
           distributorId: distributorSkus.distributorId,
@@ -694,11 +704,44 @@ export const doorStylesRouter = router({
         if (a < b) byCabinet.set(r.cabinetId, r);
       }
 
-      const items = Array.from(byCabinet.values()).sort((a, b) =>
-        (a.masterCode || "").localeCompare(b.masterCode || "", undefined, {
-          numeric: true,
-        })
-      );
+      const items = Array.from(byCabinet.values())
+        .sort((a, b) =>
+          (a.masterCode || "").localeCompare(b.masterCode || "", undefined, {
+            numeric: true,
+          })
+        )
+        .map((r) => {
+          // Cost base precedence (yourCost first) MUST match stylesForCabinet
+          // so the Family page and the Cabinet Detail page price identically.
+          const costRow = {
+            yourCost: r.yourCost,
+            wholesalePrice: r.wholesalePrice,
+            adjustedListPrice: r.adjustedListPrice,
+            listPrice: r.listPrice,
+          };
+          const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
+          const sellContractor = sellPriceForTier(costRow, ps, "contractor");
+          const sellWholesale = sellPriceForTier(costRow, ps, "wholesale");
+          const gated = visiblePricesForViewer(
+            {
+              listPrice: r.listPrice,
+              adjustedListPrice: r.adjustedListPrice,
+              wholesalePrice: sellWholesale?.toFixed(2) ?? null,
+              contractorPrice: sellContractor?.toFixed(2) ?? null,
+              homeownerPrice: sellHomeowner?.toFixed(2) ?? null,
+            },
+            viewerTier,
+            isAdmin,
+          );
+          return {
+            ...r,
+            listPrice: gated.listPrice,
+            adjustedListPrice: gated.adjustedListPrice,
+            wholesalePrice: gated.wholesalePrice,
+            contractorPrice: gated.contractorPrice,
+            homeownerPrice: gated.homeownerPrice,
+          };
+        });
 
       return { style: scrubDoorStyle(style), items };
     }),
