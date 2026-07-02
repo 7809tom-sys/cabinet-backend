@@ -2468,3 +2468,10 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 
 ## Design Tool: priced-vs-quote legend (user request)
 - [x] Add a small legend under Trim & Extras explaining amber "Quote" = priced live at order, dollar amounts = member pricing (EN/ES)
+
+## Catalog: add missing US Cabinet Depot wall bridge cabinets (user request)
+- [x] Add bridge cabinets W-30-12/W-36-12/W-30-15/W-36-15/W-30-18/W-36-18/W-30-24/W-36-24 (12" deep) to catalog if missing (all 8 already existed as cabinets)
+- [x] Create distributor_skus for all USCD (distributor 1) styles, tier-matched list price per finish column (152 SKUs = 8 codes x 19 styles)
+- [x] Derive member/contractor price using the same cost ratio as existing USCD wall cabinets (cost 30%, adjList 80%, wholesale 50%, contractor 60%, homeowner round(51%))
+- [x] Publish + available + showInDesigner so they appear in the designer
+- [x] Verify Nimbus White now shows W-30-12 / W-30-15, and pricing is correct (palette API returns all 8 bridge codes; W-30-12 = $375 list / $225 contractor)
