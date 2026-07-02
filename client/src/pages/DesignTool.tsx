@@ -4888,14 +4888,14 @@ export default function DesignTool() {
             {(crown || toeKick || batten || lightRail || countertop) && placed.length > 0 && (
               <div className="mt-1 pt-1 border-t border-dashed border-border space-y-1">
                 {crown && crownOrder && crownOrder.pieces > 0 && (
-                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_crown_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {crownOrder.pieces} pc{crownOrder.pieces > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft run (incl. 3&quot; miter/wall)
                       </div>
                     </div>
-                    <span className="font-semibold shrink-0 text-muted-foreground">{t("dt_bs_incl")}</span>
+                    <span className="font-semibold shrink-0 text-amber-600">{t("dt_bs_quote")}</span>
                   </div>
                 )}
                 {toeKick && toeKickOrder && toeKickOrder.pieces > 0 && (() => {
@@ -4907,6 +4907,7 @@ export default function DesignTool() {
                       <div className="font-mono font-semibold truncate">{t("dt_bs_toe_kick")}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {toeKickOrder.pieces} pc{toeKickOrder.pieces > 1 ? "s" : ""} @ {toeKickOrder.stickFeet}&apos; · {toeKickOrder.measuredFeet} ft run
+                        {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${toeKickOrder.pieces}` : ""}
                       </div>
                     </div>
                     <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
@@ -4922,6 +4923,7 @@ export default function DesignTool() {
                       <div className="font-mono font-semibold truncate">{t("dt_bs_batten_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {battenOrder.pieces} pc{battenOrder.pieces > 1 ? "s" : ""} @ {battenOrder.stickFeet}&apos; · {battenOrder.measuredFeet} ft run · 3/4&quot; × 3/16&quot;
+                        {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${battenOrder.pieces}` : ""}
                       </div>
                     </div>
                     <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
@@ -4937,6 +4939,7 @@ export default function DesignTool() {
                       <div className="font-mono font-semibold truncate">{t("dt_sh_light_rail_btn")}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {lightRailOrder.pieces} pc{lightRailOrder.pieces > 1 ? "s" : ""} @ {lightRailOrder.stickFeet}&apos; · {lightRailOrder.measuredFeet} ft run
+                        {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${lightRailOrder.pieces}` : ""}
                       </div>
                     </div>
                     <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
@@ -4954,6 +4957,24 @@ export default function DesignTool() {
                     <span className="font-semibold shrink-0 text-amber-600">{t("dt_bs_quote")}</span>
                   </div>
                 )}
+                {/* Priced-trim subtotal (toe kick + batten + light rail). Crown /
+                    countertop / sink / hardware are quote-only and excluded. */}
+                {(() => {
+                  const tk = trimPriceByCode.get("TK-8");
+                  const bam = trimPriceByCode.get("BAM");
+                  const lrm = trimPriceByCode.get("LRM-8");
+                  let sub = 0;
+                  if (toeKick && toeKickOrder && toeKickOrder.pieces > 0 && tk && tk.unitPrice > 0) sub += tk.unitPrice * toeKickOrder.pieces;
+                  if (batten && battenOrder && battenOrder.pieces > 0 && bam && bam.unitPrice > 0) sub += bam.unitPrice * battenOrder.pieces;
+                  if (lightRail && lightRailOrder && lightRailOrder.pieces > 0 && lrm && lrm.unitPrice > 0) sub += lrm.unitPrice * lightRailOrder.pieces;
+                  if (sub <= 0) return null;
+                  return (
+                    <div className="flex items-center justify-between gap-2 px-2 pt-1.5 text-xs">
+                      <span className="text-muted-foreground">{t("dt_bs_trim_subtotal")}</span>
+                      <span className="font-semibold">${sub.toFixed(2)}</span>
+                    </div>
+                  );
+                })()}
               </div>
             )}
             </div>

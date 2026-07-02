@@ -2455,3 +2455,9 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Public doorStyles.list must exclude active styles that have zero published+available SKUs (Villa Blanc 120001 currently empty)
 - [x] Keep such styles visible in admin back office
 - [x] Add DB helper + unit test for availability guard
+
+## Design Tool: trim & pricing build-sheet detail (user request)
+- [x] Show unit price x qty = extended on each priced trim line (toe kick, light rail, batten, fillers)
+- [x] Replace ambiguous "incl." on non-priced trims (e.g. crown) with a clear "Quote" tag
+- [x] Add a Trim & Extras subtotal row so pro sees trim's contribution
+- [x] Keep cart total wiring intact (buildTrimCartLines) and tests green
