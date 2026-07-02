@@ -8,6 +8,7 @@ import {
   cabinetWall, wallSpanMeasure,
   countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
   wallGaps, type WallGap,
+  type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
 } from "@/lib/design";
@@ -84,6 +85,12 @@ interface Props {
   flooringMaterialId?: string | null;
   // Cabinet lock: when true, cabinet drag/drop/delete are blocked.
   cabinetsLocked?: boolean;
+  // Gap intelligence: one representative real cabinet per width (keyed by width
+  // in inches) sourced from the active palette, used to suggest cabinets that
+  // fit a measured gap. When onFillGap is provided the popover rows become
+  // click-to-place actions.
+  gapFillCandidates?: Map<number, DesignCabinet>;
+  onFillGap?: (gap: WallGap, cabinet: DesignCabinet) => void;
 }
 
 export function PlanCanvas({
@@ -99,6 +106,8 @@ export function PlanCanvas({
   furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn,
   flooringMaterialId = null,
   cabinetsLocked = false,
+  gapFillCandidates,
+  onFillGap,
 }: Props) {
   const { t } = useLanguage();
   // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
@@ -1111,12 +1120,22 @@ export function PlanCanvas({
           };
           // Only show base-layer gaps (most actionable for the user).
           const baseGaps = gaps.filter((g) => g.layer === "base" && g.length >= 3);
+          const STANDARD_WIDTHS = [9,12,15,18,21,24,27,30,33,36,39,42,45,48];
           return baseGaps.map((g, i) => {
             const pos = gapPx(g);
             const isActive = activeGap?.side === g.side && activeGap?.start === g.start && activeGap?.layer === g.layer;
             const color = g.isFillerSize ? "#e07b39" : g.isStandardSize ? "#2e7d32" : "#1a2744";
-            const STANDARD_WIDTHS = [9,12,15,18,21,24,27,30,33,36,39,42,45,48];
-            const suggestions = STANDARD_WIDTHS.filter((w) => w <= g.length && g.length - w <= 3);
+            // Only suggest widths that (a) physically fit the gap with <=3" of
+            // leftover filler AND (b) have a REAL cabinet in the active palette.
+            // When we don't have palette candidates (no style picked / no map),
+            // fall back to the plain standard-width hint list.
+            const fittingWidths = STANDARD_WIDTHS.filter((w) => w <= g.length && g.length - w <= 3);
+            const realSuggestions = gapFillCandidates
+              ? fittingWidths
+                  .map((w) => ({ w, cab: gapFillCandidates.get(w) }))
+                  .filter((s): s is { w: number; cab: DesignCabinet } => !!s.cab)
+              : [];
+            const hasPalette = !!gapFillCandidates && gapFillCandidates.size > 0;
             return (
               <div key={`gap-${g.side}-${i}`}>
                 {/* Gap label chip */}
@@ -1124,44 +1143,54 @@ export function PlanCanvas({
                   className="absolute z-30 cursor-pointer select-none -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md transition-transform hover:scale-110 active:scale-95"
                   style={{ left: pos.left, top: pos.top, background: color, border: "1.5px solid white" }}
                   onClick={(e) => { e.stopPropagation(); setActiveGap(isActive ? null : g); }}
-                  title={`${formatInches(g.length)} gap — click for fill suggestions`}
+                  title={t("dt_gap_title", { len: formatInches(g.length) })}
                 >
                   {formatInches(g.length)}
                 </div>
                 {/* Fill suggestions popover */}
                 {isActive && (
                   <div
-                    className="absolute z-50 rounded-lg bg-white shadow-xl border border-gray-200 p-3 min-w-[160px]"
+                    className="absolute z-50 rounded-lg bg-white shadow-xl border border-gray-200 p-3 min-w-[200px] max-w-[240px]"
                     style={{ left: pos.left + 10, top: pos.top + 10 }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="text-[10px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                      {formatInches(g.length)} gap
+                      {t("dt_gap_title", { len: formatInches(g.length) })}
                     </div>
-                    {g.isFillerSize && (
-                      <div className="text-[11px] text-orange-600 font-medium mb-1">Use a filler strip</div>
-                    )}
-                    {suggestions.length > 0 ? (
+                    {g.isFillerSize ? (
+                      <div className="text-[11px] text-orange-600 font-medium">{t("dt_gap_use_filler")}</div>
+                    ) : !hasPalette ? (
+                      <div className="text-[11px] text-gray-400">{t("dt_gap_pick_style")}</div>
+                    ) : realSuggestions.length > 0 ? (
                       <>
-                        <div className="text-[10px] text-gray-400 mb-1">Cabinet widths that fit:</div>
-                        {suggestions.map((w) => (
-                          <div key={w} className="flex items-center justify-between gap-2 py-0.5">
-                            <span className="text-[11px] font-medium text-gray-700">{w}" wide</span>
-                            {w === g.length ? (
-                              <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">Exact fit</span>
-                            ) : (
-                              <span className="text-[9px] text-gray-400">{formatInches(g.length - w)} filler</span>
-                            )}
-                          </div>
-                        ))}
+                        <div className="text-[10px] text-gray-400 mb-1">{t("dt_gap_fits_header")}</div>
+                        {realSuggestions.map(({ w, cab }) => {
+                          const exact = Math.abs(w - g.length) < 0.5;
+                          return (
+                            <div key={w} className="flex items-center justify-between gap-2 py-1 border-b border-gray-50 last:border-0">
+                              <div className="min-w-0">
+                                <div className="text-[11px] font-semibold text-gray-800 truncate">{cab.masterCode}</div>
+                                <div className="text-[9px] text-gray-400">
+                                  {w}" · {exact ? t("dt_gap_exact_fit") : t("dt_gap_filler_left", { len: formatInches(g.length - w) })}
+                                </div>
+                              </div>
+                              {onFillGap && (
+                                <button
+                                  className="shrink-0 rounded-md bg-[#1a2744] px-2 py-1 text-[10px] font-semibold text-white transition-transform hover:bg-[#243456] active:scale-95"
+                                  onClick={() => { onFillGap(g, cab); setActiveGap(null); }}
+                                >{t("dt_gap_place")}</button>
+                              )}
+                            </div>
+                          );
+                        })}
                       </>
                     ) : (
-                      <div className="text-[11px] text-gray-400">No standard cabinet fits — use a custom filler</div>
+                      <div className="text-[11px] text-gray-400">{t("dt_gap_none")}</div>
                     )}
                     <button
                       className="mt-2 w-full text-[10px] text-gray-400 hover:text-gray-600 text-right"
                       onClick={() => setActiveGap(null)}
-                    >close ×</button>
+                    >×</button>
                   </div>
                 )}
               </div>

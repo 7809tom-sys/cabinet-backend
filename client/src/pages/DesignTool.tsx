@@ -54,6 +54,7 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, wallPlacementAt, cabinetWall,
+  formatInches, type WallGap, gapFillCandidatesByWidth,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine,
@@ -1881,6 +1882,59 @@ export default function DesignTool() {
       return working;
     });
   }, [layoutLocked, activeWall, room, roomType, autoFillCabinets, placed, openings, t]);
+
+  // ── Gap-fill candidates: one representative REAL base cabinet per width ──────
+  // Backs the click-to-place gap popover on the plan canvas. For each standard
+  // cabinet width we pick a single plain base cabinet from the ACTIVE palette
+  // (the same width-sorted, purchasable list Auto-Fill uses), preferring a plain
+  // base box (no corner/vanity/sink/specialty) so the suggestion is a clean
+  // filler-run cabinet. Only widths that actually exist in the current style/
+  // line appear, so we never suggest a cabinet the member can't order.
+  const gapFillCandidates = useMemo<Map<number, DesignCabinet>>(
+    () => gapFillCandidatesByWidth((autoFillCabinets as DesignCabinet[] | undefined) ?? []) as Map<number, DesignCabinet>,
+    [autoFillCabinets]
+  );
+
+  // Place a chosen real cabinet flush at a gap's run-axis start. Respects the
+  // cabinet lock; drops the box exactly at gap.start along gap.side so it lands
+  // inside the measured opening (the user can still drag it afterward).
+  const fillGap = useCallback(
+    (gap: WallGap, c: DesignCabinet) => {
+      if (cabinetsLocked) { toast.info(t("dt_gap_locked")); return; }
+      const width = dim(c.width, 24);
+      const depth = footprintDepth(c);
+      const height = dim(c.height, standardHeight(c.placement));
+      const spot = wallPlacementAt(gap.start, width, depth, gap.side, room);
+      const newCab: PlacedCabinet = {
+        uid: makeUid(),
+        cabinetId: c.id,
+        masterCode: c.masterCode,
+        description: c.description,
+        category: c.category ?? null,
+        subCategory: c.subCategory ?? null,
+        placement: "base",
+        x: spot.x,
+        y: spot.y,
+        width,
+        nominalWidth: width,
+        depth,
+        nominalDepth: depth,
+        height,
+        nominalHeight: height,
+        rotation: spot.rotation,
+        numberOfDoors: c.numberOfDoors,
+        numberOfDrawers: c.numberOfDrawers,
+        catalogImageUrl: c.catalogImageUrl ?? null,
+        pullMin: c.pullMin ?? null,
+        pullMax: c.pullMax ?? null,
+        styleId: styleIdRef.current ?? null,
+      };
+      setPlaced((prev) => [...prev, newCab]);
+      setSelectedUid(newCab.uid);
+      toast.success(t("dt_gap_placed_toast", { code: c.masterCode, len: formatInches(gap.length) }));
+    },
+    [cabinetsLocked, room, t]
+  );
 
   // ── Range/oven corner clearance: one-click fix ──────────────────────────────
   // NOTE: Range/oven corner clearance is a WARNING ONLY. We intentionally do not
@@ -4491,6 +4545,8 @@ export default function DesignTool() {
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
               flooringMaterialId={flooringMaterialId}
               cabinetsLocked={cabinetsLocked}
+              gapFillCandidates={gapFillCandidates}
+              onFillGap={fillGap}
             />
           )}
           {viewMode === "elevation" && (
@@ -4586,6 +4642,8 @@ export default function DesignTool() {
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
               flooringMaterialId={flooringMaterialId}
               cabinetsLocked={cabinetsLocked}
+              gapFillCandidates={gapFillCandidates}
+              onFillGap={fillGap}
                 />
               </div>
               <div className="flex-1 min-h-0">

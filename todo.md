@@ -2482,3 +2482,12 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] "auto (N)" reset link restores the auto-calculated count
 - [x] Persist overrides in the saved draft (snapshotDraft + restore + writeDraft deps)
 - [x] Typecheck clean, 392 tests pass, design page renders without runtime error
+
+## Design Tool: actionable gap-fill (self-directed "make it the best")
+- [x] Base-cabinet lock feature (already implemented; verified) — Lock Cabs toggle + mobile Lock, freezes move/delete/style, persists in draft
+- [x] Palette accordion + unified Corner tab merging corner base + corner wall (already implemented; verified)
+- [x] Gap popover lists REAL cabinets from active style/line that fit (SKU code, width, exact-fit vs filler remaining)
+- [x] Each suggestion has a "Place" button that drops the cabinet flush into the measured gap (respects cabinet lock)
+- [x] Hint when no style picked; filler note for sub-9" gaps; no-fit note otherwise
+- [x] Pure helper gapFillCandidatesByWidth() extracted to design.ts + 6 unit tests (gapFill.test.ts)
+- [x] i18n keys EN+ES (dt_gap_*); typecheck clean; full suite passing

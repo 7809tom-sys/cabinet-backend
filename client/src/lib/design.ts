@@ -3031,6 +3031,34 @@ export function wallGaps(
   return gaps;
 }
 
+// Build a map of one representative REAL base cabinet per standard width from a
+// palette pool. Prefers a plain base box over sink/specialty/corner units so a
+// gap suggestion reads like a clean filler-run cabinet. Only widths in the
+// [9, 48] standard range are considered. Pure + unit-testable; the Design Tool
+// feeds this to the click-to-place gap popover.
+export function gapFillCandidatesByWidth(
+  pool: Pick<DesignCabinet, "masterCode" | "subCategory" | "width" | "isCornerCabinet">[]
+): Map<number, (typeof pool)[number]> {
+  const byWidth = new Map<number, (typeof pool)[number]>();
+  const rank = (c: (typeof pool)[number]): number => {
+    const code = (c.masterCode || "").toUpperCase();
+    const sub = (c.subCategory || "").toLowerCase();
+    if (c.isCornerCabinet === true || /corner|lazy susan|easy reach/.test(sub)) return 4;
+    if (/vanity/.test(sub)) return 4;
+    if (/sink/.test(sub) || code.startsWith("SB")) return 2;
+    if (/specialty|blind|lazy|susan|trash|waste/.test(sub)) return 3;
+    if (code.startsWith("B") || code.startsWith("DB") || sub.includes("base")) return 0;
+    return 1;
+  };
+  for (const c of pool) {
+    const w = Math.round(Number(c.width) || 0);
+    if (w < 9 || w > 48) continue;
+    const existing = byWidth.get(w);
+    if (!existing || rank(c) < rank(existing)) byWidth.set(w, c);
+  }
+  return byWidth;
+}
+
 // ─── Dining Furniture ─────────────────────────────────────────────────────────
 // Floor-plan-only space planning items (no pricing, no SKU, no elevation view).
 
