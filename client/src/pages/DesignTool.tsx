@@ -4979,6 +4979,11 @@ export default function DesignTool() {
                     </div>
                   );
                 })()}
+                {/* Legend: clarify priced vs quote-only lines */}
+                <div className="flex items-start gap-1.5 px-2 pt-2 text-[10px] leading-snug text-muted-foreground">
+                  <span className="mt-[3px] inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                  <span>{t("dt_bs_quote_legend")}</span>
+                </div>
               </div>
             )}
             </div>

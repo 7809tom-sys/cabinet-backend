@@ -2465,3 +2465,6 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 ## Design Tool: show inherited finish on trim lines (user request)
 - [x] Show the active door-style finish/color on each build-sheet trim line (toe kick, batten, light rail, crown) so it's clear what finish the trim ships in
 - [x] Keep it subtle (small muted label), don't break the existing price/qty layout
+
+## Design Tool: priced-vs-quote legend (user request)
+- [x] Add a small legend under Trim & Extras explaining amber "Quote" = priced live at order, dollar amounts = member pricing (EN/ES)
