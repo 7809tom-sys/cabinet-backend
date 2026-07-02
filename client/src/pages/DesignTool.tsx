@@ -1592,6 +1592,10 @@ export default function DesignTool() {
         // mountBottom to wallCabinetTopLine so the elevation view places it
         // correctly above the standard upper run.
         let stackerMountBottom: number | undefined;
+        // A glass stacker is ALWAYS the same width as the wall cabinet directly
+        // below it. `stackWidth` starts at the item's own width and is overridden
+        // to the matched wall cabinet's width when we snap onto one.
+        let stackWidth = width;
         if (accPlacement === "wall" && isStacker(c)) {
           const topLine = wallCabinetTopLine(room);
           stackerMountBottom = topLine;
@@ -1602,13 +1606,21 @@ export default function DesignTool() {
             const sw = cabinetWall({ ...p, x: spot.x, y: spot.y, width, depth, rotation: spot.rotation }, room);
             return pw === sw;
           });
-          // Find the best match: same width (±0.5") and closest X.
-          const bestMatch = sameWallCabs
-            .filter((p) => Math.abs(p.width - width) <= 0.5)
-            .sort((a, b) => Math.abs(a.x - spot.x) - Math.abs(b.x - spot.x))[0];
+          // Prefer a same-width wall cabinet (±0.5") so the stacker sits flush
+          // on the box below; otherwise fall back to the NEAREST wall cabinet on
+          // this wall so a glass stacker ALWAYS ends up on top of a wall cabinet
+          // rather than floating on its own.
+          const byX = [...sameWallCabs].sort(
+            (a, b) => Math.abs(a.x - spot.x) - Math.abs(b.x - spot.x)
+          );
+          const bestMatch =
+            byX.find((p) => Math.abs(p.width - width) <= 0.5) ?? byX[0];
           if (bestMatch) {
-            // Snap stacker X to align with the wall cabinet below it.
+            // Snap stacker X to align with the wall cabinet below it and MATCH
+            // its width exactly (a stacker is always the width of the box below).
+            const bw = rotatedSize(bestMatch).w;
             spot = { ...spot, x: bestMatch.x, y: bestMatch.y };
+            stackWidth = bw;
             toast.success("Stacker snapped above " + (bestMatch.masterCode ?? "wall cabinet"));
           }
         }
@@ -1626,8 +1638,8 @@ export default function DesignTool() {
           placement: accPlacement,
           x: spot.x,
           y: spot.y,
-          width,
-          nominalWidth: width,
+          width: stackWidth,
+          nominalWidth: stackWidth,
           depth,
           nominalDepth: depth,
           height,
@@ -2106,6 +2118,18 @@ export default function DesignTool() {
       })
     );
   }, [selectedUid, room]);
+
+  // Set an ABSOLUTE mount height (inches from floor to the box bottom) for a
+  // specific cabinet — used by the elevation view's vertical drag / Arrow keys.
+  // Wall cabinets only; clamped at 0.
+  const setMountBottomFor = useCallback((uid: string, mountBottom: number) => {
+    setPlaced((prev) =>
+      prev.map((p) => {
+        if (p.uid !== uid || p.placement !== "wall") return p;
+        return { ...p, mountBottom: Math.max(0, Math.round(mountBottom * 10) / 10) };
+      })
+    );
+  }, []);
 
   // Clear the override so the cabinet returns to its default rule position.
   const resetMountHeight = useCallback(() => {
@@ -4364,6 +4388,7 @@ export default function DesignTool() {
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
               onMove={cabinetsLocked ? undefined : moveCabinet}
+              onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
               moveLocked={cabinetsLocked}
             />
           )}
@@ -4458,6 +4483,7 @@ export default function DesignTool() {
                   finishFor={finishForCab}
                   panelKindFor={panelKindForCab}
                   onMove={cabinetsLocked ? undefined : moveCabinet}
+                  onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
                   moveLocked={cabinetsLocked}
                 />
               </div>

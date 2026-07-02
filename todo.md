@@ -2356,3 +2356,12 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 - [x] (#2) Soft floor contact shadow under base/tall/appliance runs so cabinets read as grounded
 - [x] (#2) Deeper recessed-panel reveal for crisper shaker/framed door realism
 - [x] Type-check clean; full suite 1113 pass
+
+## Design Tool stacking rules (user request)
+
+- [x] Glass stacker cabinet: when placed, auto-stacks directly on TOP of the nearest wall cabinet below it (aligns x, bottom rests on its top line) and FORCES its width to match that cabinet. isStacker() now detects GS-/GDS- codes and glass-stacker descriptions.
+- [x] Bridge cabinet over an over-range microwave: MW/HOOD top-aligns with adjacent uppers (verticalBounds short-wall branch) and the bridge-over-microwave pairing is exempt from the collision/overlap alarm (isBridgeOverRange in hasCollision + conflictingUids).
+- [x] Front/elevation view: a selected cabinet can be adjusted left/right (drag + Arrow keys) and wall cabinets up/down (vertical drag + Arrow Up/Down); Shift = 3" coarse, else 0.5" fine; snaps to 54" line; clamped to bounds.
+- [x] Countertop band in elevation: runs over base cabinets + bridges the dishwasher AND wine cooler, but BREAKS at the range and refrigerator (backsplash spans match).
+- [x] Wine cooler appliance fixture (WINE-24, 24" undercounter, kitchen) added to the appliance palette; countertop bridges over it; photoreal scene mentions it.
+- [x] Unit tests for all rules (17 in designStackingRules.test.ts); type-check clean; full suite 1130 pass; verified in browser; checkpoint.

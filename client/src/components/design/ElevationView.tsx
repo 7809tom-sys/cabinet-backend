@@ -63,6 +63,10 @@ interface Props {
   // Optional: when provided, the elevation supports horizontal drag-to-reorder.
   // The callback receives the uid and the new plan-space x/y coordinate.
   onMove?: (uid: string, x: number, y: number) => void;
+  // Optional: when provided, a WALL cabinet can be nudged UP/DOWN in the
+  // elevation (drag vertically or Arrow Up/Down). The callback receives the uid
+  // and the new mountBottom (inches from floor to the box bottom).
+  onMoveVertical?: (uid: string, mountBottom: number) => void;
   // When true, cabinets cannot be dragged (locked layout).
   moveLocked?: boolean;
 }
@@ -73,7 +77,7 @@ export function ElevationView({
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
   finishFor, panelKindFor, seamCabinets = [],
-  onMove, moveLocked = false,
+  onMove, onMoveVertical, moveLocked = false,
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
@@ -88,6 +92,11 @@ export function ElevationView({
   // Elevation drag state
   const [dragUid, setDragUid] = useState<string | null>(null);
   const dragOffset = useRef(0); // offset in px along the wall axis
+  // Vertical (mount-height) drag: which axis the current gesture is resolving
+  // and the starting pointer-Y + starting mountBottom so we can compute a delta.
+  const dragAxis = useRef<"along" | "vertical" | null>(null);
+  const vDragStartY = useRef(0);
+  const vDragStartBottom = useRef(0);
 
   // Normalize legacy "front"/"back" to plan WallSide values.
   const side: WallSide =
@@ -180,6 +189,13 @@ export function ElevationView({
           setDragUid(p.uid);
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
           dragOffset.current = horizontal ? e.clientX - rect.left : e.clientY - rect.top;
+          // Vertical-drag bookkeeping (only meaningful for wall cabinets): record
+          // where the pointer started and the box's current bottom so a vertical
+          // drag can adjust mount height. The gesture's dominant axis is decided
+          // on the first move.
+          dragAxis.current = null;
+          vDragStartY.current = e.clientY;
+          vDragStartBottom.current = bottom;
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         } : undefined}
         onClick={(e) => {
@@ -241,12 +257,41 @@ export function ElevationView({
   };
 
   const handleWallPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragUid || !onMove) return;
+    if (!dragUid) return;
     const cabinet = cabinets.find((c) => c.uid === dragUid);
     if (!cabinet) return;
     const wallEl = wallInnerRef.current;
     if (!wallEl) return;
     const wallRect = wallEl.getBoundingClientRect();
+    // Decide the gesture axis once, from the first meaningful movement. Vertical
+    // adjustment is only offered for WALL cabinets with an onMoveVertical hook.
+    const canVertical = cabinet.placement === "wall" && !!onMoveVertical;
+    if (dragAxis.current == null) {
+      const dy = Math.abs(e.clientY - vDragStartY.current);
+      const alongClient = horizontal ? e.clientX : e.clientY;
+      const alongStart = horizontal ? wallRect.left + dragOffset.current : wallRect.top + dragOffset.current;
+      const dAlong = Math.abs(alongClient - alongStart);
+      if (canVertical && dy > dAlong && dy > 3) dragAxis.current = "vertical";
+      else if (dAlong > 3) dragAxis.current = "along";
+    }
+    // ── Vertical (mount-height) drag ─────────────────────────────────────────
+    if (dragAxis.current === "vertical" && canVertical && onMoveVertical) {
+      // Screen Y grows downward but mount height grows upward, so invert dy.
+      const dyIn = (vDragStartY.current - e.clientY) / ppi;
+      const { height } = elevationBox(cabinet, room);
+      const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
+      let nextBottom = vDragStartBottom.current + dyIn;
+      nextBottom = Math.max(0, Math.min(maxBottom, nextBottom));
+      // Snap to the standard mount line (54") and the upper-run top line so it
+      // is easy to line back up with neighbors.
+      const SNAP_IN = 1.5;
+      for (const guide of [STD.WALL_MOUNT_BOTTOM]) {
+        if (Math.abs(nextBottom - guide) <= SNAP_IN) nextBottom = guide;
+      }
+      onMoveVertical(dragUid, Math.round(nextBottom * 10) / 10);
+      return;
+    }
+    if (!onMove) return;
     const sizeAlong = horizontal ? rotatedSize(cabinet).w : rotatedSize(cabinet).d;
     const planSpanLen = horizontal ? room.width : room.depth;
     const pxAlong = horizontal
@@ -270,7 +315,50 @@ export function ElevationView({
 
   const handleWallPointerUp = () => {
     setDragUid(null);
+    dragAxis.current = null;
   };
+
+  // ── Keyboard nudging ───────────────────────────────────────────────────────
+  // With a cabinet selected, Arrow Left/Right move it ALONG the wall and Arrow
+  // Up/Down change its mount height (wall cabinets only). Shift = coarse (3"),
+  // otherwise fine (0.5"). Disabled while the layout is locked.
+  useEffect(() => {
+    if (moveLocked || !selectedUid) return;
+    const onKey = (e: KeyboardEvent) => {
+      // Ignore when typing in an input/textarea/select or contenteditable.
+      const tgt = e.target as HTMLElement | null;
+      if (tgt && /^(INPUT|TEXTAREA|SELECT)$/.test(tgt.tagName)) return;
+      if (tgt && tgt.isContentEditable) return;
+      if (!/^Arrow(Left|Right|Up|Down)$/.test(e.key)) return;
+      const cab = cabinets.find((c) => c.uid === selectedUid);
+      if (!cab || cabinetWall(cab, room) !== side) return;
+      const step = e.shiftKey ? 3 : 0.5;
+      // Horizontal (along-wall) nudge.
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        if (!onMove) return;
+        e.preventDefault();
+        const dir = e.key === "ArrowLeft" ? -1 : 1;
+        const sizeAlong = horizontal ? rotatedSize(cab).w : rotatedSize(cab).d;
+        const planSpanLen = horizontal ? room.width : room.depth;
+        const cur = horizontal ? cab.x : cab.y;
+        const next = Math.max(0, Math.min(planSpanLen - sizeAlong, cur + dir * step));
+        if (horizontal) onMove(cab.uid, next, cab.y);
+        else onMove(cab.uid, cab.x, next);
+        return;
+      }
+      // Vertical (mount-height) nudge — wall cabinets only.
+      if ((e.key === "ArrowUp" || e.key === "ArrowDown") && cab.placement === "wall" && onMoveVertical) {
+        e.preventDefault();
+        const dir = e.key === "ArrowUp" ? 1 : -1;
+        const { bottom, height } = elevationBox(cab, room);
+        const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
+        const next = Math.max(0, Math.min(maxBottom, bottom + dir * step));
+        onMoveVertical(cab.uid, Math.round(next * 10) / 10);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [moveLocked, selectedUid, cabinets, room, side, horizontal, onMove, onMoveVertical, WALL_TOTAL_HEIGHT]);
 
   return (
     <div
@@ -358,14 +446,14 @@ export function ElevationView({
           const THICKNESS_IN = 1.5;
           const OVERHANG_IN = 0.75; // a little nosing past the cabinet faces
           const TOL = 1.5; // inches: treat near-touching base cabinets as one run
-          // Dishwasher-height appliances (DW-*) are counter-height so the slab
-          // bridges over them. Tall appliances (FRIDGE-*) are excluded — the
-          // counter must stop at the fridge, not run through it.
+          // The countertop runs over base cabinets AND bridges over the
+          // DISHWASHER (a DW tucks UNDER the counter). It must BREAK at the
+          // RANGE (a slide-in/free-standing range has its own cooktop surface,
+          // no counter over it) and at the FRIDGE (full-height, tall). So only
+          // DW-* appliances are bridgeable here — RANGE and FRIDGE are excluded.
           const isBridgeable = (p: PlacedCabinet) =>
             bearsCountertop(p) ||
-            // Appliances that sit at counter height: DW, RANGE, MW (over-range
-            // microwave is wall-mounted so excluded). FRIDGE is tall and excluded.
-            (p.placement === "appliance" && /^(DW|RANGE)[-_]?\d/i.test(p.masterCode ?? ""));
+            (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? ""));
           // Base-cabinet spans along this wall, sorted by start position.
           const spans = sorted
             .filter(isBridgeable)
@@ -423,10 +511,11 @@ export function ElevationView({
           const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS; // ~37.5"
           const BACKSPLASH_TOP = STD.WALL_MOUNT_BOTTOM; // 54" — always standard zone
           const TOL = 1.5;
-          // Include DW and RANGE in backsplash spans (same as countertop bridging)
+          // Backsplash spans match the countertop: over base cabinets + the
+          // dishwasher, but NOT over the range or fridge openings.
           const isBsSpan = (p: PlacedCabinet) =>
             bearsCountertop(p) ||
-            (p.placement === "appliance" && /^(DW|RANGE)[-_]?\d/i.test(p.masterCode ?? ""));
+            (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? ""));
           const spans = sorted
             .filter(isBsSpan)
             .map((p) => {

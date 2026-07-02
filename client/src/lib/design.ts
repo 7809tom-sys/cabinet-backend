@@ -110,6 +110,7 @@ export const APPLIANCES: ApplianceDef[] = [
   { key: "fridge30", masterCode: "FRIDGE-30", description: 'Refrigerator 30"', width: 30, depth: 30, elevBottom: 0, elevHeight: 70, rooms: ["kitchen"] },
   { key: "fridge", masterCode: "FRIDGE-36", description: 'Refrigerator 36"', width: 36, depth: 30, elevBottom: 0, elevHeight: 70, rooms: ["kitchen"] },
   { key: "dishwasher", masterCode: "DW-24", description: 'Dishwasher 24"', width: 24, depth: 24, elevBottom: 0, elevHeight: 34.5, rooms: ["kitchen"] },
+  { key: "winecooler", masterCode: "WINE-24", description: 'Wine Cooler 24"', width: 24, depth: 24, elevBottom: 0, elevHeight: 34.5, rooms: ["kitchen"] },
   { key: "sink", masterCode: "SINK-33", description: 'Sink 33"', width: 33, depth: 22, elevBottom: 30, elevHeight: 6, rooms: ["kitchen"] },
   { key: "hood", masterCode: "HOOD-30", description: 'Range Hood 30"', width: 30, depth: 18, elevBottom: 66, elevHeight: 18, rooms: ["kitchen"] },
   { key: "microwave", masterCode: "MW-30", description: 'Over-Range Microwave 30"', width: 30, depth: 15, elevBottom: 54, elevHeight: 17, rooms: ["kitchen"] },
@@ -125,7 +126,7 @@ export const APPLIANCES: ApplianceDef[] = [
 ];
 
 export function isApplianceCode(masterCode: string): boolean {
-  return /^(RANGE|FRIDGE|DW|SINK|HOOD|MW|FIX)-/.test((masterCode || "").toUpperCase());
+  return /^(RANGE|FRIDGE|DW|SINK|HOOD|MW|WINE|FIX)-/.test((masterCode || "").toUpperCase());
 }
 
 // Appliances/fixtures available for a given room type. Kitchen shows the kitchen
@@ -810,6 +811,9 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
         (isSinkAppliance(moving) && isSinkBaseCabinet(o)) ||
         (isSinkAppliance(o) && isSinkBaseCabinet(moving))
       ) continue;
+      // A bridge (short) wall cabinet over an over-range microwave/hood is the
+      // intended layout — not a collision.
+      if (isBridgeOverRange(moving, o)) continue;
     }
     const os = rotatedSize(o);
     const overlap =
@@ -920,6 +924,29 @@ export function isSinkAppliance(c: {
   return /\bsink\b/.test((c.description ?? "").toLowerCase());
 }
 
+// An over-range microwave (MW-*) or range hood (HOOD-*) that hangs above the
+// counter in the upper zone. A short "bridge" wall cabinet is intentionally
+// mounted directly above one of these, so that pairing must never be flagged.
+export function isOverRangeAppliance(p: {
+  masterCode?: string | null;
+  placement?: Placement;
+}): boolean {
+  if (p.placement !== "appliance") return false;
+  return /^(MW|HOOD)-/.test((p.masterCode || "").toUpperCase());
+}
+
+// True when `a` and `b` form the intended "bridge cabinet over an over-range
+// microwave/hood" pairing: one is a wall cabinet, the other is an over-range
+// appliance. The bridge cabinet top-aligns with the neighboring uppers (handled
+// in verticalBounds) and the two must not raise a collision alarm.
+export function isBridgeOverRange(a: PlacedCabinet, b: PlacedCabinet): boolean {
+  const wallBridge = (x: PlacedCabinet) => x.placement === "wall";
+  return (
+    (wallBridge(a) && isOverRangeAppliance(b)) ||
+    (wallBridge(b) && isOverRangeAppliance(a))
+  );
+}
+
 export function conflictingUids(placed: PlacedCabinet[]): Set<string> {
   const conflicts = new Set<string>();
   for (let i = 0; i < placed.length; i++) {
@@ -938,6 +965,9 @@ export function conflictingUids(placed: PlacedCabinet[]): Set<string> {
         (isSinkAppliance(a) && isSinkBaseCabinet(b)) ||
         (isSinkAppliance(b) && isSinkBaseCabinet(a));
       if (sinkOverSinkBase) continue;
+      // EXEMPTION: a bridge (short) wall cabinet mounted over an over-range
+      // microwave/hood is the intended layout, so it must never be flagged.
+      if (isBridgeOverRange(a, b)) continue;
       // Only items sharing the same vertical zone can truly collide.
       if (occupiesUpperZone(a) !== occupiesUpperZone(b)) continue;
       if (footprintsOverlap(a, b)) {
@@ -993,7 +1023,12 @@ export function blindCornerViolations(
 // 84" top line. Detected from the description/code ("stacker").
 export function isStacker(p: { description?: string | null; masterCode?: string | null; subCategory?: string | null }): boolean {
   const hay = `${p.subCategory ?? ""} ${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
-  return /\bstacker\b|\bstack(?:ing|ed)?\b/.test(hay);
+  // Text signals: "stacker", "glass stacker", "stacking"/"stacked".
+  if (/\bstacker\b|\bstack(?:ing|ed)?\b|glass\s*stack/.test(hay)) return true;
+  // Code signals: GS-* / GDS-* stacker families used across lines (e.g. GS-3012,
+  // GDS-3015). Require a following size digit so we never match unrelated codes.
+  const code = (p.masterCode ?? "").toUpperCase();
+  return /^GD?S[-_ ]?\d/.test(code);
 }
 
 export function elevationBox(

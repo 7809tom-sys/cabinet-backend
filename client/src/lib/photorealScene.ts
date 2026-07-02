@@ -45,6 +45,7 @@ function describeRun(items: PlacedCabinet[]): string {
   if (any("FRIDGE")) feature.push("a refrigerator");
   if (any("DW-") || any("DISHWASH")) feature.push("a dishwasher");
   if (any("HOOD")) feature.push("a range hood");
+  if (any("WINE")) feature.push("a built-in wine cooler");
   const featureClause = feature.length > 0 ? ` with ${feature.join(", ")}` : "";
 
   return `${kinds}${featureClause}`;
