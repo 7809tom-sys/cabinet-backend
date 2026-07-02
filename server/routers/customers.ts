@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { and, eq, or, like, desc, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { adminProcedure, router } from "../_core/trpc";
+import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { users } from "../../drizzle/schema";
 import { PRICING_TIERS } from "@shared/pricingTier";
@@ -185,4 +185,34 @@ export const customersRouter = router({
 
       return { ok: true, userId: input.userId, role: input.role };
     }),
+
+  // Self-serve: a front-door member classifies themselves as a contractor so they
+  // get their own CRM-only admin screen (deals they own). Only a plain "user"
+  // may self-upgrade; specialized/staff accounts are left untouched so this can
+  // never strip an admin/distributor/partner of their existing access.
+  becomeContractor: protectedProcedure.mutation(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+    const [me] = await db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.id, ctx.user.id))
+      .limit(1);
+    if (!me) throw new TRPCError({ code: "NOT_FOUND", message: "Account not found" });
+
+    // Already a contractor → idempotent success.
+    if (me.role === "contractor") return { ok: true, role: "contractor" as const };
+
+    // Only a plain member can self-classify (don't clobber staff/partner roles).
+    if (me.role !== "user") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Your account already has a role that includes CRM access.",
+      });
+    }
+
+    await db.update(users).set({ role: "contractor" }).where(eq(users.id, ctx.user.id));
+    return { ok: true, role: "contractor" as const };
+  }),
 });

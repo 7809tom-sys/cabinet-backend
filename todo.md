@@ -2378,3 +2378,15 @@ Audit verdict: the Admin page (/admin) already ships every requested capability 
 ## Cart: sell regardless of distance (user report)
 
 - [x] Confirmed checkout/requestOrder is NOT gated by range (only by mixed-supplier) and add-to-cart has no range gate, so cabinets were always sellable. Reworded the cart copy (EN+ES) from "Out of service range" to a freight note ("Long-haul freight to <zip> · nearest hub ~N mi") with a truck icon, so it reads as a shipping detail, not a blocker.
+
+## Save plan -> CRM flow (user report)
+- [x] Save is unreachable on mobile: added "Save plan" + "My Plans" rows to the mobile More sheet that open the same dialogs via saveSignal/loadSignal props on DesignActions.
+- [x] Save dialog captures CUSTOMER/HOUSE name (group) + ROOM/PLAN name (this plan). A contractor can save several room plans under one customer/house. Reuses projectName (=customer/house) + roomLabel (=room/plan); contactName passed into requestQuoteFromDesign.
+- [x] Saving creates/attaches a CRM deal (house/kitchen deal) with the customer name + room + estimated value (requestQuoteFromDesign; reuses an open house deal if the design is already linked).
+- [x] Anyone with CRM access can open the saved plan back in the Design Tool and work the deal (existing ?load / linked-design flow).
+- [x] Front door: ANY visitor (homeowner or contractor) can save a plan; a homeowner-saved plan creates a HOUSE deal so the distributor CRM can follow up.
+- [x] Self-serve contractor role: DECIDED to use a LIGHTWEIGHT `contractor` role (NOT the paid affiliate/storefront system). Added "contractor" to users.role enum (migration 0047); customers.becomeContractor mutation promotes a plain user to contractor (idempotent, refuses non-user roles).
+- [x] Contractor admin area is a CRM-ONLY screen: new /contractor route + ContractorDashboard page (onboarding CTA for members, CRM board for contractors); TopNav "My CRM" button for contractors + "For Contractors" entry in More.
+- [x] Deal routing: CRM scope extended with a contractor kind (ownerUserId = them); contractor-saved plans appear on their board; the house (admin/distributor) scope now sees ALL deals (homeowner + contractor + affiliate) so both parties have the info.
+- [x] Tests + type-check clean: 4 new contractor tests (crm.contractorRole.test.ts), tsc clean, full suite 1138 pass. Checkpoint pending.
+- [ ] My Plans list grouping by customer/house (nested rooms per customer) — NOT YET done; plans currently list flat. Follow-up if the user wants the nested grouping UI.

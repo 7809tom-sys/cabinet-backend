@@ -93,18 +93,30 @@ async function resolveMyAffiliateId(ctx: Ctx): Promise<number | null> {
   return mine?.id ?? null;
 }
 
+// A deal-ownership scope. Three kinds:
+//  - house       : the distributor / Cabinet Dealz sales team. Sees EVERY deal
+//                  (homeowner, contractor, and affiliate) so the platform owner
+//                  never misses a lead.
+//  - affiliate   : a paid storefront affiliate — sees only their affiliate deals.
+//  - contractor  : a lightweight self-serve contractor — sees only the deals
+//                  they personally own (crmDeals.ownerUserId = them).
+export type CrmScope =
+  | { kind: "house" }
+  | { kind: "affiliate"; affiliateId: number }
+  | { kind: "contractor"; userId: number };
+
 /**
  * Returns the scope for the caller:
- *  - admin or designer → { kind: "house" } (affiliateId IS NULL deals)
+ *  - admin / designer / sales_rep → { kind: "house" } (sees ALL deals)
  *    (designer = internal sales staff with CRM-only admin access)
+ *  - contractor → { kind: "contractor", userId } (deals they own)
  *  - partner with an affiliate → { kind: "affiliate", affiliateId }
- * Throws FORBIDDEN if a non-house caller has no affiliate.
+ * Throws FORBIDDEN if a non-house/contractor caller has no affiliate.
  */
-async function resolveScope(
-  ctx: Ctx,
-): Promise<{ kind: "house" } | { kind: "affiliate"; affiliateId: number }> {
+async function resolveScope(ctx: Ctx): Promise<CrmScope> {
   if (ctx.user.role === "admin" || ctx.user.role === "designer" || ctx.user.role === "sales_rep")
     return { kind: "house" };
+  if (ctx.user.role === "contractor") return { kind: "contractor", userId: ctx.user.id };
   const affiliateId = await resolveMyAffiliateId(ctx);
   if (affiliateId == null) {
     throw new TRPCError({
@@ -115,10 +127,14 @@ async function resolveScope(
   return { kind: "affiliate", affiliateId };
 }
 
-function scopeWhere(scope: { kind: "house" } | { kind: "affiliate"; affiliateId: number }) {
-  return scope.kind === "house"
-    ? isNull(crmDeals.affiliateId)
-    : eq(crmDeals.affiliateId, scope.affiliateId);
+// The SQL predicate that isolates a caller's deals.
+//  - house      : NO filter — the distributor sees every deal on the platform.
+//  - affiliate  : that affiliate's deals only.
+//  - contractor : deals whose ownerUserId is the contractor.
+function scopeWhere(scope: CrmScope) {
+  if (scope.kind === "house") return undefined; // see all deals
+  if (scope.kind === "affiliate") return eq(crmDeals.affiliateId, scope.affiliateId);
+  return eq(crmDeals.ownerUserId, scope.userId);
 }
 
 // Verify a deal belongs to the caller's scope; returns the deal or throws.
@@ -129,10 +145,11 @@ async function getOwnedDeal(
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
   const scope = await resolveScope(ctx);
+  const where = scopeWhere(scope);
   const rows = await db
     .select()
     .from(crmDeals)
-    .where(and(eq(crmDeals.id, dealId), scopeWhere(scope)));
+    .where(where ? and(eq(crmDeals.id, dealId), where) : eq(crmDeals.id, dealId));
   const deal = rows[0];
   if (!deal) throw new TRPCError({ code: "NOT_FOUND", message: "Deal not found in your pipeline." });
   return { db, scope, deal };
@@ -159,19 +176,20 @@ export const crmRouter = router({
     const db = await getDb();
     if (!db) {
       return {
-        scope: "house" as "house" | "affiliate",
+        scope: "house" as "house" | "affiliate" | "contractor",
         affiliateId: null as number | null,
         deals: [] as (typeof crmDeals.$inferSelect)[],
       };
     }
     const scope = await resolveScope(ctx);
-    const deals = await db
-      .select()
-      .from(crmDeals)
-      .where(scopeWhere(scope))
-      .orderBy(crmDeals.boardOrder, desc(crmDeals.updatedAt));
+    const where = scopeWhere(scope);
+    const q = db.select().from(crmDeals);
+    const deals = await (where ? q.where(where) : q).orderBy(
+      crmDeals.boardOrder,
+      desc(crmDeals.updatedAt),
+    );
     return {
-      scope: scope.kind as "house" | "affiliate",
+      scope: scope.kind as "house" | "affiliate" | "contractor",
       affiliateId: (scope.kind === "affiliate" ? scope.affiliateId : null) as number | null,
       deals,
     };
@@ -520,8 +538,13 @@ export const crmRouter = router({
     if (!db) return { orderRequests: [], proApplications: [] };
     const scope = await resolveScope(ctx);
 
+    // Contractors don't import platform leads; they only work their own saved-plan deals.
+    if (scope.kind === "contractor") return { orderRequests: [], proApplications: [] };
+
     // already-imported source ids in this scope
-    const existing = await db.select().from(crmDeals).where(scopeWhere(scope));
+    const existingWhere = scopeWhere(scope);
+    const existingQ = db.select().from(crmDeals);
+    const existing = await (existingWhere ? existingQ.where(existingWhere) : existingQ);
     const usedOrderReqIds = new Set(existing.map((d) => d.orderRequestId).filter(Boolean) as number[]);
     const usedProAppIds = new Set(existing.map((d) => d.proApplicationId).filter(Boolean) as number[]);
 

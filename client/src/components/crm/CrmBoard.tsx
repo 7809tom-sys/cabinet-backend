@@ -121,8 +121,10 @@ export function CrmBoard({ lang = "en" }: { lang?: Lang }) {
     return (
       <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
         {error.data?.code === "FORBIDDEN"
-          ? "No affiliate account is linked to your login yet."
-          : "Couldn't load the CRM board."}
+          ? (lang === "es"
+              ? "Tu cuenta aún no tiene acceso al CRM."
+              : "Your account doesn't have CRM access yet.")
+          : (lang === "es" ? "No se pudo cargar el CRM." : "Couldn't load the CRM board.")}
       </div>
     );
   }

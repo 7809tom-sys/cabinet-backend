@@ -24,7 +24,7 @@ export const users = mysqlTable("users", {
   failedLoginAttempts: int("failedLoginAttempts").default(0).notNull(),
   lockedUntil: timestamp("lockedUntil"),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin", "distributor", "dealer", "partner", "designer", "sales_rep"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "admin", "distributor", "dealer", "partner", "designer", "sales_rep", "contractor"]).default("user").notNull(),
   distributorId: int("distributorId"), // set for role=distributor: which supply line this user manages
   // Pricing tier the OWNER assigns after seeing the customer on the site (Tawk.to ping).
   // Drives which price column the user sees/checks out at. Default homeowner until changed.

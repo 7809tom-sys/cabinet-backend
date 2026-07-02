@@ -7,6 +7,7 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Footprints, Layers2, Wrench, Crown as CrownIcon, Pencil,
+  Save, FolderOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2750,6 +2751,10 @@ export default function DesignTool() {
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
+  // (the DesignActions toolbar itself is desktop-only / hidden on phones).
+  const [saveSignal, setSaveSignal] = useState(0);
+  const [loadSignal, setLoadSignal] = useState(0);
   const [flooringSheetOpen, setFlooringSheetOpen] = useState(false);
   const [backsplashSheetOpen, setBacksplashSheetOpen] = useState(false);
   const [hardwareSheetOpen, setHardwareSheetOpen] = useState(false);
@@ -3013,6 +3018,28 @@ export default function DesignTool() {
                       label={t("dt_sh_ai_preview")}
                     />
                   </div>
+                </div>
+
+                <div className="mx-3 my-1 border-t border-border" />
+
+                {/* Save / open plans — the desktop Save toolbar is hidden on phones,
+                    so surface it here. */}
+                <div className="px-1 pb-1">
+                  <button
+                    disabled={placed.length === 0}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setSaveSignal((n) => n + 1), 120); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
+                  >
+                    <Save className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_save_plan")}</span>
+                  </button>
+                  <button
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setLoadSignal((n) => n + 1), 120); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors"
+                  >
+                    <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_my_plans")}</span>
+                  </button>
                 </div>
 
                 <div className="mx-3 my-1 border-t border-border" />
@@ -3500,6 +3527,8 @@ export default function DesignTool() {
             buildRows={buildRows}
             roomType={roomType}
             contactEmail={verifiedEmail}
+            openSaveSignal={saveSignal}
+            openLoadSignal={loadSignal}
             onLoad={loadSavedDesign}
           />
           <div className="h-5 w-px bg-border" />

@@ -330,6 +330,13 @@
       "when": 1782947907455,
       "tag": "0046_brave_speed",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "5",
+      "when": 1782977345613,
+      "tag": "0047_free_beast",
+      "breakpoints": true
     }
   ]
 }

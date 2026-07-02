@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,10 @@ interface Props {
   // Contact email for the designer (from the email gate / signed-in user). Used
   // to pre-fill a CRM quote request.
   contactEmail?: string | null;
+  // Incrementing signals from a parent (e.g. the mobile "More" sheet) to open the
+  // Save / My Plans dialogs without the parent needing access to internal state.
+  openSaveSignal?: number;
+  openLoadSignal?: number;
   onLoad: (d: {
     room: RoomData;
     placed: PlacedCabinet[];
@@ -300,18 +304,23 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, onLoad,
+  room, placed, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, openSaveSignal, openLoadSignal, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
   const utils = trpc.useUtils();
-
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
   const [name, setName] = useState("");
+  // Customer/House this plan is for (the CRM contact + grouping key). A homeowner
+  // can leave it blank (their own project); a contractor names the customer/house.
+  const [customerName, setCustomerName] = useState("");
   // Master Project grouping (optional): a job name + a room label.
   const [projectName, setProjectName] = useState("");
   const [roomLabel, setRoomLabel] = useState("");
+  // Open the Save / My Plans dialogs when a parent bumps the signal (mobile menu).
+  useEffect(() => { if (openSaveSignal) setSaveOpen(true); }, [openSaveSignal]);
+  useEffect(() => { if (openLoadSignal) setLoadOpen(true); }, [openLoadSignal]);
   // When checked, after saving we create a CRM lead (house deal) for the team.
   const [requestQuote, setRequestQuote] = useState(false);
 
@@ -336,11 +345,13 @@ export function DesignActions({
       if (requestQuote && res?.id) {
         quoteMutation.mutate({
           designId: res.id,
+          contactName: customerName.trim() || null,
           contactEmail: contactEmail ?? null,
           estimatedValue: total > 0 ? total : null,
         });
       }
       setRequestQuote(false);
+      setCustomerName("");
     },
     onError: (e) => toast.error(t("dt_act_save_err"), { description: e.message }),
   });
@@ -403,6 +414,17 @@ export function DesignActions({
                 autoFocus
               />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="customer-name" className="text-sm">{t("dt_act_customer_name")}</Label>
+              <Input
+                id="customer-name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder={t("dt_act_customer_name_ph")}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+              />
+              <p className="text-[11px] text-muted-foreground">{t("dt_act_customer_name_hint")}</p>
+            </div>
             <div className="rounded-lg border border-dashed border-border p-3 space-y-2.5 bg-muted/20">
               <p className="text-[11px] font-semibold text-foreground">
                 {t("dt_act_master_project")} <span className="font-normal text-muted-foreground">{t("dt_act_optional")}</span>
@@ -412,7 +434,7 @@ export function DesignActions({
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label htmlFor="project-name" className="text-[11px]">{t("dt_act_project_job")}</Label>
+                  <Label htmlFor="project-name" className="text-[11px]">{t("dt_act_customer_house")}</Label>
                   <Input
                     id="project-name"
                     value={projectName}
@@ -422,7 +444,7 @@ export function DesignActions({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="room-label" className="text-[11px]">{t("dt_act_room_in_project")}</Label>
+                  <Label htmlFor="room-label" className="text-[11px]">{t("dt_act_room_plan")}</Label>
                   <Input
                     id="room-label"
                     value={roomLabel}

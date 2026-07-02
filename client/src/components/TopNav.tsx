@@ -23,6 +23,7 @@ const MORE_LINKS: NavLink[] = [
   { key: "nav_photo_to_cart", href: "/photo-to-cart" },
   { key: "nav_pro_network", href: "/pro-network" },
   { key: "nav_become_vendor", href: "/become-a-vendor" },
+  { key: "nav_contractor", href: "/contractor" },
 ];
 
 const PORTAL_LINKS: NavLink[] = [
@@ -177,6 +178,16 @@ export function TopNav() {
                   </Button>
                 </Link>
               )}
+              {user.role === "contractor" && (
+                <Link href="/contractor">
+                  <Button
+                    size="sm"
+                    className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90"
+                  >
+                    {t("nav_contractor_crm")}
+                  </Button>
+                </Link>
+              )}
               <Link href="/account">
                 <Button variant="outline" size="sm">{t("nav_account")}</Button>
               </Link>
@@ -243,6 +254,13 @@ export function TopNav() {
               <Link href="/admin" onClick={() => setMobileOpen(false)} className="px-3">
                 <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
                   {user?.role === "designer" ? t("nav_crm") : t("nav_admin")}
+                </Button>
+              </Link>
+            )}
+            {user?.role === "contractor" && (
+              <Link href="/contractor" onClick={() => setMobileOpen(false)} className="px-3">
+                <Button className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
+                  {t("nav_contractor_crm")}
                 </Button>
               </Link>
             )}
