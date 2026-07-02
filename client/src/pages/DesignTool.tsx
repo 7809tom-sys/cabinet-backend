@@ -4893,6 +4893,7 @@ export default function DesignTool() {
                       <div className="font-mono font-semibold truncate">{t("dt_bs_crown_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
                         {crownOrder.pieces} pc{crownOrder.pieces > 1 ? "s" : ""} @ {crownOrder.stickFeet}&apos; · {crownOrder.measuredFeet} ft run (incl. 3&quot; miter/wall)
+                        {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>
                     </div>
                     <span className="font-semibold shrink-0 text-amber-600">{t("dt_bs_quote")}</span>
@@ -4908,6 +4909,7 @@ export default function DesignTool() {
                       <div className="text-[10px] text-muted-foreground">
                         {toeKickOrder.pieces} pc{toeKickOrder.pieces > 1 ? "s" : ""} @ {toeKickOrder.stickFeet}&apos; · {toeKickOrder.measuredFeet} ft run
                         {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${toeKickOrder.pieces}` : ""}
+                        {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>
                     </div>
                     <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
@@ -4924,6 +4926,7 @@ export default function DesignTool() {
                       <div className="text-[10px] text-muted-foreground">
                         {battenOrder.pieces} pc{battenOrder.pieces > 1 ? "s" : ""} @ {battenOrder.stickFeet}&apos; · {battenOrder.measuredFeet} ft run · 3/4&quot; × 3/16&quot;
                         {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${battenOrder.pieces}` : ""}
+                        {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>
                     </div>
                     <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
@@ -4940,6 +4943,7 @@ export default function DesignTool() {
                       <div className="text-[10px] text-muted-foreground">
                         {lightRailOrder.pieces} pc{lightRailOrder.pieces > 1 ? "s" : ""} @ {lightRailOrder.stickFeet}&apos; · {lightRailOrder.measuredFeet} ft run
                         {ext != null ? ` · $${p!.unitPrice.toFixed(2)} ea × ${lightRailOrder.pieces}` : ""}
+                        {activeStyleName ? ` · ${activeStyleName}` : ""}
                       </div>
                     </div>
                     <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>

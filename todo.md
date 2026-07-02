@@ -2461,3 +2461,7 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Replace ambiguous "incl." on non-priced trims (e.g. crown) with a clear "Quote" tag
 - [x] Add a Trim & Extras subtotal row so pro sees trim's contribution
 - [x] Keep cart total wiring intact (buildTrimCartLines) and tests green
+
+## Design Tool: show inherited finish on trim lines (user request)
+- [x] Show the active door-style finish/color on each build-sheet trim line (toe kick, batten, light rail, crown) so it's clear what finish the trim ships in
+- [x] Keep it subtle (small muted label), don't break the existing price/qty layout
