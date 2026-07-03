@@ -2562,3 +2562,24 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Unit tests for stagger height/depth helpers
 - [x] Built-in Refrigerator + Pantry End preset (pantry + fridge + REPV end panels + taller deep fridge upper + surrounding uppers + wrapping crown)
 - [x] i18n EN/ES keys for stagger + preset
+
+## Pelican International product line import (user upload NLSPrintForm, 154pg price list)
+- [ ] Parse full PDF into structured dataset (code, name, description, category, size, price tiers/unit price)
+- [ ] Categorize every line item (Quartz Slabs, Flooring/LVP, Laminate, Moldings & Trim, Tile & Mosaic, Sinks & Faucets, Toilets, Shower/Tub Doors, Accessories/Parts)
+- [ ] Match ZIP/product images to items where possible
+- [ ] Add DB table for surface/flooring products (Pelican line) organized by category
+- [ ] Seed parsed products into DB
+- [ ] Surface the new catalog in the design catalog, organized by category (browsable)
+- [ ] Handle tiered pricing (quartz slabs 0/4/10/20) vs flat unit price
+- [ ] Verify counts, categories, and rendering; add tests; checkpoint
+
+## Pelican import — progress/decisions
+- [x] Parse 154-page Pelican price list (1381 line items)
+- [x] Categorize into parent/child (Sinks & Faucets 748, Flooring 307, Shower & Bath 126, Toilets & Bidets 60, Tile & Mosaic 58, Quartz Slabs 37); excluded 41 merch items
+- [x] Create pelican_products table (category, subCategory, size, tiered pricing, msrp, isPopular, cost/markup blank)
+- [x] Decision: price-list price = MSRP; listPrice mirrors msrp; yourCost/markup left blank for owner meeting
+- [ ] Seed all 1340 products into pelican_products with popular flags
+- [ ] Add tRPC procedures (list by category, suggested-first, admin toggle popular)
+- [ ] Surface in Design Tool: browse by category + Suggested first
+- [ ] Admin editing of popular flag + cost/markup
+- [ ] Tests + verify UI + checkpoint

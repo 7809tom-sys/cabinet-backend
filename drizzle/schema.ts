@@ -1182,3 +1182,31 @@ export const cabinetImages = mysqlTable("cabinet_images", {
 });
 export type CabinetImage = typeof cabinetImages.$inferSelect;
 export type InsertCabinetImage = typeof cabinetImages.$inferInsert;
+
+export const pelicanProducts = mysqlTable("pelican_products", {
+  id: int("id").autoincrement().primaryKey(),
+  pelicanCode: varchar("pelicanCode", { length: 191 }).notNull().unique(),
+  slug: varchar("slug", { length: 160 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  category: varchar("category", { length: 64 }).notNull(),
+  subCategory: varchar("subCategory", { length: 128 }),
+  size: varchar("size", { length: 128 }),
+  listPrice: decimal("listPrice", { precision: 10, scale: 2 }),
+  priceTier2: decimal("priceTier2", { precision: 10, scale: 2 }),
+  priceTier3: decimal("priceTier3", { precision: 10, scale: 2 }),
+  priceTier4: decimal("priceTier4", { precision: 10, scale: 2 }),
+  msrp: decimal("msrp", { precision: 10, scale: 2 }),
+  tiered: boolean("tiered").default(false).notNull(),
+  yourCost: decimal("yourCost", { precision: 10, scale: 2 }),
+  markupPercent: decimal("markupPercent", { precision: 6, scale: 4 }),
+  isPopular: boolean("isPopular").default(false).notNull(),
+  popularRank: int("popularRank").default(0).notNull(),
+  imageUrl: varchar("imageUrl", { length: 512 }),
+  showInDesigner: boolean("showInDesigner").default(true).notNull(),
+  showInCatalog: boolean("showInCatalog").default(true).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PelicanProduct = typeof pelicanProducts.$inferSelect;
+export type InsertPelicanProduct = typeof pelicanProducts.$inferInsert;

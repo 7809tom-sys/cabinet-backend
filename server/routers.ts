@@ -31,6 +31,7 @@ import { affiliateMembershipRouter } from "./routers/affiliateMembership";
 import { siteSettingsRouter } from "./routers/siteSettings";
 import { skuAdminRouter } from "./routers/skuAdmin";
 import { emailSettingsRouter } from "./routers/emailSettings";
+import { pelicanRouter } from "./routers/pelican";
 
 export const appRouter = router({
   system: systemRouter,
@@ -72,6 +73,7 @@ export const appRouter = router({
   siteSettings: siteSettingsRouter,
   skuAdmin: skuAdminRouter,
   emailSettings: emailSettingsRouter,
+  pelican: pelicanRouter,
 });
 
 export type AppRouter = typeof appRouter;
