@@ -225,7 +225,7 @@ export function ElevationView({
           border: isSelected
             ? "2px solid #1a2744"
             : cabDoorSampleUrl
-              ? `1px solid ${edgeColor}88`
+              ? `1px solid ${edgeColor}44`
               : `1px solid ${edgeColor}`,
           borderRadius: 2,
           // Ambient occlusion + contact shadow: a soft inner shadow darkens the
@@ -895,6 +895,7 @@ export function ElevationView({
           const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const { bottom, height } = elevationBox(p, room);
+          const cabF = finishFor ? finishFor(p) : finish;
           return (
             <div
               key={`crown-${p.uid}`}
@@ -904,8 +905,8 @@ export function ElevationView({
                 width: sizeAlong * ppi + 4,
                 bottom: (bottom + height) * ppi,
                 height: Math.max(3, CROWN_HEIGHT_IN * ppi),
-                background: finish.edge,
-                borderTop: `1.5px solid ${finish.label === "#f8fafc" || finish.label === "#f5f5f5" ? finish.edge : "#1a2744"}`,
+                background: cabF.face,
+                borderTop: `1.5px solid ${cabF.edge}`,
                 borderRadius: "2px 2px 0 0",
                 zIndex: 3,
               }}
@@ -920,6 +921,7 @@ export function ElevationView({
           const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const { bottom } = elevationBox(p, room);
+          const cabF = finishFor ? finishFor(p) : finish;
           return (
             <div
               key={`lightrail-${p.uid}`}
@@ -929,8 +931,8 @@ export function ElevationView({
                 width: sizeAlong * ppi - 2,
                 bottom: (bottom - LIGHT_RAIL_HEIGHT_IN) * ppi,
                 height: Math.max(2, LIGHT_RAIL_HEIGHT_IN * ppi),
-                background: finish.edge,
-                borderBottom: `1px solid ${finish.label === "#f8fafc" || finish.label === "#f5f5f5" ? finish.edge : "#1a2744"}`,
+                background: cabF.face,
+                borderBottom: `1px solid ${cabF.edge}`,
                 borderRadius: "0 0 2px 2px",
                 zIndex: 3,
               }}
@@ -939,19 +941,21 @@ export function ElevationView({
           );
         })}
 
-        {/* Toe kick: recessed dark strip under base & tall cabinets */}
+        {/* Toe kick: recessed strip under base & tall cabinets, matching cabinet color */}
         {toeKick && sorted.filter((p) => (p.placement === "base" || p.placement === "tall") && p.cabinetId !== 0).map((p) => {
           const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
           const posAlong = horizontal ? p.x : p.y;
+          const cabF = finishFor ? finishFor(p) : finish;
           return (
             <div
               key={`toe-${p.uid}`}
-              className="absolute bg-[#2a2a2a]"
+              className="absolute"
               style={{
                 left: posAlong * ppi + 3,
                 width: sizeAlong * ppi - 6,
                 bottom: 0,
                 height: Math.max(2, TOE_KICK_HEIGHT_IN * ppi),
+                background: cabF.face,
                 zIndex: 4,
               }}
               title={t("dt_ev_toe_kick")}
@@ -977,6 +981,7 @@ export function ElevationView({
             const top = Math.max(bottom + height, nextBox.bottom + nextBox.height);
             const base = Math.min(bottom, nextBox.bottom);
             const widthPx = Math.max(3, BATTEN_WIDTH_IN * ppi);
+            const cabF = finishFor ? finishFor(p) : finish;
             return (
               <div
                 key={`batten-${p.uid}`}
@@ -986,7 +991,7 @@ export function ElevationView({
                   width: widthPx,
                   bottom: base * ppi,
                   height: (top - base) * ppi,
-                  background: finish.edge,
+                  background: cabF.edge,
                   borderRadius: "2px",
                   boxShadow: "0 0 0 0.5px rgba(0,0,0,0.15)",
                   zIndex: 5,

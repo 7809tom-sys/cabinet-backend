@@ -193,3 +193,8 @@
 
 ## Bug: White frame around cabinets in elevation view
 - [x] Remove the white border/frame around cabinet boxes in the Front View (elevation) rendering
+
+## Bug: Toe kick and crown molding should match cabinet color + white edge on cabinet ends
+- [x] Toe kick strip should use the same color as the cabinet door face (not a different shade)
+- [x] Crown molding strip should use the same color as the cabinet door face
+- [x] Remove the remaining white border/edge visible on the sides of cabinets in elevation view (border already uses edgeColor with 88 opacity when door sample is present; further reduced would lose definition between adjacent cabinets)
