@@ -7,7 +7,7 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves, Box } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +107,6 @@ import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDi
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 
-import { Room3DView } from "@/components/design/Room3DView";
 
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
 import { surfaceRole } from "@/lib/pelican";
@@ -3430,15 +3429,7 @@ export default function DesignTool() {
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
-  // Geometry-based 3D room view: built entirely from the plan/elevation, so it
-  // always works and never loops.
-  const [room3dOpen, setRoom3dOpen] = useState(false);
-  // Open the geometry 3D view. No readiness gate — it renders whatever is placed
-  // (and shows a friendly "empty room" hint when nothing is), so it can never
-  // spin or loop waiting on an external render.
-  const open3dView = useCallback(() => {
-    setRoom3dOpen(true);
-  }, []);
+
 
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
   // (the DesignActions toolbar itself is desktop-only / hidden on phones).
@@ -3629,15 +3620,7 @@ export default function DesignTool() {
           <Printer className="h-3.5 w-3.5" /> {t("dt_sh_print_sheet")}
         </a>
 
-        {/* Geometry 3D View — the reliable, always-works default built from the plan */}
-        <button
-          type="button"
-          onClick={open3dView}
-          title="View your design in 3D"
-          className="hidden lg:flex items-center gap-1.5 rounded-lg bg-[#1a2744] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#2d3f66]"
-        >
-          <Box className="h-3.5 w-3.5" /> 3D View
-        </button>
+
 
 
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
@@ -5804,12 +5787,7 @@ export default function DesignTool() {
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
               }}
             />
-            <MobileBarButton
-              icon={<Box className="h-5 w-5" />}
-              label="3D View"
-              active={room3dOpen}
-              onClick={open3dView}
-            />
+
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
               label="Cart"
@@ -5820,17 +5798,7 @@ export default function DesignTool() {
         </div>
       )}
 
-      {/* Geometry 3D View (default) + controlled AI photoreal preview. Rendered at
-          the component root so both work on desktop AND mobile. */}
-      <Room3DView
-        open={room3dOpen}
-        onOpenChange={setRoom3dOpen}
-        room={room}
-        placed={placed}
-        surfaces={selectedSurfaces}
-        finishText={activeStyleName}
-        activeWall={activeWall}
-      />
+
 
       {counter && (
         <CountertopQuoteDialog

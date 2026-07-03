@@ -22,3 +22,10 @@
 - [x] Ensure product detail pages show 404 or redirect for unpriced items
 - [x] Run typecheck and tests
 - [x] Save checkpoint
+
+## Remove geometry 3D View from Design Tool
+
+- [x] Remove Room3DView component, button, imports, and state from DesignTool
+- [x] Delete the Room3DView component file
+- [x] Run typecheck and tests
+- [x] Save checkpoint
