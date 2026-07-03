@@ -66,3 +66,24 @@
 - [x] Use actual door sample photo (doorSampleImageUrl) as texture on cabinet faces in Front View/Corner/Split
 - [x] Support per-cabinet door images for two-tone designs
 - [x] Run typecheck and tests
+
+## Rule: Door handle goes on the opposite side of the hinge
+
+- [x] Update hardware overlay in elevation view to place handle/knob on the opposite side from the hinge
+- [x] Run typecheck and tests
+- [x] Save checkpoint
+
+## Fix: Cabinet edit dialog content overflows outside its frame on desktop
+
+- [x] Ensure all fields and controls stay within the dialog box when editing a cabinet
+- [x] Run typecheck and tests
+- [x] Save checkpoint
+
+## Rule: Trim (crown, light rail, toe kick) auto-switches color when door style changes
+
+- [x] When user changes door style/color (via apply-to-all), automatically update trim color to match the new style
+
+## Rule: Base cabinets front wall cabinets (matching widths)
+
+- [ ] A base cabinet should have a wall cabinet of the same width above it (e.g., 30" base → 30" wall above)
+- [ ] Corner base cabinet (24" exposed face) should have a 12" wall cabinet next to it above

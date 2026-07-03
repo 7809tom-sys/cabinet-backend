@@ -152,7 +152,7 @@ export function CabinetAttributesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px]">
+      <DialogContent className="sm:max-w-[440px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-mono text-base">{cabinet.masterCode}</DialogTitle>
           <DialogDescription className="truncate">{cabinet.description}</DialogDescription>

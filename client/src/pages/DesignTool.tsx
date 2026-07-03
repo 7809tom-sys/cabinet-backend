@@ -3058,7 +3058,12 @@ export default function DesignTool() {
       toast.success(n > 0 ? `Applied this finish to ${n} more cabinet${n === 1 ? "" : "s"}.` : "All cabinets already use this finish.");
       return next;
     });
-  }, [selectedUid, placed]);
+    // When all cabinets are switched to the same style, update the main styleId
+    // so trim (crown, toe kick, light rail, batten) also switches to match.
+    if (targetStyle !== styleId) {
+      setStyleId(targetStyle);
+    }
+  }, [selectedUid, placed, styleId]);
 
   // ── Two-color (two door styles) selector ───────────────────────────────────
   // Slot A is the primary door style. We mirror styleId -> styleA so the active
@@ -4218,7 +4223,7 @@ export default function DesignTool() {
       {/* Contextual row: keep desktop cabinet editing inline, but free up mobile
           canvas space by moving cabinet editing into a bottom sheet. */}
       {((!isMobile && selectedCab) || selectedOpening || drawMode) && !measureMode && (
-        <div className="border-b border-border bg-[#f7f5f0] px-4 py-1.5 flex items-center gap-3 flex-wrap shrink-0">
+        <div className="border-b border-border bg-[#f7f5f0] px-4 py-1.5 flex items-center gap-3 flex-wrap shrink-0 max-h-[120px] overflow-y-auto">
           {selectedCab && !drawMode && !isMobile && (
             <>
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-white p-0.5">

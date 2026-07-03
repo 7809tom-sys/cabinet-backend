@@ -4,7 +4,7 @@ import {
   type DoorPanelKind, type WallSide, cabinetWall,
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet,
   wallCeiling, wallCeilingIsSloped,
-  backsplashMaterial, isStacker, isBridgeOverRange,
+  backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -249,6 +249,15 @@ export function ElevationView({
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
+              handleSide={
+                // Handle goes on the opposite side of the hinge.
+                // If user explicitly set handleSide, use that; otherwise derive from swing.
+                p.handleSide === "left" || p.handleSide === "right"
+                  ? p.handleSide
+                  : resolveSwing(p) === "left" ? "right"
+                  : resolveSwing(p) === "right" ? "left"
+                  : null // double doors or no swing → centered
+              }
             />
           )}
           {/* Hinge indicator intentionally removed — no hardware shown */}
@@ -1034,39 +1043,51 @@ export function ElevationView({
 // Pieces are tiny CSS shapes positioned by percentage so they scale with zoom.
 //   knob → small filled circle   pull → short horizontal bar   cup → half-moon
 function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent,
+  doors, drawers, doorPiece, drawerPiece, accent, handleSide,
 }: {
   doors: number;
   drawers: number;
   doorPiece: "knob" | "pull" | "none";
   drawerPiece: "knob" | "pull" | "cup" | "none";
   accent: string;
+  handleSide?: "left" | "right" | null;
 }) {
   // Brushed-metal sheen shared by all hardware: a diagonal light streak over the
   // accent color plus a crisp top highlight and a soft drop shadow so the piece
   // reads as a real metal knob/pull catching the room light.
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
   const metalShadow = "0 1px 1.5px rgba(0,0,0,0.35), inset 0 0.5px 0 rgba(255,255,255,0.55)";
-  const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number) => {
+  // For door hardware (knobs), position on the handle side (opposite of hinge).
+  // Drawers always center their hardware.
+  const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean) => {
+    // Door knobs go on the handle side; drawers stay centered
+    const hSide = isDoor ? handleSide : null;
     if (kind === "knob") {
+      const leftPos = hSide === "left" ? "18%" : hSide === "right" ? "82%" : "50%";
       return (
         <div
           key={key}
           className="absolute rounded-full"
-          style={{ left: "50%", top: `${topPct}%`, width: 5, height: 5, marginLeft: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8 }}
+          style={{ left: leftPos, top: `${topPct}%`, width: 5, height: 5, marginLeft: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8 }}
         />
       );
     }
     if (kind === "pull") {
+      // Pulls on doors position on the handle side; on drawers they stay centered
+      const pullStyle = isDoor && hSide
+        ? hSide === "left"
+          ? { left: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
+          : { right: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
+        : { left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 };
       return (
         <div
           key={key}
           className="absolute rounded-full"
-          style={{ left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }}
+          style={pullStyle as React.CSSProperties}
         />
       );
     }
-    // cup pull: a small half-moon (rounded bottom) bin pull
+    // cup pull: a small half-moon (rounded bottom) bin pull — always centered (drawers only)
     return (
       <div
         key={key}
@@ -1095,14 +1116,15 @@ function HardwareOverlay({
       // Center each drawer's pull within its slice of the drawer band.
       const sliceH = drawerBand / drawers;
       const center = sliceH * i + sliceH / 2;
-      pieces.push(piece(drawerPiece as "knob" | "pull" | "cup", `dr-${i}`, center));
+      pieces.push(piece(drawerPiece as "knob" | "pull" | "cup", `dr-${i}`, center, false));
     }
   }
   if (hasDoors) {
-    // Knob/pull near the bottom inner corner of the door band.
+    // Knob/pull near the bottom inner corner of the door band — positioned on
+    // the handle side (opposite of the hinge).
     const doorTop = drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.12 : 0.5);
     for (let i = 0; i < Math.min(doors, 2); i++) {
-      pieces.push(piece(doorPiece as "knob" | "pull", `do-${i}`, doorTop));
+      pieces.push(piece(doorPiece as "knob" | "pull", `do-${i}`, doorTop, true));
     }
   }
 
