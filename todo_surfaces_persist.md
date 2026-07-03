@@ -19,3 +19,17 @@
 - [x] Make this the default "3D View" button; keep AI photoreal as an optional "AI Preview" button
 - [x] Handle empty/partial designs gracefully (no loop, clear message)
 - [x] Test, typecheck, browser-verify, checkpoint, deliver
+
+# Remove broken AI PhotorealPreview from Designer
+
+- [x] Remove all 3 PhotorealPreview JSX instances (desktop toolbar, mobile More menu, headless controlled)
+- [x] Remove render3dOpen/setRender3dOpen state
+- [x] Remove openAiPreview callback
+- [x] Remove onOpenAiPreview prop from Room3DView
+- [x] Remove buildPhotorealSceneInput useCallback
+- [x] Remove unused imports (PhotorealPreview, PhotorealSceneInput, buildPhotorealScene)
+- [x] Remove renderReadiness/computeRenderReadiness (only used by AI preview gate)
+- [x] Fix stale comment fragment ("Drives the mobile bottom-bar '3D View' button, which opens the same AI")
+- [x] TypeScript clean (tsc --noEmit passes)
+- [x] Full test suite green (1,303 tests passing)
+- [x] Save checkpoint

@@ -106,11 +106,10 @@ import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
-import { PhotorealPreview, type PhotorealSceneInput } from "@/components/design/PhotorealPreview";
+
 import { Room3DView } from "@/components/design/Room3DView";
-import { buildPhotorealScene } from "@/lib/photorealScene";
+
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
-import { computeRenderReadiness } from "@/lib/renderReadiness";
 import { surfaceRole } from "@/lib/pelican";
 import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -1298,42 +1297,6 @@ export default function DesignTool() {
     return doorPanelKind(s?.doorStyle ?? activeStyleName);
   }, [doorStyles, styleId, activeStyleName]);
 
-  // ─── AI Photoreal Preview ───────────────────────────────────────────────────
-  // Lazily assembles the scene description (room + finish + door style +
-  // countertop + hardware + per-wall cabinet runs) from LIVE state at click
-  // time, so the render always matches what is currently on the canvas.
-  const buildPhotorealSceneInput = useCallback((): PhotorealSceneInput | null => {
-    const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
-    const hw = HARDWARE_STYLES.find((h) => h.id === hardwareStyleId);
-    // Pull the customer's Surfaces & Fixtures picks (if any) so the render
-    // reflects the whole room, not just cabinets + countertop.
-    const surfByCat = (frag: string) =>
-      selectedSurfaces.find((su) => (su.category || "").toLowerCase().includes(frag))?.name ?? null;
-    const flooring = surfByCat("floor");
-    const backsplash = surfByCat("tile") ?? surfByCat("mosaic");
-    // Sinks & Faucets share one category; split by name heuristics.
-    const sinkFaucet = selectedSurfaces.filter((su) =>
-      (su.category || "").toLowerCase().includes("sink") ||
-      (su.category || "").toLowerCase().includes("faucet")
-    );
-    const faucet =
-      sinkFaucet.find((su) => /faucet|tap/i.test(su.name))?.name ?? null;
-    const sink =
-      sinkFaucet.find((su) => !/faucet|tap/i.test(su.name))?.name ?? null;
-    return buildPhotorealScene({
-      room,
-      placed,
-      island,
-      finishName: activeStyleName,
-      doorStyle: s?.doorStyle ?? activeStyleName,
-      countertop: countertopMaterial(countertopMaterialId)?.name ?? null,
-      hardware: hw && hw.id !== "none" ? hw.description : null,
-      flooring,
-      backsplash,
-      sink,
-      faucet,
-    });
-  }, [doorStyles, styleId, hardwareStyleId, room, placed, island, activeStyleName, countertopMaterialId, selectedSurfaces]);
 
   // ─── TWO-TONE per-cabinet finish + door-panel resolvers ─────────────────────
   // Each cabinet renders in its EFFECTIVE finish (per-cabinet override, else the
@@ -3467,46 +3430,16 @@ export default function DesignTool() {
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
-  // Drives the mobile bottom-bar "3D View" button, which opens the same AI
-  // photoreal render dialog as the desktop toolbar button (headless instance).
-  const [render3dOpen, setRender3dOpen] = useState(false);
-  // Geometry-based 3D room view (the DEFAULT "3D View"): built entirely from the
-  // plan/elevation, so it always works and never loops. The AI photoreal render
-  // (render3dOpen) is now an optional "AI Preview".
+  // Geometry-based 3D room view: built entirely from the plan/elevation, so it
+  // always works and never loops.
   const [room3dOpen, setRoom3dOpen] = useState(false);
-  // Gate the 3D render on a complete room: cabinets + flooring + countertop +
-  // sink & faucet, satisfiable by built-in toggles OR Pelican surface picks.
-  const renderReadiness = useMemo(() => {
-    // Classify each Pelican surface pick by its functional role using the shared
-    // surfaceRole helper (keyed off the real storefront category / subCategory),
-    // instead of matching fragile text fragments against the category label.
-    const roles = selectedSurfaces.map((su) => surfaceRole(su));
-    return computeRenderReadiness({
-      cabinetCount: placed.filter((p) => p.placement !== "appliance").length,
-      builtInFlooringId: flooringMaterialId,
-      hasSurfaceFlooring: roles.includes("flooring"),
-      builtInCountertop: countertop,
-      hasSurfaceCountertop: roles.includes("countertop"),
-      hasSinkWithFaucet: sinks.some((s) => s.faucet),
-      hasSurfaceSink: roles.includes("sink"),
-      hasSurfaceFaucet: roles.includes("faucet"),
-    });
-  }, [placed, flooringMaterialId, countertop, sinks, selectedSurfaces]);
   // Open the geometry 3D view. No readiness gate — it renders whatever is placed
   // (and shows a friendly "empty room" hint when nothing is), so it can never
   // spin or loop waiting on an external render.
   const open3dView = useCallback(() => {
     setRoom3dOpen(true);
   }, []);
-  // Open the optional AI photoreal preview; keep the completeness gate here since
-  // the AI render benefits from a fully-specified room.
-  const openAiPreview = useCallback(() => {
-    if (!renderReadiness.ready) {
-      toast.info(renderReadiness.message);
-      return;
-    }
-    setRender3dOpen(true);
-  }, [renderReadiness]);
+
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
   // (the DesignActions toolbar itself is desktop-only / hidden on phones).
   const [saveSignal, setSaveSignal] = useState(0);
@@ -3706,15 +3639,6 @@ export default function DesignTool() {
           <Box className="h-3.5 w-3.5" /> 3D View
         </button>
 
-        {/* AI Photoreal Preview — optional magazine render of the current design */}
-        <PhotorealPreview
-          onBeforeOpen={() => {
-            if (!renderReadiness.ready) { toast.info(renderReadiness.message); return false; }
-            return true;
-          }}
-          buildScene={buildPhotorealSceneInput}
-          label={t("dt_sh_ai_preview")}
-        />
 
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
         <div className="ml-auto flex items-center gap-2 lg:hidden">
@@ -3783,17 +3707,7 @@ export default function DesignTool() {
                     <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_consultant_menu")}</span>
                   </button>
-                  <div onClick={() => setMoreSheetOpen(false)}>
-                    <PhotorealPreview
-                      variant="menu"
-                      onBeforeOpen={() => {
-                        if (!renderReadiness.ready) { toast.info(renderReadiness.message); return false; }
-                        return true;
-                      }}
-                      buildScene={buildPhotorealSceneInput}
-                      label={t("dt_sh_ai_preview")}
-                    />
-                  </div>
+
                 </div>
 
                 <div className="mx-3 my-1 border-t border-border" />
@@ -5916,14 +5830,6 @@ export default function DesignTool() {
         surfaces={selectedSurfaces}
         finishText={activeStyleName}
         activeWall={activeWall}
-        onOpenAiPreview={openAiPreview}
-      />
-      <PhotorealPreview
-        variant="headless"
-        controlledOpen={render3dOpen}
-        onControlledOpenChange={setRender3dOpen}
-        buildScene={buildPhotorealSceneInput}
-        label={t("dt_sh_ai_preview")}
       />
 
       {counter && (

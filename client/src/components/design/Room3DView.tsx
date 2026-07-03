@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Box, RotateCcw, X, Sparkles } from "lucide-react";
+import { Box, RotateCcw, X } from "lucide-react";
 import { buildRoomBoxes, type Box3D, type SurfacePickLike } from "@/lib/room3d";
 import type { PlacedCabinet, RoomData, WallSide } from "@/lib/design";
 
@@ -17,8 +17,6 @@ type Props = {
   secondFinishText?: string | null;
   /** The wall the user was editing; the camera opens facing it. */
   activeWall?: WallSide;
-  /** Optional: open the AI photoreal preview instead. */
-  onOpenAiPreview?: () => void;
 };
 
 // Inches → world units. We render in feet (÷12) so camera distances are sane.
@@ -64,7 +62,6 @@ export function Room3DView({
   finishText,
   secondFinishText,
   activeWall,
-  onOpenAiPreview,
 }: Props) {
   const [mountEl, setMountEl] = useState<HTMLDivElement | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -254,17 +251,7 @@ export function Room3DView({
             <Button variant="outline" onClick={resetView} className="bg-background">
               <RotateCcw className="mr-1.5 h-4 w-4" /> Reset view
             </Button>
-            {onOpenAiPreview && (
-              <Button
-                onClick={() => {
-                  onOpenChange(false);
-                  onOpenAiPreview();
-                }}
-                className="bg-[#1a2744] hover:bg-[#2d3f66]"
-              >
-                <Sparkles className="mr-1.5 h-4 w-4" /> AI Preview
-              </Button>
-            )}
+
           </div>
         </div>
       </DialogContent>
