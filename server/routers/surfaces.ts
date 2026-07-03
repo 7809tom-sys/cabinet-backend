@@ -142,7 +142,7 @@ export const surfacesRouter = router({
           imageUrl: r.imageUrl,
           sellPrice: sellPriceOf(r, map),
         }))
-        .filter((r) => r.sellPrice != null)
+        .filter((r) => r.sellPrice != null && r.sellPrice > 0)
         .filter((r) => {
           if (input.role === "sink" || input.role === "faucet") return !ACCESSORY.test(r.name);
           return true;
@@ -161,7 +161,9 @@ export const surfacesRouter = router({
         .select()
         .from(pelicanProducts)
         .where(inArray(pelicanProducts.id, input.ids));
-      return rows.map((r) => ({ ...r, sellPrice: sellPriceOf(r, map) }));
+      return rows
+        .map((r) => ({ ...r, sellPrice: sellPriceOf(r, map) }))
+        .filter((r) => r.sellPrice != null && r.sellPrice > 0);
     }),
 
   // Save the customer's Surfaces & Fixtures profile so they can explicitly load it

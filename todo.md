@@ -12,3 +12,13 @@
 - [x] Sink & Faucet section => recommended Pelican sinks + faucets (~6-7 total)
 - [x] Selecting a recommended item adds it to selectedSurfaces (hits cart + satisfies 3D View gate) and drives the elevation/plan render fill where applicable
 - [x] Update tests; typecheck; full suite green; checkpoint
+
+## Hide products with no price from public display
+
+- [x] Filter out unpriced Pelican products from storefront category pages
+- [x] Filter out unpriced items from surfaces.recommended (Design Tool Surfaces tab)
+- [x] Filter out unpriced items from SurfacesPickerDialog (full browse)
+- [x] Filter out unpriced items from Surfaces wizard step grids
+- [x] Ensure product detail pages show 404 or redirect for unpriced items
+- [x] Run typecheck and tests
+- [x] Save checkpoint

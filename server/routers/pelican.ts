@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, like, or, sql } from "drizzle-orm";
 import { router, publicProcedure, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
@@ -64,6 +64,18 @@ function withPricing<T extends { listPrice: string | null; yourCost: string | nu
   };
 }
 
+/**
+ * SQL condition: product has a positive cost (yourCost > 0 OR listPrice > 0).
+ * Products with NULL/zero cost would compute to a $0 sell price and must not
+ * appear on public-facing pages.
+ */
+function hasPriceData() {
+  return or(
+    gt(pelicanProducts.yourCost, "0"),
+    gt(pelicanProducts.listPrice, "0")
+  );
+}
+
 export const pelicanRouter = router({
   categories: publicProcedure
     .input(z.object({ scope: z.enum(["designer", "catalog", "all"]).default("catalog") }).optional())
@@ -71,7 +83,7 @@ export const pelicanRouter = router({
       const db = await getDb();
       if (!db) return [] as { category: string; count: number }[];
       const scope = input?.scope ?? "catalog";
-      const conds = [eq(pelicanProducts.isActive, true)];
+      const conds = [eq(pelicanProducts.isActive, true), hasPriceData() as any];
       if (scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
       const rows = await db
@@ -97,7 +109,7 @@ export const pelicanRouter = router({
       const db = await getDb();
       if (!db) return { suggested: [], items: [], total: 0, subCategories: [] as string[] };
       const markupMap = await loadMarkupMap(db);
-      const conds = [eq(pelicanProducts.category, input.category), eq(pelicanProducts.isActive, true)];
+      const conds = [eq(pelicanProducts.category, input.category), eq(pelicanProducts.isActive, true), hasPriceData() as any];
       if (input.scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (input.scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
       if (input.subCategory) conds.push(eq(pelicanProducts.subCategory, input.subCategory));
@@ -155,7 +167,10 @@ export const pelicanRouter = router({
         .limit(1);
       if (!row) return null;
       const markupMap = await loadMarkupMap(db);
-      return withPricing(row, markupMap);
+      const priced = withPricing(row, markupMap);
+      // Hide product detail if it has no valid sell price
+      if (!priced.sellPrice || priced.sellPrice <= 0) return null;
+      return priced;
     }),
   adminList: adminProcedure
     .input(
