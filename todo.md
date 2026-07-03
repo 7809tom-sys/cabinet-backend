@@ -156,3 +156,21 @@
 
 ## Feature: Staggered flooring pattern in elevation/plan view
 - [x] Update flooring rendering to show a staggered/brick-lay pattern (offset rows) instead of a straight grid
+
+## Feature: Base diagonal corner → suggest 12" base cabinets on both sides
+- [x] When a base diagonal corner cabinet (DC/LS) is placed, show actionable toast suggesting 12" base cabinets on both adjacent walls
+- [x] Auto-place the 12" base cabinets flush to the diagonal corner edges when user taps Yes
+- [x] Add EN/ES i18n keys for the suggestion
+
+## Feature: Backsplash area in quote summary
+- [x] Display the calculated backsplash sq ft in the BOM/quote summary alongside box count
+- [x] Show the overage calculation breakdown for transparency
+
+## Feature: Brick-lay stagger for rectangular tiles
+- [x] Add a "tile-stagger" pattern variant for rectangular tiles (e.g., 12x24 porcelain)
+- [x] Offset each row by half the tile width for a brick-lay look
+- [x] Add the new pattern to FLOORING_MATERIALS as an option ("Brick-Lay Porcelain" 24x12)
+
+## Bug: Surfaces & Fixtures dialog headers unreadable on mobile
+- [x] Fix overlapping text between subtitle description and category tabs
+- [x] Ensure proper spacing so tabs don't cover the descriptive text below the title

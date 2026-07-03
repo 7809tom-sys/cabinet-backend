@@ -640,6 +640,20 @@ export function PlanCanvas({
             if (fm.pattern === "tile-grid" || fm.pattern === "tile-diagonal") {
               return `repeating-linear-gradient(0deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(90deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${tw}px)`;
             }
+            if (fm.pattern === "tile-stagger") {
+              // Brick-lay for rectangular tiles: offset every other row by half tile width.
+              const g = fm.grout;
+              const offset = Math.round(tw / 2);
+              const h2 = th * 2;
+              const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tw}' height='${h2}'>`
+                + `<rect x='0' y='0' width='${tw}' height='${h2}' fill='none'/>`
+                + `<line x1='0' y1='0' x2='${tw}' y2='0' stroke='${g}' stroke-width='1'/>`
+                + `<line x1='0' y1='${th}' x2='${tw}' y2='${th}' stroke='${g}' stroke-width='1'/>`
+                + `<line x1='0' y1='0' x2='0' y2='${th}' stroke='${g}' stroke-width='1'/>`
+                + `<line x1='${offset}' y1='${th}' x2='${offset}' y2='${h2}' stroke='${g}' stroke-width='1'/>`
+                + `</svg>`;
+              return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+            }
             if (fm.pattern === "herringbone") {
               return `repeating-linear-gradient(45deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(-45deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px)`;
             }
@@ -655,7 +669,7 @@ export function PlanCanvas({
             const tw = Math.max(6, fm.tileW * ppi);
             const th = Math.max(6, fm.tileH * ppi);
             // Staggered patterns use a 2-row SVG tile, so double the height.
-            if (fm.pattern === "hardwood" || fm.pattern === "plank") {
+            if (fm.pattern === "hardwood" || fm.pattern === "plank" || fm.pattern === "tile-stagger") {
               return `${tw}px ${th * 2}px`;
             }
             return `${tw}px ${th}px`;

@@ -90,25 +90,24 @@ export function SurfacesPickerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[85vh] max-h-[85vh] max-w-4xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-border px-6 py-4">
-          <DialogTitle className="flex items-center gap-2">
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-6 sm:py-4">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Waves className="h-5 w-5 text-[var(--color-gold)]" /> Surfaces & Fixtures
           </DialogTitle>
-          <DialogDescription>
-            Add Pelican finishes to this design. Selected items are saved with the design and
-            carried into your quote. Prices reflect current trade pricing.
+          <DialogDescription className="hidden sm:block text-xs sm:text-sm">
+            Add Pelican finishes to this design. Selected items are carried into your quote.
           </DialogDescription>
         </DialogHeader>
 
         {/* Category tabs + search */}
-        <div className="flex flex-col gap-3 border-b border-border px-6 py-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="shrink-0 flex flex-col gap-2 sm:gap-3 border-b border-border px-4 py-2 sm:px-6 sm:py-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-none">
             {availableCats.map((c) => (
               <Button
                 key={c}
                 size="sm"
                 variant={c === category ? "default" : "outline"}
-                className="h-7 text-xs"
+                className="h-7 text-xs whitespace-nowrap shrink-0"
                 onClick={() => setCategory(c)}
               >
                 {c}

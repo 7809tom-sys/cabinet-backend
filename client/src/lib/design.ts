@@ -3401,7 +3401,7 @@ export interface FlooringMaterial {
   /** Grout/joint color */
   grout: string;
   /** Pattern type for plan-view rendering */
-  pattern: "hardwood" | "tile-grid" | "tile-diagonal" | "herringbone" | "chevron" | "solid" | "plank";
+  pattern: "hardwood" | "tile-grid" | "tile-diagonal" | "tile-stagger" | "herringbone" | "chevron" | "solid" | "plank";
   /** Plank/tile width in inches (for scale rendering) */
   tileW: number;
   /** Plank/tile height in inches */
@@ -3416,6 +3416,7 @@ export const FLOORING_MATERIALS: FlooringMaterial[] = [
   { id: "gray-tile",         name: "Gray Porcelain Tile",  fill: "#b8bec4", grout: "#8a9099", pattern: "tile-grid",    tileW: 24, tileH: 24 },
   { id: "black-tile",        name: "Black Slate Tile",     fill: "#2a2e32", grout: "#444850", pattern: "tile-grid",    tileW: 12, tileH: 12 },
   { id: "herringbone-tile",  name: "Herringbone Tile",     fill: "#e0d8cc", grout: "#c0b8a8", pattern: "herringbone",  tileW: 4,  tileH: 12 },
+  { id: "brick-lay-tile",    name: "Brick-Lay Porcelain",  fill: "#e8e0d8", grout: "#c0b8a8", pattern: "tile-stagger", tileW: 24, tileH: 12 },
   { id: "chevron-wood",      name: "Chevron Wood",         fill: "#b89060", grout: "#907040", pattern: "chevron",      tileW: 3,  tileH: 18 },
   { id: "luxury-vinyl",      name: "Luxury Vinyl Plank",   fill: "#c0a870", grout: "#a08050", pattern: "plank",        tileW: 7,  tileH: 48 },
   { id: "concrete",          name: "Polished Concrete",    fill: "#9a9ea2", grout: "#9a9ea2", pattern: "solid",        tileW: 24, tileH: 24 },

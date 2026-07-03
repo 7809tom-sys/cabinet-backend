@@ -624,6 +624,14 @@ export default function DesignTool() {
   });
   const wallCabPoolRef = useRef<DesignCabinet[]>([]);
   useEffect(() => { wallCabPoolRef.current = (wallCabPool as DesignCabinet[] | undefined) ?? []; }, [wallCabPool]);
+  // Base cabinet pool for auto-suggestions (e.g. 12" base cabs next to diagonal corners).
+  const { data: baseCabPool } = trpc.design.placeableCabinets.useQuery({
+    placement: "base",
+    styleId: styleId ?? undefined,
+    distributorId: lockedDistributorId ?? undefined,
+  });
+  const baseCabPoolRef = useRef<DesignCabinet[]>([]);
+  useEffect(() => { baseCabPoolRef.current = (baseCabPool as DesignCabinet[] | undefined) ?? []; }, [baseCabPool]);
 
   // The unified "Corner" tab shows BOTH corner base AND corner wall cabinets in
   // one place (grouped into two sections). The base-placement corner cabinets
@@ -2359,6 +2367,108 @@ export default function DesignTool() {
                   setShowWallLayer(true);
                   setSelectedUid(newWallCab.uid);
                   toast.success(t("dt_wall_cab_placed", { code: wallCab.masterCode }));
+                },
+              },
+              cancel: { label: t("dt_wall_cab_suggest_no"), onClick: () => {} },
+            });
+          }
+          // ── Diagonal corner base → suggest 12" base cabinets on both sides ──
+          // When a diagonal corner base (DCB, lazy Susan, easy reach) is placed,
+          // suggest 12" base cabinets on both adjacent walls to fill the
+          // transition from the diagonal to the standard run.
+          if ((isDiagonalCorner(newCab.masterCode, newCab.description || undefined) || (isCornerCabinet(newCab.masterCode, newCab.description || undefined) && !isBlindCorner(newCab.masterCode, newCab.description || undefined))) && newCab.masterCode) {
+            toast(t("dt_diag_base_corner_suggest"), {
+              duration: 10000,
+              action: {
+                label: t("dt_wall_cab_suggest_yes"),
+                onClick: () => {
+                  const pool = baseCabPoolRef.current;
+                  // Find a 12" base cabinet
+                  const widthMatches = pool.filter((b) => {
+                    const bw = parseFloat(String(b.width ?? "0"));
+                    return Math.abs(bw - 12) < 0.5;
+                  });
+                  const baseCab12 = widthMatches[0];
+                  if (!baseCab12) {
+                    toast.error(t("dt_wall_cab_suggest_no_match", { w: "12" }));
+                    return;
+                  }
+                  const bw12 = 12;
+                  const bh12 = parseFloat(String(baseCab12.height ?? STD.BASE_HEIGHT)) || STD.BASE_HEIGHT;
+                  const bd12 = STD.BASE_DEPTH;
+                  // Diagonal corner occupies a square footprint in the corner.
+                  const fp = placedFootprint(newCab);
+                  const nearLeft = newCab.x <= 2;
+                  const nearRight = Math.abs(newCab.x + fp.w - room.width) <= 2;
+                  const nearTop = newCab.y <= 2;
+                  const nearBottom = Math.abs(newCab.y + fp.d - room.depth) <= 2;
+                  const placed12: PlacedCabinet[] = [];
+                  // Place on horizontal wall
+                  if (nearTop || nearBottom) {
+                    const hSide: WallSide = nearTop ? "top" : "bottom";
+                    const hAlong = nearLeft ? fp.w : (newCab.x - bw12);
+                    if (hAlong >= -0.5 && hAlong + bw12 <= room.width + 0.5) {
+                      const hSpot = wallPlacementAt(hAlong, bw12, bd12, hSide, room);
+                      placed12.push({
+                        uid: makeUid(),
+                        cabinetId: baseCab12.id,
+                        masterCode: baseCab12.masterCode,
+                        description: baseCab12.description,
+                        category: baseCab12.category ?? null,
+                        subCategory: baseCab12.subCategory ?? null,
+                        placement: "base",
+                        x: hSpot.x,
+                        y: hSpot.y,
+                        width: bw12,
+                        nominalWidth: bw12,
+                        depth: bd12,
+                        nominalDepth: bd12,
+                        height: bh12,
+                        nominalHeight: bh12,
+                        rotation: hSpot.rotation,
+                        numberOfDoors: baseCab12.numberOfDoors ?? undefined,
+                        catalogImageUrl: baseCab12.catalogImageUrl ?? null,
+                        styleId: styleIdRef.current ?? null,
+                        mountBottom: 0,
+                      });
+                    }
+                  }
+                  // Place on vertical wall
+                  if (nearLeft || nearRight) {
+                    const vSide: WallSide = nearLeft ? "left" : "right";
+                    const vAlong = nearTop ? fp.d : (newCab.y - bw12);
+                    if (vAlong >= -0.5 && vAlong + bw12 <= room.depth + 0.5) {
+                      const vSpot = wallPlacementAt(vAlong, bw12, bd12, vSide, room);
+                      placed12.push({
+                        uid: makeUid(),
+                        cabinetId: baseCab12.id,
+                        masterCode: baseCab12.masterCode,
+                        description: baseCab12.description,
+                        category: baseCab12.category ?? null,
+                        subCategory: baseCab12.subCategory ?? null,
+                        placement: "base",
+                        x: vSpot.x,
+                        y: vSpot.y,
+                        width: bw12,
+                        nominalWidth: bw12,
+                        depth: bd12,
+                        nominalDepth: bd12,
+                        height: bh12,
+                        nominalHeight: bh12,
+                        rotation: vSpot.rotation,
+                        numberOfDoors: baseCab12.numberOfDoors ?? undefined,
+                        catalogImageUrl: baseCab12.catalogImageUrl ?? null,
+                        styleId: styleIdRef.current ?? null,
+                        mountBottom: 0,
+                      });
+                    }
+                  }
+                  if (placed12.length > 0) {
+                    setPlaced((prev) => [...prev, ...placed12]);
+                    toast.success(t(placed12.length === 2 ? "dt_diag_base_corner_placed" : "dt_diag_base_corner_partial"));
+                  } else {
+                    toast.error(t("dt_wall_cab_suggest_no_match", { w: "12" }));
+                  }
                 },
               },
               cancel: { label: t("dt_wall_cab_suggest_no"), onClick: () => {} },
@@ -6755,6 +6865,30 @@ export default function DesignTool() {
                     <span className="font-semibold shrink-0 text-amber-600">{t("dt_bs_quote")}</span>
                   </div>
                 )}
+                {/* Backsplash & flooring area summary */}
+                {(() => {
+                  const bsLinIn = placed.filter((p) => p.placement === "base").reduce((s, p) => s + rotatedSize(p).w, 0);
+                  const bsSqFt = Math.round(((bsLinIn * 18) / 144) * 10) / 10;
+                  const flSqFt = Math.round(((room.width * room.depth) / 144) * 10) / 10;
+                  if (bsSqFt <= 0 && flSqFt <= 0) return null;
+                  return (
+                    <div className="flex flex-col gap-1 p-2 rounded-lg text-xs bg-sky-500/10 border border-sky-500/30">
+                      {bsSqFt > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-semibold">Backsplash</span>
+                          <span className="text-sky-600 font-semibold">~{bsSqFt} sq ft</span>
+                        </div>
+                      )}
+                      {flSqFt > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-semibold">Flooring</span>
+                          <span className="text-sky-600 font-semibold">~{flSqFt} sq ft</span>
+                        </div>
+                      )}
+                      <div className="text-[10px] text-muted-foreground">Area estimates for material ordering (overage applied at checkout)</div>
+                    </div>
+                  );
+                })()}
                 {/* Priced-trim subtotal (toe kick + batten + light rail). Crown /
                     countertop / sink / hardware are quote-only and excluded. */}
                 {(() => {
