@@ -2199,6 +2199,189 @@ export default function DesignTool() {
           }
         }
 
+        // ── WEC (open-end cabinet) suggestion near windows ───────────────
+        // When a WALL cabinet is placed and one of its ends is adjacent to a
+        // window (within 3" clearance), suggest a 6" open-end shelf (OE-6-*)
+        // between the wall cabinet and the window for a finished look.
+        if (accPlacement === "wall" && !isStacker(c)) {
+          const wallSideWec = cabinetWall(newCab, room);
+          const horizWec = wallSideWec === "top" || wallSideWec === "bottom";
+          const cabStartWec = horizWec ? newCab.x : newCab.y;
+          const cabEndWec = cabStartWec + (horizWec ? newCab.width : newCab.depth);
+          // Find a window on the same wall whose edge is close to either end
+          // of this wall cabinet (within 6" gap — room for the OE).
+          for (const o of openings) {
+            if (o.side !== wallSideWec || o.kind !== "window") continue;
+            const oStart = o.offset;
+            const oEnd = o.offset + o.width;
+            // Check if the cabinet's RIGHT end is near the window's LEFT edge
+            const gapRight = oStart - cabEndWec;
+            // Check if the cabinet's LEFT end is near the window's RIGHT edge
+            const gapLeft = cabStartWec - oEnd;
+            // OE cabinets are 6" wide; W-09 is the 9" alternative.
+            // Accept gaps from 3" (min clearance) up to 10" (room for OE + clearance).
+            const OE_WIDTH = 6;
+            let wecOffset: number | null = null;
+            if (gapRight >= 3 && gapRight <= 10) {
+              // Place OE between cabinet right end and window left edge
+              wecOffset = cabEndWec;
+            } else if (gapLeft >= 3 && gapLeft <= 10) {
+              // Place OE between window right edge and cabinet left start
+              wecOffset = cabStartWec - OE_WIDTH;
+            }
+            if (wecOffset !== null) {
+              const wantedHWec = wallCabHeightRef.current;
+              toast(t("dt_wec_suggest"), {
+                duration: 8000,
+                action: {
+                  label: t("dt_wall_cab_suggest_yes"),
+                  onClick: () => {
+                    const pool = wallCabPoolRef.current;
+                    // Find OE-6-{height} in the pool
+                    const oeMatch = pool.find((w) => {
+                      const code = (w.masterCode || "").toUpperCase();
+                      if (!code.startsWith("OE-")) return false;
+                      const hh = parseFloat(String(w.height ?? "0"));
+                      return Math.abs(hh - wantedHWec) < 0.5;
+                    }) ?? pool.find((w) => (w.masterCode || "").toUpperCase().startsWith("OE-"));
+                    if (!oeMatch) {
+                      toast.error("No open-end cabinet available in this style.");
+                      return;
+                    }
+                    const oeW = parseFloat(String(oeMatch.width ?? OE_WIDTH)) || OE_WIDTH;
+                    const oeH = parseFloat(String(oeMatch.height ?? wantedHWec)) || wantedHWec;
+                    const oeD = STD.WALL_DEPTH;
+                    const topLine = wallCabinetTopLine(room);
+                    const mb = Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, oeH));
+                    const wecSpot = wallPlacementAt(wecOffset!, oeW, oeD, wallSideWec, room);
+                    const newOE: PlacedCabinet = {
+                      uid: makeUid(),
+                      cabinetId: oeMatch.id,
+                      masterCode: oeMatch.masterCode,
+                      description: oeMatch.description,
+                      category: oeMatch.category ?? null,
+                      subCategory: oeMatch.subCategory ?? null,
+                      placement: "wall",
+                      x: wecSpot.x,
+                      y: wecSpot.y,
+                      width: oeW,
+                      nominalWidth: oeW,
+                      depth: oeD,
+                      nominalDepth: oeD,
+                      height: oeH,
+                      nominalHeight: oeH,
+                      rotation: wecSpot.rotation,
+                      numberOfDoors: oeMatch.numberOfDoors ?? undefined,
+                      catalogImageUrl: oeMatch.catalogImageUrl ?? null,
+                      styleId: styleIdRef.current ?? null,
+                      mountBottom: mb,
+                    };
+                    setPlaced((prev) => {
+                      const updated = [...prev, newOE];
+                      // After placing the OE, check if there's a gap between
+                      // a corner/diagonal wall cabinet and the OE that could
+                      // be filled with a standard wall cabinet.
+                      const oeStart = horizWec ? wecSpot.x : wecSpot.y;
+                      const oeEnd = oeStart + oeW;
+                      // Find the nearest corner/diagonal wall cabinet on the
+                      // same wall that's on the other side of the OE from the window.
+                      const cornerWalls = updated.filter((p) => {
+                        if (p.placement !== "wall") return false;
+                        if (cabinetWall(p, room) !== wallSideWec) return false;
+                        return isCornerCabinet(p.masterCode ?? "", p.description ?? undefined);
+                      });
+                      let fillGap = 0;
+                      let fillOffset = 0;
+                      for (const cw of cornerWalls) {
+                        const cwStart = horizWec ? cw.x : cw.y;
+                        const cwEnd = cwStart + (horizWec ? cw.width : cw.depth);
+                        // Corner is to the left of the OE
+                        if (cwEnd <= oeStart && oeStart - cwEnd >= 9) {
+                          fillGap = oeStart - cwEnd;
+                          fillOffset = cwEnd;
+                          break;
+                        }
+                        // Corner is to the right of the OE
+                        if (cwStart >= oeEnd && cwStart - oeEnd >= 9) {
+                          fillGap = cwStart - oeEnd;
+                          fillOffset = oeEnd;
+                          break;
+                        }
+                      }
+                      if (fillGap >= 9) {
+                        // Suggest a fill wall cabinet
+                        const fillW = Math.round(fillGap);
+                        setTimeout(() => {
+                          toast(t("dt_fill_suggest", { w: String(fillW) }), {
+                            duration: 8000,
+                            action: {
+                              label: t("dt_wall_cab_suggest_yes"),
+                              onClick: () => {
+                                const pool2 = wallCabPoolRef.current;
+                                const wH2 = wallCabHeightRef.current;
+                                // Find the closest width match in the pool
+                                // Standard wall cabinet widths are multiples of 3
+                                // (9,12,15,18,21,24,27,30,33,36,39,42). Find exact match.
+                                const widthMatches2 = pool2.filter((w2) => {
+                                  const ww2 = parseFloat(String(w2.width ?? "0"));
+                                  return Math.abs(ww2 - fillW) < 0.5;
+                                });
+                                const heightMatch2 = widthMatches2.find((w2) => {
+                                  const hh2 = parseFloat(String(w2.height ?? "0"));
+                                  return Math.abs(hh2 - wH2) < 0.5;
+                                }) ?? widthMatches2[0];
+                                if (!heightMatch2) {
+                                  toast.error(t("dt_wall_cab_suggest_no_match", { w: String(fillW) }));
+                                  return;
+                                }
+                                const fw = parseFloat(String(heightMatch2.width ?? fillW)) || fillW;
+                                const fh = parseFloat(String(heightMatch2.height ?? wH2)) || wH2;
+                                const fd = STD.WALL_DEPTH;
+                                const tl2 = wallCabinetTopLine(room);
+                                const mb2 = Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(tl2, fh));
+                                const fillSpot = wallPlacementAt(fillOffset, fw, fd, wallSideWec, room);
+                                const fillCab: PlacedCabinet = {
+                                  uid: makeUid(),
+                                  cabinetId: heightMatch2.id,
+                                  masterCode: heightMatch2.masterCode,
+                                  description: heightMatch2.description,
+                                  category: heightMatch2.category ?? null,
+                                  subCategory: heightMatch2.subCategory ?? null,
+                                  placement: "wall",
+                                  x: fillSpot.x,
+                                  y: fillSpot.y,
+                                  width: fw,
+                                  nominalWidth: fw,
+                                  depth: fd,
+                                  nominalDepth: fd,
+                                  height: fh,
+                                  nominalHeight: fh,
+                                  rotation: fillSpot.rotation,
+                                  numberOfDoors: heightMatch2.numberOfDoors ?? undefined,
+                                  catalogImageUrl: heightMatch2.catalogImageUrl ?? null,
+                                  styleId: styleIdRef.current ?? null,
+                                  mountBottom: mb2,
+                                };
+                                setPlaced((prev2) => [...prev2, fillCab]);
+                                toast.success(t("dt_wall_cab_placed", { code: heightMatch2.masterCode }));
+                              },
+                            },
+                            cancel: { label: t("dt_wall_cab_suggest_no"), onClick: () => {} },
+                          });
+                        }, 500);
+                      }
+                      return updated;
+                    });
+                    toast.success(t("dt_wall_cab_placed", { code: oeMatch.masterCode }));
+                  },
+                },
+                cancel: { label: t("dt_wall_cab_suggest_no"), onClick: () => {} },
+              });
+              break; // Only suggest once per cabinet placement
+            }
+          }
+        }
+
         return [...prev, newCab];
       });
     },

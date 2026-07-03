@@ -1148,6 +1148,8 @@ export const SITE_STRINGS = {
     dt_wall_cab_placed: "Wall cabinet {code} placed above.",
     dt_wall_cab_suggest_no_match: "No matching {w}\" wall cabinet found in the current style.",
     dt_wall_height_label: "Wall cab height",
+    dt_wec_suggest: "Add an open-end shelf next to the window?",
+    dt_fill_suggest: "Add a {w}\" wall cabinet to fill the gap?",
     // --- Refrigerator placement options ---
     dt_fridge_title: "Refrigerator options",
     dt_fridge_desc: "Choose what to build around this refrigerator. Everything is optional.",
@@ -2416,6 +2418,8 @@ export const SITE_STRINGS = {
     dt_wall_cab_placed: "Gabinete superior {code} colocado arriba.",
     dt_wall_cab_suggest_no_match: "No se encontró un gabinete superior de {w}\" en el estilo actual.",
     dt_wall_height_label: "Altura superior",
+    dt_wec_suggest: "¿Agregar un estante abierto junto a la ventana?",
+    dt_fill_suggest: "¿Agregar un gabinete superior de {w}\" para llenar el espacio?",
     // --- Opciones de refrigerador ---
     dt_fridge_title: "Opciones de refrigerador",
     dt_fridge_desc: "Elija qué construir alrededor de este refrigerador. Todo es opcional.",
