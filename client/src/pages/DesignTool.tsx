@@ -6,7 +6,7 @@ import {
   DollarSign, PanelTop, Columns3, Ruler, Square, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
-  ChevronRight, Footprints, Layers2, Wrench, Crown as CrownIcon, Pencil,
+  ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,8 +46,6 @@ import {
   finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
-  BACKSPLASH_MATERIALS, backsplashMaterial,
-  FLOORING_MATERIALS, flooringMaterial,
   makeSink, SINK_PRESETS, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
@@ -91,6 +89,7 @@ import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/SurfacesPickerDialog";
+import { RecommendedSurfaces } from "@/components/design/RecommendedSurfaces";
 import {
   takeSurfaceHandoff,
   guessFlooringMaterialId,
@@ -311,6 +310,40 @@ export default function DesignTool() {
         ? prev.filter((s) => s.id !== item.id)
         : [...prev, item]
     );
+  // Recommended-surface picker (Surfaces palette tab): toggle the exact Pelican
+  // product in selectedSurfaces (so it hits the cart + satisfies the 3D View
+  // gate), and for flooring/backsplash/countertop ALSO drive the built-in 2D
+  // material id so the plan/elevation render updates to a representative texture.
+  const addRecommendedSurface = (
+    item: SelectedSurface,
+    role: "flooring" | "backsplash" | "countertop" | "sink" | "faucet"
+  ) => {
+    const already = selectedSurfaces.some((s) => s.id === item.id);
+    toggleSurface(item);
+    if (already) return; // removal: leave the 2D material as-is (harmless)
+    const pick = {
+      id: item.id,
+      slug: item.slug,
+      name: item.name,
+      category: item.category,
+      subCategory: item.subCategory ?? null,
+      size: item.size ?? null,
+      imageUrl: item.imageUrl ?? null,
+      sellPrice: item.sellPrice,
+    };
+    if (role === "flooring") {
+      const id = guessFlooringMaterialId(pick);
+      if (id) setFlooringMaterialId(id);
+    } else if (role === "backsplash") {
+      const id = guessBacksplashMaterialId(pick);
+      if (id) setBacksplashMaterialId(id);
+    } else if (role === "countertop") {
+      const id = guessCountertopMaterialId(pick);
+      if (id) setCountertopMaterialId(id);
+      setCountertop(true);
+    }
+    toast.success(`${item.name} added`);
+  };
   // Mouse-draw room mode: drag on an empty canvas to draw the room outline.
   const [drawMode, setDrawMode] = useState(false);
   // Active wall: the wall the user has highlighted. New items drop onto it, and
@@ -323,7 +356,7 @@ export default function DesignTool() {
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory" | "furniture">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory" | "furniture" | "surfaces">("base");
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
   // Backsplash material: shown in elevation view between countertop and wall cabinets.
@@ -476,7 +509,7 @@ export default function DesignTool() {
     trpc.design.placeableCabinets.useQuery(
       {
         placement:
-          paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture"
+          paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces"
             ? "base"
             : paletteType === "corner" || paletteType === "vanity"
             ? "base"
@@ -491,9 +524,9 @@ export default function DesignTool() {
         // come from that distributor (member can still change color within it).
         distributorId: lockedDistributorId ?? undefined,
       },
-      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" }
+      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" }
     );
-  const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" ? false : paletteLoadingRaw;
+  const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces" ? false : paletteLoadingRaw;
 
   // A dedicated, full base-cabinet list for the active line, used by the
   // Auto-Fill engine (independent of which palette tab/search is active).
@@ -676,7 +709,7 @@ export default function DesignTool() {
   // view). Used to show "N cabinets available in <style>" so a smaller per-finish
   // lineup (e.g. Air Dawn) is obvious instead of looking "empty/broken".
   const availableInStyleCount = useMemo(() => {
-    if (paletteType === "opening" || paletteType === "closetparts" || paletteType === "appliance") {
+    if (paletteType === "opening" || paletteType === "closetparts" || paletteType === "appliance" || paletteType === "furniture" || paletteType === "surfaces") {
       return null;
     }
     if (paletteType === "corner") {
@@ -3421,8 +3454,8 @@ export default function DesignTool() {
   // (the DesignActions toolbar itself is desktop-only / hidden on phones).
   const [saveSignal, setSaveSignal] = useState(0);
   const [loadSignal, setLoadSignal] = useState(0);
-  const [flooringSheetOpen, setFlooringSheetOpen] = useState(false);
-  const [backsplashSheetOpen, setBacksplashSheetOpen] = useState(false);
+  // (Generic flooring/backsplash swatch sheets removed — surfaces now come from
+  //  real Pelican recommendations in the "Surfaces" palette tab.)
   const [hardwareSheetOpen, setHardwareSheetOpen] = useState(false);
   const [trimSheetOpen, setTrimSheetOpen] = useState(false);
   // Flag: set to true when a cabinet is freshly placed from the palette so the
@@ -3724,33 +3757,15 @@ export default function DesignTool() {
                 <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Finishes &amp; Trim</p>
                 <div className="px-1 pb-1">
 
-                  {/* Flooring */}
+                  {/* Flooring & Backsplash are now chosen from real Pelican
+                      recommendations in the "Surfaces" palette tab (generic
+                      swatch pickers removed). */}
                   <button
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setFlooringSheetOpen(true), 120); }}
+                    onClick={() => { setMoreSheetOpen(false); setPaletteType("surfaces"); setMobilePanel("catalog"); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted transition-colors"
                   >
-                    <Footprints className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="flex-1 text-left text-sm font-medium">Flooring</span>
-                    {flooringMaterialId && (
-                      <span className="text-[10px] text-muted-foreground mr-1">
-                        {FLOORING_MATERIALS.find((f) => f.id === flooringMaterialId)?.name}
-                      </span>
-                    )}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </button>
-
-                  {/* Backsplash */}
-                  <button
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setBacksplashSheetOpen(true), 120); }}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted transition-colors"
-                  >
-                    <Layers2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="flex-1 text-left text-sm font-medium">Backsplash</span>
-                    {backsplashMaterialId && (
-                      <span className="text-[10px] text-muted-foreground mr-1">
-                        {BACKSPLASH_MATERIALS.find((b) => b.id === backsplashMaterialId)?.name}
-                      </span>
-                    )}
+                    <Waves className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left text-sm font-medium">Flooring, Backsplash &amp; Surfaces</span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </button>
 
@@ -3871,109 +3886,9 @@ export default function DesignTool() {
             </SheetContent>
           </Sheet>
 
-          {/* ── Flooring sub-sheet ──────────────────────────────────────── */}
-          <Sheet open={flooringSheetOpen} onOpenChange={setFlooringSheetOpen}>
-            <SheetContent side="bottom" className="flex max-h-[75vh] flex-col rounded-t-2xl p-0">
-              <SheetHeader className="border-b px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setFlooringSheetOpen(false); setTimeout(() => setMoreSheetOpen(true), 120); }}
-                    className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted"
-                  >
-                    <ChevronRight className="h-4 w-4 rotate-180" />
-                  </button>
-                  <SheetTitle className="text-base">Flooring</SheetTitle>
-                </div>
-              </SheetHeader>
-              <div className="flex-1 overflow-y-auto overscroll-contain p-3" style={{ WebkitOverflowScrolling: "touch" }}>
-                <p className="mb-2 text-xs text-muted-foreground">Tap a material to apply it to the floor view. Tap again to remove.</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {FLOORING_MATERIALS.map((fm) => (
-                    <button
-                      key={fm.id}
-                      type="button"
-                      onClick={() => setFlooringMaterialId(flooringMaterialId === fm.id ? null : fm.id)}
-                      className={`flex items-center gap-3 rounded-xl border p-3 text-left text-sm font-medium transition-colors ${
-                        flooringMaterialId === fm.id
-                          ? "border-[#1a2744] bg-[#1a2744]/8 text-[#1a2744]"
-                          : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40"
-                      }`}
-                    >
-                      <span
-                        className="h-10 w-10 rounded-lg shrink-0"
-                        style={{
-                          background: fm.fill,
-                          border: `1px solid ${fm.grout}`,
-                          backgroundImage: fm.pattern === "hardwood" || fm.pattern === "plank"
-                            ? `repeating-linear-gradient(90deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent 12px)`
-                            : fm.pattern === "tile-grid"
-                            ? `repeating-linear-gradient(0deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent 10px)`
-                            : fm.pattern === "herringbone"
-                            ? `repeating-linear-gradient(45deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent 8px)`
-                            : undefined,
-                        }}
-                      />
-                      <span className="leading-tight">{fm.name}</span>
-                      {flooringMaterialId === fm.id && <Check className="ml-auto h-4 w-4 shrink-0 text-[#1a2744]" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          {/* ── Backsplash sub-sheet ─────────────────────────────────────── */}
-          <Sheet open={backsplashSheetOpen} onOpenChange={setBacksplashSheetOpen}>
-            <SheetContent side="bottom" className="flex max-h-[75vh] flex-col rounded-t-2xl p-0">
-              <SheetHeader className="border-b px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setBacksplashSheetOpen(false); setTimeout(() => setMoreSheetOpen(true), 120); }}
-                    className="-ml-1 rounded-md p-1 text-muted-foreground hover:bg-muted"
-                  >
-                    <ChevronRight className="h-4 w-4 rotate-180" />
-                  </button>
-                  <SheetTitle className="text-base">Backsplash</SheetTitle>
-                </div>
-              </SheetHeader>
-              <div className="flex-1 overflow-y-auto overscroll-contain p-3" style={{ WebkitOverflowScrolling: "touch" }}>
-                <p className="mb-2 text-xs text-muted-foreground">Tap a tile style to apply it to the backsplash area. Tap again to remove.</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {BACKSPLASH_MATERIALS.map((bm) => (
-                    <button
-                      key={bm.id}
-                      type="button"
-                      onClick={() => setBacksplashMaterialId(backsplashMaterialId === bm.id ? null : bm.id)}
-                      className={`flex items-center gap-3 rounded-xl border p-3 text-left text-sm font-medium transition-colors ${
-                        backsplashMaterialId === bm.id
-                          ? "border-[#1a2744] bg-[#1a2744]/8 text-[#1a2744]"
-                          : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40"
-                      }`}
-                    >
-                      <span
-                        className="h-10 w-10 rounded-lg shrink-0"
-                        style={{
-                          background: bm.fill,
-                          border: `1px solid ${bm.grout}`,
-                          backgroundImage: bm.pattern === "subway"
-                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 8px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 16px)`
-                            : bm.pattern === "large-format"
-                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 10px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 10px)`
-                            : bm.pattern === "mosaic"
-                            ? `repeating-linear-gradient(0deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 5px), repeating-linear-gradient(90deg, ${bm.grout} 0px, ${bm.grout} 1px, transparent 1px, transparent 5px)`
-                            : undefined,
-                        }}
-                      />
-                      <span className="leading-tight">{bm.name}</span>
-                      {backsplashMaterialId === bm.id && <Check className="ml-auto h-4 w-4 shrink-0 text-[#1a2744]" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+          {/* Generic flooring & backsplash swatch sub-sheets removed — surfaces
+              are now chosen from real Pelican recommendations in the "Surfaces"
+              palette tab. */}
 
           {/* ── Hardware sub-sheet ───────────────────────────────────────── */}
           <Sheet open={hardwareSheetOpen} onOpenChange={setHardwareSheetOpen}>
@@ -4723,10 +4638,10 @@ export default function DesignTool() {
               {(roomType === "closet"
                 ? (["closetparts", "base", "wall", "tall", "opening", "accessory"] as const)
                 : roomType === "bathroom"
-                ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "opening", "accessory"] as const)
+                ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "opening", "accessory"] as const)
                 : roomType === "laundry"
-                ? (["appliance", "base", "corner", "wall", "wallht", "tall", "opening", "accessory"] as const)
-                : (["base", "corner", "wall", "wallht", "tall", "appliance", "opening", "accessory", "furniture"] as const)
+                ? (["appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "opening", "accessory"] as const)
+                : (["base", "corner", "wall", "wallht", "tall", "appliance", "surfaces", "opening", "accessory", "furniture"] as const)
               ).map((tab) => (
                 <button
                   key={tab}
@@ -4737,6 +4652,8 @@ export default function DesignTool() {
                 >
                   {tab === "appliance"
                     ? (roomType === "bathroom" || roomType === "laundry" ? t("dt_tab_fixtures") : t("dt_tab_appli"))
+                    : tab === "surfaces"
+                    ? "Surfaces"
                     : tab === "opening"
                     ? t("dt_tab_door_win")
                     : tab === "wallht"
@@ -4790,6 +4707,7 @@ export default function DesignTool() {
             {!styleId &&
               paletteType !== "opening" &&
               paletteType !== "closetparts" &&
+              paletteType !== "surfaces" &&
               paletteType !== "accessory" && (
                 <div className="mb-2 rounded-lg border border-[#a87f33]/40 bg-[#a87f33]/10 px-3 py-3 text-center space-y-2">
                   <p className="text-xs font-semibold text-foreground">
@@ -4834,7 +4752,13 @@ export default function DesignTool() {
                   <span>{t("dt_pl_avail_lineup_note")}</span>
                 </div>
               )}
-            {paletteType === "furniture" ? (
+            {paletteType === "surfaces" ? (
+              <RecommendedSurfaces
+                selected={selectedSurfaces}
+                onToggle={addRecommendedSurface}
+                onBrowseAll={() => setSurfacesOpen(true)}
+              />
+            ) : paletteType === "furniture" ? (
               (() => {
                 const cats = ["table", "chair", "stool", "bench"] as const;
                 const catLabels: Record<string, string> = { table: "Tables", chair: "Chairs", stool: "Stools", bench: "Benches" };
@@ -5000,7 +4924,7 @@ export default function DesignTool() {
                 );
               })
             )}
-            {paletteType !== "opening" && !paletteLoading && filteredPalette.length === 0 && (
+            {paletteType !== "opening" && paletteType !== "surfaces" && paletteType !== "furniture" && !paletteLoading && filteredPalette.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">
                 {paletteSearch
                   ? t("dt_pl_no_match")

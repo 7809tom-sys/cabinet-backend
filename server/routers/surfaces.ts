@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { inArray, and, eq, desc } from "drizzle-orm";
+import { inArray, and, eq, desc, asc, isNotNull, ne } from "drizzle-orm";
 import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
@@ -61,7 +61,95 @@ const SelectionItem = z.object({
   role: z.enum(["flooring", "tile", "countertop", "sink", "faucet"]).optional(),
 });
 
+// Roles the Designer surfaces into: each maps to a real Pelican category (and
+// subCategory where a category is shared, e.g. Sinks & Faucets). This is the
+// single server-side source of truth for the Designer's recommended lists.
+const RECOMMENDED_ROLE = z.enum(["flooring", "backsplash", "countertop", "sink", "faucet"]);
+type RecommendedRole = z.infer<typeof RECOMMENDED_ROLE>;
+
+function roleFilter(role: RecommendedRole) {
+  switch (role) {
+    case "flooring":
+      // Only actual floor planks/tile — exclude moldings/trim & underlayment.
+      return and(
+        eq(pelicanProducts.category, "Flooring"),
+        eq(pelicanProducts.subCategory, "Planks & Flooring")
+      );
+    case "backsplash":
+      return eq(pelicanProducts.category, "Tile & Mosaic");
+    case "countertop":
+      return eq(pelicanProducts.category, "Quartz Slabs (Countertops)");
+    case "sink":
+      return and(
+        eq(pelicanProducts.category, "Sinks & Faucets"),
+        eq(pelicanProducts.subCategory, "Sinks")
+      );
+    case "faucet":
+      return and(
+        eq(pelicanProducts.category, "Sinks & Faucets"),
+        eq(pelicanProducts.subCategory, "Faucets")
+      );
+  }
+}
+
 export const surfacesRouter = router({
+  // A short, curated set of recommended real Pelican products PER ROLE for the
+  // Design Tool's surface sections (flooring / backsplash / countertop / sink /
+  // faucet). Popular-first, then items that have a real photo, then by name.
+  // Only priced items with a photo are returned so every tile renders cleanly.
+  recommended: publicProcedure
+    .input(
+      z.object({
+        role: RECOMMENDED_ROLE,
+        limit: z.number().int().min(1).max(24).default(8),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [] as Array<Record<string, unknown>>;
+      const map = await loadMarkupMap(db);
+      const rows = await db
+        .select()
+        .from(pelicanProducts)
+        .where(
+          and(
+            roleFilter(input.role),
+            eq(pelicanProducts.isActive, true),
+            eq(pelicanProducts.showInDesigner, true),
+            isNotNull(pelicanProducts.imageUrl),
+            ne(pelicanProducts.imageUrl, "")
+          )
+        )
+        .orderBy(
+          desc(pelicanProducts.isPopular),
+          asc(pelicanProducts.popularRank),
+          asc(pelicanProducts.name)
+        )
+        // Over-fetch so the accessory filter below can't starve the list.
+        .limit(input.limit + 12);
+      // A handful of parts are mis-filed under "Sinks"/"Faucets" (clips, grids,
+      // strainers, templates, mounting hardware). Keep the recommended list to
+      // actual fixtures by dropping obvious accessory names.
+      const ACCESSORY = /clip|strainer|\bgrid\b|template|mounting|drain assembly|flange|cutting board|colander|bottom grid|rinse basket/i;
+      return rows
+        .map((r) => ({
+          id: r.id,
+          slug: r.slug,
+          name: r.name,
+          category: r.category,
+          subCategory: r.subCategory,
+          size: r.size,
+          imageUrl: r.imageUrl,
+          sellPrice: sellPriceOf(r, map),
+        }))
+        .filter((r) => r.sellPrice != null)
+        .filter((r) => {
+          if (input.role === "sink" || input.role === "faucet") return !ACCESSORY.test(r.name);
+          return true;
+        })
+        .slice(0, input.limit);
+    }),
+
   // Fetch full product records (with sell price) for a set of ids — used by the wizard summary.
   byIds: publicProcedure
     .input(z.object({ ids: z.array(z.number().int().positive()).max(40) }))
