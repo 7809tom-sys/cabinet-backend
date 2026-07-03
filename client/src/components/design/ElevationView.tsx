@@ -100,6 +100,7 @@ export function ElevationView({
   const dragAxis = useRef<"along" | "vertical" | null>(null);
   const vDragStartY = useRef(0);
   const vDragStartBottom = useRef(0);
+  const capturedPointerId = useRef<number | null>(null);
 
   // Normalize legacy "front"/"back" to plan WallSide values.
   const side: WallSide =
@@ -201,7 +202,12 @@ export function ElevationView({
           dragAxis.current = null;
           vDragStartY.current = e.clientY;
           vDragStartBottom.current = bottom;
-          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          // Capture on the WALL container so pointermove fires there (not on
+          // the tiny cabinet div which mobile browsers isolate after capture).
+          if (wallInnerRef.current) {
+            wallInnerRef.current.setPointerCapture(e.pointerId);
+            capturedPointerId.current = e.pointerId;
+          }
         } : undefined}
         onClick={(e) => {
           e.stopPropagation();
@@ -379,7 +385,11 @@ export function ElevationView({
     onMove(dragUid, newX, newY);
   };
 
-  const handleWallPointerUp = () => {
+  const handleWallPointerUp = (e?: React.PointerEvent) => {
+    if (capturedPointerId.current != null && wallInnerRef.current) {
+      try { wallInnerRef.current.releasePointerCapture(capturedPointerId.current); } catch { /* already released */ }
+      capturedPointerId.current = null;
+    }
     setDragUid(null);
     dragAxis.current = null;
   };
@@ -432,51 +442,59 @@ export function ElevationView({
       className="relative w-full h-full overflow-hidden bg-gradient-to-b from-[#dde6f0] to-[#eef1f5] select-none touch-none"
       onClick={() => onSelect(null)}
     >
-      {/* Floor plane: a wood-look band across the bottom so the room reads as
-          sitting ON a floor (rather than cabinets floating). Its TOP edge lines
-          up with the wall box bottom (y=0), i.e. at `bottom: PADDING`. A darker
-          baseboard/contact line sits right at that seam. */}
+      {/* Centering wrapper: positions the wall + floor assembly in the vertical
+          center of the viewport so it doesn't float to the bottom on tall/narrow
+          mobile screens. */}
       <div
-        className="absolute left-0 right-0 pointer-events-none"
-        style={{
-          bottom: 0,
-          height: PADDING,
-          background:
-            "repeating-linear-gradient(90deg, #d8bd97 0px, #cbae86 3px, #d8bd97 6px, #d2b389 9px), linear-gradient(180deg, #d8bd97 0%, #c2a271 100%)",
-          borderTop: "3px solid #8a6f49",
-          boxShadow: "inset 0 6px 10px -6px rgba(0,0,0,0.35)",
-        }}
-      />
-      {/* Soft contact shadow where the wall/cabinets meet the floor. */}
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          bottom: PADDING - 2,
-          height: 8,
-          left: "50%",
-          width: wallPxW,
-          transform: "translateX(-50%)",
-          background: "linear-gradient(180deg, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 100%)",
-        }}
-      />
-      <div
-        ref={wallInnerRef}
         className="absolute"
-        onPointerMove={handleWallPointerMove}
-        onPointerUp={handleWallPointerUp}
-        onPointerLeave={handleWallPointerUp}
         style={{
-          width: wallPxW,
-          height: wallPxH,
           left: "50%",
-          bottom: PADDING,
-          transform: "translateX(-50%)",
-          background: "linear-gradient(to bottom, #f7f9fc 0%, #eef2f7 100%)",
-          borderLeft: "2px solid #1a2744",
-          borderRight: "2px solid #1a2744",
-          borderTop: "2px solid #1a2744",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          width: wallPxW,
+          height: wallPxH + PADDING,
         }}
       >
+        {/* Floor plane */}
+        <div
+          className="absolute left-0 right-0 pointer-events-none"
+          style={{
+            bottom: 0,
+            height: PADDING,
+            background:
+              "repeating-linear-gradient(90deg, #d8bd97 0px, #cbae86 3px, #d8bd97 6px, #d2b389 9px), linear-gradient(180deg, #d8bd97 0%, #c2a271 100%)",
+            borderTop: "3px solid #8a6f49",
+            boxShadow: "inset 0 6px 10px -6px rgba(0,0,0,0.35)",
+          }}
+        />
+        {/* Soft contact shadow where the wall/cabinets meet the floor. */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            bottom: PADDING - 2,
+            height: 8,
+            left: 0,
+            width: wallPxW,
+            background: "linear-gradient(180deg, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 100%)",
+          }}
+        />
+        <div
+          ref={wallInnerRef}
+          className="absolute"
+          onPointerMove={handleWallPointerMove}
+          onPointerUp={handleWallPointerUp}
+          onPointerLeave={handleWallPointerUp}
+          style={{
+            width: wallPxW,
+            height: wallPxH,
+            left: 0,
+            bottom: PADDING,
+            background: "linear-gradient(to bottom, #f7f9fc 0%, #eef2f7 100%)",
+            borderLeft: "2px solid #1a2744",
+            borderRight: "2px solid #1a2744",
+            borderTop: "2px solid #1a2744",
+          }}
+        >
         <div className="absolute left-0 right-0 bottom-0 border-b-[3px] border-[#1a2744]" />
         {/* Sloped ceiling overlay: when this wall has an angled ceiling, shade the
             dead space above the slope line (outside the room) and draw the slope
@@ -998,8 +1016,8 @@ export function ElevationView({
             </div>
           );
         })}
-      </div>
-
+            </div>
+      </div>{/* end centering wrapper */}
       {/* Wall switcher: flip the displayed wall straight from the elevation
           panel. Falls back to a static label when no handler is provided. */}
       {hideSwitcher ? null : onSelectWall ? (

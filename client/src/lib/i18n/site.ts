@@ -1154,7 +1154,9 @@ export const SITE_STRINGS = {
     dt_gap_combo_toast: "Placed {code} + {filler} filler",
     // --- Over-the-range microwave rule ---
     dt_otr_snapped_over_range: "Microwave mounted over the range",
-    dt_otr_bridge_suggestion: "Tip: add a bridge wall cabinet ({code}) above the microwave to cap the run.",
+    dt_otr_bridge_suggestion: "Place a {code} bridge cabinet above the microwave?",
+    dt_otr_bridge_placed: "Bridge cabinet {code} placed above microwave.",
+    dt_otr_bridge_no_match: "No matching bridge cabinet found in the current style.",
     // --- Wall cabinet height prompt + suggestion ---
     dt_wall_height_prompt: "What wall cabinet height for this room?",
     dt_wall_height_prompt_desc: "Choose the standard height for wall cabinets. You can change this later in Room Settings.",
@@ -1168,6 +1170,9 @@ export const SITE_STRINGS = {
     dt_wall_height_label: "Wall cab height",
     dt_wec_suggest: "Add an open-end shelf next to the window?",
     dt_fill_suggest: "Add a {w}\" wall cabinet to fill the gap?",
+    dt_diag_corner_suggest: "Place 12\" wall cabinets on both sides of the diagonal corner?",
+    dt_diag_corner_placed: "12\" wall cabinets placed on both sides of the diagonal corner.",
+    dt_diag_corner_partial: "12\" wall cabinet placed on one side (no room on the other).",
     dt_wine_rack_suggest: "Replace with a wine rack combo? (wine rack + bridge + stem glass holder)",
     dt_wine_rack_no_match: "Wine rack cabinet not available in this style.",
     dt_wine_rack_placed: "Wine rack combo placed: {parts}",
@@ -2445,7 +2450,9 @@ export const SITE_STRINGS = {
     dt_gap_combo_toast: "Se colocó {code} + relleno de {filler}",
     // --- Regla del microondas sobre la estufa ---
     dt_otr_snapped_over_range: "Microondas montado sobre la estufa",
-    dt_otr_bridge_suggestion: "Sugerencia: agregue un gabinete puente ({code}) sobre el microondas para rematar la fila.",
+    dt_otr_bridge_suggestion: "¿Colocar un gabinete puente {code} sobre el microondas?",
+    dt_otr_bridge_placed: "Gabinete puente {code} colocado sobre el microondas.",
+    dt_otr_bridge_no_match: "No se encontró un gabinete puente en el estilo actual.",
     // --- Altura de gabinetes superiores + sugerencia ---
     dt_wall_height_prompt: "¿Qué altura de gabinete superior para esta habitación?",
     dt_wall_height_prompt_desc: "Elija la altura estándar para gabinetes superiores. Puede cambiarla después en Configuración de Habitación.",
@@ -2459,6 +2466,9 @@ export const SITE_STRINGS = {
     dt_wall_height_label: "Altura superior",
     dt_wec_suggest: "¿Agregar un estante abierto junto a la ventana?",
     dt_fill_suggest: "¿Agregar un gabinete superior de {w}\" para llenar el espacio?",
+    dt_diag_corner_suggest: "¿Colocar gabinetes superiores de 12\" a ambos lados de la esquina diagonal?",
+    dt_diag_corner_placed: "Gabinetes superiores de 12\" colocados a ambos lados de la esquina diagonal.",
+    dt_diag_corner_partial: "Gabinete superior de 12\" colocado en un lado (sin espacio en el otro).",
     dt_wine_rack_suggest: "¿Reemplazar con combo de vinoteca? (vinoteca + puente + porta copas)",
     dt_wine_rack_no_match: "Vinoteca no disponible en este estilo.",
     dt_wine_rack_placed: "Combo de vinoteca colocado: {parts}",

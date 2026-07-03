@@ -121,3 +121,18 @@
 - [x] Hardware Catalog — already fully implemented (5 styles, elevation rendering, piece counting, build sheet export)
 - [x] Stacked Moldings — already supported (crown + light rail are independent toggles that render simultaneously)
 - [x] Fabricator Countertop Sheet — dimensioned SVG drawing per wall run + island; shows material, edge profile, sink cutouts, seam locations, backsplash spec; print-optimized
+
+## Bug: Bridge/wall cabinet can't move up/down on mobile (Front View)
+
+- [x] Fix vertical drag for wall cabinets in Front View on mobile (pointer capture moved to wall container so both horizontal and vertical drag work on touch devices)
+- [x] Ensure bridge cabinets above microwave can be repositioned vertically
+
+## Feature: Auto-suggest bridge cabinet above microwave
+
+- [x] When a microwave (MW-*) is placed, auto-suggest a bridge cabinet above it (similar to wall-above-base suggestion)
+
+## Feature: Diagonal wall corner cabinet → suggest 12" wall cabinets on both sides
+
+- [x] When a diagonal wall corner cabinet (WDC-*) is placed, suggest placing 12" wall cabinets on both the left and right adjacent walls
+- [x] Auto-place the 12" wall cabinets at the correct offset (flush to the diagonal corner's edges) when user taps Yes
+- [x] Add EN/ES i18n keys for the suggestion toast

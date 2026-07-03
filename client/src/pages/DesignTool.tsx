@@ -58,8 +58,8 @@ import {
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine,
-  isRangeOrOven, isOverRangeMicrowave, bridgeCabinetCodeForWidth, isRefrigerator,
-  staggeredMountBottom, fridgeCornerUpperDepth,
+  isRangeOrOven, isOverRangeMicrowave, bridgeCabinetCodeForWidth, bridgeHeightForWallHeight, isRefrigerator,
+  staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -1995,7 +1995,67 @@ export default function DesignTool() {
             toast.success(t("dt_otr_snapped_over_range"));
             // Suggest the matching bridge wall cabinet to cap the run above it.
             const bridgeCode = bridgeCabinetCodeForWidth(width, wallCabHeightRef.current);
-            toast.info(t("dt_otr_bridge_suggestion", { code: bridgeCode }));
+            const mwHeight = mwDef?.elevHeight ?? 17;
+            // Capture placement context for the deferred onClick closure.
+            const bridgeTargetWall = targetWall;
+            const bridgeMwBottom = otrMountBottom!;
+            const bridgeMwHeight = mwHeight;
+            const bridgeSpot = { ...spot };
+            toast(t("dt_otr_bridge_suggestion", { code: bridgeCode }), {
+              duration: 10000,
+              action: {
+                label: t("dt_wall_cab_suggest_yes"),
+                onClick: () => {
+                  const pool = wallCabPoolRef.current;
+                  const wantedH = wallCabHeightRef.current;
+                  const bh = bridgeHeightForWallHeight(wantedH);
+                  // Find the bridge cabinet in the pool: W-{width}-{bridgeHeight}
+                  const bridgeMatch = pool.find((w) => {
+                    const mc = (w.masterCode || "").toUpperCase();
+                    const ww = parseFloat(String(w.width ?? "0"));
+                    const hh = parseFloat(String(w.height ?? "0"));
+                    return mc.startsWith("W-") && Math.abs(ww - width) < 0.5 && Math.abs(hh - bh) < 1.5;
+                  });
+                  if (!bridgeMatch) {
+                    toast.error(t("dt_otr_bridge_no_match"));
+                    return;
+                  }
+                  const bw = parseFloat(String(bridgeMatch.width ?? width)) || width;
+                  const bHt = parseFloat(String(bridgeMatch.height ?? bh)) || bh;
+                  const bd = STD.WALL_DEPTH;
+                  // Bridge mounts directly above the microwave: MW bottom + MW height
+                  const bridgeMountBottom = bridgeMwBottom + bridgeMwHeight;
+                  const horiz = bridgeTargetWall === "top" || bridgeTargetWall === "bottom";
+                  const along = horiz ? bridgeSpot.x : bridgeSpot.y;
+                  const bSpot = wallPlacementAt(along, bw, bd, bridgeTargetWall, room);
+                  const newBridge: PlacedCabinet = {
+                    uid: makeUid(),
+                    cabinetId: bridgeMatch.id,
+                    masterCode: bridgeMatch.masterCode,
+                    description: bridgeMatch.description,
+                    category: bridgeMatch.category ?? null,
+                    subCategory: bridgeMatch.subCategory ?? null,
+                    placement: "wall",
+                    x: bSpot.x,
+                    y: bSpot.y,
+                    width: bw,
+                    nominalWidth: bw,
+                    depth: bd,
+                    nominalDepth: bd,
+                    height: bHt,
+                    nominalHeight: bHt,
+                    rotation: bSpot.rotation,
+                    numberOfDoors: bridgeMatch.numberOfDoors ?? undefined,
+                    catalogImageUrl: bridgeMatch.catalogImageUrl ?? null,
+                    styleId: styleIdRef.current ?? null,
+                    mountBottom: bridgeMountBottom,
+                  };
+                  setPlaced((prev) => [...prev, newBridge]);
+                  toast.success(t("dt_otr_bridge_placed", { code: bridgeMatch.masterCode }));
+                },
+              },
+              cancel: { label: t("dt_wall_cab_suggest_no"), onClick: () => {} },
+            });
           }
         }
         const newCab: PlacedCabinet = {
@@ -2640,6 +2700,127 @@ export default function DesignTool() {
             });
             } // end if (preWrc && preSgh && preBridge)
           }
+        }
+
+        // ── Diagonal wall corner → suggest 12" wall cabinets on both sides ──
+        // When a diagonal wall corner cabinet (WDC/DCW) is placed, it sits in
+        // the corner spanning 24" on each adjacent wall. Suggest placing 12"
+        // wall cabinets on both the left and right sides of the diagonal to
+        // fill the transition to the standard run.
+        if (accPlacement === "wall" && isDiagonalCorner(c.masterCode, c.description || undefined) && !isStacker(c)) {
+          toast(t("dt_diag_corner_suggest"), {
+            duration: 10000,
+            action: {
+              label: t("dt_wall_cab_suggest_yes"),
+              onClick: () => {
+                const pool = wallCabPoolRef.current;
+                const wantedH = wallCabHeightRef.current;
+                // Find a 12" wall cabinet matching the wanted height
+                const widthMatches = pool.filter((w) => {
+                  const ww = parseFloat(String(w.width ?? "0"));
+                  return Math.abs(ww - 12) < 0.5;
+                });
+                const heightMatch = widthMatches.find((w) => {
+                  const hh = parseFloat(String(w.height ?? "0"));
+                  return Math.abs(hh - wantedH) < 0.5;
+                }) ?? widthMatches[0];
+                if (!heightMatch) {
+                  toast.error(t("dt_wall_cab_suggest_no_match", { w: "12" }));
+                  return;
+                }
+                const wallCab12 = heightMatch;
+                const ww12 = 12;
+                const wh12 = parseFloat(String(wallCab12.height ?? wantedH)) || wantedH;
+                const wd12 = STD.WALL_DEPTH;
+                const topLine = wallCabinetTopLine(room);
+                const mb12 = Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, wh12));
+                // The diagonal corner cabinet occupies a 24x24 square in the corner.
+                // It touches TWO perpendicular walls. We need to place a 12" wall cab
+                // on each adjacent wall, flush to the diagonal's edge.
+                // Determine which two walls the corner touches.
+                const fp = placedFootprint(newCab);
+                const nearLeft = newCab.x <= 2;
+                const nearRight = Math.abs(newCab.x + fp.w - room.width) <= 2;
+                const nearTop = newCab.y <= 2;
+                const nearBottom = Math.abs(newCab.y + fp.d - room.depth) <= 2;
+                const placed12: PlacedCabinet[] = [];
+                // Place on the horizontal wall (top or bottom) at offset = corner width (24")
+                if (nearTop || nearBottom) {
+                  const hSide: WallSide = nearTop ? "top" : "bottom";
+                  // Along = just past the diagonal's footprint on the horizontal wall.
+                  // If the corner is at the LEFT edge, the 12" cab goes to the RIGHT of it.
+                  // If the corner is at the RIGHT edge, the 12" cab goes to the LEFT of it.
+                  const hAlong = nearLeft ? fp.w : (newCab.x - ww12);
+                  // Ensure the 12" cab stays within the room bounds
+                  if (hAlong >= -0.5 && hAlong + ww12 <= room.width + 0.5) {
+                    const hSpot = wallPlacementAt(hAlong, ww12, wd12, hSide, room);
+                    placed12.push({
+                      uid: makeUid(),
+                      cabinetId: wallCab12.id,
+                      masterCode: wallCab12.masterCode,
+                      description: wallCab12.description,
+                      category: wallCab12.category ?? null,
+                      subCategory: wallCab12.subCategory ?? null,
+                      placement: "wall",
+                      x: hSpot.x,
+                      y: hSpot.y,
+                      width: ww12,
+                      nominalWidth: ww12,
+                      depth: wd12,
+                      nominalDepth: wd12,
+                      height: wh12,
+                      nominalHeight: wh12,
+                      rotation: hSpot.rotation,
+                      numberOfDoors: wallCab12.numberOfDoors ?? undefined,
+                      catalogImageUrl: wallCab12.catalogImageUrl ?? null,
+                      styleId: styleIdRef.current ?? null,
+                      mountBottom: mb12,
+                    });
+                  }
+                }
+                // Place on the vertical wall (left or right) at offset = corner depth (24")
+                if (nearLeft || nearRight) {
+                  const vSide: WallSide = nearLeft ? "left" : "right";
+                  // Along = just past the diagonal's footprint on the vertical wall.
+                  // If the corner is at the TOP edge, the 12" cab goes BELOW it.
+                  // If the corner is at the BOTTOM edge, the 12" cab goes ABOVE it.
+                  const vAlong = nearTop ? fp.d : (newCab.y - ww12);
+                  if (vAlong >= -0.5 && vAlong + ww12 <= room.depth + 0.5) {
+                    const vSpot = wallPlacementAt(vAlong, ww12, wd12, vSide, room);
+                    placed12.push({
+                      uid: makeUid(),
+                      cabinetId: wallCab12.id,
+                      masterCode: wallCab12.masterCode,
+                      description: wallCab12.description,
+                      category: wallCab12.category ?? null,
+                      subCategory: wallCab12.subCategory ?? null,
+                      placement: "wall",
+                      x: vSpot.x,
+                      y: vSpot.y,
+                      width: ww12,
+                      nominalWidth: ww12,
+                      depth: wd12,
+                      nominalDepth: wd12,
+                      height: wh12,
+                      nominalHeight: wh12,
+                      rotation: vSpot.rotation,
+                      numberOfDoors: wallCab12.numberOfDoors ?? undefined,
+                      catalogImageUrl: wallCab12.catalogImageUrl ?? null,
+                      styleId: styleIdRef.current ?? null,
+                      mountBottom: mb12,
+                    });
+                  }
+                }
+                if (placed12.length > 0) {
+                  setPlaced((prev) => [...prev, ...placed12]);
+                  toast.success(t(placed12.length === 2 ? "dt_diag_corner_placed" : "dt_diag_corner_partial"));
+                } else {
+                  toast.error(t("dt_wall_cab_suggest_no_match", { w: "12" }));
+                }
+              },
+            },
+            cancel: { label: t("dt_wall_cab_suggest_no"), onClick: () => {} },
+          });
         }
 
         return [...prev, newCab];
