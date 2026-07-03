@@ -2133,19 +2133,32 @@ export function isOverRangeMicrowave(p: {
 }
 
 // The standard short "bridge" wall cabinet SKU that mounts directly above an
-// over-range microwave of a given width. Bridge cabinets are 12"-tall wall
-// cabinets (the shortest stock height) whose width matches the appliance below,
-// so a 30" OTR pairs with W-30-12 and a 36" cooktop pairs with W-36-12. Widths
-// that are not a stock bridge width snap to the nearest available stock width
-// (30, 33, or 36) so we always suggest a real, orderable SKU.
+// over-range microwave of a given width. Bridge cabinets fill the gap between
+// the OTR microwave top and the wall cabinet top line. The bridge height depends
+// on the chosen wall cabinet height:
+//   30" walls → 12" bridge (classic)
+//   36" walls → 18" bridge
+//   42" walls → 24" bridge
+// Widths that are not a stock bridge width snap to the nearest available stock
+// width (30, 33, or 36) so we always suggest a real, orderable SKU.
 export const BRIDGE_STOCK_WIDTHS = [30, 33, 36] as const;
-export function bridgeCabinetCodeForWidth(width: number): string {
+export const BRIDGE_STOCK_HEIGHTS = [12, 15, 18, 24] as const;
+
+/** Map wall cabinet height to the appropriate bridge height. */
+export function bridgeHeightForWallHeight(wallCabH: number): number {
+  if (wallCabH >= 42) return 24;
+  if (wallCabH >= 36) return 18;
+  return 12;
+}
+
+export function bridgeCabinetCodeForWidth(width: number, wallCabHeight?: number): string {
   const w = Number.isFinite(width) ? width : 30;
   // Snap to the nearest stock bridge width.
   const nearest = BRIDGE_STOCK_WIDTHS.reduce((best, cand) =>
     Math.abs(cand - w) < Math.abs(best - w) ? cand : best
   , BRIDGE_STOCK_WIDTHS[0]);
-  return `W-${nearest}-12`;
+  const bh = bridgeHeightForWallHeight(wallCabHeight ?? 30);
+  return `W-${nearest}-${bh}`;
 }
 
 // True for a refrigerator appliance (FRIDGE-*). Refrigerators trigger the

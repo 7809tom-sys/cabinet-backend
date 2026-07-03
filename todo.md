@@ -88,6 +88,6 @@
 - [x] Add wall cabinet height room setting (42"/36"/30") - one-time prompt on first base cabinet
 - [x] After placing a base cabinet, prompt "Place matching wall cabinet above? Yes/No"
 - [x] If yes, auto-place a wall cabinet of the same width and selected height above the base cabinet
-- [ ] Use the height setting for bridge cabinet sizing
-- [ ] Respect window sill clearance when placing wall cabinet above
-- [ ] Corner base (24" exposed) → suggest 12" wall cabinet next to it
+- [x] Use the height setting for bridge cabinet sizing
+- [x] Respect window sill clearance when placing wall cabinet above
+- [x] Corner base (24" exposed) → suggest 12" wall cabinet next to it

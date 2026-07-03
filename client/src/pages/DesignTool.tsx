@@ -1900,7 +1900,7 @@ export default function DesignTool() {
             otrMountBottom = mwDef?.elevBottom ?? 54;
             toast.success(t("dt_otr_snapped_over_range"));
             // Suggest the matching bridge wall cabinet to cap the run above it.
-            const bridgeCode = bridgeCabinetCodeForWidth(width);
+            const bridgeCode = bridgeCabinetCodeForWidth(width, wallCabHeightRef.current);
             toast.info(t("dt_otr_bridge_suggestion", { code: bridgeCode }));
           }
         }
@@ -2016,6 +2016,33 @@ export default function DesignTool() {
           // blind corners (auto-filler), and corner bases (need corner wall cabs).
           if (!isSinkBaseCabinet(newCab) && !isBlindCorner(newCab.masterCode, newCab.description) && !isCornerCabinet(newCab.masterCode, newCab.description)) {
             const cabWidth = newCab.width;
+            // Window sill clearance: skip the suggestion if a window on the
+            // same wall vertically overlaps the wall cabinet zone. A window
+            // whose sill+height > mountBottom means the window extends into
+            // the wall cabinet zone, AND the window must overlap horizontally.
+            const wallSide = cabinetWall(newCab, room);
+            const horizontal = wallSide === "top" || wallSide === "bottom";
+            const cabStart = horizontal ? newCab.x : newCab.y;
+            const cabEnd = cabStart + cabWidth;
+            const wantedHForCheck = wallCabHeightRef.current;
+            const topLineForCheck = wallCabinetTopLine(room);
+            const mbForCheck = Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLineForCheck, wantedHForCheck));
+            const windowBlocks = openings.some((o) => {
+              if (o.side !== wallSide || o.kind !== "window") return false;
+              // Horizontal overlap (along the wall)
+              const oStart = o.offset;
+              const oEnd = o.offset + o.width;
+              const hGap = Math.max(oStart - cabEnd, cabStart - oEnd);
+              if (hGap >= WALL_OPENING_CLEARANCE_IN - 0.01) return false;
+              // Vertical overlap: window occupies [sill, sill+height];
+              // wall cabinet occupies [mountBottom, mountBottom+wallCabHeight].
+              const winTop = o.sill + o.height;
+              if (winTop <= mbForCheck + 0.5) return false; // window is below the wall cab
+              return true;
+            });
+            if (windowBlocks) {
+              // Don't suggest a wall cabinet above a base that's under a window.
+            } else {
             toast(t("dt_wall_cab_suggest", { w: String(Math.round(cabWidth)) }), {
               duration: 8000,
               action: {
@@ -2025,6 +2052,23 @@ export default function DesignTool() {
                   // user's height selection (from the earlier prompt) is used.
                   const pool = wallCabPoolRef.current;
                   const wantedH = wallCabHeightRef.current;
+                  // Re-check window clearance at click time with the final height.
+                  const clickTopLine = wallCabinetTopLine(room);
+                  const clickMb = Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(clickTopLine, wantedH));
+                  const clickWindowBlocks = openings.some((o) => {
+                    if (o.side !== wallSide || o.kind !== "window") return false;
+                    const oStart = o.offset;
+                    const oEnd = o.offset + o.width;
+                    const hGap = Math.max(oStart - cabEnd, cabStart - oEnd);
+                    if (hGap >= WALL_OPENING_CLEARANCE_IN - 0.01) return false;
+                    const winTop = o.sill + o.height;
+                    if (winTop <= clickMb + 0.5) return false;
+                    return true;
+                  });
+                  if (clickWindowBlocks) {
+                    toast.error("Cannot place wall cabinet here — window in the way.");
+                    return;
+                  }
                   const widthMatches = pool.filter((w) => {
                     const ww = parseFloat(String(w.width ?? "0"));
                     return Math.abs(ww - cabWidth) < 0.5;
@@ -2053,6 +2097,77 @@ export default function DesignTool() {
                     cabinetWall(newCab, room),
                     room
                   );
+                  const newWallCab: PlacedCabinet = {
+                    uid: makeUid(),
+                    cabinetId: wallCab.id,
+                    masterCode: wallCab.masterCode,
+                    description: wallCab.description,
+                    category: wallCab.category ?? null,
+                    subCategory: wallCab.subCategory ?? null,
+                    placement: "wall",
+                    x: wallSpot.x,
+                    y: wallSpot.y,
+                    width: ww,
+                    nominalWidth: ww,
+                    depth: wd,
+                    nominalDepth: wd,
+                    height: wh,
+                    nominalHeight: wh,
+                    rotation: wallSpot.rotation,
+                    numberOfDoors: wallCab.numberOfDoors ?? undefined,
+                    catalogImageUrl: wallCab.catalogImageUrl ?? null,
+                    styleId: styleIdRef.current ?? null,
+                    mountBottom: mb,
+                  };
+                  setPlaced((prev) => [...prev, newWallCab]);
+                  toast.success(t("dt_wall_cab_placed", { code: wallCab.masterCode }));
+                },
+              },
+              cancel: { label: t("dt_wall_cab_suggest_no"), onClick: () => {} },
+            });
+            } // end else (no windowBlocks)
+          }
+          // Corner base (24" exposed face) → suggest a 12" wall cabinet next to
+          // the corner wall cabinet to fill the exposed face. This is a common
+          // design pattern: a corner base has a 24" exposed side, and a 12" wall
+          // cabinet fills the gap between the corner wall cabinet and the next
+          // standard wall cabinet.
+          if (isCornerCabinet(newCab.masterCode, newCab.description) && !isBlindCorner(newCab.masterCode, newCab.description)) {
+            toast(t("dt_wall_cab_suggest", { w: "12" }), {
+              duration: 8000,
+              action: {
+                label: t("dt_wall_cab_suggest_yes"),
+                onClick: () => {
+                  const pool = wallCabPoolRef.current;
+                  const wantedH = wallCabHeightRef.current;
+                  const widthMatches = pool.filter((w) => {
+                    const ww = parseFloat(String(w.width ?? "0"));
+                    return Math.abs(ww - 12) < 0.5;
+                  });
+                  const heightMatch = widthMatches.find((w) => {
+                    const hh = parseFloat(String(w.height ?? "0"));
+                    return Math.abs(hh - wantedH) < 0.5;
+                  }) ?? widthMatches[0];
+                  if (!heightMatch) {
+                    toast.error(t("dt_wall_cab_suggest_no_match", { w: "12" }));
+                    return;
+                  }
+                  const wallCab = heightMatch;
+                  const ww = 12;
+                  const wh = parseFloat(String(wallCab.height ?? wantedH)) || wantedH;
+                  const wd = STD.WALL_DEPTH;
+                  const topLine = wallCabinetTopLine(room);
+                  const mb = Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, wh));
+                  // Place the 12" wall cabinet at the exposed end of the corner base.
+                  // The corner base's exposed face is on the same wall, offset by
+                  // the corner cabinet's width along the wall.
+                  const wallSide = cabinetWall(newCab, room);
+                  const horiz = wallSide === "top" || wallSide === "bottom";
+                  const cornerSize = rotatedSize(newCab);
+                  const along = horiz
+                    ? newCab.x + cornerSize.w
+                    : newCab.y + cornerSize.d;
+                  const wallSpot = wallPlacementAt(along, ww, wd, wallSide, room);
                   const newWallCab: PlacedCabinet = {
                     uid: makeUid(),
                     cabinetId: wallCab.id,

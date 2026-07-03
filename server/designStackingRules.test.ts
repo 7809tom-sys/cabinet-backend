@@ -167,10 +167,18 @@ describe("bridgeCabinetCodeForWidth", () => {
   it("falls back to the 30\" bridge for a non-finite width", () => {
     expect(bridgeCabinetCodeForWidth(Number.NaN)).toBe("W-30-12");
   });
-  it("always returns a real stock bridge SKU (W-30/33/36-12)", () => {
+  it("always returns a real stock bridge SKU (W-30/33/36-12) for default 30\" walls", () => {
     for (const w of [24, 30, 33, 36, 42, 48]) {
       expect(["W-30-12", "W-33-12", "W-36-12"]).toContain(bridgeCabinetCodeForWidth(w));
     }
+  });
+  it("uses 18\" bridge height for 36\" wall cabinets", () => {
+    expect(bridgeCabinetCodeForWidth(30, 36)).toBe("W-30-18");
+    expect(bridgeCabinetCodeForWidth(36, 36)).toBe("W-36-18");
+  });
+  it("uses 24\" bridge height for 42\" wall cabinets", () => {
+    expect(bridgeCabinetCodeForWidth(30, 42)).toBe("W-30-24");
+    expect(bridgeCabinetCodeForWidth(36, 42)).toBe("W-36-24");
   });
 });
 
