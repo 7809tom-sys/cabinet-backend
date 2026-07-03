@@ -2273,7 +2273,8 @@ export default function DesignTool() {
                     styleId: styleIdRef.current ?? null,
                     mountBottom: mb,
                   };
-                  setPlaced((prev) => [...prev, newWallCab]);
+                  console.log('[WALL-CAB-SUGGEST] Placing wall cab:', JSON.stringify({ masterCode: wallCab.masterCode, x: wallSpot.x, y: wallSpot.y, rotation: wallSpot.rotation, width: ww, height: wh, mountBottom: mb, wall: cabinetWall(newCab, room) }));
+                  setPlaced((prev) => { console.log('[WALL-CAB-SUGGEST] prev length:', prev.length); return [...prev, newWallCab]; });
                   toast.success(t("dt_wall_cab_placed", { code: wallCab.masterCode }));
                 },
               },

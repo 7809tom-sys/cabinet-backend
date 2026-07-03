@@ -136,3 +136,20 @@
 - [x] When a diagonal wall corner cabinet (WDC-*) is placed, suggest placing 12" wall cabinets on both the left and right adjacent walls
 - [x] Auto-place the 12" wall cabinets at the correct offset (flush to the diagonal corner's edges) when user taps Yes
 - [x] Add EN/ES i18n keys for the suggestion toast
+
+## Bug: Wall cabinet auto-place says "placed" but nothing appears
+
+- [ ] Investigate why setPlaced in the toast onClick doesn't render the new wall cabinet
+- [ ] Fix the wall cabinet auto-place feature so the cabinet actually appears after tapping Yes
+
+## Feature: Backsplash covers all exposed wall areas
+
+- [x] Backsplash should fill all exposed wall between countertop and upper cabinets/ceiling
+- [x] Backsplash extends above the range, behind the microwave, and up to the bridge/ceiling
+- [x] Any exposed wall section (gaps between cabinets, above appliances) gets backsplash coverage
+
+## Feature: Material ordering overage + box rounding
+- [ ] Backsplash BOM: calculate sq ft needed, add 15% overage, round UP to nearest full box (box size from product data)
+- [ ] Flooring BOM: calculate sq ft needed, add 10% overage, round UP to nearest full box (box size from product data)
+- [ ] Box size should be a configurable field on the material/product (sq ft per box)
+- [ ] Display the box count and total sq ft in the quote/estimate

@@ -5,6 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
+  isRangeOrOven, wallCabinetTopLine,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -233,7 +234,7 @@ export function ElevationView({
             : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
-          zIndex: isDragging ? 10 : undefined,
+          zIndex: isDragging ? 10 : 2,
         }}
         title={`${p.masterCode} — ${p.description}`}
       >
@@ -614,19 +615,22 @@ export function ElevationView({
           );
         })()}
 
-        {/* Backsplash: fills the zone between countertop (36") and wall cabinet
-            bottom (54"). Only drawn on walls that have at least one base cabinet
-            run (same spans as the countertop). */}
+        {/* Backsplash: fills ALL exposed wall from countertop top (37.5") up
+            to the wall cabinet top line (84" on standard ceiling). Covers behind
+            base cabinets, the range, dishwasher, and any exposed wall. Wall
+            cabinets/microwave/bridge render on top at higher z-index. */}
         {backsplashMaterialId && (() => {
           const bsMat = backsplashMaterial(backsplashMaterialId);
           const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS; // ~37.5"
-          const BACKSPLASH_TOP = STD.WALL_MOUNT_BOTTOM; // 54" — always standard zone
-          const TOL = 1.5;
-          // Backsplash spans match the countertop: over base cabinets + the
-          // dishwasher, but NOT over the range or fridge openings.
+          const BACKSPLASH_TOP = wallCabinetTopLine(room); // 84" on 8ft ceiling
+          // Backsplash spans: ALL base-level items on this wall including
+          // range, dishwasher, wine cooler. The backsplash bridges across the
+          // range gap (the range has exposed wall behind it that gets tiled).
+          // Excludes fridge/tall (full-height, covers its own wall).
           const isBsSpan = (p: PlacedCabinet) =>
             bearsCountertop(p) ||
-            (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? ""));
+            (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? "")) ||
+            isRangeOrOven(p.masterCode, p.description);
           const spans = sorted
             .filter(isBsSpan)
             .map((p) => {
@@ -636,11 +640,14 @@ export function ElevationView({
             })
             .sort((a, b) => a.start - b.start);
           if (spans.length === 0) return null;
-          // Merge adjacent spans
+          // Merge adjacent spans — use a generous tolerance so the range gap
+          // between two base cabinets is bridged (backsplash is continuous
+          // behind the range). A 36" gap covers even a 36" range.
+          const BRIDGE_TOL = 40; // inches — bridge gaps up to 40" (range + clearance fillers)
           const runs: { start: number; end: number }[] = [];
           for (const s of spans) {
             const last = runs[runs.length - 1];
-            if (last && s.start <= last.end + TOL) {
+            if (last && s.start <= last.end + BRIDGE_TOL) {
               last.end = Math.max(last.end, s.end);
             } else {
               runs.push({ start: s.start, end: s.end });
@@ -746,7 +753,7 @@ export function ElevationView({
               {segments.map((seg, i) => (
                 <div
                   key={`bs${i}`}
-                  className="absolute z-10 pointer-events-none"
+                  className="absolute pointer-events-none"
                   style={{
                     left: seg.left,
                     width: seg.width,
@@ -758,6 +765,7 @@ export function ElevationView({
                     borderTop: `1px solid ${bsMat.grout}`,
                     borderBottom: `1px solid ${bsMat.grout}`,
                     opacity: 0.85,
+                    zIndex: 1,
                   }}
                   title={`Backsplash: ${bsMat.name}`}
                 />
