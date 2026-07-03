@@ -55,6 +55,7 @@ import IncomingOrdersAdmin from "@/components/admin/IncomingOrdersAdmin";
 import { BulkDimensionsAdmin } from "@/components/admin/BulkDimensionsAdmin";
 import { DesignerCoverageAdmin } from "@/components/admin/DesignerCoverageAdmin";
 import { AdminTabHelp } from "@/components/admin/AdminTabHelp";
+import PelicanCatalogAdmin from "@/components/admin/PelicanCatalogAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -641,6 +642,7 @@ export default function Admin() {
           <TabsTrigger value="cabinets">Cabinets</TabsTrigger>
           <TabsTrigger value="dimensions">Dimensions & Weight</TabsTrigger>
           <TabsTrigger value="coverage">Designer Coverage</TabsTrigger>
+          <TabsTrigger value="pelican-catalog">Pelican Catalog</TabsTrigger>
           <TabsTrigger value="pricing-access">Pricing Access</TabsTrigger>
           <TabsTrigger value="designer-availability">Designer Availability</TabsTrigger>
           <TabsTrigger value="email-settings">Email Settings</TabsTrigger>
@@ -762,6 +764,9 @@ export default function Admin() {
         <TabsContent value="coverage" className="mt-6">
           <AdminTabHelp tab="coverage" />
           <DesignerCoverageAdmin />
+        </TabsContent>
+        <TabsContent value="pelican-catalog" className="mt-6">
+          <PelicanCatalogAdmin />
         </TabsContent>
         <TabsContent value="email-settings" className="mt-6">
           <AdminTabHelp tab="email-settings" />

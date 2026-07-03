@@ -90,6 +90,7 @@ import { RoomSizeControl } from "@/components/design/RoomSizeControl";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
+import { PelicanCatalogPanel } from "@/components/design/PelicanCatalogPanel";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
@@ -455,7 +456,7 @@ export default function DesignTool() {
     trpc.design.placeableCabinets.useQuery(
       {
         placement:
-          paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture"
+          paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || (paletteType as string) === "pelican"
             ? "base"
             : paletteType === "corner" || paletteType === "vanity"
             ? "base"
@@ -470,9 +471,9 @@ export default function DesignTool() {
         // come from that distributor (member can still change color within it).
         distributorId: lockedDistributorId ?? undefined,
       },
-      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" }
+      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" && (paletteType as string) !== "pelican" }
     );
-  const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" ? false : paletteLoadingRaw;
+  const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || (paletteType as string) === "pelican" ? false : paletteLoadingRaw;
 
   // A dedicated, full base-cabinet list for the active line, used by the
   // Auto-Fill engine (independent of which palette tab/search is active).
@@ -4569,7 +4570,7 @@ export default function DesignTool() {
                 ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "opening", "accessory"] as const)
                 : roomType === "laundry"
                 ? (["appliance", "base", "corner", "wall", "wallht", "tall", "opening", "accessory"] as const)
-                : (["base", "corner", "wall", "wallht", "tall", "appliance", "opening", "accessory", "furniture"] as const)
+                : (["base", "corner", "wall", "wallht", "tall", "appliance", "opening", "accessory", "furniture", "pelican"] as const)
               ).map((tab) => (
                 <button
                   key={tab}
@@ -4594,6 +4595,8 @@ export default function DesignTool() {
                     ? t("dt_tab_accessories")
                     : tab === "furniture"
                     ? "Furniture"
+                    : tab === "pelican"
+                    ? "Surfaces"
                     : tab === "base"
                     ? t("dt_tab_base")
                     : tab === "wall"

@@ -31,7 +31,7 @@ export const pelicanRouter = router({
         .where(and(...conds))
         .groupBy(pelicanProducts.category)
         .orderBy(desc(sql`count(*)`));
-      return rows.map(r => ({ category: r.category, count: Number(r.count) }));
+      return rows.map((r) => ({ category: r.category, count: Number(r.count) }));
     }),
   byCategory: publicProcedure
     .input(
@@ -42,7 +42,7 @@ export const pelicanRouter = router({
         subCategory: z.string().trim().optional(),
         limit: z.number().min(1).max(200).default(60),
         offset: z.number().min(0).default(0),
-      })
+      }),
     )
     .query(async ({ input }) => {
       const db = await getDb();
@@ -57,8 +57,8 @@ export const pelicanRouter = router({
           or(
             like(pelicanProducts.name, q),
             like(pelicanProducts.description, q),
-            like(pelicanProducts.pelicanCode, q)
-          ) as any
+            like(pelicanProducts.pelicanCode, q),
+          ) as any,
         );
       }
       const where = and(...conds);
@@ -90,7 +90,7 @@ export const pelicanRouter = router({
         suggested,
         items,
         total: Number(total),
-        subCategories: subs.map(s => s.subCategory).filter(Boolean) as string[],
+        subCategories: subs.map((s) => s.subCategory).filter(Boolean) as string[],
       };
     }),
   bySlug: publicProcedure
@@ -112,7 +112,7 @@ export const pelicanRouter = router({
         search: z.string().trim().optional(),
         limit: z.number().min(1).max(500).default(100),
         offset: z.number().min(0).default(0),
-      })
+      }),
     )
     .query(async ({ input }) => {
       const db = await getDb();
@@ -125,8 +125,8 @@ export const pelicanRouter = router({
           or(
             like(pelicanProducts.name, q),
             like(pelicanProducts.description, q),
-            like(pelicanProducts.pelicanCode, q)
-          ) as any
+            like(pelicanProducts.pelicanCode, q),
+          ) as any,
         );
       }
       const where = conds.length ? and(...conds) : undefined;
@@ -161,7 +161,7 @@ export const pelicanRouter = router({
         showInCatalog: z.boolean().optional(),
         showInDesigner: z.boolean().optional(),
         isActive: z.boolean().optional(),
-      })
+      }),
     )
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -182,7 +182,7 @@ export const pelicanRouter = router({
         listPrice: z.number().nonnegative().optional(),
         yourCost: z.number().nonnegative().optional(),
         markupPercent: z.number().optional(),
-      })
+      }),
     )
     .mutation(async ({ input }) => {
       const db = await getDb();
