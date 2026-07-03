@@ -111,6 +111,7 @@ import { PhotorealPreview, type PhotorealSceneInput } from "@/components/design/
 import { buildPhotorealScene } from "@/lib/photorealScene";
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
 import { computeRenderReadiness } from "@/lib/renderReadiness";
+import { surfaceRole } from "@/lib/pelican";
 import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
@@ -3393,24 +3394,19 @@ export default function DesignTool() {
   // Gate the 3D render on a complete room: cabinets + flooring + countertop +
   // sink & faucet, satisfiable by built-in toggles OR Pelican surface picks.
   const renderReadiness = useMemo(() => {
-    const catIncludes = (frag: string) =>
-      selectedSurfaces.some((su) => (su.category || "").toLowerCase().includes(frag));
-    const hasSurfaceSink = selectedSurfaces.some(
-      (su) =>
-        ((su.category || "").toLowerCase().includes("sink") ||
-          (su.category || "").toLowerCase().includes("faucet")) &&
-        !/faucet|tap/i.test(su.name)
-    );
-    const hasSurfaceFaucet = selectedSurfaces.some((su) => /faucet|tap/i.test(su.name));
+    // Classify each Pelican surface pick by its functional role using the shared
+    // surfaceRole helper (keyed off the real storefront category / subCategory),
+    // instead of matching fragile text fragments against the category label.
+    const roles = selectedSurfaces.map((su) => surfaceRole(su));
     return computeRenderReadiness({
       cabinetCount: placed.filter((p) => p.placement !== "appliance").length,
       builtInFlooringId: flooringMaterialId,
-      hasSurfaceFlooring: catIncludes("floor"),
+      hasSurfaceFlooring: roles.includes("flooring"),
       builtInCountertop: countertop,
-      hasSurfaceCountertop: catIncludes("counter") || catIncludes("quartz") || catIncludes("granite"),
+      hasSurfaceCountertop: roles.includes("countertop"),
       hasSinkWithFaucet: sinks.some((s) => s.faucet),
-      hasSurfaceSink,
-      hasSurfaceFaucet,
+      hasSurfaceSink: roles.includes("sink"),
+      hasSurfaceFaucet: roles.includes("faucet"),
     });
   }, [placed, flooringMaterialId, countertop, sinks, selectedSurfaces]);
   // Open the 3D render only when ready; otherwise prompt for what's missing.

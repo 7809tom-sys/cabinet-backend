@@ -68,3 +68,44 @@ export function formatPrice(n: number | null | undefined): string {
   if (n == null) return "Call for pricing";
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
+
+// ─── Surface roles ────────────────────────────────────────────────────────────
+// Maps a chosen Surfaces & Fixtures product to the functional role it plays in a
+// kitchen design. This is the SINGLE source of truth for "what does this product
+// count as" — used by the 3D View readiness gate and the shopping-list role
+// assignment. It keys off the real Pelican storefront category (and subCategory
+// for the combined "Sinks & Faucets" line) instead of fragile text heuristics.
+export type SurfaceRole = "flooring" | "countertop" | "backsplash" | "sink" | "faucet" | "other";
+
+export function surfaceRole(input: {
+  category?: string | null;
+  subCategory?: string | null;
+  name?: string | null;
+}): SurfaceRole {
+  const cat = (input.category || "").trim();
+  const sub = (input.subCategory || "").trim().toLowerCase();
+  const name = (input.name || "").toLowerCase();
+
+  switch (cat) {
+    case "Flooring":
+      return "flooring";
+    case "Quartz Slabs (Countertops)":
+      return "countertop";
+    case "Tile & Mosaic":
+      return "backsplash";
+    case "Sinks & Faucets": {
+      // Split the combined line into sink vs faucet. Accessories and disposals
+      // are neither — check those FIRST because their subCategory label
+      // ("Sink & Faucet Accessories") contains both words. Then prefer the
+      // subCategory, falling back to the product name.
+      if (sub.includes("accessor") || sub.includes("disposal")) return "other";
+      if (sub.includes("faucet")) return "faucet";
+      if (sub.includes("sink")) return "sink";
+      if (/faucet|tap|filler/.test(name)) return "faucet";
+      if (/\bsink\b/.test(name)) return "sink";
+      return "other";
+    }
+    default:
+      return "other";
+  }
+}

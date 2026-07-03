@@ -2713,3 +2713,10 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Built-in countertop is removable via a Remove control (clears sinks too); flooring/backsplash removable via tap-again in their pickers
 - [x] 3D View / AI Preview gated: requires flooring + countertop + sink & faucet (+ a cabinet); shows a toast listing what's missing; satisfiable by built-in toggles OR Pelican surface picks
 - [x] Unit tests: renderReadiness (7), photoreal prompt layout assertions, surface cart lines; full suite 1,277 passing; tsc clean
+
+## 3D View gate ignores Pelican picks (bug) — FIXED
+- [x] Reproduce: gate said missing even after adding Pelican flooring/countertop/sink/faucet (fragile text heuristics didn't match real categories)
+- [x] Inspect real Pelican category names on selectedSurfaces (Flooring, Quartz Slabs (Countertops), Tile & Mosaic, Sinks & Faucets w/ subCategory Sinks/Faucets/Accessories/Disposals)
+- [x] Fix readiness matching: added shared surfaceRole() helper in lib/pelican.ts (maps real category + subCategory to flooring/countertop/backsplash/sink/faucet); DesignTool renderReadiness now uses it as the single source of truth
+- [x] Verify cart line role mapping: surfaceCartLines only uses category for a display label (no role heuristic), no change needed
+- [x] Update unit tests with real Pelican category labels (7 new surfaceRole tests incl. accessories/disposals edge case); full suite 1,284 passing; tsc clean
