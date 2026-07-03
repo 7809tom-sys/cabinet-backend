@@ -114,3 +114,10 @@
 - [x] Persist glassDoor in draft snapshot/restore (already persisted via placed array serialization)
 - [x] Prevent noDoor + glassDoor conflict (auto-clear glassDoor when noDoor is set and vice versa)
 - [x] Ensure pricing uses GD SKU for glass-door cabinets (pricePairs fetches GD variant, unitPriceFor resolves GD price)
+
+## ProKitchen-Inspired Features (Batch 1)
+
+- [x] PDF Design Presentation export (print-optimized page with branded header, floor plan, elevation views, BOM table; Print → Save as PDF)
+- [x] Hardware Catalog — already fully implemented (5 styles, elevation rendering, piece counting, build sheet export)
+- [x] Stacked Moldings — already supported (crown + light rail are independent toggles that render simultaneously)
+- [x] Fabricator Countertop Sheet — dimensioned SVG drawing per wall run + island; shows material, edge profile, sink cutouts, seam locations, backsplash spec; print-optimized

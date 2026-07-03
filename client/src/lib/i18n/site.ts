@@ -824,6 +824,8 @@ export const SITE_STRINGS = {
     dt_act_item_one: "item",
     dt_act_item_many: "items",
     dt_act_export_btn: "Export",
+    dt_act_presentation_btn: "Presentation",
+    dt_act_fabricator_btn: "Fabricator Sheet",
     // --- Design Tool: wall names (plan + elevation) ---
     plan_wall_back: "Back",
     plan_wall_front: "Front",
@@ -2114,6 +2116,8 @@ export const SITE_STRINGS = {
     dt_act_item_one: "artículo",
     dt_act_item_many: "artículos",
     dt_act_export_btn: "Exportar",
+    dt_act_presentation_btn: "Presentación",
+    dt_act_fabricator_btn: "Hoja de Fabricante",
     // --- Herramienta de Diseño: nombres de paredes (planta + alzado) ---
     plan_wall_back: "Fondo",
     plan_wall_front: "Frente",

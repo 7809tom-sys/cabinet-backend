@@ -37,6 +37,8 @@ const Surfaces = lazy(() => import("@/pages/Surfaces"));
 const SurfacesCategory = lazy(() => import("@/pages/SurfacesCategory"));
 const SurfacesProduct = lazy(() => import("@/pages/SurfacesProduct"));
 const SurfacesWizard = lazy(() => import("@/pages/SurfacesWizard"));
+const DesignPresentation = lazy(() => import("@/pages/DesignPresentation"));
+const FabricatorSheet = lazy(() => import("@/pages/FabricatorSheet"));
 
 function PageLoader() {
   return (
@@ -293,6 +295,18 @@ export default function App() {
         <Route path="/plan-sheet">
           <Suspense fallback={<PageLoader />}>
             <PlanSheet />
+          </Suspense>
+        </Route>
+
+        {/* Design Presentation — print-optimized design package for customers */}
+        <Route path="/design/presentation">
+          <Suspense fallback={<PageLoader />}>
+            <DesignPresentation />
+          </Suspense>
+        </Route>
+        <Route path="/design/fabricator-sheet">
+          <Suspense fallback={<PageLoader />}>
+            <FabricatorSheet />
           </Suspense>
         </Route>
 

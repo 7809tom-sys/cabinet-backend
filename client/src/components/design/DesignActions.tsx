@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator } from "lucide-react";
+import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator, Printer, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -600,6 +600,14 @@ export function DesignActions({
       {/* Export build sheet — replaces the placeholder cart action */}
       <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExport}>
         <Download className="h-3.5 w-3.5" /> {t("dt_act_export_btn")}
+      </Button>
+      {/* Print Presentation — opens a print-optimized page with floor plan, elevations, and BOM */}
+      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => window.open("/design/presentation", "_blank")}>
+        <Printer className="h-3.5 w-3.5" /> {t("dt_act_presentation_btn")}
+      </Button>
+      {/* Fabricator Countertop Sheet — dimensioned drawing for countertop fabricators */}
+      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => window.open("/design/fabricator-sheet", "_blank")}>
+        <Ruler className="h-3.5 w-3.5" /> {t("dt_act_fabricator_btn")}
       </Button>
     </>
   );
