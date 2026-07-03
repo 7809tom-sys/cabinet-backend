@@ -4920,7 +4920,7 @@ export default function DesignTool() {
         </PaletteShell>
 
         {/* Canvas */}
-        <div className="flex-1 min-w-0 relative pb-14 lg:pb-0">
+        <div className="flex-1 min-w-0 relative pb-16 lg:pb-0">
           {viewMode === "plan" && (
             <PlanCanvas
               room={room}
@@ -5754,7 +5754,7 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-7 h-14">
+          <div className="grid grid-cols-6 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"

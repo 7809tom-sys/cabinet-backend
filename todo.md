@@ -29,3 +29,7 @@
 - [x] Delete the Room3DView component file
 - [x] Run typecheck and tests
 - [x] Save checkpoint
+
+## Fix: Corner view floor area cut off by mobile bottom bar
+
+- [x] Ensure the canvas/elevation area in Corner view has enough bottom padding/margin to not be hidden behind the mobile toolbar

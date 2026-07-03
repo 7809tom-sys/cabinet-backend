@@ -6,6 +6,7 @@ import {
 import { type HardwareStyleId } from "@/lib/hardware";
 import { ElevationView } from "./ElevationView";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useIsMobile } from "@/hooks/useMobile";
 import type { SiteStringKey } from "@/lib/i18n/site";
 
 // The four kitchen corners, each defined by the two walls that meet there.
@@ -52,6 +53,7 @@ export function CornerView({
   finishFor, panelKindFor,
 }: Props) {
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
   const { left, right } = CORNERS[corner];
 
   // The plan rotation (0/90/180/270) that maps to each of the four corners,
@@ -89,7 +91,7 @@ export function CornerView({
           point at the center — "standing in the corner looking out". Floor and
           ceiling planes are tilted with rotateX to close the box. Genuine 3D
           transform (GPU-composited, still cheap — no 3D engine). */}
-      <div className="absolute inset-0" style={{ perspective: "1100px", perspectiveOrigin: "50% 48%" }}>
+      <div className="absolute inset-0" style={{ perspective: "1100px", perspectiveOrigin: isMobile ? "50% 38%" : "50% 48%" }}>
         <div className="absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
           {/* Left wall — anchored at the seam (right edge), receding to the left. */}
           <div
