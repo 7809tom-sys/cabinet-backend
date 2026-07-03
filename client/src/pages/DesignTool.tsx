@@ -56,7 +56,7 @@ import {
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine,
   isRangeOrOven, isOverRangeMicrowave, bridgeCabinetCodeForWidth, isRefrigerator,
-  staggeredWallCabinetHeight, staggeredMountBottom, fridgeCornerUpperDepth,
+  staggeredMountBottom, fridgeCornerUpperDepth,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -1960,7 +1960,51 @@ export default function DesignTool() {
     toast.success(t("dt_toast_added_filler", { w }));
   }, [layoutLocked, roomType, addCabinet]);
 
-  // ── Auto-Fill: tile the active wall with a suggested run of cabinets ────────
+  // ── Ceiling Filler: place a filler strip on top of wall cabinets to cover the
+  // gap between the wall-cabinet top line and the ceiling. The filler is a
+  // wall-layer item with mountBottom = wallCabinetTopLine and height = gap.
+  const addCeilingFiller = useCallback(() => {
+    if (layoutLocked) { toast.info(t("dt_t_unlock_filler")); return; }
+    const topLine = wallCabinetTopLine(room);
+    const ceil = roomCeiling(room);
+    const gapH = Math.round((ceil - topLine) * 10) / 10;
+    if (gapH <= 0) { toast.info(t("dt_ceiling_filler_no_gap")); return; }
+    const raw = window.prompt(t("dt_ceiling_filler_width_prompt", { gap: String(gapH) }), "36");
+    if (raw == null) return;
+    const w = Math.round(parseFloat(raw) * 10) / 10;
+    if (!Number.isFinite(w) || w <= 0) { toast.error(t("dt_t_filler_gt0")); return; }
+    // Place as a wall-layer filler, mounted at the top of the wall cabinet run.
+    const segs = freeSegmentsOnWall(activeWall, room, placed, openings, Math.min(w, 3), 0, "wall");
+    const fit = segs.find((s) => s.length >= w) ?? segs[0];
+    const along = fit ? fit.start : 0;
+    const depth = STD.WALL_DEPTH;
+    const spot = wallPlacementAt(along, w, depth, activeWall, room);
+    const newCab: PlacedCabinet = {
+      uid: makeUid(),
+      cabinetId: 0,
+      masterCode: `FILL-${w}`,
+      description: `${w}" x ${gapH}" Ceiling Filler`,
+      category: "Accessory",
+      subCategory: "Filler",
+      placement: "wall",
+      x: spot.x,
+      y: spot.y,
+      width: w,
+      depth,
+      height: gapH,
+      rotation: spot.rotation,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      catalogImageUrl: null,
+      styleId: styleIdRef.current ?? null,
+      mountBottom: topLine,
+    };
+    setPlaced((prev) => [...prev, newCab]);
+    setSelectedUid(newCab.uid);
+    toast.success(t("dt_ceiling_filler_placed", { w: String(w), h: String(gapH) }));
+  }, [layoutLocked, room, placed, openings, activeWall, t]);
+
+  // ── Auto-Fill: tile the active wall with a suggested run of cabinets ────────────
   // Computes the usable span on the highlighted wall (wall length minus any
   // cabinets/openings already on it), runs the deterministic engine, and drops
   // each chosen cabinet flush along the wall using the same nextFreeSpotOnWall
@@ -2085,6 +2129,46 @@ export default function DesignTool() {
     [cabinetsLocked, room, t]
   );
 
+  // ── Auto-place filler in a gap ──────────────────────────────────────────────
+  // When a gap is ≤6" (filler-size), this creates a filler trimmed to the exact
+  // gap width and places it flush at the gap's start position.
+  const fillGapWithFiller = useCallback(
+    (gap: WallGap) => {
+      if (cabinetsLocked) { toast.info(t("dt_gap_locked")); return; }
+      const w = Math.round(gap.length * 10) / 10;
+      if (w <= 0 || w > 6) return;
+      const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
+      const fillerDef = makeFiller(w, placement);
+      const width = w;
+      const depth = placement === "wall" ? STD.WALL_DEPTH : 24;
+      const height = placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT;
+      const spot = wallPlacementAt(gap.start, width, depth, gap.side, room);
+      const newCab: PlacedCabinet = {
+        uid: makeUid(),
+        cabinetId: 0,
+        masterCode: fillerDef.masterCode,
+        description: fillerDef.description,
+        category: "Accessory",
+        subCategory: "Filler",
+        placement,
+        x: spot.x,
+        y: spot.y,
+        width,
+        depth,
+        height,
+        rotation: spot.rotation,
+        numberOfDoors: 0,
+        numberOfDrawers: 0,
+        catalogImageUrl: null,
+        styleId: styleIdRef.current ?? null,
+      };
+      setPlaced((prev) => [...prev, newCab]);
+      setSelectedUid(newCab.uid);
+      toast.success(t("dt_toast_added_filler", { w }));
+    },
+    [cabinetsLocked, room, t]
+  );
+
   // ── Range/oven corner clearance: one-click fix ──────────────────────────────
   // NOTE: Range/oven corner clearance is a WARNING ONLY. We intentionally do not
   // auto-insert fillers or shift cabinets — the designer places the clearance
@@ -2161,7 +2245,7 @@ export default function DesignTool() {
           // shallow bridge stays a normal-height, 12"-deep upper.
           const aDepth = isDeep ? fridgeCornerUpperDepth() : STD.WALL_DEPTH;
           const catalogH = parseFloat(String(chosen.height ?? STD.WALL_HEIGHT)) || STD.WALL_HEIGHT;
-          const aHeight = isDeep ? staggeredWallCabinetHeight(STD.WALL_HEIGHT) : catalogH;
+          const aHeight = catalogH;
           // Center the upper over the fridge run, flush to the same wall.
           const along = horizontal ? fridge.x + fw / 2 - aWidth / 2 : fridge.y + fw / 2 - aWidth / 2;
           const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
@@ -2353,7 +2437,7 @@ export default function DesignTool() {
       if (deep) {
         const aWidth = num(deep.width, fridgeW);
         const aDepth = fridgeCornerUpperDepth();
-        const aHeight = staggeredWallCabinetHeight(STD.WALL_HEIGHT);
+        const aHeight = num(deep.height, 24);
         const upAlong = along + fridgeW / 2 - aWidth / 2;
         const upSpot = wallPlacementAt(upAlong, aWidth, aDepth, side, room);
         out.push({
@@ -3682,6 +3766,10 @@ export default function DesignTool() {
                     <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_add_filler")}</span>
                   </button>
+                  <button disabled={layoutLocked} onClick={addCeilingFiller} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                    <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_ceiling_filler")}</span>
+                  </button>
                   <button disabled={!selectedUid || measureMode} onClick={swingSelected} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <DoorOpen className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_swing_door")}</span>
@@ -4968,6 +5056,7 @@ export default function DesignTool() {
               cabinetsLocked={cabinetsLocked}
               gapFillCandidates={gapFillCandidates}
               onFillGap={fillGap}
+              onPlaceFiller={fillGapWithFiller}
             />
           )}
           {viewMode === "elevation" && (
@@ -5065,6 +5154,7 @@ export default function DesignTool() {
               cabinetsLocked={cabinetsLocked}
               gapFillCandidates={gapFillCandidates}
               onFillGap={fillGap}
+              onPlaceFiller={fillGapWithFiller}
                 />
               </div>
               <div className="flex-1 min-h-0">

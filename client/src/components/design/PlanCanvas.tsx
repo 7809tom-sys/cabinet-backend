@@ -91,6 +91,7 @@ interface Props {
   // click-to-place actions.
   gapFillCandidates?: Map<number, DesignCabinet>;
   onFillGap?: (gap: WallGap, cabinet: DesignCabinet) => void;
+  onPlaceFiller?: (gap: WallGap) => void;
 }
 
 // Compute a readable label color for text drawn directly on a cabinet fill.
@@ -127,6 +128,7 @@ export function PlanCanvas({
   cabinetsLocked = false,
   gapFillCandidates,
   onFillGap,
+  onPlaceFiller,
 }: Props) {
   const { t } = useLanguage();
   // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
@@ -1234,7 +1236,15 @@ export function PlanCanvas({
                       {t("dt_gap_title", { len: formatInches(g.length) })}
                     </div>
                     {g.isFillerSize ? (
-                      <div className="text-[11px] text-orange-600 font-medium">{t("dt_gap_use_filler")}</div>
+                      <div className="flex flex-col gap-1.5">
+                        <div className="text-[11px] text-orange-600 font-medium">{t("dt_gap_use_filler")}</div>
+                        {onPlaceFiller && (
+                          <button
+                            className="w-full rounded-md bg-orange-600 px-2 py-1.5 text-[10px] font-semibold text-white transition-transform hover:bg-orange-700 active:scale-95"
+                            onClick={() => { onPlaceFiller(g); setActiveGap(null); }}
+                          >{t("dt_gap_place_filler")}</button>
+                        )}
+                      </div>
                     ) : !hasPalette ? (
                       <div className="text-[11px] text-gray-400">{t("dt_gap_pick_style")}</div>
                     ) : realSuggestions.length > 0 ? (

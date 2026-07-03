@@ -33,3 +33,22 @@
 ## Fix: Corner view floor area cut off by mobile bottom bar
 
 - [x] Ensure the canvas/elevation area in Corner view has enough bottom padding/margin to not be hidden behind the mobile toolbar
+
+## Fix: Cabinet above refrigerator should be 24" height, not 36"
+
+- [x] Find where the fridge top cabinet is placed/sized and fix height to use catalog height (24")
+- [x] Run typecheck and tests
+- [x] Save checkpoint
+
+## Fix: Fillers should auto-place in gaps and auto-trim to fit
+
+- [x] Detect gaps between cabinets/walls where fillers are needed
+- [x] Auto-place fillers in the correct gap position at the correct trimmed width (via gap popover "Place Filler" button)
+
+## Fix: Refrigerator end panels must start at the floor (bottom = 0)
+
+- [x] Ensure fridge end panels are placed with mountBottom = 0 (floor level) — already correct (placement: "tall" → bottom: 0)
+
+## Feature: Tall filler can be placed on top of wall cabinets to cover ceiling gap
+
+- [x] Allow tall fillers to be placed horizontally on top of wall cabinets to fill gap to ceiling (Ceiling Filler button in More menu)
