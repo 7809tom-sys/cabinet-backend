@@ -1150,6 +1150,9 @@ export const SITE_STRINGS = {
     dt_wall_height_label: "Wall cab height",
     dt_wec_suggest: "Add an open-end shelf next to the window?",
     dt_fill_suggest: "Add a {w}\" wall cabinet to fill the gap?",
+    dt_wine_rack_suggest: "Replace with a wine rack combo? (wine rack + bridge + stem glass holder)",
+    dt_wine_rack_no_match: "Wine rack cabinet not available in this style.",
+    dt_wine_rack_placed: "Wine rack combo placed: {parts}",
     // --- Refrigerator placement options ---
     dt_fridge_title: "Refrigerator options",
     dt_fridge_desc: "Choose what to build around this refrigerator. Everything is optional.",
@@ -2420,6 +2423,9 @@ export const SITE_STRINGS = {
     dt_wall_height_label: "Altura superior",
     dt_wec_suggest: "¿Agregar un estante abierto junto a la ventana?",
     dt_fill_suggest: "¿Agregar un gabinete superior de {w}\" para llenar el espacio?",
+    dt_wine_rack_suggest: "¿Reemplazar con combo de vinoteca? (vinoteca + puente + porta copas)",
+    dt_wine_rack_no_match: "Vinoteca no disponible en este estilo.",
+    dt_wine_rack_placed: "Combo de vinoteca colocado: {parts}",
     // --- Opciones de refrigerador ---
     dt_fridge_title: "Opciones de refrigerador",
     dt_fridge_desc: "Elija qué construir alrededor de este refrigerador. Todo es opcional.",

@@ -2382,6 +2382,172 @@ export default function DesignTool() {
           }
         }
 
+        // ── Wine rack combo suggestion ──────────────────────────────────
+        // When a 30" wall cabinet is placed (W-30-*), offer a wine rack combo:
+        // wine rack (WRC-30-*) + bridge above + stem glass holder below.
+        if (accPlacement === "wall" && !isStacker(c) && Math.abs(newCab.width - 30) < 0.5 && (newCab.height ?? 0) >= 30) {
+          const code = (c.masterCode || "").toUpperCase();
+          // Only suggest for standard W-30 wall cabinets (30"/36"/42" tall),
+          // not for bridges, WRC, OE, SGH, or other specialty cabinets.
+          if (/^W-30-/.test(code)) {
+            // Pre-check: all three combo parts must be available in the current style pool
+            const prePool = wallCabPoolRef.current;
+            const preWrc = prePool.find((w) => (w.masterCode || "").toUpperCase().startsWith("WRC-30"));
+            const preSgh = prePool.find((w) => (w.masterCode || "").toUpperCase().startsWith("SGH-30"));
+            const preTopLine = wallCabinetTopLine(room);
+            const preBridgeH = preTopLine - (STD.WALL_MOUNT_BOTTOM + (parseFloat(String(preWrc?.height ?? 18)) || 18));
+            const preBridge = preBridgeH >= 9 ? prePool.find((w) => {
+              const mc = (w.masterCode || "").toUpperCase();
+              if (!mc.startsWith("W-30-")) return false;
+              const hh = parseFloat(String(w.height ?? "0"));
+              return Math.abs(hh - preBridgeH) < 1.5;
+            }) : null;
+            if (preWrc && preSgh && preBridge) {
+            toast(t("dt_wine_rack_suggest"), {
+              duration: 10000,
+              action: {
+                label: t("dt_wall_cab_suggest_yes"),
+                onClick: () => {
+                  const pool = wallCabPoolRef.current;
+                  const wantedH = wallCabHeightRef.current;
+                  const topLine = wallCabinetTopLine(room);
+                  const wallSide = cabinetWall(newCab, room);
+                  const horiz = wallSide === "top" || wallSide === "bottom";
+                  const along = horiz ? newCab.x : newCab.y;
+
+                  // 1. Find wine rack (WRC-30-*)
+                  const wrc = pool.find((w) => {
+                    const mc = (w.masterCode || "").toUpperCase();
+                    return mc.startsWith("WRC-30");
+                  });
+                  if (!wrc) {
+                    toast.error(t("dt_wine_rack_no_match"));
+                    return;
+                  }
+                  const wrcH = parseFloat(String(wrc.height ?? 18)) || 18;
+                  const wrcW = 30;
+                  // Use the actual catalog depth for the wine rack (24" typically)
+                  const wrcD = parseFloat(String(wrc.depth ?? STD.WALL_DEPTH)) || STD.WALL_DEPTH;
+                  // Wine rack mounts at standard wall mount bottom (54")
+                  const wrcBottom = STD.WALL_MOUNT_BOTTOM;
+                  const wrcSpot = wallPlacementAt(along, wrcW, wrcD, wallSide, room);
+
+                  // 2. Bridge above the wine rack
+                  // Bridge height = topLine - (wrcBottom + wrcH)
+                  const bridgeH = topLine - (wrcBottom + wrcH);
+                  let bridgeCab: typeof wrc | null = null;
+                  if (bridgeH >= 9) {
+                    bridgeCab = pool.find((w) => {
+                      const mc = (w.masterCode || "").toUpperCase();
+                      if (!mc.startsWith("W-30-")) return false;
+                      const hh = parseFloat(String(w.height ?? "0"));
+                      return Math.abs(hh - bridgeH) < 1.5;
+                    }) ?? null;
+                  }
+
+                  // 3. Stem glass holder (SGH-30)
+                  const sgh = pool.find((w) => {
+                    const mc = (w.masterCode || "").toUpperCase();
+                    return mc === "SGH-30" || mc.startsWith("SGH-30");
+                  });
+
+                  // Remove the original W-30 wall cabinet and replace with combo
+                  setPlaced((prev) => {
+                    const without = prev.filter((p) => p.uid !== newCab.uid);
+                    const combo: PlacedCabinet[] = [];
+
+                    // Wine rack
+                    combo.push({
+                      uid: makeUid(),
+                      cabinetId: wrc.id,
+                      masterCode: wrc.masterCode,
+                      description: wrc.description,
+                      category: wrc.category ?? null,
+                      subCategory: wrc.subCategory ?? null,
+                      placement: "wall",
+                      x: wrcSpot.x,
+                      y: wrcSpot.y,
+                      width: wrcW,
+                      nominalWidth: wrcW,
+                      depth: wrcD,
+                      nominalDepth: wrcD,
+                      height: wrcH,
+                      nominalHeight: wrcH,
+                      rotation: wrcSpot.rotation,
+                      numberOfDoors: wrc.numberOfDoors ?? undefined,
+                      catalogImageUrl: wrc.catalogImageUrl ?? null,
+                      styleId: styleIdRef.current ?? null,
+                      mountBottom: wrcBottom,
+                    });
+
+                    // Bridge above wine rack
+                    if (bridgeCab) {
+                      const bH = parseFloat(String(bridgeCab.height ?? bridgeH)) || bridgeH;
+                      const bSpot = wallPlacementAt(along, 30, STD.WALL_DEPTH, wallSide, room);
+                      combo.push({
+                        uid: makeUid(),
+                        cabinetId: bridgeCab.id,
+                        masterCode: bridgeCab.masterCode,
+                        description: bridgeCab.description,
+                        category: bridgeCab.category ?? null,
+                        subCategory: bridgeCab.subCategory ?? null,
+                        placement: "wall",
+                        x: bSpot.x,
+                        y: bSpot.y,
+                        width: 30,
+                        nominalWidth: 30,
+                        depth: STD.WALL_DEPTH,
+                        nominalDepth: STD.WALL_DEPTH,
+                        height: bH,
+                        nominalHeight: bH,
+                        rotation: bSpot.rotation,
+                        numberOfDoors: bridgeCab.numberOfDoors ?? undefined,
+                        catalogImageUrl: bridgeCab.catalogImageUrl ?? null,
+                        styleId: styleIdRef.current ?? null,
+                        mountBottom: wrcBottom + wrcH,
+                      });
+                    }
+
+                    // Stem glass holder below wine rack
+                    if (sgh) {
+                      const sghH = parseFloat(String(sgh.height ?? 1)) || 1;
+                      const sghSpot = wallPlacementAt(along, 30, STD.WALL_DEPTH, wallSide, room);
+                      combo.push({
+                        uid: makeUid(),
+                        cabinetId: sgh.id,
+                        masterCode: sgh.masterCode,
+                        description: sgh.description,
+                        category: sgh.category ?? null,
+                        subCategory: sgh.subCategory ?? null,
+                        placement: "wall",
+                        x: sghSpot.x,
+                        y: sghSpot.y,
+                        width: 30,
+                        nominalWidth: 30,
+                        depth: STD.WALL_DEPTH,
+                        nominalDepth: STD.WALL_DEPTH,
+                        height: sghH,
+                        nominalHeight: sghH,
+                        rotation: sghSpot.rotation,
+                        numberOfDoors: sgh.numberOfDoors ?? undefined,
+                        catalogImageUrl: sgh.catalogImageUrl ?? null,
+                        styleId: styleIdRef.current ?? null,
+                        mountBottom: wrcBottom - sghH,
+                      });
+                    }
+
+                    const parts = [wrc.masterCode, bridgeCab?.masterCode, sgh?.masterCode].filter(Boolean).join(" + ");
+                    toast.success(t("dt_wine_rack_placed", { parts }));
+                    return [...without, ...combo];
+                  });
+                },
+              },
+              cancel: { label: t("dt_wall_cab_suggest_no"), onClick: () => {} },
+            });
+            } // end if (preWrc && preSgh && preBridge)
+          }
+        }
+
         return [...prev, newCab];
       });
     },
