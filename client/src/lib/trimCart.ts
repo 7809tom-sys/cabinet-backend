@@ -13,7 +13,7 @@
 // without trim SKUs yet) resolve to null and are left as quote-only lines rather
 // than blocking the cart or inventing a price.
 
-export type TrimKind = "toeKick" | "lightRail" | "batten" | "crown";
+export type TrimKind = "toeKick" | "lightRail" | "batten" | "crown" | "valance";
 
 // Map each auto-trim to the master code that carries its per-style priced SKU.
 // crown intentionally has NO buyable master code (no crown SKU exists for the
@@ -23,6 +23,7 @@ export const TRIM_MASTER_CODES: Record<TrimKind, string | null> = {
   lightRail: "LRM-8",
   batten: "BAM",
   crown: null,
+  valance: "VA-48", // Arched valance (only VA-48 exists in catalog; trimmed to fit on site)
 };
 
 // A resolved, priced trim SKU for one style (as returned by the

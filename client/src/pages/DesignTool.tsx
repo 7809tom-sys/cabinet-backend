@@ -44,7 +44,7 @@ import {
   FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
   finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
-  trimPiecesNeeded, countertopArea, battenLinearInches,
+  trimPiecesNeeded, countertopArea, battenLinearInches, valancePiecesNeeded,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   makeSink, SINK_PRESETS, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall,
@@ -284,13 +284,14 @@ export default function DesignTool() {
   const [toeKick, setToeKick] = useState(false);
   const [batten, setBatten] = useState(false);
   const [lightRail, setLightRail] = useState(false);
+  const [valance, setValance] = useState(false);
   // Which trims the user has explicitly set (so auto-apply leaves them alone).
-  const trimOverride = useRef<{ crown: boolean; toeKick: boolean; batten: boolean; lightRail: boolean }>({
-    crown: false, toeKick: false, batten: false, lightRail: false,
+  const trimOverride = useRef<{ crown: boolean; toeKick: boolean; batten: boolean; lightRail: boolean; valance: boolean }>({
+    crown: false, toeKick: false, batten: false, lightRail: false, valance: false,
   });
   // Manual piece-count overrides per trim. undefined = use the auto-calculated
   // stick count; a number = the user explicitly set how many sticks to order.
-  type TrimKind = "crown" | "toeKick" | "batten" | "lightRail";
+  type TrimKind = "crown" | "toeKick" | "batten" | "lightRail" | "valance";
   const [trimQtyOverride, setTrimQtyOverride] = useState<Partial<Record<TrimKind, number>>>({});
   // Countertop tool: measures base + island runs; not auto-priced (quote request).
   const [countertop, setCountertop] = useState(false);
@@ -1416,6 +1417,12 @@ export default function DesignTool() {
     [lightRail, placed, room]
   );
 
+  // Valance pieces needed (one per window on a wall with wall cabinets)
+  const valanceOrder = useMemo(
+    () => (valance ? valancePiecesNeeded(openings, placed, room) : []),
+    [valance, openings, placed, room]
+  );
+
   // Effective piece count per trim = manual override (if set) else the auto
   // stick count. Clamped to >= 0. This is what drives BOTH the build sheet
   // display and the cart pricing, so an override changes the quote in real time.
@@ -1429,8 +1436,9 @@ export default function DesignTool() {
       toeKick: pick("toeKick", toeKickOrder?.pieces),
       batten: pick("batten", battenOrder?.pieces),
       lightRail: pick("lightRail", lightRailOrder?.pieces),
+      valance: pick("valance", valanceOrder.length > 0 ? valanceOrder.length : null),
     };
-  }, [trimQtyOverride, crownOrder, toeKickOrder, battenOrder, lightRailOrder]);
+  }, [trimQtyOverride, crownOrder, toeKickOrder, battenOrder, lightRailOrder, valanceOrder]);
 
   // Active trims + their (effective) piece counts, in the shape the cart helper consumes.
   const activeTrims = useMemo<ActiveTrim[]>(() => {
@@ -1439,8 +1447,9 @@ export default function DesignTool() {
     if (toeKick && effectiveTrimPieces.toeKick > 0) list.push({ kind: "toeKick", pieces: effectiveTrimPieces.toeKick });
     if (batten && effectiveTrimPieces.batten > 0) list.push({ kind: "batten", pieces: effectiveTrimPieces.batten });
     if (lightRail && effectiveTrimPieces.lightRail > 0) list.push({ kind: "lightRail", pieces: effectiveTrimPieces.lightRail });
+    if (valance && effectiveTrimPieces.valance > 0) list.push({ kind: "valance", pieces: effectiveTrimPieces.valance });
     return list;
-  }, [crown, toeKick, batten, lightRail, effectiveTrimPieces]);
+  }, [crown, toeKick, batten, lightRail, valance, effectiveTrimPieces]);
 
   // Priced trim cart lines (styleId-scoped). Trims without a buyable SKU for the
   // style (crown, or a style missing that trim) are omitted → quote-only.
@@ -1544,7 +1553,10 @@ export default function DesignTool() {
     if (!o.lightRail && hasWallCab && !lightRail) setLightRail(true);
     // Batten: cover the seams wherever cabinets meet.
     if (!o.batten && needsBatten && !batten) setBatten(true);
-  }, [hasBaseCab, hasWallCab, needsBatten, toeKick, crown, lightRail, batten]);
+    // Valance: arched valance above windows when wall cabinets exist.
+    const hasWindows = openings.some((op) => op.kind === "window");
+    if (!o.valance && hasWallCab && hasWindows && !valance) setValance(true);
+  }, [hasBaseCab, hasWallCab, needsBatten, toeKick, crown, lightRail, batten, valance, openings]);
   // Countertop is a POST-LAYOUT step: it can only be applied once the kitchen
   // has base cabinets (or an island) to sit on. A base run, a vanity, or an
   // island all count as a surface that takes a top.
@@ -1728,6 +1740,11 @@ export default function DesignTool() {
       out.push({ label: "BATTEN MOLDING (BAM)", detail: `${battenOrder.pieces} pc @ ${battenOrder.stickFeet}ft` });
     if (lightRail && lightRailOrder && lightRailOrder.pieces > 0)
       out.push({ label: "LIGHT RAIL MOLDING", detail: `${lightRailOrder.pieces} pc @ ${lightRailOrder.stickFeet}ft` });
+    if (valance && valanceOrder.length > 0) {
+      for (const vp of valanceOrder) {
+        out.push({ label: "ARCHED VALANCE", detail: `${vp.code} (${vp.width}"W) — ${vp.wall} wall` });
+      }
+    }
     if (countertop && counter && counter.squareFeet > 0) {
       const mat = countertopMaterial(countertopMaterialId);
       out.push({
@@ -3941,6 +3958,7 @@ export default function DesignTool() {
     toeKick,
     batten,
     lightRail,
+    valance,
     trimQtyOverride,
     countertop,
     countertopMaterialId,
@@ -4004,14 +4022,16 @@ export default function DesignTool() {
           if ("toeKick" in d) trimOverride.current.toeKick = true;
           if ("batten" in d) trimOverride.current.batten = true;
           if ("lightRail" in d) trimOverride.current.lightRail = true;
+          if ("valance" in d) trimOverride.current.valance = true;
           setCrown(!!d.crown);
           setToeKick(!!d.toeKick);
           setBatten(!!d.batten);
           setLightRail(!!d.lightRail);
+          setValance(!!d.valance);
           if (d.trimQtyOverride && typeof d.trimQtyOverride === "object") {
             const src = d.trimQtyOverride as Record<string, unknown>;
             const clean: Partial<Record<TrimKind, number>> = {};
-            for (const k of ["crown", "toeKick", "batten", "lightRail"] as TrimKind[]) {
+            for (const k of ["crown", "toeKick", "batten", "lightRail", "valance"] as TrimKind[]) {
               if (typeof src[k] === "number") clean[k] = Math.max(0, Math.min(99, src[k] as number));
             }
             setTrimQtyOverride(clean);
@@ -4121,7 +4141,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, trimQtyOverride, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, wallCabHeight, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, wallCabHeight, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -4521,9 +4541,9 @@ export default function DesignTool() {
                   >
                     <CrownIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left text-sm font-medium">{t("dt_sh_trim_front")}</span>
-                    {(crown || toeKick || batten || lightRail || countertop) && (
+                    {(crown || toeKick || batten || lightRail || valance || countertop) && (
                       <span className="text-[10px] text-muted-foreground mr-1">
-                        {[crown && "Crown", toeKick && "Toe Kick", batten && "Batten", lightRail && "Light Rail", countertop && "Top"].filter(Boolean).join(", ")}
+                        {[crown && "Crown", toeKick && "Toe Kick", batten && "Batten", lightRail && "Light Rail", valance && "Valance", countertop && "Top"].filter(Boolean).join(", ")}
                       </span>
                     )}
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -4711,6 +4731,14 @@ export default function DesignTool() {
                     </div>
                     {lightRail && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
                   </button>
+                  <button onClick={() => { trimOverride.current.valance = true; setValance((v) => !v); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${ valance ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>
+                    <PanelTop className={`h-5 w-5 shrink-0 ${valance ? "text-[#1a2744]" : "text-muted-foreground"}`} />
+                    <div className="flex-1">
+                      <div className={`text-sm font-semibold ${valance ? "text-[#1a2744]" : "text-foreground"}`}>{t("dt_sh_valance")}</div>
+                      <div className="text-[11px] text-muted-foreground">Arched valance above windows</div>
+                    </div>
+                    {valance && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
+                  </button>
                   <button onClick={toggleCountertop} disabled={!countertop && !hasBaseRun} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors disabled:opacity-50 ${ countertop ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>
                     <Square className={`h-5 w-5 shrink-0 ${countertop ? "text-[#1a2744]" : "text-muted-foreground"}`} />
                     <div className="flex-1">
@@ -4789,6 +4817,15 @@ export default function DesignTool() {
             className={`h-8 gap-1.5 ${lightRail ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
           >
             <PanelTop className="h-3.5 w-3.5" /> {t("dt_sh_light_rail_btn")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { trimOverride.current.valance = true; setValance((v) => !v); }}
+            title={t("dt_sh_valance_title")}
+            className={`h-8 gap-1.5 ${valance ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
+          >
+            <PanelTop className="h-3.5 w-3.5" /> {t("dt_sh_valance_btn")}
           </Button>
           <Button
             variant="outline"
@@ -6289,6 +6326,24 @@ export default function DesignTool() {
                   </div>
                   );
                 })()}
+                {valance && valanceOrder.length > 0 && (() => {
+                  const pcs = effectiveTrimPieces.valance;
+                  const p = trimPriceByCode.get("VA-48");
+                  const hasPricing = !!p && p.unitPrice > 0;
+                  const totalPrice = hasPricing ? p!.unitPrice * pcs : 0;
+                  return (
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
+                    <div className="min-w-0">
+                      <div className="font-mono font-semibold truncate">{t("dt_sh_valance_btn")}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {pcs} pc{pcs > 1 ? "s" : ""} — VA-48 (trimmed to fit)
+                      </div>
+                      <TrimQtyStepper kind="valance" value={pcs} auto={valanceOrder.length} override={trimQtyOverride.valance} setOverride={setTrimQtyOverride} />
+                    </div>
+                    <span className="font-semibold shrink-0">{hasPricing ? `$${totalPrice.toFixed(2)}` : t("dt_bs_incl")}</span>
+                  </div>
+                  );
+                })()}
                 {countertop && counter && counter.squareFeet > 0 && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-amber-500/10 border border-amber-500/30">
                     <div className="min-w-0">
@@ -6846,11 +6901,11 @@ function PricingShell({
 function TrimQtyStepper({
   kind, value, auto, override, setOverride,
 }: {
-  kind: "crown" | "toeKick" | "batten" | "lightRail";
+  kind: "crown" | "toeKick" | "batten" | "lightRail" | "valance";
   value: number;
   auto: number;
   override: number | undefined;
-  setOverride: React.Dispatch<React.SetStateAction<Partial<Record<"crown" | "toeKick" | "batten" | "lightRail", number>>>>;
+  setOverride: React.Dispatch<React.SetStateAction<Partial<Record<"crown" | "toeKick" | "batten" | "lightRail" | "valance", number>>>>;
 }) {
   const set = (n: number) =>
     setOverride((prev) => ({ ...prev, [kind]: Math.max(0, Math.min(99, n)) }));

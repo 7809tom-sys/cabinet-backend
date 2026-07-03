@@ -102,7 +102,7 @@
 ## 2020 Design Feature Parity (easiest to hardest)
 
 - [x] Per-item discount/surcharge in pricing (% input per BOM line, applied to line total and CSV export)
-- [ ] Valances and soffits as trim options
+- [x] Valances as trim option (VA-30/36/42/48 arched valance above windows; soffits skipped - no catalog SKU)
 - [ ] Countertop edge profile selection
 - [ ] Annotations / text notes on floor plan
 - [ ] Trimmable fillers (auto-size filler to exact gap width)

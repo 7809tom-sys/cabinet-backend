@@ -639,7 +639,7 @@ export const designRouter = router({
       }
       // The trim master codes the designer can auto-add. Kept in sync with the
       // client TRIM_MASTER_CODES map in lib/trimCart.ts.
-      const TRIM_CODES = ["TK-8", "LRM-8", "BAM", "SM-8", "BF-3", "BFF-3", "WFF-3-42"];
+      const TRIM_CODES = ["TK-8", "LRM-8", "BAM", "SM-8", "BF-3", "BFF-3", "WFF-3-42", "VA-48"];
       const conditions = [
         inArray(cabinets.masterCode, TRIM_CODES),
         eq(cabinets.isActive, true),

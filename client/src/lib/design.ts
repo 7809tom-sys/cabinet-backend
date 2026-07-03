@@ -1597,6 +1597,56 @@ export function lightRailLinearInches(placed: PlacedCabinet[], room?: RoomData):
   return miteredTrimInches(wallCabs, room);
 }
 
+// ─── Valance (VA) ────────────────────────────────────────────────────────────
+// Arched valance is a decorative trim piece that spans above a window opening
+// between wall cabinet runs. Only VA-48 exists in the catalog (48"W x 6"H,
+// field-trimmed to fit the window width). One VA-48 piece is ordered per window
+// on a wall that has wall cabinets.
+
+export interface ValancePiece {
+  code: string;   // always "VA-48" (the only catalog SKU)
+  width: number;  // window width it covers (for display); piece is 48" trimmed on site
+  wall: WallSide;
+}
+
+/**
+ * Determine which valance pieces are needed for windows in the design.
+ * A valance is suggested when a window sits on a wall that also has wall cabinets
+ * (i.e., the window is between or adjacent to wall cabinet runs).
+ * Each window gets one VA-48 piece (trimmed on site to fit).
+ */
+export function valancePiecesNeeded(
+  openings: WallOpening[],
+  placed: PlacedCabinet[],
+  room?: RoomData,
+): ValancePiece[] {
+  const windows = openings.filter((o) => o.kind === "window");
+  if (windows.length === 0) return [];
+  // Walls that have at least one wall cabinet
+  const wallsWithUppers = new Set<WallSide>();
+  for (const p of placed) {
+    if (p.placement === "wall" && p.cabinetId !== 0) {
+      if (room) {
+        wallsWithUppers.add(cabinetWall(p, room));
+      } else {
+        // Fallback: assume all walls have uppers
+        wallsWithUppers.add("top");
+        wallsWithUppers.add("bottom");
+        wallsWithUppers.add("left");
+        wallsWithUppers.add("right");
+      }
+    }
+  }
+  const pieces: ValancePiece[] = [];
+  for (const win of windows) {
+    // Only suggest valance if there are wall cabinets on the same wall
+    if (!wallsWithUppers.has(win.side)) continue;
+    // One VA-48 per window (trimmed to fit on site)
+    pieces.push({ code: "VA-48", width: win.width, wall: win.side });
+  }
+  return pieces;
+}
+
 // ─── Batten molding (BAM) ─────────────────────────────────────────────────────
 // Batten Molding is a slim 3/4" x 3/16" strip used to cover the VERTICAL seams
 // where two cabinets (or a cabinet and a finished end panel) meet, giving a
