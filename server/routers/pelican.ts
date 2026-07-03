@@ -1,61 +1,38 @@
 import { z } from "zod";
-import { and, eq, sql, asc, desc, like, or } from "drizzle-orm";
-import { publicProcedure, adminProcedure, router } from "../_core/trpc";
+import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
+import { router, publicProcedure, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { pelicanProducts } from "../../drizzle/schema";
-
-// The Pelican International product line: surfaces & fixtures imported from the
-// price list. Visible categories appear in the storefront catalog + designer;
-// "Samples" and "Marketing & Merchandise" are back-office (admin) only.
-//
-// price-list price is the MSRP; listPrice mirrors it as the displayed price.
-// yourCost / markupPercent are left blank until pricing is finalized.
+import { pelicanProducts } from "../../drizzle/pelicanSchema";
 
 const CategoryEnum = z.enum([
-  "Quartz Slabs (Countertops)",
-  "Flooring",
-  "Tile & Mosaic",
   "Sinks & Faucets",
-  "Toilets & Bidets",
+  "Flooring",
   "Shower & Bath",
+  "Toilets & Bidets",
+  "Tile & Mosaic",
+  "Quartz Slabs (Countertops)",
   "Samples",
   "Marketing & Merchandise",
 ]);
 
 export const pelicanRouter = router({
   categories: publicProcedure
-    .input(
-      z
-        .object({ scope: z.enum(["designer", "catalog", "all"]).default("catalog") })
-        .optional()
-    )
+    .input(z.object({ scope: z.enum(["designer", "catalog", "all"]).default("catalog") }).optional())
     .query(async ({ input }) => {
       const db = await getDb();
-      if (!db) return [] as { category: string; count: number; popular: number }[];
+      if (!db) return [] as { category: string; count: number }[];
       const scope = input?.scope ?? "catalog";
-      const where =
-        scope === "designer"
-          ? and(eq(pelicanProducts.isActive, true), eq(pelicanProducts.showInDesigner, true))
-          : scope === "catalog"
-          ? and(eq(pelicanProducts.isActive, true), eq(pelicanProducts.showInCatalog, true))
-          : undefined;
+      const conds = [eq(pelicanProducts.isActive, true)];
+      if (scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
+      if (scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
       const rows = await db
-        .select({
-          category: pelicanProducts.category,
-          count: sql<number>`count(*)`,
-          popular: sql<number>`sum(case when ${pelicanProducts.isPopular} then 1 else 0 end)`,
-        })
+        .select({ category: pelicanProducts.category, count: sql<number>`count(*)` })
         .from(pelicanProducts)
-        .where(where as any)
+        .where(and(...conds))
         .groupBy(pelicanProducts.category)
         .orderBy(desc(sql`count(*)`));
-      return rows.map(r => ({
-        category: r.category,
-        count: Number(r.count),
-        popular: Number(r.popular),
-      }));
+      return rows.map(r => ({ category: r.category, count: Number(r.count) }));
     }),
-
   byCategory: publicProcedure
     .input(
       z.object({
@@ -85,7 +62,6 @@ export const pelicanRouter = router({
         );
       }
       const where = and(...conds);
-
       const suggested =
         input.search || input.subCategory || input.offset > 0
           ? []
@@ -95,7 +71,6 @@ export const pelicanRouter = router({
               .where(and(where, eq(pelicanProducts.isPopular, true)))
               .orderBy(asc(pelicanProducts.popularRank))
               .limit(12);
-
       const items = await db
         .select()
         .from(pelicanProducts)
@@ -103,17 +78,14 @@ export const pelicanRouter = router({
         .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank), asc(pelicanProducts.name))
         .limit(input.limit)
         .offset(input.offset);
-
       const [{ total }] = await db
         .select({ total: sql<number>`count(*)` })
         .from(pelicanProducts)
         .where(where);
-
       const subs = await db
         .selectDistinct({ subCategory: pelicanProducts.subCategory })
         .from(pelicanProducts)
         .where(and(eq(pelicanProducts.category, input.category), eq(pelicanProducts.isActive, true)));
-
       return {
         suggested,
         items,
@@ -121,7 +93,6 @@ export const pelicanRouter = router({
         subCategories: subs.map(s => s.subCategory).filter(Boolean) as string[],
       };
     }),
-
   bySlug: publicProcedure
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
@@ -134,7 +105,44 @@ export const pelicanRouter = router({
         .limit(1);
       return row ?? null;
     }),
-
+  adminList: adminProcedure
+    .input(
+      z.object({
+        category: CategoryEnum.optional(),
+        search: z.string().trim().optional(),
+        limit: z.number().min(1).max(500).default(100),
+        offset: z.number().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { items: [], total: 0 };
+      const conds = [] as any[];
+      if (input.category) conds.push(eq(pelicanProducts.category, input.category));
+      if (input.search) {
+        const q = `%${input.search}%`;
+        conds.push(
+          or(
+            like(pelicanProducts.name, q),
+            like(pelicanProducts.description, q),
+            like(pelicanProducts.pelicanCode, q)
+          ) as any
+        );
+      }
+      const where = conds.length ? and(...conds) : undefined;
+      const items = await db
+        .select()
+        .from(pelicanProducts)
+        .where(where)
+        .orderBy(asc(pelicanProducts.category), asc(pelicanProducts.name))
+        .limit(input.limit)
+        .offset(input.offset);
+      const [{ total }] = await db
+        .select({ total: sql<number>`count(*)` })
+        .from(pelicanProducts)
+        .where(where);
+      return { items, total: Number(total) };
+    }),
   setPopular: adminProcedure
     .input(z.object({ id: z.number(), isPopular: z.boolean(), popularRank: z.number().min(0).default(0) }))
     .mutation(async ({ input }) => {
@@ -146,7 +154,6 @@ export const pelicanRouter = router({
         .where(eq(pelicanProducts.id, input.id));
       return { success: true } as const;
     }),
-
   setVisibility: adminProcedure
     .input(
       z.object({
@@ -168,7 +175,6 @@ export const pelicanRouter = router({
       }
       return { success: true } as const;
     }),
-
   setPricing: adminProcedure
     .input(
       z.object({
