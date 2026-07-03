@@ -1,0 +1,1 @@
+ALTER TABLE `kitchen_designs` ADD `selectedSurfaces` json;

@@ -63,6 +63,9 @@ function sizeCell(r: BuildSheetRow): string {
 interface Props {
   room: RoomData;
   placed: PlacedCabinet[];
+  // Pelican surface & fixture picks chosen in the Surfaces tab; persisted so a
+  // reloaded design restores its exact surfaces.
+  selectedSurfaces: unknown[];
   styleId: number | null;
   // Locked supply line (distributor) for this design, or null when unlocked.
   lockedDistributorId: number | null;
@@ -87,6 +90,7 @@ interface Props {
     styleId: number | null;
     distributorId?: number | null;
     roomType?: string | null;
+    selectedSurfaces?: unknown[] | null;
   }) => void;
 }
 
@@ -163,6 +167,7 @@ type SavedDesignRow = {
   updatedAt: string | number | Date;
   placedCabinets?: unknown;
   roomData?: unknown;
+  selectedSurfaces?: unknown;
   selectedStyleId?: number | null;
   projectName?: string | null;
   roomLabel?: string | null;
@@ -304,7 +309,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, openSaveSignal, openLoadSignal, onLoad,
+  room, placed, selectedSurfaces, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, openSaveSignal, openLoadSignal, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
@@ -373,6 +378,7 @@ export function DesignActions({
       name: name.trim() || rlabel || proj || t("dt_act_untitled_design"),
       roomData: room,
       placedCabinets: placed,
+      selectedSurfaces,
       selectedStyleId: styleId ?? undefined,
       selectedDistributorId: lockedDistributorId ?? undefined,
       projectName: proj || undefined,
@@ -554,6 +560,7 @@ export function DesignActions({
                               styleId: d.selectedStyleId ?? null,
                               distributorId: (d as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
                               roomType: rType ?? null,
+                              selectedSurfaces: Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : null,
                             });
                             setLoadOpen(false);
                             toast.success(t("dt_act_loaded", { name: d.name }));

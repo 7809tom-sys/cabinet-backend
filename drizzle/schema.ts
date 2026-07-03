@@ -312,6 +312,10 @@ export const kitchenDesigns = mysqlTable("kitchen_designs", {
   roomType: varchar("roomType", { length: 32 }),
   roomData: json("roomData").$type<object>(), // walls, dimensions
   placedCabinets: json("placedCabinets").$type<object[]>(), // [{cabinetId, x, y, rotation, styleId}]
+  // Pelican surface & fixture picks (flooring, backsplash, countertop, sink,
+  // faucet) chosen in the Surfaces palette tab. Persisted so a reloaded design
+  // restores its exact surfaces (cart + 3D gate + 2D render fill).
+  selectedSurfaces: json("selectedSurfaces").$type<object[]>(),
   selectedStyleId: int("selectedStyleId"),
   selectedDistributorId: int("selectedDistributorId"),
   thumbnailUrl: varchar("thumbnailUrl", { length: 512 }),

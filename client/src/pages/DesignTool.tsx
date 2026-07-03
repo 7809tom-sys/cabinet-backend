@@ -7,7 +7,7 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves, Box } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -107,6 +107,7 @@ import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDi
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { PhotorealPreview, type PhotorealSceneInput } from "@/components/design/PhotorealPreview";
+import { Room3DView } from "@/components/design/Room3DView";
 import { buildPhotorealScene } from "@/lib/photorealScene";
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
 import { computeRenderReadiness } from "@/lib/renderReadiness";
@@ -344,6 +345,28 @@ export default function DesignTool() {
     }
     toast.success(`${item.name} added`);
   };
+  // Re-derive the built-in 2D-render material ids (flooring / backsplash /
+  // countertop) from a set of Pelican surface picks. Used when RESTORING a
+  // design (saved-design load or draft restore) so the plan/elevation fill
+  // matches the persisted picks, mirroring what addRecommendedSurface does live.
+  // Kept as a stable persistent fn so it can be safely called from useCallbacks
+  // and effects without churning their dependency arrays.
+  const applySurfaceRenderMaterials = usePersistFn((surfaces: SelectedSurface[]) => {
+    for (const su of surfaces) {
+      const role = surfaceRole(su);
+      if (role === "flooring") {
+        const id = guessFlooringMaterialId(su);
+        if (id) setFlooringMaterialId(id);
+      } else if (role === "backsplash") {
+        const id = guessBacksplashMaterialId(su);
+        if (id) setBacksplashMaterialId(id);
+      } else if (role === "countertop") {
+        const id = guessCountertopMaterialId(su);
+        if (id) setCountertopMaterialId(id);
+        setCountertop(true);
+      }
+    }
+  });
   // Mouse-draw room mode: drag on an empty canvas to draw the room outline.
   const [drawMode, setDrawMode] = useState(false);
   // Active wall: the wall the user has highlighted. New items drop onto it, and
@@ -1053,7 +1076,14 @@ export default function DesignTool() {
 
   // Restore a saved design (room + placed cabinets + style) onto the canvas.
   const loadSavedDesign = useCallback(
-    (d: { room: RoomData; placed: PlacedCabinet[]; styleId: number | null; roomType?: string | null; distributorId?: number | null }) => {
+    (d: {
+      room: RoomData;
+      placed: PlacedCabinet[];
+      styleId: number | null;
+      roomType?: string | null;
+      distributorId?: number | null;
+      selectedSurfaces?: SelectedSurface[] | null;
+    }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
       setPlaced(normalizeLCornerDepths(Array.isArray(d.placed) ? d.placed : []));
       setStyleId(d.styleId ?? null);
@@ -1062,6 +1092,13 @@ export default function DesignTool() {
       if (d.roomType && ["kitchen", "bathroom", "laundry", "closet", "other"].includes(d.roomType)) {
         setRoomType(d.roomType as RoomType);
       }
+      // Restore the exact Pelican surface & fixture picks and re-sync the
+      // built-in 2D-render materials (floor/backsplash/countertop) from them,
+      // so a reloaded design shows the same surfaces in the cart, the 3D gate,
+      // and the plan/elevation fill.
+      const surfaces = Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : [];
+      setSelectedSurfaces(surfaces);
+      applySurfaceRenderMaterials(surfaces);
       setSelectedUid(null);
     },
     []
@@ -3181,12 +3218,14 @@ export default function DesignTool() {
     loadedDesignRef.current = loadDesignId;
     const room = (savedDesign.roomData ?? null) as RoomData | null;
     const placedCabs = (savedDesign.placedCabinets ?? null) as PlacedCabinet[] | null;
+    const savedSurfaces = (savedDesign as { selectedSurfaces?: SelectedSurface[] | null }).selectedSurfaces;
     loadSavedDesign({
       room: room ?? DEFAULT_ROOM,
       placed: Array.isArray(placedCabs) ? placedCabs : [],
       styleId: (savedDesign.selectedStyleId ?? null) as number | null,
       distributorId: (savedDesign as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
       roomType: (savedDesign as { roomType?: string | null }).roomType ?? null,
+      selectedSurfaces: Array.isArray(savedSurfaces) ? savedSurfaces : null,
     });
     toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
   }, [loadDesignId, savedDesign, loadSavedDesign]);
@@ -3223,6 +3262,7 @@ export default function DesignTool() {
     countertopMaterialId,
     backsplashMaterialId,
     flooringMaterialId,
+    selectedSurfaces,
     cabinetsLocked,
     sinks,
     roomType,
@@ -3296,6 +3336,12 @@ export default function DesignTool() {
           if (typeof d.backsplashMaterialId === "string") setBacksplashMaterialId(d.backsplashMaterialId);
           if (typeof d.flooringMaterialId === "string") setFlooringMaterialId(d.flooringMaterialId);
           if (typeof d.cabinetsLocked === "boolean") setCabinetsLocked(d.cabinetsLocked);
+          // Restore the exact Pelican surface & fixture picks so the cart, the
+          // 3D View gate and the plan/elevation fill all match the draft.
+          if (Array.isArray(d.selectedSurfaces)) {
+            setSelectedSurfaces(d.selectedSurfaces as SelectedSurface[]);
+            applySurfaceRenderMaterials(d.selectedSurfaces as SelectedSurface[]);
+          }
           if (Array.isArray(d.sinks)) setSinks(d.sinks);
           if (d.roomType) setRoomType(d.roomType);
           if (d.activeWall) setActiveWall(d.activeWall);
@@ -3424,6 +3470,10 @@ export default function DesignTool() {
   // Drives the mobile bottom-bar "3D View" button, which opens the same AI
   // photoreal render dialog as the desktop toolbar button (headless instance).
   const [render3dOpen, setRender3dOpen] = useState(false);
+  // Geometry-based 3D room view (the DEFAULT "3D View"): built entirely from the
+  // plan/elevation, so it always works and never loops. The AI photoreal render
+  // (render3dOpen) is now an optional "AI Preview".
+  const [room3dOpen, setRoom3dOpen] = useState(false);
   // Gate the 3D render on a complete room: cabinets + flooring + countertop +
   // sink & faucet, satisfiable by built-in toggles OR Pelican surface picks.
   const renderReadiness = useMemo(() => {
@@ -3442,8 +3492,15 @@ export default function DesignTool() {
       hasSurfaceFaucet: roles.includes("faucet"),
     });
   }, [placed, flooringMaterialId, countertop, sinks, selectedSurfaces]);
-  // Open the 3D render only when ready; otherwise prompt for what's missing.
+  // Open the geometry 3D view. No readiness gate — it renders whatever is placed
+  // (and shows a friendly "empty room" hint when nothing is), so it can never
+  // spin or loop waiting on an external render.
   const open3dView = useCallback(() => {
+    setRoom3dOpen(true);
+  }, []);
+  // Open the optional AI photoreal preview; keep the completeness gate here since
+  // the AI render benefits from a fully-specified room.
+  const openAiPreview = useCallback(() => {
     if (!renderReadiness.ready) {
       toast.info(renderReadiness.message);
       return;
@@ -3639,7 +3696,17 @@ export default function DesignTool() {
           <Printer className="h-3.5 w-3.5" /> {t("dt_sh_print_sheet")}
         </a>
 
-        {/* AI Photoreal Preview — magazine render of the current design */}
+        {/* Geometry 3D View — the reliable, always-works default built from the plan */}
+        <button
+          type="button"
+          onClick={open3dView}
+          title="View your design in 3D"
+          className="hidden lg:flex items-center gap-1.5 rounded-lg bg-[#1a2744] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#2d3f66]"
+        >
+          <Box className="h-3.5 w-3.5" /> 3D View
+        </button>
+
+        {/* AI Photoreal Preview — optional magazine render of the current design */}
         <PhotorealPreview
           onBeforeOpen={() => {
             if (!renderReadiness.ready) { toast.info(renderReadiness.message); return false; }
@@ -4109,6 +4176,7 @@ export default function DesignTool() {
           <DesignActions
             room={room}
             placed={placed}
+            selectedSurfaces={selectedSurfaces}
             styleId={styleId}
             lockedDistributorId={lockedDistributorId}
             styleName={activeStyleName}
@@ -4120,7 +4188,14 @@ export default function DesignTool() {
             contactEmail={verifiedEmail}
             openSaveSignal={saveSignal}
             openLoadSignal={loadSignal}
-            onLoad={loadSavedDesign}
+            onLoad={(d) =>
+              loadSavedDesign({
+                ...d,
+                selectedSurfaces: Array.isArray(d.selectedSurfaces)
+                  ? (d.selectedSurfaces as SelectedSurface[])
+                  : null,
+              })
+            }
           />
           <div className="h-5 w-px bg-border" />
           <DesignHelp />
@@ -5816,9 +5891,9 @@ export default function DesignTool() {
               }}
             />
             <MobileBarButton
-              icon={<Sparkles className="h-5 w-5" />}
+              icon={<Box className="h-5 w-5" />}
               label="3D View"
-              active={render3dOpen}
+              active={room3dOpen}
               onClick={open3dView}
             />
             <MobileBarButton
@@ -5828,16 +5903,28 @@ export default function DesignTool() {
               onClick={() => setMobilePanel("cart")}
             />
           </div>
-          {/* Headless render dialog driven by the "3D View" button above. */}
-          <PhotorealPreview
-            variant="headless"
-            controlledOpen={render3dOpen}
-            onControlledOpenChange={setRender3dOpen}
-            buildScene={buildPhotorealSceneInput}
-            label={t("dt_sh_ai_preview")}
-          />
         </div>
       )}
+
+      {/* Geometry 3D View (default) + controlled AI photoreal preview. Rendered at
+          the component root so both work on desktop AND mobile. */}
+      <Room3DView
+        open={room3dOpen}
+        onOpenChange={setRoom3dOpen}
+        room={room}
+        placed={placed}
+        surfaces={selectedSurfaces}
+        finishText={activeStyleName}
+        activeWall={activeWall}
+        onOpenAiPreview={openAiPreview}
+      />
+      <PhotorealPreview
+        variant="headless"
+        controlledOpen={render3dOpen}
+        onControlledOpenChange={setRender3dOpen}
+        buildScene={buildPhotorealSceneInput}
+        label={t("dt_sh_ai_preview")}
+      />
 
       {counter && (
         <CountertopQuoteDialog
