@@ -91,6 +91,14 @@ import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/SurfacesPickerDialog";
+import {
+  loadSurfaceSelection,
+  clearSurfaceSelection,
+  guessFlooringMaterialId,
+  guessBacksplashMaterialId,
+  guessCountertopMaterialId,
+  type SurfaceRole,
+} from "@/lib/surfaceSelection";
 import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { baseSubGroup, type BaseSubGroup } from "@/lib/cabinetGraphics";
@@ -224,6 +232,9 @@ export default function DesignTool() {
   // so the debounced save effect doesn't overwrite the stored draft with the
   // initial empty state before restore runs.
   const draftRestoredRef = useRef(false);
+  // Ensures the Surfaces & Fixtures wizard hand-off (cd_surface_selection) is
+  // consumed exactly once per session after email verification.
+  const surfaceSelectionAppliedRef = useRef(false);
   const { data: savedDesign } = trpc.design.byId.useQuery(
     { id: loadDesignId ?? 0 },
     { enabled: loadDesignId != null && verified, retry: 1 }
@@ -3232,6 +3243,70 @@ export default function DesignTool() {
     draftRestoredRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verified, draftKey]);
+
+  // Consume the Surfaces & Fixtures wizard hand-off once, after verification and
+  // after the draft has been restored. The wizard writes cd_surface_selection
+  // with the customer's chosen flooring / backsplash / countertop / sink / faucet;
+  // we pre-select the closest matching Design Tool materials and pre-load the
+  // exact products into the Surfaces & Fixtures list so nothing is re-typed.
+  useEffect(() => {
+    if (!verified || !draftRestoredRef.current) return;
+    if (surfaceSelectionAppliedRef.current) return;
+    if (loadDesignId != null) {
+      // Loading a saved design takes precedence over a wizard hand-off.
+      surfaceSelectionAppliedRef.current = true;
+      return;
+    }
+    surfaceSelectionAppliedRef.current = true;
+    const sel = loadSurfaceSelection();
+    if (!sel) return;
+    try {
+      const surfaces: SelectedSurface[] = [];
+      let applied = 0;
+      (Object.keys(sel.picks) as SurfaceRole[]).forEach((role) => {
+        const pick = sel.picks[role];
+        if (!pick) return;
+        if (role === "flooring") {
+          const id = guessFlooringMaterialId(pick);
+          if (id) setFlooringMaterialId(id);
+          applied++;
+        } else if (role === "tile") {
+          const id = guessBacksplashMaterialId(pick);
+          if (id) setBacksplashMaterialId(id);
+          applied++;
+        } else if (role === "countertop") {
+          const id = guessCountertopMaterialId(pick);
+          if (id) setCountertopMaterialId(id);
+          setCountertop(true);
+          applied++;
+        }
+        // Carry the exact product into the Surfaces & Fixtures list for every role.
+        surfaces.push({
+          id: pick.id,
+          slug: pick.slug,
+          name: pick.name,
+          category: pick.category,
+          subCategory: pick.subCategory ?? null,
+          size: pick.size ?? null,
+          imageUrl: pick.imageUrl ?? null,
+          sellPrice: pick.sellPrice ?? null,
+        });
+      });
+      if (surfaces.length > 0) {
+        setSelectedSurfaces((prev) => {
+          const seen = new Set(prev.map((s) => s.id));
+          return [...prev, ...surfaces.filter((s) => !seen.has(s.id))];
+        });
+      }
+      clearSurfaceSelection();
+      if (applied > 0 || surfaces.length > 0) {
+        toast.success("Loaded your Surfaces & Fixtures selections into the design.");
+      }
+    } catch {
+      /* corrupt hand-off — ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verified, draftKey, loadDesignId]);
 
   // Debounced save on any design change.
   useEffect(() => {

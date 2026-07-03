@@ -10,7 +10,7 @@ import {
   CATEGORY_BLURB,
   CATEGORY_GRADIENT,
 } from "@/lib/pelican";
-import { ArrowRight, Waves, PencilRuler } from "lucide-react";
+import { ArrowRight, Waves, PencilRuler, Sparkles } from "lucide-react";
 
 export default function Surfaces() {
   useSeo({
@@ -41,9 +41,17 @@ export default function Surfaces() {
             your kitchen design or browse by category below.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/design">
+            <Link href="/design-surfaces">
               <Button className="gap-2 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
-                <PencilRuler className="h-4 w-4" /> Add to a Design
+                <Sparkles className="h-4 w-4" /> Build your kitchen step by step
+              </Button>
+            </Link>
+            <Link href="/design">
+              <Button
+                variant="outline"
+                className="gap-2 border-white/25 bg-white/5 text-white hover:bg-white/10"
+              >
+                <PencilRuler className="h-4 w-4" /> Open the Design Tool
               </Button>
             </Link>
           </div>

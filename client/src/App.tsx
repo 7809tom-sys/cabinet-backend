@@ -36,6 +36,7 @@ const FeeSystemDoc = lazy(() => import("@/pages/FeeSystemDoc"));
 const Surfaces = lazy(() => import("@/pages/Surfaces"));
 const SurfacesCategory = lazy(() => import("@/pages/SurfacesCategory"));
 const SurfacesProduct = lazy(() => import("@/pages/SurfacesProduct"));
+const SurfacesWizard = lazy(() => import("@/pages/SurfacesWizard"));
 
 function PageLoader() {
   return (
@@ -161,6 +162,20 @@ export default function App() {
           </AppLayout>
         </Route>
 
+        <Route path="/design-surfaces">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <SurfacesWizard />
+            </Suspense>
+          </AppLayout>
+        </Route>
+        <Route path="/surfaces/build">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <SurfacesWizard />
+            </Suspense>
+          </AppLayout>
+        </Route>
         <Route path="/surfaces/product/:slug">
           {(params) => (
             <AppLayout>

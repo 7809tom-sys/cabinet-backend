@@ -2638,3 +2638,13 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Flag 383 placeholder ("?") rows to skip
 - [x] Match 998 real photos to products by name; upload to storage; set imageUrl
 - [x] Verify storefront renders real photos (quartz page confirmed)
+
+## Surfaces & Fixtures guided wizard (user request 2026-07-03)
+- [x] Backend `surfaces` router (server/routers/surfaces.ts): `byIds` (products + computed sellPrice) and `previewKitchen` (on-demand AI photoreal render from the customer's real product photos + optional door style ref; persists to surface_previews). Registered in server/routers.ts.
+- [x] `client/src/lib/surfaceSelection.ts`: SurfacePick/SurfaceSelection types, localStorage key `cd_surface_selection`, `computeBoxes` (sqft->boxes with waste), and flooring/backsplash/countertop material-mapping heuristics.
+- [x] `client/src/pages/SurfacesWizard.tsx`: 4 ordered steps (Flooring -> Backsplash Tile/Mosaic -> Countertop -> Sink & Faucet) with per-step product grid, sqft/box math for area items, running-total summary rail, and a final Preview & Finish step with "Generate Realistic Preview".
+- [x] Supporting components: components/surfaces/StepProductGrid.tsx, components/surfaces/AreaCalculator.tsx.
+- [x] Routes /design-surfaces and /surfaces/build registered in App.tsx (before /surfaces/:slug).
+- [x] Entry points: Surfaces landing hero CTA + homepage SurfacesBand CTA -> wizard.
+- [x] Carry-in: DesignTool consumes cd_surface_selection once after email verification — pre-selects flooring/backsplash/countertop materials, enables countertop, pre-loads all picks into Surfaces & Fixtures list; then clears the hand-off.
+- [x] Tests: client/src/lib/surfaceSelection.test.ts + server/surfaces.test.ts. Full suite 1252 passed. tsc clean. Live preview generation verified end-to-end.

@@ -1,0 +1,200 @@
+import { z } from "zod";
+import { inArray } from "drizzle-orm";
+import { router, publicProcedure } from "../_core/trpc";
+import { getDb } from "../db";
+import { pelicanProducts } from "../../drizzle/pelicanSchema";
+import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
+import { generateImage } from "../_core/imageGeneration";
+import { storageGetSignedUrl } from "../storage";
+
+// --- pricing helpers (mirror pelican router) ---
+const DEFAULT_MARKUP_BPS: Record<string, number> = {
+  Flooring: 6500,
+  "Tile & Mosaic": 5500,
+  "Sinks & Faucets": 3800,
+  "Toilets & Bidets": 3500,
+  "Shower & Bath": 2200,
+  "Quartz Slabs (Countertops)": 1800,
+};
+type MarkupMap = Record<string, number>;
+async function loadMarkupMap(db: NonNullable<Awaited<ReturnType<typeof getDb>>>): Promise<MarkupMap> {
+  const rows = await db
+    .select({ category: pelicanCategoryMarkups.category, markupBps: pelicanCategoryMarkups.markupBps })
+    .from(pelicanCategoryMarkups);
+  const map: MarkupMap = {};
+  for (const r of rows) map[r.category] = r.markupBps;
+  return map;
+}
+function markupBpsFor(map: MarkupMap, category: string): number {
+  if (map[category] !== undefined) return map[category];
+  return DEFAULT_MARKUP_BPS[category] ?? 0;
+}
+function sellPriceOf(
+  p: { listPrice: string | null; yourCost: string | null; category: string },
+  map: MarkupMap
+): number | null {
+  const costStr = p.yourCost ?? p.listPrice;
+  if (costStr == null) return null;
+  const cost = Number(costStr);
+  if (!Number.isFinite(cost)) return null;
+  const bps = markupBpsFor(map, p.category);
+  return Math.round(cost * (1 + bps / 10000) * 100) / 100;
+}
+
+// Convert a stored imageUrl (/manus-storage/<key> or absolute) into an absolute, fetchable URL
+// suitable for passing to the image generator as a reference.
+async function toReferenceUrl(imageUrl: string | null | undefined): Promise<string | null> {
+  if (!imageUrl) return null;
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  const relKey = imageUrl.replace(/^\/?manus-storage\//, "").replace(/^\/+/, "");
+  if (!relKey) return null;
+  try {
+    return await storageGetSignedUrl(relKey);
+  } catch {
+    return null;
+  }
+}
+
+const SelectionItem = z.object({
+  id: z.number().int().positive(),
+  category: z.string(),
+  role: z.enum(["flooring", "tile", "countertop", "sink", "faucet"]).optional(),
+});
+
+export const surfacesRouter = router({
+  // Fetch full product records (with sell price) for a set of ids — used by the wizard summary.
+  byIds: publicProcedure
+    .input(z.object({ ids: z.array(z.number().int().positive()).max(40) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || input.ids.length === 0) return [];
+      const map = await loadMarkupMap(db);
+      const rows = await db
+        .select()
+        .from(pelicanProducts)
+        .where(inArray(pelicanProducts.id, input.ids));
+      return rows.map((r) => ({ ...r, sellPrice: sellPriceOf(r, map) }));
+    }),
+
+  // Generate an on-demand photoreal kitchen preview using the customer's actual selected
+  // product photos as image references.
+  previewKitchen: publicProcedure
+    .input(
+      z.object({
+        items: z.array(SelectionItem).min(1).max(6),
+        // Optional cabinet door style reference photo (absolute or /manus-storage path)
+        doorStyleImageUrl: z.string().optional(),
+        doorStyleName: z.string().optional(),
+        layout: z.enum(["l-shape", "u-shape", "galley", "island", "straight"]).default("l-shape"),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+
+      // Load the selected products to build an accurate prompt + gather their photos.
+      const ids = input.items.map((i) => i.id);
+      const products = await db
+        .select()
+        .from(pelicanProducts)
+        .where(inArray(pelicanProducts.id, ids));
+      const byId = new Map(products.map((p) => [p.id, p]));
+
+      // Build reference image list (door style first, then products that have a photo).
+      const references: Array<{ url: string; mimeType?: string }> = [];
+      const doorRef = await toReferenceUrl(input.doorStyleImageUrl);
+      if (doorRef) references.push({ url: doorRef, mimeType: "image/png" });
+
+      const descLines: string[] = [];
+      for (const sel of input.items) {
+        const p = byId.get(sel.id);
+        if (!p) continue;
+        const role = sel.role ?? roleFromCategory(p.category);
+        descLines.push(`- ${roleLabel(role)}: ${p.name}${p.size ? ` (${p.size})` : ""} — ${shorten(p.description)}`);
+        if (references.length < 6) {
+          const ref = await toReferenceUrl(p.imageUrl);
+          if (ref) references.push({ url: ref, mimeType: "image/png" });
+        }
+      }
+
+      const layoutText: Record<string, string> = {
+        "l-shape": "an L-shaped kitchen layout",
+        "u-shape": "a U-shaped kitchen layout",
+        galley: "a galley (two parallel runs) kitchen layout",
+        island: "a kitchen layout with a large central island",
+        straight: "a single-wall straight kitchen layout",
+      };
+
+      const doorText = input.doorStyleName
+        ? `Cabinets use the "${input.doorStyleName}" door style shown in the first reference image — match its color, wood/paint finish, and door profile precisely.`
+        : "Use warm, realistic shaker-style cabinets consistent with the reference photos.";
+
+      const prompt = [
+        "A photorealistic, professionally photographed modern-transitional kitchen interior,",
+        "wide-angle real-estate photography, bright natural daylight, warm inviting mood.",
+        `Compose ${layoutText[input.layout]} with base cabinets 34.5 inches tall and countertops resting on top for a ~36 inch finished counter height.`,
+        "Build the scene FAITHFULLY from the attached product reference photos, matching each material's color, pattern, texture and finish exactly:",
+        doorText,
+        ...descLines,
+        "Photorealistic materials, accurate reflections and shadows, no text, no watermark, no people. Ultra-detailed, magazine-quality kitchen photography.",
+      ].join("\n");
+
+      const { url } = await generateImage({
+        prompt,
+        originalImages: references.map((r) => ({ url: r.url, mimeType: r.mimeType })),
+      });
+      if (!url) throw new Error("Preview generation returned no image");
+
+      // Persist the preview + selection snapshot.
+      const map = await loadMarkupMap(db);
+      const snapshot = {
+        items: input.items.map((i) => {
+          const p = byId.get(i.id);
+          return p
+            ? { id: p.id, name: p.name, category: p.category, role: i.role ?? roleFromCategory(p.category), sellPrice: sellPriceOf(p, map), imageUrl: p.imageUrl }
+            : { id: i.id, role: i.role };
+        }),
+        doorStyleName: input.doorStyleName ?? null,
+        layout: input.layout,
+      };
+      let previewId: number | null = null;
+      try {
+        const res = await db
+          .insert(surfacePreviews)
+          .values({ ownerOpenId: ctx.user?.openId ?? null, selections: snapshot, previewUrl: url });
+        previewId = (res as unknown as [{ insertId: number }])[0]?.insertId ?? null;
+      } catch {
+        previewId = null;
+      }
+
+      return { url, previewId };
+    }),
+});
+
+function roleFromCategory(category: string): "flooring" | "tile" | "countertop" | "sink" | "faucet" {
+  if (category === "Flooring") return "flooring";
+  if (category === "Tile & Mosaic") return "tile";
+  if (category === "Quartz Slabs (Countertops)") return "countertop";
+  if (category === "Sinks & Faucets") return "sink";
+  return "tile";
+}
+function roleLabel(role: string): string {
+  switch (role) {
+    case "flooring":
+      return "FLOORING";
+    case "tile":
+      return "BACKSPLASH / TILE";
+    case "countertop":
+      return "COUNTERTOPS";
+    case "sink":
+      return "SINK";
+    case "faucet":
+      return "FAUCET";
+    default:
+      return role.toUpperCase();
+  }
+}
+function shorten(s: string, n = 100): string {
+  const t = (s || "").replace(/\s+/g, " ").trim();
+  return t.length > n ? t.slice(0, n) + "…" : t;
+}

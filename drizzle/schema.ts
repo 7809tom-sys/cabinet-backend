@@ -1218,3 +1218,14 @@ export const vendorLines = mysqlTable("vendor_lines", {
 });
 export type VendorLine = typeof vendorLines.$inferSelect;
 export type InsertVendorLine = typeof vendorLines.$inferInsert;
+
+// Stores guided Surfaces & Fixtures selections and the on-demand AI kitchen preview render.
+export const surfacePreviews = mysqlTable("surface_previews", {
+  id: int("id").autoincrement().primaryKey(),
+  ownerOpenId: varchar("ownerOpenId", { length: 191 }),
+  selections: json("selections"),
+  previewUrl: varchar("previewUrl", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type SurfacePreview = typeof surfacePreviews.$inferSelect;
+export type InsertSurfacePreview = typeof surfacePreviews.$inferInsert;

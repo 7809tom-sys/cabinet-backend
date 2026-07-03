@@ -46,12 +46,23 @@ export function SurfacesBand() {
               fixtures from Pelican Surfaces, priced with your member markups.
             </p>
           </div>
-          <Link href="/surfaces">
-            <Button className="gap-2 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
-              Browse Surfaces &amp; Fixtures
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/design-surfaces">
+              <Button className="gap-2 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
+                Build your kitchen
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/surfaces">
+              <Button
+                variant="outline"
+                className="gap-2 border-[var(--color-navy)]/25 text-[var(--color-navy)] hover:bg-[var(--color-navy)]/5 dark:border-white/25 dark:text-white"
+              >
+                Browse Surfaces &amp; Fixtures
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
