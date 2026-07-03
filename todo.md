@@ -174,3 +174,10 @@
 ## Bug: Surfaces & Fixtures dialog headers unreadable on mobile
 - [x] Fix overlapping text between subtitle description and category tabs
 - [x] Ensure proper spacing so tabs don't cover the descriptive text below the title
+
+## Feature: Wire AI Photoreal Preview into Design Tool
+- [x] Import PhotorealPreview component into DesignTool.tsx
+- [x] Build the scene input assembler function from current design state (room dims, finish, door style, countertop, hardware, flooring, backsplash, sink, faucet, wall summaries, appliances, layout type, island)
+- [x] Add PhotorealPreview toolbar button (desktop) — visible when at least one cabinet is placed
+- [x] Add PhotorealPreview entry in the mobile "More" menu
+- [x] Verify TypeScript compiles and all tests pass

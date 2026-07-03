@@ -60,6 +60,7 @@ import {
   elevationBox, isStacker, wallCabinetTopLine,
   isRangeOrOven, isOverRangeMicrowave, bridgeCabinetCodeForWidth, bridgeHeightForWallHeight, isRefrigerator,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
+  isApplianceCode,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -109,6 +110,7 @@ import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
+import { PhotorealPreview, type PhotorealSceneInput } from "@/components/design/PhotorealPreview";
 
 
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
@@ -3562,6 +3564,84 @@ export default function DesignTool() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [builtinRunArmed, builtinRunData]);
 
+  // ── AI Photoreal Preview: assemble scene input from live design state ──────
+  const buildPhotorealScene = useCallback((): PhotorealSceneInput | null => {
+    if (placed.length === 0) return null;
+    // Group cabinets by wall
+    const wallNames: Record<WallSide, string> = {
+      top: "Back wall", bottom: "Front wall", left: "Left wall", right: "Right wall",
+    };
+    const wallCabs: Record<WallSide, PlacedCabinet[]> = { top: [], bottom: [], left: [], right: [] };
+    const applianceList: string[] = [];
+    for (const p of placed) {
+      const w = cabinetWall(p, room);
+      wallCabs[w].push(p);
+      if (isApplianceCode(p.masterCode ?? "")) {
+        const desc = (p.description ?? p.masterCode ?? "").replace(/\d+"?$/, "").trim().toLowerCase();
+        if (desc && !applianceList.includes("a " + desc)) applianceList.push("a " + desc);
+      }
+    }
+    // Wall summaries
+    const summaries: string[] = [];
+    const cabWalls: string[] = [];
+    for (const side of ["top", "bottom", "left", "right"] as WallSide[]) {
+      const cabs = wallCabs[side];
+      if (cabs.length === 0) continue;
+      cabWalls.push(wallNames[side]);
+      const totalIn = cabs.reduce((s, c) => s + (c.width ?? 0), 0);
+      const hasBase = cabs.some((c) => c.placement === "base");
+      const hasWall = cabs.some((c) => c.placement === "wall");
+      const hasTall = cabs.some((c) => c.placement === "tall");
+      const parts: string[] = [];
+      if (hasBase && hasWall) parts.push("base + wall cabinets");
+      else if (hasBase) parts.push("base cabinets");
+      else if (hasWall) parts.push("wall cabinets");
+      if (hasTall) parts.push("tall pantry/utility column");
+      summaries.push(`${wallNames[side]}: ${Math.round(totalIn / 12)}ft run of ${parts.join(" and ")}`);
+    }
+    // Layout type
+    let layoutType: PhotorealSceneInput["layoutType"] = "one-wall";
+    if (cabWalls.length === 4) layoutType = "U-shaped";
+    else if (cabWalls.length === 3) layoutType = "U-shaped";
+    else if (cabWalls.length === 2) {
+      const hasOpposite = (cabWalls.includes("Back wall") && cabWalls.includes("Front wall")) ||
+        (cabWalls.includes("Left wall") && cabWalls.includes("Right wall"));
+      layoutType = hasOpposite ? "galley" : "L-shaped";
+    }
+    if (island) layoutType = cabWalls.length <= 1 ? "peninsula" : layoutType;
+    // Surfaces
+    const flooringSurf = selectedSurfaces.find((s) => surfaceRole(s) === "flooring");
+    const backsplashSurf = selectedSurfaces.find((s) => surfaceRole(s) === "backsplash");
+    const sinkSurf = selectedSurfaces.find((s) => surfaceRole(s) === "sink");
+    const faucetSurf = selectedSurfaces.find((s) => surfaceRole(s) === "faucet");
+    const countertopSurf = selectedSurfaces.find((s) => surfaceRole(s) === "countertop");
+    // Second finish
+    let secondFinish: string | undefined;
+    if (styleB != null && styleB !== styleA) {
+      const s2 = doorStyles?.find((d) => d.id === styleB) as { ourName?: string | null; aliasName?: string | null } | undefined;
+      if (s2) secondFinish = styleDisplayName(s2) || s2.ourName || undefined;
+    }
+    return {
+      roomWidthFt: Math.round((room.width / 12) * 10) / 10,
+      roomDepthFt: Math.round((room.depth / 12) * 10) / 10,
+      ceilingFt: Math.round((roomCeiling(room) / 12) * 10) / 10,
+      finishName: activeStyleName || undefined,
+      doorStyle: activeStyle ? ((activeStyle as { doorStyle?: string | null }).doorStyle || activeStyleName || undefined) : undefined,
+      secondFinishName: secondFinish,
+      countertop: countertopSurf?.name || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined),
+      hardware: hardwareStyleId !== "none" ? (HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label || undefined) : undefined,
+      flooring: flooringSurf?.name || undefined,
+      backsplash: backsplashSurf?.name || undefined,
+      sink: sinkSurf?.name || undefined,
+      faucet: faucetSurf?.name || undefined,
+      wallSummaries: summaries.length > 0 ? summaries : undefined,
+      cabinetWalls: cabWalls.length > 0 ? cabWalls : undefined,
+      appliances: applianceList.length > 0 ? applianceList : undefined,
+      layoutType,
+      hasIsland: island != null,
+    };
+  }, [placed, room, island, selectedSurfaces, activeStyleName, activeStyle, styleA, styleB, doorStyles, countertopMaterialId, hardwareStyleId]);
+
   // The room's four walls as spans (usable length = full wall minus the openings
   // on it), so the consultant works with realistic numbers.
   const consultWalls = useMemo(() => {
@@ -4837,12 +4917,17 @@ export default function DesignTool() {
           title={t("dt_sh_print_title")}
           className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
         >
-          <Printer className="h-3.5 w-3.5" /> {t("dt_sh_print_sheet")}
+                    <Printer className="h-3.5 w-3.5" /> {t("dt_sh_print_sheet")}
         </a>
-
-
-
-
+        {/* AI Photoreal Preview — desktop toolbar button (only shown when cabinets exist) */}
+        {placed.length > 0 && (
+          <PhotorealPreview
+            disabled={false}
+            buildScene={buildPhotorealScene}
+            variant="toolbar"
+            label={t("dt_sh_ai_preview")}
+          />
+        )}
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
         <div className="ml-auto flex items-center gap-2 lg:hidden">
           <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setMoreSheetOpen(true)}>
@@ -5066,8 +5151,19 @@ export default function DesignTool() {
                   </div>
                 )}
 
+                                <div className="mx-3 my-1 border-t border-border" />
+                {/* AI Photoreal Preview — mobile menu entry */}
+                <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Visualization</p>
+                <div className="px-1 pb-1">
+                  <PhotorealPreview
+                    disabled={placed.length === 0}
+                    buildScene={buildPhotorealScene}
+                    variant="menu"
+                    label={t("dt_sh_ai_preview")}
+                    onBeforeOpen={() => { setMoreSheetOpen(false); return true; }}
+                  />
+                </div>
                 <div className="mx-3 my-1 border-t border-border" />
-
                 {/* Danger zone */}
                 <div className="px-1 pb-4">
                   <button
