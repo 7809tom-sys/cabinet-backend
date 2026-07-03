@@ -3094,6 +3094,12 @@ export interface SinkFixture {
   width: number;
   depth: number;
   faucet: boolean;
+  /** Pelican product ID (when selected from real inventory) */
+  pelicanProductId?: number;
+  /** Pelican product name for display */
+  pelicanProductName?: string;
+  /** Pelican product image URL */
+  pelicanProductImage?: string;
 }
 
 export const SINK_PRESETS: Record<SinkType, { name: string; width: number; depth: number }> = {

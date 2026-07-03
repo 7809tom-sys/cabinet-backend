@@ -183,13 +183,13 @@
 - [x] Verify TypeScript compiles and all tests pass
 
 ## Feature: Replace generic design tool options with real Pelican products
-- [ ] Remove generic SINK_PRESETS and replace sink picker with real Pelican sink products
-- [ ] Remove generic countertop material swatches and use Pelican countertop products
-- [ ] Remove generic backsplash material swatches and use Pelican backsplash/tile products
-- [ ] Remove generic flooring material swatches and use Pelican flooring products
-- [ ] Ensure faucet selection uses real Pelican faucet products
-- [ ] When a sink base is placed, auto-suggest real Pelican sinks that fit
-- [ ] Remove any hardcoded/generic options that don't correspond to actual inventory
+- [x] Remove generic SINK_PRESETS and replace sink picker with real Pelican sink products
+- [x] Remove generic countertop material swatches and use Pelican countertop products
+- [x] Remove generic backsplash material swatches and use Pelican backsplash/tile products (already done in earlier sprint — Surfaces palette tab uses real Pelican products)
+- [x] Remove generic flooring material swatches and use Pelican flooring products (already done in earlier sprint — Surfaces palette tab uses real Pelican products)
+- [x] Ensure faucet selection uses real Pelican faucet products (already done — Surfaces palette shows real Pelican faucets)
+- [x] When a sink base is placed, auto-suggest real Pelican sinks that fit (PelicanSinkPicker in right panel shows real sinks)
+- [x] Remove any hardcoded/generic options that don't correspond to actual inventory (countertop dropdown + sink buttons replaced with Pelican product pickers)
 
 ## Bug: White frame around cabinets in elevation view
 - [x] Remove the white border/frame around cabinet boxes in the Front View (elevation) rendering

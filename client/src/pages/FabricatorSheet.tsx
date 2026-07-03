@@ -49,7 +49,7 @@ interface CounterRun {
   startAlong: number; // inches from wall start
   length: number;     // inches along the wall
   depth: number;      // inches into the room (always COUNTERTOP_DEPTH_IN for base)
-  sinks: { offsetAlong: number; width: number; depth: number; type: string }[];
+  sinks: { offsetAlong: number; width: number; depth: number; type: string; pelicanProductName?: string }[];
 }
 
 function mergeRunsOnWall(
@@ -96,6 +96,7 @@ function mergeRunsOnWall(
     width: horizontal ? s.width : s.depth,
     depth: horizontal ? s.depth : s.width,
     type: s.type,
+    pelicanProductName: s.pelicanProductName,
   }));
 
   return {
@@ -351,7 +352,7 @@ export default function FabricatorSheet() {
                       y={oy + run.depth / 2 * PPI + 3}
                       textAnchor="middle" fontSize="8" fill="#dc2626" fontWeight="600"
                     >
-                      {sink.type.toUpperCase()} SINK CUTOUT
+                      {sink.pelicanProductName || `${sink.type.toUpperCase()} SINK`} CUTOUT
                     </text>
                     <text
                       x={ox + (sink.offsetAlong + sink.width / 2) * PPI}

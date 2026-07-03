@@ -111,10 +111,11 @@ import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDi
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { PhotorealPreview, type PhotorealSceneInput } from "@/components/design/PhotorealPreview";
+import { PelicanCountertopPicker, PelicanSinkPicker } from "@/components/design/PelicanProductPickers";
 
 
 import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
-import { surfaceRole } from "@/lib/pelican";
+import { surfaceRole, formatPrice } from "@/lib/pelican";
 import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
@@ -7199,29 +7200,11 @@ export default function DesignTool() {
                     <X className="h-3 w-3" /> Remove
                   </button>
                 </div>
-                <Select value={countertopMaterialId} onValueChange={setCountertopMaterialId}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder={t("dt_bs_select_material")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COUNTERTOP_MATERIALS.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="h-4 w-4 rounded shrink-0"
-                            style={{
-                              background: m.fill,
-                              border: `1px solid ${m.edge}`,
-                              backgroundImage: m.speckle ? `radial-gradient(${m.speckle} 0.5px, transparent 0.6px)` : undefined,
-                              backgroundSize: m.speckle ? "6px 6px" : undefined,
-                            }}
-                          />
-                          {m.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <PelicanCountertopPicker
+                  selectedSurfaces={selectedSurfaces}
+                  onSelect={(item) => addRecommendedSurface(item, "countertop")}
+                  onBrowseAll={() => setSurfacesOpen(true)}
+                />
 
                 <p className="text-xs font-semibold text-foreground mt-3 mb-1">{t("dt_bs_edge_profile")}</p>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -7244,21 +7227,47 @@ export default function DesignTool() {
                   ))}
                 </div>
 
-                <p className="text-xs font-semibold text-foreground mt-3 mb-2">{t("dt_bs_add_sink")}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {(Object.keys(SINK_PRESETS) as SinkType[]).map((st) => (
-                    <Button key={st} variant="outline" size="sm" className="h-8 text-[11px] justify-start gap-1.5" onClick={() => addSink(st)}>
-                      <Plus className="h-3 w-3" /> {SINK_PRESETS[st].name}
-                    </Button>
-                  ))}
-                </div>
-
+                                <p className="text-xs font-semibold text-foreground mt-3 mb-2">{t("dt_bs_add_sink")}</p>
+                <PelicanSinkPicker
+                  selectedSurfaces={selectedSurfaces}
+                  onSelect={(item) => {
+                    addRecommendedSurface(item, "sink");
+                    // Also place a physical sink fixture on the plan
+                    const sizeStr = item.size || "";
+                    const wMatch = sizeStr.match(/(\d+)/); // first number = width
+                    const w = wMatch ? parseInt(wMatch[1], 10) : 30;
+                    const sinkW = Math.min(Math.max(w, 12), 42);
+                    const sinkD = sinkW >= 30 ? 20 : 18;
+                    const sinkType: SinkType = /farm/i.test(item.name) ? "farmhouse" : /bar|prep/i.test(item.name) ? "bar" : sinkW >= 30 ? "double" : "single";
+                    const x = Math.max(0, Math.min(room.width / 2 - sinkW / 2, room.width - sinkW));
+                    let y: number;
+                    if (activeWall === "bottom") y = room.depth - sinkD - 1;
+                    else if (activeWall === "top") y = 1;
+                    else y = room.depth / 2 - sinkD / 2;
+                    const sink: SinkFixture = {
+                      uid: `sink-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+                      type: sinkType,
+                      x,
+                      y,
+                      width: sinkW,
+                      depth: sinkD,
+                      faucet: true,
+                      pelicanProductId: item.id,
+                      pelicanProductName: item.name,
+                      pelicanProductImage: item.imageUrl ?? undefined,
+                    };
+                    setSinks((prev) => [...prev, sink]);
+                    setSelectedSinkUid(sink.uid);
+                    setCountertop(true);
+                  }}
+                  onBrowseAll={() => setSurfacesOpen(true)}
+                />
                 {sinks.length > 0 && (
                   <div className="mt-3 space-y-1.5">
                     {sinks.map((s) => (
                       <div key={s.uid} className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1 text-[11px] ${s.uid === selectedSinkUid ? "border-[#1a2744] bg-muted/40" : "border-border"}`}>
                         <button className="flex-1 text-left truncate" onClick={() => setSelectedSinkUid(s.uid)}>
-                          {SINK_PRESETS[s.type].name}
+                          {s.pelicanProductName || SINK_PRESETS[s.type].name} ({s.width}″)
                         </button>
                         <label className="flex items-center gap-1 text-muted-foreground cursor-pointer">
                           <input type="checkbox" checked={s.faucet} onChange={() => toggleSinkFaucet(s.uid)} className="h-3 w-3" />

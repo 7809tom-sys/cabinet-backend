@@ -793,7 +793,7 @@ export function PlanCanvas({
                 width: s.width * ppi,
                 height: s.depth * ppi,
               }}
-              title={t("dt_pc_sink_drag", { name: SINK_PRESETS[s.type].name })}
+              title={t("dt_pc_sink_drag", { name: s.pelicanProductName || SINK_PRESETS[s.type].name })}
             >
               {/* basin */}
               <div
