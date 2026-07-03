@@ -224,14 +224,20 @@ export function ElevationView({
           ...(cabDoorSampleUrl ? { backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : {}),
           border: isSelected
             ? "2px solid #1a2744"
-            : `1px solid ${edgeColor}`,
+            : cabDoorSampleUrl
+              ? `1px solid ${edgeColor}88`
+              : `1px solid ${edgeColor}`,
           borderRadius: 2,
           // Ambient occlusion + contact shadow: a soft inner shadow darkens the
           // face edges (recessed reveal look) and an outer drop shadow lifts the
           // box off the wall so adjacent cabinets read as separate 3D objects.
+          // When a real door photo is used, drop the white inner highlight that
+          // creates a visible lighter "frame" on dark finishes.
           boxShadow: isSelected
             ? "0 0 0 3px rgba(212,167,90,0.55), 0 6px 14px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 10px rgba(0,0,0,0.16)"
-            : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
+            : cabDoorSampleUrl
+              ? "0 3px 7px rgba(15,23,42,0.20), inset 0 0 9px rgba(0,0,0,0.14)"
+              : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
@@ -239,7 +245,11 @@ export function ElevationView({
         title={`${p.masterCode} — ${p.description}`}
       >
         <div className="w-full h-full relative">
-          {!isAppliance && (
+          {/* When a real door-sample photo is used as the face background, skip
+              the synthetic DoorFront overlay — the photo already shows the door
+              style and the overlay's inset panels create a visible lighter
+              "frame" around the cabinet on dark finishes. */}
+          {!isAppliance && !cabDoorSampleUrl && (
             <DoorFront
               kind={cabPanelKind}
               edge={edgeColor}
