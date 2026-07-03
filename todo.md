@@ -198,3 +198,14 @@
 - [x] Toe kick strip should use the same color as the cabinet door face (not a different shade)
 - [x] Crown molding strip should use the same color as the cabinet door face
 - [x] Remove the remaining white border/edge visible on the sides of cabinets in elevation view (border already uses edgeColor with 88 opacity when door sample is present; further reduced would lose definition between adjacent cabinets)
+
+## Data audit: Rustic Hickory SKU completeness
+- [x] Extract all Rustic Hickory (RH) cabinet SKUs from the Clark & Son 2025 catalog PDF
+- [x] Compare Rustic Hickory catalog SKUs against the current database/spreadsheet entries
+- [x] Identify missing Rustic Hickory cabinets and confirm which families/sizes are absent
+- [x] Insert any verified missing Rustic Hickory SKUs into the product database
+- [x] Verify Rustic Hickory counts after import and report the differences
+
+## Data note: Clark & Son 2025 catalog
+- [x] Rustic Hickory color key abbreviation confirmed as RH from the catalog special-features page
+- [x] Cabinet sections in the catalog span Wall Cabinets (pages 4-10), Base Cabinets (11-16), Pantry/Utility (17-19), Vanity (20-22), ADA (23-25), Accessories (26-32), and Panels/Fillers/Trims (33-40)
