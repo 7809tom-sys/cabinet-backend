@@ -7,8 +7,7 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Footprints, Layers2, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator,
-} from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +90,7 @@ import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
+import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/SurfacesPickerDialog";
 import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { baseSubGroup, type BaseSubGroup } from "@/lib/cabinetGraphics";
@@ -290,6 +290,14 @@ export default function DesignTool() {
   const [selectedSinkUid, setSelectedSinkUid] = useState<string | null>(null);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [proDesignerOpen, setProDesignerOpen] = useState(false);
+  const [surfacesOpen, setSurfacesOpen] = useState(false);
+  const [selectedSurfaces, setSelectedSurfaces] = useState<SelectedSurface[]>([]);
+  const toggleSurface = (item: SelectedSurface) =>
+    setSelectedSurfaces((prev) =>
+      prev.some((s) => s.id === item.id)
+        ? prev.filter((s) => s.id !== item.id)
+        : [...prev, item]
+    );
   // Mouse-draw room mode: drag on an empty canvas to draw the room outline.
   const [drawMode, setDrawMode] = useState(false);
   // Active wall: the wall the user has highlighted. New items drop onto it, and
@@ -5597,6 +5605,14 @@ export default function DesignTool() {
             <Button
               variant="outline"
               className="w-full mt-2 gap-2 border-[#a87f33] text-[#7a5c24] hover:bg-[#a87f33]/10"
+              onClick={() => setSurfacesOpen(true)}
+            >
+              <Waves className="h-4 w-4" /> Surfaces & Fixtures
+              {selectedSurfaces.length > 0 ? ` (${selectedSurfaces.length})` : ""}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full mt-2 gap-2 border-[#a87f33] text-[#7a5c24] hover:bg-[#a87f33]/10"
               onClick={() => setProDesignerOpen(true)}
             >
               <UserRound className="h-4 w-4" /> {t("dt_bs_get_pro")}
@@ -5735,6 +5751,12 @@ export default function DesignTool() {
           placedCabinets={placed}
         />
       )}
+      <SurfacesPickerDialog
+        open={surfacesOpen}
+        onOpenChange={setSurfacesOpen}
+        selected={selectedSurfaces}
+        onToggle={toggleSurface}
+      />
       <ProDesignerDialog
         open={proDesignerOpen}
         onOpenChange={setProDesignerOpen}

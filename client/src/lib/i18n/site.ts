@@ -14,6 +14,7 @@ export const SITE_STRINGS = {
     nav_kitchen_packages: "Kitchen Packages",
     nav_all_cabinets: "All Cabinets",
     nav_countertops: "Countertops",
+    nav_surfaces: "Surfaces & Fixtures",
     nav_design_tool: "Design Tool",
     // --- Top nav: more dropdown ---
     nav_more: "More",
@@ -1265,6 +1266,7 @@ export const SITE_STRINGS = {
     nav_kitchen_packages: "Paquetes de Cocina",
     nav_all_cabinets: "Todos los Gabinetes",
     nav_countertops: "Cubiertas",
+    nav_surfaces: "Superficies y Accesorios",
     nav_design_tool: "Herramienta de Diseño",
     // --- Barra superior: menú "Más" ---
     nav_more: "Más",

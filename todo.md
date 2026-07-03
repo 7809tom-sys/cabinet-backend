@@ -2617,3 +2617,12 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Wired both tabs into Admin.tsx
 - [x] Removed stale duplicate pelicanCatalog.ts router
 - [x] Vitest: pelicanVendors.test.ts (4 passing) + full typecheck clean
+
+## Pelican customer-facing storefront (get Pelican online)
+- [x] Public /surfaces landing page (categories + live counts)
+- [x] Category page /surfaces/:slug (filters, refine, search, featured, pagination, live pricing)
+- [x] Product detail /surfaces/product/:slug
+- [x] Nav link "Surfaces & Fixtures" (EN + ES i18n)
+- [x] Shared client helpers client/src/lib/pelican.ts + PelicanProductCard
+- [x] Surfaces & Fixtures picker dialog in Design Tool (scoped to showInDesigner)
+- [x] Routes wired in App.tsx; vitest for helpers passing; typecheck clean

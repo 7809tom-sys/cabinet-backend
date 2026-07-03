@@ -33,6 +33,9 @@ const SignIn = lazy(() => import("@/pages/SignIn"));
 const Account = lazy(() => import("@/pages/Account"));
 const PlanSheet = lazy(() => import("@/pages/PlanSheet"));
 const FeeSystemDoc = lazy(() => import("@/pages/FeeSystemDoc"));
+const Surfaces = lazy(() => import("@/pages/Surfaces"));
+const SurfacesCategory = lazy(() => import("@/pages/SurfacesCategory"));
+const SurfacesProduct = lazy(() => import("@/pages/SurfacesProduct"));
 
 function PageLoader() {
   return (
@@ -158,6 +161,31 @@ export default function App() {
           </AppLayout>
         </Route>
 
+        <Route path="/surfaces/product/:slug">
+          {(params) => (
+            <AppLayout>
+              <Suspense fallback={<PageLoader />}>
+                <SurfacesProduct slug={params.slug} />
+              </Suspense>
+            </AppLayout>
+          )}
+        </Route>
+        <Route path="/surfaces/:slug">
+          {(params) => (
+            <AppLayout>
+              <Suspense fallback={<PageLoader />}>
+                <SurfacesCategory slug={params.slug} />
+              </Suspense>
+            </AppLayout>
+          )}
+        </Route>
+        <Route path="/surfaces">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Surfaces />
+            </Suspense>
+          </AppLayout>
+        </Route>
         <Route path="/countertops">
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
