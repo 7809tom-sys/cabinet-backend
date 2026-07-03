@@ -2632,3 +2632,9 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Add Surfaces & Fixtures hero CTA on homepage
 - [x] Add Surfaces & Fixtures footer link (Tools column)
 - [x] Typecheck clean, pelican tests pass (8/8)
+
+## Pelican product images from brochure PDF
+- [x] Extract 1,381 product rows + images from NLSPrintForm PDF (154 pages)
+- [x] Flag 383 placeholder ("?") rows to skip
+- [x] Match 998 real photos to products by name; upload to storage; set imageUrl
+- [x] Verify storefront renders real photos (quartz page confirmed)
