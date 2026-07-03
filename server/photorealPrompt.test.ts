@@ -74,6 +74,26 @@ describe("buildPhotorealPrompt", () => {
     expect(buildPhotorealPrompt({ ...base, hasIsland: false })).not.toContain("central kitchen island");
   });
 
+  it("describes surfaces & fixtures from the wizard when provided", () => {
+    const p = buildPhotorealPrompt({
+      ...base,
+      flooring: "light natural-oak luxury vinyl plank",
+      backsplash: "white marble hexagon mosaic",
+      sink: "undermount stainless farmhouse sink",
+      faucet: "matte black pull-down faucet",
+    });
+    expect(p).toContain("light natural-oak luxury vinyl plank");
+    expect(p).toContain("white marble hexagon mosaic");
+    expect(p).toContain("undermount stainless farmhouse sink");
+    expect(p).toContain("matte black pull-down faucet");
+  });
+
+  it("omits surface clauses when not provided", () => {
+    const p = buildPhotorealPrompt(base);
+    expect(p).not.toContain("The floor is");
+    expect(p).not.toContain("The backsplash is");
+  });
+
   it("appends free-form notes", () => {
     const p = buildPhotorealPrompt({ ...base, notes: "open floating shelves on the right wall" });
     expect(p).toContain("open floating shelves on the right wall");

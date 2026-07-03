@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   DEFAULT_WASTE_PCT,
   computeBoxes,
   saveSurfaceSelection,
+  requestSurfaceHandoff,
   guessBacksplashMaterialId,
   guessCountertopMaterialId,
   guessFlooringMaterialId,
@@ -23,6 +24,8 @@ import {
   type SurfaceRole,
   type SurfaceSelection,
 } from "@/lib/surfaceSelection";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { getLoginUrl } from "@/const";
 import {
   ArrowLeft,
   ArrowRight,
@@ -32,6 +35,9 @@ import {
   Waves,
   ImageIcon,
   RotateCcw,
+  Save,
+  Download,
+  LogIn,
 } from "lucide-react";
 
 type StepDef = {
@@ -104,6 +110,10 @@ export default function SurfacesWizard() {
   });
   const [layout] = useState<SurfaceSelection["layout"]>("l-shape");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const { isAuthenticated } = useAuth();
+  const utils = trpc.useUtils();
+  const [profileRestored, setProfileRestored] = useState(false);
 
   const step = STEPS[stepIdx];
 
@@ -191,35 +201,81 @@ export default function SurfacesWizard() {
     previewMutation.mutate({ items, layout });
   };
 
-  // ─── Carry into the Design Tool ─────────────────────────────────────────────
-  const continueToDesign = () => {
-    const sel: SurfaceSelection = {
-      v: 1,
-      savedAt: Date.now(),
-      layout,
-      previewUrl: previewUrl ?? null,
-      picks: Object.fromEntries(
-        STEPS.map((s) => {
-          const pick = picks[s.role];
-          if (!pick) return [s.role, undefined];
-          const a = s.needsArea ? areas[s.role] : undefined;
-          const boxes = s.needsArea ? computeBoxes(a?.areaSqft, a?.sqftPerBox, a?.wastePct) : null;
-          return [
-            s.role,
-            {
-              ...pick,
-              areaSqft: a?.areaSqft ?? null,
-              sqftPerBox: a?.sqftPerBox ?? null,
-              wastePct: a?.wastePct ?? null,
-              boxes,
-            } as SurfacePick,
-          ];
-        }).filter(([, v]) => v !== undefined) as [SurfaceRole, SurfacePick][]
-      ),
-    };
+  // ─── Build the current selection blob (pure) ────────────────────────────────
+  const buildSelection = (): SurfaceSelection => ({
+    v: 1,
+    savedAt: Date.now(),
+    layout,
+    previewUrl: previewUrl ?? null,
+    picks: Object.fromEntries(
+      STEPS.map((s) => {
+        const pick = picks[s.role];
+        if (!pick) return [s.role, undefined];
+        const a = s.needsArea ? areas[s.role] : undefined;
+        const boxes = s.needsArea ? computeBoxes(a?.areaSqft, a?.sqftPerBox, a?.wastePct) : null;
+        return [
+          s.role,
+          {
+            ...pick,
+            areaSqft: a?.areaSqft ?? null,
+            sqftPerBox: a?.sqftPerBox ?? null,
+            wastePct: a?.wastePct ?? null,
+            boxes,
+          } as SurfacePick,
+        ];
+      }).filter(([, v]) => v !== undefined) as [SurfaceRole, SurfacePick][]
+    ),
+  });
+
+  const hasAnyPick = Object.values(picks).some(Boolean);
+
+  // ─── Save profile (explicit, user-triggered) ────────────────────────────────
+  const saveProfileMutation = trpc.surfaces.saveProfile.useMutation({
+    onSuccess: () => {
+      utils.surfaces.getProfile.invalidate();
+      toast.success("Saved to your account — pick up right where you left off anytime.");
+    },
+    onError: (err) => toast.error(err.message || "Could not save your selections."),
+  });
+
+  const saveMySelections = () => {
+    if (!hasAnyPick) {
+      toast.error("Choose at least one product before saving.");
+      return;
+    }
+    const sel = buildSelection();
+    // Always keep a local copy so guests keep their work on this device.
     saveSurfaceSelection(sel);
-    toast.success("Selections saved — carrying them into the Design Tool.");
+    if (isAuthenticated) {
+      saveProfileMutation.mutate({ selection: sel, previewUrl: previewUrl ?? null });
+    } else {
+      toast.success("Saved on this device. Sign in to keep it across devices.");
+    }
+  };
+
+  // ─── Explicit hand-off to the Design Tool (only when the customer is ready) ──
+  const startMyKitchen = () => {
+    if (!hasAnyPick) {
+      toast.error("Choose at least one product before designing your kitchen.");
+      return;
+    }
+    const sel = buildSelection();
+    saveSurfaceSelection(sel); // keep the profile too
+    requestSurfaceHandoff(sel); // one-time opt-in signal the Design Tool consumes
+    toast.success("Great — opening the Design Tool with your selections.");
     navigate("/design");
+  };
+
+  const downloadPreview = () => {
+    if (!previewUrl) return;
+    const a = document.createElement("a");
+    a.href = previewUrl;
+    a.download = "cabinet-dealz-kitchen-preview.png";
+    a.target = "_blank";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   const resetWizard = () => {
@@ -231,6 +287,48 @@ export default function SurfacesWizard() {
       tile: { areaSqft: null, sqftPerBox: DEFAULT_SQFT_PER_BOX.tile, wastePct: DEFAULT_WASTE_PCT },
     });
   };
+
+  // ─── Restore a saved profile back into the wizard on return (signed-in only) ──
+  const profileQuery = trpc.surfaces.getProfile.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (profileRestored) return;
+    if (!profileQuery.data) return;
+    const sel = profileQuery.data.selection as SurfaceSelection | null;
+    if (!sel || sel.v !== 1 || !sel.picks) {
+      setProfileRestored(true);
+      return;
+    }
+    // Only restore if the user hasn't already started picking in this session.
+    if (hasAnyPick) {
+      setProfileRestored(true);
+      return;
+    }
+    const restoredPicks: Partial<Record<SurfaceRole, SurfacePick>> = {};
+    const restoredAreas: Partial<Record<SurfaceRole, AreaState>> = {};
+    (Object.keys(sel.picks) as SurfaceRole[]).forEach((role) => {
+      const p = sel.picks[role];
+      if (!p) return;
+      restoredPicks[role] = { ...p, role } as SurfacePick;
+      if (role === "flooring" || role === "tile") {
+        restoredAreas[role] = {
+          areaSqft: p.areaSqft ?? null,
+          sqftPerBox: p.sqftPerBox ?? DEFAULT_SQFT_PER_BOX[role],
+          wastePct: p.wastePct ?? DEFAULT_WASTE_PCT,
+        };
+      }
+    });
+    setPicks(restoredPicks);
+    setAreas((prev) => ({ ...prev, ...restoredAreas }));
+    if (sel.previewUrl) setPreviewUrl(sel.previewUrl);
+    setProfileRestored(true);
+    toast.info("Restored your saved selections. Continue where you left off, or reset to start fresh.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileQuery.data, profileRestored]);
 
   const progressPct = ((stepIdx + (isPreviewStep ? 1 : 0)) / STEPS.length) * 100;
 
@@ -347,6 +445,21 @@ export default function SurfacesWizard() {
             />
           )}
 
+          {/* Guest nudge: saving across devices needs sign-in */}
+          {isPreviewStep && !isAuthenticated && hasAnyPick && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/10 px-4 py-3 text-sm">
+              <span className="text-muted-foreground">
+                Saving keeps your picks on this device. Sign in to keep them across devices and load
+                them into the Design Tool anytime.
+              </span>
+              <a href={getLoginUrl()}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <LogIn className="h-4 w-4" /> Sign in
+                </Button>
+              </a>
+            </div>
+          )}
+
           {/* Nav buttons */}
           <div className="mt-8 flex items-center justify-between border-t border-border pt-5">
             <Button variant="outline" onClick={goBack} disabled={stepIdx === 0} className="gap-2">
@@ -368,12 +481,29 @@ export default function SurfacesWizard() {
                 </Button>
               </div>
             ) : (
-              <Button
-                onClick={continueToDesign}
-                className="gap-2 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90"
-              >
-                <PencilRuler className="h-4 w-4" /> Continue to Design Tool
-              </Button>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={saveMySelections}
+                  disabled={!hasAnyPick || saveProfileMutation.isPending}
+                  className="gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {saveProfileMutation.isPending ? "Saving…" : "Save my selections"}
+                </Button>
+                {previewUrl && (
+                  <Button variant="outline" onClick={downloadPreview} className="gap-2">
+                    <Download className="h-4 w-4" /> Download render
+                  </Button>
+                )}
+                <Button
+                  onClick={startMyKitchen}
+                  disabled={!hasAnyPick}
+                  className="gap-2 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90"
+                >
+                  <PencilRuler className="h-4 w-4" /> I'm ready to design my kitchen
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -480,7 +610,8 @@ function PreviewStep({
         <h2 className="font-serif text-2xl font-bold">Preview & finish</h2>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Generate a photoreal render of your kitchen built from the actual product photos you
-          selected. When you're happy, carry everything into the Design Tool.
+          selected. Nothing moves automatically — when you're ready, save your selections or take
+          them into the Design Tool yourself.
         </p>
       </div>
 

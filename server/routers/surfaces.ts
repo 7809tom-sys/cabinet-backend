@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { inArray } from "drizzle-orm";
-import { router, publicProcedure } from "../_core/trpc";
+import { inArray, and, eq, desc } from "drizzle-orm";
+import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
@@ -75,6 +75,76 @@ export const surfacesRouter = router({
         .where(inArray(pelicanProducts.id, input.ids));
       return rows.map((r) => ({ ...r, sellPrice: sellPriceOf(r, map) }));
     }),
+
+  // Save the customer's Surfaces & Fixtures profile so they can explicitly load it
+  // into the Design Tool LATER (no auto-advance). One live profile per user: we
+  // upsert by keeping only the newest row of kind="profile". Requires sign-in so
+  // the profile survives across devices/sessions.
+  saveProfile: protectedProcedure
+    .input(
+      z.object({
+        // The full wizard selection blob (picks + areas + layout + optional preview).
+        selection: z.any(),
+        previewUrl: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const openId = ctx.user.openId;
+      const res = await db.insert(surfacePreviews).values({
+        ownerOpenId: openId,
+        selections: input.selection,
+        previewUrl: input.previewUrl ?? null,
+        kind: "profile",
+      });
+      const id = (res as unknown as [{ insertId: number }])[0]?.insertId ?? null;
+      // Prune older profile rows for this user so "my saved profile" is unambiguous.
+      try {
+        const olds = await db
+          .select({ id: surfacePreviews.id })
+          .from(surfacePreviews)
+          .where(and(eq(surfacePreviews.ownerOpenId, openId), eq(surfacePreviews.kind, "profile")))
+          .orderBy(desc(surfacePreviews.id));
+        const stale = olds.map((r) => r.id).filter((rid) => rid !== id);
+        for (const rid of stale) {
+          await db.delete(surfacePreviews).where(eq(surfacePreviews.id, rid));
+        }
+      } catch {
+        /* pruning is best-effort */
+      }
+      return { id, ok: true as const };
+    }),
+
+  // Load the current user's saved Surfaces & Fixtures profile, if any.
+  getProfile: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return null;
+    const rows = await db
+      .select()
+      .from(surfacePreviews)
+      .where(and(eq(surfacePreviews.ownerOpenId, ctx.user.openId), eq(surfacePreviews.kind, "profile")))
+      .orderBy(desc(surfacePreviews.id))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      selection: row.selections,
+      previewUrl: row.previewUrl,
+      savedAt: row.updatedAt ?? row.createdAt,
+    };
+  }),
+
+  // Clear the current user's saved profile.
+  clearProfile: protectedProcedure.mutation(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return { ok: true as const };
+    await db
+      .delete(surfacePreviews)
+      .where(and(eq(surfacePreviews.ownerOpenId, ctx.user.openId), eq(surfacePreviews.kind, "profile")));
+    return { ok: true as const };
+  }),
 
   // Generate an on-demand photoreal kitchen preview using the customer's actual selected
   // product photos as image references.

@@ -92,8 +92,7 @@ import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/SurfacesPickerDialog";
 import {
-  loadSurfaceSelection,
-  clearSurfaceSelection,
+  takeSurfaceHandoff,
   guessFlooringMaterialId,
   guessBacksplashMaterialId,
   guessCountertopMaterialId,
@@ -1233,6 +1232,21 @@ export default function DesignTool() {
   const buildPhotorealSceneInput = useCallback((): PhotorealSceneInput | null => {
     const s = doorStyles?.find((d) => d.id === styleId) as { doorStyle?: string | null } | undefined;
     const hw = HARDWARE_STYLES.find((h) => h.id === hardwareStyleId);
+    // Pull the customer's Surfaces & Fixtures picks (if any) so the render
+    // reflects the whole room, not just cabinets + countertop.
+    const surfByCat = (frag: string) =>
+      selectedSurfaces.find((su) => (su.category || "").toLowerCase().includes(frag))?.name ?? null;
+    const flooring = surfByCat("floor");
+    const backsplash = surfByCat("tile") ?? surfByCat("mosaic");
+    // Sinks & Faucets share one category; split by name heuristics.
+    const sinkFaucet = selectedSurfaces.filter((su) =>
+      (su.category || "").toLowerCase().includes("sink") ||
+      (su.category || "").toLowerCase().includes("faucet")
+    );
+    const faucet =
+      sinkFaucet.find((su) => /faucet|tap/i.test(su.name))?.name ?? null;
+    const sink =
+      sinkFaucet.find((su) => !/faucet|tap/i.test(su.name))?.name ?? null;
     return buildPhotorealScene({
       room,
       placed,
@@ -1241,8 +1255,12 @@ export default function DesignTool() {
       doorStyle: s?.doorStyle ?? activeStyleName,
       countertop: countertopMaterial(countertopMaterialId)?.name ?? null,
       hardware: hw && hw.id !== "none" ? hw.description : null,
+      flooring,
+      backsplash,
+      sink,
+      faucet,
     });
-  }, [doorStyles, styleId, hardwareStyleId, room, placed, island, activeStyleName, countertopMaterialId]);
+  }, [doorStyles, styleId, hardwareStyleId, room, placed, island, activeStyleName, countertopMaterialId, selectedSurfaces]);
 
   // ─── TWO-TONE per-cabinet finish + door-panel resolvers ─────────────────────
   // Each cabinet renders in its EFFECTIVE finish (per-cabinet override, else the
@@ -3244,11 +3262,13 @@ export default function DesignTool() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verified, draftKey]);
 
-  // Consume the Surfaces & Fixtures wizard hand-off once, after verification and
-  // after the draft has been restored. The wizard writes cd_surface_selection
-  // with the customer's chosen flooring / backsplash / countertop / sink / faucet;
-  // we pre-select the closest matching Design Tool materials and pre-load the
-  // exact products into the Surfaces & Fixtures list so nothing is re-typed.
+  // Consume the Surfaces & Fixtures wizard hand-off ONCE, after verification and
+  // after the draft has been restored. This only fires when the customer clicked
+  // "I'm ready to design my kitchen" in the wizard (which writes the dedicated
+  // cd_surface_handoff key). Opening the Design Tool on its own never pulls in a
+  // saved profile automatically — the hand-off is fully opt-in. We pre-select the
+  // closest matching materials and pre-load the exact products so nothing is
+  // re-typed, then consume (clear) the signal.
   useEffect(() => {
     if (!verified || !draftRestoredRef.current) return;
     if (surfaceSelectionAppliedRef.current) return;
@@ -3258,7 +3278,7 @@ export default function DesignTool() {
       return;
     }
     surfaceSelectionAppliedRef.current = true;
-    const sel = loadSurfaceSelection();
+    const sel = takeSurfaceHandoff();
     if (!sel) return;
     try {
       const surfaces: SelectedSurface[] = [];
@@ -3298,7 +3318,6 @@ export default function DesignTool() {
           return [...prev, ...surfaces.filter((s) => !seen.has(s.id))];
         });
       }
-      clearSurfaceSelection();
       if (applied > 0 || surfaces.length > 0) {
         toast.success("Loaded your Surfaces & Fixtures selections into the design.");
       }

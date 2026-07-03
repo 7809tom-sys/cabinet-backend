@@ -1,0 +1,2 @@
+ALTER TABLE `surface_previews` ADD `kind` enum('preview','profile') DEFAULT 'preview' NOT NULL;--> statement-breakpoint
+ALTER TABLE `surface_previews` ADD `updatedAt` timestamp DEFAULT (now()) NOT NULL ON UPDATE CURRENT_TIMESTAMP;

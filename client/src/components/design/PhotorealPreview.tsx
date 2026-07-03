@@ -23,6 +23,10 @@ export type PhotorealSceneInput = {
   secondFinishName?: string;
   countertop?: string;
   hardware?: string;
+  flooring?: string;
+  backsplash?: string;
+  sink?: string;
+  faucet?: string;
   wallSummaries?: string[];
   hasIsland?: boolean;
   notes?: string;

@@ -2648,3 +2648,32 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Entry points: Surfaces landing hero CTA + homepage SurfacesBand CTA -> wizard.
 - [x] Carry-in: DesignTool consumes cd_surface_selection once after email verification — pre-selects flooring/backsplash/countertop materials, enables countertop, pre-loads all picks into Surfaces & Fixtures list; then clears the hand-off.
 - [x] Tests: client/src/lib/surfaceSelection.test.ts + server/surfaces.test.ts. Full suite 1252 passed. tsc clean. Live preview generation verified end-to-end.
+
+## CRM webhook + Pelican wizard opt-in + closing 3D render (batch)
+- [x] Add crm_events outbox table (schema + migration applied)
+- [x] Add server-side emitCrmEvent dispatcher (persist-first, best-effort delivery, dealer/affiliate tagging)
+- [x] Expose CRM_WEBHOOK_URL in server env
+- [x] Fire CRM lead event from design.captureLead
+- [x] Fire CRM design_saved event from design.save (new designs only)
+- [x] Fire CRM order_submitted event from orders.submit (submitted only, affiliate-tagged)
+- [ ] Live webhook delivery deferred — owner will add real CRM_WEBHOOK_URL later (events recorded as "skipped" until then)
+- [ ] Pelican Surfaces wizard: no auto-jump into Design Tool; save selections to a profile and load only on explicit user action
+- [ ] Add explicit "Save my selections" + "I'm ready to design my kitchen" actions to the wizard finish step
+- [ ] Persist surface profile so it's available on return (server + localStorage)
+- [ ] Closing AI 3D render: ensure it reflects the whole room incl. chosen surfaces; make entry point a clear closing step
+- [ ] Tests for crmWebhook payload builder + emit behavior (skipped when no URL)
+- [ ] Browser verification, checkpoint, delivery
+
+## CRM webhook + wizard opt-in + full-room render (this batch)
+
+- [x] CRM webhook outbox: `crm_events` table + `emitCrmEvent` dispatcher (persist-then-deliver, best-effort, never throws)
+- [x] Fire CRM events from lead capture, design save, and order submit — tagged by white-label dealer/affiliate
+- [x] `CRM_WEBHOOK_URL` env hardened to only deliver on a valid http(s) URL; otherwise events recorded as "skipped" (live delivery deferred by owner)
+- [x] CRM webhook payload unit tests (server/crmWebhook.test.ts)
+- [x] Pelican Surfaces wizard: no auto-jump; explicit "Save my selections" + "I'm ready to design my kitchen" + optional "Download render"
+- [x] Saved surface profile persisted server-side (surfaces.saveProfile/getProfile); restored into the wizard on return
+- [x] Design Tool consumes a one-time hand-off signal only (never auto-pulls the saved profile)
+- [x] Guest sign-in nudge on the finish step
+- [x] AI photoreal render extended to reflect the whole room: flooring, backsplash, sink & faucet from the Surfaces picks
+- [x] Photoreal prompt surface-descriptor tests
+- [x] Full suite green (1,259 tests); TypeScript clean

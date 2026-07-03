@@ -21,6 +21,14 @@ export interface PhotorealPromptInput {
   secondFinishName?: string;
   countertop?: string;
   hardware?: string;
+  /** Flooring material, e.g. "light natural-oak luxury vinyl plank". */
+  flooring?: string;
+  /** Backsplash tile/mosaic, e.g. "white marble hexagon mosaic". */
+  backsplash?: string;
+  /** Sink, e.g. "undermount stainless farmhouse sink". */
+  sink?: string;
+  /** Faucet, e.g. "matte black pull-down faucet". */
+  faucet?: string;
   wallSummaries?: string[];
   hasIsland?: boolean;
   notes?: string;
@@ -97,6 +105,23 @@ export function buildPhotorealPrompt(input: PhotorealPromptInput): string {
   }
   if (hardware) {
     parts.push(`Cabinet hardware is ${hardware}, consistently placed on every door and drawer.`);
+  }
+
+  // 4b. Surfaces & fixtures chosen in the Surfaces wizard, so the money-shot
+  // reflects the WHOLE room rather than just cabinets + countertop.
+  const flooring = (input.flooring || "").trim();
+  const backsplash = (input.backsplash || "").trim();
+  const sink = (input.sink || "").trim();
+  const faucet = (input.faucet || "").trim();
+  if (flooring) {
+    parts.push(`The floor is ${flooring}, laid realistically across the whole room with accurate plank/tile scale and natural texture.`);
+  }
+  if (backsplash) {
+    parts.push(`The backsplash is ${backsplash}, installed on the wall between the countertop and the wall cabinets with realistic grout lines and reflections.`);
+  }
+  if (sink || faucet) {
+    const fixture = [sink, faucet && `paired with a ${faucet}`].filter(Boolean).join(" ");
+    parts.push(`The kitchen sink area features a ${fixture}, rendered true to life.`);
   }
 
   // 5. Layout so the render tracks what the user actually built.

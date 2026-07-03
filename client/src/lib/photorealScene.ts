@@ -64,6 +64,10 @@ export function buildPhotorealScene(args: {
   doorStyle?: string | null;
   countertop?: string | null;
   hardware?: string | null;
+  flooring?: string | null;
+  backsplash?: string | null;
+  sink?: string | null;
+  faucet?: string | null;
 }): PhotorealSceneInput | null {
   const cabinets = args.placed.filter((p) => !isAppliance(p));
   if (cabinets.length === 0) return null;
@@ -105,6 +109,10 @@ export function buildPhotorealScene(args: {
     doorStyle: args.doorStyle?.trim() || undefined,
     countertop: args.countertop?.trim() || undefined,
     hardware: args.hardware?.trim() || undefined,
+    flooring: args.flooring?.trim() || undefined,
+    backsplash: args.backsplash?.trim() || undefined,
+    sink: args.sink?.trim() || undefined,
+    faucet: args.faucet?.trim() || undefined,
     wallSummaries: wallSummaries.length > 0 ? wallSummaries.slice(0, 8) : undefined,
     hasIsland: !!args.island,
   };

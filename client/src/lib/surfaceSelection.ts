@@ -37,6 +37,35 @@ export interface SurfaceSelection {
   previewUrl?: string | null;
 }
 
+// A distinct localStorage key used ONLY as the explicit hand-off signal to the
+// Design Tool. The wizard writes this key exclusively when the customer clicks
+// "I'm ready to design my kitchen" — never automatically. The Design Tool
+// consumes it once (and clears it) so opening /design on its own never pulls in
+// stale wizard picks. The saved *profile* (persisted server-side + under
+// SURFACE_SELECTION_KEY) is separate and is NOT auto-applied.
+export const SURFACE_HANDOFF_KEY = "cd_surface_handoff";
+
+export function requestSurfaceHandoff(sel: SurfaceSelection): void {
+  try {
+    localStorage.setItem(SURFACE_HANDOFF_KEY, JSON.stringify(sel));
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+}
+
+export function takeSurfaceHandoff(): SurfaceSelection | null {
+  try {
+    const raw = localStorage.getItem(SURFACE_HANDOFF_KEY);
+    if (!raw) return null;
+    localStorage.removeItem(SURFACE_HANDOFF_KEY); // consume once
+    const obj = JSON.parse(raw);
+    if (obj && obj.v === 1 && obj.picks) return obj as SurfaceSelection;
+  } catch {
+    /* corrupt — ignore */
+  }
+  return null;
+}
+
 export const SURFACE_SELECTION_KEY = "cd_surface_selection";
 
 export const DEFAULT_SQFT_PER_BOX: Record<SurfaceRole, number> = {

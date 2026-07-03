@@ -22,6 +22,7 @@ import {
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { normalizeReferralCode } from "@shared/affiliate";
+import { emitCrmEvent } from "../_core/crmWebhook";
 import { validateFamilyLock } from "@shared/familyLock";
 import {
   buildCodeIndex,
@@ -635,9 +636,10 @@ export const ordersRouter = router({
         }
       }
 
+      const requestNumber = makeRequestNumber();
       const result = await db.insert(orderRequests).values({
         userId: ctx.user?.id ?? null,
-        requestNumber: makeRequestNumber(),
+        requestNumber,
         originatorName: input.originatorName ?? ctx.user?.name ?? null,
         originatorEmail: input.originatorEmail ?? ctx.user?.email ?? null,
         originatorPhone: input.originatorPhone ?? null,
@@ -658,6 +660,32 @@ export const ordersRouter = router({
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 
+      // Push a CRM event only for SUBMITTED orders (drafts are still in-progress).
+      // Best-effort + tagged with the referring affiliate/dealer (NULL = house).
+      if (input.submit) {
+        void emitCrmEvent({
+          event: "order_submitted",
+          affiliateId,
+          referralCode,
+          contact: {
+            userId: ctx.user?.id ?? null,
+            name: input.originatorName ?? ctx.user?.name ?? null,
+            email: input.originatorEmail ?? ctx.user?.email ?? null,
+            phone: input.originatorPhone ?? null,
+          },
+          data: {
+            orderId: insertId,
+            requestNumber,
+            source: input.source,
+            tier: input.tier,
+            styleName: input.styleName ?? null,
+            itemCount,
+            totalAmount: total > 0 ? Number(total.toFixed(2)) : null,
+            deliveryMethod: input.deliveryMethod ?? "ship",
+          },
+          link: `/admin/orders/${insertId}`,
+        });
+      }
       // NOTE: Per owner workflow, a submitted order should eventually be emailed
       // to the distributor with copies to affiliates, and confirmed by the
       // originator/affiliate. That email step is DEFERRED until distributor email

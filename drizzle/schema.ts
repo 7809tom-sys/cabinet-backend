@@ -1225,7 +1225,47 @@ export const surfacePreviews = mysqlTable("surface_previews", {
   ownerOpenId: varchar("ownerOpenId", { length: 191 }),
   selections: json("selections"),
   previewUrl: varchar("previewUrl", { length: 512 }),
+  // "preview" = a one-off AI render snapshot; "profile" = the customer's saved
+  // Surfaces & Fixtures selection they can explicitly load into the Design Tool.
+  kind: mysqlEnum("kind", ["preview", "profile"]).default("preview").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type SurfacePreview = typeof surfacePreviews.$inferSelect;
 export type InsertSurfacePreview = typeof surfacePreviews.$inferInsert;
+
+// ─── CRM webhook outbox ────────────────────────────────────────────────────────
+// Durable record of every business event that should reach an external CRM
+// (Zapier / Make / GoHighLevel / HubSpot / any webhook). We ALWAYS persist the
+// event here first, then attempt delivery to CRM_WEBHOOK_URL. If delivery fails
+// (or no URL is configured yet) the row remains as the source of truth and can
+// be retried, so no lead / design / order is ever lost. Each event is tagged
+// with the white-label affiliate/dealer it belongs to (affiliateId NULL = the
+// house / Cabinet Dealz pipeline).
+export const crmEvents = mysqlTable("crm_events", {
+  id: int("id").autoincrement().primaryKey(),
+  // "lead" | "design_saved" | "order_submitted" (kept as a string for forward
+  // compatibility so new event kinds don't require a migration).
+  eventType: varchar("eventType", { length: 48 }).notNull(),
+  // White-label attribution.
+  affiliateId: int("affiliateId"), // NULL = house / Cabinet Dealz
+  referralCode: varchar("referralCode", { length: 32 }),
+  dealerName: varchar("dealerName", { length: 256 }), // resolved display name at send time
+  // Who / what the event is about.
+  userId: int("userId"),
+  contactName: varchar("contactName", { length: 256 }),
+  contactEmail: varchar("contactEmail", { length: 320 }),
+  contactPhone: varchar("contactPhone", { length: 32 }),
+  // The full JSON payload that was (or will be) POSTed to the webhook.
+  payload: json("payload"),
+  // Delivery bookkeeping.
+  status: mysqlEnum("status", ["pending", "sent", "failed", "skipped"]).default("pending").notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  lastError: text("lastError"),
+  responseStatus: int("responseStatus"),
+  deliveredAt: timestamp("deliveredAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CrmEvent = typeof crmEvents.$inferSelect;
+export type InsertCrmEvent = typeof crmEvents.$inferInsert;

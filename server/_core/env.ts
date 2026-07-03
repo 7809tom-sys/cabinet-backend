@@ -9,4 +9,13 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  // Optional outbound CRM webhook (Zapier / Make / GoHighLevel / any CRM). When
+  // set, business events (lead / design saved / order submitted) are POSTed here.
+  // Only honor a real http(s) URL. A stray value (e.g. a placeholder word) is
+  // treated as unconfigured so events are still recorded but never POSTed to a
+  // bogus endpoint.
+  crmWebhookUrl: (() => {
+    const raw = (process.env.CRM_WEBHOOK_URL ?? "").trim();
+    return /^https?:\/\//i.test(raw) ? raw : "";
+  })(),
 };

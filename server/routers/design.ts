@@ -5,6 +5,7 @@ import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
 import { cabinets, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
+import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
 import { generateImage } from "../_core/imageGeneration";
 import { buildPhotorealPrompt } from "@shared/photorealPrompt";
@@ -826,6 +827,27 @@ export const designRouter = router({
       });
       // mysql2 returns a tuple: [ResultSetHeader, ...]; insertId lives on the header.
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+
+      // Push a CRM "design saved" event only for a NEW design (not every autosave
+      // update). Best-effort + house pipeline. The email may come from the lead
+      // gate even when the user isn't signed in.
+      void emitCrmEvent({
+        event: "design_saved",
+        contact: {
+          userId,
+          name: ctx.user?.name ?? null,
+          email: input.email ?? ctx.user?.email ?? null,
+          phone: null,
+        },
+        data: {
+          designId: insertId,
+          designName: input.name,
+          projectName: input.projectName ?? null,
+          roomType: input.roomType ?? null,
+        },
+        link: `/design?id=${insertId}`,
+      });
+
       return { id: insertId };
     }),
 
@@ -948,6 +970,15 @@ export const designRouter = router({
       } catch {
         // Never block lead capture on a notification failure.
       }
+
+      // Push the lead to the external CRM (best-effort). House pipeline for now —
+      // storefront design leads are not affiliate-attributed at capture time.
+      void emitCrmEvent({
+        event: "lead",
+        contact: { userId, name, email: emailLower, phone },
+        data: { source: "design_tool_gate", roomType, dealId, leadId: insertId },
+        link: dealId ? `/admin/crm?deal=${dealId}` : null,
+      });
 
       return { ok: true as const, id: insertId, deduped: false as const };
     }),
@@ -1710,6 +1741,12 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         countertop: z.string().max(80).optional(),
         // Hardware finish/type, e.g. "brushed nickel bar pulls".
         hardware: z.string().max(80).optional(),
+        // Surfaces & fixtures carried from the Surfaces wizard so the render
+        // reflects the whole room, not just cabinets + countertop.
+        flooring: z.string().max(120).optional(),
+        backsplash: z.string().max(120).optional(),
+        sink: z.string().max(120).optional(),
+        faucet: z.string().max(120).optional(),
         // Ordered summary of what is on each wall so the render matches layout.
         // e.g. ["Back wall: 12ft run of base + wall cabinets with a sink and
         // range", "Left wall: tall pantry column"].
