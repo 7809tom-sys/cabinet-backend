@@ -497,7 +497,7 @@ export default function DesignTool() {
   // When locked, only offer styles from the locked distributor so changing the
   // finish never silently switches supply lines.
   const uniqueDoorStyles = useMemo(() => {
-    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number }>();
+    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number; styleCode?: string | null }>();
     const source = (doorStyles ?? []) as Array<{
       id: number;
       ourName: string | null;
@@ -505,6 +505,7 @@ export default function DesignTool() {
       thumbnailImageUrl?: string | null;
       doorSampleImageUrl?: string | null;
       distributorId?: number;
+      styleCode?: string | null;
     }>;
     const scoped =
       lockedDistributorId != null
@@ -526,11 +527,11 @@ export default function DesignTool() {
   // Color 1 has no distributor association (e.g. no style selected yet).
   const slotBStyles = useMemo(() => {
     if (styleA == null) return uniqueDoorStyles;
-    const source = (doorStyles ?? []) as Array<{ id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number }>;
+    const source = (doorStyles ?? []) as Array<{ id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number; styleCode?: string | null }>;
     const distA = source.find((d) => d.id === styleA)?.distributorId ?? null;
     if (distA == null) return uniqueDoorStyles;
     // Filter to same distributor, then de-duplicate by name (same as uniqueDoorStyles).
-    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number }>();
+    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number; styleCode?: string | null }>();
     for (const s of source.filter((s) => s.distributorId === distA)) {
       const key = (styleDisplayName(s) || String(s.id)).toLowerCase();
       if (!map.has(key)) map.set(key, s);

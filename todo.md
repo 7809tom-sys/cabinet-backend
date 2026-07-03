@@ -95,3 +95,6 @@
 - [x] When a wall cabinet is placed near a window, suggest a WEC (open-end cabinet, 6" or 9") next to the window
 - [x] After WEC placement, suggest a fill wall cabinet sized to fit the gap between the corner/diagonal cabinet and the WEC
 - [x] When a 30" wall cabinet is placed, suggest wine rack combo: wine rack + bridge above + stem glass holder below
+- [x] Add "View collection" hyperlink on each door style card in the Change Door Style dialog (links to the shop page for that style)
+- [x] Ensure the style picker can be re-opened at any time (not just once) — already supported by pickerOpen state
+- [x] Ensure the customer stays in the same collection at all times (design locked to one style) — already enforced by lockedDistributorId

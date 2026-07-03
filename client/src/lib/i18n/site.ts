@@ -612,6 +612,7 @@ export const SITE_STRINGS = {
     dt_cs_line_other: "Other",
     dt_cs_group_count: "{count} styles",
     dt_cs_pick_line_help: "Choose a supply line to see its door styles. Your design locks to that line once you pick a style.",
+    dt_cs_view_collection: "View collection",
     dt_cs_back_to_lines: "All supply lines",
 
     // --- Design Tool: Room Size Control ---
@@ -1886,6 +1887,7 @@ export const SITE_STRINGS = {
     dt_cs_line_other: "Otros",
     dt_cs_group_count: "{count} estilos",
     dt_cs_pick_line_help: "Elija una línea de suministro para ver sus estilos de puerta. Su diseño se fija a esa línea al elegir un estilo.",
+    dt_cs_view_collection: "Ver colección",
     dt_cs_back_to_lines: "Todas las líneas",
 
     // --- Herramienta de Diseño: Tamaño de la Habitación ---

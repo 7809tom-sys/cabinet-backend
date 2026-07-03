@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Layers, Palette, Pencil, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Layers, Palette, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { DoorStyleSwatch, type DoorStyleLike } from "@/components/DoorStyleSwatch";
 import {
@@ -46,6 +46,7 @@ type StyleOption = {
   thumbnailImageUrl?: string | null;
   doorSampleImageUrl?: string | null;
   distributorId?: number | null;
+  styleCode?: string | null;
 };
 
 /** Neutral, customer-safe distributor label (no hidden supplier brand). */
@@ -176,6 +177,18 @@ export function ColorSlotButton({
             <span className={`w-full truncate text-[10px] leading-tight ${isSelected ? "font-semibold text-[#1a2744]" : "text-muted-foreground"}`}>
               {sName}
             </span>
+            {s.styleCode && (
+              <a
+                href={`/family/${encodeURIComponent(s.styleCode)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] text-[#1a2744]/70 hover:text-[#d4a75a] hover:underline transition-colors"
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                {t("dt_cs_view_collection")}
+              </a>
+            )}
             {isSelected && (
               <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#d4a75a] text-white shadow">
                 <Check className="h-2.5 w-2.5" strokeWidth={3} />
