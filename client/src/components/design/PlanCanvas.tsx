@@ -11,6 +11,8 @@ import {
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
+  type PlanAnnotation,
+  wallDimensions, type DimensionSeg,
 } from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -36,6 +38,8 @@ interface Props {
   onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number) => void;
   showWallLayer: boolean;
   measureMode?: boolean;
+  /** When true, show dimension lines for all gaps on all walls simultaneously. */
+  autoDimensions?: boolean;
   island?: IslandZone | null;
   onIslandChange?: (zone: IslandZone) => void;
   // Incremental island move (inches). When provided, moving the island also
@@ -92,6 +96,14 @@ interface Props {
   gapFillCandidates?: Map<number, DesignCabinet>;
   onFillGap?: (gap: WallGap, cabinet: DesignCabinet) => void;
   onPlaceFiller?: (gap: WallGap) => void;
+  /** Place a cabinet + auto-sized filler in a gap as a combo. */
+  onFillGapWithCabAndFiller?: (gap: WallGap, cabinet: DesignCabinet) => void;
+  // Text annotations placed on the floor plan by the user.
+  annotations?: PlanAnnotation[];
+  selectedAnnotationUid?: string | null;
+  onSelectAnnotation?: (uid: string | null) => void;
+  onMoveAnnotation?: (uid: string, x: number, y: number) => void;
+  onDeleteAnnotation?: (uid: string) => void;
 }
 
 // Compute a readable label color for text drawn directly on a cabinet fill.
@@ -115,7 +127,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 
 export function PlanCanvas({
   room, cabinets, selectedUid, onSelect, onMove, onDelete, onRotate, onOpenAttributes, onDropNew, onDropToFloor,
-  showWallLayer, measureMode = false, island = null, onIslandChange, onIslandMove,
+  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
@@ -129,6 +141,8 @@ export function PlanCanvas({
   gapFillCandidates,
   onFillGap,
   onPlaceFiller,
+  onFillGapWithCabAndFiller,
+  annotations = [], selectedAnnotationUid = null, onSelectAnnotation, onMoveAnnotation, onDeleteAnnotation,
 }: Props) {
   const { t } = useLanguage();
   // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
@@ -285,6 +299,28 @@ export function PlanCanvas({
   const onFurnPointerUp = (e: React.PointerEvent) => {
     if (furnDrag.current) { try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ } }
     furnDrag.current = null;
+  };
+
+  // ── Annotation drag ──
+  const annDrag = useRef<{ uid: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const onAnnPointerDown = (e: React.PointerEvent, a: PlanAnnotation) => {
+    e.stopPropagation();
+    onSelectAnnotation?.(a.uid);
+    annDrag.current = { uid: a.uid, startX: e.clientX, startY: e.clientY, origX: a.x, origY: a.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onAnnPointerMove = (e: React.PointerEvent) => {
+    const d = annDrag.current;
+    if (!d || !onMoveAnnotation) return;
+    const dx = (e.clientX - d.startX) / ppiRef.current;
+    const dy = (e.clientY - d.startY) / ppiRef.current;
+    const x = Math.max(0, Math.min(d.origX + dx, room.width));
+    const y = Math.max(0, Math.min(d.origY + dy, room.depth));
+    onMoveAnnotation(d.uid, x, y);
+  };
+  const onAnnPointerUp = (e: React.PointerEvent) => {
+    if (annDrag.current) { try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ } }
+    annDrag.current = null;
   };
 
   const PADDING = 48;
@@ -1174,6 +1210,58 @@ export function PlanCanvas({
           </div>
         )}
 
+        {/* ─── Auto-dimensions (all walls at once) ───────────────────── */}
+        {autoDimensions && !dragUid && (() => {
+          const sides: WallSide[] = ["top", "bottom", "left", "right"];
+          const BASE_OFFSET = 22;
+          const WALL_OFFSET = 38; // second row for wall cabinets
+          const layers: ("base" | "wall")[] = showWallLayer ? ["base", "wall"] : ["base"];
+          return (
+            <svg className="pointer-events-none absolute inset-0 z-30 overflow-visible" width={roomPxW} height={roomPxH}>
+              {layers.flatMap((layer) => sides.flatMap((side) => {
+                const segs = wallDimensions(side, room, cabinets, layer);
+                if (segs.length === 0) return [];
+                const horizontal = side === "top" || side === "bottom";
+                const offset = layer === "wall" ? WALL_OFFSET : BASE_OFFSET;
+                const cross = side === "top" ? -offset
+                  : side === "bottom" ? roomPxH + offset
+                  : side === "left" ? -offset
+                  : roomPxW + offset;
+                const tick = 4;
+                return segs.map((seg, i) => {
+                  const aPx = seg.start * ppi;
+                  const bPx = (seg.start + seg.length) * ppi;
+                  const midPx = (aPx + bPx) / 2;
+                  const color = seg.kind === "cabinet" ? "#1a2744" : "#e07b39";
+                  if (seg.length < 1) return null;
+                  if (horizontal) {
+                    return (
+                      <g key={`${side}-${i}`}>
+                        <line x1={aPx} y1={cross} x2={bPx} y2={cross} stroke={color} strokeWidth={1} />
+                        <line x1={aPx} y1={cross - tick} x2={aPx} y2={cross + tick} stroke={color} strokeWidth={1} />
+                        <line x1={bPx} y1={cross - tick} x2={bPx} y2={cross + tick} stroke={color} strokeWidth={1} />
+                        <text x={midPx} y={cross + (side === "top" ? -6 : 10)} textAnchor="middle" fontSize={8} fill={color} fontWeight={seg.kind === "gap" ? 700 : 500}>
+                          {seg.label}
+                        </text>
+                      </g>
+                    );
+                  }
+                  return (
+                    <g key={`${side}-${i}`}>
+                      <line x1={cross} y1={aPx} x2={cross} y2={bPx} stroke={color} strokeWidth={1} />
+                      <line x1={cross - tick} y1={aPx} x2={cross + tick} y2={aPx} stroke={color} strokeWidth={1} />
+                      <line x1={cross - tick} y1={bPx} x2={cross + tick} y2={bPx} stroke={color} strokeWidth={1} />
+                      <text x={cross + (side === "left" ? -6 : 6)} y={midPx + 3} textAnchor={side === "left" ? "end" : "start"} fontSize={8} fill={color} fontWeight={seg.kind === "gap" ? 700 : 500}>
+                        {seg.label}
+                      </text>
+                    </g>
+                  );
+                });
+              }))}
+            </svg>
+          );
+        })()}
+
         {/* ─── Gap intelligence labels ─────────────────────────────────── */}
         {!dragUid && !measureMode && (() => {
           const gaps = wallGaps(room, cabinets, openings, 1);
@@ -1192,11 +1280,11 @@ export function PlanCanvas({
             const pos = gapPx(g);
             const isActive = activeGap?.side === g.side && activeGap?.start === g.start && activeGap?.layer === g.layer;
             const color = g.isFillerSize ? "#e07b39" : g.isStandardSize ? "#2e7d32" : "#1a2744";
-            // Only suggest widths that (a) physically fit the gap with <=3" of
+            // Only suggest widths that (a) physically fit the gap with <=6" of
             // leftover filler AND (b) have a REAL cabinet in the active palette.
             // When we don't have palette candidates (no style picked / no map),
             // fall back to the plain standard-width hint list.
-            const fittingWidths = STANDARD_WIDTHS.filter((w) => w <= g.length && g.length - w <= 3);
+            const fittingWidths = STANDARD_WIDTHS.filter((w) => w <= g.length && g.length - w <= 6);
             const realSuggestions = gapFillCandidates
               ? fittingWidths
                   .map((w) => ({ w, cab: gapFillCandidates.get(w) }))
@@ -1241,19 +1329,29 @@ export function PlanCanvas({
                         <div className="text-[10px] text-gray-400 mb-1">{t("dt_gap_fits_header")}</div>
                         {realSuggestions.map(({ w, cab }) => {
                           const exact = Math.abs(w - g.length) < 0.5;
+                          const fillerLeft = g.length - w;
+                          const needsFiller = !exact && fillerLeft > 0 && fillerLeft <= 6;
                           return (
-                            <div key={w} className="flex items-center justify-between gap-2 py-1 border-b border-gray-50 last:border-0">
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-semibold text-gray-800 truncate">{cab.masterCode}</div>
-                                <div className="text-[9px] text-gray-400">
-                                  {w}" · {exact ? t("dt_gap_exact_fit") : t("dt_gap_filler_left", { len: formatInches(g.length - w) })}
+                            <div key={w} className="flex flex-col gap-1 py-1 border-b border-gray-50 last:border-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="text-[11px] font-semibold text-gray-800 truncate">{cab.masterCode}</div>
+                                  <div className="text-[9px] text-gray-400">
+                                    {w}" · {exact ? t("dt_gap_exact_fit") : t("dt_gap_filler_left", { len: formatInches(fillerLeft) })}
+                                  </div>
                                 </div>
+                                {onFillGap && (
+                                  <button
+                                    className="shrink-0 rounded-md bg-[#1a2744] px-2 py-1 text-[10px] font-semibold text-white transition-transform hover:bg-[#243456] active:scale-95"
+                                    onClick={() => { onFillGap(g, cab); setActiveGap(null); }}
+                                  >{t("dt_gap_place")}</button>
+                                )}
                               </div>
-                              {onFillGap && (
+                              {needsFiller && onFillGapWithCabAndFiller && (
                                 <button
-                                  className="shrink-0 rounded-md bg-[#1a2744] px-2 py-1 text-[10px] font-semibold text-white transition-transform hover:bg-[#243456] active:scale-95"
-                                  onClick={() => { onFillGap(g, cab); setActiveGap(null); }}
-                                >{t("dt_gap_place")}</button>
+                                  className="w-full rounded-md bg-orange-600 px-2 py-1 text-[10px] font-semibold text-white transition-transform hover:bg-orange-700 active:scale-95"
+                                  onClick={() => { onFillGapWithCabAndFiller(g, cab); setActiveGap(null); }}
+                                >{t("dt_gap_place_with_filler", { code: cab.masterCode, filler: formatInches(fillerLeft) })}</button>
                               )}
                             </div>
                           );
@@ -1332,6 +1430,42 @@ export function PlanCanvas({
                   </button>
                 </>
               )}
+            </div>
+          );
+        })}
+
+        {/* ── Annotations (text notes) ───────────────────────────── */}
+        {annotations.map((a) => {
+          const isSelected = selectedAnnotationUid === a.uid;
+          return (
+            <div
+              key={a.uid}
+              className="absolute cursor-grab active:cursor-grabbing select-none"
+              style={{
+                left: a.x * ppi - 4,
+                top: a.y * ppi - 4,
+                zIndex: 25,
+              }}
+              onPointerDown={(e) => onAnnPointerDown(e, a)}
+              onPointerMove={onAnnPointerMove}
+              onPointerUp={onAnnPointerUp}
+            >
+              <div className={`relative whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium shadow-sm border ${
+                isSelected
+                  ? "bg-amber-100 border-amber-500 text-amber-900"
+                  : "bg-white/90 border-amber-300 text-amber-800"
+              }`}>
+                {a.text}
+                {isSelected && onDeleteAnnotation && (
+                  <button
+                    className="absolute -top-2.5 -right-2.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center shadow z-30"
+                    onPointerDown={(e) => { e.stopPropagation(); onDeleteAnnotation(a.uid); }}
+                    title="Delete"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </div>
             </div>
           );
         })}

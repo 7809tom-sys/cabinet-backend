@@ -7,7 +7,8 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves, Percent } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2 } from "lucide-react";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,8 @@ import {
   finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches, valancePiecesNeeded,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
+  EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
+  type PlanAnnotation, makeAnnotation,
   makeSink, SINK_PRESETS, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
@@ -257,6 +260,41 @@ export default function DesignTool() {
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
+  // ── Undo / Redo for placed cabinets ──────────────────────────────────────
+  const undoRedo = useUndoRedo<PlacedCabinet[]>();
+  const undoRedoRef = useRef(undoRedo);
+  undoRedoRef.current = undoRedo;
+  // Push a snapshot whenever `placed` changes (debounced to coalesce rapid updates).
+  const lastPushedRef = useRef<PlacedCabinet[] | null>(null);
+  useEffect(() => {
+    // Skip the initial empty array push if we haven't placed anything yet.
+    if (placed === lastPushedRef.current) return;
+    lastPushedRef.current = placed;
+    undoRedoRef.current.push(placed);
+  }, [placed]);
+  const handleUndo = useCallback(() => {
+    const prev = undoRedoRef.current.undo();
+    if (prev) { lastPushedRef.current = prev; setPlaced(prev); }
+  }, []);
+  const handleRedo = useCallback(() => {
+    const next = undoRedoRef.current.redo();
+    if (next) { lastPushedRef.current = next; setPlaced(next); }
+  }, []);
+  // Keyboard shortcut: Ctrl+Z / Ctrl+Y (or Cmd on Mac)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't intercept when focus is inside a form field.
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); handleUndo(); }
+      else if (e.key === "y" || (e.key === "z" && e.shiftKey)) { e.preventDefault(); handleRedo(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleUndo, handleRedo]);
   // Manual ordering override for the BOM shopping list. Maps group key → position
   // index within its section. Populated when the user clicks move-up/move-down.
   const [bomOrder, setBomOrder] = useState<Record<string, number>>({});
@@ -269,6 +307,7 @@ export default function DesignTool() {
   const [corner, setCorner] = useState<CornerId>("top-left");
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
+  const [autoDimensions, setAutoDimensions] = useState(false);
   // Island zone: an optional rectangular guide (inches) marking where island
   // cabinets go. Null when disabled.
   const [island, setIsland] = useState<{ x: number; y: number; width: number; depth: number } | null>(null);
@@ -297,6 +336,8 @@ export default function DesignTool() {
   const [countertop, setCountertop] = useState(false);
   // Countertop material: when set, a visible slab is drawn over base cabinets.
   const [countertopMaterialId, setCountertopMaterialId] = useState<string>(DEFAULT_COUNTERTOP_MATERIAL_ID);
+  // Countertop edge profile: decorative edge for fabricator quote.
+  const [edgeProfileId, setEdgeProfileId] = useState<string>(DEFAULT_EDGE_PROFILE_ID);
   // Sink + faucet fixtures placed on the counter.
   const [sinks, setSinks] = useState<SinkFixture[]>([]);
   const [selectedSinkUid, setSelectedSinkUid] = useState<string | null>(null);
@@ -381,6 +422,9 @@ export default function DesignTool() {
   const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory" | "furniture" | "surfaces">("base");
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
+  // Text annotations placed on the floor plan.
+  const [annotations, setAnnotations] = useState<PlanAnnotation[]>([]);
+  const [selectedAnnotationUid, setSelectedAnnotationUid] = useState<string | null>(null);
   // Backsplash material: shown in elevation view between countertop and wall cabinets.
   const [backsplashMaterialId, setBacksplashMaterialId] = useState<string | null>(null);
   // Flooring material: shown as a pattern in the bird's-eye plan view.
@@ -922,7 +966,15 @@ export default function DesignTool() {
       seen.add(key);
       pairs.push({ cabinetId, styleId: sid });
     };
-    placed.forEach((p) => push(p.cabinetId, effectiveStyleId(p, styleId) ?? styleId));
+    placed.forEach((p) => {
+      push(p.cabinetId, effectiveStyleId(p, styleId) ?? styleId);
+      // Also fetch price for the GD variant if glassDoor is enabled.
+      if (p.glassDoor) {
+        const gdCode = p.masterCode + "GD";
+        const gdCab = wallCabPoolRef.current.find((c) => c.masterCode === gdCode);
+        if (gdCab) push(gdCab.id, effectiveStyleId(p, styleId) ?? styleId);
+      }
+    });
     return pairs;
   }, [placed, styleId]);
 
@@ -944,10 +996,19 @@ export default function DesignTool() {
   // placeholder catalog; everything else prices from the DB price map keyed by
   // (cabinetId, effective styleId).
   const unitPriceFor = useCallback(
-    (p: { masterCode: string; cabinetId: number; styleId?: number | null }): number | null => {
+    (p: { masterCode: string; cabinetId: number; styleId?: number | null; glassDoor?: boolean }): number | null => {
       if (isClosetPart(p.masterCode)) return closetPartPrice(p.masterCode);
       if (!styleId) return null;
       const sid = effectiveStyleId(p, styleId) ?? styleId;
+      // When glass door is enabled, look up the GD variant's price instead.
+      if (p.glassDoor) {
+        const gdCode = p.masterCode + "GD";
+        const gdCab = wallCabPoolRef.current.find((c) => c.masterCode === gdCode);
+        if (gdCab) {
+          const gdPrice = priceMap.get(`${gdCab.id}:${sid}`);
+          if (gdPrice != null) return gdPrice;
+        }
+      }
       const v = priceMap.get(`${p.cabinetId}:${sid}`);
       return v ?? null;
     },
@@ -1158,14 +1219,17 @@ export default function DesignTool() {
       const cabStyleId = styleId ? effectiveStyleId(p, styleId) : null;
       const cabColor = cabStyleId != null ? (styleNameById.get(cabStyleId) ?? null) : null;
       const discKey = p.discountPct ?? 0;
-      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${cabStyleId ?? "_"}|${discKey}`;
+      const gdFlag = p.glassDoor ? "GD" : "";
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${cabStyleId ?? "_"}|${discKey}|${gdFlag}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
+      // When glass door is enabled, use the GD variant code for ordering.
+      const orderCode = p.glassDoor ? p.masterCode + "GD" : p.masterCode;
       const existing = map.get(key);
       if (existing) existing.qty += 1;
       else
         map.set(key, {
-          code: p.masterCode,
+          code: orderCode,
           description: [p.description, sizeNote, attrNote]
             .filter(Boolean)
             .join(" \u2014 "),
@@ -1275,12 +1339,13 @@ export default function DesignTool() {
       if (unit == null) continue; // skip unpriced rows (no SKU for this style)
       const sid = effectiveStyleId(p, styleId) ?? styleId;
       const styleLabel = styleNameById.get(sid) ?? "";
-      const key = `${p.masterCode}::${sid}`;
+      const bomCode = p.glassDoor ? p.masterCode + "GD" : p.masterCode;
+      const key = `${bomCode}::${sid}`;
       const existing = map.get(key);
       if (existing) existing.qty += 1;
       else
         map.set(key, {
-          masterCode: p.masterCode,
+          masterCode: bomCode,
           name: p.description ?? p.masterCode,
           styleId: sid,
           styleLabel,
@@ -1672,7 +1737,8 @@ export default function DesignTool() {
       const cabStyleId = styleId ? effectiveStyleId(p, styleId) : null;
       const colorKey = cabStyleId ?? "_";
       const discKey = p.discountPct ?? 0;
-      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}|${colorKey}|${discKey}`;
+      const gdFlag = p.glassDoor ? "GD" : "";
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}|${colorKey}|${discKey}|${gdFlag}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -1747,9 +1813,10 @@ export default function DesignTool() {
     }
     if (countertop && counter && counter.squareFeet > 0) {
       const mat = countertopMaterial(countertopMaterialId);
+      const ep = edgeProfile(edgeProfileId);
       out.push({
         label: "COUNTERTOP (quote)",
-        detail: `${mat?.name ?? "Material TBD"} — ~${counter.squareFeet} sq ft / ${counter.linearFeet} lin ft`,
+        detail: `${mat?.name ?? "Material TBD"} — ${ep.name} edge — ~${counter.squareFeet} sq ft / ${counter.linearFeet} lin ft`,
       });
     }
     // Sinks placed into the counter are quote-only fixtures; list them so the
@@ -1784,7 +1851,7 @@ export default function DesignTool() {
       }
     }
     return out;
-  }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, sinks, hwSchedule, activeStyle, activeStyleName]);
+  }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, edgeProfileId, sinks, hwSchedule, activeStyle, activeStyleName]);
 
   // ─── Placement actions ──────────────────────────────────────────────────────
 
@@ -2807,6 +2874,65 @@ export default function DesignTool() {
     [cabinetsLocked, room, t]
   );
 
+  // ── Combo: place a cabinet + auto-sized filler in one click ─────────────────
+  const fillGapWithCabAndFiller = useCallback(
+    (gap: WallGap, c: DesignCabinet) => {
+      if (cabinetsLocked) { toast.info(t("dt_gap_locked")); return; }
+      const cabWidth = dim(c.width, 24);
+      const fillerW = Math.round((gap.length - cabWidth) * 10) / 10;
+      if (fillerW <= 0 || fillerW > 6) return;
+      const depth = footprintDepth(c);
+      const height = dim(c.height, standardHeight(c.placement));
+      const placement: "base" | "wall" = gap.layer === "wall" ? "wall" : "base";
+      // Place cabinet at gap start
+      const cabSpot = wallPlacementAt(gap.start, cabWidth, depth, gap.side, room);
+      const newCab: PlacedCabinet = {
+        uid: makeUid(),
+        cabinetId: c.id,
+        masterCode: c.masterCode,
+        description: c.description,
+        category: c.category ?? null,
+        subCategory: c.subCategory ?? null,
+        placement,
+        x: cabSpot.x, y: cabSpot.y,
+        width: cabWidth, nominalWidth: cabWidth,
+        depth, nominalDepth: depth,
+        height, nominalHeight: height,
+        rotation: cabSpot.rotation,
+        numberOfDoors: c.numberOfDoors,
+        numberOfDrawers: c.numberOfDrawers,
+        catalogImageUrl: c.catalogImageUrl ?? null,
+        pullMin: c.pullMin ?? null,
+        pullMax: c.pullMax ?? null,
+        styleId: styleIdRef.current ?? null,
+      };
+      // Place filler at gap.start + cabWidth
+      const fillerDef = makeFiller(fillerW, placement);
+      const fillerDepth = placement === "wall" ? STD.WALL_DEPTH : 24;
+      const fillerHeight = placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT;
+      const fillerSpot = wallPlacementAt(gap.start + cabWidth, fillerW, fillerDepth, gap.side, room);
+      const newFiller: PlacedCabinet = {
+        uid: makeUid(),
+        cabinetId: 0,
+        masterCode: fillerDef.masterCode,
+        description: fillerDef.description,
+        category: "Accessory",
+        subCategory: "Filler",
+        placement,
+        x: fillerSpot.x, y: fillerSpot.y,
+        width: fillerW, depth: fillerDepth, height: fillerHeight,
+        rotation: fillerSpot.rotation,
+        numberOfDoors: 0, numberOfDrawers: 0,
+        catalogImageUrl: null,
+        styleId: styleIdRef.current ?? null,
+      };
+      setPlaced((prev) => [...prev, newCab, newFiller]);
+      setSelectedUid(newCab.uid);
+      toast.success(t("dt_gap_combo_toast", { code: c.masterCode, filler: formatInches(fillerW) }));
+    },
+    [cabinetsLocked, room, t]
+  );
+
   // ── Range/oven corner clearance: one-click fix ──────────────────────────────
   // NOTE: Range/oven corner clearance is a WARNING ONLY. We intentionally do not
   // auto-insert fillers or shift cabinets — the designer places the clearance
@@ -3502,8 +3628,9 @@ export default function DesignTool() {
   }, []);
 
   // Remove / restore the door (open unit) for a specific cabinet.
+  // Auto-clear glassDoor when setting noDoor (can't have glass door on open unit).
   const setNoDoorFor = useCallback((uid: string, noDoor: boolean) => {
-    setCabAttr(uid, { noDoor });
+    setCabAttr(uid, noDoor ? { noDoor, glassDoor: false } : { noDoor });
   }, [setCabAttr]);
 
   // Set the handle/pull side for a specific cabinet.
@@ -3529,6 +3656,24 @@ export default function DesignTool() {
   const setDiscountPctForGroup = useCallback((uids: string[], pct: number | null) => {
     setPlaced((prev) => prev.map((p) => uids.includes(p.uid) ? { ...p, discountPct: pct } : p));
   }, []);
+
+  // Toggle glass door upgrade for a wall cabinet.
+  // Auto-clear noDoor when enabling glassDoor (glass door = has a door).
+  const setGlassDoorFor = useCallback((uid: string, glassDoor: boolean) => {
+    setCabAttr(uid, glassDoor ? { glassDoor, noDoor: false } : { glassDoor });
+  }, [setCabAttr]);
+
+  // Whether the currently-open attributes cabinet has a GD variant in the catalog.
+  // We check if a code ending in GD exists for the cabinet's masterCode.
+  const glassDoorAvailableForAttr = useMemo(() => {
+    if (!attrUid) return false;
+    const cab = placed.find((p) => p.uid === attrUid);
+    if (!cab || cab.placement !== "wall") return false;
+    // The GD code pattern: append "GD" to the masterCode (e.g. W-30-30 → W-30-30GD)
+    const gdCode = cab.masterCode + "GD";
+    // Check if any cabinet in the wall cabinet pool has this code.
+    return wallCabPoolRef.current.some((c) => c.masterCode === gdCode);
+  }, [attrUid, placed]);
 
   // ─── Custom sizing ─────────────────────────────────────────────────────────
   // Resize the selected cabinet's WIDTH to a custom value. The customer grabs a
@@ -3962,6 +4107,7 @@ export default function DesignTool() {
     trimQtyOverride,
     countertop,
     countertopMaterialId,
+    edgeProfileId,
     backsplashMaterialId,
     flooringMaterialId,
     selectedSurfaces,
@@ -3974,6 +4120,7 @@ export default function DesignTool() {
     lockedDistributorId,
     hardwareStyleId,
     wallCabHeight,
+    annotations,
   }));
 
   const writeDraft = usePersistFn(() => {
@@ -4038,6 +4185,7 @@ export default function DesignTool() {
           }
           setCountertop(!!d.countertop);
           if (typeof d.countertopMaterialId === "string") setCountertopMaterialId(d.countertopMaterialId);
+          if (typeof d.edgeProfileId === "string") setEdgeProfileId(d.edgeProfileId);
           if (typeof d.backsplashMaterialId === "string") setBacksplashMaterialId(d.backsplashMaterialId);
           if (typeof d.flooringMaterialId === "string") setFlooringMaterialId(d.flooringMaterialId);
           if (typeof d.cabinetsLocked === "boolean") setCabinetsLocked(d.cabinetsLocked);
@@ -4059,6 +4207,7 @@ export default function DesignTool() {
             wallCabHeightRef.current = d.wallCabHeight;
             wallCabHeightPromptedRef.current = true; // don't re-prompt
           }
+          if (Array.isArray(d.annotations)) setAnnotations(d.annotations as PlanAnnotation[]);
           if (Array.isArray(d.placed) && d.placed.length > 0) {
             toast.success(t("dt_t_restored"));
           }
@@ -4141,7 +4290,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, wallCabHeight, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -4455,6 +4604,15 @@ export default function DesignTool() {
                     <span className="flex-1 text-left">{t("dt_sh_measure")}</span>
                     {measureMode && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
                   </button>
+                  <button onClick={() => { setMoreSheetOpen(false); const text = window.prompt(t("dt_ann_prompt")); if (text && text.trim()) setAnnotations((prev) => [...prev, makeAnnotation(room.width / 2, room.depth / 2, text.trim())]); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                    <StickyNote className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_ann_add")}</span>
+                  </button>
+                  <button onClick={() => setAutoDimensions((d) => !d)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                    <Ruler className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">{t("dt_sh_auto_dim")}</span>
+                    {autoDimensions && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
+                  </button>
                   <button onClick={() => setIsland((cur) => cur ? null : { width: Math.min(48, room.width - 24), depth: Math.min(24, room.depth - 24), x: Math.max(0, room.width / 2 - 24), y: Math.max(0, room.depth / 2 - 12) })} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                     <Square className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_island_zone")}</span>
@@ -4762,6 +4920,33 @@ export default function DesignTool() {
             className={`h-8 gap-1.5 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
             <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_measure")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const text = window.prompt(t("dt_ann_prompt"));
+              if (text && text.trim()) {
+                setAnnotations((prev) => [...prev, makeAnnotation(room.width / 2, room.depth / 2, text.trim())]);
+              }
+            }}
+            className="h-8 gap-1.5"
+          >
+            <StickyNote className="h-3.5 w-3.5" /> {t("dt_ann_add")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAutoDimensions((d) => !d)}
+            className={`h-8 gap-1.5 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+          >
+            <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_auto_dim")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleUndo} className="h-8 gap-1.5" title={t("dt_sh_undo")}>
+            <Undo2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleRedo} className="h-8 gap-1.5" title={t("dt_sh_redo")}>
+            <Redo2 className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="outline"
@@ -5737,6 +5922,7 @@ export default function DesignTool() {
               onDropNew={handleDropNew}
               showWallLayer={showWallLayer}
               measureMode={measureMode}
+              autoDimensions={autoDimensions}
               island={island}
               onIslandChange={setIsland}
               onIslandMove={moveIsland}
@@ -5772,6 +5958,12 @@ export default function DesignTool() {
               gapFillCandidates={gapFillCandidates}
               onFillGap={fillGap}
               onPlaceFiller={fillGapWithFiller}
+              onFillGapWithCabAndFiller={fillGapWithCabAndFiller}
+              annotations={annotations}
+              selectedAnnotationUid={selectedAnnotationUid}
+              onSelectAnnotation={setSelectedAnnotationUid}
+              onMoveAnnotation={(uid, x, y) => setAnnotations(prev => prev.map(a => a.uid === uid ? { ...a, x, y } : a))}
+              onDeleteAnnotation={(uid) => { setAnnotations(prev => prev.filter(a => a.uid !== uid)); setSelectedAnnotationUid(null); }}
             />
           )}
           {viewMode === "elevation" && (
@@ -5837,6 +6029,7 @@ export default function DesignTool() {
                   onDropNew={handleDropNew}
                   showWallLayer={showWallLayer}
                   measureMode={measureMode}
+              autoDimensions={autoDimensions}
                   island={island}
                   onIslandChange={setIsland}
                   onIslandMove={moveIsland}
@@ -5872,6 +6065,12 @@ export default function DesignTool() {
               gapFillCandidates={gapFillCandidates}
               onFillGap={fillGap}
               onPlaceFiller={fillGapWithFiller}
+              onFillGapWithCabAndFiller={fillGapWithCabAndFiller}
+              annotations={annotations}
+              selectedAnnotationUid={selectedAnnotationUid}
+              onSelectAnnotation={setSelectedAnnotationUid}
+              onMoveAnnotation={(uid, x, y) => setAnnotations(prev => prev.map(a => a.uid === uid ? { ...a, x, y } : a))}
+              onDeleteAnnotation={(uid) => { setAnnotations(prev => prev.filter(a => a.uid !== uid)); setSelectedAnnotationUid(null); }}
                 />
               </div>
               <div className="flex-1 min-h-0">
@@ -6082,7 +6281,7 @@ export default function DesignTool() {
                       {/* Item info */}
                       <div className="min-w-0 flex-1">
                         <div className="font-mono font-semibold truncate flex items-center gap-1.5">
-                          {g.sample.masterCode}
+                          {g.sample.glassDoor ? g.sample.masterCode + "GD" : g.sample.masterCode}
                           {g.qty > 1 && (
                             <span className="inline-flex items-center rounded bg-[#1a2744] text-white px-1.5 py-0.5 text-[9px] font-bold">
                               ×{g.qty}
@@ -6351,6 +6550,9 @@ export default function DesignTool() {
                       <div className="text-[10px] text-muted-foreground">
                         ~{counter.squareFeet} sq ft · {counter.linearFeet} linear ft{counter.hasIsland ? " (incl. island)" : ""}
                       </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {edgeProfile(edgeProfileId).name} edge
+                      </div>
                     </div>
                     <span className="font-semibold shrink-0 text-amber-600">{t("dt_bs_quote")}</span>
                   </div>
@@ -6593,6 +6795,27 @@ export default function DesignTool() {
                   </SelectContent>
                 </Select>
 
+                <p className="text-xs font-semibold text-foreground mt-3 mb-1">{t("dt_bs_edge_profile")}</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {EDGE_PROFILES.map((ep) => (
+                    <button
+                      key={ep.id}
+                      type="button"
+                      onClick={() => setEdgeProfileId(ep.id)}
+                      className={`flex flex-col items-center gap-0.5 rounded-md border p-1.5 text-[10px] transition-colors ${
+                        edgeProfileId === ep.id
+                          ? "border-[#1a2744] bg-[#1a2744]/8 font-semibold"
+                          : "border-border hover:border-[#1a2744]/40 hover:bg-muted/30"
+                      }`}
+                    >
+                      <svg viewBox="0 0 24 16" className="h-4 w-6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d={ep.svgPath} />
+                      </svg>
+                      <span className="leading-tight">{ep.name}</span>
+                    </button>
+                  ))}
+                </div>
+
                 <p className="text-xs font-semibold text-foreground mt-3 mb-2">{t("dt_bs_add_sink")}</p>
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.keys(SINK_PRESETS) as SinkType[]).map((st) => (
@@ -6725,6 +6948,8 @@ export default function DesignTool() {
         designStyleId={styleId}
         distributorId={lockedDistributorId}
         onSetRolloutQty={setRolloutQtyFor}
+        onSetGlassDoor={setGlassDoorFor}
+        glassDoorAvailable={glassDoorAvailableForAttr}
       />
 
       {/* Refrigerator Options: opens right after a fridge is dropped */}

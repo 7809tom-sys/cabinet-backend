@@ -103,9 +103,14 @@
 
 - [x] Per-item discount/surcharge in pricing (% input per BOM line, applied to line total and CSV export)
 - [x] Valances as trim option (VA-30/36/42/48 arched valance above windows; soffits skipped - no catalog SKU)
-- [ ] Countertop edge profile selection
-- [ ] Annotations / text notes on floor plan
-- [ ] Trimmable fillers (auto-size filler to exact gap width)
-- [ ] Full auto-dimensioning on floor plan (cabinet-to-cabinet, cabinet-to-wall)
-- [ ] Undo / Redo (state history stack with Ctrl+Z / Ctrl+Y)
-- [ ] Glass door / add-on accessories (quick-add to existing wall cabinets)
+- [x] Countertop edge profile selection (8 profiles: Eased, Full Bullnose, Half Bullnose, Bevel, Ogee, DuPont, Waterfall, Mitered; SVG icons, persisted in draft, shown in BOM + build sheet)
+- [x] Annotations / text notes on floor plan (draggable labels on plan view; Add Note button in desktop toolbar + mobile More sheet; persisted in draft; deletable when selected)
+- [x] Trimmable fillers (cab+filler combo one-click placement in gap popover; auto-sizes filler to exact remainder)
+- [x] Full auto-dimensioning on floor plan (Dimensions toggle shows all cabinet widths + gap measurements on all 4 walls simultaneously; SVG dimension lines with tick marks)
+- [x] Undo / Redo (tracks placed cabinets history; Ctrl+Z/Ctrl+Y keyboard shortcuts; Undo/Redo toolbar buttons; max 80 snapshots)
+- [x] Glass door / add-on accessories (toggle in CabinetAttributesDialog for wall cabinets; swaps masterCode to GD variant in BOM, build sheet, and order; checks catalog availability)
+
+## Glass door follow-up fixes
+- [x] Persist glassDoor in draft snapshot/restore (already persisted via placed array serialization)
+- [x] Prevent noDoor + glassDoor conflict (auto-clear glassDoor when noDoor is set and vice versa)
+- [x] Ensure pricing uses GD SKU for glass-door cabinets (pricePairs fetches GD variant, unitPriceFor resolves GD price)

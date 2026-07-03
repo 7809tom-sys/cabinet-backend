@@ -108,6 +108,9 @@ export interface CabinetAttributesDialogProps {
   designStyleId: number | null;
   distributorId: number | null;
   onSetRolloutQty: (uid: string, qty: number) => void;
+  // Glass door upgrade toggle
+  onSetGlassDoor: (uid: string, glassDoor: boolean) => void;
+  glassDoorAvailable: boolean;
 }
 
 // Right-click attributes editor for a single placed cabinet (email item 1):
@@ -129,6 +132,8 @@ export function CabinetAttributesDialog({
   designStyleId,
   distributorId,
   onSetRolloutQty,
+  onSetGlassDoor,
+  glassDoorAvailable,
 }: CabinetAttributesDialogProps) {
   const { t } = useLanguage();
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
@@ -296,6 +301,29 @@ export function CabinetAttributesDialog({
               </div>
             </div>
           </section>
+
+          {/* Glass door upgrade */}
+          {cabinet.placement === "wall" && (
+            <section className="space-y-3 border-t border-border pt-4">
+              <h4 className="text-sm font-semibold">{t("dt_ca_glass_door")}</h4>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">{t("dt_ca_glass_door_toggle")}</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    {glassDoorAvailable
+                      ? t("dt_ca_glass_door_hint")
+                      : t("dt_ca_glass_door_unavail")}
+                  </p>
+                </div>
+                <Switch
+                  checked={!!cabinet.glassDoor}
+                  disabled={!glassDoorAvailable}
+                  onCheckedChange={(v) => onSetGlassDoor(uid, v)}
+                  aria-label={t("dt_ca_glass_door_toggle")}
+                />
+              </div>
+            </section>
+          )}
 
           {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
           <RollOutTrayPicker

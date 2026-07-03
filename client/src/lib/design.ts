@@ -258,6 +258,10 @@ export interface PlacedCabinet {
   // e.g. -10 means 10% off, +5 means 5% surcharge. Applied to the unit price
   // before computing the line total. Null/undefined means no adjustment.
   discountPct?: number | null;
+  // Glass door upgrade: when true, the cabinet is ordered as its GD variant
+  // (e.g. W-30-30 → W-30-30GD). Only valid for wall cabinets that have a
+  // matching GD code in the catalog.
+  glassDoor?: boolean;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal
@@ -2591,6 +2595,57 @@ export function freeSegmentsOnWall(
 }
 
 
+// ─── Auto-dimensioning ─────────────────────────────────────────────────────────
+// Returns an array of dimension segments for a wall: each cabinet’s width and
+// each gap between cabinets (or between cabinet and wall end). Used to render
+// a full chain of dimension lines along the wall in the plan view.
+export interface DimensionSeg {
+  start: number; // run-axis start (inches)
+  length: number; // segment length (inches)
+  kind: "cabinet" | "gap"; // whether this is a cabinet span or empty gap
+  label: string; // display label (e.g. "B15" or gap width)
+}
+
+export function wallDimensions(
+  side: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  layer: "base" | "wall" = "base"
+): DimensionSeg[] {
+  const horizontal = side === "top" || side === "bottom";
+  const wallLen = horizontal ? room.width : room.depth;
+  // Collect cabinets on this wall + layer, sorted by run-axis start.
+  const onWall = placed
+    .filter((p) => {
+      if (layer === "wall") { if (p.placement !== "wall" && p.placement !== "tall") return false; }
+      else { if (p.placement !== "base" && p.placement !== "appliance" && p.placement !== "tall") return false; }
+      return isAgainstWall(p, side, room);
+    })
+    .map((p) => {
+      const { w, d } = rotatedSize(p);
+      const start = horizontal ? p.x : p.y;
+      const span = horizontal ? w : d;
+      return { start, span, code: p.masterCode ?? "" };
+    })
+    .sort((a, b) => a.start - b.start);
+
+  const segs: DimensionSeg[] = [];
+  let cursor = 0;
+  for (const c of onWall) {
+    const gapLen = c.start - cursor;
+    if (gapLen > 0.25) {
+      segs.push({ start: cursor, length: gapLen, kind: "gap", label: formatInches(gapLen) });
+    }
+    segs.push({ start: c.start, length: c.span, kind: "cabinet", label: c.code ? `${c.code} (${formatInches(c.span)})` : formatInches(c.span) });
+    cursor = c.start + c.span;
+  }
+  const tail = wallLen - cursor;
+  if (tail > 0.25) {
+    segs.push({ start: cursor, length: tail, kind: "gap", label: formatInches(tail) });
+  }
+  return segs;
+}
+
 // Convert a run-axis coordinate on a wall into the {x, y, rotation} a placed
 // cabinet needs. `along` is the run-axis start (X for top/bottom, Y for left/
 // right); the perpendicular coordinate is pinned to the wall.
@@ -2891,6 +2946,34 @@ export function countertopMaterial(id: string | null | undefined): CountertopMat
     COUNTERTOP_MATERIALS.find((m) => m.id === id) ??
     COUNTERTOP_MATERIALS[0]
   );
+}
+
+// ─── Countertop Edge Profiles ────────────────────────────────────────────────
+// Common edge profiles offered by fabricators. The profile is a visual/quote
+// attribute only — it doesn't change geometry in the 2D plan. It appears on the
+// build sheet and BOM so the fabricator knows what to cut.
+export interface EdgeProfile {
+  id: string;
+  name: string;
+  /** SVG path for a small cross-section icon (viewBox 0 0 24 16) */
+  svgPath: string;
+}
+
+export const EDGE_PROFILES: EdgeProfile[] = [
+  { id: "eased",       name: "Eased",         svgPath: "M2 14 L2 4 Q2 2 4 2 L22 2 L22 14" },
+  { id: "bullnose",    name: "Full Bullnose", svgPath: "M2 14 L2 8 Q2 2 8 2 L22 2 L22 14" },
+  { id: "half-bull",   name: "Half Bullnose", svgPath: "M2 14 L2 6 Q2 2 6 2 L22 2 L22 14" },
+  { id: "bevel",       name: "Bevel",         svgPath: "M2 14 L2 6 L6 2 L22 2 L22 14" },
+  { id: "ogee",        name: "Ogee",          svgPath: "M2 14 L2 8 Q2 5 4 4 Q6 2 8 2 L22 2 L22 14" },
+  { id: "dupont",      name: "DuPont",        svgPath: "M2 14 L2 6 Q2 2 6 2 L6 4 Q6 6 8 6 L8 2 L22 2 L22 14" },
+  { id: "waterfall",   name: "Waterfall",     svgPath: "M2 14 L2 2 L22 2 L22 14" },
+  { id: "mitered",     name: "Mitered",       svgPath: "M2 14 L2 2 L22 2 L22 14 L18 14 L18 6 L6 6 L6 14" },
+];
+
+export const DEFAULT_EDGE_PROFILE_ID = "eased";
+
+export function edgeProfile(id: string | null | undefined): EdgeProfile {
+  return EDGE_PROFILES.find((p) => p.id === id) ?? EDGE_PROFILES[0];
 }
 
 // A rectangular countertop surface in room (inch) coordinates, used by the plan
@@ -3263,6 +3346,20 @@ export function furnitureFootprint(f: PlacedFurniture, def: FurnitureDef): { w: 
   if (def.shape === "round") return { w: def.w, d: def.d };
   if (f.rotation === 90 || f.rotation === 270) return { w: def.d, d: def.w };
   return { w: def.w, d: def.d };
+}
+
+// ─── Plan Annotations (text notes) ──────────────────────────────────────────
+// User-placed text labels on the floor plan. They carry position (inches from
+// room origin) and a short text string. Persisted in the draft.
+export interface PlanAnnotation {
+  uid: string;
+  x: number; // inches from left edge of room
+  y: number; // inches from top edge of room
+  text: string;
+}
+
+export function makeAnnotation(x: number, y: number, text: string): PlanAnnotation {
+  return { uid: crypto.randomUUID(), x, y, text };
 }
 
 // ─── Backsplash Materials ─────────────────────────────────────────────────────
