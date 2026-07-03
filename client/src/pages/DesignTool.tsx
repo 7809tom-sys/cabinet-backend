@@ -3368,6 +3368,9 @@ export default function DesignTool() {
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  // Drives the mobile bottom-bar "3D View" button, which opens the same AI
+  // photoreal render dialog as the desktop toolbar button (headless instance).
+  const [render3dOpen, setRender3dOpen] = useState(false);
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
   // (the DesignActions toolbar itself is desktop-only / hidden on phones).
   const [saveSignal, setSaveSignal] = useState(0);
@@ -5788,7 +5791,7 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-6 h-14">
+          <div className="grid grid-cols-7 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
@@ -5822,12 +5825,28 @@ export default function DesignTool() {
               }}
             />
             <MobileBarButton
+              icon={<Sparkles className="h-5 w-5" />}
+              label="3D View"
+              active={render3dOpen}
+              disabled={placed.filter((p) => p.placement !== "appliance").length === 0}
+              onClick={() => setRender3dOpen(true)}
+            />
+            <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
               label="Cart"
               badge={placed.length || undefined}
               onClick={() => setMobilePanel("cart")}
             />
           </div>
+          {/* Headless render dialog driven by the "3D View" button above. */}
+          <PhotorealPreview
+            variant="headless"
+            controlledOpen={render3dOpen}
+            onControlledOpenChange={setRender3dOpen}
+            disabled={placed.filter((p) => p.placement !== "appliance").length === 0}
+            buildScene={buildPhotorealSceneInput}
+            label={t("dt_sh_ai_preview")}
+          />
         </div>
       )}
 

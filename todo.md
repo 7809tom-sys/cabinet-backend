@@ -2677,3 +2677,10 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] AI photoreal render extended to reflect the whole room: flooring, backsplash, sink & faucet from the Surfaces picks
 - [x] Photoreal prompt surface-descriptor tests
 - [x] Full suite green (1,259 tests); TypeScript clean
+
+
+## Mobile 3D render access (follow-up)
+
+- [x] Add a prominent "3D View" button to the mobile bottom action bar in the Design Tool that opens the AI photoreal render (7-col bottom bar; headless PhotorealPreview driven by controlledOpen)
+- [x] Keep it disabled (with a hint) until at least one cabinet is placed (disabled when no non-appliance cabinets placed)
+- [x] Verify on a mobile viewport (390x844 screenshot: button visible, greys out on empty room, enables with a layout); TypeScript clean

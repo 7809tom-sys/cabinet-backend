@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Sparkles, Loader2, Download, RotateCcw, X, ImageOff, Camera, Sun } from "lucide-react";
@@ -42,10 +42,19 @@ type Props = {
    * Returning null aborts (e.g. no cabinets placed).
    */
   buildScene: () => PhotorealSceneInput | null;
-  /** Optional compact styling for the mobile "More" menu. */
-  variant?: "toolbar" | "menu";
+  /**
+   * Trigger presentation:
+   * - "toolbar": desktop pill button (hidden on mobile)
+   * - "menu": full-width row for the mobile "More" menu
+   * - "headless": render NO trigger; the dialog is driven entirely by
+   *   `controlledOpen` / `onControlledOpenChange` (used by the mobile bottom bar).
+   */
+  variant?: "toolbar" | "menu" | "headless";
   /** Localized label for the trigger (defaults to "AI Preview"). */
   label?: string;
+  /** When provided, the dialog open state is controlled by the parent. */
+  controlledOpen?: boolean;
+  onControlledOpenChange?: (open: boolean) => void;
 };
 
 const ANGLE_OPTIONS: { value: CameraAngle; label: string }[] = [
@@ -68,8 +77,24 @@ const LIGHT_OPTIONS: { value: TimeOfDay; label: string }[] = [
  * angle + lighting), shows a loading state (generation can take 10-30s), and
  * displays / lets the user download the result.
  */
-export function PhotorealPreview({ disabled, buildScene, variant = "toolbar", label = "AI Preview" }: Props) {
-  const [open, setOpen] = useState(false);
+export function PhotorealPreview({
+  disabled,
+  buildScene,
+  variant = "toolbar",
+  label = "AI Preview",
+  controlledOpen,
+  onControlledOpenChange,
+}: Props) {
+  const isControlled = controlledOpen !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = useCallback(
+    (v: boolean) => {
+      if (isControlled) onControlledOpenChange?.(v);
+      else setUncontrolledOpen(v);
+    },
+    [isControlled, onControlledOpenChange],
+  );
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [angle, setAngle] = useState<CameraAngle>("three-quarter");
   const [light, setLight] = useState<TimeOfDay>("daylight");
@@ -105,6 +130,17 @@ export function PhotorealPreview({ disabled, buildScene, variant = "toolbar", la
     run();
   }, [run]);
 
+  // When the parent drives the dialog open (mobile bottom bar), kick off a
+  // render on the transition to open — mirrors what onOpen does for the
+  // self-owned triggers, without duplicating the click handler.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpenRef.current && isControlled) {
+      run();
+    }
+    wasOpenRef.current = open;
+  }, [open, isControlled, run]);
+
   // Changing a control re-renders immediately with the new setting so the
   // controls feel live rather than requiring a separate "apply" click.
   const pickAngle = useCallback(
@@ -138,7 +174,7 @@ export function PhotorealPreview({ disabled, buildScene, variant = "toolbar", la
 
   return (
     <>
-      {variant === "toolbar" ? (
+      {variant === "headless" ? null : variant === "toolbar" ? (
         <button
           type="button"
           onClick={onOpen}
