@@ -456,6 +456,17 @@ export default function DesignTool() {
   // the build sheet as a note. Defaults to "none".
   const [hardwareStyleId, setHardwareStyleId] = useState<HardwareStyleId>(DEFAULT_HARDWARE_STYLE_ID);
 
+  // Wall cabinet height room setting: 42", 36", or 30" (default). This is a
+  // room-level preference that determines the height of wall cabinets placed
+  // via the "Place matching wall cabinet above?" suggestion. A one-time prompt
+  // asks the user to choose on their first base cabinet placement.
+  const [wallCabHeight, setWallCabHeight] = useState<30 | 36 | 42>(30);
+  const wallCabHeightPromptedRef = useRef(false);
+  // Ref mirrors wallCabHeight so the stable addCabinet callback can read the
+  // latest value without re-creating on every change.
+  const wallCabHeightRef = useRef<30 | 36 | 42>(30);
+  useEffect(() => { wallCabHeightRef.current = wallCabHeight; }, [wallCabHeight]);
+
   // Data — door-style-first: members pick a door style; the supply line behind
   // it is resolved server-side and never shown.
   const { data: doorStyles } = trpc.doorStyles.list.useQuery();
@@ -556,6 +567,17 @@ export default function DesignTool() {
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
   });
+
+  // Always-on wall cabinet pool for the "Place matching wall cabinet above?"
+  // suggestion that fires after placing a base cabinet. Kept as a ref so the
+  // stable addCabinet callback can read the latest data without re-creating.
+  const { data: wallCabPool } = trpc.design.placeableCabinets.useQuery({
+    placement: "wall",
+    styleId: styleId ?? undefined,
+    distributorId: lockedDistributorId ?? undefined,
+  });
+  const wallCabPoolRef = useRef<DesignCabinet[]>([]);
+  useEffect(() => { wallCabPoolRef.current = (wallCabPool as DesignCabinet[] | undefined) ?? []; }, [wallCabPool]);
 
   // The unified "Corner" tab shows BOTH corner base AND corner wall cabinets in
   // one place (grouped into two sections). The base-placement corner cabinets
@@ -1965,6 +1987,103 @@ export default function DesignTool() {
             return [...prev, newCab, filler];
           }
         }
+
+        // ── Wall cabinet height prompt + matching wall suggestion ──────────
+        // After placing a BASE cabinet (not appliance, not accessory, not tall),
+        // offer to place a matching wall cabinet above it. On the FIRST base
+        // cabinet placement, also ask the user to choose their wall cabinet
+        // height preference (42"/36"/30").
+        if (accPlacement === "base") {
+          // One-time wall cabinet height prompt (fires on ANY base cabinet)
+          if (!wallCabHeightPromptedRef.current) {
+            wallCabHeightPromptedRef.current = true;
+            toast(t("dt_wall_height_prompt"), {
+              duration: 12000,
+              action: { label: '42"', onClick: () => { setWallCabHeight(42); wallCabHeightRef.current = 42; toast.success(t("dt_wall_height_set", { h: "42" })); } },
+              cancel: { label: '30"', onClick: () => { setWallCabHeight(30); wallCabHeightRef.current = 30; toast.success(t("dt_wall_height_set", { h: "30" })); } },
+              description: t("dt_wall_height_prompt_desc"),
+            });
+            // Also show a 36" option via a follow-up toast
+            setTimeout(() => {
+              toast(t("dt_wall_height_36_option"), {
+                duration: 10000,
+                action: { label: '36"', onClick: () => { setWallCabHeight(36); wallCabHeightRef.current = 36; toast.success(t("dt_wall_height_set", { h: "36" })); } },
+              });
+            }, 300);
+          }
+          // Suggest placing a matching wall cabinet above this base cabinet.
+          // Skip for sink bases (they already have their own auto-fixture),
+          // blind corners (auto-filler), and corner bases (need corner wall cabs).
+          if (!isSinkBaseCabinet(newCab) && !isBlindCorner(newCab.masterCode, newCab.description) && !isCornerCabinet(newCab.masterCode, newCab.description)) {
+            const cabWidth = newCab.width;
+            toast(t("dt_wall_cab_suggest", { w: String(Math.round(cabWidth)) }), {
+              duration: 8000,
+              action: {
+                label: t("dt_wall_cab_suggest_yes"),
+                onClick: () => {
+                  // Re-read the latest height and pool at click time so the
+                  // user's height selection (from the earlier prompt) is used.
+                  const pool = wallCabPoolRef.current;
+                  const wantedH = wallCabHeightRef.current;
+                  const widthMatches = pool.filter((w) => {
+                    const ww = parseFloat(String(w.width ?? "0"));
+                    return Math.abs(ww - cabWidth) < 0.5;
+                  });
+                  const heightMatch = widthMatches.find((w) => {
+                    const hh = parseFloat(String(w.height ?? "0"));
+                    return Math.abs(hh - wantedH) < 0.5;
+                  }) ?? widthMatches[0];
+                  if (!heightMatch) {
+                    toast.error(t("dt_wall_cab_suggest_no_match", { w: String(Math.round(cabWidth)) }));
+                    return;
+                  }
+                  const wallCab = heightMatch;
+                  const ww = parseFloat(String(wallCab.width ?? cabWidth)) || cabWidth;
+                  const wh = parseFloat(String(wallCab.height ?? wantedH)) || wantedH;
+                  const wd = STD.WALL_DEPTH;
+                  const topLine = wallCabinetTopLine(room);
+                  const mb = Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, wh));
+                  const wallSpot = wallPlacementAt(
+                    (() => {
+                      const side = cabinetWall(newCab, room);
+                      const horizontal = side === "top" || side === "bottom";
+                      return horizontal ? newCab.x : newCab.y;
+                    })(),
+                    ww, wd,
+                    cabinetWall(newCab, room),
+                    room
+                  );
+                  const newWallCab: PlacedCabinet = {
+                    uid: makeUid(),
+                    cabinetId: wallCab.id,
+                    masterCode: wallCab.masterCode,
+                    description: wallCab.description,
+                    category: wallCab.category ?? null,
+                    subCategory: wallCab.subCategory ?? null,
+                    placement: "wall",
+                    x: wallSpot.x,
+                    y: wallSpot.y,
+                    width: ww,
+                    nominalWidth: ww,
+                    depth: wd,
+                    nominalDepth: wd,
+                    height: wh,
+                    nominalHeight: wh,
+                    rotation: wallSpot.rotation,
+                    numberOfDoors: wallCab.numberOfDoors ?? undefined,
+                    catalogImageUrl: wallCab.catalogImageUrl ?? null,
+                    styleId: styleIdRef.current ?? null,
+                    mountBottom: mb,
+                  };
+                  setPlaced((prev) => [...prev, newWallCab]);
+                  toast.success(t("dt_wall_cab_placed", { code: wallCab.masterCode }));
+                },
+              },
+              cancel: { label: t("dt_wall_cab_suggest_no"), onClick: () => {} },
+            });
+          }
+        }
+
         return [...prev, newCab];
       });
     },
@@ -3350,6 +3469,7 @@ export default function DesignTool() {
     lockedWalls: Array.from(lockedWalls),
     lockedDistributorId,
     hardwareStyleId,
+    wallCabHeight,
   }));
 
   const writeDraft = usePersistFn(() => {
@@ -3428,6 +3548,11 @@ export default function DesignTool() {
           if (Array.isArray(d.lockedWalls)) setLockedWalls(new Set(d.lockedWalls as WallSide[]));
           if (typeof d.lockedDistributorId === "number") setLockedDistributorId(d.lockedDistributorId);
           if (typeof d.hardwareStyleId === "string") setHardwareStyleId(d.hardwareStyleId as HardwareStyleId);
+          if (d.wallCabHeight === 30 || d.wallCabHeight === 36 || d.wallCabHeight === 42) {
+            setWallCabHeight(d.wallCabHeight);
+            wallCabHeightRef.current = d.wallCabHeight;
+            wallCabHeightPromptedRef.current = true; // don't re-prompt
+          }
           if (Array.isArray(d.placed) && d.placed.length > 0) {
             toast.success(t("dt_t_restored"));
           }
@@ -3510,7 +3635,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, trimQtyOverride, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, trimQtyOverride, countertop, countertopMaterialId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, wallCabHeight, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -3610,6 +3735,24 @@ export default function DesignTool() {
               setMeasureMode(false);
             }}
           />
+        </div>
+
+        {/* Wall cabinet height selector: 30/36/42 toggle */}
+        <div className="hidden lg:flex items-center gap-1.5">
+          <span className="text-[11px] font-medium text-muted-foreground">{t("dt_wall_height_label")}</span>
+          <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
+            {([30, 36, 42] as const).map((h) => (
+              <button
+                key={h}
+                onClick={() => { setWallCabHeight(h); wallCabHeightRef.current = h; wallCabHeightPromptedRef.current = true; }}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                  wallCabHeight === h ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {h}"
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="hidden lg:block h-5 w-px bg-border" />
@@ -3766,6 +3909,22 @@ export default function DesignTool() {
                       }`}
                     >
                       {wallLabel[w]}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Wall cabinet height selector (mobile) */}
+                <p className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dt_wall_height_label")}</p>
+                <div className="grid grid-cols-3 gap-1 px-3 pb-2">
+                  {([30, 36, 42] as const).map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => { setWallCabHeight(h); wallCabHeightRef.current = h; wallCabHeightPromptedRef.current = true; }}
+                      className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                        wallCabHeight === h ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {h}"
                     </button>
                   ))}
                 </div>

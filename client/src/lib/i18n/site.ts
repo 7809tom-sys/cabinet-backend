@@ -1137,6 +1137,17 @@ export const SITE_STRINGS = {
     // --- Over-the-range microwave rule ---
     dt_otr_snapped_over_range: "Microwave mounted over the range",
     dt_otr_bridge_suggestion: "Tip: add a bridge wall cabinet ({code}) above the microwave to cap the run.",
+    // --- Wall cabinet height prompt + suggestion ---
+    dt_wall_height_prompt: "What wall cabinet height for this room?",
+    dt_wall_height_prompt_desc: "Choose the standard height for wall cabinets. You can change this later in Room Settings.",
+    dt_wall_height_36_option: "Or choose 36\" wall cabinets:",
+    dt_wall_height_set: "Wall cabinet height set to {h}\".",
+    dt_wall_cab_suggest: "Place a matching {w}\" wall cabinet above?",
+    dt_wall_cab_suggest_yes: "Yes",
+    dt_wall_cab_suggest_no: "No",
+    dt_wall_cab_placed: "Wall cabinet {code} placed above.",
+    dt_wall_cab_suggest_no_match: "No matching {w}\" wall cabinet found in the current style.",
+    dt_wall_height_label: "Wall cab height",
     // --- Refrigerator placement options ---
     dt_fridge_title: "Refrigerator options",
     dt_fridge_desc: "Choose what to build around this refrigerator. Everything is optional.",
@@ -2394,6 +2405,17 @@ export const SITE_STRINGS = {
     // --- Regla del microondas sobre la estufa ---
     dt_otr_snapped_over_range: "Microondas montado sobre la estufa",
     dt_otr_bridge_suggestion: "Sugerencia: agregue un gabinete puente ({code}) sobre el microondas para rematar la fila.",
+    // --- Altura de gabinetes superiores + sugerencia ---
+    dt_wall_height_prompt: "¿Qué altura de gabinete superior para esta habitación?",
+    dt_wall_height_prompt_desc: "Elija la altura estándar para gabinetes superiores. Puede cambiarla después en Configuración de Habitación.",
+    dt_wall_height_36_option: "O elija gabinetes superiores de 36\":",
+    dt_wall_height_set: "Altura de gabinete superior establecida en {h}\".",
+    dt_wall_cab_suggest: "¿Colocar un gabinete superior de {w}\" arriba?",
+    dt_wall_cab_suggest_yes: "Sí",
+    dt_wall_cab_suggest_no: "No",
+    dt_wall_cab_placed: "Gabinete superior {code} colocado arriba.",
+    dt_wall_cab_suggest_no_match: "No se encontró un gabinete superior de {w}\" en el estilo actual.",
+    dt_wall_height_label: "Altura superior",
     // --- Opciones de refrigerador ---
     dt_fridge_title: "Opciones de refrigerador",
     dt_fridge_desc: "Elija qué construir alrededor de este refrigerador. Todo es opcional.",

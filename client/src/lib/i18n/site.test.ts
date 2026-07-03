@@ -44,6 +44,7 @@ describe("SITE_STRINGS", () => {
       "fam_f_ada", // "ADA" is a proper acronym
       "fam_color", // "Color:" reads the same in ES
       "seo_cabinet_t", // pure "{name}" token — the cabinet's own name, no copy
+      "dt_wall_cab_suggest_no", // "No" is the same word in ES
     ]);
     const identical = enKeys.filter(
       (k) =>
