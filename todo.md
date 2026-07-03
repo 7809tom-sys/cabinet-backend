@@ -2626,3 +2626,9 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Shared client helpers client/src/lib/pelican.ts + PelicanProductCard
 - [x] Surfaces & Fixtures picker dialog in Design Tool (scoped to showInDesigner)
 - [x] Routes wired in App.tsx; vitest for helpers passing; typecheck clean
+
+## Homepage Surfaces discoverability
+- [x] Add SurfacesBand section to homepage (Home does not use TopNav)
+- [x] Add Surfaces & Fixtures hero CTA on homepage
+- [x] Add Surfaces & Fixtures footer link (Tools column)
+- [x] Typecheck clean, pelican tests pass (8/8)

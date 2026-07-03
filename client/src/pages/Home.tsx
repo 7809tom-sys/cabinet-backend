@@ -8,6 +8,7 @@ import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
+import { SurfacesBand } from "@/components/home/SurfacesBand";
 
 // ─── Hero Section ─────────────────────────────────────────────────────────────
 
@@ -64,6 +65,12 @@ function Hero() {
               <Link href="/design">
                 <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
                   {t("home_hero_cta_design")}
+                </Button>
+              </Link>
+              <Link href="/surfaces">
+                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                  Surfaces & Fixtures
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
               <a href={getLoginUrl()}>
@@ -510,6 +517,7 @@ function Footer() {
                 { label: t("nav_build_an_order"), href: "/bulk-order" },
                 { label: t("nav_photo_to_cart"), href: "/photo-to-cart" },
                 { label: t("nav_pro_network"), href: "/pro-network" },
+                { label: "Surfaces & Fixtures", href: "/surfaces" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-white transition-colors">
@@ -571,6 +579,7 @@ export default function Home() {
       <AudienceCards />
       <PlatformFeatures />
       <CategoryLinks />
+      <SurfacesBand />
       <Footer />
     </div>
   );
