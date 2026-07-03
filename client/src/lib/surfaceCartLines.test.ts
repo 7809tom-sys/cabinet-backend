@@ -70,3 +70,71 @@ describe("buildSurfaceCartLines", () => {
     expect(line.tier).toBe("homeowner");
   });
 });
+
+describe("buildSurfaceCartLines — box quantity with overage", () => {
+  const backsplashTile: SurfacePick = {
+    id: 401,
+    name: "Carrara Marble Mosaic",
+    category: "Backsplash",
+    size: "12x12 sheet",
+    sellPrice: 14.99,
+    coverageSqFt: 10, // 10 sq ft per box
+  };
+  const floorTile: SurfacePick = {
+    id: 402,
+    name: "Porcelain Floor Tile",
+    category: "Flooring",
+    size: "24x24",
+    sellPrice: 3.99,
+    coverageSqFt: 16, // 16 sq ft per box
+  };
+  const areas = { backsplashSqFt: 30, flooringSqFt: 120 };
+
+  it("calculates backsplash boxes with 15% overage, rounded up", () => {
+    // 30 sq ft * 1.15 = 34.5 / 10 sq ft per box = 3.45 → ceil = 4 boxes
+    const [line] = buildSurfaceCartLines([backsplashTile], "contractor", areas);
+    expect(line.qty).toBe(4);
+    expect(line.qtyNote).toContain("15%");
+    expect(line.qtyNote).toContain("4 boxes");
+  });
+
+  it("calculates flooring boxes with 10% overage, rounded up", () => {
+    // 120 sq ft * 1.10 = 132 / 16 sq ft per box = 8.25 → ceil = 9 boxes
+    const [line] = buildSurfaceCartLines([floorTile], "contractor", areas);
+    expect(line.qty).toBe(9);
+    expect(line.qtyNote).toContain("10%");
+    expect(line.qtyNote).toContain("9 boxes");
+  });
+
+  it("falls back to qty=1 when coverageSqFt is not set", () => {
+    const noBox: SurfacePick = { ...backsplashTile, coverageSqFt: null };
+    const [line] = buildSurfaceCartLines([noBox], "contractor", areas);
+    expect(line.qty).toBe(1);
+    expect(line.qtyNote).toBeUndefined();
+  });
+
+  it("falls back to qty=1 when areas are not provided", () => {
+    const [line] = buildSurfaceCartLines([backsplashTile], "contractor");
+    expect(line.qty).toBe(1);
+  });
+
+  it("falls back to qty=1 when area is 0 (no base cabinets placed yet)", () => {
+    const zeroAreas = { backsplashSqFt: 0, flooringSqFt: 0 };
+    const [line] = buildSurfaceCartLines([backsplashTile], "contractor", zeroAreas);
+    expect(line.qty).toBe(1);
+  });
+
+  it("handles Tile & Mosaic category with 15% overage", () => {
+    const mosaic: SurfacePick = {
+      id: 403,
+      name: "Hex Mosaic",
+      category: "Tile & Mosaic",
+      size: null,
+      sellPrice: 9.99,
+      coverageSqFt: 5,
+    };
+    // 30 sq ft * 1.15 = 34.5 / 5 = 6.9 → ceil = 7 boxes
+    const [line] = buildSurfaceCartLines([mosaic], "contractor", areas);
+    expect(line.qty).toBe(7);
+  });
+});

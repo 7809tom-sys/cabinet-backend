@@ -71,6 +71,10 @@ export default function PelicanCatalogAdmin() {
     onSuccess: () => utils.pelican.adminList.invalidate(),
     onError: (e) => toast.error(e.message || "Failed to update"),
   });
+  const setCoverage = trpc.pelican.setCoverage.useMutation({
+    onSuccess: () => utils.pelican.adminList.invalidate(),
+    onError: (e) => toast.error(e.message || "Failed to update"),
+  });
 
   const items = data?.items ?? [];
 
@@ -142,6 +146,7 @@ export default function PelicanCatalogAdmin() {
                   <TableHead className="text-center">Catalog</TableHead>
                   <TableHead className="text-center">Designer</TableHead>
                   <TableHead className="text-center">Featured</TableHead>
+                  <TableHead className="text-right">Sq ft/Box</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -207,6 +212,23 @@ export default function PelicanCatalogAdmin() {
                           className={`h-4 w-4 ${it.isPopular ? "fill-current" : ""}`}
                         />
                       </Button>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        className="w-16 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-xs"
+                        defaultValue={it.coverageSqFt ? parseFloat(String(it.coverageSqFt)) : ""}
+                        placeholder="—"
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          const num = val ? parseFloat(val) : null;
+                          if (num !== (it.coverageSqFt ? parseFloat(String(it.coverageSqFt)) : null)) {
+                            setCoverage.mutate({ id: it.id, coverageSqFt: num && num > 0 ? num : null });
+                          }
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

@@ -139,8 +139,8 @@
 
 ## Bug: Wall cabinet auto-place says "placed" but nothing appears
 
-- [ ] Investigate why setPlaced in the toast onClick doesn't render the new wall cabinet
-- [ ] Fix the wall cabinet auto-place feature so the cabinet actually appears after tapping Yes
+- [x] Investigate why setPlaced in the toast onClick doesn't render the new wall cabinet
+- [x] Fix the wall cabinet auto-place feature so the cabinet actually appears after tapping Yes
 
 ## Feature: Backsplash covers all exposed wall areas
 
@@ -149,7 +149,10 @@
 - [x] Any exposed wall section (gaps between cabinets, above appliances) gets backsplash coverage
 
 ## Feature: Material ordering overage + box rounding
-- [ ] Backsplash BOM: calculate sq ft needed, add 15% overage, round UP to nearest full box (box size from product data)
-- [ ] Flooring BOM: calculate sq ft needed, add 10% overage, round UP to nearest full box (box size from product data)
-- [ ] Box size should be a configurable field on the material/product (sq ft per box)
-- [ ] Display the box count and total sq ft in the quote/estimate
+- [x] Backsplash BOM: calculate sq ft needed, add 15% overage, round UP to nearest full box (box size from product data)
+- [x] Flooring BOM: calculate sq ft needed, add 10% overage, round UP to nearest full box (box size from product data)
+- [x] Box size should be a configurable field on the material/product (sq ft per box)
+- [x] Display the box count and total sq ft in the quote/estimate
+
+## Feature: Staggered flooring pattern in elevation/plan view
+- [x] Update flooring rendering to show a staggered/brick-lay pattern (offset rows) instead of a straight grid

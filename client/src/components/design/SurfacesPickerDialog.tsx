@@ -29,6 +29,8 @@ export type SelectedSurface = {
   size?: string | null;
   imageUrl?: string | null;
   sellPrice: number | null;
+  /** Sq ft per box/carton — when set, BOM auto-calculates box qty from area + overage. */
+  coverageSqFt?: number | null;
 };
 
 const PAGE_LIMIT = 60;
@@ -152,6 +154,7 @@ export function SurfacesPickerDialog({
                     size: p.size,
                     imageUrl: p.imageUrl,
                     sellPrice: p.sellPrice,
+                    coverageSqFt: p.coverageSqFt ?? null,
                   };
                   return (
                     <div

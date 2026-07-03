@@ -621,8 +621,21 @@ export function PlanCanvas({
             const tw = Math.max(6, fm.tileW * ppi);
             const th = Math.max(6, fm.tileH * ppi);
             if (fm.pattern === "hardwood" || fm.pattern === "plank") {
-              // Horizontal planks (running left-right)
-              return `repeating-linear-gradient(0deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(90deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${tw}px)`;
+              // Staggered planks (brick-lay pattern): alternate rows offset by 1/3 plank width.
+              // Uses an inline SVG tile that spans 2 rows with offset seams.
+              const g = fm.grout; // raw color value, encoded once with the whole SVG
+              const offset = Math.round(tw / 3);
+              const h2 = th * 2; // tile covers 2 rows
+              const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tw}' height='${h2}'>`
+                + `<rect x='0' y='0' width='${tw}' height='${h2}' fill='none'/>`
+                // Row separators
+                + `<line x1='0' y1='0' x2='${tw}' y2='0' stroke='${g}' stroke-width='1'/>`
+                + `<line x1='0' y1='${th}' x2='${tw}' y2='${th}' stroke='${g}' stroke-width='1'/>`
+                // Vertical seams: row 1 at 0, row 2 offset by 1/3
+                + `<line x1='0' y1='0' x2='0' y2='${th}' stroke='${g}' stroke-width='1'/>`
+                + `<line x1='${offset}' y1='${th}' x2='${offset}' y2='${h2}' stroke='${g}' stroke-width='1'/>`
+                + `</svg>`;
+              return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
             }
             if (fm.pattern === "tile-grid" || fm.pattern === "tile-diagonal") {
               return `repeating-linear-gradient(0deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(90deg, ${fm.grout} 0px, ${fm.grout} 1px, transparent 1px, transparent ${tw}px)`;
@@ -641,6 +654,10 @@ export function PlanCanvas({
             const fm = flooringMaterial(flooringMaterialId);
             const tw = Math.max(6, fm.tileW * ppi);
             const th = Math.max(6, fm.tileH * ppi);
+            // Staggered patterns use a 2-row SVG tile, so double the height.
+            if (fm.pattern === "hardwood" || fm.pattern === "plank") {
+              return `${tw}px ${th * 2}px`;
+            }
             return `${tw}px ${th}px`;
           })(),
         }}

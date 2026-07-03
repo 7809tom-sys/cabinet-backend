@@ -23,6 +23,8 @@ export type CartItem = {
   bundleId?: string;
   bundleLabel?: string;
   bundleRole?: "top" | "bottom";
+  /** Explanation of box-quantity calculation (e.g. "30 sq ft × 15% → 4 boxes") */
+  qtyNote?: string;
 };
 
 // Result of an addItem attempt. The cart is locked to ONE DISTRIBUTOR (supply

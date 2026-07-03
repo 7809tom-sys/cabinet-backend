@@ -31,6 +31,9 @@ export const pelicanProducts = mysqlTable("pelican_products", {
   showInDesigner: boolean("showInDesigner").default(true).notNull(),
   showInCatalog: boolean("showInCatalog").default(true).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
+  // Sq ft per box/carton — for tile, backsplash, flooring sold by the box.
+  // When set, the BOM auto-calculates box qty from room area + overage.
+  coverageSqFt: decimal("coverageSqFt", { precision: 8, scale: 2 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

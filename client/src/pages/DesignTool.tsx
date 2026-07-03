@@ -1531,10 +1531,14 @@ export default function DesignTool() {
   // cabinet distributor-lock) and use a PEL-<id> code namespace so they never
   // collide with a cabinet masterCode. Quantity is 1 per selected product; the
   // Pelican category is shown as the line's label. Unpriced picks are skipped.
-  const surfaceCartLines = useMemo<CartItem[]>(
-    () => buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier]) as CartItem[],
-    [selectedSurfaces, tier]
-  );
+  const surfaceCartLines = useMemo<CartItem[]>(() => {
+    // Compute room areas inline for box-quantity calculation.
+    const bsLinearIn = placed.filter((p) => p.placement === "base").reduce((s, p) => s + rotatedSize(p).w, 0);
+    const backsplashSqFt = Math.round(((bsLinearIn * 18) / 144) * 10) / 10;
+    const flooringSqFt = Math.round(((room.width * room.depth) / 144) * 10) / 10;
+    const areas = { backsplashSqFt, flooringSqFt };
+    return buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier], areas) as CartItem[];
+  }, [selectedSurfaces, tier, placed, room]);
 
   // Final cart lines = cabinets + roll-out shelves + priced trim + surfaces &
   // fixtures. Trim/surfaces are folded in here (aggregated by masterCode+styleId)
@@ -2051,6 +2055,8 @@ export default function DesignTool() {
                     mountBottom: bridgeMountBottom,
                   };
                   setPlaced((prev) => [...prev, newBridge]);
+                  setShowWallLayer(true);
+                  setSelectedUid(newBridge.uid);
                   toast.success(t("dt_otr_bridge_placed", { code: bridgeMatch.masterCode }));
                 },
               },
@@ -2273,8 +2279,12 @@ export default function DesignTool() {
                     styleId: styleIdRef.current ?? null,
                     mountBottom: mb,
                   };
-                  console.log('[WALL-CAB-SUGGEST] Placing wall cab:', JSON.stringify({ masterCode: wallCab.masterCode, x: wallSpot.x, y: wallSpot.y, rotation: wallSpot.rotation, width: ww, height: wh, mountBottom: mb, wall: cabinetWall(newCab, room) }));
-                  setPlaced((prev) => { console.log('[WALL-CAB-SUGGEST] prev length:', prev.length); return [...prev, newWallCab]; });
+                  setPlaced((prev) => [...prev, newWallCab]);
+                  // Ensure the wall layer is visible so the user can see the
+                  // placed wall cabinet in plan view. Also select it so it
+                  // highlights with a border ring.
+                  setShowWallLayer(true);
+                  setSelectedUid(newWallCab.uid);
                   toast.success(t("dt_wall_cab_placed", { code: wallCab.masterCode }));
                 },
               },
@@ -2346,6 +2356,8 @@ export default function DesignTool() {
                     mountBottom: mb,
                   };
                   setPlaced((prev) => [...prev, newWallCab]);
+                  setShowWallLayer(true);
+                  setSelectedUid(newWallCab.uid);
                   toast.success(t("dt_wall_cab_placed", { code: wallCab.masterCode }));
                 },
               },
@@ -2814,6 +2826,7 @@ export default function DesignTool() {
                 }
                 if (placed12.length > 0) {
                   setPlaced((prev) => [...prev, ...placed12]);
+                  setShowWallLayer(true);
                   toast.success(t(placed12.length === 2 ? "dt_diag_corner_placed" : "dt_diag_corner_partial"));
                 } else {
                   toast.error(t("dt_wall_cab_suggest_no_match", { w: "12" }));
@@ -4915,6 +4928,9 @@ export default function DesignTool() {
                               </div>
                               {line.styleLabel && (
                                 <div className="truncate text-[10px] text-muted-foreground">{line.styleLabel}</div>
+                              )}
+                              {line.qtyNote && (
+                                <div className="truncate text-[10px] text-blue-500">{line.qtyNote}</div>
                               )}
                             </div>
                             <span className="shrink-0 font-medium text-foreground">

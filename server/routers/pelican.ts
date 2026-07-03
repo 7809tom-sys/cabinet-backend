@@ -306,4 +306,21 @@ export const pelicanRouter = router({
       }
       return { success: true } as const;
     }),
+  /** Set the box coverage (sq ft per box) for tile/flooring products. */
+  setCoverage: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        coverageSqFt: z.number().positive().nullable(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { success: false } as const;
+      await db
+        .update(pelicanProducts)
+        .set({ coverageSqFt: input.coverageSqFt != null ? String(input.coverageSqFt) : null })
+        .where(eq(pelicanProducts.id, input.id));
+      return { success: true } as const;
+    }),
 });
