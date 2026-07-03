@@ -7,7 +7,7 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves, Percent } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -955,7 +955,11 @@ export default function DesignTool() {
 
   const total = useMemo(
     () =>
-      placed.reduce((sum, p) => sum + (unitPriceFor(p) ?? 0), 0) +
+      placed.reduce((sum, p) => {
+        const base = unitPriceFor(p) ?? 0;
+        const disc = p.discountPct ?? 0;
+        return sum + base * (1 + disc / 100);
+      }, 0) +
       placed.reduce((sum, p) => sum + customSizeFee(p), 0),
     [placed, unitPriceFor]
   );
@@ -1152,7 +1156,8 @@ export default function DesignTool() {
       // line items. Included in the dedup key so different colors stay separate.
       const cabStyleId = styleId ? effectiveStyleId(p, styleId) : null;
       const cabColor = cabStyleId != null ? (styleNameById.get(cabStyleId) ?? null) : null;
-      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${cabStyleId ?? "_"}`;
+      const discKey = p.discountPct ?? 0;
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${cabStyleId ?? "_"}|${discKey}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -1162,7 +1167,7 @@ export default function DesignTool() {
           code: p.masterCode,
           description: [p.description, sizeNote, attrNote]
             .filter(Boolean)
-            .join(" — "),
+            .join(" \u2014 "),
           color: cabColor,
           widthIn: rotatedSize(p).w,
           heightIn: placedHeight(p),
@@ -1171,6 +1176,7 @@ export default function DesignTool() {
           swing: sw === "none" ? undefined : sw,
           qty: 1,
           unitPrice: closet ? unit : styleId ? unit : null,
+          discountPct: p.discountPct ?? null,
         });
     }
     const rows = Array.from(map.values());
@@ -1638,6 +1644,7 @@ export default function DesignTool() {
       uids: string[];
       qty: number;
       unitPrice: number | null;
+      discountPct: number;
       hasConflict: boolean;
       label: string;
       swing: DoorSwing;
@@ -1652,7 +1659,8 @@ export default function DesignTool() {
       // its own line, and surface the swatch + finish name for the line item.
       const cabStyleId = styleId ? effectiveStyleId(p, styleId) : null;
       const colorKey = cabStyleId ?? "_";
-      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}|${colorKey}`;
+      const discKey = p.discountPct ?? 0;
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}|${colorKey}|${discKey}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -1668,6 +1676,7 @@ export default function DesignTool() {
           uids: [p.uid],
           qty: 1,
           unitPrice: closet ? unit : styleId ? unit : null,
+          discountPct: p.discountPct ?? 0,
           hasConflict: conflictUids.has(p.uid),
           label: dimLabel(p),
           swing: resolveSwing(p),
@@ -3491,6 +3500,18 @@ export default function DesignTool() {
   const setRolloutQtyFor = useCallback((uid: string, qty: number) => {
     setCabAttr(uid, { rolloutQty: Math.max(0, Math.floor(qty)) });
   }, [setCabAttr]);
+
+  // Set per-item discount/surcharge percentage for a specific cabinet.
+  // Negative = discount (e.g. -10 means 10% off), positive = surcharge.
+  // Null clears any adjustment.
+  const setDiscountPctFor = useCallback((uid: string, pct: number | null) => {
+    setCabAttr(uid, { discountPct: pct });
+  }, [setCabAttr]);
+
+  // Apply the same discount to ALL cabinets sharing the same BOM group key.
+  const setDiscountPctForGroup = useCallback((uids: string[], pct: number | null) => {
+    setPlaced((prev) => prev.map((p) => uids.includes(p.uid) ? { ...p, discountPct: pct } : p));
+  }, []);
 
   // ─── Custom sizing ─────────────────────────────────────────────────────────
   // Resize the selected cabinet's WIDTH to a custom value. The customer grabs a
@@ -5982,7 +6003,10 @@ export default function DesignTool() {
                 // sectionItems is passed so move-up/down knows the full list.
                 const renderLine = (g: typeof panelGroups[number], sectionItems: typeof panelGroups) => {
                   const selected = g.uids.includes(selectedUid ?? "");
-                  const lineTotal = g.unitPrice != null ? g.unitPrice * g.qty : null;
+                  const rawLineTotal = g.unitPrice != null ? g.unitPrice * g.qty : null;
+                  const lineTotal = rawLineTotal != null && g.discountPct !== 0
+                    ? rawLineTotal * (1 + g.discountPct / 100)
+                    : rawLineTotal;
                   const idx = sectionItems.findIndex((s) => s.key === g.key);
                   const canMoveUp = idx > 0;
                   const canMoveDown = idx < sectionItems.length - 1;
@@ -6060,7 +6084,57 @@ export default function DesignTool() {
                           {styleId && g.qty > 1 && g.unitPrice != null && (
                             <div className="text-[9px] text-muted-foreground mt-0.5">${g.unitPrice.toFixed(2)} ea</div>
                           )}
+                          {g.discountPct !== 0 && (
+                            <div className={`text-[9px] font-medium mt-0.5 ${g.discountPct < 0 ? "text-green-600" : "text-amber-600"}`}>
+                              {g.discountPct > 0 ? "+" : ""}{g.discountPct}%
+                            </div>
+                          )}
                         </div>
+                        {/* Discount/surcharge quick-set */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={(e) => e.stopPropagation()}
+                              className={`transition-colors ${g.discountPct !== 0 ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground"}`}
+                              aria-label="Set discount or surcharge"
+                              title="Discount / Surcharge"
+                            >
+                              <Percent className="h-3.5 w-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-52 p-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="text-xs font-semibold mb-2">Discount / Surcharge</div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                className="h-7 text-xs w-20"
+                                defaultValue={g.discountPct || ""}
+                                placeholder="0"
+                                onBlur={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  setDiscountPctForGroup(g.uids, isNaN(val) || val === 0 ? null : Math.round(val * 100) / 100);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const val = parseFloat((e.target as HTMLInputElement).value);
+                                    setDiscountPctForGroup(g.uids, isNaN(val) || val === 0 ? null : Math.round(val * 100) / 100);
+                                  }
+                                }}
+                              />
+                              <span className="text-xs text-muted-foreground">%</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1.5">
+                              Negative = discount, positive = surcharge
+                            </p>
+                            <div className="flex gap-1 mt-2">
+                              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => setDiscountPctForGroup(g.uids, -5)}>-5%</Button>
+                              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => setDiscountPctForGroup(g.uids, -10)}>-10%</Button>
+                              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => setDiscountPctForGroup(g.uids, -15)}>-15%</Button>
+                              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => setDiscountPctForGroup(g.uids, null)}>Clear</Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                         {/* Edit / resolve: jump to this cabinet and open its editor so
                             the user can correct whatever caused a conflict (size,
                             swing, blind-corner pull spec, finish, position, etc.). */}

@@ -98,3 +98,14 @@
 - [x] Add "View collection" hyperlink on each door style card in the Change Door Style dialog (links to the shop page for that style)
 - [x] Ensure the style picker can be re-opened at any time (not just once) — already supported by pickerOpen state
 - [x] Ensure the customer stays in the same collection at all times (design locked to one style) — already enforced by lockedDistributorId
+
+## 2020 Design Feature Parity (easiest to hardest)
+
+- [x] Per-item discount/surcharge in pricing (% input per BOM line, applied to line total and CSV export)
+- [ ] Valances and soffits as trim options
+- [ ] Countertop edge profile selection
+- [ ] Annotations / text notes on floor plan
+- [ ] Trimmable fillers (auto-size filler to exact gap width)
+- [ ] Full auto-dimensioning on floor plan (cabinet-to-cabinet, cabinet-to-wall)
+- [ ] Undo / Redo (state history stack with Ctrl+Z / Ctrl+Y)
+- [ ] Glass door / add-on accessories (quick-add to existing wall cabinets)

@@ -33,6 +33,8 @@ export interface BuildSheetRow {
   color?: string | null;
   qty: number;
   unitPrice: number | null;
+  // Per-item discount (negative) or surcharge (positive) percentage. Null = no adjustment.
+  discountPct?: number | null;
 }
 
 // Human label for the hinge side used on the build sheet.
@@ -115,7 +117,7 @@ export interface BuildSheetArgs {
 export function buildSheetCsv(args: BuildSheetArgs): string | null {
   const { room, styleName, tier, total, buildRows, extraLines } = args;
   if (buildRows.length === 0) return null;
-  const header = ["Item Code", "Description", "Color / Finish", "Size (W x H x D)", "W (in)", "H (in)", "D (in)", "Type", "Swing", "Qty", "Unit Price", "Line Total"];
+  const header = ["Item Code", "Description", "Color / Finish", "Size (W x H x D)", "W (in)", "H (in)", "D (in)", "Type", "Swing", "Qty", "Unit Price", "Adj %", "Line Total"];
   const lines: string[] = [];
   lines.push(`Cabinet Dealz Build Sheet`);
   lines.push(`Door Style:,${csvEscape(styleName ?? "(not selected)")}`);
@@ -124,19 +126,22 @@ export function buildSheetCsv(args: BuildSheetArgs): string | null {
   lines.push("");
   lines.push(header.map(csvEscape).join(","));
   for (const r of buildRows) {
-    const lineTotal = r.unitPrice != null ? (r.unitPrice * r.qty).toFixed(2) : "";
+    const disc = r.discountPct ?? 0;
+    const rawLine = r.unitPrice != null ? r.unitPrice * r.qty : null;
+    const lineTotal = rawLine != null ? (rawLine * (1 + disc / 100)).toFixed(2) : "";
+    const adjStr = disc !== 0 ? `${disc > 0 ? "+" : ""}${disc}%` : "";
     lines.push([
       r.code, r.description, r.color ?? "", sizeCell(r),
       fmtIn(r.widthIn), fmtIn(r.heightIn), fmtIn(r.depthIn),
       r.placement, swingCell(r.swing), r.qty,
-      r.unitPrice != null ? r.unitPrice.toFixed(2) : "", lineTotal,
+      r.unitPrice != null ? r.unitPrice.toFixed(2) : "", adjStr, lineTotal,
     ].map(csvEscape).join(","));
   }
   for (const e of extraLines) {
-    lines.push([e.label, e.detail, "", "", "", "", "", "", "", "", "", "incl."].map(csvEscape).join(","));
+    lines.push([e.label, e.detail, "", "", "", "", "", "", "", "", "", "", "incl."].map(csvEscape).join(","));
   }
   lines.push("");
-  lines.push(`Estimated Total,,,,,,,,,,,${total.toFixed(2)}`);
+  lines.push(`Estimated Total,,,,,,,,,,,,${total.toFixed(2)}`);
   return lines.join("\n");
 }
 

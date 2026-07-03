@@ -254,6 +254,10 @@ export interface PlacedCabinet {
   // rolloutQty: number of roll-out (pull-out) trays to add inside this base
   // cabinet. Priced as an add-on line per tray.
   rolloutQty?: number | null;
+  // Per-item discount (negative) or surcharge (positive) as a percentage.
+  // e.g. -10 means 10% off, +5 means 5% surcharge. Applied to the unit price
+  // before computing the line total. Null/undefined means no adjustment.
+  discountPct?: number | null;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal
