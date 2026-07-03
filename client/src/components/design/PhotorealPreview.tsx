@@ -28,6 +28,15 @@ export type PhotorealSceneInput = {
   sink?: string;
   faucet?: string;
   wallSummaries?: string[];
+  cabinetWalls?: string[];
+  appliances?: string[];
+  layoutType?:
+    | "one-wall"
+    | "galley"
+    | "L-shaped"
+    | "U-shaped"
+    | "peninsula"
+    | "multi-wall";
   hasIsland?: boolean;
   notes?: string;
   cameraAngle?: CameraAngle;
@@ -55,6 +64,12 @@ type Props = {
   /** When provided, the dialog open state is controlled by the parent. */
   controlledOpen?: boolean;
   onControlledOpenChange?: (open: boolean) => void;
+  /**
+   * Optional gate for the self-owned triggers (toolbar/menu). Return false to
+   * veto opening (e.g. the design isn't render-ready) — the caller is expected
+   * to surface its own message. Ignored for the headless variant.
+   */
+  onBeforeOpen?: () => boolean;
 };
 
 const ANGLE_OPTIONS: { value: CameraAngle; label: string }[] = [
@@ -84,6 +99,7 @@ export function PhotorealPreview({
   label = "AI Preview",
   controlledOpen,
   onControlledOpenChange,
+  onBeforeOpen,
 }: Props) {
   const isControlled = controlledOpen !== undefined;
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
@@ -126,9 +142,10 @@ export function PhotorealPreview({
   );
 
   const onOpen = useCallback(() => {
+    if (onBeforeOpen && !onBeforeOpen()) return;
     setOpen(true);
     run();
-  }, [run]);
+  }, [run, onBeforeOpen]);
 
   // When the parent drives the dialog open (mobile bottom bar), kick off a
   // render on the transition to open — mirrors what onOpen does for the

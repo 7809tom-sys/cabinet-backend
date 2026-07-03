@@ -109,6 +109,8 @@ import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptio
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { PhotorealPreview, type PhotorealSceneInput } from "@/components/design/PhotorealPreview";
 import { buildPhotorealScene } from "@/lib/photorealScene";
+import { buildSurfaceCartLines } from "@/lib/surfaceCartLines";
+import { computeRenderReadiness } from "@/lib/renderReadiness";
 import { buildRollOutLines, type TrayOptionForStyle, type TrayPlaced } from "@/lib/rollOutTrayMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
@@ -1367,11 +1369,24 @@ export default function DesignTool() {
     [activeTrims, styleId, activeStyleName, trimPriceByCode]
   );
 
-  // Final cart lines = cabinets + roll-out shelves + priced trim. Trim is folded
-  // in here (aggregated by masterCode+styleId) so every consumer of cartableLines
-  // (Add to Cart, the review list, the running total) includes trim automatically.
+  // Surfaces & Fixtures (flooring, backsplash tile, sink, faucet) picked in the
+  // Design Tool become their OWN cart line items so they land on the shopping
+  // list — previously they only fed the render prompt and were silently dropped.
+  // These come from Pelican, a DIFFERENT supply line than the cabinet
+  // distributor, so they carry distributorId: null (never triggers the
+  // cabinet distributor-lock) and use a PEL-<id> code namespace so they never
+  // collide with a cabinet masterCode. Quantity is 1 per selected product; the
+  // Pelican category is shown as the line's label. Unpriced picks are skipped.
+  const surfaceCartLines = useMemo<CartItem[]>(
+    () => buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier]) as CartItem[],
+    [selectedSurfaces, tier]
+  );
+
+  // Final cart lines = cabinets + roll-out shelves + priced trim + surfaces &
+  // fixtures. Trim/surfaces are folded in here (aggregated by masterCode+styleId)
+  // so every consumer of cartableLines (Add to Cart, the review list, the
+  // running total) includes them automatically.
   const cartableLines = useMemo(() => {
-    if (trimCartLines.length === 0) return cabinetCartLines;
     const map = new Map<string, CartItem>();
     for (const line of cabinetCartLines) {
       map.set(`${line.masterCode}::${line.styleId}`, { ...line });
@@ -1392,8 +1407,12 @@ export default function DesignTool() {
           qty: t.qty,
         });
     }
+    for (const sfc of surfaceCartLines) {
+      // styleId is already unique per surface (-id), so a straight set is safe.
+      map.set(`${sfc.masterCode}::${sfc.styleId}`, { ...sfc });
+    }
     return Array.from(map.values());
-  }, [cabinetCartLines, trimCartLines, lockedDistributorId, tier]);
+  }, [cabinetCartLines, trimCartLines, surfaceCartLines, lockedDistributorId, tier]);
 
   const addAllToCart = useCallback(() => {
     if (cartableLines.length === 0) {
@@ -3371,6 +3390,37 @@ export default function DesignTool() {
   // Drives the mobile bottom-bar "3D View" button, which opens the same AI
   // photoreal render dialog as the desktop toolbar button (headless instance).
   const [render3dOpen, setRender3dOpen] = useState(false);
+  // Gate the 3D render on a complete room: cabinets + flooring + countertop +
+  // sink & faucet, satisfiable by built-in toggles OR Pelican surface picks.
+  const renderReadiness = useMemo(() => {
+    const catIncludes = (frag: string) =>
+      selectedSurfaces.some((su) => (su.category || "").toLowerCase().includes(frag));
+    const hasSurfaceSink = selectedSurfaces.some(
+      (su) =>
+        ((su.category || "").toLowerCase().includes("sink") ||
+          (su.category || "").toLowerCase().includes("faucet")) &&
+        !/faucet|tap/i.test(su.name)
+    );
+    const hasSurfaceFaucet = selectedSurfaces.some((su) => /faucet|tap/i.test(su.name));
+    return computeRenderReadiness({
+      cabinetCount: placed.filter((p) => p.placement !== "appliance").length,
+      builtInFlooringId: flooringMaterialId,
+      hasSurfaceFlooring: catIncludes("floor"),
+      builtInCountertop: countertop,
+      hasSurfaceCountertop: catIncludes("counter") || catIncludes("quartz") || catIncludes("granite"),
+      hasSinkWithFaucet: sinks.some((s) => s.faucet),
+      hasSurfaceSink,
+      hasSurfaceFaucet,
+    });
+  }, [placed, flooringMaterialId, countertop, sinks, selectedSurfaces]);
+  // Open the 3D render only when ready; otherwise prompt for what's missing.
+  const open3dView = useCallback(() => {
+    if (!renderReadiness.ready) {
+      toast.info(renderReadiness.message);
+      return;
+    }
+    setRender3dOpen(true);
+  }, [renderReadiness]);
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
   // (the DesignActions toolbar itself is desktop-only / hidden on phones).
   const [saveSignal, setSaveSignal] = useState(0);
@@ -3562,7 +3612,10 @@ export default function DesignTool() {
 
         {/* AI Photoreal Preview — magazine render of the current design */}
         <PhotorealPreview
-          disabled={placed.filter((p) => p.placement !== "appliance").length === 0}
+          onBeforeOpen={() => {
+            if (!renderReadiness.ready) { toast.info(renderReadiness.message); return false; }
+            return true;
+          }}
           buildScene={buildPhotorealSceneInput}
           label={t("dt_sh_ai_preview")}
         />
@@ -3637,7 +3690,10 @@ export default function DesignTool() {
                   <div onClick={() => setMoreSheetOpen(false)}>
                     <PhotorealPreview
                       variant="menu"
-                      disabled={placed.filter((p) => p.placement !== "appliance").length === 0}
+                      onBeforeOpen={() => {
+                        if (!renderReadiness.ready) { toast.info(renderReadiness.message); return false; }
+                        return true;
+                      }}
                       buildScene={buildPhotorealSceneInput}
                       label={t("dt_sh_ai_preview")}
                     />
@@ -5726,7 +5782,22 @@ export default function DesignTool() {
 
             {countertop && (
               <div className="mt-4 rounded-lg border border-border p-3">
-                <p className="text-xs font-semibold text-foreground mb-2">{t("dt_bs_countertop_material")}</p>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-foreground">{t("dt_bs_countertop_material")}</p>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-[11px] font-medium text-destructive hover:underline"
+                    title="Remove the countertop and any sinks on it"
+                    onClick={() => {
+                      setCountertop(false);
+                      setSinks([]);
+                      setSelectedSinkUid(null);
+                      toast.success("Countertop removed");
+                    }}
+                  >
+                    <X className="h-3 w-3" /> Remove
+                  </button>
+                </div>
                 <Select value={countertopMaterialId} onValueChange={setCountertopMaterialId}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder={t("dt_bs_select_material")} />
@@ -5828,8 +5899,7 @@ export default function DesignTool() {
               icon={<Sparkles className="h-5 w-5" />}
               label="3D View"
               active={render3dOpen}
-              disabled={placed.filter((p) => p.placement !== "appliance").length === 0}
-              onClick={() => setRender3dOpen(true)}
+              onClick={open3dView}
             />
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
@@ -5843,7 +5913,6 @@ export default function DesignTool() {
             variant="headless"
             controlledOpen={render3dOpen}
             onControlledOpenChange={setRender3dOpen}
-            disabled={placed.filter((p) => p.placement !== "appliance").length === 0}
             buildScene={buildPhotorealSceneInput}
             label={t("dt_sh_ai_preview")}
           />

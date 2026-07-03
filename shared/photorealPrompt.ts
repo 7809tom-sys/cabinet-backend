@@ -7,10 +7,25 @@
  * render: same lens, same lighting language, same staging discipline — while
  * the design-specific facts (room size, finish, door style, counter, hardware,
  * per-wall layout) drive what is actually shown.
+ *
+ * Fidelity is the priority: the render MUST match the layout the user actually
+ * built (which walls carry cabinets, whether there is an island, which
+ * appliances exist). The model is otherwise prone to inventing a generic
+ * L-shaped-kitchen-with-island, so we describe the true geometry explicitly and
+ * add negative constraints against fabricated runs / islands / appliances.
  */
 
 export type CameraAngle = "three-quarter" | "straight-on" | "wide";
 export type TimeOfDay = "daylight" | "golden-hour" | "evening";
+
+/** Overall footprint of the cabinetry, derived from which walls carry runs. */
+export type LayoutType =
+  | "one-wall"
+  | "galley"
+  | "L-shaped"
+  | "U-shaped"
+  | "peninsula"
+  | "multi-wall";
 
 export interface PhotorealPromptInput {
   roomWidthFt: number;
@@ -31,6 +46,20 @@ export interface PhotorealPromptInput {
   faucet?: string;
   wallSummaries?: string[];
   hasIsland?: boolean;
+  /**
+   * Overall footprint of the cabinetry. When provided this drives the camera
+   * framing and an explicit "this is a <layoutType> kitchen" statement so the
+   * render does not drift into a generic layout.
+   */
+  layoutType?: LayoutType;
+  /** Human names of the walls that actually carry cabinetry, e.g. ["Back wall"]. */
+  cabinetWalls?: string[];
+  /**
+   * Appliances/fixtures that are actually present in the design (lowercase
+   * phrases, e.g. ["a range", "a refrigerator", "a sink"]). Used to keep the
+   * render from inventing appliances that were never placed.
+   */
+  appliances?: string[];
   notes?: string;
   /** Camera framing. Defaults to a flattering three-quarter angle. */
   cameraAngle?: CameraAngle;
@@ -38,9 +67,14 @@ export interface PhotorealPromptInput {
   timeOfDay?: TimeOfDay;
 }
 
+/**
+ * Camera language. The three-quarter framing intentionally does NOT assume two
+ * runs of cabinetry (that biases single-wall designs toward an L-shape). Layout
+ * specifics are stated separately in the layout clause.
+ */
 const CAMERA_CLAUSE: Record<CameraAngle, string> = {
   "three-quarter":
-    "Shot from a natural eye-level three-quarter angle that shows two adjoining runs of cabinetry receding into the room, 24mm full-frame lens, straight verticals (no keystone distortion), composed like an architectural digest interior.",
+    "Shot from a natural eye-level three-quarter angle, 24mm full-frame lens, straight verticals (no keystone distortion), composed like an architectural-digest interior.",
   "straight-on":
     "Shot straight-on and level with the main cabinet run, symmetric one-point perspective, 35mm full-frame lens, straight verticals, centered composition like a catalog hero photo.",
   wide:
@@ -54,6 +88,25 @@ const LIGHT_CLAUSE: Record<TimeOfDay, string> = {
     "Warm late-afternoon golden-hour light raking across the counters, long soft shadows, cozy amber highlights balanced against cool window fill.",
   evening:
     "Evening scene lit by warm under-cabinet LED strips and recessed ceiling downlights, gentle pools of light on the counters, calm and upscale mood.",
+};
+
+/**
+ * Plain-language description of each layout footprint. Written as a firm
+ * instruction so the model reproduces the geometry the user actually built.
+ */
+const LAYOUT_CLAUSE: Record<LayoutType, string> = {
+  "one-wall":
+    "This is a SINGLE-WALL (one-wall) kitchen: all cabinetry sits in ONE straight continuous run along a single wall. There is NO island and NO cabinetry on the other walls — the opposite and side walls are open floor space.",
+  galley:
+    "This is a GALLEY kitchen: two parallel straight runs of cabinetry face each other along two opposite walls, with a walkway between them and NO island.",
+  "L-shaped":
+    "This is an L-SHAPED kitchen: cabinetry runs along two adjoining walls that meet at one corner, forming an L. Only these two walls carry cabinets.",
+  "U-shaped":
+    "This is a U-SHAPED kitchen: cabinetry wraps around three adjoining walls forming a U. Only these three walls carry cabinets.",
+  peninsula:
+    "This kitchen has a peninsula: the perimeter cabinetry is joined by a peninsula run connected at one end to the wall cabinetry (a connected counter, not a free-standing island).",
+  "multi-wall":
+    "Reproduce the cabinetry exactly as described in the layout list below — only on the walls listed, with no additional invented runs.",
 };
 
 /** Round a foot value for clean prose (no trailing .0). */
@@ -86,6 +139,12 @@ export function buildPhotorealPrompt(input: PhotorealPromptInput): string {
   parts.push(
     `The room is approximately ${ft(input.roomWidthFt)} feet wide by ${ft(input.roomDepthFt)} feet deep with a ${ft(ceiling)}-foot ceiling, painted a soft neutral white on the walls with a light wood or warm-toned floor.`
   );
+
+  // 3b. Layout footprint — stated up front and firmly so the render matches
+  // the actual design instead of a generic kitchen.
+  if (input.layoutType) {
+    parts.push(LAYOUT_CLAUSE[input.layoutType]);
+  }
 
   // 4. Cabinetry (the star of the shot).
   if (door || finish) {
@@ -125,11 +184,28 @@ export function buildPhotorealPrompt(input: PhotorealPromptInput): string {
   }
 
   // 5. Layout so the render tracks what the user actually built.
-  if (input.wallSummaries && input.wallSummaries.length > 0) {
-    parts.push("Layout of the cabinetry: " + input.wallSummaries.join("; ") + ".");
+  if (input.cabinetWalls && input.cabinetWalls.length > 0) {
+    parts.push(
+      `Cabinetry appears ONLY on the following wall(s): ${input.cabinetWalls.join(", ")}. Leave every other wall free of cabinets.`
+    );
   }
+  if (input.wallSummaries && input.wallSummaries.length > 0) {
+    parts.push("Exact layout of the cabinetry: " + input.wallSummaries.join("; ") + ".");
+  }
+
+  // 5b. Appliances: show exactly what was placed; do not invent extras.
+  if (input.appliances && input.appliances.length > 0) {
+    parts.push(
+      `The only appliances/fixtures in this kitchen are: ${input.appliances.join(", ")}. Do not add any other appliances.`
+    );
+  }
+
+  // 5c. Island is opt-in. State its absence firmly, since the model tends to
+  // add one by default.
   if (input.hasIsland) {
     parts.push("A central kitchen island with cabinetry and countertop matching the perimeter, with a small amount of walking clearance around it.");
+  } else {
+    parts.push("There is NO kitchen island and NO peninsula — keep the center of the room as open floor.");
   }
   if (input.notes?.trim()) parts.push(input.notes.trim());
 
@@ -140,7 +216,7 @@ export function buildPhotorealPrompt(input: PhotorealPromptInput): string {
 
   // 7. Hard constraints (negative prompt) to keep renders clean and on-brief.
   parts.push(
-    "Do NOT include: people, hands, pets, text, letters, numbers, labels, watermarks, logos, floor-plan overlays, measurement lines, grid lines, blueprint or CAD look, cartoon or 3D-render CGI look, warped or melted cabinets, crooked walls, extra doors, duplicated fixtures, fisheye distortion, or blurry low-resolution artifacts."
+    "Strictly reproduce the layout described above; do NOT invent extra cabinet runs, an island, a peninsula, or appliances that were not specified. Do NOT include: people, hands, pets, text, letters, numbers, labels, watermarks, logos, floor-plan overlays, measurement lines, grid lines, blueprint or CAD look, cartoon or 3D-render CGI look, warped or melted cabinets, crooked walls, extra doors, duplicated fixtures, fisheye distortion, or blurry low-resolution artifacts."
   );
 
   return parts.join(" ");

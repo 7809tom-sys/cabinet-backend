@@ -2684,3 +2684,32 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [x] Add a prominent "3D View" button to the mobile bottom action bar in the Design Tool that opens the AI photoreal render (7-col bottom bar; headless PhotorealPreview driven by controlledOpen)
 - [x] Keep it disabled (with a hint) until at least one cabinet is placed (disabled when no non-appliance cabinets placed)
 - [x] Verify on a mobile viewport (390x844 screenshot: button visible, greys out on empty room, enables with a layout); TypeScript clean
+
+
+## AI 3D render fidelity bug (user report)
+
+- [ ] Render must reflect the ACTUAL designed layout, not a generic kitchen (reported: one-wall galley design rendered as an L-shape with island)
+- [ ] Encode wall configuration (one-wall / galley / L / U) and island-vs-none in the scene input + prompt
+- [ ] Encode ordered cabinet runs per wall + appliance positions (range/fridge/sink/dishwasher) and window location
+- [ ] Verify render fidelity against the reported one-wall design; checkpoint + deliver
+
+
+## Surfaces & Fixtures not on shopping list (user report)
+
+- [ ] Surface/fixture picks selected in the Designer (faucet, sink, flooring, backsplash, countertop tile) do NOT appear on the cart / shopping list
+- [ ] Trace how selectedSurfaces are stored in DesignTool and why they are excluded from cart line items
+- [ ] Add selected surfaces & fixtures to the cart as priced line items (with qty from area math where applicable)
+- [ ] Verify they show on the build sheet/summary and in the order request
+
+## Designer render + cart fixes (batch, current)
+- [x] AI 3D render must reflect the actual designed layout (walls, appliances, island), not a generic kitchen
+- [x] Surfaces & Fixtures picks (faucet/sink/flooring/backsplash/tile) must appear on the shopping list/cart
+- [ ] Generic built-in flooring & countertop entries in the Designer cart/build-sheet must be removable
+- [ ] Gate 3D View/AI Preview: block until flooring + countertop + sink + faucet are all present, with a clear prompt listing what's missing (accept built-in toggles OR Pelican surface picks as satisfying each requirement)
+
+## Designer batch — completed
+- [x] AI 3D render fidelity: prompt/scene now encodes layout type, cabinet walls, appliances, island flag; forbids inventing island/extra runs
+- [x] Surfaces & Fixtures (flooring, backsplash tile, sink, faucet) now appear on the shopping cart/build sheet as priced line items (distributorId null so they never trip the cabinet distributor lock)
+- [x] Built-in countertop is removable via a Remove control (clears sinks too); flooring/backsplash removable via tap-again in their pickers
+- [x] 3D View / AI Preview gated: requires flooring + countertop + sink & faucet (+ a cabinet); shows a toast listing what's missing; satisfiable by built-in toggles OR Pelican surface picks
+- [x] Unit tests: renderReadiness (7), photoreal prompt layout assertions, surface cart lines; full suite 1,277 passing; tsc clean

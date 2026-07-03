@@ -64,9 +64,41 @@ describe("buildPhotorealPrompt", () => {
       ...base,
       wallSummaries: ["Back wall: 8ft run of base cabinets with a sink", "Left wall: tall pantry column"],
     });
-    expect(p).toContain("Layout of the cabinetry:");
+    expect(p).toContain("Exact layout of the cabinetry:");
     expect(p).toContain("Back wall: 8ft run of base cabinets with a sink");
     expect(p).toContain("Left wall: tall pantry column");
+  });
+
+  it("states a one-wall layout firmly and forbids an island", () => {
+    const p = buildPhotorealPrompt({
+      ...base,
+      layoutType: "one-wall",
+      cabinetWalls: ["Back wall"],
+      hasIsland: false,
+    });
+    expect(p).toContain("SINGLE-WALL");
+    expect(p).toContain("NO island");
+    expect(p).toContain("ONLY on the following wall(s): Back wall");
+    expect(p).toContain("There is NO kitchen island");
+    // The three-quarter camera clause must NOT force two adjoining runs.
+    expect(p).not.toContain("two adjoining runs of cabinetry");
+  });
+
+  it("describes galley, L-shaped and U-shaped layouts", () => {
+    expect(buildPhotorealPrompt({ ...base, layoutType: "galley" })).toContain("GALLEY");
+    expect(buildPhotorealPrompt({ ...base, layoutType: "L-shaped" })).toContain("L-SHAPED");
+    expect(buildPhotorealPrompt({ ...base, layoutType: "U-shaped" })).toContain("U-SHAPED");
+  });
+
+  it("lists only the appliances actually placed and forbids extras", () => {
+    const p = buildPhotorealPrompt({
+      ...base,
+      appliances: ["a range", "a refrigerator", "a sink"],
+    });
+    expect(p).toContain("a range, a refrigerator, a sink");
+    expect(p).toContain("Do not add any other appliances");
+    // global negative constraint against inventing geometry
+    expect(p).toContain("do NOT invent extra cabinet runs");
   });
 
   it("mentions an island only when hasIsland is set", () => {

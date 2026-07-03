@@ -1751,6 +1751,14 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         // e.g. ["Back wall: 12ft run of base + wall cabinets with a sink and
         // range", "Left wall: tall pantry column"].
         wallSummaries: z.array(z.string().max(300)).max(8).optional(),
+        // Human names of walls that actually carry cabinetry, e.g. ["Back wall"].
+        cabinetWalls: z.array(z.string().max(40)).max(4).optional(),
+        // Appliances/fixtures actually present, e.g. ["a range", "a sink"].
+        appliances: z.array(z.string().max(60)).max(12).optional(),
+        // Overall footprint so the render matches the true geometry.
+        layoutType: z
+          .enum(["one-wall", "galley", "L-shaped", "U-shaped", "peninsula", "multi-wall"])
+          .optional(),
         // Whether the design includes an island.
         hasIsland: z.boolean().optional(),
         // Free-form extra notes (appliances, open shelving, etc.).
