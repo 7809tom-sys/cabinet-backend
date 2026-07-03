@@ -2583,3 +2583,37 @@ Source files (downloaded to /home/ubuntu/milestone_catalogs): Premium, Slim Shak
 - [ ] Surface in Design Tool: browse by category + Suggested first
 - [ ] Admin editing of popular flag + cost/markup
 - [ ] Tests + verify UI + checkpoint
+
+## Admin: Unpublished Items, Size Edit, Bridge Rule, Pelican Markup (in progress)
+
+- [x] Correct SPB-6 (6x34.5x24) and SPB-9 (9x34.5x24) base cabinet dimensions in DB
+- [ ] Build admin "Unpublished Items" panel: list items with showInCatalog=0, one-click publish/unpublish
+- [ ] Fix admin size-editing (Dimensions & Weight) so width/height/depth updates persist
+- [ ] Design tool: bridge cabinets must start at 72" mark above range and above refrigerator
+- [ ] Pelican per-category markup editor in Admin Pricing & Margins (sell = cost x (1+markup%))
+
+
+## Pelican Surfaces & Fixtures — Admin location & vendor tracking (user request)
+- [x] Decide admin location: markups in Pricing & Margins; sales tracking in new Approved Vendors tab; Pelican Catalog tab stays for visibility/featured
+- [x] DB: pelican_category_markups (per-category markupBps), seeded with research defaults (Flooring 65/Tile 55/Sinks 38/Toilets 35/Shower 22/Quartz 18)
+- [x] DB: vendor_lines (approved vendors scorecard with totalSalesCents), seeded Pelican line
+- [ ] Router: pelican.getMarkups / setMarkup (adminProcedure); include computed sellPrice in byCategory/adminList
+- [ ] MarginsAdmin: add "Pelican Surfaces & Fixtures markups" editable per-category section
+- [ ] Router: vendors.list / upsert / recomputeSales (adminProcedure)
+- [ ] New ApprovedVendorsAdmin component + Admin.tsx "Approved Vendors" tab
+- [ ] Fix BulkDimensionsAdmin: make assembled W/H/D editable (backend already supports)
+- [ ] Build Unpublished Items admin panel (showInCatalog=0 / isActive=0 one-click publish)
+- [ ] Clean up stale server/routers/pelicanCatalog.ts
+- [ ] Design tool: 72" bridge-cabinet rule above range and refrigerator
+
+## Pelican markups + Approved Vendors (this session) — DONE
+- [x] Schema: pelican_category_markups + vendor_lines tables (migrated)
+- [x] Seed research-based default markups + Pelican vendor line
+- [x] Pelican router: getMarkups / setMarkup + computed sellPrice per category
+- [x] Vendors router: list / upsert / remove / recomputeSales (no fabricated sales)
+- [x] PelicanMarkupsAdmin embedded in Pricing & Margins tab
+- [x] ApprovedVendorsAdmin new tab (dollar-sales scorecard, recompute from real orders)
+- [x] PelicanCatalogAdmin new tab (visibility / featured / pricing per item)
+- [x] Wired both tabs into Admin.tsx
+- [x] Removed stale duplicate pelicanCatalog.ts router
+- [x] Vitest: pelicanVendors.test.ts (4 passing) + full typecheck clean

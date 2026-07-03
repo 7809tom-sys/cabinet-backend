@@ -32,6 +32,7 @@ import { siteSettingsRouter } from "./routers/siteSettings";
 import { skuAdminRouter } from "./routers/skuAdmin";
 import { emailSettingsRouter } from "./routers/emailSettings";
 import { pelicanRouter } from "./routers/pelican";
+import { vendorsRouter } from "./routers/vendors";
 
 export const appRouter = router({
   system: systemRouter,
@@ -74,6 +75,7 @@ export const appRouter = router({
   skuAdmin: skuAdminRouter,
   emailSettings: emailSettingsRouter,
   pelican: pelicanRouter,
+  vendors: vendorsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -3,6 +3,7 @@ import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
 import { router, publicProcedure, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
+import { pelicanCategoryMarkups } from "../../drizzle/schema";
 
 const CategoryEnum = z.enum([
   "Sinks & Faucets",
@@ -14,6 +15,54 @@ const CategoryEnum = z.enum([
   "Samples",
   "Marketing & Merchandise",
 ]);
+
+const DEFAULT_MARKUP_BPS: Record<string, number> = {
+  Flooring: 6500,
+  "Tile & Mosaic": 5500,
+  "Sinks & Faucets": 3800,
+  "Toilets & Bidets": 3500,
+  "Shower & Bath": 2200,
+  "Quartz Slabs (Countertops)": 1800,
+};
+
+type MarkupMap = Record<string, number>;
+
+async function loadMarkupMap(db: NonNullable<Awaited<ReturnType<typeof getDb>>>): Promise<MarkupMap> {
+  const rows = await db
+    .select({ category: pelicanCategoryMarkups.category, markupBps: pelicanCategoryMarkups.markupBps })
+    .from(pelicanCategoryMarkups);
+  const map: MarkupMap = {};
+  for (const r of rows) map[r.category] = r.markupBps;
+  return map;
+}
+
+function markupBpsFor(map: MarkupMap, category: string): number {
+  if (map[category] !== undefined) return map[category];
+  return DEFAULT_MARKUP_BPS[category] ?? 0;
+}
+
+function computeSellPrice(
+  product: { listPrice: string | null; yourCost: string | null; category: string },
+  map: MarkupMap
+): number | null {
+  const costStr = product.yourCost ?? product.listPrice;
+  if (costStr == null) return null;
+  const cost = Number(costStr);
+  if (!Number.isFinite(cost)) return null;
+  const bps = markupBpsFor(map, product.category);
+  return Math.round(cost * (1 + bps / 10000) * 100) / 100;
+}
+
+function withPricing<T extends { listPrice: string | null; yourCost: string | null; category: string }>(
+  product: T,
+  map: MarkupMap
+): T & { sellPrice: number | null; markupBps: number } {
+  return {
+    ...product,
+    sellPrice: computeSellPrice(product, map),
+    markupBps: markupBpsFor(map, product.category),
+  };
+}
 
 export const pelicanRouter = router({
   categories: publicProcedure
@@ -31,7 +80,7 @@ export const pelicanRouter = router({
         .where(and(...conds))
         .groupBy(pelicanProducts.category)
         .orderBy(desc(sql`count(*)`));
-      return rows.map(r => ({ category: r.category, count: Number(r.count) }));
+      return rows.map((r) => ({ category: r.category, count: Number(r.count) }));
     }),
   byCategory: publicProcedure
     .input(
@@ -47,6 +96,7 @@ export const pelicanRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { suggested: [], items: [], total: 0, subCategories: [] as string[] };
+      const markupMap = await loadMarkupMap(db);
       const conds = [eq(pelicanProducts.category, input.category), eq(pelicanProducts.isActive, true)];
       if (input.scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (input.scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
@@ -62,7 +112,7 @@ export const pelicanRouter = router({
         );
       }
       const where = and(...conds);
-      const suggested =
+      const suggestedRows =
         input.search || input.subCategory || input.offset > 0
           ? []
           : await db
@@ -71,7 +121,7 @@ export const pelicanRouter = router({
               .where(and(where, eq(pelicanProducts.isPopular, true)))
               .orderBy(asc(pelicanProducts.popularRank))
               .limit(12);
-      const items = await db
+      const itemRows = await db
         .select()
         .from(pelicanProducts)
         .where(where)
@@ -87,10 +137,10 @@ export const pelicanRouter = router({
         .from(pelicanProducts)
         .where(and(eq(pelicanProducts.category, input.category), eq(pelicanProducts.isActive, true)));
       return {
-        suggested,
-        items,
+        suggested: suggestedRows.map((r) => withPricing(r, markupMap)),
+        items: itemRows.map((r) => withPricing(r, markupMap)),
         total: Number(total),
-        subCategories: subs.map(s => s.subCategory).filter(Boolean) as string[],
+        subCategories: subs.map((s) => s.subCategory).filter(Boolean) as string[],
       };
     }),
   bySlug: publicProcedure
@@ -103,7 +153,9 @@ export const pelicanRouter = router({
         .from(pelicanProducts)
         .where(eq(pelicanProducts.slug, input.slug))
         .limit(1);
-      return row ?? null;
+      if (!row) return null;
+      const markupMap = await loadMarkupMap(db);
+      return withPricing(row, markupMap);
     }),
   adminList: adminProcedure
     .input(
@@ -117,6 +169,7 @@ export const pelicanRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { items: [], total: 0 };
+      const markupMap = await loadMarkupMap(db);
       const conds = [] as any[];
       if (input.category) conds.push(eq(pelicanProducts.category, input.category));
       if (input.search) {
@@ -141,8 +194,50 @@ export const pelicanRouter = router({
         .select({ total: sql<number>`count(*)` })
         .from(pelicanProducts)
         .where(where);
-      return { items, total: Number(total) };
+      return { items: items.map((r) => withPricing(r, markupMap)), total: Number(total) };
     }),
+
+  getMarkups: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db)
+      return [] as {
+        category: string;
+        markupBps: number;
+        isDefault: boolean;
+        productCount: number;
+        avgCost: number | null;
+      }[];
+    const markupMap = await loadMarkupMap(db);
+    const stats = await db
+      .select({
+        category: pelicanProducts.category,
+        productCount: sql<number>`count(*)`,
+        avgCost: sql<number>`avg(coalesce(${pelicanProducts.yourCost}, ${pelicanProducts.listPrice}))`,
+      })
+      .from(pelicanProducts)
+      .where(eq(pelicanProducts.isActive, true))
+      .groupBy(pelicanProducts.category)
+      .orderBy(desc(sql`count(*)`));
+    return stats.map((s) => ({
+      category: s.category,
+      markupBps: markupBpsFor(markupMap, s.category),
+      isDefault: markupMap[s.category] === undefined,
+      productCount: Number(s.productCount),
+      avgCost: s.avgCost == null ? null : Number(s.avgCost),
+    }));
+  }),
+  setMarkup: adminProcedure
+    .input(z.object({ category: z.string().min(1), markupBps: z.number().int().min(0).max(100000) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) return { success: false } as const;
+      await db
+        .insert(pelicanCategoryMarkups)
+        .values({ category: input.category, markupBps: input.markupBps, updatedByOpenId: ctx.user.openId })
+        .onDuplicateKeyUpdate({ set: { markupBps: input.markupBps, updatedByOpenId: ctx.user.openId } });
+      return { success: true } as const;
+    }),
+
   setPopular: adminProcedure
     .input(z.object({ id: z.number(), isPopular: z.boolean(), popularRank: z.number().min(0).default(0) }))
     .mutation(async ({ input }) => {

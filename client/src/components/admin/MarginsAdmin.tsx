@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import FeeSystemAdmin from "./FeeSystemAdmin";
+import PelicanMarkupsAdmin from "./PelicanMarkupsAdmin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -248,6 +249,8 @@ export default function MarginsAdmin() {
           )}
         </CardContent>
       </Card>
+
+      <PelicanMarkupsAdmin />
     </div>
   );
 }

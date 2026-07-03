@@ -1182,3 +1182,39 @@ export const cabinetImages = mysqlTable("cabinet_images", {
 });
 export type CabinetImage = typeof cabinetImages.$inferSelect;
 export type InsertCabinetImage = typeof cabinetImages.$inferInsert;
+
+// ─── Pelican per-category markups ─────────────────────────────────────────────
+// Admin-configurable markup applied on top of a Pelican product's cost
+// (pelican_products.listPrice = cost). Sell price = cost × (1 + markupBps/10000).
+// One row per Pelican category. Nothing hardcoded — all editable in
+// Admin → Pricing & Margins.
+export const pelicanCategoryMarkups = mysqlTable("pelican_category_markups", {
+  id: int("id").autoincrement().primaryKey(),
+  category: varchar("category", { length: 64 }).notNull().unique(),
+  markupBps: int("markupBps").default(0).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedByOpenId: varchar("updatedByOpenId", { length: 64 }),
+});
+export type PelicanCategoryMarkup = typeof pelicanCategoryMarkups.$inferSelect;
+export type InsertPelicanCategoryMarkup = typeof pelicanCategoryMarkups.$inferInsert;
+
+// ─── Approved Vendors (supply-line scorecard) ──────────────────────────────────
+// Tracks each approved supply line with approval status, contact info, and
+// lifetime sales. totalSalesCents is rolled up from confirmed orders.
+export const vendorLines = mysqlTable("vendor_lines", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 191 }).notNull().unique(),
+  sourceKey: varchar("sourceKey", { length: 64 }),
+  category: varchar("category", { length: 128 }).default("").notNull(),
+  contactName: varchar("contactName", { length: 191 }).default("").notNull(),
+  contactEmail: varchar("contactEmail", { length: 255 }).default("").notNull(),
+  contactPhone: varchar("contactPhone", { length: 64 }).default("").notNull(),
+  isApproved: boolean("isApproved").default(true).notNull(),
+  totalSalesCents: int("totalSalesCents").default(0).notNull(),
+  salesUpdatedAt: timestamp("salesUpdatedAt"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type VendorLine = typeof vendorLines.$inferSelect;
+export type InsertVendorLine = typeof vendorLines.$inferInsert;

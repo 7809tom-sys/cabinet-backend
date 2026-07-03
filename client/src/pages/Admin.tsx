@@ -55,6 +55,8 @@ import IncomingOrdersAdmin from "@/components/admin/IncomingOrdersAdmin";
 import { BulkDimensionsAdmin } from "@/components/admin/BulkDimensionsAdmin";
 import { DesignerCoverageAdmin } from "@/components/admin/DesignerCoverageAdmin";
 import { AdminTabHelp } from "@/components/admin/AdminTabHelp";
+import ApprovedVendorsAdmin from "@/components/admin/ApprovedVendorsAdmin";
+import PelicanCatalogAdmin from "@/components/admin/PelicanCatalogAdmin";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -634,6 +636,8 @@ export default function Admin() {
           <TabsTrigger value="images">Product Images</TabsTrigger>
           <TabsTrigger value="multipliers">Multipliers</TabsTrigger>
           <TabsTrigger value="margins">Pricing & Margins</TabsTrigger>
+          <TabsTrigger value="approved-vendors">Approved Vendors</TabsTrigger>
+          <TabsTrigger value="pelican-catalog">Pelican Catalog</TabsTrigger>
           <TabsTrigger value="cost-lookup">Price Audit</TabsTrigger>
           <TabsTrigger value="shipping">Shipping</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
@@ -725,6 +729,12 @@ export default function Admin() {
         <TabsContent value="margins" className="mt-6">
           <AdminTabHelp tab="margins" />
           <MarginsAdmin />
+        </TabsContent>
+        <TabsContent value="approved-vendors" className="mt-6">
+          <ApprovedVendorsAdmin />
+        </TabsContent>
+        <TabsContent value="pelican-catalog" className="mt-6">
+          <PelicanCatalogAdmin />
         </TabsContent>
         <TabsContent value="cost-lookup" className="mt-6">
           <AdminTabHelp tab="cost-lookup" />
