@@ -35,7 +35,7 @@ import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths,
-  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
+  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
@@ -1331,6 +1331,24 @@ export default function DesignTool() {
     },
     [styleId, panelKindById, activePanelKind]
   );
+  // Per-style door sample image URL map (for rendering real door photos on
+  // cabinet faces in the elevation view).
+  const doorSampleById = useMemo(() => {
+    const m = new Map<number, string>();
+    doorStyles?.forEach((d) => {
+      const s = d as { id: number; doorSampleImageUrl?: string | null };
+      if (s.doorSampleImageUrl) m.set(s.id, s.doorSampleImageUrl);
+    });
+    return m;
+  }, [doorStyles]);
+  const activeDoorSampleUrl = paletteFinishSwatch; // same source
+  const doorSampleForCab = useCallback(
+    (cab: PlacedCabinet): string | null => {
+      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      return (sid != null && doorSampleById.get(sid)) || activeDoorSampleUrl;
+    },
+    [styleId, doorSampleById, activeDoorSampleUrl]
+  );
 
   // Distinct finishes actually used across the design (default + per-cabinet
   // overrides), each with its display name + swatch, so the summary can list
@@ -1936,6 +1954,16 @@ export default function DesignTool() {
         // from the just-placed fridge; the wall it sits on drives panel sides.
         if (isRefrigerator(newCab)) {
           setFridgeDialog({ fridgeUid: newCab.uid });
+        }
+        // Blind corner: auto-place a 3" filler on the open-run side so the
+        // adjacent door/drawer has clearance past the blind return. The filler
+        // is a separate movable item the user can adjust or delete.
+        if (isBlindCorner(newCab.masterCode, newCab.description)) {
+          const { filler } = blindCornerAutoFiller(newCab, room);
+          if (filler) {
+            toast.success(t("dt_blind_filler_placed"));
+            return [...prev, newCab, filler];
+          }
         }
         return [...prev, newCab];
       });
@@ -5079,6 +5107,7 @@ export default function DesignTool() {
               hardwareStyleId={hardwareStyleId}
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
+              doorSampleUrlFor={doorSampleForCab}
               onMove={cabinetsLocked ? undefined : moveCabinet}
               onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
               moveLocked={cabinetsLocked}
@@ -5103,6 +5132,7 @@ export default function DesignTool() {
               hardwareStyleId={hardwareStyleId}
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
+              doorSampleUrlFor={doorSampleForCab}
             />
           )}
           {viewMode === "split" && (
@@ -5177,6 +5207,7 @@ export default function DesignTool() {
                   hardwareStyleId={hardwareStyleId}
                   finishFor={finishForCab}
                   panelKindFor={panelKindForCab}
+                  doorSampleUrlFor={doorSampleForCab}
                   onMove={cabinetsLocked ? undefined : moveCabinet}
                   onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
                   moveLocked={cabinetsLocked}

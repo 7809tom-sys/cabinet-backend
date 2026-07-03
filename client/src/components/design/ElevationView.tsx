@@ -46,6 +46,9 @@ interface Props {
   // single `finish`/`panelKind` props apply to every cabinet.
   finishFor?: (cab: PlacedCabinet) => FinishColors;
   panelKindFor?: (cab: PlacedCabinet) => DoorPanelKind;
+  // Optional per-cabinet door sample image URL resolver. When provided, the
+  // real door photo is rendered as a background texture on each cabinet face.
+  doorSampleUrlFor?: (cab: PlacedCabinet) => string | null;
   // When this elevation is rendered inside a horizontally-mirrored container
   // (the left half of CornerView), set `mirror` so text labels are counter-
   // flipped to stay readable. `hideSwitcher` removes the inner wall picker so
@@ -76,7 +79,7 @@ export function ElevationView({
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
-  finishFor, panelKindFor, seamCabinets = [],
+  finishFor, panelKindFor, doorSampleUrlFor, seamCabinets = [],
   onMove, onMoveVertical, moveLocked = false,
 }: Props) {
   const { t } = useLanguage();
@@ -169,14 +172,16 @@ export function ElevationView({
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
-    // Photoreal face: give the flat finish color subtle depth with a soft
-    // top-lit sheen and a darker base, so the cabinet reads as a real painted/
-    // stained door rather than a flat swatch. Appliances get a brushed stainless
-    // gradient. The base color still comes from the resolved finish so every
-    // style keeps its true color.
+    // Resolve the door sample image URL for this cabinet (real door photo).
+    const cabDoorSampleUrl = !isAppliance && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
+    // Photoreal face: when a door sample image is available, use it as the
+    // cabinet face background (object-fit cover). Otherwise fall back to the
+    // CSS gradient approximation.
     const faceFill = isAppliance
       ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
-      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
+      : cabDoorSampleUrl
+        ? `url(${cabDoorSampleUrl})`
+        : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
@@ -209,6 +214,7 @@ export function ElevationView({
           bottom: bottom * ppi,
           height: height * ppi,
           background: faceFill,
+          ...(cabDoorSampleUrl ? { backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : {}),
           border: isSelected
             ? "2px solid #1a2744"
             : `1px solid ${edgeColor}`,

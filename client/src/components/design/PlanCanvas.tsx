@@ -931,10 +931,10 @@ export function PlanCanvas({
                     : isSelected
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
-                  borderRadius: isCorner ? 0 : 2,
+                  borderRadius: (isCorner && !isBlind) ? 0 : 2,
                   clipPath: isDiagonal
                     ? diagonalCornerClipPath(cornerRotationForPlaced(p, room))
-                    : isCorner
+                    : (isCorner && !isBlind)
                     ? cornerClipPath(cornerRotationForPlaced(p, room), cornerLegRatioForPlaced(p))
                     : undefined,
                 }}
@@ -954,7 +954,7 @@ export function PlanCanvas({
                     {Math.round(p.width)}"
                   </span>
                 </div>
-                {!isWall && !isCorner && (
+                {!isWall && (!isCorner || isBlind) && (
                   <div
                     className="absolute bottom-0 left-0 right-0 border-b-2 border-[#8a6d3b]/40"
                     style={{ height: 2 }}
@@ -1010,18 +1010,7 @@ export function PlanCanvas({
                 })()}
                 {/* Blind corners need a corner filler strip for door clearance — show
                     a hatched gap marker on the inside edge so the layout reads correctly. */}
-                {isBlind && (
-                  <div
-                    className="absolute top-0 bottom-0 right-0 z-10"
-                    style={{
-                      width: Math.max(3, 3 * ppi),
-                      background:
-                        "repeating-linear-gradient(45deg, #d4a75a 0, #d4a75a 2px, transparent 2px, transparent 5px)",
-                      borderLeft: "1px dashed #8a6d3b",
-                    }}
-                    title={t("dt_pc_corner_filler")}
-                  />
-                )}
+
                 {/* Always-available rotate control on the selected cabinet — a
                     touch-friendly handle so customers can turn a cabinet without
                     a keyboard. Turns the cabinet 90° and re-seats it. */}

@@ -52,3 +52,17 @@
 ## Feature: Tall filler can be placed on top of wall cabinets to cover ceiling gap
 
 - [x] Allow tall fillers to be placed horizontally on top of wall cabinets to fill gap to ceiling (Ceiling Filler button in More menu)
+
+## Fix: Blind corner cabinets should render as rectangles, not lazy Susan diagonal
+
+- [x] Change blind corner cabinet plan-view rendering from diagonal/lazy Susan shape to a simple rectangle
+- [x] Ensure a 3" filler is auto-placed as a separate piece next to the blind corner cabinet
+- [x] Run typecheck and tests
+- [x] Save checkpoint
+
+## Feature: Render door style patterns on cabinet faces in Designer
+
+- [x] Add visual door style patterns (Shaker rail/stile, Raised Panel, Slab, etc.) to cabinet faces in the elevation view
+- [x] Use actual door sample photo (doorSampleImageUrl) as texture on cabinet faces in Front View/Corner/Split
+- [x] Support per-cabinet door images for two-tone designs
+- [x] Run typecheck and tests
