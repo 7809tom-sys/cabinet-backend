@@ -1547,7 +1547,7 @@ export default function DesignTool() {
   // Pelican category is shown as the line's label. Unpriced picks are skipped.
   const surfaceCartLines = useMemo<CartItem[]>(() => {
     // Compute room areas inline for box-quantity calculation.
-    const bsLinearIn = placed.filter((p) => p.placement === "base").reduce((s, p) => s + rotatedSize(p).w, 0);
+    const bsLinearIn = placed.filter((p) => p.placement === "base" || p.placement === "appliance").reduce((s, p) => s + placedFootprint(p).w, 0);
     const backsplashSqFt = Math.round(((bsLinearIn * 18) / 144) * 10) / 10;
     const flooringSqFt = Math.round(((room.width * room.depth) / 144) * 10) / 10;
     const areas = { backsplashSqFt, flooringSqFt };

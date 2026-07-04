@@ -641,8 +641,26 @@ export function ElevationView({
           // or the full wall-cabinet top line if no wall cab sits above.
           const BACKSPLASH_RANGE_TOP = wallCabinetTopLine(room); // 84" on 8ft ceiling
 
-          // Backsplash spans the FULL WALL — starts at corner (0) to end (planSpan).
-          const runs: { start: number; end: number }[] = [{ start: 0, end: planSpan }];
+          // Backsplash follows cabinet runs only — spans behind base cabinets
+          // and appliances (ranges/ovens) that have countertops, not the full wall.
+          const cabinetRuns: { start: number; end: number }[] = sorted
+            .filter((p) => (p.placement === "base" || p.placement === "appliance") && p.cabinetId !== 0)
+            .map((p) => {
+              const sA = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
+              const pA = horizontal ? p.x : p.y;
+              return { start: pA, end: pA + sA };
+            })
+            .sort((a, b) => a.start - b.start);
+          // Merge overlapping/adjacent runs into contiguous spans
+          const runs: { start: number; end: number }[] = [];
+          for (const r of cabinetRuns) {
+            const last = runs[runs.length - 1];
+            if (last && r.start <= last.end + 0.5) {
+              last.end = Math.max(last.end, r.end);
+            } else {
+              runs.push({ ...r });
+            }
+          }
 
           // Identify range positions on this wall for the taller stretch zone.
           const rangeSpans = sorted

@@ -321,3 +321,9 @@
 - [x] Add pull distance from wall (editable input within pullMin-pullMax range) to BBC properties panel
 - [x] Changing door side should update the swing/door orientation in elevation view
 - [x] Changing pull distance stores blindPull on the cabinet (used by filler/countertop calculations)
+
+## Backsplash wizard (replace auto-fill with manual trigger)
+- [x] Remove auto-fill backsplash that covers entire wall perimeter
+- [x] Backsplash now fills only behind placed cabinets (follows cabinet runs) — triggered when user selects a backsplash tile from Surfaces palette
+- [x] Backsplash covers area between countertop top and bottom of wall cabinets (or standard 18" height if no upper)
+- [x] BOM area calculation also updated to only count linear inches behind base cabinets + appliances
