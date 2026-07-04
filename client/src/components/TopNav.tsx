@@ -15,6 +15,7 @@ const PRIMARY_LINKS: NavLink[] = [
   { key: "nav_all_cabinets", href: "/catalog" },
   { key: "nav_countertops", href: "/countertops" },
   { key: "nav_surfaces", href: "/surfaces" },
+  { key: "nav_stonecreek", href: "/stonecreek" },
   { key: "nav_design_tool", href: "/design" },
 ];
 

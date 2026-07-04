@@ -36,13 +36,14 @@ function money(v: string | null | undefined): string {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "catalog" | "styles" | "picks" | "orders";
+type VendorPage = "overview" | "catalog" | "styles" | "picks" | "orders" | "promotions";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "catalog", label: "My Catalog", icon: Package },
   { id: "styles", label: "Door Styles", icon: Palette },
   { id: "picks", label: "Design Tool Picks", icon: Star },
+  { id: "promotions", label: "Promotions", icon: DollarSign },
   { id: "orders", label: "Orders", icon: ClipboardList },
 ];
 
@@ -991,6 +992,168 @@ function DoorStylesPage() {
   );
 }
 
+// ─── Promotions Page ─────────────────────────────────────────────────────────
+function PromotionsPage() {
+  const promos = trpc.promotions.list.useQuery();
+  const createMut = trpc.promotions.create.useMutation({
+    onSuccess: () => { promos.refetch(); toast.success("Promotion created"); setShowCreate(false); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const toggleMut = trpc.promotions.update.useMutation({
+    onSuccess: () => promos.refetch(),
+    onError: (e: any) => toast.error(e.message),
+  });
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    discountType: "percent" as "percent" | "fixed_price",
+    discountValue: "",
+    targetType: "all" as "all" | "sku" | "category",
+    targetValue: "",
+    startsAt: "",
+    endsAt: "",
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Promotions</h2>
+          <p className="text-muted-foreground">Create sales and discounts for your products.</p>
+        </div>
+        <Button onClick={() => setShowCreate(true)}>
+          <PlusCircle className="mr-2 h-4 w-4" /> New Promotion
+        </Button>
+      </div>
+
+      {promos.isLoading ? (
+        <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
+      ) : promos.data?.length === 0 ? (
+        <Card><CardContent className="p-8 text-center text-muted-foreground">
+          <DollarSign className="mx-auto h-12 w-12 mb-3 opacity-40" />
+          <p className="text-lg font-medium">No promotions yet</p>
+          <p className="text-sm">Create your first promotion to offer discounts to customers.</p>
+        </CardContent></Card>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead>Discount</TableHead>
+              <TableHead>Target</TableHead>
+              <TableHead>Period</TableHead>
+              <TableHead>Active</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {promos.data?.map((p: any) => (
+              <TableRow key={p.id}>
+                <TableCell className="font-medium">{p.name}</TableCell>
+                <TableCell>
+                  {p.discountType === "percent" ? `${p.discountValue}% off` : `$${Number(p.discountValue).toFixed(2)} off`}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">
+                    {p.category ? `Category: ${p.category}` : p.skuIds?.length ? `${p.skuIds.length} SKU(s)` : "All Products"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {p.startsAt ? new Date(p.startsAt).toLocaleDateString() : "—"}
+                  {" → "}
+                  {p.endsAt ? new Date(p.endsAt).toLocaleDateString() : "Ongoing"}
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    checked={p.isActive}
+                    onCheckedChange={() => toggleMut.mutate({ id: p.id, isActive: !p.isActive })}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      {/* Create Promotion Dialog */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Promotion</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Title</label>
+              <Input value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Summer Sale 20% Off" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Discount Type</label>
+                <Select value={form.discountType} onValueChange={(v) => setForm(f => ({ ...f, discountType: v as any }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent">Percentage Off</SelectItem>
+                    <SelectItem value="fixed_price">Fixed Amount Off</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Value</label>
+                <Input type="number" value={form.discountValue} onChange={(e) => setForm(f => ({ ...f, discountValue: e.target.value }))} placeholder={form.discountType === "percent" ? "20" : "5.00"} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Target</label>
+                <Select value={form.targetType} onValueChange={(v) => setForm(f => ({ ...f, targetType: v as any }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All My Products</SelectItem>
+                    <SelectItem value="sku">Specific SKU</SelectItem>
+                    <SelectItem value="category">Category</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {form.targetType !== "all" && (
+                <div>
+                  <label className="text-sm font-medium">{form.targetType === "sku" ? "SKU Code" : "Category Name"}</label>
+                  <Input value={form.targetValue} onChange={(e) => setForm(f => ({ ...f, targetValue: e.target.value }))} />
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Start Date (optional)</label>
+                <Input type="date" value={form.startsAt} onChange={(e) => setForm(f => ({ ...f, startsAt: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">End Date (optional)</label>
+                <Input type="date" value={form.endsAt} onChange={(e) => setForm(f => ({ ...f, endsAt: e.target.value }))} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <Button
+              disabled={!form.name || !form.discountValue || createMut.isPending}
+              onClick={() => createMut.mutate({
+                name: form.name,
+                discountType: form.discountType,
+                discountValue: Number(form.discountValue),
+                category: form.targetType === "category" ? form.targetValue : undefined,
+                startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : undefined,
+                endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : undefined,
+              })}
+            >
+              {createMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ─── Orders Page ──────────────────────────────────────────────────────────────
 function OrdersPage() {
   const orders = trpc.distributorPortal.orders.useQuery({ limit: 50 });
@@ -1157,6 +1320,7 @@ export default function VendorPortal() {
         {page === "catalog" && <CatalogPage />}
         {page === "styles" && <DoorStylesPage />}
         {page === "picks" && <DesignToolPicksPage />}
+        {page === "promotions" && <PromotionsPage />}
         {page === "orders" && <OrdersPage />}
       </main>
     </div>

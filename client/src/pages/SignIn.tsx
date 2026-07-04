@@ -99,7 +99,15 @@ export default function SignIn() {
   const afterAuth = async () => {
     await utils.auth.me.invalidate();
     toast.success("Signed in successfully.");
-    navigate("/account");
+    // Fetch fresh user to determine role-based redirect
+    const me = await utils.auth.me.fetch();
+    if (me && (me as { role?: string }).role === "distributor") {
+      navigate("/vendor");
+    } else if (me && (me as { role?: string }).role === "admin") {
+      navigate("/admin");
+    } else {
+      navigate("/account");
+    }
   };
 
   const loginMutation = trpc.emailAuth.login.useMutation({

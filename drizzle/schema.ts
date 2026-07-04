@@ -1277,3 +1277,46 @@ export const crmEvents = mysqlTable("crm_events", {
 });
 export type CrmEvent = typeof crmEvents.$inferSelect;
 export type InsertCrmEvent = typeof crmEvents.$inferInsert;
+
+// ─── Vendor Promotions ──────────────────────────────────────────────────────
+// A promotion set by a distributor/vendor. Can target specific SKUs, an entire
+// door style, or a category. Discount is either a percentage off or a fixed
+// sale price. Optional date range for time-limited promos.
+export const vendorPromotions = mysqlTable("vendor_promotions", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  name: varchar("name", { length: 256 }).notNull(), // e.g. "Summer Sale 20% Off Shaker"
+  // Target: at least one of these should be set. If skuIds is set, it targets those specific SKUs.
+  // If styleId is set, it targets all SKUs of that door style. If category is set, targets that category.
+  // Multiple can be combined (e.g. styleId + category = that style in that category only).
+  skuIds: json("skuIds"), // number[] — specific distributor_skus.id values
+  styleId: int("styleId"), // targets all SKUs of this door style
+  category: varchar("category", { length: 128 }), // e.g. "Base Cabinets", "Wall Cabinets"
+  // Discount
+  discountType: mysqlEnum("discountType", ["percent", "fixed_price"]).notNull(),
+  discountValue: decimal("discountValue", { precision: 10, scale: 2 }).notNull(), // % amount or fixed price
+  // Date range (null = no limit)
+  startsAt: timestamp("startsAt"),
+  endsAt: timestamp("endsAt"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type VendorPromotion = typeof vendorPromotions.$inferSelect;
+export type InsertVendorPromotion = typeof vendorPromotions.$inferInsert;
+
+// ─── Product Gallery Images ─────────────────────────────────────────────────
+// Multiple gallery images per SKU, uploaded by the vendor. The primary image
+// is stored on distributorSkus.imageUrl; these are additional gallery shots.
+export const productGalleryImages = mysqlTable("product_gallery_images", {
+  id: int("id").autoincrement().primaryKey(),
+  skuId: int("skuId").notNull(), // distributor_skus.id
+  distributorId: int("distributorId").notNull(),
+  s3Key: varchar("s3Key", { length: 512 }).notNull(),
+  s3Url: varchar("s3Url", { length: 1024 }).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  caption: varchar("caption", { length: 256 }),
+  uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
+});
+export type ProductGalleryImage = typeof productGalleryImages.$inferSelect;
+export type InsertProductGalleryImage = typeof productGalleryImages.$inferInsert;

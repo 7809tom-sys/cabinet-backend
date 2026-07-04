@@ -327,3 +327,27 @@
 - [x] Backsplash now fills only behind placed cabinets (follows cabinet runs) — triggered when user selects a backsplash tile from Surfaces palette
 - [x] Backsplash covers area between countertop top and bottom of wall cabinets (or standard 18" height if no upper)
 - [x] BOM area calculation also updated to only count linear inches behind base cabinets + appliances
+
+## Vendor portal enhancements: promotions + gallery + login redirect
+- [x] Redirect distributors to /vendor after login (instead of /account)
+- [x] Add promotions feature: vendors can set sale price or discount % on specific SKUs or entire lines, with optional start/end dates
+- [x] Add promotions DB schema (promo table: distributorId, skuId or lineFilter, discountType, discountValue, startDate, endDate, active)
+- [x] Add promotions management UI in vendor portal (create/edit/delete promos)
+- [ ] Display promotions on storefront (sale badge, strikethrough original price, show promo price)
+- [ ] Add gallery/image management: vendors can upload product gallery photos and replace existing images
+- [ ] Vendor portal image upload for individual SKU gallery (multiple photos per product)
+
+## Admin Analytics tab
+- [x] Add Analytics tab to admin panel with embedded Umami dashboard
+- [ ] Add product view event tracking (fire events when users view product pages)
+- [ ] Show per-vendor product view breakdown in admin analytics
+- [ ] Show vendor-facing analytics in vendor portal (their own product views/stats)
+
+## StoneCreek brand (sinks + faucets)
+- [x] Create StoneCreek series names for 24 faucet models with proper descriptions
+- [ ] Brand sinks under StoneCreek with descriptive names
+- [x] Update database with all branded names and descriptions (96 SKUs)
+- [x] Build dedicated StoneCreek collection page on storefront
+- [ ] Pair sinks + faucets together on product pages ("Complete this look")
+- [x] Add "Add to My Design" button that sets faucet/sink in active design
+- [ ] Filter StoneCreek products into the design tool surfaces palette
