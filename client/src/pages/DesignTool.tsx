@@ -7170,6 +7170,13 @@ export default function DesignTool() {
                 </div>
               );
             })()}
+            {/* Mixed-warehouse shipping surcharge warning */}
+            {mixedWarehouseOverride && (
+              <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                <strong>{t("dt_dist_surcharge_title")}</strong>{" "}
+                {t("dt_dist_surcharge_body")}
+              </div>
+            )}
             {/* PRIMARY action: turn the design into a real, orderable cart. */}
             <Button
               className="w-full mt-2 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 gap-2"

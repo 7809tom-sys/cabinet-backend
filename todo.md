@@ -214,3 +214,7 @@
 - [x] Only lock to a distributor when cabinets are actually placed in the designer or in the shopping cart — picking a door style alone should NOT lock the distributor
 - [x] Allow user to browse all distributors' catalogs freely until they commit by placing a cabinet
 - [x] Even when locked, allow the customer to override by acknowledging they'll pay more for shipping from a different warehouse (confirmation dialog/toast)
+
+## Feature: Shipping surcharge note in BOM when mixed-warehouse override is active
+- [x] Add a visible warning/note in the BOM/quote summary panel when mixedWarehouseOverride is true
+- [x] Note should inform the customer that ordering from multiple suppliers may result in additional shipping costs
