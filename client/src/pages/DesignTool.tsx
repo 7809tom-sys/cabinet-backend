@@ -36,7 +36,7 @@ import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths,
-  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
+  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
@@ -2156,6 +2156,40 @@ export default function DesignTool() {
         }
         // Blind corner: the user places fillers manually if needed.
         // No auto-filler — the pull defaults (width+3 / width+6) handle clearance.
+        //
+        // ── Blind corner auto-stop + auto-swing ─────────────────────────────
+        // When a blind corner is placed, enforce the max pull constraint so it
+        // doesn't exceed the allowed distance from the wall corner. Also auto-set
+        // the door swing to the exposed side (away from the corner).
+        if (isBlindCorner(newCab.masterCode, newCab.description)) {
+          const wallSide = cabinetWall(newCab, room);
+          const horiz = wallSide === "top" || wallSide === "bottom";
+          const wallLen = horiz ? room.width : room.depth;
+          const cabStart = horiz ? newCab.x : newCab.y;
+          const cabEnd = cabStart + (horiz ? newCab.width : newCab.depth);
+          const range = blindPullRange(newCab);
+          if (range) {
+            // The "pull" is how far the cabinet extends from the corner.
+            // If at start (corner on left): pull = cabEnd, must be <= range.max
+            // If at end (corner on right): pull = wallLen - cabStart, must be <= range.max
+            const atStart = cabStart <= 2;
+            const atEnd = cabEnd >= wallLen - 2;
+            if (atStart && cabEnd > range.max) {
+              // Clamp: move cabinet so its far edge is at max pull
+              if (horiz) { newCab.x = 0; newCab.width = Math.min(newCab.width, range.max); }
+              else { newCab.y = 0; newCab.depth = Math.min(newCab.depth, range.max); }
+            } else if (atEnd && (wallLen - cabStart) > range.max) {
+              // Clamp: move cabinet so its near edge respects max pull from far end
+              if (horiz) { newCab.x = Math.max(0, wallLen - range.max); }
+              else { newCab.y = Math.max(0, wallLen - range.max); }
+            }
+          }
+          // Auto-swing: door faces the exposed side (away from corner).
+          // If corner is at start (left), exposed side is right → swing = "right"
+          // If corner is at end (right), exposed side is left → swing = "left"
+          const cornerAtStart = (horiz ? newCab.x : newCab.y) <= 2;
+          newCab.swing = cornerAtStart ? "right" : "left";
+        }
 
         // ── Wall cabinet height prompt + matching wall suggestion ──────────
         // After placing a BASE cabinet (not appliance, not accessory, not tall),

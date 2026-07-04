@@ -85,6 +85,8 @@ export const distributors = mysqlTable("distributors", {
   pickupAddress: varchar("pickupAddress", { length: 512 }), // human-readable pickup location shown to the customer
   pickupRadiusMiles: int("pickupRadiusMiles").default(100).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
+  // Vendor portal: up to 8 SKU IDs the vendor picks to feature in the design tool
+  designToolPicks: json("designToolPicks").$type<number[]>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -217,6 +219,8 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   isPublished: boolean("isPublished").default(true).notNull(), // distributor visibility toggle
   // SKU-level image (per cabinet + door style). Falls back to door-style image, then drawing.
   imageUrl: varchar("imageUrl", { length: 512 }),
+  // Vendor portal: new product submission status (existing products default to 'approved')
+  status: mysqlEnum("status", ["approved", "pending", "rejected"]).default("approved").notNull(),
   // PO-only fields (internal; never shown to customers)
   supplierCabinetName: varchar("supplierCabinetName", { length: 255 }), // distributor's own cabinet name on the PO
   createdAt: timestamp("createdAt").defaultNow().notNull(),

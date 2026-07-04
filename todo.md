@@ -247,3 +247,37 @@
 - [x] Override still available with shipping warning dialog (existing behavior)
 - [x] Picking a door style alone does NOT lock (already fixed)
 - [x] Added visible "Collection" filter dropdown in catalog panel for easy switching
+
+## Feature: Homepage featured products from real database
+- [ ] Featured products on homepage should pull from actual door styles/surfaces in the design tool database
+- [ ] Add "Design with this" CTA button that opens designer pre-loaded with the featured style
+- [ ] Admin can mark which styles/surfaces to feature (configurable, top 2-3 items)
+- [ ] Ensure featured items show high-quality product images
+- [ ] Improve admin image upload flow for updating product photos in one place
+
+## Feature: Vendor Portal (full authority over their product line)
+- [ ] Vendor login via same auth system (role=distributor) with vendor dashboard redirect
+- [ ] Vendor dashboard layout with sidebar navigation at /vendor
+- [ ] Vendor can manage existing door styles (edit photos/samples, descriptions) — instant updates
+- [ ] Vendor can manage existing cabinet SKUs (update prices, photos, availability) — instant updates
+- [ ] Vendor can deactivate/remove existing products — instant
+- [ ] Vendor can upload NEW products — goes to "pending approval" queue for admin
+- [ ] Admin approval workflow for new vendor-submitted products
+- [ ] Vendor can upload product images (room scenes, door samples, cabinet photos)
+- [ ] Vendor can view their order history (orders containing their products)
+- [ ] Vendor can toggle which of their products appear in the design tool (max 8 picks)
+- [ ] All vendor actions scoped to their distributor ID only
+
+## Fix: Backsplash rendering rules
+- [x] Backsplash should start at the corner of the wall (not just behind cabinets)
+- [x] Backsplash height should be 18" (from countertop 37.5" to 55.5") by default
+- [x] Only stretch backsplash higher behind a range (where there's no upper cabinet)
+- [x] Do NOT extend backsplash all the way to ceiling/wall cabinet top line
+
+## Fix: Blind corner cabinet automatic placement stop
+- [x] BBC should have automatic stop at max pull distance from wall corner (width + 6")
+- [x] Prevent placing BBC beyond the max pull limit
+
+## Fix: Blind corner cabinet door orientation
+- [x] Door on blind corner cabinet should automatically flip to the exposed side (facing out, not against wall)
+- [x] Blind corner cabinet max pull stop enforced on placement (BBC-36 stops at 42" from corner)

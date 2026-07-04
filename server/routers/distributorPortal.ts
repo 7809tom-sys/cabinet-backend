@@ -10,6 +10,7 @@ import {
   doorStyles,
   orderRequests,
 } from "../../drizzle/schema";
+import { storagePut } from "../storage";
 
 /**
  * Resolve the supply line this request operates on.
@@ -36,6 +37,8 @@ function resolveLineId(
   return inputDistributorId;
 }
 
+const MAX_DESIGN_TOOL_PICKS = 8;
+
 export const distributorPortalRouter = router({
   /** The line this user manages: neutral label, counts, lead time. No real brand leaks. */
   myLine: distributorProcedure
@@ -48,11 +51,12 @@ export const distributorPortalRouter = router({
       const rows = await db
         .select({
           id: distributors.id,
-          name: distributors.name, // neutral label (Line A/B/C)
+          name: distributors.name,
           initials: distributors.initials,
           leadTimeDays: distributors.leadTimeDays,
           warehouseZips: distributors.warehouseZips,
           isActive: distributors.isActive,
+          designToolPicks: distributors.designToolPicks,
         })
         .from(distributors)
         .where(eq(distributors.id, lineId))
@@ -66,6 +70,7 @@ export const distributorPortalRouter = router({
           total: sql<number>`count(*)`,
           published: sql<number>`sum(case when ${distributorSkus.isPublished} = true then 1 else 0 end)`,
           available: sql<number>`sum(case when ${distributorSkus.isAvailable} = true then 1 else 0 end)`,
+          pending: sql<number>`sum(case when ${distributorSkus.status} = 'pending' then 1 else 0 end)`,
         })
         .from(distributorSkus)
         .where(eq(distributorSkus.distributorId, lineId));
@@ -83,6 +88,7 @@ export const distributorPortalRouter = router({
           total: Number(counts?.total ?? 0),
           published: Number(counts?.published ?? 0),
           available: Number(counts?.available ?? 0),
+          pending: Number(counts?.pending ?? 0),
         },
         styles,
       };
@@ -97,6 +103,7 @@ export const distributorPortalRouter = router({
         category: z.string().max(64).optional(),
         search: z.string().max(64).optional(),
         onlyHidden: z.boolean().optional(),
+        onlyPending: z.boolean().optional(),
         limit: z.number().int().min(1).max(500).default(100),
         offset: z.number().int().min(0).default(0),
       })
@@ -109,6 +116,7 @@ export const distributorPortalRouter = router({
       const conds = [eq(distributorSkus.distributorId, lineId)];
       if (input.styleId) conds.push(eq(distributorSkus.styleId, input.styleId));
       if (input.onlyHidden) conds.push(eq(distributorSkus.isPublished, false));
+      if (input.onlyPending) conds.push(eq(distributorSkus.status, "pending"));
       if (input.category) conds.push(eq(cabinets.category, input.category));
       const q = input.search?.trim();
       if (q) {
@@ -129,10 +137,14 @@ export const distributorPortalRouter = router({
           styleId: distributorSkus.styleId,
           styleName: doorStyles.ourName,
           platformSku: distributorSkus.platformSku,
-          contractorPrice: distributorSkus.contractorPrice,
+          listPrice: distributorSkus.listPrice,
           wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
           isPublished: distributorSkus.isPublished,
           isAvailable: distributorSkus.isAvailable,
+          imageUrl: distributorSkus.imageUrl,
+          status: distributorSkus.status,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
@@ -213,6 +225,266 @@ export const distributorPortalRouter = router({
       return { updated: ownedIds.length };
     }),
 
+  // ─── Price Update (instant, no approval) ─────────────────────────────────────
+
+  /** Vendor updates pricing on their own SKUs. Instant — no admin approval needed. */
+  updatePrice: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        skuId: z.number(),
+        listPrice: z.string().max(16).optional(),
+        wholesalePrice: z.string().max(16).optional(),
+        contractorPrice: z.string().max(16).optional(),
+        homeownerPrice: z.string().max(16).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+
+      // Ownership guard
+      const owned = await db
+        .select({ id: distributorSkus.id })
+        .from(distributorSkus)
+        .where(and(eq(distributorSkus.id, input.skuId), eq(distributorSkus.distributorId, lineId)))
+        .limit(1);
+      if (!owned[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That product is not in your line." });
+
+      const updates: Record<string, string | null> = {};
+      if (input.listPrice !== undefined) updates.listPrice = input.listPrice || null;
+      if (input.wholesalePrice !== undefined) updates.wholesalePrice = input.wholesalePrice || null;
+      if (input.contractorPrice !== undefined) updates.contractorPrice = input.contractorPrice || null;
+      if (input.homeownerPrice !== undefined) updates.homeownerPrice = input.homeownerPrice || null;
+
+      if (Object.keys(updates).length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No price fields provided." });
+      }
+
+      await db
+        .update(distributorSkus)
+        .set(updates as any)
+        .where(eq(distributorSkus.id, input.skuId));
+      return { skuId: input.skuId, updated: Object.keys(updates) };
+    }),
+
+  // ─── Image Upload (instant) ───────────────────────────────────────────────────
+
+  /** Vendor uploads a product image (base64 encoded). Stored in S3, URL saved on SKU. */
+  updateImage: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        skuId: z.number(),
+        imageBase64: z.string().max(10_000_000), // ~7.5MB max
+        contentType: z.string().max(64).default("image/jpeg"),
+        fileName: z.string().max(256).default("product.jpg"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+
+      // Ownership guard
+      const owned = await db
+        .select({ id: distributorSkus.id })
+        .from(distributorSkus)
+        .where(and(eq(distributorSkus.id, input.skuId), eq(distributorSkus.distributorId, lineId)))
+        .limit(1);
+      if (!owned[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That product is not in your line." });
+
+      // Upload to S3
+      const buffer = Buffer.from(input.imageBase64, "base64");
+      const ext = input.fileName.split(".").pop() || "jpg";
+      const key = `vendor-products/${lineId}/${input.skuId}.${ext}`;
+      const { url } = await storagePut(key, buffer, input.contentType);
+
+      // Update SKU
+      await db
+        .update(distributorSkus)
+        .set({ imageUrl: url })
+        .where(eq(distributorSkus.id, input.skuId));
+
+      return { skuId: input.skuId, imageUrl: url };
+    }),
+
+  // ─── New Product Submission (pending approval) ────────────────────────────────
+
+  /** Vendor submits a new product. Goes to pending status until admin approves. */
+  submitNewProduct: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        cabinetId: z.number(),
+        styleId: z.number(),
+        distributorSku: z.string().min(1).max(128),
+        listPrice: z.string().max(16).optional(),
+        wholesalePrice: z.string().max(16).optional(),
+        contractorPrice: z.string().max(16).optional(),
+        homeownerPrice: z.string().max(16).optional(),
+        supplierCabinetName: z.string().max(255).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+
+      // Verify the cabinet exists
+      const cab = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.cabinetId))
+        .limit(1);
+      if (!cab[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Cabinet not found." });
+
+      // Verify the style belongs to this line
+      const style = await db
+        .select({ id: doorStyles.id })
+        .from(doorStyles)
+        .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
+        .limit(1);
+      if (!style[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That style does not belong to your line." });
+
+      // Generate platform SKU: masterCode-styleCode-distCode
+      const platformSku = `${cab[0].masterCode}-${input.distributorSku}-${lineId}`;
+
+      const result = await db.insert(distributorSkus).values({
+        cabinetId: input.cabinetId,
+        distributorId: lineId,
+        styleId: input.styleId,
+        platformSku,
+        distributorSku: input.distributorSku,
+        listPrice: input.listPrice || null,
+        wholesalePrice: input.wholesalePrice || null,
+        contractorPrice: input.contractorPrice || null,
+        homeownerPrice: input.homeownerPrice || null,
+        supplierCabinetName: input.supplierCabinetName || null,
+        status: "pending",
+        isPublished: false,
+        isAvailable: true,
+      });
+
+      const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+      return { skuId: insertId, status: "pending" as const };
+    }),
+
+  // ─── Admin Approve/Reject Product ─────────────────────────────────────────────
+
+  /** Admin approves or rejects a pending product submission. */
+  adminSetProductStatus: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        skuId: z.number(),
+        status: z.enum(["approved", "rejected"]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.isAdmin) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can approve/reject products." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      const sku = await db
+        .select({ id: distributorSkus.id, status: distributorSkus.status })
+        .from(distributorSkus)
+        .where(eq(distributorSkus.id, input.skuId))
+        .limit(1);
+      if (!sku[0]) throw new TRPCError({ code: "NOT_FOUND", message: "SKU not found." });
+
+      await db
+        .update(distributorSkus)
+        .set({
+          status: input.status,
+          isPublished: input.status === "approved" ? true : false,
+        })
+        .where(eq(distributorSkus.id, input.skuId));
+
+      return { skuId: input.skuId, status: input.status };
+    }),
+
+  // ─── Design Tool Picks (max 8) ───────────────────────────────────────────────
+
+  /** Get the vendor's current design tool picks. */
+  getDesignToolPicks: distributorProcedure
+    .input(z.object({ distributorId: z.number().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+
+      const rows = await db
+        .select({ designToolPicks: distributors.designToolPicks })
+        .from(distributors)
+        .where(eq(distributors.id, lineId))
+        .limit(1);
+
+      const picks: number[] = (rows[0]?.designToolPicks as number[]) || [];
+
+      // Fetch details for the picked SKUs
+      if (picks.length === 0) return { picks: [], items: [] };
+
+      const items = await db
+        .select({
+          skuId: distributorSkus.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          styleName: doorStyles.ourName,
+          imageUrl: distributorSkus.imageUrl,
+          contractorPrice: distributorSkus.contractorPrice,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(and(inArray(distributorSkus.id, picks), eq(distributorSkus.distributorId, lineId)));
+
+      return { picks, items };
+    }),
+
+  /** Vendor sets their design tool picks (max 8 SKU IDs). */
+  setDesignToolPicks: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        skuIds: z.array(z.number()).max(MAX_DESIGN_TOOL_PICKS),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+
+      if (input.skuIds.length > MAX_DESIGN_TOOL_PICKS) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Maximum ${MAX_DESIGN_TOOL_PICKS} design tool picks allowed.`,
+        });
+      }
+
+      // Verify all SKUs belong to this line
+      if (input.skuIds.length > 0) {
+        const owned = await db
+          .select({ id: distributorSkus.id })
+          .from(distributorSkus)
+          .where(and(inArray(distributorSkus.id, input.skuIds), eq(distributorSkus.distributorId, lineId)));
+        if (owned.length !== input.skuIds.length) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Some SKUs do not belong to your line." });
+        }
+      }
+
+      await db
+        .update(distributors)
+        .set({ designToolPicks: input.skuIds.length > 0 ? input.skuIds : null })
+        .where(eq(distributors.id, lineId));
+
+      return { picks: input.skuIds };
+    }),
+
   /** Order requests that reference a door style carried by this line. */
   orders: distributorProcedure
     .input(
@@ -234,9 +506,6 @@ export const distributorPortalRouter = router({
       const styleIds = styleRows.map((s) => s.id);
       if (styleIds.length === 0) return [];
 
-      // Orders whose order-level styleId is one of this line's styles. (Line items
-      // may also carry styleIds, but the family-lock rule guarantees a submitted
-      // order resolves to a single style, so the order-level styleId is sufficient.)
       const rows = await db
         .select({
           id: orderRequests.id,
@@ -249,13 +518,56 @@ export const distributorPortalRouter = router({
           totalAmount: orderRequests.totalAmount,
           source: orderRequests.source,
           createdAt: orderRequests.createdAt,
-          // NOTE: originator contact intentionally omitted from the distributor view;
-          // fulfillment contact is handled by the platform, not the supplier.
         })
         .from(orderRequests)
         .where(and(inArray(orderRequests.styleId, styleIds), eq(orderRequests.status, "submitted")))
         .orderBy(desc(orderRequests.createdAt))
         .limit(input.limit);
       return rows;
+    }),
+
+  // ─── Door Style Image Update (instant) ────────────────────────────────────────
+
+  /** Vendor updates a door style image (room scene or door sample). */
+  updateDoorStyleImage: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        styleId: z.number(),
+        imageType: z.enum(["doorSample", "roomScene", "thumbnail"]),
+        imageBase64: z.string().max(10_000_000),
+        contentType: z.string().max(64).default("image/jpeg"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+
+      // Verify style belongs to this line
+      const style = await db
+        .select({ id: doorStyles.id })
+        .from(doorStyles)
+        .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
+        .limit(1);
+      if (!style[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That style does not belong to your line." });
+
+      const buffer = Buffer.from(input.imageBase64, "base64");
+      const ext = input.contentType.split("/")[1] || "jpg";
+      const key = `vendor-styles/${lineId}/${input.styleId}-${input.imageType}.${ext}`;
+      const { url } = await storagePut(key, buffer, input.contentType);
+
+      const fieldMap = {
+        doorSample: "doorSampleImageUrl",
+        roomScene: "roomSceneImageUrl",
+        thumbnail: "thumbnailImageUrl",
+      } as const;
+
+      await db
+        .update(doorStyles)
+        .set({ [fieldMap[input.imageType]]: url } as any)
+        .where(eq(doorStyles.id, input.styleId));
+
+      return { styleId: input.styleId, imageType: input.imageType, imageUrl: url };
     }),
 });

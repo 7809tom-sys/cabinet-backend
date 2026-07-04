@@ -5,7 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -187,6 +187,12 @@ export function ElevationView({
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
     const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
+    // For blind corner cabinets, determine which side the blind (corner) portion
+    // is on. If the cabinet's start is near position 0 (wall start), the corner
+    // is on the left. If its end is near planSpan (wall end), the corner is on
+    // the right. This drives the door flip so the door faces the exposed side.
+    const isBlind = isBlindCorner(p.masterCode, p.description);
+    const blindLeft = isBlind ? (posAlong <= 2) : true;
     const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
     return (
@@ -253,6 +259,7 @@ export function ElevationView({
               isWall={isWall}
               doorSampleUrl={cabDoorSampleUrl}
               cabinetType={cabType}
+              blindOnLeft={blindLeft}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -618,44 +625,31 @@ export function ElevationView({
           );
         })()}
 
-        {/* Backsplash: fills ALL exposed wall from countertop top (37.5") up
-            to the wall cabinet top line (84" on standard ceiling). Covers behind
-            base cabinets, the range, dishwasher, and any exposed wall. Wall
-            cabinets/microwave/bridge render on top at higher z-index. */}
+        {/* Backsplash: spans the FULL wall width (corner to corner), 18" tall
+            by default. Only stretches taller behind a range (exposed wall above
+            the range gets tiled up to wall cabinet bottom line). Wall cabinets/
+            microwave/bridge render on top at higher z-index. */}
         {backsplashMaterialId && (() => {
           const bsMat = backsplashMaterial(backsplashMaterialId);
           const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS; // ~37.5"
-          const BACKSPLASH_TOP = wallCabinetTopLine(room); // 84" on 8ft ceiling
-          // Backsplash spans: ALL base-level items on this wall including
-          // range, dishwasher, wine cooler. The backsplash bridges across the
-          // range gap (the range has exposed wall behind it that gets tiled).
-          // Excludes fridge/tall (full-height, covers its own wall).
-          const isBsSpan = (p: PlacedCabinet) =>
-            bearsCountertop(p) ||
-            (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? "")) ||
-            isRangeOrOven(p.masterCode, p.description);
-          const spans = sorted
-            .filter(isBsSpan)
+          const BACKSPLASH_STD_HEIGHT = 18; // standard backsplash is 18" tall
+          const BACKSPLASH_DEFAULT_TOP = BACKSPLASH_BOTTOM + BACKSPLASH_STD_HEIGHT; // 55.5"
+          // Behind a range, stretch backsplash up to wall cabinet bottom (54")
+          // or the full wall-cabinet top line if no wall cab sits above.
+          const BACKSPLASH_RANGE_TOP = wallCabinetTopLine(room); // 84" on 8ft ceiling
+
+          // Backsplash spans the FULL WALL — starts at corner (0) to end (planSpan).
+          const runs: { start: number; end: number }[] = [{ start: 0, end: planSpan }];
+
+          // Identify range positions on this wall for the taller stretch zone.
+          const rangeSpans = sorted
+            .filter((p) => isRangeOrOven(p.masterCode, p.description))
             .map((p) => {
               const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
               const posAlong = horizontal ? p.x : p.y;
               return { start: posAlong, end: posAlong + sizeAlong };
-            })
-            .sort((a, b) => a.start - b.start);
-          if (spans.length === 0) return null;
-          // Merge adjacent spans — use a generous tolerance so the range gap
-          // between two base cabinets is bridged (backsplash is continuous
-          // behind the range). A 36" gap covers even a 36" range.
-          const BRIDGE_TOL = 40; // inches — bridge gaps up to 40" (range + clearance fillers)
-          const runs: { start: number; end: number }[] = [];
-          for (const s of spans) {
-            const last = runs[runs.length - 1];
-            if (last && s.start <= last.end + BRIDGE_TOL) {
-              last.end = Math.max(last.end, s.end);
-            } else {
-              runs.push({ start: s.start, end: s.end });
-            }
-          }
+            });
+
           // Window openings on this wall — backsplash wraps around them
           const winOpenings = viewOpenings.filter((o) => o.kind === "window");
           const tileWPx = Math.max(8, (bsMat.pattern === "subway" ? 16 : bsMat.pattern === "mosaic" ? 5 : 12) * ppi / 12);
@@ -671,82 +665,108 @@ export function ElevationView({
             : bsMat.pattern === "hexagon"
             ? `radial-gradient(circle at 50% 50%, ${bsMat.grout} 1px, transparent 1px)`
             : undefined;
-          // For each run, split it around any window openings that overlap it.
-          // Segments: below window sill, beside window (left/right), above window.
+
+          // Build segments: standard 18" height across the wall, with taller
+          // sections behind the range. Window openings are cut out.
           const segments: { left: number; width: number; bottom: number; height: number }[] = [];
+
+          // Helper: does a horizontal position fall within a range span?
+          const rangeTopAt = (x: number): number => {
+            for (const rs of rangeSpans) {
+              if (x >= rs.start && x < rs.end) return BACKSPLASH_RANGE_TOP;
+            }
+            return BACKSPLASH_DEFAULT_TOP;
+          };
+
           for (const run of runs) {
             const runStart = run.start;
             const runEnd = run.end;
-            const runTop = BACKSPLASH_TOP;
-            // Find windows that overlap this horizontal run
-            const overlapping = winOpenings.filter(
-              (o) => o.offset < runEnd && (o.offset + o.width) > runStart
-            );
-            if (overlapping.length === 0) {
-              // No windows — simple rectangle from counter to top
-              segments.push({
-                left: runStart * ppi,
-                width: (runEnd - runStart) * ppi,
-                bottom: BACKSPLASH_BOTTOM * ppi,
-                height: (runTop - BACKSPLASH_BOTTOM) * ppi,
-              });
-            } else {
-              // Sort windows by offset
-              const wins = [...overlapping].sort((a, b) => a.offset - b.offset);
-              // Below-window strip: from counter bottom to min window sill across full run
-              const minSill = Math.min(...wins.map((w) => w.sill));
-              if (minSill > BACKSPLASH_BOTTOM) {
+
+            // Split the run into sub-runs by range boundaries so each sub-run
+            // has a uniform top height.
+            const breakpoints = new Set<number>([runStart, runEnd]);
+            for (const rs of rangeSpans) {
+              if (rs.start > runStart && rs.start < runEnd) breakpoints.add(rs.start);
+              if (rs.end > runStart && rs.end < runEnd) breakpoints.add(rs.end);
+            }
+            const bps = Array.from(breakpoints).sort((a, b) => a - b);
+
+            for (let bi = 0; bi < bps.length - 1; bi++) {
+              const segStart = bps[bi];
+              const segEnd = bps[bi + 1];
+              const segTop = rangeTopAt((segStart + segEnd) / 2);
+
+              // Find windows that overlap this sub-segment
+              const overlapping = winOpenings.filter(
+                (o) => o.offset < segEnd && (o.offset + o.width) > segStart
+              );
+
+              if (overlapping.length === 0) {
+                // No windows — simple rectangle
                 segments.push({
-                  left: runStart * ppi,
-                  width: (runEnd - runStart) * ppi,
+                  left: segStart * ppi,
+                  width: (segEnd - segStart) * ppi,
                   bottom: BACKSPLASH_BOTTOM * ppi,
-                  height: (minSill - BACKSPLASH_BOTTOM) * ppi,
+                  height: (segTop - BACKSPLASH_BOTTOM) * ppi,
                 });
-              }
-              // Left of first window
-              if (wins[0].offset > runStart) {
-                segments.push({
-                  left: runStart * ppi,
-                  width: (wins[0].offset - runStart) * ppi,
-                  bottom: minSill * ppi,
-                  height: (runTop - minSill) * ppi,
-                });
-              }
-              // Between windows
-              for (let wi = 0; wi < wins.length - 1; wi++) {
-                const gapStart = wins[wi].offset + wins[wi].width;
-                const gapEnd = wins[wi + 1].offset;
-                if (gapEnd > gapStart) {
+              } else {
+                // Sort windows by offset
+                const wins = [...overlapping].sort((a, b) => a.offset - b.offset);
+                const minSill = Math.min(...wins.map((w) => w.sill));
+                // Below-window strip
+                if (minSill > BACKSPLASH_BOTTOM) {
                   segments.push({
-                    left: gapStart * ppi,
-                    width: (gapEnd - gapStart) * ppi,
-                    bottom: minSill * ppi,
-                    height: (runTop - minSill) * ppi,
+                    left: segStart * ppi,
+                    width: (segEnd - segStart) * ppi,
+                    bottom: BACKSPLASH_BOTTOM * ppi,
+                    height: (minSill - BACKSPLASH_BOTTOM) * ppi,
                   });
                 }
-              }
-              // Right of last window
-              const lastWin = wins[wins.length - 1];
-              if (lastWin.offset + lastWin.width < runEnd) {
-                segments.push({
-                  left: (lastWin.offset + lastWin.width) * ppi,
-                  width: (runEnd - (lastWin.offset + lastWin.width)) * ppi,
-                  bottom: minSill * ppi,
-                  height: (runTop - minSill) * ppi,
-                });
-              }
-              // Above each window (sill+height to runTop)
-              for (const w of wins) {
-                const wTop = w.sill + w.height;
-                if (wTop < BACKSPLASH_TOP) {
-                  const segLeft = Math.max(runStart, w.offset);
-                  const segRight = Math.min(runEnd, w.offset + w.width);
+                // Left of first window
+                if (wins[0].offset > segStart) {
                   segments.push({
-                    left: segLeft * ppi,
-                    width: (segRight - segLeft) * ppi,
-                    bottom: wTop * ppi,
-                    height: (runTop - wTop) * ppi,
+                    left: segStart * ppi,
+                    width: (wins[0].offset - segStart) * ppi,
+                    bottom: minSill * ppi,
+                    height: (segTop - minSill) * ppi,
                   });
+                }
+                // Between windows
+                for (let wi = 0; wi < wins.length - 1; wi++) {
+                  const gapStart = wins[wi].offset + wins[wi].width;
+                  const gapEnd = wins[wi + 1].offset;
+                  if (gapEnd > gapStart) {
+                    segments.push({
+                      left: gapStart * ppi,
+                      width: (gapEnd - gapStart) * ppi,
+                      bottom: minSill * ppi,
+                      height: (segTop - minSill) * ppi,
+                    });
+                  }
+                }
+                // Right of last window
+                const lastWin = wins[wins.length - 1];
+                if (lastWin.offset + lastWin.width < segEnd) {
+                  segments.push({
+                    left: (lastWin.offset + lastWin.width) * ppi,
+                    width: (segEnd - (lastWin.offset + lastWin.width)) * ppi,
+                    bottom: minSill * ppi,
+                    height: (segTop - minSill) * ppi,
+                  });
+                }
+                // Above each window (sill+height to segTop)
+                for (const w of wins) {
+                  const wTop = w.sill + w.height;
+                  if (wTop < segTop) {
+                    const wLeft = Math.max(segStart, w.offset);
+                    const wRight = Math.min(segEnd, w.offset + w.width);
+                    segments.push({
+                      left: wLeft * ppi,
+                      width: (wRight - wLeft) * ppi,
+                      bottom: wTop * ppi,
+                      height: (segTop - wTop) * ppi,
+                    });
+                  }
                 }
               }
             }
@@ -1221,7 +1241,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType, blindOnLeft }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -1303,16 +1323,20 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
 
   // ─── SPECIALTY TYPE: BLIND CORNER ──────────────────────────────────────
   // Blind corner cabinets: show the visible door portion (typically one door)
-  // with a subtle blind panel indicator on the hidden side.
+  // with a subtle blind panel indicator on the hidden side. The door
+  // automatically flips to the EXPOSED side (away from the wall corner).
   if (cabinetType === "blind-corner") {
     // The visible face is typically ~60% of the width; the blind portion is hidden.
     const visiblePct = 60;
+    // blindOnLeft defaults to true (blind on left, door on right).
+    // When false, the corner is on the right so we flip: door on left, blind on right.
+    const bLeft = blindOnLeft !== false;
     return (
       <>
         {/* Blind (hidden) portion: subtle hatched/darker area */}
         <div
-          className="absolute top-0 bottom-0 left-0"
-          style={{ width: `${100 - visiblePct}%` }}
+          className="absolute top-0 bottom-0"
+          style={bLeft ? { left: 0, width: `${100 - visiblePct}%` } : { right: 0, width: `${100 - visiblePct}%` }}
         >
           <div
             className="absolute inset-[2px] rounded-[1px]"
@@ -1325,9 +1349,9 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
         {/* Visible door portion */}
         <div
           className="absolute top-0 bottom-0"
-          style={{ left: `${100 - visiblePct}%`, width: `${visiblePct}%` }}
+          style={bLeft ? { left: `${100 - visiblePct}%`, width: `${visiblePct}%` } : { left: 0, width: `${visiblePct}%` }}
         >
-          <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+          <div className={`absolute top-0 bottom-0 ${bLeft ? 'left-0' : 'right-0'}`} style={{ width: 2, background: stroke }} />
           <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />
         </div>
       </>

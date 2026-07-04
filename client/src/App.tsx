@@ -28,6 +28,7 @@ const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
 const ContractorDashboard = lazy(() => import("@/pages/ContractorDashboard"));
 const Cart = lazy(() => import("@/pages/Cart"));
 const DistributorPortal = lazy(() => import("@/pages/DistributorPortal"));
+const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
 const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
 const SignIn = lazy(() => import("@/pages/SignIn"));
 const Account = lazy(() => import("@/pages/Account"));
@@ -223,6 +224,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <DistributorPortal />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/vendor">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <VendorPortal />
             </Suspense>
           </AppLayout>
         </Route>
