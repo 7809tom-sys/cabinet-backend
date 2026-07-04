@@ -14,6 +14,7 @@ import {
   drawerCountForCabinet,
   displayDrawerCount,
 } from "@/lib/hardware";
+import { resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -176,15 +177,15 @@ export function ElevationView({
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
     // Resolve the door sample image URL for this cabinet (real door photo).
     const cabDoorSampleUrl = !isAppliance && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
-    // Photoreal face: when a door sample image is available, use it as the
-    // cabinet face background (object-fit cover). Otherwise fall back to the
-    // CSS gradient approximation.
+    // Face fill: the CABINET BOX background (face frame). When a door sample
+    // image is available, the image is applied ONLY to individual door/drawer
+    // panels (not the full face). The box itself shows the face frame color.
     const faceFill = isAppliance
       ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
-      : cabDoorSampleUrl
-        ? `url(${cabDoorSampleUrl})`
-        : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
+      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
+    // Use the richer description-driven door/drawer counts for accurate rendering.
+    const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
     const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
     return (
@@ -221,23 +222,16 @@ export function ElevationView({
           bottom: bottom * ppi,
           height: height * ppi,
           background: faceFill,
-          ...(cabDoorSampleUrl ? { backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : {}),
           border: isSelected
             ? "2px solid #1a2744"
-            : cabDoorSampleUrl
-              ? `1px solid ${edgeColor}44`
-              : `1px solid ${edgeColor}`,
+            : `1px solid ${edgeColor}`,
           borderRadius: 2,
           // Ambient occlusion + contact shadow: a soft inner shadow darkens the
           // face edges (recessed reveal look) and an outer drop shadow lifts the
           // box off the wall so adjacent cabinets read as separate 3D objects.
-          // When a real door photo is used, drop the white inner highlight that
-          // creates a visible lighter "frame" on dark finishes.
           boxShadow: isSelected
             ? "0 0 0 3px rgba(212,167,90,0.55), 0 6px 14px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 10px rgba(0,0,0,0.16)"
-            : cabDoorSampleUrl
-              ? "0 3px 7px rgba(15,23,42,0.20), inset 0 0 9px rgba(0,0,0,0.14)"
-              : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
+            : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
@@ -245,41 +239,38 @@ export function ElevationView({
         title={`${p.masterCode} — ${p.description}`}
       >
         <div className="w-full h-full relative">
-          {/* When a real door-sample photo is used as the face background, skip
-              the synthetic DoorFront overlay — the photo already shows the door
-              style and the overlay's inset panels create a visible lighter
-              "frame" around the cabinet on dark finishes. */}
-          {!isAppliance && !cabDoorSampleUrl && (
+          {/* Always render the DoorFront panel structure so the face frame is
+              visible. When a door sample image is available, it's applied as the
+              background of individual door/drawer panels (not the full face). */}
+          {!isAppliance && (
             <DoorFront
               kind={cabPanelKind}
               edge={edgeColor}
               face={cabFinish.face}
-              doors={doorCountForCabinet(p)}
-              drawers={displayDrawerCount(p)}
+              doors={resolvedCounts.doors || doorCountForCabinet(p)}
+              drawers={resolvedCounts.drawers || displayDrawerCount(p)}
               isWall={isWall}
+              doorSampleUrl={cabDoorSampleUrl}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
             <HardwareOverlay
-              doors={doorCountForCabinet(p)}
-              drawers={drawerCountForCabinet(p)}
+              doors={resolvedCounts.doors || doorCountForCabinet(p)}
+              drawers={resolvedCounts.drawers || drawerCountForCabinet(p)}
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
               accent="#1a2744"
               handleSide={
-                // Handle goes on the opposite side of the hinge.
-                // If user explicitly set handleSide, use that; otherwise derive from swing.
                 p.handleSide === "left" || p.handleSide === "right"
                   ? p.handleSide
                   : resolveSwing(p) === "left" ? "right"
                   : resolveSwing(p) === "right" ? "left"
-                  : null // double doors or no swing → centered
+                  : null
               }
             />
           )}
-          {/* Hinge indicator intentionally removed — no hardware shown */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-[8px] font-bold truncate px-0.5" style={{ color: isAppliance ? "#1a2744" : cabFinish.label, ...textFlip }}>
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>
+            <span className="text-[8px] font-bold truncate px-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]" style={{ color: isAppliance ? "#1a2744" : cabFinish.label, ...textFlip }}>
               {p.masterCode}
             </span>
           </div>
@@ -946,16 +937,22 @@ export function ElevationView({
           const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const cabF = finishFor ? finishFor(p) : finish;
+          const toeH = Math.max(3, TOE_KICK_HEIGHT_IN * ppi);
           return (
             <div
               key={`toe-${p.uid}`}
               className="absolute"
               style={{
-                left: posAlong * ppi + 3,
-                width: sizeAlong * ppi - 6,
+                left: posAlong * ppi + 4,
+                width: sizeAlong * ppi - 8,
                 bottom: 0,
-                height: Math.max(2, TOE_KICK_HEIGHT_IN * ppi),
-                background: cabF.face,
+                height: toeH,
+                // Recessed toe kick: darker than the cabinet face, set back from
+                // the front plane. Top shadow simulates the overhang of the base
+                // cabinet above it.
+                background: `linear-gradient(180deg, color-mix(in srgb, ${cabF.face} 55%, #000) 0%, color-mix(in srgb, ${cabF.face} 70%, #000) 40%, color-mix(in srgb, ${cabF.face} 60%, #000) 100%)`,
+                boxShadow: `inset 0 3px 6px rgba(0,0,0,0.50), inset 0 -1px 0 rgba(255,255,255,0.08), 0 0 0 0.5px ${cabF.edge}66`,
+                borderRadius: "0 0 1px 1px",
                 zIndex: 4,
               }}
               title={t("dt_ev_toe_kick")}
@@ -1175,50 +1172,54 @@ function HardwareOverlay({
 // One door/drawer face panel rendered in the chosen door style. Used both for
 // the door region and for each individual drawer front so a drawer base reads
 // as a real stack of drawer fronts rather than one big door.
-function StylePanel({ kind, edge, face, drawer = false }: { kind: DoorPanelKind; edge: string; face: string; drawer?: boolean }) {
+function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; drawer?: boolean; doorSampleUrl?: string | null }) {
   // Drawers always read as a slim single recessed front regardless of the door
   // style (drawer fronts don't get raised/beaded treatments in this model),
   // except slab which stays flat.
   if (drawer) {
+    const drawerBg = doorSampleUrl
+      ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+      : {};
     if (kind === "slab") {
-      // Flat slab drawer: just a thin machined edge + a top highlight line.
       return (
         <div
           className="absolute inset-[1.5px] rounded-[1.5px]"
           style={{
+            ...drawerBg,
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 2px rgba(0,0,0,0.16), 0 0 0 1px ${edge}44`,
           }}
         />
       );
     }
-    // Shaker-style drawer front: raised outer rail with a recessed center panel.
     return (
       <div
         className="absolute inset-[1.5px] rounded-[1.5px]"
         style={{
-          // Beveled rail: light top-left, dark bottom-right.
           boxShadow: `inset 1px 1px 0 rgba(255,255,255,0.30), inset -1px -1px 1px rgba(0,0,0,0.18)`,
         }}
       >
         <div
           className="absolute inset-[3px] rounded-[1px]"
           style={{
-            background: `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #000) 0%, color-mix(in srgb, ${face} 97%, #000) 100%)`,
-            // Recessed panel: inner shadow at the top edge (light falls from above).
+            ...drawerBg,
+            background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #000) 0%, color-mix(in srgb, ${face} 97%, #000) 100%)`,
+            backgroundImage: doorSampleUrl ? `url(${doorSampleUrl})` : undefined,
+            backgroundSize: doorSampleUrl ? "cover" : undefined,
+            backgroundPosition: doorSampleUrl ? "center" : undefined,
             boxShadow: `inset 0 2px 3px rgba(0,0,0,0.22), inset 0 -1px 0 rgba(255,255,255,0.18)`,
           }}
         />
       </div>
     );
   }
-  return <DoorFront kind={kind} edge={edge} face={face} />;
+  return <DoorFront kind={kind} edge={edge} face={face} doorSampleUrl={doorSampleUrl} />;
 }
 
 // Lightweight door-front detail overlay that reflects the active door style so a
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -1244,7 +1245,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
               {i > 0 && (
                 <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
               )}
-              <StylePanel kind={kind} edge={edge} face={face} drawer />
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} />
             </div>
           ))}
           {/* rail between the drawer band and the doors */}
@@ -1259,7 +1260,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
               {i > 0 && (
                 <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
               )}
-              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} />
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />
             </div>
           ))}
         </>
@@ -1278,7 +1279,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
             {i > 0 && (
               <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
             )}
-            <StylePanel kind={kind} edge={edge} face={face} drawer />
+            <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} />
           </div>
         ))}
       </>
@@ -1305,20 +1306,23 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall }: { kind: DoorPan
                 style={{ width: 2, background: stroke }}
               />
             )}
-            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} />
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />
           </div>
         ))}
       </>
     );
   }
-  return <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} />;
+  return <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />;
 }
 
 // A recessed center panel with real depth: darkened, top-shadowed fill inside a
 // beveled reveal. Reused by every framed door style. `inset` is the px gap from
 // the door edge to the panel (i.e. the rail width). `depth` tunes how deep the
 // panel reads. `raised` adds a central raised field (cathedral/raised-panel).
-function RecessedPanel({ inset, face, edge, raised = false }: { inset: number; face: string; edge: string; raised?: boolean }) {
+function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { inset: number; face: string; edge: string; raised?: boolean; doorSampleUrl?: string | null }) {
+  const panelBg = doorSampleUrl
+    ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const }
+    : { background: `linear-gradient(180deg, color-mix(in srgb, ${face} 82%, #000) 0%, color-mix(in srgb, ${face} 93%, #000) 55%, color-mix(in srgb, ${face} 99%, #000) 100%)` };
   return (
     <div
       className="absolute rounded-[1.5px]"
@@ -1327,15 +1331,15 @@ function RecessedPanel({ inset, face, edge, raised = false }: { inset: number; f
         // Reveal groove around the panel: dark shadow top-left where the rail
         // casts onto the recess, subtle light at the bottom lip.
         boxShadow: `inset 0 2.5px 5px rgba(0,0,0,0.32), inset 0 -1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px ${edge}80`,
-        background: `linear-gradient(180deg, color-mix(in srgb, ${face} 82%, #000) 0%, color-mix(in srgb, ${face} 93%, #000) 55%, color-mix(in srgb, ${face} 99%, #000) 100%)`,
+        ...panelBg,
       }}
     >
       {raised && (
         <div
           className="absolute inset-[3px] rounded-[1.5px]"
           style={{
-            // Raised field: catches light on top, thin bevel all around.
-            background: `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #fff) 0%, ${face} 60%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
+            background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #fff) 0%, ${face} 60%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
+            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const } : {}),
             boxShadow: `0 1px 2px rgba(0,0,0,0.28), inset 1px 1px 0 rgba(255,255,255,0.30), inset -1px -1px 1px rgba(0,0,0,0.18)`,
           }}
         />
@@ -1348,7 +1352,7 @@ function RecessedPanel({ inset, face, edge, raised = false }: { inset: number; f
 // individual door in a multi-door cabinet. Each framed style uses a beveled
 // outer rail (light top-left / dark bottom-right) plus a RecessedPanel so the
 // door reads as a real 3D door rather than flat outlines.
-function SingleDoorPanel({ kind, edge, face, stroke }: { kind: DoorPanelKind; edge: string; face: string; stroke: string }) {
+function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; stroke: string; doorSampleUrl?: string | null }) {
   void stroke;
   // Beveled outer rail applied to the whole door face (shared by framed styles).
   const railBevel: React.CSSProperties = {
@@ -1358,27 +1362,31 @@ function SingleDoorPanel({ kind, edge, face, stroke }: { kind: DoorPanelKind; ed
   switch (kind) {
     case "slab":
       // Flat modern door: no panel, just a machined edge + soft top highlight.
+      // When a door sample is available, use it as the slab face.
       return (
         <div
           className="absolute inset-[1.5px] rounded-[2px]"
-          style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 3px rgba(0,0,0,0.14), 0 0 0 1px ${edge}44` }}
+          style={{
+            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 3px rgba(0,0,0,0.14), 0 0 0 1px ${edge}44`,
+          }}
         />
       );
     case "double-shaker":
       return (
         <div className="absolute inset-0" style={railBevel}>
           <div className="absolute left-[6px] right-[6px] top-[6px] bottom-[50.5%]">
-            <RecessedPanel inset={0} face={face} edge={edge} />
+            <RecessedPanel inset={0} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
           </div>
           <div className="absolute left-[6px] right-[6px] top-[50.5%] bottom-[6px]">
-            <RecessedPanel inset={0} face={face} edge={edge} />
+            <RecessedPanel inset={0} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
           </div>
         </div>
       );
     case "raised":
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={6} face={face} edge={edge} raised />
+          <RecessedPanel inset={6} face={face} edge={edge} raised doorSampleUrl={doorSampleUrl} />
         </div>
       );
     case "beaded":
@@ -1388,34 +1396,33 @@ function SingleDoorPanel({ kind, edge, face, stroke }: { kind: DoorPanelKind; ed
             className="absolute inset-[5px] rounded-[1px]"
             style={{
               boxShadow: `inset 0 2px 4px rgba(0,0,0,0.24), 0 0 0 0.5px ${edge}66`,
-              backgroundImage: `repeating-linear-gradient(90deg, color-mix(in srgb, ${face} 90%, #000) 0px, color-mix(in srgb, ${face} 90%, #000) 2px, color-mix(in srgb, ${face} 78%, #000) 2.5px, color-mix(in srgb, ${face} 90%, #000) 3px, color-mix(in srgb, ${face} 90%, #000) 4px)`,
+              ...(doorSampleUrl
+                ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+                : { backgroundImage: `repeating-linear-gradient(90deg, color-mix(in srgb, ${face} 90%, #000) 0px, color-mix(in srgb, ${face} 90%, #000) 2px, color-mix(in srgb, ${face} 78%, #000) 2.5px, color-mix(in srgb, ${face} 90%, #000) 3px, color-mix(in srgb, ${face} 90%, #000) 4px)` }),
             }}
           />
         </div>
       );
     case "inset":
-      // Inset door: the whole door sits flush inside the face frame, so show a
-      // crisp reveal line around the door plus a shallow recessed panel.
       return (
         <div
           className="absolute inset-[2px] rounded-[2px]"
           style={{ boxShadow: `0 0 0 1px ${edge}77, inset 1px 1px 0 rgba(255,255,255,0.22), inset -1px -1px 1px rgba(0,0,0,0.18)` }}
         >
-          <RecessedPanel inset={5} face={face} edge={edge} />
+          <RecessedPanel inset={5} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
       );
     case "slim-shaker":
-      // Narrow rail: recessed panel sits close to the edge.
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={3} face={face} edge={edge} />
+          <RecessedPanel inset={3} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
       );
     case "shaker":
     default:
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={6} face={face} edge={edge} />
+          <RecessedPanel inset={6} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
       );
   }

@@ -218,3 +218,10 @@
 ## Feature: Shipping surcharge note in BOM when mixed-warehouse override is active
 - [x] Add a visible warning/note in the BOM/quote summary panel when mixedWarehouseOverride is true
 - [x] Note should inform the customer that ordering from multiple suppliers may result in additional shipping costs
+
+## Bug: Door style texture covers entire cabinet face and toe kicks lack dimension
+- [x] Show door sample texture ONLY on individual door/drawer panels (inset within face frame), not covering the entire cabinet face
+- [x] Always render the DoorFront panel structure (face frame + panel divisions) even when door sample URL is present
+- [x] Give the toe kick proper depth/dimension with shadow and recessed appearance (like 2020 Design / ProKitchen)
+- [x] Use cabinetGraphics.ts resolveDoorDrawerCounts for accurate door/drawer counts per cabinet type
+- [ ] Integrate cabinetDrawingType for specialty cabinet types (sink base false front, blind corner, corner drawer base, glass door) in elevation rendering
