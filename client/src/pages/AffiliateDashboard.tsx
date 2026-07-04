@@ -20,6 +20,7 @@ import {
 import {
   Copy, ExternalLink, DollarSign, Package, CheckCircle2, Store,
   LinkIcon, Save, Loader2, PencilRuler, Globe, Users,
+  ArrowRight, Sparkles, Star, TrendingUp, Shield, Palette, Truck,
 } from "lucide-react";
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import {
@@ -28,6 +29,249 @@ import {
 } from "@shared/affiliate";
 
 const MEMBERSHIP_BENEFIT_ICONS = [PencilRuler, Globe, Users];
+
+// ─── Affiliate Landing Page (shown to non-members) ──────────────────────────
+function AffiliateLanding() {
+  return (
+    <div>
+      {/* Hero */}
+      <section className="bg-[var(--color-navy)] text-white">
+        <div className="container py-16 md:py-24">
+          <div className="max-w-3xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-1.5 text-sm font-medium">
+              <Sparkles className="h-4 w-4 text-[var(--color-gold)]" />
+              Cabinet Dealz Affiliate Program
+            </span>
+            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold mt-6 leading-tight">
+              Launch Your Own{" "}
+              <span className="text-[var(--color-gold)]">Cabinet Business</span>{" "}
+              — Without the Overhead
+            </h1>
+            <p className="text-white/80 text-lg md:text-xl mt-6 leading-relaxed">
+              One annual membership gives you a fully branded storefront, the 2D kitchen design tool,
+              access to thousands of cabinets and surfaces at trade pricing, and we handle all the fulfillment.
+              A single completed kitchen order typically returns more than the membership costs.
+            </p>
+            <div className="mt-10 flex flex-wrap items-end gap-6">
+              <div>
+                <span className="font-serif text-5xl md:text-6xl font-bold text-[var(--color-gold)]">
+                  {formatMembershipPrice()}
+                </span>
+                <span className="text-white/70 text-lg ml-2">
+                  per {AFFILIATE_MEMBERSHIP.billingPeriod}
+                </span>
+              </div>
+              <Link href="/pro-network">
+                <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-bold text-base px-8 gap-2">
+                  Apply Now <ArrowRight className="h-5 w-5" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* What You're Actually Buying */}
+      <section className="container py-16 md:py-20">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <h2 className="font-serif text-3xl md:text-4xl font-bold">
+            Not Just a Website — A Complete, Ready-to-Run Business
+          </h2>
+          <p className="text-muted-foreground text-lg mt-4">
+            Built independently, this is a multi-thousand-dollar project plus a developer on retainer.
+            With Cabinet Dealz, you get it all for one annual fee.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[
+            {
+              icon: Palette,
+              title: "Fully Branded Storefront",
+              desc: "Your logo, your colors, your own web address. Customers see YOUR brand — not ours.",
+            },
+            {
+              icon: Package,
+              title: "Entire Product Catalog",
+              desc: "Thousands of cabinets across dozens of door styles, plus surfaces, faucets, and fixtures — kept current for you.",
+            },
+            {
+              icon: PencilRuler,
+              title: "2D Kitchen Design Tool",
+              desc: "Lay out rooms, drop cabinets, price jobs instantly. Your customers design their dream kitchen right on your site.",
+            },
+            {
+              icon: Globe,
+              title: "Bilingual Experience",
+              desc: "Full English + Spanish customer experience built in. Reach more customers without extra work.",
+            },
+            {
+              icon: Shield,
+              title: "Hosting, Updates & Support",
+              desc: "We handle security, uptime, catalog updates, and technical support — every year, handled for you.",
+            },
+            {
+              icon: Truck,
+              title: "We Handle Fulfillment",
+              desc: "You sell, we ship. Orders go directly to our supply network and ship to your customer. Zero inventory.",
+            },
+          ].map((item) => (
+            <div key={item.title} className="rounded-xl border border-border bg-card p-6 hover:shadow-md transition-shadow">
+              <div className="h-12 w-12 rounded-lg bg-[var(--color-navy)]/10 flex items-center justify-center">
+                <item.icon className="h-6 w-6 text-[var(--color-navy)]" />
+              </div>
+              <h3 className="font-serif text-lg font-bold mt-4">{item.title}</h3>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* The Numbers */}
+      <section className="bg-muted/40 py-16 md:py-20">
+        <div className="container">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <h2 className="font-serif text-3xl md:text-4xl font-bold">
+              The Math Works in Your Favor
+            </h2>
+            <p className="text-muted-foreground text-lg mt-4">
+              One kitchen order can return more than your annual membership. Every order after that is profit.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="text-center">
+              <div className="font-serif text-4xl md:text-5xl font-bold text-[var(--color-navy)]">
+                {formatMembershipPrice()}
+              </div>
+              <div className="text-sm text-muted-foreground mt-2">Annual membership</div>
+            </div>
+            <div className="text-center">
+              <div className="font-serif text-4xl md:text-5xl font-bold text-emerald-600">
+                $2,500+
+              </div>
+              <div className="text-sm text-muted-foreground mt-2">Average kitchen order margin</div>
+            </div>
+            <div className="text-center">
+              <div className="font-serif text-4xl md:text-5xl font-bold text-[var(--color-gold)]">
+                $0
+              </div>
+              <div className="text-sm text-muted-foreground mt-2">Inventory or shipping costs</div>
+            </div>
+          </div>
+
+          <div className="mt-12 max-w-2xl mx-auto">
+            <div className="rounded-xl border border-border bg-card p-6 md:p-8">
+              <div className="flex items-start gap-3">
+                <Star className="h-6 w-6 text-[var(--color-gold)] shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-lg">Trade Pricing Built In</div>
+                  <p className="text-muted-foreground mt-1">
+                    As a member, you order at buying-group pricing across our entire supply network.
+                    Set your own markups on every door style. Your margin, your rules.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="container py-16 md:py-20">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <h2 className="font-serif text-3xl md:text-4xl font-bold">
+            Up and Running in Days, Not Months
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+          {[
+            { step: "1", title: "Apply", desc: "Fill out a quick application" },
+            { step: "2", title: "Brand It", desc: "Upload your logo, pick colors" },
+            { step: "3", title: "Set Pricing", desc: "Choose your markups" },
+            { step: "4", title: "Start Selling", desc: "Share your link & earn" },
+          ].map((s) => (
+            <div key={s.step} className="text-center">
+              <div className="h-12 w-12 rounded-full bg-[var(--color-navy)] text-white font-bold text-lg flex items-center justify-center mx-auto">
+                {s.step}
+              </div>
+              <div className="font-semibold mt-3">{s.title}</div>
+              <div className="text-sm text-muted-foreground mt-1">{s.desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Who It's For */}
+      <section className="bg-[var(--color-navy)] text-white py-16 md:py-20">
+        <div className="container">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <h2 className="font-serif text-3xl md:text-4xl font-bold">
+              Built for the Cabinet Trade
+            </h2>
+            <p className="text-white/70 text-lg mt-4">
+              Whether you supply, sell, or refer — there's a membership workflow designed for you.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {[
+              {
+                icon: TrendingUp,
+                title: "Contractors & Remodelers",
+                desc: "Offer cabinets to your clients without managing inventory. Design, quote, and order — all from one platform.",
+              },
+              {
+                icon: Store,
+                title: "Kitchen Dealers & Showrooms",
+                desc: "Expand your catalog instantly. Access dozens of door styles and surfaces without stocking a single unit.",
+              },
+              {
+                icon: Users,
+                title: "Referral Partners",
+                desc: "Share your link, earn on every order. No selling required — just connect people to great cabinets.",
+              },
+            ].map((item) => (
+              <div key={item.title} className="rounded-xl border border-white/10 bg-white/5 p-6">
+                <item.icon className="h-8 w-8 text-[var(--color-gold)]" />
+                <h3 className="font-serif text-lg font-bold mt-4">{item.title}</h3>
+                <p className="text-sm text-white/70 mt-2 leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="container py-16 md:py-20">
+        <div className="rounded-2xl border border-border bg-muted/30 p-8 md:p-12 text-center max-w-3xl mx-auto">
+          <h2 className="font-serif text-3xl md:text-4xl font-bold">
+            Ready to Start Your Cabinet Business?
+          </h2>
+          <p className="text-muted-foreground text-lg mt-4 mb-8">
+            Join the network. Get your storefront. Start earning.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/pro-network">
+              <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 font-bold text-base px-8 gap-2">
+                Apply to Join <ArrowRight className="h-5 w-5" />
+              </Button>
+            </Link>
+            <a href={getLoginUrl()}>
+              <Button size="lg" variant="outline" className="gap-2">
+                Already a member? Sign in
+              </Button>
+            </a>
+          </div>
+          <p className="text-xs text-muted-foreground mt-6">
+            {formatMembershipPrice()}/{AFFILIATE_MEMBERSHIP.billingPeriod} · Free to apply · No inventory required
+          </p>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -58,78 +302,7 @@ export default function AffiliateDashboard() {
   }
 
   if (!isAuthenticated) {
-    return (
-      <div>
-        {/* Membership offer */}
-        <section className="bg-[var(--color-navy)] text-white">
-          <div className="container py-16 md:py-20">
-            <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-1.5 text-sm font-medium">
-                <span className="h-2 w-2 rounded-full bg-[var(--color-gold)]" />
-                Affiliate Membership
-              </span>
-              <h1 className="font-serif text-4xl md:text-5xl font-bold mt-6 leading-tight">
-                Run your own cabinet business with{" "}
-                <span className="text-[var(--color-gold)]">Cabinet Dealz</span>
-              </h1>
-              <p className="text-white/80 text-lg mt-4">
-                One annual membership gets you the design software, your own branded website,
-                and a seat in our buying group at trade pricing.
-              </p>
-              <div className="mt-8 flex items-end gap-3">
-                <span className="font-serif text-5xl font-bold text-[var(--color-gold)]">
-                  {formatMembershipPrice()}
-                </span>
-                <span className="text-white/70 mb-1.5">
-                  per {AFFILIATE_MEMBERSHIP.billingPeriod}
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Benefits */}
-        <section className="container py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {AFFILIATE_MEMBERSHIP.benefits.map((b, i) => {
-              const Icon = MEMBERSHIP_BENEFIT_ICONS[i] ?? CheckCircle2;
-              return (
-                <div
-                  key={b.title}
-                  className="rounded-xl border border-border bg-card p-6"
-                >
-                  <div className="h-10 w-10 rounded-lg bg-[var(--color-navy)]/10 flex items-center justify-center">
-                    <Icon className="h-5 w-5 text-[var(--color-navy)]" />
-                  </div>
-                  <h3 className="font-serif text-lg font-bold mt-4">{b.title}</h3>
-                  <p className="text-sm text-muted-foreground mt-2">{b.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-10 rounded-xl border border-border bg-muted/40 p-6 md:p-8 text-center max-w-2xl mx-auto">
-            <h2 className="font-serif text-2xl font-bold">Become an affiliate</h2>
-            <p className="text-muted-foreground mt-2 mb-6">
-              Already a member? Sign in with the email tied to your affiliate account to view your
-              storefront, referral link, and commissions.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link href="/pro-network">
-                <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
-                  Apply to join
-                </Button>
-              </Link>
-              <a href={getLoginUrl()}>
-                <Button size="lg" variant="outline">
-                  Affiliate sign in
-                </Button>
-              </a>
-            </div>
-          </div>
-        </section>
-      </div>
-    );
+    return <AffiliateLanding />;
   }
 
   if (myRef.isLoading) {
@@ -141,57 +314,7 @@ export default function AffiliateDashboard() {
   }
 
   if (!myRef.data) {
-    return (
-      <div className="container py-16 max-w-3xl">
-        <div className="text-center">
-          <Store className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h1 className="font-serif text-2xl font-bold mb-2">No affiliate account found</h1>
-          <p className="text-muted-foreground">
-            We couldn't find an affiliate account linked to your sign-in email. Become a member to
-            get the design software, your own website, and buying-group pricing.
-          </p>
-        </div>
-
-        <div className="mt-8 rounded-xl border border-border bg-card p-6 md:p-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Affiliate Membership</div>
-              <div className="flex items-end gap-2 mt-1">
-                <span className="font-serif text-4xl font-bold text-[var(--color-navy)]">
-                  {formatMembershipPrice()}
-                </span>
-                <span className="text-muted-foreground mb-1">
-                  per {AFFILIATE_MEMBERSHIP.billingPeriod}
-                </span>
-              </div>
-            </div>
-            <Link href="/pro-network">
-              <Button className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
-                Apply to join
-              </Button>
-            </Link>
-          </div>
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {AFFILIATE_MEMBERSHIP.benefits.map((b, i) => {
-              const Icon = MEMBERSHIP_BENEFIT_ICONS[i] ?? CheckCircle2;
-              return (
-                <div key={b.title} className="rounded-lg border border-border p-4">
-                  <Icon className="h-5 w-5 text-[var(--color-navy)]" />
-                  <div className="font-semibold text-sm mt-2">{b.title}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{b.desc}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mt-6 text-center">
-          <Link href="/">
-            <Button variant="outline">Back to home</Button>
-          </Link>
-        </div>
-      </div>
-    );
+    return <AffiliateLanding />;
   }
 
   const { affiliate, orders, summary, commissionRate } = myRef.data;

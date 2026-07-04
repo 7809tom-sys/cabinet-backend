@@ -387,3 +387,7 @@
 - [x] Remove redundant sections (SurfacesBand repeats ProductShowcase, CategoryLinks repeats info)
 - [x] Replace AudienceCards with a strong "Become an Affiliate" section highlighting advantages
 - [x] Show clear benefits: branded storefront, earn on every order, trade pricing, marketing support
+- [x] Remove DistributorsStrip and StyleShowcase (also redundant with ProductShowcase)
+- [x] Add SiteFooter to all pages via AppLayout (Distributor Portal, Affiliate, etc.)
+- [x] Footer includes Supplier Portal, Affiliate Program, and Admin links
+- [x] Revamp /affiliate page with full value proposition landing page (not just "No account found")

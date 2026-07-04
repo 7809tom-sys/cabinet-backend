@@ -2,6 +2,7 @@ import { Route, Switch } from "wouter";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TopNav } from "@/components/TopNav";
+import { SiteFooter } from "@/components/SiteFooter";
 import ChatWidget from "@/components/ChatWidget";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
@@ -58,6 +59,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1">
         {children}
       </main>
+      <SiteFooter />
     </div>
   );
 }

@@ -646,9 +646,6 @@ export default function Home() {
       <JulyBanner />
       <Hero />
       <ProductShowcase />
-      <DistributorsStrip />
-      <StyleShowcase />
-      <PlatformFeatures />
       <AffiliatePromo />
       <Footer />
     </div>
