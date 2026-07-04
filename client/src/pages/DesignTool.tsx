@@ -4338,6 +4338,9 @@ export default function DesignTool() {
         setStyleId(newStyleId);
       }
     }
+    // Auto-open the catalog panel after picking a door style so the user
+    // immediately sees the filtered cabinets available in that style.
+    setMobilePanel("catalog");
   }, [activeSlot, styleId, styleA, doorStyles, lockedDistributorId, t]);
 
   // Snap the currently-selected cabinet flush to the chosen wall.

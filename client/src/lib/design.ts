@@ -602,10 +602,11 @@ export function footprintDepth(c: DesignCabinet): number {
     const w = dim(c.width, 24);
     return w > 0 ? w : 24;
   }
-  // An L-shaped corner cabinet (lazy-Susan / blind / easy-reach corner) runs the
+  // An L-shaped corner cabinet (lazy-Susan / easy-reach corner) runs the
   // SAME length along both walls (e.g. a 36" lazy-Susan is 36" on each wall),
   // so its plan bounding box is a square = width, with a notch cut at the inner
-  // corner. The actual leg depth (how far it projects from each wall) is the
+  // corner. Blind corners (BBC/WBC) are excluded — they use standard depth.
+  // The actual leg depth (how far it projects from each wall) is the
   // cabinet's stored depth (~24") and is handled by cornerLegDepth().
   if (isLCornerCabinet(c.masterCode || "", c.description || undefined)) {
     const w = dim(c.width, 24);
@@ -1210,6 +1211,11 @@ export function diagonalCornerClipPath(rotation: number, legRatio = 0.5): string
 // for detection and exclude the diagonal family.
 export function isLCornerCabinet(masterCode: string, description?: string): boolean {
   if (isDiagonalCorner(masterCode, description)) return false;
+  // Blind corner cabinets (BBC/WBC) are NOT L-shaped — they are standard
+  // rectangular cabinets that sit in a corner with a blind (hidden) portion.
+  // Their footprint is width x standard-depth (e.g. BBC-36 = 36" x 24"),
+  // NOT a square like lazy-Susan or easy-reach corners.
+  if (isBlindCorner(masterCode, description)) return false;
   return isCornerCabinet(masterCode, description);
 }
 

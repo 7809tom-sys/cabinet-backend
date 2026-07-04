@@ -281,3 +281,12 @@
 ## Fix: Blind corner cabinet door orientation
 - [x] Door on blind corner cabinet should automatically flip to the exposed side (facing out, not against wall)
 - [x] Blind corner cabinet max pull stop enforced on placement (BBC-36 stops at 42" from corner)
+
+## Fix: BBC footprint should NOT be 36x36
+- [x] BBC (blind base corner) is NOT an L-shaped corner cabinet - it's a rectangular 36x24 cabinet
+- [x] Exclude blind corners from isLCornerCabinet() so they don't get squared to 36x36
+- [x] BBC-36 should render as 36" wide x 24" deep (standard base depth)
+
+## Fix: Catalog filter - door style should auto-switch to cabinet view
+- [x] When user picks a door style, auto-switch to the cabinet catalog tab/view (tab 2)
+- [x] Show filtered cabinets available in that style
