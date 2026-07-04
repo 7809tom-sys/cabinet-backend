@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef } from "react";
 import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
-  PlusCircle, ArrowLeft,
+  PlusCircle, ArrowLeft, FileSpreadsheet, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -157,6 +157,8 @@ function CatalogPage() {
   const [search, setSearch] = useState("");
   const [onlyHidden, setOnlyHidden] = useState(false);
   const [editingPrice, setEditingPrice] = useState<{ skuId: number; field: string; value: string } | null>(null);
+  const [showNewProduct, setShowNewProduct] = useState(false);
+  const [showCsvUpload, setShowCsvUpload] = useState(false);
 
   const catalogInput = useMemo(
     () => ({
@@ -233,10 +235,31 @@ function CatalogPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
         <h2 className="text-xl font-bold">My Catalog</h2>
         <Badge variant="outline">{catalog.data?.total ?? 0} products</Badge>
+        <div className="flex gap-2 ml-auto">
+          <Button variant="outline" size="sm" onClick={() => setShowCsvUpload(!showCsvUpload)}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Spreadsheet Upload
+          </Button>
+          <Button size="sm" onClick={() => setShowNewProduct(!showNewProduct)}>
+            <PlusCircle className="h-4 w-4 mr-2" />
+            New Product
+          </Button>
+        </div>
       </div>
+
+      {showCsvUpload && <CsvUploadSection />}
+
+      {showNewProduct && (
+        <Card>
+          <CardHeader><CardTitle>Submit New Product</CardTitle></CardHeader>
+          <CardContent>
+            <NewProductForm onClose={() => setShowNewProduct(false)} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
@@ -435,6 +458,280 @@ function CatalogPage() {
           </DialogContent>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+// ─── CSV Upload Section ──────────────────────────────────────────────────────
+function CsvUploadSection() {
+  const utils = trpc.useUtils();
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [csvParsing, setCsvParsing] = useState(false);
+  const [csvResult, setCsvResult] = useState<{ updated: number; notFound: number; total: number; errors: string[] } | null>(null);
+
+  const bulkUpdate = trpc.vendor.bulkCatalogUpdate.useMutation({
+    onSuccess: (result) => {
+      setCsvResult(result);
+      utils.distributorPortal.catalog.invalidate();
+      utils.distributorPortal.myLine.invalidate();
+      toast.success(`Updated ${result.updated} of ${result.total} rows`);
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleCsvUpload = useCallback(async (file: File) => {
+    setCsvParsing(true);
+    setCsvResult(null);
+    try {
+      const text = await file.text();
+      const lines = text.trim().split("\n");
+      if (lines.length < 2) {
+        toast.error("CSV must have a header row and at least one data row");
+        return;
+      }
+      // Parse header
+      const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-z_]/g, ""));
+      const skuIdx = headers.findIndex(h => h === "distributorsku" || h === "sku" || h === "distributor_sku");
+      if (skuIdx === -1) {
+        toast.error("CSV must have a 'distributorSku' or 'sku' column");
+        return;
+      }
+      const listIdx = headers.findIndex(h => h === "listprice" || h === "list_price" || h === "list");
+      const wholeIdx = headers.findIndex(h => h === "wholesaleprice" || h === "wholesale_price" || h === "wholesale");
+      const contIdx = headers.findIndex(h => h === "contractorprice" || h === "contractor_price" || h === "contractor");
+      const homeIdx = headers.findIndex(h => h === "homeownerprice" || h === "homeowner_price" || h === "homeowner");
+      const availIdx = headers.findIndex(h => h === "isavailable" || h === "is_available" || h === "available");
+
+      const rows = lines.slice(1).filter(l => l.trim()).map(line => {
+        const cols = line.split(",").map(c => c.trim());
+        const row: any = { distributorSku: cols[skuIdx] };
+        if (listIdx >= 0 && cols[listIdx]) row.listPrice = cols[listIdx];
+        if (wholeIdx >= 0 && cols[wholeIdx]) row.wholesalePrice = cols[wholeIdx];
+        if (contIdx >= 0 && cols[contIdx]) row.contractorPrice = cols[contIdx];
+        if (homeIdx >= 0 && cols[homeIdx]) row.homeownerPrice = cols[homeIdx];
+        if (availIdx >= 0 && cols[availIdx]) row.isAvailable = cols[availIdx].toLowerCase() === "true" || cols[availIdx] === "1";
+        return row;
+      });
+
+      if (rows.length === 0) {
+        toast.error("No valid data rows found in CSV");
+        return;
+      }
+
+      bulkUpdate.mutate({ rows });
+    } catch (err: any) {
+      toast.error(`CSV parse error: ${err.message}`);
+    } finally {
+      setCsvParsing(false);
+    }
+  }, [bulkUpdate]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileSpreadsheet className="h-5 w-5" />
+          Bulk Spreadsheet Upload
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Upload a CSV file to bulk-update prices and availability for your existing products.
+          The CSV must have a <code className="bg-muted px-1 rounded">distributorSku</code> column,
+          plus any of: <code className="bg-muted px-1 rounded">listPrice</code>,{" "}
+          <code className="bg-muted px-1 rounded">wholesalePrice</code>,{" "}
+          <code className="bg-muted px-1 rounded">contractorPrice</code>,{" "}
+          <code className="bg-muted px-1 rounded">homeownerPrice</code>,{" "}
+          <code className="bg-muted px-1 rounded">isAvailable</code>.
+        </p>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => csvInputRef.current?.click()}
+            disabled={csvParsing || bulkUpdate.isPending}
+          >
+            {(csvParsing || bulkUpdate.isPending) ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
+            Upload CSV
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const csv = "distributorSku,listPrice,wholesalePrice,contractorPrice,homeownerPrice,isAvailable\nEXAMPLE-SKU-1,199.99,149.99,129.99,219.99,true\n";
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url; a.download = "catalog-template.csv"; a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Template
+          </Button>
+        </div>
+
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleCsvUpload(file);
+            e.target.value = "";
+          }}
+        />
+
+        {csvResult && (
+          <div className="rounded-md border p-4 space-y-2">
+            <div className="flex gap-4 text-sm">
+              <span className="text-green-600 font-medium">Updated: {csvResult.updated}</span>
+              <span className="text-muted-foreground">Total rows: {csvResult.total}</span>
+              {csvResult.notFound > 0 && (
+                <span className="text-destructive">Not found: {csvResult.notFound}</span>
+              )}
+            </div>
+            {csvResult.errors.length > 0 && (
+              <div className="text-xs text-destructive space-y-1">
+                {csvResult.errors.map((e, i) => <div key={i}>{e}</div>)}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── New Product Submission ──────────────────────────────────────────────────
+function NewProductForm({ onClose }: { onClose: () => void }) {
+  const utils = trpc.useUtils();
+  const myLine = trpc.distributorPortal.myLine.useQuery(undefined);
+  const [form, setForm] = useState({
+    cabinetId: "",
+    styleId: "",
+    distributorSku: "",
+    listPrice: "",
+    wholesalePrice: "",
+    contractorPrice: "",
+    homeownerPrice: "",
+    supplierCabinetName: "",
+  });
+
+  const submit = trpc.distributorPortal.submitNewProduct.useMutation({
+    onSuccess: () => {
+      utils.distributorPortal.catalog.invalidate();
+      utils.distributorPortal.myLine.invalidate();
+      toast.success("Product submitted for approval");
+      onClose();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const styles = myLine.data?.styles ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="text-sm font-medium">Cabinet ID *</label>
+          <Input
+            type="number"
+            placeholder="Cabinet ID from master catalog"
+            value={form.cabinetId}
+            onChange={(e) => setForm({ ...form, cabinetId: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Door Style *</label>
+          <Select value={form.styleId} onValueChange={(v) => setForm({ ...form, styleId: v })}>
+            <SelectTrigger><SelectValue placeholder="Select style" /></SelectTrigger>
+            <SelectContent>
+              {styles.map((s) => (
+                <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="text-sm font-medium">Your SKU *</label>
+          <Input
+            placeholder="Your internal SKU code"
+            value={form.distributorSku}
+            onChange={(e) => setForm({ ...form, distributorSku: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Supplier Cabinet Name</label>
+          <Input
+            placeholder="Optional display name"
+            value={form.supplierCabinetName}
+            onChange={(e) => setForm({ ...form, supplierCabinetName: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">List Price</label>
+          <Input
+            type="number" step="0.01" placeholder="0.00"
+            value={form.listPrice}
+            onChange={(e) => setForm({ ...form, listPrice: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Wholesale Price</label>
+          <Input
+            type="number" step="0.01" placeholder="0.00"
+            value={form.wholesalePrice}
+            onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Contractor Price</label>
+          <Input
+            type="number" step="0.01" placeholder="0.00"
+            value={form.contractorPrice}
+            onChange={(e) => setForm({ ...form, contractorPrice: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Homeowner Price</label>
+          <Input
+            type="number" step="0.01" placeholder="0.00"
+            value={form.homeownerPrice}
+            onChange={(e) => setForm({ ...form, homeownerPrice: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="flex gap-3 pt-2">
+        <Button
+          onClick={() => {
+            if (!form.cabinetId || !form.styleId || !form.distributorSku) {
+              toast.error("Cabinet ID, Style, and SKU are required");
+              return;
+            }
+            submit.mutate({
+              cabinetId: Number(form.cabinetId),
+              styleId: Number(form.styleId),
+              distributorSku: form.distributorSku,
+              listPrice: form.listPrice || undefined,
+              wholesalePrice: form.wholesalePrice || undefined,
+              contractorPrice: form.contractorPrice || undefined,
+              homeownerPrice: form.homeownerPrice || undefined,
+              supplierCabinetName: form.supplierCabinetName || undefined,
+            });
+          }}
+          disabled={submit.isPending}
+        >
+          {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+          Submit for Approval
+        </Button>
+        <Button variant="outline" onClick={onClose}>Cancel</Button>
+      </div>
     </div>
   );
 }

@@ -31,7 +31,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type VendorLine = {
   id: number;
@@ -178,6 +185,166 @@ function VendorDialog({
   );
 }
 
+// ─── Provision Vendor Account Dialog ─────────────────────────────────────────
+function ProvisionAccountDialog({ vendorId, vendorName, onDone }: { vendorId: number; vendorName: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ email: "", password: "", name: "" });
+
+  // Get list of distributors to link
+  const distributors = trpc.distributors.list.useQuery(undefined, { enabled: open });
+  const [selectedDistId, setSelectedDistId] = useState<string>("");
+
+  const provision = trpc.vendor.adminProvisionVendor.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.created ? `Account created for ${form.email}` : `Existing account linked to distributor`);
+      setOpen(false);
+      setForm({ email: "", password: "", name: "" });
+      onDone();
+    },
+    onError: (e) => toast.error(e.message || "Failed to provision account"),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1" title="Create vendor login">
+          <UserPlus className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Provision Vendor Account: {vendorName}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3 py-2">
+          <div>
+            <Label className="text-xs">Email (login)</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="vendor@company.com"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Temporary Password (min 8 chars)</Label>
+            <Input
+              type="text"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="Temp1234!"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Display Name</Label>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Contact name"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Link to Distributor Line</Label>
+            <Select value={selectedDistId} onValueChange={setSelectedDistId}>
+              <SelectTrigger><SelectValue placeholder="Select distributor line" /></SelectTrigger>
+              <SelectContent>
+                {(distributors.data ?? []).map((d: any) => (
+                  <SelectItem key={d.id} value={String(d.id)}>{d.name} ({d.code})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            disabled={provision.isPending || !form.email || !form.password || form.password.length < 8 || !selectedDistId}
+            onClick={() => provision.mutate({
+              email: form.email,
+              password: form.password,
+              name: form.name || form.email,
+              distributorId: Number(selectedDistId),
+            })}
+          >
+            {provision.isPending ? "Creating…" : "Create Account"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Pending Products Approval ───────────────────────────────────────────────
+function PendingProductsSection() {
+  const utils = trpc.useUtils();
+  const pending = trpc.distributorPortal.catalog.useQuery({ onlyPending: true, limit: 100, offset: 0 });
+  const approve = trpc.distributorPortal.adminSetProductStatus.useMutation({
+    onSuccess: () => {
+      utils.distributorPortal.catalog.invalidate();
+      toast.success("Product status updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const items = pending.data?.items ?? [];
+
+  if (pending.isLoading) return <div className="py-4 text-center"><Spinner /></div>;
+  if (items.length === 0) return (
+    <div className="py-6 text-center text-sm text-muted-foreground">
+      No pending product submissions.
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <h3 className="font-semibold flex items-center gap-2">
+        <Clock className="h-4 w-4" /> Pending Product Submissions ({items.length})
+      </h3>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>SKU</TableHead>
+            <TableHead>Cabinet</TableHead>
+            <TableHead>Style</TableHead>
+            <TableHead>List Price</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item: any) => (
+            <TableRow key={item.id}>
+              <TableCell className="font-mono text-xs">{item.distributorSku}</TableCell>
+              <TableCell>{item.masterCode || item.cabinetId}</TableCell>
+              <TableCell>{item.styleName || item.styleId}</TableCell>
+              <TableCell>{item.listPrice ? `$${item.listPrice}` : "—"}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1 text-green-600"
+                    disabled={approve.isPending}
+                    onClick={() => approve.mutate({ skuId: item.id, status: "approved" })}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" /> Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1 text-destructive"
+                    disabled={approve.isPending}
+                    onClick={() => approve.mutate({ skuId: item.id, status: "rejected" })}
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Reject
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 export default function ApprovedVendorsAdmin() {
   const utils = trpc.useUtils();
   const { data, isLoading, error } = trpc.vendors.list.useQuery();
@@ -314,6 +481,11 @@ export default function ApprovedVendorsAdmin() {
                           }
                           onSaved={() => utils.vendors.list.invalidate()}
                         />
+                        <ProvisionAccountDialog
+                          vendorId={v.id}
+                          vendorName={v.name}
+                          onDone={() => utils.vendors.list.invalidate()}
+                        />
                         <Button
                           size="sm"
                           variant="outline"
@@ -333,6 +505,11 @@ export default function ApprovedVendorsAdmin() {
             </Table>
           </>
         )}
+      </CardContent>
+
+      {/* Pending product submissions */}
+      <CardContent className="border-t pt-6">
+        <PendingProductsSection />
       </CardContent>
     </Card>
   );

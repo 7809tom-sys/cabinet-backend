@@ -290,3 +290,19 @@
 ## Fix: Catalog filter - door style should auto-switch to cabinet view
 - [x] When user picks a door style, auto-switch to the cabinet catalog tab/view (tab 2)
 - [x] Show filtered cabinets available in that style
+
+## Feature: Vendor Portal - Full vendor sign-in and catalog management
+- [x] Vendor portal backend: catalog listing, price updates, image uploads, visibility toggle
+- [x] Vendor portal backend: new product submission (pending approval)
+- [x] Vendor portal backend: admin approve/reject products
+- [x] Vendor portal backend: design tool picks (max 8)
+- [x] Vendor portal backend: order history
+- [x] Vendor portal backend: door style image uploads
+- [x] Vendor portal backend: CSV/spreadsheet bulk catalog upload
+- [x] Vendor portal backend: admin provision vendor accounts (email/password + distributor link)
+- [x] Vendor portal UI: DashboardLayout with sidebar (Overview, My Catalog, Door Styles, Design Tool Picks, Orders)
+- [x] Vendor portal UI: Catalog table with inline price editing, image upload, visibility toggle
+- [x] Vendor portal UI: CSV upload section for bulk price updates
+- [x] Vendor portal UI: New product submission form
+- [x] Admin UI: Provision vendor account dialog (create login, link to distributor)
+- [x] Admin UI: Pending products approval queue (approve/reject vendor submissions)
