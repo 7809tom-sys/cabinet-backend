@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lte, gte, isNull, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { distributorProcedure, router } from "../_core/trpc";
+import { distributorProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { vendorPromotions, doorStyles } from "../../drizzle/schema";
 
@@ -127,7 +127,7 @@ export const promotionsRouter = router({
       return { success: true };
     }),
 
-  /** Public: get active promotions for a distributor (used by storefront). */
+  /** Authenticated: get active promotions for a distributor. */
   active: distributorProcedure
     .input(z.object({ distributorId: z.number().optional() }).optional())
     .query(async ({ ctx, input }) => {
@@ -139,11 +139,35 @@ export const promotionsRouter = router({
         .select()
         .from(vendorPromotions)
         .where(and(eq(vendorPromotions.distributorId, lineId), eq(vendorPromotions.isActive, true)));
-      // Filter by date range client-side for simplicity
       return all.filter((p) => {
         if (p.startsAt && p.startsAt > now) return false;
         if (p.endsAt && p.endsAt < now) return false;
         return true;
       });
     }),
+
+  /** Public: get all currently active promotions for storefront display. */
+  activeForStorefront: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const now = new Date();
+    const rows = await db
+      .select({
+        id: vendorPromotions.id,
+        distributorId: vendorPromotions.distributorId,
+        name: vendorPromotions.name,
+        skuIds: vendorPromotions.skuIds,
+        styleId: vendorPromotions.styleId,
+        category: vendorPromotions.category,
+        discountType: vendorPromotions.discountType,
+        discountValue: vendorPromotions.discountValue,
+      })
+      .from(vendorPromotions)
+      .where(and(
+        eq(vendorPromotions.isActive, true),
+        or(isNull(vendorPromotions.startsAt), lte(vendorPromotions.startsAt, now)),
+        or(isNull(vendorPromotions.endsAt), gte(vendorPromotions.endsAt, now)),
+      ));
+    return rows;
+  }),
 });

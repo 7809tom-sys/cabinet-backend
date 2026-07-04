@@ -86,33 +86,98 @@ function priceForTier(row: StyleRow, tier: PricingTier): string {
   return n == null ? "—" : `$${n.toFixed(2)}`;
 }
 
+// ─── Promo helpers ──────────────────────────────────────────────────────────
+type ActivePromo = {
+  id: number;
+  distributorId: number;
+  name: string;
+  skuIds: unknown;
+  styleId: number | null;
+  category: string | null;
+  discountType: "percent" | "fixed_price";
+  discountValue: string;
+};
+
+function findMatchingPromo(
+  promos: ActivePromo[],
+  row: StyleRow,
+  cabinetCategory?: string | null
+): ActivePromo | null {
+  if (!promos.length) return null;
+  for (const p of promos) {
+    if (row.distributorId != null && p.distributorId !== row.distributorId) continue;
+    // Check targeting: skuIds, styleId, or category
+    const matchesSku = p.skuIds && Array.isArray(p.skuIds) && (p.skuIds as number[]).includes(row.styleId);
+    const matchesStyle = p.styleId != null && p.styleId === row.styleId;
+    const matchesCategory = p.category != null && cabinetCategory != null && p.category === cabinetCategory;
+    const isUntargeted = !p.skuIds && p.styleId == null && !p.category;
+    if (matchesSku || matchesStyle || matchesCategory || isUntargeted) return p;
+  }
+  return null;
+}
+
+function applyPromoToPrice(promo: ActivePromo, originalPrice: number): number {
+  const val = Number(promo.discountValue);
+  if (promo.discountType === "percent") {
+    return originalPrice * (1 - val / 100);
+  }
+  // fixed_price = the promo IS the new price
+  return val;
+}
+
 // ─── Price card (tier price + homeowner "Compare at" strike-through) ─────────
 
 function PriceCard({
   row,
   tier,
   isOwner = false,
+  promo = null,
 }: {
   row: StyleRow;
   tier: PricingTier;
   isOwner?: boolean;
+  promo?: ActivePromo | null;
 }) {
-  const price = priceNumberForTier(row, tier);
+  let price = priceNumberForTier(row, tier);
   const compareAt = compareAtPrice(tier, row);
   const owner = isOwner ? ownerCostBreakdown(row, tier) : null;
+
+  // Apply promo discount if active
+  let promoActive = false;
+  let originalPrice = price;
+  if (promo && price != null) {
+    originalPrice = price;
+    price = applyPromoToPrice(promo, price);
+    promoActive = true;
+  }
+
   const savePct =
-    compareAt != null && price != null && compareAt > price
-      ? Math.round(((compareAt - price) / compareAt) * 100)
-      : null;
+    promoActive && originalPrice != null && price != null && originalPrice > price
+      ? Math.round(((originalPrice - price) / originalPrice) * 100)
+      : compareAt != null && price != null && compareAt > price
+        ? Math.round(((compareAt - price) / compareAt) * 100)
+        : null;
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
+          {promoActive && (
+            <div className="mb-1">
+              <Badge className="bg-red-600 text-white hover:bg-red-600 text-[10px] uppercase tracking-wider">
+                Sale — {promo!.name}
+              </Badge>
+            </div>
+          )}
           <div className="flex items-baseline gap-2 flex-wrap">
             <div className="text-3xl font-bold text-foreground">
               {price == null ? "—" : `$${price.toFixed(2)}`}
             </div>
-            {compareAt != null && (
+            {promoActive && originalPrice != null && (
+              <div className="text-base text-muted-foreground line-through">
+                ${originalPrice.toFixed(2)}
+              </div>
+            )}
+            {!promoActive && compareAt != null && (
               <div className="text-base text-muted-foreground line-through">
                 ${compareAt.toFixed(2)}
               </div>
@@ -262,6 +327,13 @@ export default function CabinetDetail({ masterCode }: Props) {
     styleRows[0]?.styleId ??
     null;
   const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
+
+  // Fetch active promotions for storefront display
+  const { data: activePromos } = trpc.promotions.activeForStorefront.useQuery();
+  const activePromo = useMemo(() => {
+    if (!selectedRow || !activePromos?.length) return null;
+    return findMatchingPromo(activePromos as ActivePromo[], selectedRow, cabinet?.category);
+  }, [selectedRow, activePromos, cabinet?.category]);
 
   // Recolor the to-scale drawing to the selected door style's real finish.
   const finishFace = finishColors(
@@ -712,12 +784,12 @@ export default function CabinetDetail({ masterCode }: Props) {
 
                     {visibleTiers.map((t) => (
                       <TabsContent key={t} value={t} className="mt-3">
-                        <PriceCard row={selectedRow} tier={t} isOwner={isOwner} />
+                        <PriceCard row={selectedRow} tier={t} isOwner={isOwner} promo={activePromo} />
                       </TabsContent>
                     ))}
                   </Tabs>
                 ) : (
-                  <PriceCard row={selectedRow} tier="homeowner" isOwner={isOwner} />
+                  <PriceCard row={selectedRow} tier="homeowner" isOwner={isOwner} promo={activePromo} />
                 )
               ) : (
                 <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground space-y-2">

@@ -400,6 +400,13 @@
       "when": 1783199381022,
       "tag": "0056_colorful_wraith",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "5",
+      "when": 1783202195965,
+      "tag": "0057_slow_kate_bishop",
+      "breakpoints": true
     }
   ]
 }

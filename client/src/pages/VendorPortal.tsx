@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef } from "react";
 import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
-  PlusCircle, ArrowLeft, FileSpreadsheet, Download,
+  PlusCircle, ArrowLeft, FileSpreadsheet, Download, BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,7 @@ function money(v: string | null | undefined): string {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "catalog" | "styles" | "picks" | "orders" | "promotions";
+type VendorPage = "overview" | "catalog" | "styles" | "picks" | "orders" | "promotions" | "gallery" | "analytics";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -44,6 +44,8 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
   { id: "styles", label: "Door Styles", icon: Palette },
   { id: "picks", label: "Design Tool Picks", icon: Star },
   { id: "promotions", label: "Promotions", icon: DollarSign },
+  { id: "gallery", label: "Gallery", icon: ImageIcon },
+  { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "orders", label: "Orders", icon: ClipboardList },
 ];
 
@@ -1154,6 +1156,230 @@ function PromotionsPage() {
   );
 }
 
+// ─── Gallery Page ─────────────────────────────────────────────────────────────
+function GalleryPage() {
+  const gallery = trpc.gallery.listByDistributor.useQuery();
+  const uploadMut = trpc.gallery.upload.useMutation();
+  const deleteMut = trpc.gallery.delete.useMutation();
+  const utils = trpc.useUtils();
+  const [selectedSku, setSelectedSku] = useState<number | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Get catalog for SKU selector
+  const catalog = trpc.distributorPortal.catalog.useQuery({ limit: 500, offset: 0 });
+  const skuOptions = (catalog.data?.items ?? []).map((item: any) => ({
+    id: item.id as number,
+    label: `${item.masterCode ?? ""} — ${item.styleName ?? "SKU"} #${item.id}`,
+  }));
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedSku) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = (reader.result as string).split(",")[1];
+      try {
+        await uploadMut.mutateAsync({
+          skuId: selectedSku,
+          imageBase64: base64,
+          fileName: file.name,
+          contentType: file.type || "image/jpeg",
+        });
+        utils.gallery.listByDistributor.invalidate();
+      } catch (err: any) {
+        alert(err.message || "Upload failed");
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this image?")) return;
+    await deleteMut.mutateAsync({ id });
+    utils.gallery.listByDistributor.invalidate();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Product Gallery</h2>
+      </div>
+
+      {/* Upload section */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <p className="text-sm text-muted-foreground">Upload lifestyle photos, detail shots, or room scenes for your products.</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              className="border rounded px-3 py-2 text-sm bg-background"
+              value={selectedSku ?? ""}
+              onChange={(e) => setSelectedSku(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Select a product...</option>
+              {skuOptions.map((s: { id: number; label: string }) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+            <Button
+              size="sm"
+              disabled={!selectedSku || uploadMut.isPending}
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="h-4 w-4 mr-1" />
+              {uploadMut.isPending ? "Uploading..." : "Upload Image"}
+            </Button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gallery grid */}
+      {gallery.isLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="aspect-square w-full" />)}
+        </div>
+      ) : (gallery.data?.length ?? 0) === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <ImageIcon className="h-12 w-12 mx-auto mb-3 opacity-40" />
+          <p>No gallery images yet. Upload your first product photo above.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {(gallery.data ?? []).map((img: any) => (
+            <div key={img.id} className="relative group rounded-lg overflow-hidden border border-border">
+              <img src={img.s3Url} alt={img.caption || "Product"} className="w-full aspect-square object-cover" />
+              {img.caption && (
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs px-2 py-1 truncate">
+                  {img.caption}
+                </div>
+              )}
+              <button
+                onClick={() => handleDelete(img.id)}
+                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Vendor Analytics Page ───────────────────────────────────────────────────
+function VendorAnalyticsPage() {
+  const [days, setDays] = useState(30);
+  const summary = trpc.analytics.summary.useQuery({ days });
+
+  if (summary.isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
+      </div>
+    );
+  }
+
+  const data = summary.data;
+  if (!data) return <p className="text-muted-foreground">No analytics data available.</p>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Product Analytics</h2>
+        <select
+          className="border rounded px-3 py-1.5 text-sm bg-background"
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+        >
+          <option value={7}>Last 7 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={90}>Last 90 days</option>
+          <option value={365}>Last year</option>
+        </select>
+      </div>
+
+      {/* Summary card */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="border rounded-lg p-4">
+          <p className="text-sm text-muted-foreground">Total Product Views</p>
+          <p className="text-3xl font-bold">{data.totalViews.toLocaleString()}</p>
+        </div>
+        <div className="border rounded-lg p-4">
+          <p className="text-sm text-muted-foreground">Avg. Daily Views</p>
+          <p className="text-3xl font-bold">
+            {days > 0 ? Math.round(data.totalViews / days).toLocaleString() : 0}
+          </p>
+        </div>
+        <div className="border rounded-lg p-4">
+          <p className="text-sm text-muted-foreground">Top Referrers</p>
+          <p className="text-3xl font-bold">{data.topReferrers.length}</p>
+        </div>
+      </div>
+
+      {/* Daily views chart (simple bar representation) */}
+      {data.dailyViews.length > 0 && (
+        <div className="border rounded-lg p-4">
+          <h3 className="font-medium mb-3">Daily Views</h3>
+          <div className="flex items-end gap-1 h-32">
+            {data.dailyViews.map((d: any) => {
+              const max = Math.max(...data.dailyViews.map((x: any) => x.count));
+              const height = max > 0 ? (d.count / max) * 100 : 0;
+              return (
+                <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
+                  <span className="text-[10px] text-muted-foreground">{d.count}</span>
+                  <div
+                    className="w-full bg-primary/80 rounded-t min-h-[2px]"
+                    style={{ height: `${height}%` }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Top products */}
+      {data.topProducts.length > 0 && (
+        <div className="border rounded-lg p-4">
+          <h3 className="font-medium mb-3">Top Products</h3>
+          <div className="space-y-2">
+            {data.topProducts.map((p: any, i: number) => (
+              <div key={p.pageSlug} className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">#{i + 1}</span>
+                <span className="flex-1 ml-3 truncate">{p.pageSlug}</span>
+                <Badge variant="secondary">{p.count} views</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Top referrers */}
+      {data.topReferrers.length > 0 && (
+        <div className="border rounded-lg p-4">
+          <h3 className="font-medium mb-3">Traffic Sources</h3>
+          <div className="space-y-2">
+            {data.topReferrers.map((r: any, i: number) => (
+              <div key={r.referrer ?? i} className="flex items-center justify-between text-sm">
+                <span className="flex-1 truncate">{r.referrer || "Direct"}</span>
+                <Badge variant="outline">{r.count} visits</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.totalViews === 0 && (
+        <p className="text-center text-muted-foreground py-8">
+          No product views recorded in the last {days} days. Views will appear here as customers browse your products.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Orders Page ──────────────────────────────────────────────────────────────
 function OrdersPage() {
   const orders = trpc.distributorPortal.orders.useQuery({ limit: 50 });
@@ -1321,6 +1547,8 @@ export default function VendorPortal() {
         {page === "styles" && <DoorStylesPage />}
         {page === "picks" && <DesignToolPicksPage />}
         {page === "promotions" && <PromotionsPage />}
+        {page === "gallery" && <GalleryPage />}
+        {page === "analytics" && <VendorAnalyticsPage />}
         {page === "orders" && <OrdersPage />}
       </main>
     </div>

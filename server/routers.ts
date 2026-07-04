@@ -35,6 +35,8 @@ import { pelicanRouter } from "./routers/pelican";
 import { vendorsRouter } from "./routers/vendors";
 import { surfacesRouter } from "./routers/surfaces";
 import { promotionsRouter } from "./routers/promotions";
+import { galleryRouter } from "./routers/gallery";
+import { analyticsRouter } from "./routers/analytics";
 
 export const appRouter = router({
   system: systemRouter,
@@ -80,6 +82,8 @@ export const appRouter = router({
   vendors: vendorsRouter,
   surfaces: surfacesRouter,
   promotions: promotionsRouter,
+  gallery: galleryRouter,
+  analytics: analyticsRouter,
 });
 
 export type AppRouter = typeof appRouter;

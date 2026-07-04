@@ -1320,3 +1320,23 @@ export const productGalleryImages = mysqlTable("product_gallery_images", {
 });
 export type ProductGalleryImage = typeof productGalleryImages.$inferSelect;
 export type InsertProductGalleryImage = typeof productGalleryImages.$inferInsert;
+
+
+// ─── Product view tracking (vendor analytics) ────────────────────────────────
+// Lightweight page-view tracking for vendor-facing analytics. Each row records
+// one product detail page view with the distributor it belongs to so vendors
+// can see how many hits their products get.
+export const productViews = mysqlTable("product_views", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  cabinetId: int("cabinetId"), // nullable — could be a pelican product view
+  skuId: int("skuId"), // distributor_skus.id if applicable
+  pelicanProductId: int("pelicanProductId"), // pelican_products.id if applicable
+  pageSlug: varchar("pageSlug", { length: 256 }).notNull(), // e.g. "/cabinets/B12"
+  referrer: varchar("referrer", { length: 512 }),
+  userAgent: varchar("userAgent", { length: 512 }),
+  viewedAt: timestamp("viewedAt").defaultNow().notNull(),
+});
+
+export type ProductView = typeof productViews.$inferSelect;
+export type InsertProductView = typeof productViews.$inferInsert;
