@@ -225,3 +225,18 @@
 - [x] Give the toe kick proper depth/dimension with shadow and recessed appearance (like 2020 Design / ProKitchen)
 - [x] Use cabinetGraphics.ts resolveDoorDrawerCounts for accurate door/drawer counts per cabinet type
 - [x] Integrate cabinetDrawingType for specialty cabinet types (sink base false front, blind corner, corner drawer base, glass door) in elevation rendering
+
+## Bug: Filler strip FILL-3 showing 24"W instead of 3"W
+- [x] Fix filler width: FILL-3 should be 3"W (the number in the name is the width), not 24"W
+- [x] Verify filler dimensions are correctly parsed from the catalog/master code
+
+## Bug: Blind corner pull spec conflict
+- [x] Investigate why FILL-3 is being flagged as a blind corner conflict
+- [x] Ensure only actual blind corner cabinets (BBC, BLC) trigger the pull spec conflict
+
+## Fix: Blind corner cabinet logic overhaul
+- [x] Default pull = cabinet width + 3" (min), cabinet width + 6" (max)
+- [x] Remove auto-filler logic for blind corners (users place fillers manually)
+- [x] Remove the "no manufacturer pull spec" conflict — use default +3" pull
+- [x] Countertop extends all the way to the wall (covers dead space behind blind corner)
+- [x] Fix FILL-3 showing 24"W — filler width should come from the number in the name (FILL-3 = 3"W)

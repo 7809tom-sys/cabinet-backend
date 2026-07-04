@@ -56,6 +56,8 @@ export const designRouter = router({
           numberOfDrawers: cabinets.numberOfDrawers,
           isCornerCabinet: cabinets.isCornerCabinet,
           catalogImageUrl: cabinets.catalogImageUrl,
+          minPull: cabinets.minPull,
+          maxPull: cabinets.maxPull,
         })
         .from(cabinets)
         // showInDesigner=false hides a cabinet from the Kitchen Designer palette
@@ -102,7 +104,10 @@ export const designRouter = router({
       if (input?.placement === "accessory") {
         let accessories = availableRows
           .filter(isAccessory)
-          .map((r) => ({ ...r, placement: "accessory" as const }));
+          .map((r) => {
+            const { minPull: _mp, maxPull: _xp, ...rest } = r;
+            return { ...rest, pullMin: null as number | null, pullMax: null as number | null, placement: "accessory" as const };
+          });
         if (input?.search) {
           const s = input.search.toLowerCase();
           accessories = accessories.filter(
@@ -114,7 +119,31 @@ export const designRouter = router({
         return accessories;
       }
 
-      const placeableRows = availableRows.filter((r) => !isAccessory(r));
+      // Map DB column names (minPull/maxPull) to client field names (pullMin/pullMax).
+      // For blind corner cabinets without a manufacturer spec, apply defaults:
+      // pullMin = width + 3, pullMax = width + 6.
+      const isBlind = (code: string, desc: string | null) => {
+        const c = (code || "").toUpperCase();
+        if (/^(BBC|WBC|BBL|BBR|WBL|WBR)/.test(c)) return true;
+        if (/-BLIND|BLIND/.test(c)) return true;
+        return /blind\s*corner/.test((desc || "").toLowerCase());
+      };
+      const withPull = availableRows.map((r) => {
+        let pullMin: number | null = r.minPull ? parseFloat(String(r.minPull)) : null;
+        let pullMax: number | null = r.maxPull ? parseFloat(String(r.maxPull)) : null;
+        // Default pull for blind corners when no manufacturer spec exists
+        if (isBlind(r.masterCode, r.description) && (pullMin == null || pullMax == null)) {
+          const w = parseFloat(String(r.width ?? "0"));
+          if (Number.isFinite(w) && w > 0) {
+            pullMin = pullMin ?? (w + 3);
+            pullMax = pullMax ?? (w + 6);
+          }
+        }
+        const { minPull: _mp, maxPull: _xp, ...rest } = r;
+        return { ...rest, pullMin, pullMax };
+      });
+
+      const placeableRows = withPull.filter((r) => !isAccessory(r));
 
       const withPlacement = placeableRows.map((r) => {
         let placement = r.placementType;

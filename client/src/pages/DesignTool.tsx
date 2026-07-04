@@ -1706,8 +1706,11 @@ export default function DesignTool() {
     wallOpeningUids.forEach((uid: string) => set.add(uid));
     // Base/tall cabinet sitting across a doorway or cased opening.
     baseOpeningUids.forEach((uid: string) => set.add(uid));
-    // Blind corner pull spec issues (missing spec or out-of-range).
-    blindSpecIssues.forEach((_issue, uid) => set.add(uid));
+    // Blind corner pull spec: with default pull values (width+3/+6), missing-spec
+    // is no longer a blocking conflict. Only flag out-of-range violations.
+    blindSpecIssues.forEach((issue, uid) => {
+      if (issue === "out-of-range") set.add(uid);
+    });
     // Cabinet taller than the room's ceiling height.
     ceilingViolationUids.forEach((uid: string) => set.add(uid));
     // Non-corner base cabinet placed at a room corner (needs BBC/ERB/LSB/CSB).
@@ -2151,16 +2154,8 @@ export default function DesignTool() {
         if (isRefrigerator(newCab)) {
           setFridgeDialog({ fridgeUid: newCab.uid });
         }
-        // Blind corner: auto-place a 3" filler on the open-run side so the
-        // adjacent door/drawer has clearance past the blind return. The filler
-        // is a separate movable item the user can adjust or delete.
-        if (isBlindCorner(newCab.masterCode, newCab.description)) {
-          const { filler } = blindCornerAutoFiller(newCab, room);
-          if (filler) {
-            toast.success(t("dt_blind_filler_placed"));
-            return [...prev, newCab, filler];
-          }
-        }
+        // Blind corner: the user places fillers manually if needed.
+        // No auto-filler — the pull defaults (width+3 / width+6) handle clearance.
 
         // ── Wall cabinet height prompt + matching wall suggestion ──────────
         // After placing a BASE cabinet (not appliance, not accessory, not tall),
@@ -7056,9 +7051,7 @@ export default function DesignTool() {
                   {wallOpeningUids.size > 0
                     ? `A wall cabinet is within ${WALL_OPENING_CLEARANCE_IN}" of a door or window — wall cabinets must stay at least ${WALL_OPENING_CLEARANCE_IN}" away from openings. `
                     : ""}
-                  {blindMissingSpecCount > 0
-                    ? `${blindMissingSpecCount} blind corner cabinet${blindMissingSpecCount > 1 ? "s" : ""} ${blindMissingSpecCount > 1 ? "have" : "has"} no manufacturer pull spec — an administrator must enter the min/max pull before this design can be ordered. `
-                    : ""}
+                  {/* Missing spec is no longer a blocking conflict — defaults are applied */}
                   {blindOutOfRangeCount > 0
                     ? `${blindOutOfRangeCount} blind corner cabinet${blindOutOfRangeCount > 1 ? "s" : ""} ${blindOutOfRangeCount > 1 ? "are" : "is"} pulled outside the manufacturer's min/max range. `
                     : ""}

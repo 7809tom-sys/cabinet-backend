@@ -685,9 +685,22 @@ export function fmtIn(n: number): string {
 // Width/depth are rotation-aware (a turned cabinet swaps its footprint), while
 // height comes from the placed height (with a sensible bucket fallback).
 export function dimLabel(p: PlacedCabinet): string {
-  const { w, d } = rotatedSize(p);
+  let { w, d } = rotatedSize(p);
   const h = placedHeight(p);
-  const base = `${fmtIn(w)}\"W \u00d7 ${fmtIn(h)}\"H \u00d7 ${fmtIn(d)}\"D`;
+  // Fillers (FILL-3, FILL-6): the plan width/depth may be swapped when placed on
+  // a vertical wall (rotation 90/270). The TRUE filler width is encoded in the
+  // masterCode suffix. Use the nominal width for display.
+  const fillMatch = /^FILL-(\d+(?:\.\d+)?)$/i.exec(p.masterCode);
+  if (fillMatch) {
+    const nomW = parseFloat(fillMatch[1]);
+    if (Number.isFinite(nomW) && nomW > 0) {
+      // Depth is the cabinet run depth (24" base, 12" wall); width is the filler strip.
+      const runDepth = Math.max(w, d);
+      w = nomW;
+      d = runDepth;
+    }
+  }
+  const base = `${fmtIn(w)}"W \u00d7 ${fmtIn(h)}"H \u00d7 ${fmtIn(d)}"D`;
   return isCustomSize(p) ? `${base} \u00b7 Custom` : base;
 }
 
@@ -1803,11 +1816,20 @@ export interface FillerLine {
 // those are missing, return null so the caller can flag a conflict — we never
 // guess a manufacturer spec.
 export function blindPullRange(
-  p: { pullMin?: number | null; pullMax?: number | null }
+  p: { pullMin?: number | null; pullMax?: number | null; width?: number | null; nominalWidth?: number | null }
 ): { min: number; max: number } | null {
-  const min = typeof p.pullMin === "number" ? p.pullMin : null;
-  const max = typeof p.pullMax === "number" ? p.pullMax : null;
-  if (min == null || max == null) return null;
+  let min = typeof p.pullMin === "number" ? p.pullMin : null;
+  let max = typeof p.pullMax === "number" ? p.pullMax : null;
+  // Default pull for blind corners: width + 3 (min) / width + 6 (max)
+  if (min == null || max == null) {
+    const w = (p as any).nominalWidth ?? (p as any).width;
+    if (typeof w === "number" && w > 0) {
+      min = min ?? (w + 3);
+      max = max ?? (w + 6);
+    } else {
+      return null;
+    }
+  }
   if (max < min) return { min: max, max: min };
   return { min, max };
 }
