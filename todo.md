@@ -375,3 +375,10 @@
 - [x] Show MSRP strike-through + "Save X%" badge on PelicanProductCard (category grids)
 - [x] Show MSRP strike-through + "Save X%" badge on StoneCreekCard (collection page)
 - [x] Show full pricing breakdown (MSRP, Your Price, You Save) on SurfacesProduct detail page
+
+## Homepage Redesign - 4th of July + Full Product Showcase
+- [x] Add festive 4th of July seasonal banner/greeting at the top
+- [x] Showcase all product categories: Cabinets, Surfaces & Fixtures, StoneCreek, Plumber's Choice
+- [x] Make the page more visually exciting with product imagery and clear CTAs
+- [x] Ensure clear paths: "Buy Now" vs "Design Your Kitchen"
+- [x] Keep it SEO-friendly with proper headings and structure

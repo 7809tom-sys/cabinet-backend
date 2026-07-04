@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Users, ChevronRight } from "lucide-react";
+import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Users, ChevronRight, Sparkles, Star, ShowerHead, Bath } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
@@ -10,16 +10,44 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { SurfacesBand } from "@/components/home/SurfacesBand";
 
+const CDN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M";
+
+// ─── 4th of July Banner ──────────────────────────────────────────────────────
+
+function JulyBanner() {
+  return (
+    <div className="relative overflow-hidden bg-gradient-to-r from-blue-900 via-red-700 to-blue-900 text-white py-3">
+      {/* Animated stars */}
+      <div className="absolute inset-0 overflow-hidden">
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute text-white/30 animate-pulse"
+            style={{
+              left: `${8 + i * 8}%`,
+              top: `${i % 2 === 0 ? 20 : 60}%`,
+              animationDelay: `${i * 0.2}s`,
+            }}
+          >
+            ★
+          </div>
+        ))}
+      </div>
+      <div className="container relative flex items-center justify-center gap-3 text-center">
+        <span className="text-lg">🇺🇸</span>
+        <p className="text-sm md:text-base font-semibold tracking-wide">
+          Happy 4th of July! Celebrate Independence Day with trade pricing on everything for your next project.
+        </p>
+        <span className="text-lg">🎆</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Hero Section ─────────────────────────────────────────────────────────────
 
 function Hero() {
   const { t } = useLanguage();
-  const stats = [
-    { value: "One", label: t("home_stat_one") },
-    { value: "Trade", label: t("home_stat_trade") },
-    { value: "2D", label: t("home_stat_2d") },
-    { value: "1-Click", label: t("home_stat_1click") },
-  ];
   return (
     <section className="relative overflow-hidden bg-[var(--color-navy)] text-white">
       {/* Background texture */}
@@ -45,26 +73,21 @@ function Hero() {
             </div>
 
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              {t("home_hero_title_1")}
+              Your One-Stop Shop for
               <br />
-              <span className="text-[var(--color-gold)]">{t("home_hero_title_2")}</span>
+              <span className="text-[var(--color-gold)]">Kitchen & Bath.</span>
             </h1>
 
             <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
-              {t("home_hero_sub")}
+              Cabinets, countertops, tile, flooring, sinks, faucets, showers, and toilets — all at trade pricing. Design kitchens in 2D, browse thousands of products, and submit orders in one membership.
             </p>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3">
               <Link href="/styles">
                 <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
-                  {t("home_hero_cta_style")}
+                  Shop Cabinets
                   <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/design">
-                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                  {t("home_hero_cta_design")}
                 </Button>
               </Link>
               <Link href="/surfaces">
@@ -73,12 +96,17 @@ function Hero() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <a href={getLoginUrl()}>
-                <Button size="lg" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10 gap-2">
-                  {t("home_hero_cta_signin")}
-                  <ChevronRight className="h-4 w-4" />
+              <Link href="/plumbers-choice">
+                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                  Plumber's Choice
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
-              </a>
+              </Link>
+              <Link href="/design">
+                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                  Design Your Kitchen
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -87,14 +115,14 @@ function Hero() {
             <div className="overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/10">
               <img
                 src={KITCHEN_SCENES["shaker-white"]}
-                alt="Designed kitchen"
+                alt="Beautiful white shaker kitchen"
                 className="aspect-[4/3] w-full object-cover"
               />
             </div>
             <div className="absolute -bottom-6 -left-6 hidden w-40 overflow-hidden rounded-xl shadow-xl ring-4 ring-[var(--color-navy)] xl:block">
               <img
-                src={KITCHEN_SCENES["shaker-gray"]}
-                alt="Gray shaker kitchen"
+                src={`${CDN}/stonecreek-bath-hero-fCp9GA4H5XXQNmpgUdMiWg.webp`}
+                alt="StoneCreek bathroom fixtures"
                 className="aspect-square w-full object-cover"
               />
             </div>
@@ -110,12 +138,232 @@ function Hero() {
 
         {/* Value props row */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/15 pt-10">
-          {stats.map((stat) => (
+          {[
+            { value: "Cabinets", label: "Full catalog, every door style" },
+            { value: "Surfaces", label: "Quartz, tile, flooring & more" },
+            { value: "Fixtures", label: "Sinks, faucets, showers, toilets" },
+            { value: "Design", label: "2D kitchen planner included" },
+          ].map((stat) => (
             <div key={stat.label}>
-              <div className="text-3xl font-bold text-[var(--color-gold)]">{stat.value}</div>
+              <div className="text-2xl md:text-3xl font-bold text-[var(--color-gold)]">{stat.value}</div>
               <div className="text-sm text-white/60 mt-1">{stat.label}</div>
             </div>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Product Category Showcase ───────────────────────────────────────────────
+
+function ProductShowcase() {
+  const categories = [
+    {
+      title: "Kitchen Cabinets",
+      description: "Every door style, every configuration. Base, wall, tall, vanity, ADA — all at trade pricing.",
+      image: KITCHEN_SCENES["shaker-white"],
+      href: "/styles",
+      cta: "Shop by Door Style",
+      accent: "from-amber-600/80 to-amber-900/90",
+    },
+    {
+      title: "Countertops & Tile",
+      description: "Premium quartz slabs, porcelain tile, mosaic backsplash, and luxury flooring options.",
+      image: KITCHEN_SCENES["slab-natural"],
+      href: "/surfaces",
+      cta: "Browse Surfaces",
+      accent: "from-slate-600/80 to-slate-900/90",
+    },
+    {
+      title: "StoneCreek Fixtures",
+      description: "Exclusive sinks, faucets, and kitchen accessories. Modern designs at wholesale pricing.",
+      image: `${CDN}/stonecreek-kitchen-hero-GNgNkcBRXKeBwSEoXrBMBg.webp`,
+      href: "/stonecreek",
+      cta: "StoneCreek Collection",
+      accent: "from-emerald-600/80 to-emerald-900/90",
+    },
+    {
+      title: "Plumber's Choice",
+      description: "Complete bathroom install kits — showers, toilets, and bidets. Everything a plumber needs.",
+      image: `${CDN}/stonecreek-bath-hero-fCp9GA4H5XXQNmpgUdMiWg.webp`,
+      href: "/plumbers-choice",
+      cta: "Shop Plumber's Choice",
+      accent: "from-blue-600/80 to-blue-900/90",
+    },
+  ];
+
+  return (
+    <section className="py-16 md:py-20">
+      <div className="container">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+            Everything You Need
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+          </div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
+            One Platform, Every Product
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            From cabinets to countertops to complete bathroom kits — shop everything for your next kitchen or bath project at trade pricing.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {categories.map((cat) => (
+            <Link key={cat.title} href={cat.href} className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer">
+              <img
+                src={cat.image}
+                alt={cat.title}
+                className="h-64 md:h-72 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className={`absolute inset-0 bg-gradient-to-t ${cat.accent} via-transparent to-transparent`} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-6">
+                <h3 className="font-serif text-2xl font-bold text-white mb-1">{cat.title}</h3>
+                <p className="text-sm text-white/80 mb-3 line-clamp-2">{cat.description}</p>
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
+                  {cat.cta} <ArrowRight className="h-4 w-4" />
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Supply Network Strip ─────────────────────────────────────────────────────
+
+function DistributorsStrip() {
+  const { t } = useLanguage();
+  const styles = ["Shaker", "Raised Panel", "Slab", "Slim Shaker", "Oxford"];
+  return (
+    <section className="py-10 border-y border-border bg-muted/20">
+      <div className="container">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <p className="text-sm font-medium text-muted-foreground shrink-0">
+            {t("home_strip_label")}
+          </p>
+          <div className="flex flex-wrap justify-center md:justify-end gap-3">
+            {styles.map((name) => (
+              <Link
+                key={name}
+                href={`/styles?door=${encodeURIComponent(name)}`}
+                className="inline-flex items-center rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-foreground transition-colors hover:bg-primary hover:text-primary-foreground hover:border-primary"
+              >
+                {name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Style Showcase (dream-kitchen scenes) ─────────────────────────────────────
+
+function StyleShowcase() {
+  const { t } = useLanguage();
+  const { data: styles } = trpc.doorStyles.list.useQuery();
+  const fallback = useMemo(
+    () => [
+      { name: "White Shaker", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["shaker-white"], href: "/styles" },
+      { name: "Gray Shaker", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["shaker-gray"], href: "/styles" },
+      { name: "Cherry Raised Panel", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["raised-cherry"], href: "/styles" },
+      { name: "Natural Slab", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["slab-natural"], href: "/styles" },
+      { name: "Espresso Shaker", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["shaker-espresso"], href: "/styles" },
+    ],
+    [t]
+  );
+  const looks = useMemo(() => {
+    type S = { id: number; styleCode: string; ourName: string | null; doorStyle: string | null; color: string | null; woodSpecies: string | null; roomSceneImageUrl?: string | null };
+    const list = (styles ?? []).filter((s) => !!(s as S).roomSceneImageUrl) as S[];
+    if (list.length === 0) return fallback;
+    const bucketOf = (s: S) => {
+      const t2 = [s.color, s.ourName, s.doorStyle, s.woodSpecies].filter(Boolean).join(" ").toLowerCase();
+      if (/black|obsidian|onyx|tricorn|espresso|java|ebony/.test(t2)) return "dark";
+      if (/grey|gray|graphite|slate|sage|fog|navy|blue|cobalt/.test(t2)) return "gray";
+      if (/cherry|mahogany|chestnut|saddle|autumn|rust|spice/.test(t2)) return "warm";
+      if (/oak|honey|natural|maple|hickory|wheat|gold|solstice/.test(t2)) return "light";
+      return "white";
+    };
+    const seen = new Set<string>();
+    const picked: S[] = [];
+    for (const s of list) {
+      const b = bucketOf(s);
+      if (seen.has(b)) continue;
+      seen.add(b);
+      picked.push(s);
+      if (picked.length >= 5) break;
+    }
+    for (const s of list) {
+      if (picked.length >= 5) break;
+      if (picked.some((p) => p.id === s.id)) continue;
+      picked.push(s);
+    }
+    return picked.map((s) => ({
+      name: s.ourName || s.styleCode,
+      blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") || t("home_showcase_blurb_fallback"),
+      scene: s.roomSceneImageUrl as string,
+      href: `/family/${encodeURIComponent(s.styleCode)}`,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [styles, fallback, t]);
+  return (
+    <section className="py-16 md:py-20 bg-muted/30">
+      <div className="container">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+            {t("home_showcase_eyebrow")}
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+          </div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
+            {t("home_showcase_title")}
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            {t("home_showcase_sub")}
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Feature the first look large */}
+          <Link href={looks[0].href} className="group relative col-span-1 md:row-span-2 overflow-hidden rounded-2xl shadow-sm transition-shadow hover:shadow-lg">
+            <img src={looks[0].scene} alt={looks[0].name} className="h-64 w-full object-cover transition-transform duration-500 group-hover:scale-105 md:h-full" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            <div className="absolute bottom-5 left-5 right-5 text-white">
+              <div className="font-serif text-2xl font-bold">{looks[0].name}</div>
+              <div className="text-sm text-white/85">{looks[0].blurb}</div>
+              <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-gold)]">
+                {t("home_showcase_shop_this")} <ArrowRight className="h-4 w-4" />
+              </span>
+            </div>
+          </Link>
+
+          <div className="grid grid-cols-2 gap-6">
+            {looks.slice(1).map((look) => (
+              <Link key={look.name} href={look.href} className="group relative overflow-hidden rounded-2xl shadow-sm transition-shadow hover:shadow-lg">
+                <img src={look.scene} alt={look.name} className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                <div className="absolute bottom-3 left-3 right-3 text-white">
+                  <div className="font-serif text-base font-bold leading-tight">{look.name}</div>
+                  <div className="text-xs text-white/80">{look.blurb}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-10 text-center">
+          <Link href="/styles">
+            <Button size="lg" variant="outline" className="gap-2 bg-card">
+              {t("home_showcase_explore_all")} <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
         </div>
       </div>
     </section>
@@ -274,198 +522,6 @@ function PlatformFeatures() {
   );
 }
 
-// ─── Supply Network Strip ─────────────────────────────────────────────────────
-
-function DistributorsStrip() {
-  const { t } = useLanguage();
-  // Door-style-first: we promote the breadth of finishes, never supplier names.
-  const styles = ["Shaker", "Raised Panel", "Slab", "Slim Shaker", "Oxford"];
-  return (
-    <section className="py-10 border-y border-border bg-muted/20">
-      <div className="container">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <p className="text-sm font-medium text-muted-foreground shrink-0">
-            {t("home_strip_label")}
-          </p>
-          <div className="flex flex-wrap justify-center md:justify-end gap-3">
-            {styles.map((name) => (
-              <Link
-                key={name}
-                href={`/styles?door=${encodeURIComponent(name)}`}
-                className="inline-flex items-center rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-foreground transition-colors hover:bg-primary hover:text-primary-foreground hover:border-primary"
-              >
-                {name}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Category Quick Links ─────────────────────────────────────────────────────
-
-function CategoryLinks() {
-  const { t } = useLanguage();
-  // Door styles lead the catalog: categories are a preview of what you'll find
-  // INSIDE a chosen style. Every tile routes to the door-style selector first.
-  const categories = [
-    { name: t("home_cat_base_t"), description: t("home_cat_base_d"), href: "/styles" },
-    { name: t("home_cat_wall_t"), description: t("home_cat_wall_d"), href: "/styles" },
-    { name: t("home_cat_tall_t"), description: t("home_cat_tall_d"), href: "/styles" },
-    { name: t("home_cat_ada_t"), description: t("home_cat_ada_d"), href: "/styles" },
-    { name: t("home_cat_vanity_t"), description: t("home_cat_vanity_d"), href: "/styles" },
-    { name: t("home_cat_accessory_t"), description: t("home_cat_accessory_d"), href: "/styles" },
-  ];
-
-  return (
-    <section className="py-16 md:py-20">
-      <div className="container">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
-              {t("home_cat_title")}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t("home_cat_sub")}
-            </p>
-          </div>
-          <Link href="/styles">
-            <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
-              {t("home_cat_choose")}
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {categories.map((cat) => (
-            <Link key={cat.name} href={cat.href}>
-              <div className="group rounded-xl border border-border bg-card p-4 text-center hover:border-primary/40 hover:shadow-md transition-all duration-200 cursor-pointer h-full">
-                <div className="font-serif text-lg font-bold text-foreground group-hover:text-primary transition-colors mb-1">
-                  {cat.name}
-                </div>
-                <div className="text-xs text-muted-foreground leading-snug hidden md:block">
-                  {cat.description}
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Style Showcase (dream-kitchen scenes) ─────────────────────────────────────
-
-function StyleShowcase() {
-  const { t } = useLanguage();
-  // Feature real door-style families so each tile links straight into that
-  // family's full catalog (/family/:styleCode), not a generic list page.
-  const { data: styles } = trpc.doorStyles.list.useQuery();
-  const fallback = useMemo(
-    () => [
-      { name: "White Shaker", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["shaker-white"], href: "/styles" },
-      { name: "Gray Shaker", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["shaker-gray"], href: "/styles" },
-      { name: "Cherry Raised Panel", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["raised-cherry"], href: "/styles" },
-      { name: "Natural Slab", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["slab-natural"], href: "/styles" },
-      { name: "Espresso Shaker", blurb: t("home_showcase_blurb_fallback"), scene: KITCHEN_SCENES["shaker-espresso"], href: "/styles" },
-    ],
-    [t]
-  );
-  const looks = useMemo(() => {
-    type S = { id: number; styleCode: string; ourName: string | null; doorStyle: string | null; color: string | null; woodSpecies: string | null; roomSceneImageUrl?: string | null };
-    const list = (styles ?? []).filter((s) => !!(s as S).roomSceneImageUrl) as S[];
-    if (list.length === 0) return fallback;
-    const bucketOf = (s: S) => {
-      const t2 = [s.color, s.ourName, s.doorStyle, s.woodSpecies].filter(Boolean).join(" ").toLowerCase();
-      if (/black|obsidian|onyx|tricorn|espresso|java|ebony/.test(t2)) return "dark";
-      if (/grey|gray|graphite|slate|sage|fog|navy|blue|cobalt/.test(t2)) return "gray";
-      if (/cherry|mahogany|chestnut|saddle|autumn|rust|spice/.test(t2)) return "warm";
-      if (/oak|honey|natural|maple|hickory|wheat|gold|solstice/.test(t2)) return "light";
-      return "white";
-    };
-    const seen = new Set<string>();
-    const picked: S[] = [];
-    for (const s of list) {
-      const b = bucketOf(s);
-      if (seen.has(b)) continue;
-      seen.add(b);
-      picked.push(s);
-      if (picked.length >= 5) break;
-    }
-    for (const s of list) {
-      if (picked.length >= 5) break;
-      if (picked.some((p) => p.id === s.id)) continue;
-      picked.push(s);
-    }
-    return picked.map((s) => ({
-      name: s.ourName || s.styleCode,
-      blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") || t("home_showcase_blurb_fallback"),
-      scene: s.roomSceneImageUrl as string,
-      href: `/family/${encodeURIComponent(s.styleCode)}`,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [styles, fallback, t]);
-  return (
-    <section className="py-16 md:py-20 bg-muted/30">
-      <div className="container">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
-            <span className="h-px w-8 bg-[var(--color-wood)]" />
-            {t("home_showcase_eyebrow")}
-            <span className="h-px w-8 bg-[var(--color-wood)]" />
-          </div>
-          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
-            {t("home_showcase_title")}
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            {t("home_showcase_sub")}
-          </p>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Feature the first look large */}
-          <Link href={looks[0].href} className="group relative col-span-1 md:row-span-2 overflow-hidden rounded-2xl shadow-sm transition-shadow hover:shadow-lg">
-            <img src={looks[0].scene} alt={looks[0].name} className="h-64 w-full object-cover transition-transform duration-500 group-hover:scale-105 md:h-full" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-            <div className="absolute bottom-5 left-5 right-5 text-white">
-              <div className="font-serif text-2xl font-bold">{looks[0].name}</div>
-              <div className="text-sm text-white/85">{looks[0].blurb}</div>
-              <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-gold)]">
-                {t("home_showcase_shop_this")} <ArrowRight className="h-4 w-4" />
-              </span>
-            </div>
-          </Link>
-
-          <div className="grid grid-cols-2 gap-6">
-            {looks.slice(1).map((look) => (
-              <Link key={look.name} href={look.href} className="group relative overflow-hidden rounded-2xl shadow-sm transition-shadow hover:shadow-lg">
-                <img src={look.scene} alt={look.name} className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                <div className="absolute bottom-3 left-3 right-3 text-white">
-                  <div className="font-serif text-base font-bold leading-tight">{look.name}</div>
-                  <div className="text-xs text-white/80">{look.blurb}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-10 text-center">
-          <Link href="/styles">
-            <Button size="lg" variant="outline" className="gap-2 bg-card">
-              {t("home_showcase_explore_all")} <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // ─── Footer ───────────────────────────────────────────────────────────────────
 
 function Footer() {
@@ -516,8 +572,9 @@ function Footer() {
                 { label: t("nav_design_tool"), href: "/design" },
                 { label: t("nav_build_an_order"), href: "/bulk-order" },
                 { label: t("nav_photo_to_cart"), href: "/photo-to-cart" },
-                { label: t("nav_pro_network"), href: "/pro-network" },
                 { label: "Surfaces & Fixtures", href: "/surfaces" },
+                { label: "Plumber's Choice", href: "/plumbers-choice" },
+                { label: "StoneCreek", href: "/stonecreek" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-white transition-colors">
@@ -547,7 +604,7 @@ function Footer() {
         </div>
 
         <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/40">
-          <span>© {new Date().getFullYear()} Cabinet Dealz. {t("footer_rights")}</span>
+          <span>&copy; {new Date().getFullYear()} Cabinet Dealz. {t("footer_rights")}</span>
           <span>{t("home_footer_members_only")}</span>
         </div>
       </div>
@@ -564,7 +621,6 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("auth_error")) {
       toast.error("Sign-in didn't complete. Please try again.");
-      // Clean the flag from the URL so it doesn't re-fire on refresh.
       params.delete("auth_error");
       const qs = params.toString();
       window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
@@ -573,13 +629,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <JulyBanner />
       <Hero />
+      <ProductShowcase />
       <DistributorsStrip />
       <StyleShowcase />
-      <AudienceCards />
-      <PlatformFeatures />
-      <CategoryLinks />
       <SurfacesBand />
+      <PlatformFeatures />
+      <AudienceCards />
       <Footer />
     </div>
   );
