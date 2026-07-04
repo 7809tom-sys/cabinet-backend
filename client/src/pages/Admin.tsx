@@ -22,6 +22,7 @@ import {
   UserRound,
   DollarSign,
   Inbox,
+  BarChart3,
 } from "lucide-react";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
@@ -609,11 +610,22 @@ export default function Admin() {
             Manage affiliates, review Pro Network applications, and handle countertop quote requests.
           </p>
         </div>
-        <a href={WEBMAIL_URL} target="_blank" rel="noopener noreferrer">
-          <Button variant="outline" className="gap-2">
-            <Inbox className="h-4 w-4" /> Email Inbox
-          </Button>
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={`${import.meta.env.VITE_ANALYTICS_ENDPOINT || "https://manus-analytics.com"}/websites/${import.meta.env.VITE_ANALYTICS_WEBSITE_ID || ""}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button variant="outline" className="gap-2">
+              <BarChart3 className="h-4 w-4" /> Analytics Dashboard
+            </Button>
+          </a>
+          <a href={WEBMAIL_URL} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" className="gap-2">
+              <Inbox className="h-4 w-4" /> Email Inbox
+            </Button>
+          </a>
+        </div>
       </div>
 
       <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
