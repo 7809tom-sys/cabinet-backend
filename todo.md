@@ -315,3 +315,9 @@
 - [x] Remove debug console.log from DesignTool.tsx (BBC-PLACE log)
 - [x] Update tests: BBC is NOT an L-corner, blindPullRange always defaults to 3-6", countertop width expectations
 - [x] All 1338 tests pass, TypeScript clean
+
+## BBC cabinet attributes panel
+- [x] Add door side (Left/Right) toggle to BBC properties panel with manual override
+- [x] Add pull distance from wall (editable input within pullMin-pullMax range) to BBC properties panel
+- [x] Changing door side should update the swing/door orientation in elevation view
+- [x] Changing pull distance stores blindPull on the cabinet (used by filler/countertop calculations)

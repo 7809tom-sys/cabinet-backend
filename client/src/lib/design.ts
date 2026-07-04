@@ -262,6 +262,12 @@ export interface PlacedCabinet {
   // (e.g. W-30-30 → W-30-30GD). Only valid for wall cabinets that have a
   // matching GD code in the catalog.
   glassDoor?: boolean;
+  // Blind corner pull distance (inches): how far the blind portion extends
+  // past the perpendicular wall into the corner. Editable by the user within
+  // [pullMin, pullMax] (defaults 3-6"). When set, the cabinet is positioned
+  // so that exactly this many inches are the "blind" section. When absent,
+  // defaults to pullMax (6") for auto-placed BBCs.
+  blindPull?: number | null;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal

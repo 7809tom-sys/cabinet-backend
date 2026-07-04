@@ -23,6 +23,8 @@ import {
   isCustomWidth,
   isCustomHeight,
   isCustomDepth,
+  isBlindCorner,
+  blindPullRange,
 } from "@/lib/design";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 
@@ -111,6 +113,8 @@ export interface CabinetAttributesDialogProps {
   // Glass door upgrade toggle
   onSetGlassDoor: (uid: string, glassDoor: boolean) => void;
   glassDoorAvailable: boolean;
+  // Blind corner pull distance
+  onSetBlindPull: (uid: string, pull: number) => void;
 }
 
 // Right-click attributes editor for a single placed cabinet (email item 1):
@@ -134,6 +138,7 @@ export function CabinetAttributesDialog({
   onSetRolloutQty,
   onSetGlassDoor,
   glassDoorAvailable,
+  onSetBlindPull,
 }: CabinetAttributesDialogProps) {
   const { t } = useLanguage();
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
@@ -324,6 +329,91 @@ export function CabinetAttributesDialog({
               </div>
             </section>
           )}
+
+          {/* Blind corner attributes */}
+          {isBlindCorner(cabinet.masterCode, cabinet.description) && (() => {
+            const range = blindPullRange(cabinet);
+            const pullMin = range?.min ?? 3;
+            const pullMax = range?.max ?? 6;
+            const currentPull = cabinet.blindPull ?? pullMax;
+            return (
+              <section className="space-y-3 border-t border-border pt-4">
+                <h4 className="text-sm font-semibold">Blind Corner</h4>
+
+                {/* Door side */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Door Side</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Which side of the cabinet the door opens from
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={swing === "left" ? "default" : "outline"}
+                      size="sm"
+                      className="h-8"
+                      onClick={() => onSetSwing(uid, "left")}
+                    >
+                      Left
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={swing === "right" ? "default" : "outline"}
+                      size="sm"
+                      className="h-8"
+                      onClick={() => onSetSwing(uid, "right")}
+                    >
+                      Right
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Pull distance from wall */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Pull from Wall</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Distance (inches) the blind portion extends from the corner wall ({pullMin}–{pullMax}")
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => onSetBlindPull(uid, Math.max(pullMin, currentPull - 1))}
+                      disabled={currentPull <= pullMin}
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </Button>
+                    <Input
+                      type="number"
+                      step="1"
+                      min={pullMin}
+                      max={pullMax}
+                      value={currentPull}
+                      className="h-8 w-20 text-center text-sm"
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (Number.isFinite(v)) onSetBlindPull(uid, Math.max(pullMin, Math.min(pullMax, v)));
+                      }}
+                      aria-label="Pull distance from wall"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => onSetBlindPull(uid, Math.min(pullMax, currentPull + 1))}
+                      disabled={currentPull >= pullMax}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground ml-1">" in</span>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
 
           {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
           <RollOutTrayPicker

@@ -2178,6 +2178,8 @@ export default function DesignTool() {
           const atEnd = cabEnd >= wallLen - 2;
           const cornerAtStart = atStart || (!atEnd && cabStart < wallLen / 2);
           if (range) {
+            // Store the pull distance as an attribute (defaults to max).
+            newCab.blindPull = range.max;
             // Position the cabinet so that `range.max` inches are the blind
             // portion tucked into the corner. The cabinet's near edge starts
             // at negative pull (i.e. x=0 with the blind portion overlapping
@@ -5739,37 +5741,90 @@ export default function DesignTool() {
                   </Button>
                 </>
               )}
-              {isBlindCorner(selectedCab.masterCode, selectedCab.description) && (
-                <>
-                  <div className="h-4 w-px bg-border" />
-                  <div
-                    className={`flex items-center gap-1 rounded px-1.5 py-0.5 ${
-                      typeof selectedCab.pullMin === "number" && typeof selectedCab.pullMax === "number"
-                        ? ""
-                        : "bg-red-50 ring-1 ring-red-300"
-                    }`}
-                    title={t("dt_cx_pull_spec_title")}
-                  >
-                    <span className="text-[11px] text-muted-foreground mr-0.5">{t("dt_cx_pull_spec")}</span>
-                    <Input
-                      type="number"
-                      value={typeof selectedCab.pullMin === "number" ? selectedCab.pullMin : ""}
-                      placeholder={t("dt_cx_min")}
-                      className="h-7 w-14 text-[11px]"
-                      onChange={(e) => setBlindPull("pullMin", e.target.value === "" ? null : Number(e.target.value))}
-                    />
-                    <span className="text-[11px] text-muted-foreground">–</span>
-                    <Input
-                      type="number"
-                      value={typeof selectedCab.pullMax === "number" ? selectedCab.pullMax : ""}
-                      placeholder={t("dt_cx_max")}
-                      className="h-7 w-14 text-[11px]"
-                      onChange={(e) => setBlindPull("pullMax", e.target.value === "" ? null : Number(e.target.value))}
-                    />
-                    <span className="text-[11px] text-muted-foreground">{t("dt_cx_in")}</span>
-                  </div>
-                </>
-              )}
+              {isBlindCorner(selectedCab.masterCode, selectedCab.description) && (() => {
+                const dRange = blindPullRange(selectedCab);
+                const dMin = dRange?.min ?? 3;
+                const dMax = dRange?.max ?? 6;
+                const dCurrent = selectedCab.blindPull ?? dMax;
+                const dSwing = resolveSwing(selectedCab);
+                return (
+                  <>
+                    <div className="h-4 w-px bg-border" />
+                    {/* Door side */}
+                    <div className="flex items-center gap-1" title="Door side">
+                      <span className="text-[11px] text-muted-foreground">Door:</span>
+                      <Button
+                        variant={dSwing === "left" ? "default" : "outline"}
+                        size="sm"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={() => setSwingFor(selectedCab.uid, "left")}
+                      >
+                        L
+                      </Button>
+                      <Button
+                        variant={dSwing === "right" ? "default" : "outline"}
+                        size="sm"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={() => setSwingFor(selectedCab.uid, "right")}
+                      >
+                        R
+                      </Button>
+                    </div>
+                    <div className="h-4 w-px bg-border" />
+                    {/* Pull distance */}
+                    <div className="flex items-center gap-1" title="Pull from wall">
+                      <span className="text-[11px] text-muted-foreground">Pull:</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setCabAttr(selectedCab.uid, { blindPull: Math.max(dMin, dCurrent - 1) })}
+                        disabled={dCurrent <= dMin}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="min-w-[24px] text-center font-mono text-[11px] tabular-nums">{dCurrent}"</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setCabAttr(selectedCab.uid, { blindPull: Math.min(dMax, dCurrent + 1) })}
+                        disabled={dCurrent >= dMax}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="h-4 w-px bg-border" />
+                    {/* Admin pull spec */}
+                    <div
+                      className={`flex items-center gap-1 rounded px-1.5 py-0.5 ${
+                        typeof selectedCab.pullMin === "number" && typeof selectedCab.pullMax === "number"
+                          ? ""
+                          : "bg-red-50 ring-1 ring-red-300"
+                      }`}
+                      title={t("dt_cx_pull_spec_title")}
+                    >
+                      <span className="text-[11px] text-muted-foreground mr-0.5">{t("dt_cx_pull_spec")}</span>
+                      <Input
+                        type="number"
+                        value={typeof selectedCab.pullMin === "number" ? selectedCab.pullMin : ""}
+                        placeholder={t("dt_cx_min")}
+                        className="h-7 w-14 text-[11px]"
+                        onChange={(e) => setBlindPull("pullMin", e.target.value === "" ? null : Number(e.target.value))}
+                      />
+                      <span className="text-[11px] text-muted-foreground">–</span>
+                      <Input
+                        type="number"
+                        value={typeof selectedCab.pullMax === "number" ? selectedCab.pullMax : ""}
+                        placeholder={t("dt_cx_max")}
+                        className="h-7 w-14 text-[11px]"
+                        onChange={(e) => setBlindPull("pullMax", e.target.value === "" ? null : Number(e.target.value))}
+                      />
+                      <span className="text-[11px] text-muted-foreground">{t("dt_cx_in")}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </>
           )}
           {selectedOpening && !drawMode && (
@@ -5973,36 +6028,102 @@ export default function DesignTool() {
                   </div>
                 )}
 
-                {isBlindCorner(selectedCab.masterCode, selectedCab.description) && (
-                  <div
-                    className={`rounded-xl border border-border p-3 ${
-                      typeof selectedCab.pullMin === "number" && typeof selectedCab.pullMax === "number"
-                        ? "bg-muted/30"
-                        : "bg-red-50 ring-1 ring-red-300"
-                    }`}
-                    title={t("dt_cx_pull_spec_title")}
-                  >
-                    <div className="mb-2 text-sm font-semibold text-foreground">{t("dt_cx_pull_spec")}</div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={typeof selectedCab.pullMin === "number" ? selectedCab.pullMin : ""}
-                        placeholder={t("dt_cx_min")}
-                        className="h-9 w-20 text-[12px]"
-                        onChange={(e) => setBlindPull("pullMin", e.target.value === "" ? null : Number(e.target.value))}
-                      />
-                      <span className="text-sm text-muted-foreground">–</span>
-                      <Input
-                        type="number"
-                        value={typeof selectedCab.pullMax === "number" ? selectedCab.pullMax : ""}
-                        placeholder={t("dt_cx_max")}
-                        className="h-9 w-20 text-[12px]"
-                        onChange={(e) => setBlindPull("pullMax", e.target.value === "" ? null : Number(e.target.value))}
-                      />
-                      <span className="text-sm text-muted-foreground">{t("dt_cx_in")}</span>
+                {isBlindCorner(selectedCab.masterCode, selectedCab.description) && (() => {
+                  const bRange = blindPullRange(selectedCab);
+                  const bMin = bRange?.min ?? 3;
+                  const bMax = bRange?.max ?? 6;
+                  const bCurrent = selectedCab.blindPull ?? bMax;
+                  const bSwing = resolveSwing(selectedCab);
+                  return (
+                    <div className="rounded-xl border border-border bg-muted/30 p-3">
+                      <div className="mb-3 text-sm font-semibold text-foreground">Blind Corner</div>
+
+                      {/* Door side */}
+                      <div className="mb-3">
+                        <div className="mb-1 text-[11px] text-muted-foreground">Door Side</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant={bSwing === "left" ? "default" : "outline"}
+                            size="sm"
+                            className="h-8"
+                            onClick={() => setSwingFor(selectedCab.uid, "left")}
+                          >
+                            Left
+                          </Button>
+                          <Button
+                            variant={bSwing === "right" ? "default" : "outline"}
+                            size="sm"
+                            className="h-8"
+                            onClick={() => setSwingFor(selectedCab.uid, "right")}
+                          >
+                            Right
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Pull distance */}
+                      <div className="mb-3">
+                        <div className="mb-1 text-[11px] text-muted-foreground">Pull from Wall ({bMin}–{bMax}")</div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setCabAttr(selectedCab.uid, { blindPull: Math.max(bMin, bCurrent - 1) })}
+                            disabled={bCurrent <= bMin}
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </Button>
+                          <Input
+                            type="number"
+                            step="1"
+                            min={bMin}
+                            max={bMax}
+                            value={bCurrent}
+                            className="h-8 w-16 text-center text-sm"
+                            onChange={(e) => {
+                              const v = Number(e.target.value);
+                              if (Number.isFinite(v)) setCabAttr(selectedCab.uid, { blindPull: Math.max(bMin, Math.min(bMax, v)) });
+                            }}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setCabAttr(selectedCab.uid, { blindPull: Math.min(bMax, bCurrent + 1) })}
+                            disabled={bCurrent >= bMax}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                          <span className="text-xs text-muted-foreground ml-1">" in</span>
+                        </div>
+                      </div>
+
+                      {/* Admin pull spec (min/max range) */}
+                      <div className="border-t border-border pt-2">
+                        <div className="mb-1 text-[11px] text-muted-foreground">{t("dt_cx_pull_spec")} (admin)</div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={typeof selectedCab.pullMin === "number" ? selectedCab.pullMin : ""}
+                            placeholder={t("dt_cx_min")}
+                            className="h-8 w-16 text-[12px]"
+                            onChange={(e) => setBlindPull("pullMin", e.target.value === "" ? null : Number(e.target.value))}
+                          />
+                          <span className="text-xs text-muted-foreground">–</span>
+                          <Input
+                            type="number"
+                            value={typeof selectedCab.pullMax === "number" ? selectedCab.pullMax : ""}
+                            placeholder={t("dt_cx_max")}
+                            className="h-8 w-16 text-[12px]"
+                            onChange={(e) => setBlindPull("pullMax", e.target.value === "" ? null : Number(e.target.value))}
+                          />
+                          <span className="text-xs text-muted-foreground">{t("dt_cx_in")}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
                 <RollOutTrayPicker
@@ -7497,6 +7618,7 @@ export default function DesignTool() {
         onSetRolloutQty={setRolloutQtyFor}
         onSetGlassDoor={setGlassDoorFor}
         glassDoorAvailable={glassDoorAvailableForAttr}
+        onSetBlindPull={(uid, pull) => setCabAttr(uid, { blindPull: pull })}
       />
 
       {/* Refrigerator Options: opens right after a fridge is dropped */}
