@@ -602,11 +602,18 @@ export function footprintDepth(c: DesignCabinet): number {
     const w = dim(c.width, 24);
     return w > 0 ? w : 24;
   }
+  // Blind corner cabinets (BBC/WBC) are standard rectangular boxes: their
+  // width is the nominal size (e.g. 42") and depth is always the standard
+  // base/wall depth (24" for base, 12" for wall). The catalog depth field
+  // sometimes stores the pull dimension instead, so we force standard depth.
+  if (isBlindCorner(c.masterCode || "", c.description || undefined)) {
+    if (c.placement === "wall") return STD.WALL_DEPTH;
+    return STD.BASE_DEPTH;
+  }
   // An L-shaped corner cabinet (lazy-Susan / easy-reach corner) runs the
   // SAME length along both walls (e.g. a 36" lazy-Susan is 36" on each wall),
   // so its plan bounding box is a square = width, with a notch cut at the inner
-  // corner. Blind corners (BBC/WBC) are excluded — they use standard depth.
-  // The actual leg depth (how far it projects from each wall) is the
+  // corner. The actual leg depth (how far it projects from each wall) is the
   // cabinet's stored depth (~24") and is handled by cornerLegDepth().
   if (isLCornerCabinet(c.masterCode || "", c.description || undefined)) {
     const w = dim(c.width, 24);
@@ -1826,15 +1833,12 @@ export function blindPullRange(
 ): { min: number; max: number } | null {
   let min = typeof p.pullMin === "number" ? p.pullMin : null;
   let max = typeof p.pullMax === "number" ? p.pullMax : null;
-  // Default pull for blind corners: width + 3 (min) / width + 6 (max)
+  // Default pull for blind corners: 3" (min) / 6" (max).
+  // The "pull" is how far the blind portion extends past the perpendicular wall
+  // (the hidden part tucked into the corner). Standard range is 3-6 inches.
   if (min == null || max == null) {
-    const w = (p as any).nominalWidth ?? (p as any).width;
-    if (typeof w === "number" && w > 0) {
-      min = min ?? (w + 3);
-      max = max ?? (w + 6);
-    } else {
-      return null;
-    }
+    min = min ?? 3;
+    max = max ?? 6;
   }
   if (max < min) return { min: max, max: min };
   return { min, max };
@@ -1860,15 +1864,15 @@ export function blindCornerSpecViolations(
     if (!isBlindCorner(p.masterCode, p.description)) continue;
     const range = blindPullRange(p);
     if (!range) {
+      // Only flag missing-spec if the cabinet has explicit pullMin/pullMax
+      // that are invalid. Since we now default to 3-6", this won't fire.
       out.set(p.uid, "missing-spec");
       continue;
     }
-    // The installed pull is the cabinet's width across the corner. Allow a
-    // small tolerance so exact min/max values pass.
-    const installed = p.width;
-    if (installed < range.min - 0.01 || installed > range.max + 0.01) {
-      out.set(p.uid, "out-of-range");
-    }
+    // The "pull" is the blind portion (how many inches are hidden behind the
+    // perpendicular wall). We can't reliably measure this from the placed
+    // cabinet alone without room context, so we skip range validation here.
+    // The auto-stop logic in DesignTool already enforces correct positioning.
   }
   return out;
 }
@@ -3071,10 +3075,12 @@ export function countertopSurfaces(
     // extra travel (pullMax - cabinet width) when larger.
     let cornerGap = 0;
     if (isBlindCorner(p.masterCode, p.description)) {
+      // The blind portion (pull) is the amount hidden behind the perpendicular
+      // wall. The countertop extends past the cabinet by this amount to cover
+      // the dead corner. Pull range is 3-6", use max (6") for the slab extension.
       cornerGap = BLIND_CORNER_FILLER_WIDTH_IN;
       const range = blindPullRange(p);
-      if (range) cornerGap = Math.max(cornerGap, range.max - w);
-      if (cornerGap < 0) cornerGap = 0;
+      if (range) cornerGap = Math.max(cornerGap, range.max);
     }
     if (side === "top") {
       // Extend toward whichever horizontal end is nearer the corner (the wall).

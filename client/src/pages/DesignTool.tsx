@@ -2165,29 +2165,37 @@ export default function DesignTool() {
           const wallSide = cabinetWall(newCab, room);
           const horiz = wallSide === "top" || wallSide === "bottom";
           const wallLen = horiz ? room.width : room.depth;
+          const cabWidth = horiz ? newCab.width : newCab.width;
           const cabStart = horiz ? newCab.x : newCab.y;
-          const cabEnd = cabStart + (horiz ? newCab.width : newCab.depth);
+          const cabEnd = cabStart + cabWidth;
           const range = blindPullRange(newCab);
+          // The "pull" is the blind portion — how many inches of the cabinet
+          // are hidden behind the perpendicular wall. Standard is 3-6".
+          // Auto-position: place the cabinet so the blind portion = range.max (6").
+          // BBC sits flush against the corner wall with `pull` inches extending
+          // past the perpendicular wall into the corner.
+          const atStart = cabStart <= 2;
+          const atEnd = cabEnd >= wallLen - 2;
+          const cornerAtStart = atStart || (!atEnd && cabStart < wallLen / 2);
           if (range) {
-            // The "pull" is how far the cabinet extends from the corner.
-            // If at start (corner on left): pull = cabEnd, must be <= range.max
-            // If at end (corner on right): pull = wallLen - cabStart, must be <= range.max
-            const atStart = cabStart <= 2;
-            const atEnd = cabEnd >= wallLen - 2;
-            if (atStart && cabEnd > range.max) {
-              // Clamp: move cabinet so its far edge is at max pull
-              if (horiz) { newCab.x = 0; newCab.width = Math.min(newCab.width, range.max); }
-              else { newCab.y = 0; newCab.depth = Math.min(newCab.depth, range.max); }
-            } else if (atEnd && (wallLen - cabStart) > range.max) {
-              // Clamp: move cabinet so its near edge respects max pull from far end
-              if (horiz) { newCab.x = Math.max(0, wallLen - range.max); }
-              else { newCab.y = Math.max(0, wallLen - range.max); }
+            // Position the cabinet so that `range.max` inches are the blind
+            // portion tucked into the corner. The cabinet's near edge starts
+            // at negative pull (i.e. x=0 with the blind portion overlapping
+            // into the corner). In plan view the cabinet starts at x=0 and
+            // the first `pull` inches are the blind section.
+            if (cornerAtStart) {
+              // Corner on left: cabinet starts at x=0, first 6" are blind
+              if (horiz) newCab.x = 0;
+              else newCab.y = 0;
+            } else {
+              // Corner on right: cabinet ends at wallLen, last 6" are blind
+              if (horiz) newCab.x = wallLen - cabWidth;
+              else newCab.y = wallLen - cabWidth;
             }
           }
           // Auto-swing: door faces the exposed side (away from corner).
           // If corner is at start (left), exposed side is right → swing = "right"
           // If corner is at end (right), exposed side is left → swing = "left"
-          const cornerAtStart = (horiz ? newCab.x : newCab.y) <= 2;
           newCab.swing = cornerAtStart ? "right" : "left";
         }
 
