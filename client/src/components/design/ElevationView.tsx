@@ -14,7 +14,7 @@ import {
   drawerCountForCabinet,
   displayDrawerCount,
 } from "@/lib/hardware";
-import { resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
+import { resolveDoorDrawerCounts, cabinetDrawingType, type CabinetDrawingType } from "@/lib/cabinetGraphics";
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -186,6 +186,7 @@ export function ElevationView({
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
+    const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
     const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
     return (
@@ -251,6 +252,7 @@ export function ElevationView({
               drawers={resolvedCounts.drawers || displayDrawerCount(p)}
               isWall={isWall}
               doorSampleUrl={cabDoorSampleUrl}
+              cabinetType={cabType}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -1219,10 +1221,175 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
+
+  // ─── SPECIALTY TYPE: SINK BASE ─────────────────────────────────────────
+  // Sink bases have a narrow false tilt-out panel at the top (for the tip-out
+  // tray) and two doors below. The false front is thinner than a normal drawer.
+  if (cabinetType === "sink-base") {
+    const falseFrontPct = 14; // narrow tilt-out tray panel
+    const cols = Math.max(1, doorCount || 2);
+    const colW = 100 / cols;
+    return (
+      <>
+        {/* false front (tilt-out tray) */}
+        <div className="absolute left-0 right-0 top-0" style={{ height: `${falseFrontPct}%` }}>
+          <div
+            className="absolute inset-[1.5px] rounded-[1px]"
+            style={{
+              ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 2px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}55`,
+            }}
+          />
+        </div>
+        {/* rail between false front and doors */}
+        <div className="absolute left-0 right-0" style={{ top: `${falseFrontPct}%`, height: 2, background: stroke }} />
+        {/* door region: N side-by-side doors */}
+        {Array.from({ length: cols }).map((_, i) => (
+          <div
+            key={`sink-door-${i}`}
+            className="absolute"
+            style={{ left: `${colW * i}%`, width: `${colW}%`, top: `${falseFrontPct}%`, bottom: 0 }}
+          >
+            {i > 0 && (
+              <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+            )}
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  // ─── SPECIALTY TYPE: GLASS DOOR ────────────────────────────────────────
+  // Glass-front cabinets: show the door frame with a lighter/translucent center
+  // panel to indicate glass instead of a solid wood panel.
+  if (cabinetType === "glass-door") {
+    const numDoors = Math.max(1, doorCount);
+    const doorWidthPct = 100 / numDoors;
+    return (
+      <>
+        {Array.from({ length: numDoors }).map((_, i) => (
+          <div
+            key={`glass-${i}`}
+            className="absolute top-0 bottom-0"
+            style={{ left: `${doorWidthPct * i}%`, width: `${doorWidthPct}%` }}
+          >
+            {i > 0 && (
+              <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+            )}
+            {/* Outer rail bevel */}
+            <div
+              className="absolute inset-0 rounded-[2px]"
+              style={{ boxShadow: `inset 1.5px 1.5px 0 rgba(255,255,255,0.26), inset -1.5px -1.5px 1px rgba(0,0,0,0.20)` }}
+            >
+              {/* Glass panel: lighter, semi-transparent to indicate glass */}
+              <div
+                className="absolute inset-[6px] rounded-[1.5px]"
+                style={{
+                  background: `linear-gradient(180deg, rgba(200,220,240,0.35) 0%, rgba(180,200,220,0.25) 50%, rgba(160,185,210,0.30) 100%)`,
+                  boxShadow: `inset 0 1px 4px rgba(255,255,255,0.40), inset 0 -1px 3px rgba(0,0,0,0.12), 0 0 0 0.5px ${edge}66`,
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  // ─── SPECIALTY TYPE: BLIND CORNER ──────────────────────────────────────
+  // Blind corner cabinets: show the visible door portion (typically one door)
+  // with a subtle blind panel indicator on the hidden side.
+  if (cabinetType === "blind-corner") {
+    // The visible face is typically ~60% of the width; the blind portion is hidden.
+    const visiblePct = 60;
+    return (
+      <>
+        {/* Blind (hidden) portion: subtle hatched/darker area */}
+        <div
+          className="absolute top-0 bottom-0 left-0"
+          style={{ width: `${100 - visiblePct}%` }}
+        >
+          <div
+            className="absolute inset-[2px] rounded-[1px]"
+            style={{
+              background: `repeating-linear-gradient(135deg, ${face}22 0px, ${face}22 3px, ${edge}33 3px, ${edge}33 4px)`,
+              boxShadow: `inset 0 0 4px rgba(0,0,0,0.15)`,
+            }}
+          />
+        </div>
+        {/* Visible door portion */}
+        <div
+          className="absolute top-0 bottom-0"
+          style={{ left: `${100 - visiblePct}%`, width: `${visiblePct}%` }}
+        >
+          <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+          <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />
+        </div>
+      </>
+    );
+  }
+
+  // ─── SPECIALTY TYPE: APPLIANCE GARAGE ──────────────────────────────────
+  // Tambour/roll-up slat pattern.
+  if (cabinetType === "appliance-garage") {
+    return (
+      <div
+        className="absolute inset-[1.5px] rounded-[2px]"
+        style={{
+          backgroundImage: `repeating-linear-gradient(0deg, color-mix(in srgb, ${face} 95%, #fff) 0px, color-mix(in srgb, ${face} 95%, #fff) 4px, color-mix(in srgb, ${face} 80%, #000) 4px, color-mix(in srgb, ${face} 80%, #000) 5px)`,
+          boxShadow: `inset 0 2px 4px rgba(0,0,0,0.20), 0 0 0 0.5px ${edge}66`,
+        }}
+      />
+    );
+  }
+
+  // ─── SPECIALTY TYPE: CORNER DRAWER BASE ─────────────────────────────────
+  // Corner drawer bases (CDB-*): L-shaped footprint with stacked drawers on
+  // the main visible face. Renders as a full-height drawer stack (like a
+  // drawer base) but with a small corner indicator on the left edge.
+  if (cabinetType === "corner-drawer-base") {
+    const dCount = Math.max(1, drawerCount || 3);
+    const sliceH = 100 / dCount;
+    return (
+      <>
+        {/* Corner indicator: subtle angled mark on left edge */}
+        <div
+          className="absolute top-0 bottom-0 left-0"
+          style={{ width: "8%" }}
+        >
+          <div
+            className="absolute inset-[2px] rounded-[1px]"
+            style={{
+              background: `repeating-linear-gradient(135deg, ${face}22 0px, ${face}22 3px, ${edge}33 3px, ${edge}33 4px)`,
+              boxShadow: `inset 0 0 3px rgba(0,0,0,0.12)`,
+            }}
+          />
+        </div>
+        {/* Main drawer stack */}
+        <div className="absolute top-0 bottom-0" style={{ left: "8%", right: 0 }}>
+          {Array.from({ length: dCount }).map((_, i) => (
+            <div
+              key={`cdb-drw-${i}`}
+              className="absolute left-0 right-0"
+              style={{ top: `${sliceH * i}%`, height: `${sliceH}%` }}
+            >
+              {i > 0 && (
+                <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
+              )}
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} />
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  // ─── STANDARD: DRAWERS + DOORS ─────────────────────────────────────────
   // When a cabinet has drawers, draw the drawer stack + (optional) door region.
   if (drawerCount > 0) {
     const hasDoors = doorCount > 0;
