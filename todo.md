@@ -382,3 +382,8 @@
 - [x] Make the page more visually exciting with product imagery and clear CTAs
 - [x] Ensure clear paths: "Buy Now" vs "Design Your Kitchen"
 - [x] Keep it SEO-friendly with proper headings and structure
+
+## Homepage Cleanup & Affiliate Promotion
+- [x] Remove redundant sections (SurfacesBand repeats ProductShowcase, CategoryLinks repeats info)
+- [x] Replace AudienceCards with a strong "Become an Affiliate" section highlighting advantages
+- [x] Show clear benefits: branded storefront, earn on every order, trade pricing, marketing support

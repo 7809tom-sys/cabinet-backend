@@ -1,14 +1,14 @@
 import { Link } from "wouter";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Building2, Users, ChevronRight, Sparkles, Star, ShowerHead, Bath } from "lucide-react";
+import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getLoginUrl } from "@/const";
+
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
-import { SurfacesBand } from "@/components/home/SurfacesBand";
+
 
 const CDN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M";
 
@@ -370,68 +370,82 @@ function StyleShowcase() {
   );
 }
 
-// ─── Audience Cards ───────────────────────────────────────────────────────────
+// ─── Become an Affiliate ──────────────────────────────────────────────────────
 
-function AudienceCards() {
-  const { t } = useLanguage();
-  const cards = [
+function AffiliatePromo() {
+  const advantages = [
     {
-      icon: Building2,
-      title: t("home_aud_suppliers_t"),
-      description: t("home_aud_suppliers_d"),
-      cta: t("home_aud_suppliers_cta"),
-      href: "/distributor",
-      color: "bg-blue-50 dark:bg-blue-950/30",
-      iconColor: "text-blue-600 dark:text-blue-400",
+      icon: Star,
+      title: "Your Own Branded Storefront",
+      description: "Get a custom-branded storefront powered by the full Cabinet Dealz catalog. Your name, your brand, our backend.",
+    },
+    {
+      icon: Sparkles,
+      title: "Earn on Every Order",
+      description: "Every kitchen or bath project that comes through your storefront earns you a commission. No inventory, no risk.",
     },
     {
       icon: Grid3X3,
-      title: t("home_aud_dealers_t"),
-      description: t("home_aud_dealers_d"),
-      cta: t("home_aud_dealers_cta"),
-      href: "/account",
-      color: "bg-amber-50 dark:bg-amber-950/30",
-      iconColor: "text-amber-600 dark:text-amber-400",
+      title: "Thousands of Products",
+      description: "Cabinets, countertops, tile, flooring, sinks, faucets, showers, toilets — your customers get access to everything.",
     },
     {
       icon: Users,
-      title: t("home_aud_affiliates_t"),
-      description: t("home_aud_affiliates_d"),
-      cta: t("home_aud_affiliates_cta"),
-      href: "/affiliate",
-      color: "bg-green-50 dark:bg-green-950/30",
-      iconColor: "text-green-600 dark:text-green-400",
+      title: "Trade Pricing Built In",
+      description: "Your customers see competitive trade pricing automatically. You don't negotiate — the platform handles it.",
+    },
+    {
+      icon: Palette,
+      title: "2D Design Tool Included",
+      description: "Your customers can design their kitchen right on your storefront with the built-in 2D planner. No extra software.",
+    },
+    {
+      icon: FileSpreadsheet,
+      title: "We Handle Fulfillment",
+      description: "Orders ship direct from the supply network. You focus on sales and relationships — we handle the logistics.",
     },
   ];
 
   return (
-    <section className="py-16 md:py-20 bg-muted/30">
-      <div className="container">
-        <div className="text-center mb-12">
-          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
-            {t("home_aud_title")}
+    <section className="py-20 md:py-28 relative overflow-hidden">
+      {/* Background accent */}
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-amber-50 dark:from-emerald-950/20 dark:via-background dark:to-amber-950/20" />
+      <div className="relative container">
+        <div className="text-center mb-14">
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-5">
+            <Sparkles className="h-4 w-4" />
+            Affiliate Program
+          </div>
+          <h2 className="font-serif text-3xl md:text-5xl font-bold text-foreground mb-4">
+            Become a Cabinet Dealz Affiliate
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            {t("home_aud_sub")}
+          <p className="text-muted-foreground text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
+            Launch your own branded kitchen & bath storefront — backed by the full Cabinet Dealz product catalog, trade pricing, and fulfillment network. Zero inventory. Zero risk. Maximum earning potential.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {cards.map((card) => (
-            <div key={card.title} className={`rounded-xl p-6 ${card.color} border border-border cabinet-card`}>
-              <div className={`inline-flex p-2.5 rounded-lg bg-white dark:bg-card mb-4 ${card.iconColor}`}>
-                <card.icon className="h-6 w-6" />
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          {advantages.map((adv) => (
+            <div key={adv.title} className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="inline-flex p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 mb-4">
+                <adv.icon className="h-5 w-5" />
               </div>
-              <h3 className="font-serif text-xl font-bold text-foreground mb-2">{card.title}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed mb-5">{card.description}</p>
-              <Link href={card.href}>
-                <Button variant="outline" size="sm" className="gap-1.5 bg-white dark:bg-card">
-                  {card.cta}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
-              </Link>
+              <h3 className="font-serif text-lg font-bold text-foreground mb-2">{adv.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{adv.description}</p>
             </div>
           ))}
+        </div>
+
+        <div className="text-center">
+          <Link href="/affiliate">
+            <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 px-8 py-6 text-base">
+              Start Your Affiliate Storefront
+              <ArrowRight className="h-5 w-5" />
+            </Button>
+          </Link>
+          <p className="text-sm text-muted-foreground mt-3">
+            Free to join. No upfront costs. Start earning from day one.
+          </p>
         </div>
       </div>
     </section>
@@ -634,9 +648,8 @@ export default function Home() {
       <ProductShowcase />
       <DistributorsStrip />
       <StyleShowcase />
-      <SurfacesBand />
       <PlatformFeatures />
-      <AudienceCards />
+      <AffiliatePromo />
       <Footer />
     </div>
   );
