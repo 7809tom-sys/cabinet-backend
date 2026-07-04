@@ -240,3 +240,10 @@
 - [x] Remove the "no manufacturer pull spec" conflict — use default +3" pull
 - [x] Countertop extends all the way to the wall (covers dead space behind blind corner)
 - [x] Fix FILL-3 showing 24"W — filler width should come from the number in the name (FILL-3 = 3"W)
+
+## Fix: Distributor lock should engage on first cabinet placement
+- [x] When the first cabinet is placed, automatically lock to that cabinet's distributor
+- [x] After locking, catalog only shows cabinets from that same distributor/collection
+- [x] Override still available with shipping warning dialog (existing behavior)
+- [x] Picking a door style alone does NOT lock (already fixed)
+- [x] Added visible "Collection" filter dropdown in catalog panel for easy switching
