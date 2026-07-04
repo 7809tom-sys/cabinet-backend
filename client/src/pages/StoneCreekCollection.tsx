@@ -9,7 +9,8 @@ import { useSeo } from "@/hooks/useSeo";
 import { formatPrice } from "@/lib/pelican";
 import { requestSurfaceHandoff } from "@/lib/surfaceSelection";
 import { toast } from "sonner";
-import { Droplets, ShowerHead, ChefHat, ArrowRight, Sparkles, PaintBucket } from "lucide-react";
+import { Droplets, ShowerHead, ChefHat, ArrowRight, Sparkles, PaintBucket, ShoppingCart } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
 
 const HERO_KITCHEN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-kitchen-hero-GNgNkcBRXKeBwSEoXrBMBg.webp";
 const HERO_BATH = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-bath-hero-fCp9GA4H5XXQNmpgUdMiWg.webp";
@@ -284,6 +285,32 @@ export default function StoneCreekCollection() {
 
 function StoneCreekCard({ product, onAddToDesign }: { product: any; onAddToDesign: (p: any) => void }) {
   const finish = finishFromName(product.name ?? "");
+  const { addItem } = useCart();
+  const [, navigate] = useLocation();
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!product.sellPrice) return;
+    const res = addItem({
+      masterCode: product.pelicanCode ?? product.slug ?? `SC-${product.id}`,
+      name: product.name,
+      styleId: 0,
+      styleLabel: "StoneCreek",
+      distributorId: null,
+      tier: "homeowner",
+      unitPrice: product.sellPrice ?? null,
+      qty: 1,
+      imageUrl: product.imageUrl ?? null,
+      category: product.category ?? "Sinks & Faucets",
+    });
+    if (res.ok) {
+      toast.success(`Added ${product.name} to cart`, {
+        action: { label: "View Cart", onClick: () => navigate("/cart") },
+      });
+    }
+  };
+
   return (
     <Link href={`/surfaces/product/${product.slug}`}>
       <Card className="group h-full overflow-hidden border-border/70 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg cursor-pointer">
@@ -321,18 +348,30 @@ function StoneCreekCard({ product, onAddToDesign }: { product: any; onAddToDesig
             ) : (
               <span className="text-xs text-muted-foreground">Contact for pricing</span>
             )}
-            <Button
-              size="sm"
-              variant="default"
-              className="text-xs h-7 px-2"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onAddToDesign(product);
-              }}
-            >
-              <PaintBucket className="mr-1 h-3 w-3" /> Add to Design
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-7 px-2"
+                onClick={handleAddToCart}
+                disabled={!product.sellPrice}
+                title="Add to Cart"
+              >
+                <ShoppingCart className="h-3 w-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                className="text-xs h-7 px-2"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAddToDesign(product);
+                }}
+              >
+                <PaintBucket className="mr-1 h-3 w-3" /> Design
+              </Button>
+            </div>
           </div>
         </div>
       </Card>

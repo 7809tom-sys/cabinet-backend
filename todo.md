@@ -351,3 +351,12 @@
 - [ ] Pair sinks + faucets together on product pages ("Complete this look")
 - [x] Add "Add to My Design" button that sets faucet/sink in active design
 - [ ] Filter StoneCreek products into the design tool surfaces palette
+
+## Universal Shopping Cart
+- [x] Add "Add to Cart" button on SurfacesProduct page (pelican products: faucets, sinks, flooring, tile, quartz, toilets, shower)
+- [x] Add "Add to Cart" button on StoneCreek collection cards (alongside existing "Add to Design")
+- [x] Add "Add to Cart" button on SurfacesCategory grid cards
+- [x] Cart supports all product types: cabinets (existing), pelican products (new)
+- [x] Cart items show product name, price, quantity controls, and category
+- [x] Cart page handles pelican products (no distributor lock for non-cabinet items)
+- [x] Cart badge in nav already works (verify)

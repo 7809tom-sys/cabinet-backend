@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -6,11 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSeo } from "@/hooks/useSeo";
 import { categorySlug, CATEGORY_GRADIENT, formatPrice } from "@/lib/pelican";
-import { ArrowLeft, PencilRuler, Star, Waves } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
+import { ArrowLeft, Minus, PencilRuler, Plus, ShoppingCart, Star, Waves } from "lucide-react";
+import { toast } from "sonner";
 
 export default function SurfacesProduct({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
   const { data, isLoading, error } = trpc.pelican.bySlug.useQuery({ slug });
+  const { addItem } = useCart();
+  const [qty, setQty] = useState(1);
 
   useSeo({
     title: data
@@ -20,6 +25,28 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
     type: "product",
     image: data?.imageUrl ?? undefined,
   });
+
+  const handleAddToCart = () => {
+    if (!data) return;
+    const res = addItem({
+      masterCode: data.pelicanCode,
+      name: data.name,
+      styleId: 0, // No style for pelican products
+      styleLabel: data.category,
+      distributorId: null, // Pelican products bypass distributor lock
+      tier: "homeowner",
+      unitPrice: data.sellPrice ?? null,
+      qty,
+      imageUrl: data.imageUrl ?? null,
+      category: data.category,
+    });
+    if (res.ok) {
+      toast.success(`Added ${qty}\u00d7 ${data.name} to cart`, {
+        description: data.category,
+        action: { label: "View Cart", onClick: () => navigate("/cart") },
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -109,14 +136,40 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
             </p>
           )}
 
-          <div className="mt-7 flex flex-wrap gap-3">
+          {/* Quantity + Add to Cart */}
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1 rounded-lg border border-border">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                aria-label="Decrease quantity"
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <span className="w-8 text-center text-sm font-medium">{qty}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setQty((q) => q + 1)}
+                aria-label="Increase quantity"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              onClick={handleAddToCart}
+              className="gap-2"
+              disabled={!data.sellPrice}
+            >
+              <ShoppingCart className="h-4 w-4" /> Add to Cart
+            </Button>
             <Link href="/design">
-              <Button className="gap-2 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90">
+              <Button variant="outline" className="gap-2">
                 <PencilRuler className="h-4 w-4" /> Add to a Design
               </Button>
-            </Link>
-            <Link href="/pro-network">
-              <Button variant="outline">Talk to a Pro</Button>
             </Link>
           </div>
 

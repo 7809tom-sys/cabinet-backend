@@ -1,8 +1,11 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CATEGORY_GRADIENT, formatPrice } from "@/lib/pelican";
-import { Star } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
+import { ShoppingCart, Star } from "lucide-react";
+import { toast } from "sonner";
 
 export type PelicanCardProduct = {
   id: number;
@@ -14,10 +17,37 @@ export type PelicanCardProduct = {
   imageUrl?: string | null;
   sellPrice: number | null;
   isPopular?: boolean;
+  pelicanCode?: string;
 };
 
 export function PelicanProductCard({ product }: { product: PelicanCardProduct }) {
   const gradient = CATEGORY_GRADIENT[product.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
+  const { addItem } = useCart();
+  const [, navigate] = useLocation();
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!product.sellPrice) return;
+    const res = addItem({
+      masterCode: product.pelicanCode ?? product.slug ?? `PEL-${product.id}`,
+      name: product.name,
+      styleId: 0,
+      styleLabel: product.category,
+      distributorId: null,
+      tier: "homeowner",
+      unitPrice: product.sellPrice,
+      qty: 1,
+      imageUrl: product.imageUrl ?? null,
+      category: product.category,
+    });
+    if (res.ok) {
+      toast.success(`Added ${product.name} to cart`, {
+        action: { label: "View Cart", onClick: () => navigate("/cart") },
+      });
+    }
+  };
+
   return (
     <Link href={`/surfaces/product/${product.slug}`}>
       <Card className="group h-full overflow-hidden border-border/70 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -57,8 +87,21 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
           {product.size && (
             <div className="text-xs text-muted-foreground">{product.size}</div>
           )}
-          <div className="pt-1 text-base font-bold text-[var(--color-navy)] dark:text-foreground">
-            {formatPrice(product.sellPrice)}
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-base font-bold text-[var(--color-navy)] dark:text-foreground">
+              {formatPrice(product.sellPrice)}
+            </span>
+            {product.sellPrice && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 w-7 p-0"
+                onClick={handleAddToCart}
+                title="Add to Cart"
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </div>
       </Card>

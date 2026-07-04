@@ -25,6 +25,10 @@ export type CartItem = {
   bundleRole?: "top" | "bottom";
   /** Explanation of box-quantity calculation (e.g. "30 sq ft × 15% → 4 boxes") */
   qtyNote?: string;
+  /** Product image URL (for pelican products, surfaces, etc.) */
+  imageUrl?: string | null;
+  /** Product category (e.g. "Sinks & Faucets", "Flooring") — used for display grouping */
+  category?: string | null;
 };
 
 // Result of an addItem attempt. The cart is locked to ONE DISTRIBUTOR (supply
@@ -107,9 +111,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // The cart's lock is the DISTRIBUTOR of whatever is already in it. Style/color
   // are kept only for friendly messaging — they do NOT constrain adds.
-  const lockedDistributorId = items.length > 0 ? items[0].distributorId : null;
-  const lockedStyleId = items.length > 0 ? items[0].styleId : null;
-  const lockedStyleLabel = items.length > 0 ? items[0].styleLabel : null;
+  // NOTE: Only items WITH a distributorId participate in the lock. Pelican
+  // products (faucets, sinks, surfaces) have distributorId = null and are
+  // always allowed — they don't set or break the lock.
+  const firstCabinetItem = items.find((i) => i.distributorId != null) ?? null;
+  const lockedDistributorId = firstCabinetItem?.distributorId ?? null;
+  const lockedStyleId = firstCabinetItem?.styleId ?? null;
+  const lockedStyleLabel = firstCabinetItem?.styleLabel ?? null;
 
   const api = useMemo<CartState>(() => {
     const addItem = (item: CartItem): AddItemResult => {
@@ -117,17 +125,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // and door styles mix freely, but every line must come from the SAME
       // distributor. Reject only when the incoming item is from a DIFFERENT
       // distributor than what's already in the cart.
-      const current = items[0];
+      //
+      // Items with distributorId = null (pelican products, surfaces, accessories)
+      // are ALWAYS allowed — they bypass the lock entirely.
       const decision = canAddToCart(
-        current ? current.distributorId : null,
+        lockedDistributorId,
         item.distributorId
       );
-      if (!decision.ok && current && current.distributorId != null) {
+      if (!decision.ok && lockedDistributorId != null) {
         return {
           ok: false,
           reason: "distributor_locked",
-          lockedDistributorId: current.distributorId,
-          lockedStyleLabel: current.styleLabel,
+          lockedDistributorId,
+          lockedStyleLabel: lockedStyleLabel ?? "",
         };
       }
       setItems((prev) => {
