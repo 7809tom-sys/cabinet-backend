@@ -6,7 +6,7 @@ import {
   type PlacedCabinet, type RoomData, type WallSide,
   type SinkFixture,
   COUNTERTOP_DEPTH_IN, countertopMaterial, edgeProfile,
-  countertopArea, countertopSurfaces, cabinetWall, rotatedSize,
+  countertopArea, countertopSurfaces, cabinetWall, placedFootprint,
   bearsCountertop,
 } from "@/lib/design";
 
@@ -72,7 +72,7 @@ function mergeRunsOnWall(
   let maxEnd = 0;
   for (const p of basesOnWall) {
     const pos = horizontal ? p.x : p.y;
-    const size = rotatedSize(p).w;
+    const size = placedFootprint(p).w;
     if (pos < minPos) minPos = pos;
     if (pos + size > maxEnd) maxEnd = pos + size;
   }

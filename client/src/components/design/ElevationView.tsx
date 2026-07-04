@@ -1,11 +1,11 @@
 import {
-  PlacedCabinet, RoomData, STD, elevationBox, rotatedSize, WallOpening,
+  PlacedCabinet, RoomData, STD, elevationBox, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
   type DoorPanelKind, type WallSide, cabinetWall,
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine, isBlindCorner,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -166,7 +166,10 @@ export function ElevationView({
   // is pinned to the corner end of the wall (posAlong 0), drawn as a render-only
   // ghost of a corner cabinet that physically wraps this corner.
   const renderCabinetBox = (p: PlacedCabinet, seam = false) => {
-    const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+    // Blind corner cabinets: always use the full nominal width along the wall,
+    // regardless of stored depth (which may be stale/wrong from old saves).
+    const fp = placedFootprint(p);
+    const sizeAlong = horizontal ? fp.w : fp.d;
     const posAlong = seam ? 0 : (horizontal ? p.x : p.y);
     const { bottom, height } = elevationBox(p, room);
     const isWall = p.placement === "wall";
@@ -324,7 +327,7 @@ export function ElevationView({
       return;
     }
     if (!onMove) return;
-    const sizeAlong = horizontal ? rotatedSize(cabinet).w : rotatedSize(cabinet).d;
+    const sizeAlong = horizontal ? placedFootprint(cabinet).w : placedFootprint(cabinet).d;
     const planSpanLen = horizontal ? room.width : room.depth;
     const pxAlong = horizontal
       ? e.clientX - wallRect.left - dragOffset.current
@@ -367,7 +370,7 @@ export function ElevationView({
     let hi = planSpanLen - sizeAlong;
     for (const o of others) {
       const oAlong = horizontal ? o.x : o.y;
-      const oSize = horizontal ? rotatedSize(o).w : rotatedSize(o).d;
+      const oSize = horizontal ? placedFootprint(o).w : placedFootprint(o).d;
       const leftLimit = oAlong - sizeAlong; // start must be <= this to sit left of o
       const rightLimit = oAlong + oSize; // start must be >= this to sit right of o
       const center = newAlong + sizeAlong / 2;
@@ -386,7 +389,7 @@ export function ElevationView({
     // Gentle magnet: if we're within SNAP of a neighbour edge, sit flush.
     for (const o of others) {
       const oAlong = horizontal ? o.x : o.y;
-      const oSize = horizontal ? rotatedSize(o).w : rotatedSize(o).d;
+      const oSize = horizontal ? placedFootprint(o).w : placedFootprint(o).d;
       if (Math.abs(newAlong + sizeAlong - oAlong) <= SNAP) newAlong = oAlong - sizeAlong;
       if (Math.abs(newAlong - (oAlong + oSize)) <= SNAP) newAlong = oAlong + oSize;
     }
@@ -425,7 +428,7 @@ export function ElevationView({
         if (!onMove) return;
         e.preventDefault();
         const dir = e.key === "ArrowLeft" ? -1 : 1;
-        const sizeAlong = horizontal ? rotatedSize(cab).w : rotatedSize(cab).d;
+        const sizeAlong = horizontal ? placedFootprint(cab).w : placedFootprint(cab).d;
         const planSpanLen = horizontal ? room.width : room.depth;
         const cur = horizontal ? cab.x : cab.y;
         const next = Math.max(0, Math.min(planSpanLen - sizeAlong, cur + dir * step));
@@ -580,7 +583,7 @@ export function ElevationView({
           const spans = sorted
             .filter(isBridgeable)
             .map((p) => {
-              const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+              const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
               const posAlong = horizontal ? p.x : p.y;
               return { start: posAlong, end: posAlong + sizeAlong };
             })
@@ -645,7 +648,7 @@ export function ElevationView({
           const rangeSpans = sorted
             .filter((p) => isRangeOrOven(p.masterCode, p.description))
             .map((p) => {
-              const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+              const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
               const posAlong = horizontal ? p.x : p.y;
               return { start: posAlong, end: posAlong + sizeAlong };
             });
@@ -803,7 +806,7 @@ export function ElevationView({
         {sorted
           .filter((p) => (p.placement === "base" || p.placement === "tall" || p.placement === "appliance") && p.cabinetId !== 0)
           .map((p) => {
-            const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+            const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
             const posAlong = horizontal ? p.x : p.y;
             return (
               <div
@@ -839,7 +842,7 @@ export function ElevationView({
           return sorted
             .filter((p) => p.placement === "base" && p.cabinetId !== 0)
             .map((p) => {
-              const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+              const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
               const posAlong = horizontal ? p.x : p.y;
               return (
                 <div
@@ -868,7 +871,7 @@ export function ElevationView({
             the countertop so the faucet is visible in Front View even though
             the sink bowl is cut into the counter. */}
         {sorted.filter((p) => isSinkBaseCabinet(p)).map((p) => {
-          const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const centerX = (posAlong + sizeAlong / 2) * ppi;
           const riserH = 8 * ppi;          // 8" riser above countertop
@@ -905,7 +908,7 @@ export function ElevationView({
 
         {/* Crown molding: band across the top of each wall cabinet */}
         {crown && sorted.filter((p) => p.placement === "wall").map((p) => {
-          const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const { bottom, height } = elevationBox(p, room);
           const cabF = finishFor ? finishFor(p) : finish;
@@ -931,7 +934,7 @@ export function ElevationView({
         {/* Light rail: slim valance strip under the bottom edge of each wall
             cabinet (hides under-cabinet lighting). */}
         {lightRail && sorted.filter((p) => p.placement === "wall").map((p) => {
-          const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const { bottom } = elevationBox(p, room);
           const cabF = finishFor ? finishFor(p) : finish;
@@ -956,7 +959,7 @@ export function ElevationView({
 
         {/* Toe kick: recessed strip under base & tall cabinets, matching cabinet color */}
         {toeKick && sorted.filter((p) => (p.placement === "base" || p.placement === "tall") && p.cabinetId !== 0).map((p) => {
-          const sizeAlong = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const cabF = finishFor ? finishFor(p) : finish;
           const toeH = Math.max(3, TOE_KICK_HEIGHT_IN * ppi);
@@ -990,7 +993,7 @@ export function ElevationView({
             if (i === arr.length - 1) return null;
             const next = arr[i + 1];
             const pAlong = horizontal ? p.x : p.y;
-            const pSize = horizontal ? rotatedSize(p).w : rotatedSize(p).d;
+            const pSize = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
             const nextAlong = horizontal ? next.x : next.y;
             const pEnd = pAlong + pSize;
             // Only draw where the two cabinets actually touch (within 1.5").

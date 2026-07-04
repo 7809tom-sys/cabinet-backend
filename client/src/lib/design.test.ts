@@ -1149,20 +1149,21 @@ describe("countertopSurfaces", () => {
   });
 
   it("runs the countertop to the wall over a pulled blind corner (top wall, left corner)", () => {
-    // Blind base pulled 3" off the left corner: cabinet starts at x=3, width 36.
-    // The slab should extend back to x=0 and be 3" wider to cover the dead corner.
-    const blind = cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36, depth: 24, x: 3, y: 0 });
+    // Blind base pulled 6" off the left corner: cabinet starts at x=6, width 36.
+    // The slab should extend back to x=0 and be 6" wider to cover the dead corner
+    // (default pull max is 6").
+    const blind = cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36, depth: 24, x: 6, y: 0 });
     const [s] = countertopSurfaces([blind], ROOM_12x10);
     expect(s.x).toBe(0);
-    expect(s.width).toBe(39); // 36 + 3" filler gap
+    expect(s.width).toBe(42); // 36 + 6" default pull max
   });
 
-  it("uses the pull-spec travel when wider than the default filler", () => {
-    // pullMax 42 on a 36" cabinet -> 6" of travel, wider than the 3" default.
-    const blind = cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36, depth: 24, x: 6, y: 0, pullMin: 36, pullMax: 42 });
+  it("uses the pull-spec travel when wider than the default", () => {
+    // pullMax 9 on a 36" cabinet -> 9" of travel.
+    const blind = cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36, depth: 24, x: 9, y: 0, pullMin: 3, pullMax: 9 });
     const [s] = countertopSurfaces([blind], ROOM_12x10);
     expect(s.x).toBe(0);
-    expect(s.width).toBe(42); // 36 + 6" travel
+    expect(s.width).toBe(45); // 36 + 9" pull max
   });
 });
 
@@ -1519,43 +1520,32 @@ describe("wall cabinet clearance from doors/windows", () => {
 });
 
 describe("blind corner pull spec", () => {
-  it("blindPullRange returns null when spec missing", () => {
-    expect(blindPullRange({})).toBeNull();
-    expect(blindPullRange({ pullMin: 36 })).toBeNull();
-    expect(blindPullRange({ pullMax: 39 })).toBeNull();
+  it("blindPullRange defaults to 3-6 when spec missing", () => {
+    // With the corrected behavior, blindPullRange always returns a value
+    // (defaults to 3-6") so cabinets can always be placed.
+    expect(blindPullRange({})).toEqual({ min: 3, max: 6 });
+    expect(blindPullRange({ pullMin: 3 })).toEqual({ min: 3, max: 6 });
+    expect(blindPullRange({ pullMax: 9 })).toEqual({ min: 3, max: 9 });
   });
 
   it("blindPullRange normalizes swapped min/max", () => {
-    expect(blindPullRange({ pullMin: 39, pullMax: 36 })).toEqual({ min: 36, max: 39 });
-    expect(blindPullRange({ pullMin: 36, pullMax: 39 })).toEqual({ min: 36, max: 39 });
+    expect(blindPullRange({ pullMin: 9, pullMax: 3 })).toEqual({ min: 3, max: 9 });
+    expect(blindPullRange({ pullMin: 3, pullMax: 9 })).toEqual({ min: 3, max: 9 });
   });
 
-  it("flags a blind corner with NO pull spec as missing-spec", () => {
+  it("does not flag missing-spec when defaults apply", () => {
+    // Since defaults always apply (3-6"), no BBC is ever flagged as missing-spec.
     const v = blindCornerSpecViolations([
       cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36 }),
-    ]);
-    expect(v.get("bc")).toBe("missing-spec");
-  });
-
-  it("passes a blind corner whose installed width is within [min,max]", () => {
-    const v = blindCornerSpecViolations([
-      cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 37, pullMin: 36, pullMax: 39 }),
     ]);
     expect(v.has("bc")).toBe(false);
   });
 
-  it("flags out-of-range when installed width exceeds max", () => {
+  it("passes a blind corner whose installed pull is within [min,max]", () => {
     const v = blindCornerSpecViolations([
-      cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 41, pullMin: 36, pullMax: 39 }),
+      cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 37, pullMin: 3, pullMax: 9 }),
     ]);
-    expect(v.get("bc")).toBe("out-of-range");
-  });
-
-  it("flags out-of-range when installed width is below min", () => {
-    const v = blindCornerSpecViolations([
-      cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 34, pullMin: 36, pullMax: 39 }),
-    ]);
-    expect(v.get("bc")).toBe("out-of-range");
+    expect(v.has("bc")).toBe(false);
   });
 
   it("ignores non-blind cabinets", () => {
@@ -1724,11 +1714,12 @@ describe("corner base palette classification", () => {
 });
 
 describe("lazy-Susan / L-corner footprint", () => {
-  it("classifies lazy-Susan, blind, and easy-reach corners as L-corner (not diagonal)", () => {
+  it("classifies lazy-Susan and easy-reach corners as L-corner (not diagonal or blind)", () => {
     expect(isLCornerCabinet("LSB36")).toBe(true);
     expect(isLCornerCabinet("LSB33")).toBe(true);
-    expect(isLCornerCabinet("BBC-45", "Blind Corner Base")).toBe(true);
     expect(isLCornerCabinet("ERB-33", "Easy Reach Corner Base")).toBe(true);
+    // Blind corners are NOT L-corners — they are rectangular boxes.
+    expect(isLCornerCabinet("BBC-45", "Blind Corner Base")).toBe(false);
     // Diagonal corners are NOT L-corners (they get the angled-face clip instead).
     expect(isLCornerCabinet("DCW-2424", "Diagonal Corner Wall")).toBe(false);
     // Ordinary cabinets are never L-corners.
@@ -1828,11 +1819,14 @@ describe("corner cabinet routing (keep Corner Base & Corner Wall separate, none 
     }
   });
 
-  it("treats L-corner base cabinets (blind/lazy-susan/easy-reach) as L (not diagonal)", () => {
-    for (const code of ["BBC-36", "ERB-33", "LSB33", "LSB36", "LSB36ADA"]) {
+  it("treats L-corner base cabinets (lazy-susan/easy-reach) as L (not diagonal)", () => {
+    for (const code of ["ERB-33", "LSB33", "LSB36", "LSB36ADA"]) {
       expect(isLCornerCabinet(code), `${code} should be an L-corner`).toBe(true);
       expect(isDiagonalCorner(code), `${code} should NOT be diagonal`).toBe(false);
     }
+    // Blind corners are rectangular, NOT L-corners.
+    expect(isLCornerCabinet("BBC-36")).toBe(false);
+    expect(isDiagonalCorner("BBC-36")).toBe(false);
   });
 
   it("does NOT classify ordinary base/wall cabinets as corner cabinets", () => {

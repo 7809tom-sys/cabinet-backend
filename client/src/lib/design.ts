@@ -653,6 +653,17 @@ export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
     const side = lCornerBoxSide(p.placement);
     return { w: side, d: side };
   }
+  // Blind corner cabinets (BBC/WBC) are rectangular boxes. Their stored depth
+  // may be stale (old saves stored the pull dimension or got normalized wrong).
+  // Force the correct standard depth so the full box always renders.
+  if (isBlindCorner(p.masterCode, p.description)) {
+    const stdDepth = p.placement === "wall" ? 12 : 24;
+    const rot = ((p.rotation % 360) + 360) % 360;
+    if (rot === 90 || rot === 270) {
+      return { w: stdDepth, d: p.width };
+    }
+    return { w: p.width, d: stdDepth };
+  }
   const sz = rotatedSize(p);
   // Defensive floor: a real cabinet box must never render as an invisible sliver
   // because of bad/missing catalog data (e.g. depth 0/0.75/NULL). We do NOT
@@ -825,7 +836,7 @@ export function orientToWall(
 }
 
 export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): boolean {
-  const { w, d } = rotatedSize(moving);
+  const { w, d } = placedFootprint(moving);
   for (const o of others) {
     if (o.uid === moving.uid) continue;
     const samePlacement = o.placement === moving.placement;
@@ -844,7 +855,7 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
       // intended layout — not a collision.
       if (isBridgeOverRange(moving, o)) continue;
     }
-    const os = rotatedSize(o);
+    const os = placedFootprint(o);
     const overlap =
       moving.x < o.x + os.w &&
       moving.x + w > o.x &&
@@ -857,7 +868,7 @@ export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): bo
 
 // Footprint rectangle (rotation-aware) for a placed item.
 function footprintRect(p: PlacedCabinet): { x1: number; y1: number; x2: number; y2: number } {
-  const { w, d } = rotatedSize(p);
+  const { w, d } = placedFootprint(p);
   return { x1: p.x, y1: p.y, x2: p.x + w, y2: p.y + d };
 }
 
@@ -2888,7 +2899,7 @@ export interface WallSpanMeasure {
 // Project a placed item onto the run axis of a wall, returning [start, end] in
 // inches. For top/bottom walls the run axis is X; for left/right it is Y.
 function runSpan(p: PlacedCabinet, side: WallSide): { start: number; end: number } {
-  const { w, d } = rotatedSize(p);
+  const { w, d } = placedFootprint(p);
   const horizontal = side === "top" || side === "bottom";
   const start = horizontal ? p.x : p.y;
   const span = horizontal ? w : d;
@@ -3065,7 +3076,7 @@ export function countertopSurfaces(
     // Only true countertop-bearing base cabinets get a slab (base/sink-base/
     // island bases) — never tall cabinets, appliances, panels, or fillers.
     if (!bearsCountertop(p)) continue;
-    const { w } = rotatedSize(p);
+    const { w } = placedFootprint(p);
     const side = cabinetWall(p, room);
     // Blind corner bases install pulled away from the corner (by the filler /
     // pull gap). Even though the cabinet is pulled off the wall, the countertop

@@ -41,29 +41,32 @@ describe("isBlindCorner", () => {
 
 describe("blindPullRange", () => {
   it("returns explicit pullMin/pullMax when provided", () => {
-    const result = blindPullRange({ pullMin: 39, pullMax: 42, width: 36 });
-    expect(result).toEqual({ min: 39, max: 42 });
+    const result = blindPullRange({ pullMin: 3, pullMax: 9, width: 36 });
+    expect(result).toEqual({ min: 3, max: 9 });
   });
-  it("returns defaults (width+3/width+6) when pullMin/pullMax are null", () => {
+  it("returns defaults (3/6) when pullMin/pullMax are null", () => {
+    // The corrected behavior: pull range is always 3-6" (the blind portion
+    // hidden behind the perpendicular wall), NOT width+3/width+6.
     const result = blindPullRange({ pullMin: null, pullMax: null, width: 36 });
-    expect(result).toEqual({ min: 39, max: 42 });
+    expect(result).toEqual({ min: 3, max: 6 });
   });
   it("returns defaults for BBC-42 (width=42)", () => {
     const result = blindPullRange({ pullMin: null, pullMax: null, width: 42 });
-    expect(result).toEqual({ min: 45, max: 48 });
+    expect(result).toEqual({ min: 3, max: 6 });
   });
-  it("uses nominalWidth over width when available", () => {
-    const result = blindPullRange({ pullMin: null, pullMax: null, width: 24, nominalWidth: 36 });
-    expect(result).toEqual({ min: 39, max: 42 });
+  it("uses provided pullMin with default pullMax", () => {
+    const result = blindPullRange({ pullMin: 3, pullMax: null, width: 36 });
+    expect(result).toEqual({ min: 3, max: 6 });
   });
-  it("returns null when no width available", () => {
+  it("always returns a value (never null) since defaults apply", () => {
+    // Even with no width, defaults of 3/6 apply.
     const result = blindPullRange({ pullMin: null, pullMax: null });
-    expect(result).toBeNull();
+    expect(result).toEqual({ min: 3, max: 6 });
   });
 });
 
 describe("blindCornerSpecViolations", () => {
-  it("does NOT flag missing-spec when defaults can be applied", () => {
+  it("does NOT flag any issue when defaults apply (no pullMin/pullMax)", () => {
     const placed = [
       {
         uid: "bbc1",
@@ -84,22 +87,19 @@ describe("blindCornerSpecViolations", () => {
       },
     ] as any[];
     const violations = blindCornerSpecViolations(placed);
-    // With defaults applied (42+3=45, 42+6=48), the issue is "out-of-range"
-    // (cabinet at 42" needs to be pulled to 45"), NOT "missing-spec".
-    // The UI only blocks on "out-of-range", not "missing-spec".
-    expect(violations.get("bbc1")).toBe("out-of-range");
-    expect(violations.get("bbc1")).not.toBe("missing-spec");
+    // With defaults always applying (3-6"), no BBC is ever flagged.
+    expect(violations.has("bbc1")).toBe(false);
   });
 
-  it("does not flag when cabinet is within pull range", () => {
+  it("does not flag when cabinet has explicit pull spec", () => {
     const placed = [
       {
         uid: "bbc2",
         masterCode: "BBC-36",
         description: "36\" Blind Base Corner",
         placement: "base" as const,
-        width: 39, // pulled to min (36+3)
-        nominalWidth: 36,
+        width: 33,
+        nominalWidth: 33,
         depth: 24,
         nominalDepth: 24,
         height: 34.5,
@@ -107,8 +107,8 @@ describe("blindCornerSpecViolations", () => {
         x: 0,
         y: 0,
         rotation: 0,
-        pullMin: null,
-        pullMax: null,
+        pullMin: 3,
+        pullMax: 9,
       },
     ] as any[];
     const violations = blindCornerSpecViolations(placed);
@@ -158,9 +158,9 @@ describe("dimLabel for fillers", () => {
   });
   it("shows normal width for non-filler cabinets", () => {
     const cab = {
-      uid: "c1",
+      uid: "b1",
       masterCode: "B-24",
-      description: "24\" Base",
+      description: "24\" Base Cabinet",
       placement: "base" as const,
       width: 24,
       nominalWidth: 24,

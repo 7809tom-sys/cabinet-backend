@@ -306,3 +306,12 @@
 - [x] Vendor portal UI: New product submission form
 - [x] Admin UI: Provision vendor account dialog (create login, link to distributor)
 - [x] Admin UI: Pending products approval queue (approve/reject vendor submissions)
+
+## Fix: BBC full box rendering (comprehensive placedFootprint fix)
+- [x] Replace all rotatedSize(p) usages in ElevationView.tsx with placedFootprint(p) for consistent BBC width in elevation
+- [x] Replace rotatedSize in design.ts hasCollision/footprintRect/runSpan with placedFootprint for correct BBC collision bounds
+- [x] Replace rotatedSize in countertopSurfaces with placedFootprint so BBC countertop slab uses correct width
+- [x] Replace rotatedSize in FabricatorSheet.tsx with placedFootprint for correct fabricator countertop dimensions
+- [x] Remove debug console.log from DesignTool.tsx (BBC-PLACE log)
+- [x] Update tests: BBC is NOT an L-corner, blindPullRange always defaults to 3-6", countertop width expectations
+- [x] All 1338 tests pass, TypeScript clean

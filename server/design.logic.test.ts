@@ -175,16 +175,18 @@ describe("diagonal corner wall cabinet", () => {
 describe("L-corner cabinet (lazy-Susan / blind / easy-reach) footprint", () => {
   const room: RoomData = { width: 120, depth: 120, ceilingHeight: 96 };
 
-  it("detects LSB lazy-Susan and BBC blind-corner codes as L-corners (not diagonal)", () => {
+  it("detects LSB lazy-Susan and easy-reach codes as L-corners (not diagonal or blind)", () => {
     expect(isLCornerCabinet("LSB36", "36\" Base Easy Reach with Lazy Susan")).toBe(true);
     expect(isLCornerCabinet("LSB33", "33\" Base Easy Reach with Lazy Susan")).toBe(true);
     expect(isLCornerCabinet("LSB36ADA", "36\" Lazy Susan ADA")).toBe(true);
-    expect(isLCornerCabinet("BBC-39", "39\" Blind Corner Base Cabinet")).toBe(true);
     expect(isLCornerCabinet("ERB-36", "36\" Base Easy Reach Cabinet")).toBe(true);
+    // Blind corners are NOT L-corners — they are rectangular boxes.
+    expect(isLCornerCabinet("BBC-39", "39\" Blind Corner Base Cabinet")).toBe(false);
     // Diagonal corners are NOT L-corners
     expect(isLCornerCabinet("DCW-24-30", "Diagonal Corner Wall")).toBe(false);
     // Still recognized as a corner cabinet overall
     expect(isCornerCabinet("LSB36", "")).toBe(true);
+    expect(isCornerCabinet("BBC-39", "")).toBe(true);
   });
 
   it("renders as a square bounding box (side = width) so both legs are 24\" deep", () => {
