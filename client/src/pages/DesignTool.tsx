@@ -499,6 +499,9 @@ export default function DesignTool() {
   // to door styles within the same supply line (member can still change color,
   // but not jump to another distributor) unless they Unlock to override.
   const [lockedDistributorId, setLockedDistributorId] = useState<number | null>(null);
+  // When the user explicitly overrides the distributor lock (acknowledging extra
+  // shipping), this flag prevents the auto-lock effect from re-engaging.
+  const [mixedWarehouseOverride, setMixedWarehouseOverride] = useState(false);
   // Decorative hardware spec (knobs / pulls / cup pulls). A finishing choice,
   // not a priced catalog SKU: it draws on the fronts and lists a piece count on
   // the build sheet as a note. Defaults to "none".
@@ -4227,21 +4230,26 @@ export default function DesignTool() {
     if (activeSlot === "A") setStyleA(styleId);
   }, [styleId, activeSlot]);
 
-  // Warehouse lock (one supply line per order): the moment the FIRST real
-  // cabinet is placed, pin the design to that cabinet's style's distributor
-  // (warehouse). From then on the palette + finish picker only offer items
-  // from that same warehouse, so the whole order ships from one place and the
-  // shopper never incurs cross-warehouse freight. No supplier name is shown
-  // anywhere; this only scopes which cabinets/finishes are selectable.
+  // Warehouse lock (one supply line per order): only engages when the FIRST
+  // real cabinet is placed in the designer OR the cart already has items.
+  // Picking a door style alone does NOT lock the distributor — the user can
+  // freely browse all styles/lines until they commit by placing a cabinet.
+  // Once locked, the user can override by acknowledging extra shipping costs
+  // (handled in setSlotStyle), which sets mixedWarehouseOverride=true and
+  // prevents re-locking.
   useEffect(() => {
     if (lockedDistributorId != null) return;
-    // Lock the warehouse as soon as a door style is chosen — this ensures
-    // the Color 2 picker (and the palette) are already scoped to the correct
-    // supply line even before the first cabinet is placed.
-    if (selectedStyleDistributorId != null) {
+    if (mixedWarehouseOverride) return; // user explicitly unlocked
+    // Lock from placed cabinets
+    if (placed.length > 0 && selectedStyleDistributorId != null) {
       setLockedDistributorId(selectedStyleDistributorId);
+      return;
     }
-  }, [lockedDistributorId, selectedStyleDistributorId]);
+    // Lock from cart (if cart already has items from a specific distributor)
+    if (cartLockedDistributorId != null) {
+      setLockedDistributorId(cartLockedDistributorId);
+    }
+  }, [lockedDistributorId, selectedStyleDistributorId, placed.length, cartLockedDistributorId, mixedWarehouseOverride]);
   useEffect(() => { styleIdRef.current = styleId; }, [styleId]);
   useEffect(() => { styleBRef.current = styleB; }, [styleB]);
 
@@ -4256,12 +4264,28 @@ export default function DesignTool() {
   // Assign a door style to a slot (from the picker). Setting the active slot's
   // style also updates styleId. Slot B is the two-tone second color.
   const setSlotStyle = useCallback((slot: "A" | "B", newStyleId: number) => {
-    // Enforce same-distributor rule: Color 2 must come from the same distributor
-    // as Color 1 so the order stays within a single supply line.
+    const source = (doorStyles ?? []) as Array<{ id: number; distributorId?: number }>;
+    const distNew = source.find((d) => d.id === newStyleId)?.distributorId ?? null;
+
+    // Distributor override: if the design is locked to a distributor (cabinets
+    // already placed) and the user picks a style from a DIFFERENT distributor,
+    // ask them to acknowledge extra shipping costs. If they confirm, unlock the
+    // distributor so they can mix supply lines.
+    if (lockedDistributorId != null && distNew != null && distNew !== lockedDistributorId) {
+      const ok = window.confirm(t("dt_dist_override_body"));
+      if (!ok) return;
+      // Unlock: clear the distributor lock so the palette shows all cabinets.
+      // Set the override flag so the auto-lock effect doesn't re-engage.
+      setLockedDistributorId(null);
+      setMixedWarehouseOverride(true);
+      toast.success(t("dt_dist_unlocked"));
+    }
+
+    // Enforce same-distributor rule for Color 2: must come from the same
+    // distributor as Color 1 so the order stays within a single supply line
+    // (unless the user already overrode the lock above).
     if (slot === "B" && styleA != null) {
-      const source = (doorStyles ?? []) as Array<{ id: number; distributorId?: number }>;
       const distA = source.find((d) => d.id === styleA)?.distributorId ?? null;
-      const distNew = source.find((d) => d.id === newStyleId)?.distributorId ?? null;
       if (distA != null && distNew != null && distA !== distNew) {
         toast.error("Color 2 must be from the same supplier as Color 1. Please choose a style from the same line.");
         return;
@@ -4285,7 +4309,7 @@ export default function DesignTool() {
         setStyleId(newStyleId);
       }
     }
-  }, [activeSlot, styleId, styleA, doorStyles]);
+  }, [activeSlot, styleId, styleA, doorStyles, lockedDistributorId, t]);
 
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(
@@ -4504,6 +4528,7 @@ export default function DesignTool() {
     layoutLocked,
     lockedWalls: Array.from(lockedWalls),
     lockedDistributorId,
+    mixedWarehouseOverride,
     hardwareStyleId,
     wallCabHeight,
     annotations,
@@ -4587,6 +4612,7 @@ export default function DesignTool() {
           setLayoutLocked(!!d.layoutLocked);
           if (Array.isArray(d.lockedWalls)) setLockedWalls(new Set(d.lockedWalls as WallSide[]));
           if (typeof d.lockedDistributorId === "number") setLockedDistributorId(d.lockedDistributorId);
+          if (d.mixedWarehouseOverride === true) setMixedWarehouseOverride(true);
           if (typeof d.hardwareStyleId === "string") setHardwareStyleId(d.hardwareStyleId as HardwareStyleId);
           if (d.wallCabHeight === 30 || d.wallCabHeight === 36 || d.wallCabHeight === 42) {
             setWallCabHeight(d.wallCabHeight);
@@ -4676,7 +4702,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.

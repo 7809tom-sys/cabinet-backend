@@ -209,3 +209,8 @@
 ## Data note: Clark & Son 2025 catalog
 - [x] Rustic Hickory color key abbreviation confirmed as RH from the catalog special-features page
 - [x] Cabinet sections in the catalog span Wall Cabinets (pages 4-10), Base Cabinets (11-16), Pantry/Utility (17-19), Vanity (20-22), ADA (23-25), Accessories (26-32), and Panels/Fillers/Trims (33-40)
+
+## Bug: Distributor lock engages too early (before any cabinet is placed)
+- [x] Only lock to a distributor when cabinets are actually placed in the designer or in the shopping cart — picking a door style alone should NOT lock the distributor
+- [x] Allow user to browse all distributors' catalogs freely until they commit by placing a cabinet
+- [x] Even when locked, allow the customer to override by acknowledging they'll pay more for shipping from a different warehouse (confirmation dialog/toast)
