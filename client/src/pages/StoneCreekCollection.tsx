@@ -288,6 +288,18 @@ function StoneCreekCard({ product, onAddToDesign }: { product: any; onAddToDesig
   const { addItem } = useCart();
   const [, navigate] = useLocation();
 
+  // Pricing breakdown
+  const msrp = product.msrp ? Number(product.msrp) : null;
+  const listPriceNum = product.listPrice ? Number(product.listPrice) : null;
+  const compareAt = msrp && msrp > (product.sellPrice ?? 0)
+    ? msrp
+    : listPriceNum && listPriceNum > (product.sellPrice ?? 0)
+      ? listPriceNum
+      : null;
+  const savePct = compareAt && product.sellPrice && compareAt > product.sellPrice
+    ? Math.round(((compareAt - product.sellPrice) / compareAt) * 100)
+    : null;
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -330,6 +342,11 @@ function StoneCreekCard({ product, onAddToDesign }: { product: any; onAddToDesig
           <Badge className="absolute top-2 left-2 bg-black/70 text-white text-[10px] backdrop-blur-sm">
             {finish}
           </Badge>
+          {savePct != null && savePct > 0 && (
+            <Badge className="absolute right-2 top-2 bg-emerald-600 text-white hover:bg-emerald-600 text-[10px]">
+              Save {savePct}%
+            </Badge>
+          )}
         </div>
         <div className="p-4">
           <p className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
@@ -342,9 +359,16 @@ function StoneCreekCard({ product, onAddToDesign }: { product: any; onAddToDesig
           )}
           <div className="mt-3 flex items-center justify-between">
             {product.sellPrice ? (
-              <span className="text-base font-semibold text-primary">
-                {formatPrice(product.sellPrice)}
-              </span>
+              <div className="min-w-0">
+                <span className="text-base font-semibold text-primary">
+                  {formatPrice(product.sellPrice)}
+                </span>
+                {compareAt != null && (
+                  <span className="ml-1.5 text-xs text-muted-foreground line-through">
+                    ${compareAt.toFixed(2)}
+                  </span>
+                )}
+              </div>
             ) : (
               <span className="text-xs text-muted-foreground">Contact for pricing</span>
             )}

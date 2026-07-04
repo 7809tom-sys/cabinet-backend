@@ -368,3 +368,10 @@
 - [x] Add product grid with Add to Cart buttons
 - [x] Add top-level navigation item (same level as "All Cabinets", "Surfaces & Fixtures", "StoneCreek")
 - [x] Ensure the page is SEO-friendly with proper meta tags
+
+## Pricing Breakdown on All Products
+- [x] Set MSRP to 3× cost for all pelican products in database
+- [x] Show MSRP strike-through + "Save X%" badge on product detail pages (SurfacesProduct)
+- [x] Show MSRP strike-through + "Save X%" badge on PelicanProductCard (category grids)
+- [x] Show MSRP strike-through + "Save X%" badge on StoneCreekCard (collection page)
+- [x] Show full pricing breakdown (MSRP, Your Price, You Save) on SurfacesProduct detail page

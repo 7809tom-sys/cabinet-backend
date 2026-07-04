@@ -18,12 +18,26 @@ export type PelicanCardProduct = {
   sellPrice: number | null;
   isPopular?: boolean;
   pelicanCode?: string;
+  msrp?: string | null;
+  listPrice?: string | null;
 };
 
 export function PelicanProductCard({ product }: { product: PelicanCardProduct }) {
   const gradient = CATEGORY_GRADIENT[product.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
   const { addItem } = useCart();
   const [, navigate] = useLocation();
+
+  // Pricing breakdown
+  const msrp = product.msrp ? Number(product.msrp) : null;
+  const listPrice = product.listPrice ? Number(product.listPrice) : null;
+  const compareAt = msrp && msrp > (product.sellPrice ?? 0)
+    ? msrp
+    : listPrice && listPrice > (product.sellPrice ?? 0)
+      ? listPrice
+      : null;
+  const savePct = compareAt && product.sellPrice && compareAt > product.sellPrice
+    ? Math.round(((compareAt - product.sellPrice) / compareAt) * 100)
+    : null;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -74,6 +88,11 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
               <Star className="h-3 w-3 fill-current" /> Featured
             </Badge>
           )}
+          {savePct != null && savePct > 0 && (
+            <Badge className="absolute right-2 top-2 bg-emerald-600 text-white hover:bg-emerald-600 text-[10px]">
+              Save {savePct}%
+            </Badge>
+          )}
         </div>
         <div className="space-y-1 p-3">
           {product.subCategory && (
@@ -88,9 +107,16 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
             <div className="text-xs text-muted-foreground">{product.size}</div>
           )}
           <div className="flex items-center justify-between pt-1">
-            <span className="text-base font-bold text-[var(--color-navy)] dark:text-foreground">
-              {formatPrice(product.sellPrice)}
-            </span>
+            <div className="min-w-0">
+              <span className="text-base font-bold text-[var(--color-navy)] dark:text-foreground">
+                {formatPrice(product.sellPrice)}
+              </span>
+              {compareAt != null && (
+                <span className="ml-1.5 text-xs text-muted-foreground line-through">
+                  ${compareAt.toFixed(2)}
+                </span>
+              )}
+            </div>
             {product.sellPrice && (
               <Button
                 size="sm"

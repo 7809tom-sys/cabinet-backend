@@ -8,13 +8,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSeo } from "@/hooks/useSeo";
 import { categorySlug, CATEGORY_GRADIENT, formatPrice } from "@/lib/pelican";
 import { useCart } from "@/contexts/CartContext";
-import { ArrowLeft, Minus, PencilRuler, Plus, ShoppingCart, Star, Waves } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { ArrowLeft, DollarSign, Minus, PencilRuler, Plus, ShoppingCart, Star, Tag, TrendingDown, Waves } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SurfacesProduct({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
   const { data, isLoading, error } = trpc.pelican.bySlug.useQuery({ slug });
   const { addItem } = useCart();
+  const { user } = useAuth();
   const [qty, setQty] = useState(1);
 
   useSeo({
@@ -82,6 +84,24 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
 
   const gradient = CATEGORY_GRADIENT[data.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
 
+  // Pricing breakdown logic
+  const sellPrice = data.sellPrice;
+  const msrp = data.msrp ? Number(data.msrp) : null;
+  const listPrice = data.listPrice ? Number(data.listPrice) : null;
+  // Use MSRP as the "compare at" reference; fall back to listPrice if MSRP is missing
+  const compareAt = msrp && msrp > (sellPrice ?? 0) ? msrp : listPrice && listPrice > (sellPrice ?? 0) ? listPrice : null;
+  const savePct = compareAt && sellPrice && compareAt > sellPrice
+    ? Math.round(((compareAt - sellPrice) / compareAt) * 100)
+    : null;
+
+  // Owner-only cost breakdown (admin sees what they pay vs what it sells at)
+  const isOwner = user?.role === "admin";
+  const yourCost = data.yourCost ? Number(data.yourCost) : null;
+  const marginDollars = isOwner && yourCost != null && sellPrice != null ? Math.round((sellPrice - yourCost) * 100) / 100 : null;
+  const marginPct = marginDollars != null && sellPrice != null && sellPrice > 0
+    ? Math.round((marginDollars / sellPrice) * 1000) / 10
+    : null;
+
   return (
     <div className="container py-8">
       <button
@@ -123,11 +143,92 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
           </div>
           <h1 className="mt-1 font-serif text-3xl font-bold">{data.name}</h1>
 
-          <div className="mt-4 text-3xl font-bold text-[var(--color-navy)] dark:text-foreground">
-            {formatPrice(data.sellPrice)}
+          {/* ─── Pricing Breakdown Card ─── */}
+          <div className="mt-4 rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">Pricing</span>
+            </div>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <div className="text-3xl font-bold text-[var(--color-navy)] dark:text-foreground">
+                {formatPrice(sellPrice)}
+              </div>
+              {compareAt != null && (
+                <div className="text-base text-muted-foreground line-through">
+                  ${compareAt.toFixed(2)}
+                </div>
+              )}
+              {savePct != null && savePct > 0 && (
+                <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                  Save {savePct}%
+                </Badge>
+              )}
+            </div>
+            {/* Price detail rows */}
+            <div className="mt-3 space-y-1.5 text-sm">
+              {compareAt != null && (
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5" /> MSRP / List Price
+                  </span>
+                  <span className="font-medium">${compareAt.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <TrendingDown className="h-3.5 w-3.5" /> Your Price
+                </span>
+                <span className="font-semibold text-foreground">
+                  {sellPrice != null ? `$${sellPrice.toFixed(2)}` : "—"}
+                </span>
+              </div>
+              {savePct != null && savePct > 0 && (
+                <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
+                  <span className="flex items-center gap-1.5">
+                    <DollarSign className="h-3.5 w-3.5" /> You Save
+                  </span>
+                  <span className="font-semibold">
+                    ${(compareAt! - sellPrice!).toFixed(2)} ({savePct}%)
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              Trade member pricing · no hidden fees
+            </div>
+
+            {/* Owner-only cost breakdown */}
+            {isOwner && yourCost != null && (
+              <div className="mt-3 pt-3 border-t border-dashed border-amber-500/60 rounded-md bg-amber-500/5 px-3 py-2">
+                <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-1">
+                  <span>Owner view · not shown to customers</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <div className="text-xs text-muted-foreground">My Cost</div>
+                    <div className="font-semibold text-foreground">${yourCost.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Sells At</div>
+                    <div className="font-semibold text-foreground">
+                      {sellPrice != null ? `$${sellPrice.toFixed(2)}` : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Margin</div>
+                    <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {marginDollars != null
+                        ? `$${marginDollars.toFixed(2)}${marginPct != null ? ` (${marginPct}%)` : ""}`
+                        : "—"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
           {data.size && (
-            <div className="mt-1 text-sm text-muted-foreground">Size: {data.size}</div>
+            <div className="mt-3 text-sm text-muted-foreground">Size: {data.size}</div>
           )}
 
           {data.description && (
