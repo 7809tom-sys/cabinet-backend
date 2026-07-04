@@ -360,3 +360,11 @@
 - [x] Cart items show product name, price, quantity controls, and category
 - [x] Cart page handles pelican products (no distributor lock for non-cabinet items)
 - [x] Cart badge in nav already works (verify)
+
+## StoneCreek Plumber's Choice Collection
+- [x] Create dedicated /plumbers-choice page showcasing bathroom install products (showers, toilets, bidets)
+- [x] Design hero section with plumber-focused messaging and lifestyle imagery
+- [x] Pull products from Pelican categories: Shower & Bath, Toilets & Bidets
+- [x] Add product grid with Add to Cart buttons
+- [x] Add top-level navigation item (same level as "All Cabinets", "Surfaces & Fixtures", "StoneCreek")
+- [x] Ensure the page is SEO-friendly with proper meta tags

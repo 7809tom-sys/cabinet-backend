@@ -16,6 +16,7 @@ const PRIMARY_LINKS: NavLink[] = [
   { key: "nav_countertops", href: "/countertops" },
   { key: "nav_surfaces", href: "/surfaces" },
   { key: "nav_stonecreek", href: "/stonecreek" },
+  { key: "nav_plumbers_choice", href: "/plumbers-choice" },
   { key: "nav_design_tool", href: "/design" },
 ];
 

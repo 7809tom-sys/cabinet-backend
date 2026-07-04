@@ -41,6 +41,7 @@ const SurfacesWizard = lazy(() => import("@/pages/SurfacesWizard"));
 const DesignPresentation = lazy(() => import("@/pages/DesignPresentation"));
 const FabricatorSheet = lazy(() => import("@/pages/FabricatorSheet"));
 const StoneCreekCollection = lazy(() => import("@/pages/StoneCreekCollection"));
+const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
 
 function PageLoader() {
   return (
@@ -202,6 +203,13 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <StoneCreekCollection />
+            </Suspense>
+          </AppLayout>
+        </Route>
+        <Route path="/plumbers-choice">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <PlumbersChoice />
             </Suspense>
           </AppLayout>
         </Route>
