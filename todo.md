@@ -476,3 +476,4 @@
 - [x] Resolve 152 Designer Natural (DN) conflicted items: cleared conflictStatus, published all SKUs
 - [x] Build AI Catalog Services section in vendor page ($100/hr catalog onboarding service)
 - [x] Extend Photo to Cart to support plumbing fixtures (bathtubs, sinks, faucets, showers, toilets) with visual matching
+- [x] Add Fixture Photo Match CTA on the Plumber's Choice page

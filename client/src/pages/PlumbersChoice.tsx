@@ -168,6 +168,29 @@ export default function PlumbersChoice() {
         </div>
       </section>
 
+      {/* Fixture Photo Match CTA */}
+      <section className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-b border-border">
+        <div className="container py-8">
+          <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
+            <div className="flex items-center justify-center h-14 w-14 rounded-xl bg-primary/10 shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-lg font-semibold">Have a fixture you want to match?</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Snap a photo of any sink, faucet, bathtub, shower, or toilet and our AI will find matching products from our catalog.
+              </p>
+            </div>
+            <Button asChild className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold shrink-0">
+              <Link href="/fixture-photo">
+                Try Fixture Photo Match
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Products Section */}
       <section id="products" className="container py-12">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
