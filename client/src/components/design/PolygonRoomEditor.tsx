@@ -2,14 +2,18 @@
  * PolygonRoomEditor — An SVG-based editor for custom polygon room shapes.
  *
  * Modes:
- * 1. View mode: shows the polygon with clickable wall segments and draggable vertices.
- * 2. Split mode: user taps a wall segment to split it at the midpoint.
+ * 1. Move mode: drag vertices to reshape the room (bump-outs, recesses).
+ * 2. Split mode: tap a wall segment to split it at the midpoint (adds a new vertex).
  *
- * The editor renders inside the PlanCanvas container as an overlay when the room
- * has polygon data (vertices + customWalls).
+ * Mobile-first UX:
+ * - Large vertex handles (14px radius) for easy finger dragging.
+ * - Thick wall hit areas (40px) for easy tapping in split mode.
+ * - Prominent instruction banner at top with clear step-by-step guidance.
+ * - Pulsing animation on walls in split mode to show they're tappable.
+ * - Haptic-style visual feedback on interactions.
  */
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Scissors, Undo2, Move } from "lucide-react";
+import { Scissors, Move, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -51,18 +55,24 @@ export function PolygonRoomEditor({
   locked = false,
 }: Props) {
   const { t } = useLanguage();
-  const [mode, setMode] = useState<Mode>("select");
+  const [mode, setMode] = useState<Mode>("split"); // Start in split mode for discoverability
   const [dragVertexId, setDragVertexId] = useState<string | null>(null);
   const [hoveredWallId, setHoveredWallId] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(true);
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Compute bounding box for SVG viewBox.
   const bounds = polygonBounds(vertices);
-  const padding = 24; // inches of padding around the polygon
+  const padding = 36; // inches of padding around the polygon for easier edge access
   const viewW = (bounds.width + padding * 2) * ppi;
   const viewH = (bounds.height + padding * 2) * ppi;
   const offsetX = (padding - bounds.minX) * ppi;
   const offsetY = (padding - bounds.minY) * ppi;
+
+  // Auto-dismiss help after first interaction
+  const dismissHelp = useCallback(() => {
+    if (showHelp) setShowHelp(false);
+  }, [showHelp]);
 
   // ─── Vertex Drag ────────────────────────────────────────────────────────────
   const dragStart = useRef<{ x: number; y: number; origX: number; origY: number } | null>(null);
@@ -72,11 +82,12 @@ export function PolygonRoomEditor({
       if (locked || mode !== "select") return;
       e.stopPropagation();
       e.preventDefault();
+      dismissHelp();
       setDragVertexId(vertex.id);
       dragStart.current = { x: e.clientX, y: e.clientY, origX: vertex.x, origY: vertex.y };
       (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
     },
-    [locked, mode],
+    [locked, mode, dismissHelp],
   );
 
   const handleVertexPointerMove = useCallback(
@@ -116,6 +127,7 @@ export function PolygonRoomEditor({
   const handleWallClick = useCallback(
     (wallId: string) => {
       if (locked) return;
+      dismissHelp();
 
       if (mode === "split") {
         const result = splitWall(wallId, vertices, customWalls);
@@ -123,14 +135,15 @@ export function PolygonRoomEditor({
           const normalized = normalizeVertices(result.vertices);
           const newBounds = polygonBounds(normalized);
           onChange(normalized, result.customWalls, newBounds.width, newBounds.height);
-          toast.success("Wall split — drag the new point to shape your room");
+          toast.success("Wall split! Switch to Move mode and drag the new point to shape your room.", { duration: 4000 });
+          // Auto-switch to move mode after split so user can immediately drag
+          setMode("select");
         }
-        // Stay in split mode for consecutive splits.
       } else {
         onSelectWall?.(wallId);
       }
     },
-    [locked, mode, vertices, customWalls, onChange, onSelectWall],
+    [locked, mode, vertices, customWalls, onChange, onSelectWall, dismissHelp],
   );
 
   // ─── Merge (undo split) ────────────────────────────────────────────────────
@@ -156,52 +169,101 @@ export function PolygonRoomEditor({
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  // Determine if we have more than 4 vertices (user has already split)
+  const hasSplits = vertices.length > 4;
+
   return (
-    <div className="relative w-full h-full">
-      {/* Toolbar */}
+    <div className="relative w-full h-full flex flex-col">
+      {/* ─── Instruction Banner ─────────────────────────────────────────── */}
+      {showHelp && (
+        <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-[#1a2744] to-[#1a2744]/95 text-white px-4 py-3 shadow-lg">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 mt-0.5 text-[#d4a75a] shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Custom Room Shape Editor</p>
+              <p className="text-xs text-white/80 mt-1 leading-relaxed">
+                {mode === "split"
+                  ? "Step 1: Tap any wall (the blue lines) to add a split point. This creates a new corner you can drag."
+                  : "Step 2: Drag the corner points to push walls inward (chimney) or outward (bump-out)."}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowHelp(false)}
+              className="text-white/60 hover:text-white text-xs shrink-0 px-2 py-1"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Mode Toolbar ──────────────────────────────────────────────── */}
       {!locked && (
-        <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-white/90 backdrop-blur rounded-lg shadow-sm border border-border px-2 py-1">
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-sm rounded-xl shadow-md border border-border px-2 py-1.5"
+          style={{ top: showHelp ? "76px" : "8px" }}
+        >
           <Button
             variant={mode === "select" ? "default" : "ghost"}
             size="sm"
-            className="h-7 gap-1 text-xs"
+            className={`h-8 gap-1.5 text-xs font-semibold ${mode === "select" ? "bg-[#1a2744] text-white" : ""}`}
             onClick={() => setMode("select")}
           >
-            <Move className="h-3 w-3" /> Move
+            <Move className="h-4 w-4" /> Move
           </Button>
           <Button
             variant={mode === "split" ? "default" : "ghost"}
             size="sm"
-            className="h-7 gap-1 text-xs"
+            className={`h-8 gap-1.5 text-xs font-semibold ${mode === "split" ? "bg-[#d4a75a] text-[#1a2744]" : ""}`}
             onClick={() => setMode("split")}
           >
-            <Scissors className="h-3 w-3" /> Split
+            <Scissors className="h-4 w-4" /> Split Wall
           </Button>
         </div>
       )}
 
-      {/* Mode indicator */}
-      {mode === "split" && (
-        <div className="absolute top-2 right-2 z-10 bg-amber-100 text-amber-800 text-[11px] font-medium px-2 py-1 rounded">
-          Tap a wall to split it
-        </div>
-      )}
+      {/* ─── Mode Status Pill ──────────────────────────────────────────── */}
+      <div
+        className="absolute right-2 z-10 flex items-center"
+        style={{ top: showHelp ? "76px" : "8px" }}
+      >
+        {mode === "split" && (
+          <div className="bg-[#d4a75a] text-[#1a2744] text-xs font-bold px-3 py-1.5 rounded-full shadow-md animate-pulse">
+            Tap a wall to split
+          </div>
+        )}
+        {mode === "select" && hasSplits && (
+          <div className="bg-[#1a2744] text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
+            Drag points to reshape
+          </div>
+        )}
+      </div>
 
-      {/* SVG Canvas */}
+      {/* ─── SVG Canvas ────────────────────────────────────────────────── */}
       <svg
         ref={svgRef}
-        className="w-full h-full"
+        className="w-full flex-1 min-h-0"
         viewBox={`0 0 ${viewW} ${viewH}`}
         style={{ touchAction: "none" }}
       >
+        {/* Pulse animation for split mode */}
+        <defs>
+          <style>{`
+            @keyframes wallPulse {
+              0%, 100% { stroke-opacity: 0.4; stroke-width: 8; }
+              50% { stroke-opacity: 0.8; stroke-width: 14; }
+            }
+            .wall-pulse { animation: wallPulse 1.5s ease-in-out infinite; }
+          `}</style>
+        </defs>
+
         <g transform={`translate(${offsetX}, ${offsetY})`}>
           {/* Room fill */}
           <polygon
             points={verticesToPoints(vertices, ppi)}
-            fill="#ffffff"
+            fill="#f8fafc"
             stroke="#1a2744"
             strokeWidth={3}
-            fillOpacity={0.95}
+            fillOpacity={0.98}
           />
 
           {/* Grid lines (12" = 1ft) */}
@@ -215,8 +277,8 @@ export function PolygonRoomEditor({
               <path
                 d={`M ${12 * ppi} 0 L 0 0 0 ${12 * ppi}`}
                 fill="none"
-                stroke="#f1f4f8"
-                strokeWidth={1}
+                stroke="#e2e8f0"
+                strokeWidth={0.5}
               />
             </pattern>
             <clipPath id="poly-clip">
@@ -232,7 +294,7 @@ export function PolygonRoomEditor({
             clipPath="url(#poly-clip)"
           />
 
-          {/* Wall segments (clickable) */}
+          {/* Wall segments */}
           {customWalls.map((wall) => {
             const start = vertices.find((v) => v.id === wall.startVertexId);
             const end = vertices.find((v) => v.id === wall.endVertexId);
@@ -245,74 +307,133 @@ export function PolygonRoomEditor({
 
             return (
               <g key={wall.id}>
-                {/* Thick invisible hit area */}
+                {/* Pulsing highlight in split mode */}
+                {mode === "split" && (
+                  <line
+                    x1={start.x * ppi}
+                    y1={start.y * ppi}
+                    x2={end.x * ppi}
+                    y2={end.y * ppi}
+                    stroke="#d4a75a"
+                    strokeLinecap="round"
+                    className="wall-pulse"
+                    pointerEvents="none"
+                  />
+                )}
+
+                {/* Extra-thick invisible hit area for mobile (40px) */}
                 <line
                   x1={start.x * ppi}
                   y1={start.y * ppi}
                   x2={end.x * ppi}
                   y2={end.y * ppi}
                   stroke="transparent"
-                  strokeWidth={20}
+                  strokeWidth={40}
+                  strokeLinecap="round"
                   style={{ cursor: mode === "split" ? "crosshair" : "pointer" }}
                   onClick={() => handleWallClick(wall.id)}
                   onPointerEnter={() => setHoveredWallId(wall.id)}
                   onPointerLeave={() => setHoveredWallId(null)}
                 />
+
                 {/* Visible wall line */}
                 <line
                   x1={start.x * ppi}
                   y1={start.y * ppi}
                   x2={end.x * ppi}
                   y2={end.y * ppi}
-                  stroke={isActive ? "#d4a75a" : isHovered ? "#6b7280" : "#1a2744"}
-                  strokeWidth={isActive ? 4 : 3}
+                  stroke={isActive ? "#d4a75a" : isHovered ? "#4b5563" : "#1a2744"}
+                  strokeWidth={isActive ? 5 : isHovered ? 4 : 3}
+                  strokeLinecap="round"
                   pointerEvents="none"
                 />
+
                 {/* Wall length label */}
                 <text
                   x={mid.x * ppi}
-                  y={mid.y * ppi - 8}
+                  y={mid.y * ppi - 12}
                   textAnchor="middle"
-                  fontSize={10}
-                  fill="#6b7280"
+                  fontSize={11}
+                  fontWeight={600}
+                  fill="#374151"
                   pointerEvents="none"
                 >
-                  {Math.round(len)}&quot;
+                  {Math.round(len)}"
                 </text>
+
                 {/* Wall label */}
                 {wall.label && (
                   <text
                     x={mid.x * ppi}
-                    y={mid.y * ppi + 14}
+                    y={mid.y * ppi + 16}
                     textAnchor="middle"
-                    fontSize={9}
-                    fill={isActive ? "#d4a75a" : "#9ca3af"}
-                    fontWeight={isActive ? 600 : 400}
+                    fontSize={10}
+                    fill={isActive ? "#d4a75a" : "#6b7280"}
+                    fontWeight={isActive ? 700 : 500}
                     pointerEvents="none"
                   >
                     {wall.label}
                   </text>
                 )}
+
+                {/* Split indicator dot at midpoint in split mode */}
+                {mode === "split" && (
+                  <circle
+                    cx={mid.x * ppi}
+                    cy={mid.y * ppi}
+                    r={6}
+                    fill="#d4a75a"
+                    fillOpacity={0.6}
+                    stroke="#d4a75a"
+                    strokeWidth={2}
+                    pointerEvents="none"
+                  />
+                )}
               </g>
             );
           })}
 
-          {/* Vertex handles (draggable) */}
-          {vertices.map((vertex) => (
-            <circle
-              key={vertex.id}
-              cx={vertex.x * ppi}
-              cy={vertex.y * ppi}
-              r={dragVertexId === vertex.id ? 8 : 6}
-              fill={dragVertexId === vertex.id ? "#d4a75a" : "#1a2744"}
-              stroke="#ffffff"
-              strokeWidth={2}
-              style={{ cursor: mode === "select" && !locked ? "grab" : "default" }}
-              onPointerDown={(e) => handleVertexPointerDown(e, vertex)}
-              onPointerMove={handleVertexPointerMove}
-              onPointerUp={handleVertexPointerUp}
-            />
-          ))}
+          {/* Vertex handles (draggable) — large for mobile */}
+          {vertices.map((vertex) => {
+            const isDragging = dragVertexId === vertex.id;
+            const isMovable = mode === "select" && !locked;
+            return (
+              <g key={vertex.id}>
+                {/* Outer glow when dragging */}
+                {isDragging && (
+                  <circle
+                    cx={vertex.x * ppi}
+                    cy={vertex.y * ppi}
+                    r={20}
+                    fill="#d4a75a"
+                    fillOpacity={0.2}
+                    pointerEvents="none"
+                  />
+                )}
+                {/* Main handle — 14px radius for easy finger targeting */}
+                <circle
+                  cx={vertex.x * ppi}
+                  cy={vertex.y * ppi}
+                  r={isDragging ? 16 : 12}
+                  fill={isDragging ? "#d4a75a" : isMovable ? "#1a2744" : "#6b7280"}
+                  stroke="#ffffff"
+                  strokeWidth={3}
+                  style={{ cursor: isMovable ? "grab" : "default" }}
+                  onPointerDown={(e) => handleVertexPointerDown(e, vertex)}
+                  onPointerMove={handleVertexPointerMove}
+                  onPointerUp={handleVertexPointerUp}
+                />
+                {/* Inner dot for visual clarity */}
+                <circle
+                  cx={vertex.x * ppi}
+                  cy={vertex.y * ppi}
+                  r={4}
+                  fill="#ffffff"
+                  pointerEvents="none"
+                />
+              </g>
+            );
+          })}
         </g>
       </svg>
     </div>
