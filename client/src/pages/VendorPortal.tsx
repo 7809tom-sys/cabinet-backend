@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
   PlusCircle, ArrowLeft, FileSpreadsheet, Download, BarChart3,
+  Sparkles, Clock, CheckCircle2, Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ function money(v: string | null | undefined): string {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "catalog" | "styles" | "picks" | "orders" | "promotions" | "gallery" | "analytics";
+type VendorPage = "overview" | "catalog" | "styles" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -47,6 +48,7 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
   { id: "gallery", label: "Gallery", icon: ImageIcon },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "orders", label: "Orders", icon: ClipboardList },
+  { id: "ai-services", label: "AI Services", icon: Sparkles },
 ];
 
 // ─── Overview Page ────────────────────────────────────────────────────────────
@@ -1446,6 +1448,179 @@ function OrdersPage() {
   );
 }
 
+// ─── AI Catalog Services Page ────────────────────────────────────────────────
+function AICatalogServicesPage() {
+  const [requestType, setRequestType] = useState<string>("");
+  const [details, setDetails] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const services = [
+    {
+      title: "Catalog Onboarding",
+      description: "Get your full product catalog online — SKU mapping, pricing setup, and category organization.",
+      icon: Package,
+    },
+    {
+      title: "Photo & Image Processing",
+      description: "AI-generated product photos, background removal, and consistent catalog imagery across your line.",
+      icon: ImageIcon,
+    },
+    {
+      title: "Trim & Accessory Audit",
+      description: "Cross-reference your catalog against the database, identify missing items, fix conflicts, and fill gaps.",
+      icon: CheckCircle2,
+    },
+    {
+      title: "Price Sheet Import",
+      description: "Upload your price sheet and we'll map it to the system — style coverage, pricing tiers, and availability.",
+      icon: FileSpreadsheet,
+    },
+  ];
+
+  const handleSubmit = () => {
+    if (!requestType) {
+      toast.error("Please select a service type");
+      return;
+    }
+    // In production this would call a tRPC mutation to create a service request
+    toast.success("Service request submitted! We'll be in touch within 24 hours.");
+    setSubmitted(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <Sparkles className="h-6 w-6 text-primary" />
+          AI Catalog Services
+        </h2>
+        <p className="text-muted-foreground mt-1">
+          Let our AI-powered team get your products online fast. Professional catalog management at <span className="font-semibold text-foreground">$100/hour</span>.
+        </p>
+      </div>
+
+      {/* How it works */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">How It Works</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">1</div>
+              <div>
+                <p className="font-medium text-sm">Submit Request</p>
+                <p className="text-xs text-muted-foreground">Tell us what you need — catalog import, photo cleanup, trim audit, etc.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">2</div>
+              <div>
+                <p className="font-medium text-sm">AI Processing</p>
+                <p className="text-xs text-muted-foreground">Our AI handles the heavy lifting — mapping SKUs, generating images, resolving conflicts.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">3</div>
+              <div>
+                <p className="font-medium text-sm">Review & Go Live</p>
+                <p className="text-xs text-muted-foreground">Review the results in your portal, approve, and your products go live.</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Services grid */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {services.map((service) => (
+          <Card key={service.title} className={`cursor-pointer transition-all ${
+            requestType === service.title ? "ring-2 ring-primary" : "hover:border-primary/50"
+          }`} onClick={() => setRequestType(service.title)}>
+            <CardContent className="p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <service.icon className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">{service.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{service.description}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Request form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Request Service</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {submitted ? (
+            <div className="text-center py-8 space-y-3">
+              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+              <h3 className="font-semibold text-lg">Request Submitted</h3>
+              <p className="text-muted-foreground text-sm">We'll review your request and get back to you within 24 hours with a time estimate.</p>
+              <Button variant="outline" onClick={() => { setSubmitted(false); setRequestType(""); setDetails(""); }}>
+                Submit Another Request
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Service Type</label>
+                <Select value={requestType} onValueChange={setRequestType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a service..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map((s) => (
+                      <SelectItem key={s.title} value={s.title}>{s.title}</SelectItem>
+                    ))}
+                    <SelectItem value="Other">Other (describe below)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Details</label>
+                <textarea
+                  className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Describe what you need help with — e.g., 'I have a price sheet with 200 SKUs across 8 door styles that need to be imported and mapped to the catalog...'"
+                  value={details}
+                  onChange={(e) => setDetails(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>Billed at <span className="font-semibold text-foreground">$100/hr</span> · Typical turnaround: 24–48 hours</span>
+                </div>
+                <Button onClick={handleSubmit} disabled={!requestType}>
+                  <Send className="h-4 w-4 mr-2" />
+                  Submit Request
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Pricing note */}
+      <div className="rounded-lg border bg-muted/50 p-4">
+        <h4 className="font-medium text-sm">Pricing & Billing</h4>
+        <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+          <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> $100/hour — billed in 15-minute increments</li>
+          <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> Free estimate before work begins</li>
+          <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> No charge if you're not satisfied with the results</li>
+          <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> Most catalog imports completed in 2–4 hours</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Vendor Portal Component ─────────────────────────────────────────────
 export default function VendorPortal() {
   const { user, loading } = useAuth();
@@ -1550,6 +1725,7 @@ export default function VendorPortal() {
         {page === "gallery" && <GalleryPage />}
         {page === "analytics" && <VendorAnalyticsPage />}
         {page === "orders" && <OrdersPage />}
+        {page === "ai-services" && <AICatalogServicesPage />}
       </main>
     </div>
   );
