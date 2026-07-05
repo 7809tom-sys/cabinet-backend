@@ -5254,25 +5254,6 @@ export default function DesignTool() {
 
                 <div className="mx-3 my-1 border-t border-border" />
 
-                {/* Preview modes — mobile menu entry (placed above Order for easy access) */}
-                {placed.length > 0 && (
-                  <>
-                    <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Visualization</p>
-                    <div className="px-1 pb-1">
-                      <button
-                        type="button"
-                        onClick={() => { setMoreSheetOpen(false); setTimeout(() => setPreviewModalOpen(true), 150); }}
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted"
-                      >
-                        <Eye className="h-5 w-5 shrink-0 text-[#1a2744]" />
-                        <span className="font-medium">Preview</span>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
-                      </button>
-                    </div>
-                    <div className="mx-3 my-1 border-t border-border" />
-                  </>
-                )}
-
                 {/* Order summary */}
                 <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dt_sh_order_section")}</p>
                 {cartableLines.length === 0 ? (
@@ -5324,6 +5305,20 @@ export default function DesignTool() {
                   </div>
                 )}
 
+                                <div className="mx-3 my-1 border-t border-border" />
+                {/* Preview modes — mobile menu entry */}
+                <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Visualization</p>
+                <div className="px-1 pb-1">
+                  <button
+                    type="button"
+                    disabled={placed.length === 0}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setPreviewModalOpen(true), 150); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Eye className="h-5 w-5 shrink-0 text-[#1a2744]" />
+                    <span className="font-medium">Preview</span>
+                  </button>
+                </div>
                 <div className="mx-3 my-1 border-t border-border" />
                 {/* Danger zone */}
                 <div className="px-1 pb-4">
