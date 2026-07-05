@@ -4780,6 +4780,7 @@ export default function DesignTool() {
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [photorealOpen, setPhotorealOpen] = useState(false);
 
 
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
@@ -5221,16 +5222,18 @@ export default function DesignTool() {
                 )}
 
                                 <div className="mx-3 my-1 border-t border-border" />
-                {/* AI Photoreal Preview — mobile menu entry */}
+                {/* AI Photoreal Preview — mobile menu entry (opens lifted dialog) */}
                 <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Visualization</p>
                 <div className="px-1 pb-1">
-                  <PhotorealPreview
+                  <button
+                    type="button"
                     disabled={placed.length === 0}
-                    buildScene={buildPhotorealScene}
-                    variant="menu"
-                    label={t("dt_sh_ai_preview")}
-                    onBeforeOpen={() => { setMoreSheetOpen(false); return true; }}
-                  />
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setPhotorealOpen(true), 150); }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="h-5 w-5 shrink-0 text-[#1a2744]" />
+                    <span className="font-medium">{t("dt_sh_ai_preview")}</span>
+                  </button>
                 </div>
                 <div className="mx-3 my-1 border-t border-border" />
                 {/* Danger zone */}
@@ -7687,6 +7690,16 @@ export default function DesignTool() {
           </div>
         </div>
       )}
+
+      {/* Lifted AI Photoreal Preview dialog — lives outside the More sheet so it
+          persists after the sheet closes on mobile */}
+      <PhotorealPreview
+        disabled={placed.length === 0}
+        buildScene={buildPhotorealScene}
+        variant="headless"
+        controlledOpen={photorealOpen}
+        onControlledOpenChange={setPhotorealOpen}
+      />
     </div>
   );
 }

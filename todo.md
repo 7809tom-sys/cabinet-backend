@@ -399,3 +399,8 @@
 - [x] Set correct group pricing: Group 1 $389, Group 2 $430, Group 3 $452, Group 4 $472
 - [x] Update BT-09 weight to 38 lbs (from PDF)
 - [x] Fix SiteFooter import error (was stale Vite cache, file already had correct path)
+
+## Bug: AI Photoreal Preview does nothing on mobile
+- [x] Fix: PhotorealPreview component was mounted inside the More sheet — closing the sheet unmounted it before the dialog could open
+- [x] Lift the PhotorealPreview dialog to render outside the sheet (headless variant with controlled open state)
+- [x] Mobile "AI Preview" button now closes sheet, then opens the lifted dialog after 150ms delay

@@ -1324,7 +1324,7 @@ export const SITE_STRINGS = {
     nav_countertops: "Cubiertas",
     nav_surfaces: "Superficies y Accesorios",
     nav_stonecreek: "Colección StoneCreek",
-    nav_plumbers_choice: "Plumber's Choice",
+    nav_plumbers_choice: "Selección del Plomero",
     nav_design_tool: "Herramienta de Diseño",
     // --- Barra superior: menú "Más" ---
     nav_more: "Más",
