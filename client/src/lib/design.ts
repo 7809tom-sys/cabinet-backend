@@ -268,6 +268,11 @@ export interface PlacedCabinet {
   // so that exactly this many inches are the "blind" section. When absent,
   // defaults to pullMax (6") for auto-placed BBCs.
   blindPull?: number | null;
+  // Waterfall countertop edge: when true, the countertop material cascades
+  // down the left and/or right side of this cabinet to the floor. Typically
+  // used on island ends or end-of-run bases. Adds extra material to the BOM.
+  waterfallLeft?: boolean;
+  waterfallRight?: boolean;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal
@@ -1790,9 +1795,10 @@ export const COUNTERTOP_DEPTH_IN = 25.5;
 
 export interface CountertopMeasurement {
   linearFeet: number; // total run of base cabinets that take a top, in feet
-  squareFeet: number; // run x countertop depth (+ island), in sq ft
+  squareFeet: number; // run x countertop depth (+ island + waterfall), in sq ft
   runInches: number;  // raw base run, inches
   hasIsland: boolean;
+  waterfallSqFt: number; // extra sq ft from waterfall panels (height × depth per side)
 }
 
 /**
@@ -1811,11 +1817,25 @@ export function countertopArea(
   if (hasIsland && island) {
     squareIn += island.width * island.depth;
   }
+  // Waterfall panels: each side adds height × depth (the panel is as tall as
+  // the countertop height from floor and as deep as the cabinet depth).
+  let waterfallSqIn = 0;
+  for (const p of placed) {
+    if (p.placement !== "base") continue;
+    const sides = (p.waterfallLeft ? 1 : 0) + (p.waterfallRight ? 1 : 0);
+    if (sides === 0) continue;
+    const h = placedHeight(p); // cabinet box height (typically 34.5")
+    const d = p.depth;         // cabinet depth (typically 24")
+    waterfallSqIn += sides * h * d;
+  }
+  squareIn += waterfallSqIn;
+  const waterfallSqFt = Math.ceil((waterfallSqIn / 144) * 10) / 10;
   return {
     runInches,
     linearFeet: Math.round((runInches / 12) * 10) / 10,
     squareFeet: Math.ceil((squareIn / 144) * 10) / 10, // round up to 0.1 sq ft
     hasIsland,
+    waterfallSqFt,
   };
 }
 

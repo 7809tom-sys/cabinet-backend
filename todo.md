@@ -404,3 +404,11 @@
 - [x] Fix: PhotorealPreview component was mounted inside the More sheet — closing the sheet unmounted it before the dialog could open
 - [x] Lift the PhotorealPreview dialog to render outside the sheet (headless variant with controlled open state)
 - [x] Mobile "AI Preview" button now closes sheet, then opens the lifted dialog after 150ms delay
+
+## Feature: Waterfall countertop edge
+- [x] Add waterfallLeft / waterfallRight boolean to PlacedCabinet type and draft persistence
+- [x] Add waterfall toggle (Left / Right) in cabinet edit dialog for end-of-run / island cabinets
+- [x] Render waterfall slab in elevation view (vertical panel same color as countertop, floor to countertop height)
+- [x] Add waterfall sq ft to BOM/quote (cabinet height × cabinet depth per waterfall side)
+- [x] Show waterfall panels in fabricator countertop sheet
+- [x] Run typecheck and tests (all 1338 tests pass, 0 TS errors)

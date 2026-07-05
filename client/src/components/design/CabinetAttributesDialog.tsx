@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Minus, Plus, DoorOpen, DoorClosed } from "lucide-react";
+import { Minus, Plus, DoorOpen, DoorClosed, Droplets } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -115,6 +115,8 @@ export interface CabinetAttributesDialogProps {
   glassDoorAvailable: boolean;
   // Blind corner pull distance
   onSetBlindPull: (uid: string, pull: number) => void;
+  // Waterfall countertop edge
+  onSetWaterfall: (uid: string, side: "left" | "right", enabled: boolean) => void;
 }
 
 // Right-click attributes editor for a single placed cabinet (email item 1):
@@ -139,6 +141,7 @@ export function CabinetAttributesDialog({
   onSetGlassDoor,
   glassDoorAvailable,
   onSetBlindPull,
+  onSetWaterfall,
 }: CabinetAttributesDialogProps) {
   const { t } = useLanguage();
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
@@ -414,6 +417,35 @@ export function CabinetAttributesDialog({
               </section>
             );
           })()}
+
+          {/* Waterfall countertop edge — only for base cabinets */}
+          {isBase && (
+            <section className="space-y-3 border-t border-border pt-4">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Droplets className="h-4 w-4 text-muted-foreground" />
+                Waterfall Edge
+              </h4>
+              <p className="text-[11px] text-muted-foreground">
+                Countertop material cascades down the side of this cabinet to the floor.
+              </p>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Left Side</Label>
+                <Switch
+                  checked={!!cabinet.waterfallLeft}
+                  onCheckedChange={(v) => onSetWaterfall(uid, "left", v)}
+                  aria-label="Waterfall left side"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Right Side</Label>
+                <Switch
+                  checked={!!cabinet.waterfallRight}
+                  onCheckedChange={(v) => onSetWaterfall(uid, "right", v)}
+                  aria-label="Waterfall right side"
+                />
+              </div>
+            </section>
+          )}
 
           {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
           <RollOutTrayPicker

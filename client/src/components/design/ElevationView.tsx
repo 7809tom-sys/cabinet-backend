@@ -628,6 +628,60 @@ export function ElevationView({
           );
         })()}
 
+        {/* Waterfall countertop panels: vertical slabs on the left/right side of
+            a base cabinet, same material as the countertop, running from the floor
+            to the countertop top (36" + 1.5" thickness). Only drawn when a
+            countertop material is selected and the cabinet has waterfallLeft/Right. */}
+        {countertopMaterialId && (() => {
+          const mat = countertopMaterial(countertopMaterialId);
+          const SLAB_THICKNESS_IN = 1.5; // same as countertop thickness
+          const WATERFALL_TOP = STD.COUNTERTOP_HEIGHT + 1.5; // top of countertop
+          const panels: React.ReactNode[] = [];
+          for (const p of sorted) {
+            if (p.placement !== "base") continue;
+            if (!p.waterfallLeft && !p.waterfallRight) continue;
+            const fp = placedFootprint(p);
+            const sizeAlong = horizontal ? fp.w : fp.d;
+            const posAlong = horizontal ? p.x : p.y;
+            const panelStyle: React.CSSProperties = {
+              position: "absolute",
+              bottom: 0,
+              height: WATERFALL_TOP * ppi,
+              width: SLAB_THICKNESS_IN * ppi,
+              background: mat.speckle
+                ? `linear-gradient(90deg, color-mix(in srgb, ${mat.fill} 80%, #ffffff) 0%, ${mat.fill} 45%, color-mix(in srgb, ${mat.fill} 90%, #000000) 100%)`
+                : `linear-gradient(90deg, color-mix(in srgb, ${mat.fill} 82%, #ffffff) 0%, ${mat.fill} 55%, color-mix(in srgb, ${mat.fill} 88%, #000000) 100%)`,
+              borderLeft: `1px solid color-mix(in srgb, ${mat.fill} 60%, #ffffff)`,
+              borderRight: `1px solid ${mat.edge}`,
+              boxShadow: "2px 0 4px rgba(0,0,0,0.20), inset 1px 0 0 rgba(255,255,255,0.45)",
+              borderRadius: 1,
+              zIndex: 19,
+              pointerEvents: "none",
+            };
+            if (p.waterfallLeft) {
+              panels.push(
+                <div
+                  key={`wf-l-${p.uid}`}
+                  className="absolute"
+                  style={{ ...panelStyle, left: (posAlong - SLAB_THICKNESS_IN) * ppi }}
+                  title={`Waterfall Left — ${mat.name}`}
+                />
+              );
+            }
+            if (p.waterfallRight) {
+              panels.push(
+                <div
+                  key={`wf-r-${p.uid}`}
+                  className="absolute"
+                  style={{ ...panelStyle, left: (posAlong + sizeAlong) * ppi }}
+                  title={`Waterfall Right — ${mat.name}`}
+                />
+              );
+            }
+          }
+          return panels.length > 0 ? <>{panels}</> : null;
+        })()}
+
         {/* Backsplash: spans the FULL wall width (corner to corner), 18" tall
             by default. Only stretches taller behind a range (exposed wall above
             the range gets tiled up to wall cabinet bottom line). Wall cabinets/

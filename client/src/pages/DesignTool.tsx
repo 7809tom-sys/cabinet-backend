@@ -7622,6 +7622,7 @@ export default function DesignTool() {
         onSetGlassDoor={setGlassDoorFor}
         glassDoorAvailable={glassDoorAvailableForAttr}
         onSetBlindPull={(uid, pull) => setCabAttr(uid, { blindPull: pull })}
+        onSetWaterfall={(uid, side, enabled) => setCabAttr(uid, side === "left" ? { waterfallLeft: enabled } : { waterfallRight: enabled })}
       />
 
       {/* Refrigerator Options: opens right after a fridge is dropped */}

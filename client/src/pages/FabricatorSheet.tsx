@@ -454,6 +454,49 @@ export default function FabricatorSheet() {
         )}
       </div>
 
+      {/* Waterfall Panels */}
+      {(() => {
+        const wfPanels = (draft?.placed ?? []).filter(
+          (p) => p.placement === "base" && (p.waterfallLeft || p.waterfallRight)
+        );
+        if (wfPanels.length === 0) return null;
+        return (
+          <div className="px-6 py-4 border-t print:border-t print:border-gray-200">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-600 mb-3">Waterfall Panels</h2>
+            <p className="text-xs text-gray-500 mb-2">Vertical countertop material panels cascading from countertop to floor.</p>
+            <table className="w-full text-xs border border-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-2 py-1 text-left font-semibold">Cabinet</th>
+                  <th className="px-2 py-1 text-left font-semibold">Side</th>
+                  <th className="px-2 py-1 text-left font-semibold">Height</th>
+                  <th className="px-2 py-1 text-left font-semibold">Depth</th>
+                  <th className="px-2 py-1 text-left font-semibold">Area</th>
+                </tr>
+              </thead>
+              <tbody>
+                {wfPanels.flatMap((p) => {
+                  const sides: string[] = [];
+                  if (p.waterfallLeft) sides.push("Left");
+                  if (p.waterfallRight) sides.push("Right");
+                  const h = p.height ?? 34.5;
+                  const d = p.depth;
+                  return sides.map((s) => (
+                    <tr key={`${p.uid}-${s}`} className="border-t border-gray-100">
+                      <td className="px-2 py-1 font-mono">{p.masterCode}</td>
+                      <td className="px-2 py-1">{s}</td>
+                      <td className="px-2 py-1">{h}"</td>
+                      <td className="px-2 py-1">{d}"</td>
+                      <td className="px-2 py-1">{Math.ceil((h * d / 144) * 10) / 10} sq ft</td>
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
+
       {/* Notes */}
       <div className="px-6 py-4 border-t print:border-t print:border-gray-200">
         <h2 className="text-sm font-bold uppercase tracking-wide text-gray-600 mb-2">Fabrication Notes</h2>
@@ -470,6 +513,9 @@ export default function FabricatorSheet() {
           <li>Edge profile: {ep.name} on all exposed (front-facing) edges. Back edges against wall remain raw/polished flat.</li>
           <li>Backsplash: 4" height, same material, polished top edge. Field-cut to fit.</li>
           <li>Thickness: 3 cm (1.25") standard. Mitered edge available on request.</li>
+          {(draft?.placed ?? []).some((p) => p.waterfallLeft || p.waterfallRight) && (
+            <li className="font-medium">Waterfall panels: same material, mitered at 45° to countertop. Grain direction runs vertically. Verify seam alignment on-site.</li>
+          )}
         </ul>
       </div>
 
