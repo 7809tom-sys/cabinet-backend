@@ -462,3 +462,7 @@
 - [x] Fix WMS-30-18 photo (filename suggests MO-30-30 photo)
 - [x] Upload corrected photos and update database URLs
 - [x] Add 22 missing UCD trim items: LACM8, CMB, DCM, KCM, ROPE, SCR, TKC, FOL630, FOL636, FOL642, BBFPV4296, REPV3096, REPVKIT, WDEP1212, WDEP1215, WDEP1218, WDEF42, S3696, MCB, CDL, SCDL, VASH48
+
+## Skyline trim audit fixes
+- [x] Add 3 missing Skyline arched valances: AV-30, AV-36, AV-42 (new cabinet records + 16 Skyline distributor SKUs each)
+- [x] Fix 2-style coverage gap on Skyline trim items at 30/32 (added CG Prism Clear + MG Nocturne Glass to 10 items, all now 32/32)
