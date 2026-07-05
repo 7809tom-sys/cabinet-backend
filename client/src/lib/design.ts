@@ -273,6 +273,9 @@ export interface PlacedCabinet {
   // used on island ends or end-of-run bases. Adds extra material to the BOM.
   waterfallLeft?: boolean;
   waterfallRight?: boolean;
+  /** Polygon room: which custom wall segment this cabinet is placed on.
+   *  Only used when the room has customWalls. */
+  wallId?: string | null;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal
@@ -517,6 +520,11 @@ export interface RoomData {
    *  (top/bottom/left/right). A wall absent here uses `ceilingHeight`. Lets a
    *  room have a different (or sloped) ceiling on each wall. */
   wallCeilings?: Partial<Record<WallSide, WallCeiling>>;
+  /** Polygon room: ordered vertices defining the room shape. When present,
+   *  the room is a polygon; when absent, it's the classic rectangle. */
+  vertices?: import("@/lib/polygonRoom").RoomVertex[];
+  /** Polygon room: wall segments connecting vertices. */
+  customWalls?: import("@/lib/polygonRoom").CustomWall[];
 }
 
 // Standard US ceiling height. Common alternatives: 108" (9ft), 120" (10ft).
@@ -1429,6 +1437,14 @@ export interface WallOpening {
 }
 
 export function wallLength(side: WallSide, room: RoomData): number {
+  // If the side is actually a custom wall ID in a polygon room, compute from vertices.
+  if (room.vertices && room.customWalls) {
+    const wall = room.customWalls.find((w) => w.id === side);
+    if (wall) {
+      const { wallSegmentLength } = require("@/lib/polygonRoom");
+      return wallSegmentLength(wall, room.vertices);
+    }
+  }
   return side === "top" || side === "bottom" ? room.width : room.depth;
 }
 
@@ -1587,6 +1603,10 @@ export const CROWN_MITER_ALLOWANCE_IN = MITER_ALLOWANCE_IN;
 // and a horizontal one on Top/Bottom; proximity only breaks the tie WITHIN the
 // oriented pair.
 export function cabinetWall(p: PlacedCabinet, room: RoomData): WallSide {
+  // Polygon room: if the cabinet has an explicit wallId, return it directly.
+  if (p.wallId && room.customWalls) {
+    return p.wallId as WallSide;
+  }
   const horizontal = ((Math.round(p.rotation) % 180) + 180) % 180 === 0;
   const { w, d } = rotatedSize(p);
   if (horizontal) {

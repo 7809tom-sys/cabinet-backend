@@ -418,3 +418,16 @@
 - [x] Added window/door opening context to wall summaries
 - [x] Strengthened prompt with CRITICAL LAYOUT INSTRUCTION and ABSOLUTE CONSTRAINTS to force the AI to reproduce the exact arrangement
 - [x] Updated tests to match new prompt wording
+
+## Feature: Polygon-based custom room drawing (bump-outs, chimneys, bay windows)
+- [x] Design polygon room data model (vertices array, wall segments with IDs)
+- [x] Create geometry helpers: polygon area, wall normals, point-in-polygon, wall lengths
+- [x] Build polygon room editor UI under "Draw Room" button
+- [x] Implement split tool to add vertices to wall segments
+- [x] Implement vertex drag to push walls inward (chimney) or outward (bump-out)
+- [x] Integrate polygon walls with cabinet placement (cabinets placeable on any wall segment)
+- [x] Update plan view (bird's eye) to render polygon room shape
+- [x] Update elevation view to render cabinets on polygon wall segments
+- [x] Backward compatibility: existing rectangular rooms still work (rectangle = 4-vertex polygon)
+- [x] Persist polygon room data in draft saves
+- [x] Tests for polygon geometry helpers (20 tests passing)

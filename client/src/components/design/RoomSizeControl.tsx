@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Maximize, Pencil, Ruler, Check, ChevronDown } from "lucide-react";
+import { Maximize, Pencil, Ruler, Check, ChevronDown, Pentagon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,10 @@ interface Props {
   onChange: (room: RoomData) => void;
   drawMode: boolean;
   onToggleDraw: () => void;
+  /** Whether the room is currently in polygon (custom shape) mode. */
+  isPolygon?: boolean;
+  /** Toggle polygon editing mode. */
+  onTogglePolygon?: () => void;
 }
 
 const PRESETS: { label: string; width: number; depth: number }[] = [
@@ -43,7 +47,7 @@ function toTapeString(totalInches: number): string {
   return `${feet}' ${inches}"`;
 }
 
-export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Props) {
+export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPolygon, onTogglePolygon }: Props) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [showPerWall, setShowPerWall] = useState(
@@ -266,6 +270,18 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
       >
         <Pencil className="h-3.5 w-3.5" /> {t("dt_rs_draw_room")}
       </Button>
+
+      {onTogglePolygon && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onTogglePolygon}
+          title="Custom room shape — add bump-outs, bay windows, chimney recesses"
+          className={`h-8 gap-1.5 ${isPolygon ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+        >
+          <Pentagon className="h-3.5 w-3.5" /> Custom Shape
+        </Button>
+      )}
     </div>
   );
 }
