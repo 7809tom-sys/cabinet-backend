@@ -451,3 +451,14 @@
 - [x] Remove unused imports (bridgeCabinetCodeForWidth, bridgeHeightForWallHeight)
 - [x] Remove unused baseCabPool query and baseCabPoolRef
 - [x] 0 TS errors, 278 design tests pass
+
+## Fix trim photo mismatches and add missing trim items
+- [x] Generate/find correct photos for WSV-24, WSV-30, WSV-36 (currently all show WSV-42 photo)
+- [x] Generate/find correct photo for RS-15 (currently shows RS-18 photo)
+- [x] Generate/find correct photo for CTRAY-36 (currently shows CTRAY-33 photo)
+- [x] Fix BFF-3 photo (currently shows regular filler F-3-96 photo instead of fluted filler)
+- [x] Fix BCM-8 photo (filename suggests DCM molding photo)
+- [x] Fix RCM-4S photo (filename suggests LACM photo)
+- [x] Fix WMS-30-18 photo (filename suggests MO-30-30 photo)
+- [x] Upload corrected photos and update database URLs
+- [x] Add 22 missing UCD trim items: LACM8, CMB, DCM, KCM, ROPE, SCR, TKC, FOL630, FOL636, FOL642, BBFPV4296, REPV3096, REPVKIT, WDEP1212, WDEP1215, WDEP1218, WDEF42, S3696, MCB, CDL, SCDL, VASH48
