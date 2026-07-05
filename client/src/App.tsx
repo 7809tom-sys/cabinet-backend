@@ -31,6 +31,7 @@ const Cart = lazy(() => import("@/pages/Cart"));
 const DistributorPortal = lazy(() => import("@/pages/DistributorPortal"));
 const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
 const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
+const FixturePhotoToCart = lazy(() => import("@/pages/FixturePhotoToCart"));
 const SignIn = lazy(() => import("@/pages/SignIn"));
 const Account = lazy(() => import("@/pages/Account"));
 const PlanSheet = lazy(() => import("@/pages/PlanSheet"));
@@ -314,6 +315,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <PhotoToCart />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/fixture-photo">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <FixturePhotoToCart />
             </Suspense>
           </AppLayout>
         </Route>

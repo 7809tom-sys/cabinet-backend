@@ -49,6 +49,7 @@ export function SiteFooter() {
                 { label: t("nav_design_tool"), href: "/design" },
                 { label: t("nav_build_an_order"), href: "/bulk-order" },
                 { label: t("nav_photo_to_cart"), href: "/photo-to-cart" },
+                { label: "Fixture Photo Match", href: "/fixture-photo" },
                 { label: "Surfaces & Fixtures", href: "/surfaces" },
                 { label: "Plumber's Choice", href: "/plumbers-choice" },
                 { label: "StoneCreek", href: "/stonecreek" },

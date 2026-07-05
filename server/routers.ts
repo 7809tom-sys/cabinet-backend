@@ -37,6 +37,7 @@ import { surfacesRouter } from "./routers/surfaces";
 import { promotionsRouter } from "./routers/promotions";
 import { galleryRouter } from "./routers/gallery";
 import { analyticsRouter } from "./routers/analytics";
+import { fixturePhotoRouter } from "./routers/fixturePhoto";
 
 export const appRouter = router({
   system: systemRouter,
@@ -84,6 +85,7 @@ export const appRouter = router({
   promotions: promotionsRouter,
   gallery: galleryRouter,
   analytics: analyticsRouter,
+  fixturePhoto: fixturePhotoRouter,
 });
 
 export type AppRouter = typeof appRouter;
