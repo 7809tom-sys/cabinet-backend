@@ -38,6 +38,7 @@ import { promotionsRouter } from "./routers/promotions";
 import { galleryRouter } from "./routers/gallery";
 import { analyticsRouter } from "./routers/analytics";
 import { fixturePhotoRouter } from "./routers/fixturePhoto";
+import { priceShopRouter } from "./routers/priceShop";
 
 export const appRouter = router({
   system: systemRouter,
@@ -86,6 +87,7 @@ export const appRouter = router({
   gallery: galleryRouter,
   analytics: analyticsRouter,
   fixturePhoto: fixturePhotoRouter,
+  priceShop: priceShopRouter,
 });
 
 export type AppRouter = typeof appRouter;

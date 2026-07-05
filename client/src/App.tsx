@@ -44,6 +44,7 @@ const DesignPresentation = lazy(() => import("@/pages/DesignPresentation"));
 const FabricatorSheet = lazy(() => import("@/pages/FabricatorSheet"));
 const StoneCreekCollection = lazy(() => import("@/pages/StoneCreekCollection"));
 const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
+const PriceShop = lazy(() => import("@/pages/PriceShop"));
 
 function PageLoader() {
   return (
@@ -323,6 +324,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <FixturePhotoToCart />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/price-shop">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <PriceShop />
             </Suspense>
           </AppLayout>
         </Route>
