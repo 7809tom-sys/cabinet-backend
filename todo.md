@@ -478,3 +478,4 @@
 - [x] Extend Photo to Cart to support plumbing fixtures (bathtubs, sinks, faucets, showers, toilets) with visual matching
 - [x] Add Fixture Photo Match CTA on the Plumber's Choice page
 - [x] Build Price Shop page (/price-shop) with 19'L kitchen layout comparison across all styles
+- [x] Fix Price Shop: WDC-30 (Diagonal Corner Wall) and Easy Reach 36 (ERB-36/LSB36/LS-36-12) — added multi-code alternatives + admin cost column with margin %

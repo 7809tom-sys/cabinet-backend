@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +22,8 @@ import {
 } from "@/components/ui/table";
 
 export default function PriceShop() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const { data: layout } = trpc.priceShop.getLayout.useQuery();
   const { data: styles, isLoading } = trpc.priceShop.priceAllStyles.useQuery();
   const [search, setSearch] = useState("");
@@ -149,6 +152,11 @@ export default function PriceShop() {
                           <p className="text-2xl font-bold text-foreground">
                             ${Number(style.totalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
+                          {isAdmin && style.totalCost && (
+                            <p className="text-xs text-emerald-600 font-medium">
+                              Cost: ${Number(style.totalCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground">total for 19'L layout</p>
                         </>
                       ) : (
@@ -179,7 +187,7 @@ export default function PriceShop() {
 
       {/* Breakdown Dialog */}
       <Dialog open={!!selectedStyle} onOpenChange={(open) => !open && setSelectedStyle(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               {selectedStyle?.thumbnailImageUrl && (
@@ -207,6 +215,8 @@ export default function PriceShop() {
                   <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-right">Unit</TableHead>
                   <TableHead className="text-right">Line Total</TableHead>
+                  {isAdmin && <TableHead className="text-right text-emerald-700">Your Cost</TableHead>}
+                  {isAdmin && <TableHead className="text-right text-emerald-700">Cost Total</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -220,17 +230,39 @@ export default function PriceShop() {
                     <TableCell className="text-right font-medium">
                       {item.lineTotal ? `$${Number(item.lineTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "N/A"}
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-right text-emerald-700">
+                        {item.unitCost ? `$${Number(item.unitCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
+                      </TableCell>
+                    )}
+                    {isAdmin && (
+                      <TableCell className="text-right text-emerald-700 font-medium">
+                        {item.lineCost ? `$${Number(item.lineCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
             <div className="mt-4 pt-4 border-t flex justify-between items-center">
               <span className="font-semibold">Total</span>
-              <span className="text-xl font-bold">
-                {selectedStyle?.totalPrice
-                  ? `$${Number(selectedStyle.totalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  : "—"}
-              </span>
+              <div className="text-right">
+                <span className="text-xl font-bold">
+                  {selectedStyle?.totalPrice
+                    ? `$${Number(selectedStyle.totalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : "—"}
+                </span>
+                {isAdmin && selectedStyle?.totalCost && (
+                  <p className="text-sm text-emerald-700 font-medium">
+                    Cost: ${Number(selectedStyle.totalCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {selectedStyle.totalPrice && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({Math.round((1 - Number(selectedStyle.totalCost) / Number(selectedStyle.totalPrice)) * 100)}% margin)
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </DialogContent>
