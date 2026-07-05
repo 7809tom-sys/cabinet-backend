@@ -466,3 +466,10 @@
 ## Skyline trim audit fixes
 - [x] Add 3 missing Skyline arched valances: AV-30, AV-36, AV-42 (new cabinet records + 16 Skyline distributor SKUs each)
 - [x] Fix 2-style coverage gap on Skyline trim items at 30/32 (added CG Prism Clear + MG Nocturne Glass to 10 items, all now 32/32)
+
+## Clark & Son trim fixes
+- [x] Add GV (Greek Villa / 120001) SKUs to all 17 shared trim items
+- [x] Fix smaller style gaps: BAM missing ASP, PLYEB-42 missing ASP, DD-Q missing CC, WEP-15-42 missing CC, WFF-3-42 missing CC, TUK missing DN
+- [x] Fix WS-12-42 (only 3/13 styles, now 13/13)
+- [x] Add ROPE CS SKUs (shared master code now has 13/13 CS styles)
+- [x] Add/fix images for WEP-15-42 and WFF-3-42
