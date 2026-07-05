@@ -94,9 +94,10 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
     ? Math.round(((compareAt - sellPrice) / compareAt) * 100)
     : null;
 
-  // Owner-only cost breakdown (admin sees what they pay vs what it sells at)
+  // Cost breakdown - show our cost (yourCost or listPrice as fallback)
   const isOwner = user?.role === "admin";
-  const yourCost = data.yourCost ? Number(data.yourCost) : null;
+  const ourCost = data.yourCost ? Number(data.yourCost) : (data.listPrice ? Number(data.listPrice) : null);
+  const yourCost = ourCost;
   const marginDollars = isOwner && yourCost != null && sellPrice != null ? Math.round((sellPrice - yourCost) * 100) / 100 : null;
   const marginPct = marginDollars != null && sellPrice != null && sellPrice > 0
     ? Math.round((marginDollars / sellPrice) * 1000) / 10
@@ -166,12 +167,20 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
             </div>
             {/* Price detail rows */}
             <div className="mt-3 space-y-1.5 text-sm">
+              {yourCost != null && (
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <DollarSign className="h-3.5 w-3.5" /> Our Cost
+                  </span>
+                  <span className="font-medium">${yourCost.toFixed(2)}</span>
+                </div>
+              )}
               {compareAt != null && (
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <Tag className="h-3.5 w-3.5" /> MSRP / List Price
+                    <Tag className="h-3.5 w-3.5" /> MSRP (3× Cost)
                   </span>
-                  <span className="font-medium">${compareAt.toFixed(2)}</span>
+                  <span className="font-medium line-through">${compareAt.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between">
@@ -179,13 +188,13 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
                   <TrendingDown className="h-3.5 w-3.5" /> Your Price
                 </span>
                 <span className="font-semibold text-foreground">
-                  {sellPrice != null ? `$${sellPrice.toFixed(2)}` : "—"}
+                  {sellPrice != null ? `$${sellPrice.toFixed(2)}` : "\u2014"}
                 </span>
               </div>
               {savePct != null && savePct > 0 && (
                 <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
                   <span className="flex items-center gap-1.5">
-                    <DollarSign className="h-3.5 w-3.5" /> You Save
+                    <DollarSign className="h-3.5 w-3.5" /> You Save vs MSRP
                   </span>
                   <span className="font-semibold">
                     ${(compareAt! - sellPrice!).toFixed(2)} ({savePct}%)
