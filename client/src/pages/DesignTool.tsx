@@ -4333,6 +4333,33 @@ export default function DesignTool() {
           </button>
         </div>
 
+        {/* Start New / Clear Design — desktop only */}
+        <button
+          type="button"
+          className="hidden lg:flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+          onClick={() => {
+            if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
+            setPlaced([]);
+            setOpenings([]);
+            setIsland(null);
+            setSelectedUid(null);
+            setSelectedOpeningUid(null);
+            setSinks([]);
+            setSelectedSinkUid(null);
+            setFurniture([]);
+            setSelectedFurnUid(null);
+            setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
+            setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
+            setBacksplashMaterialId(null);
+            setFlooringMaterialId(null);
+            setCabinetsLocked(false);
+            clearDraft();
+            toast.success(t("dt_sh_started_new"));
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" /> {t("dt_sh_start_new")}
+        </button>
+
         {/* Printable graph-paper worksheet */}
         <a
           href="/plan-sheet"

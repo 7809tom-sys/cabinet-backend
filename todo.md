@@ -481,3 +481,6 @@
 - [x] Fix Price Shop: WDC-30 (Diagonal Corner Wall) and Easy Reach 36 (ERB-36/LSB36/LS-36-12) — added multi-code alternatives + admin cost column with margin %
 - [x] Add 93 missing Skyline SKUs: B-42 (30 styles), TKC (30 styles), BT-09 (24 styles), B-39 premium (9 styles) — pricing corrected (yourCost = listPrice × 0.35)
 - [x] Fix confusing Skyline style names: set ourName = distributorName for all 32 Skyline styles (e.g., "Blanc Core" → "Shaker White")
+
+## Bug: No "Start New" / clear design button on desktop
+- [x] Add a "Start New" button to the desktop toolbar so users can clear the entire floor plan without needing the mobile "More" sheet
