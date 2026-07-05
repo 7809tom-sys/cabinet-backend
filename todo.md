@@ -473,3 +473,4 @@
 - [x] Fix WS-12-42 (only 3/13 styles, now 13/13)
 - [x] Add ROPE CS SKUs (shared master code now has 13/13 CS styles)
 - [x] Add/fix images for WEP-15-42 and WFF-3-42
+- [x] Resolve 152 Designer Natural (DN) conflicted items: cleared conflictStatus, published all SKUs
