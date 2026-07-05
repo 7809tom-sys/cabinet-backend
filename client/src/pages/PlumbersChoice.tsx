@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
-import { Link } from "wouter";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,21 @@ import { PelicanProductCard } from "@/components/pelican/PelicanProductCard";
 import { formatPrice } from "@/lib/pelican";
 import { useSeo } from "@/hooks/useSeo";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
 import {
   ShowerHead, Droplets, Search, ShoppingCart, ArrowRight,
   CheckCircle2, Wrench, Truck, Shield, Star,
+  Upload, Camera, AlertTriangle, Trash2, ImageIcon,
 } from "lucide-react";
 
 const HERO_IMG = "/manus-storage/plumbers-choice-hero_5d58ea20.jpg";
@@ -37,6 +48,79 @@ export default function PlumbersChoice() {
   const [activeTab, setActiveTab] = useState<TabId>("all");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
+
+  // Fixture Photo Match modal state
+  const [fixtureModalOpen, setFixtureModalOpen] = useState(false);
+  const fixtureFileRef = useRef<HTMLInputElement>(null);
+  const [fixturePreview, setFixturePreview] = useState<string | null>(null);
+  const [fixtureDataUrl, setFixtureDataUrl] = useState<string | null>(null);
+  const [fixtureFilename, setFixtureFilename] = useState("");
+  const [fixtureMatches, setFixtureMatches] = useState<any[] | null>(null);
+  const [, navigate] = useLocation();
+  const { isAuthenticated } = useAuth();
+
+  const fixtureIdentifyMut = trpc.fixturePhoto.identifyAndMatch.useMutation({
+    onSuccess: (res) => {
+      setFixtureMatches(res.matches as any[]);
+      const { identified, matched } = res.summary;
+      if (identified === 0) {
+        toast.error("No plumbing fixtures recognized", {
+          description: "Try a clearer photo of a sink, faucet, bathtub, shower, or toilet.",
+        });
+      } else {
+        toast.success(`Identified ${identified} fixture${identified === 1 ? "" : "s"}`, {
+          description: matched > 0 ? `${matched} matched to our catalog` : "No exact matches found",
+        });
+      }
+    },
+    onError: (err) => {
+      toast.error("Couldn't analyze the image", { description: err.message });
+    },
+  });
+
+  async function onFixturePick(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please choose an image file."); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error("Image is too large (max 8MB)"); return; }
+    const fr = new FileReader();
+    fr.onload = () => {
+      const url = String(fr.result);
+      setFixturePreview(url);
+      setFixtureDataUrl(url);
+      setFixtureFilename(file.name);
+      setFixtureMatches(null);
+    };
+    fr.readAsDataURL(file);
+  }
+
+  function runFixtureIdentify() {
+    if (!fixtureDataUrl) return;
+    fixtureIdentifyMut.mutate({ imageDataUrl: fixtureDataUrl, filename: fixtureFilename || undefined });
+  }
+
+  function addFixtureToCart(m: any) {
+    if (!m.product?.sellPrice) { toast.error("No pricing available"); return; }
+    const res = addItem({
+      masterCode: m.product.pelicanCode || `PEL-${m.product.id}`,
+      name: m.product.name,
+      styleId: 0,
+      styleLabel: m.product.category,
+      distributorId: null,
+      tier: "homeowner",
+      unitPrice: m.product.sellPrice,
+      qty: m.fixture?.quantity ?? 1,
+      imageUrl: m.product.imageUrl ?? null,
+      category: m.product.category,
+    });
+    if (res.ok) toast.success(`Added ${m.product.name} to cart`);
+  }
+
+  function resetFixtureModal() {
+    setFixturePreview(null);
+    setFixtureDataUrl(null);
+    setFixtureFilename("");
+    setFixtureMatches(null);
+  }
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 300);
@@ -181,11 +265,15 @@ export default function PlumbersChoice() {
                 Snap a photo of any sink, faucet, bathtub, shower, or toilet and our AI will find matching products from our catalog.
               </p>
             </div>
-            <Button asChild className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold shrink-0">
-              <Link href="/fixture-photo">
-                Try Fixture Photo Match
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
+            <Button
+              className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold shrink-0"
+              onClick={() => {
+                if (!isAuthenticated) { window.location.href = getLoginUrl(); return; }
+                setFixtureModalOpen(true);
+              }}
+            >
+              Try Fixture Photo Match
+              <Camera className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -292,6 +380,99 @@ export default function PlumbersChoice() {
           </div>
         </div>
       </section>
+
+      {/* Fixture Photo Match Modal */}
+      <Dialog open={fixtureModalOpen} onOpenChange={(open) => { setFixtureModalOpen(open); if (!open) resetFixtureModal(); }}>
+        <DialogContent className="max-w-lg flex flex-col max-h-[90dvh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5 text-primary" />
+              Fixture Photo Match
+            </DialogTitle>
+            <DialogDescription>
+              Upload a photo of any plumbing fixture and we'll find matching products.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="overflow-y-auto flex-1 min-h-0 space-y-4 py-2">
+            <input
+              ref={fixtureFileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => onFixturePick(e.target.files?.[0])}
+            />
+
+            {!fixturePreview ? (
+              <button
+                type="button"
+                onClick={() => fixtureFileRef.current?.click()}
+                className="w-full border-2 border-dashed border-border rounded-xl py-10 flex flex-col items-center justify-center gap-2 hover:border-primary/60 hover:bg-muted/40 transition-colors"
+              >
+                <Upload className="h-7 w-7 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Take a photo or choose from gallery</span>
+                <span className="text-xs text-muted-foreground">JPG/PNG, max 8MB</span>
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="relative rounded-lg overflow-hidden border bg-muted/30">
+                  <img src={fixturePreview} alt="Uploaded fixture" className="max-h-52 w-full object-contain" />
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => fixtureFileRef.current?.click()}>
+                    <ImageIcon className="h-3.5 w-3.5 mr-1" /> Change
+                  </Button>
+                  <Button size="sm" onClick={runFixtureIdentify} disabled={fixtureIdentifyMut.isPending}>
+                    {fixtureIdentifyMut.isPending ? (
+                      <><Spinner className="h-3.5 w-3.5 mr-1" /> Identifying…</>
+                    ) : (
+                      <><Camera className="h-3.5 w-3.5 mr-1" /> Find matches</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Results */}
+            {fixtureMatches && (
+              <div className="space-y-2">
+                {fixtureMatches.filter((m: any) => m.matched).map((m: any, i: number) => (
+                  <div key={`fm-${i}`} className="flex items-center gap-3 rounded-lg border p-2.5">
+                    {m.product?.imageUrl && (
+                      <img src={m.product.imageUrl} alt={m.product.name} className="h-12 w-12 rounded object-contain bg-muted/30 shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                        <span className="font-medium text-sm truncate">{m.product?.name}</span>
+                      </div>
+                      {m.product?.sellPrice && (
+                        <span className="text-sm font-semibold">${m.product.sellPrice.toFixed(2)}</span>
+                      )}
+                    </div>
+                    <Button size="sm" onClick={() => addFixtureToCart(m)}>
+                      <ShoppingCart className="h-3.5 w-3.5 mr-1" /> Add
+                    </Button>
+                  </div>
+                ))}
+                {fixtureMatches.filter((m: any) => !m.matched).map((m: any, i: number) => (
+                  <div key={`fu-${i}`} className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium">{m.fixture?.type || "Fixture"}</span>
+                      <p className="text-xs text-muted-foreground">{m.reason}</p>
+                    </div>
+                  </div>
+                ))}
+                {fixtureMatches.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No fixtures detected. Try a clearer photo.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
