@@ -391,3 +391,11 @@
 - [x] Add SiteFooter to all pages via AppLayout (Distributor Portal, Affiliate, etc.)
 - [x] Footer includes Supplier Portal, Affiliate Program, and Admin links
 - [x] Revamp /affiliate page with full value proposition landing page (not just "No account found")
+
+## BT9 Cabinet Missing from US Cabinet Depot Catalog
+- [x] Investigate BT9 (Full Height Single Door Base, 9") in the database
+- [x] Confirm BT-09 generic cabinet exists (id=95) but had no distributor_skus for UCD
+- [x] Insert 19 distributor_sku entries for BT9 across all UCD door styles (April 2026 pricing)
+- [x] Set correct group pricing: Group 1 $389, Group 2 $430, Group 3 $452, Group 4 $472
+- [x] Update BT-09 weight to 38 lbs (from PDF)
+- [x] Fix SiteFooter import error (was stale Vite cache, file already had correct path)
