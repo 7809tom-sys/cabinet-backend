@@ -111,7 +111,9 @@ import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
-import { PhotorealPreview, type PhotorealSceneInput } from "@/components/design/PhotorealPreview";
+// PhotorealPreview removed — replaced by deterministic preview modes
+import type { PhotorealSceneInput } from "@/components/design/PhotorealPreview";
+import { DesignPreviewModal } from "@/components/design/DesignPreviewModal";
 import { PelicanCountertopPicker, PelicanSinkPicker } from "@/components/design/PelicanProductPickers";
 
 
@@ -4814,7 +4816,7 @@ export default function DesignTool() {
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
-  const [photorealOpen, setPhotorealOpen] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
 
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
@@ -5056,14 +5058,15 @@ export default function DesignTool() {
         >
                     <Printer className="h-3.5 w-3.5" /> {t("dt_sh_print_sheet")}
         </a>
-        {/* AI Photoreal Preview — desktop toolbar button (only shown when cabinets exist) */}
+        {/* Preview modes — desktop toolbar button */}
         {placed.length > 0 && (
-          <PhotorealPreview
-            disabled={false}
-            buildScene={buildPhotorealScene}
-            variant="toolbar"
-            label={t("dt_sh_ai_preview")}
-          />
+          <button
+            type="button"
+            onClick={() => setPreviewModalOpen(true)}
+            className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          >
+            <Eye className="h-3.5 w-3.5" /> Preview
+          </button>
         )}
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
         <div className="ml-auto flex items-center gap-2 lg:hidden">
@@ -5303,17 +5306,17 @@ export default function DesignTool() {
                 )}
 
                                 <div className="mx-3 my-1 border-t border-border" />
-                {/* AI Photoreal Preview — mobile menu entry (opens lifted dialog) */}
+                {/* Preview modes — mobile menu entry */}
                 <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Visualization</p>
                 <div className="px-1 pb-1">
                   <button
                     type="button"
                     disabled={placed.length === 0}
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setPhotorealOpen(true), 150); }}
+                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setPreviewModalOpen(true), 150); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <Sparkles className="h-5 w-5 shrink-0 text-[#1a2744]" />
-                    <span className="font-medium">{t("dt_sh_ai_preview")}</span>
+                    <Eye className="h-5 w-5 shrink-0 text-[#1a2744]" />
+                    <span className="font-medium">Preview</span>
                   </button>
                 </div>
                 <div className="mx-3 my-1 border-t border-border" />
@@ -7788,14 +7791,17 @@ export default function DesignTool() {
         </div>
       )}
 
-      {/* Lifted AI Photoreal Preview dialog — lives outside the More sheet so it
-          persists after the sheet closes on mobile */}
-      <PhotorealPreview
-        disabled={placed.length === 0}
-        buildScene={buildPhotorealScene}
-        variant="headless"
-        controlledOpen={photorealOpen}
-        onControlledOpenChange={setPhotorealOpen}
+      {/* Design Preview Modal */}
+      <DesignPreviewModal
+        open={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        placed={placed}
+        room={room}
+        activeWall={activeWall}
+        doorStyleName={activeStyleName || undefined}
+        countertopColor={countertopMaterial(countertopMaterialId).fill}
+        countertopName={countertopMaterial(countertopMaterialId).name}
+        hardwareName={hardwareStyleId !== "none" ? (HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label || undefined) : undefined}
       />
     </div>
   );

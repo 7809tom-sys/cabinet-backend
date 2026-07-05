@@ -431,3 +431,11 @@
 - [x] Backward compatibility: existing rectangular rooms still work (rectangle = 4-vertex polygon)
 - [x] Persist polygon room data in draft saves
 - [x] Tests for polygon geometry helpers (20 tests passing)
+
+## Feature: Replace AI Photoreal Preview with deterministic preview modes
+- [x] Remove AI Photoreal Preview button and component from Design Tool
+- [x] Add new "Preview" button/menu with three tabs (Elevation, 3D View, Materials)
+- [x] Build Enhanced 2D Elevation rendering (canvas-based with shadows, raised panels, hardware, countertop, flooring)
+- [x] Build Isometric 3D View (deterministic perspective from actual cabinet data with proper occlusion)
+- [x] Build Materials Mood Board (grid of selected finish swatches with labels)
+- [x] Run typecheck and tests (0 TS errors, 278 design tests pass)
