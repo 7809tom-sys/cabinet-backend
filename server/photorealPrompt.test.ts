@@ -64,7 +64,7 @@ describe("buildPhotorealPrompt", () => {
       ...base,
       wallSummaries: ["Back wall: 8ft run of base cabinets with a sink", "Left wall: tall pantry column"],
     });
-    expect(p).toContain("Exact layout of the cabinetry:");
+    expect(p).toContain("EXACT cabinet-by-cabinet layout");
     expect(p).toContain("Back wall: 8ft run of base cabinets with a sink");
     expect(p).toContain("Left wall: tall pantry column");
   });
@@ -98,7 +98,7 @@ describe("buildPhotorealPrompt", () => {
     expect(p).toContain("a range, a refrigerator, a sink");
     expect(p).toContain("Do not add any other appliances");
     // global negative constraint against inventing geometry
-    expect(p).toContain("do NOT invent extra cabinet runs");
+    expect(p).toContain("Do NOT invent, add, or rearrange any cabinets");
   });
 
   it("mentions an island only when hasIsland is set", () => {

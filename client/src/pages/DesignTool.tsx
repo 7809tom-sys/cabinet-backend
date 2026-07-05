@@ -3624,23 +3624,54 @@ export default function DesignTool() {
         if (desc && !applianceList.includes("a " + desc)) applianceList.push("a " + desc);
       }
     }
-    // Wall summaries
+    // Wall summaries — detailed per-cabinet sequence so the AI renders the
+    // EXACT layout, not a generic kitchen.
     const summaries: string[] = [];
     const cabWalls: string[] = [];
     for (const side of ["top", "bottom", "left", "right"] as WallSide[]) {
       const cabs = wallCabs[side];
       if (cabs.length === 0) continue;
       cabWalls.push(wallNames[side]);
-      const totalIn = cabs.reduce((s, c) => s + (c.width ?? 0), 0);
-      const hasBase = cabs.some((c) => c.placement === "base");
-      const hasWall = cabs.some((c) => c.placement === "wall");
-      const hasTall = cabs.some((c) => c.placement === "tall");
+      // Sort by position along the wall (left-to-right in the elevation)
+      const horizontal = side === "top" || side === "bottom";
+      const sorted = [...cabs].sort((a, b) => (horizontal ? a.x - b.x : a.y - b.y));
+      // Build a concise left-to-right sequence description
+      const baseSeq = sorted.filter((c) => c.placement === "base" || c.placement === "appliance");
+      const wallSeq = sorted.filter((c) => c.placement === "wall");
+      const tallSeq = sorted.filter((c) => c.placement === "tall");
+      const describeSeq = (items: PlacedCabinet[]): string => {
+        return items.map((c) => {
+          const w = c.width ?? 0;
+          const code = c.masterCode ?? "";
+          if (isApplianceCode(code)) {
+            const name = (c.description ?? code).replace(/\d+"?$/, "").trim();
+            return `${w}" ${name}`;
+          }
+          // Describe by type: drawer base, sink base, corner, etc.
+          const desc = (c.description ?? "").toLowerCase();
+          if (desc.includes("sink")) return `${w}" sink base`;
+          if (desc.includes("drawer")) return `${w}" drawer base`;
+          if (desc.includes("corner") || desc.includes("blind")) return `${w}" corner cabinet`;
+          if (desc.includes("lazy susan")) return `${w}" lazy susan`;
+          if (c.placement === "wall") return `${w}" wall cabinet`;
+          if (c.placement === "tall") return `${w}" tall pantry`;
+          return `${w}" cabinet`;
+        }).join(", ");
+      };
+      // Check for windows on this wall
+      const wallOpenings = openings.filter((o) => o.side === side);
+      const windowNote = wallOpenings.some((o) => o.kind === "window")
+        ? " (with a window above the counter area)"
+        : wallOpenings.some((o) => o.kind === "door" || o.kind === "opening")
+        ? " (with a doorway)"
+        : "";
+      let summary = `${wallNames[side]}${windowNote}: `;
       const parts: string[] = [];
-      if (hasBase && hasWall) parts.push("base + wall cabinets");
-      else if (hasBase) parts.push("base cabinets");
-      else if (hasWall) parts.push("wall cabinets");
-      if (hasTall) parts.push("tall pantry/utility column");
-      summaries.push(`${wallNames[side]}: ${Math.round(totalIn / 12)}ft run of ${parts.join(" and ")}`);
+      if (baseSeq.length > 0) parts.push(`Lower row (left to right): ${describeSeq(baseSeq)}`);
+      if (wallSeq.length > 0) parts.push(`Upper row: ${describeSeq(wallSeq)}`);
+      if (tallSeq.length > 0) parts.push(`Tall: ${describeSeq(tallSeq)}`);
+      summary += parts.join(". ");
+      summaries.push(summary);
     }
     // Layout type
     let layoutType: PhotorealSceneInput["layoutType"] = "one-wall";

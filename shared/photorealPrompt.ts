@@ -184,13 +184,16 @@ export function buildPhotorealPrompt(input: PhotorealPromptInput): string {
   }
 
   // 5. Layout so the render tracks what the user actually built.
+  parts.push(
+    "CRITICAL LAYOUT INSTRUCTION: You MUST faithfully reproduce the EXACT cabinet arrangement described below. Do NOT rearrange, add, remove, or substitute any cabinets. The number, size, and sequence of cabinets on each wall must match precisely."
+  );
   if (input.cabinetWalls && input.cabinetWalls.length > 0) {
     parts.push(
-      `Cabinetry appears ONLY on the following wall(s): ${input.cabinetWalls.join(", ")}. Leave every other wall free of cabinets.`
+      `Cabinetry appears ONLY on the following wall(s): ${input.cabinetWalls.join(", ")}. The other walls have NO cabinets — show them as bare painted walls.`
     );
   }
   if (input.wallSummaries && input.wallSummaries.length > 0) {
-    parts.push("Exact layout of the cabinetry: " + input.wallSummaries.join("; ") + ".");
+    parts.push("EXACT cabinet-by-cabinet layout (reproduce this precisely, left to right as described): " + input.wallSummaries.join(". ") + ".");
   }
 
   // 5b. Appliances: show exactly what was placed; do not invent extras.
@@ -216,7 +219,7 @@ export function buildPhotorealPrompt(input: PhotorealPromptInput): string {
 
   // 7. Hard constraints (negative prompt) to keep renders clean and on-brief.
   parts.push(
-    "Strictly reproduce the layout described above; do NOT invent extra cabinet runs, an island, a peninsula, or appliances that were not specified. Do NOT include: people, hands, pets, text, letters, numbers, labels, watermarks, logos, floor-plan overlays, measurement lines, grid lines, blueprint or CAD look, cartoon or 3D-render CGI look, warped or melted cabinets, crooked walls, extra doors, duplicated fixtures, fisheye distortion, or blurry low-resolution artifacts."
+    "ABSOLUTE CONSTRAINTS: You must ONLY show what is described above. Do NOT invent, add, or rearrange any cabinets, appliances, islands, or peninsulas beyond what is explicitly listed. The cabinet count, widths, and left-to-right order on each wall must match the layout description exactly. Do NOT include: people, hands, pets, text, letters, numbers, labels, watermarks, logos, floor-plan overlays, measurement lines, grid lines, blueprint or CAD look, cartoon or 3D-render CGI look, warped or melted cabinets, crooked walls, extra doors, duplicated fixtures, fisheye distortion, or blurry low-resolution artifacts."
   );
 
   return parts.join(" ");

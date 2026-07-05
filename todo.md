@@ -412,3 +412,9 @@
 - [x] Add waterfall sq ft to BOM/quote (cabinet height × cabinet depth per waterfall side)
 - [x] Show waterfall panels in fabricator countertop sheet
 - [x] Run typecheck and tests (all 1338 tests pass, 0 TS errors)
+
+## Bug: AI Photoreal Preview generates generic kitchen instead of user's design
+- [x] Enhanced buildPhotorealScene to send detailed per-cabinet sequences (left-to-right, with widths and types) instead of vague "12ft run of base cabinets"
+- [x] Added window/door opening context to wall summaries
+- [x] Strengthened prompt with CRITICAL LAYOUT INSTRUCTION and ABSOLUTE CONSTRAINTS to force the AI to reproduce the exact arrangement
+- [x] Updated tests to match new prompt wording
