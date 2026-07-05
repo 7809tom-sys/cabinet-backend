@@ -439,3 +439,15 @@
 - [x] Build Isometric 3D View (deterministic perspective from actual cabinet data with proper occlusion)
 - [x] Build Materials Mood Board (grid of selected finish swatches with labels)
 - [x] Run typecheck and tests (0 TS errors, 278 design tests pass)
+
+## Simplify cabinet auto-suggestions (only base→wall pairing)
+- [x] Remove OTR bridge suggestion
+- [x] Remove corner base 12" wall suggestion
+- [x] Remove diagonal base corner suggestion
+- [x] Remove WEC (open-end cabinet) suggestion
+- [x] Remove wine rack combo suggestion
+- [x] Remove diagonal wall corner suggestion
+- [x] Keep ONLY: base cabinet placed → offer matching wall cabinet above
+- [x] Remove unused imports (bridgeCabinetCodeForWidth, bridgeHeightForWallHeight)
+- [x] Remove unused baseCabPool query and baseCabPoolRef
+- [x] 0 TS errors, 278 design tests pass
