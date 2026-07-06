@@ -503,8 +503,8 @@ export function PlanCanvas({
       if (targetRot != null) {
         candidate = { ...candidate, rotation: targetRot };
       }
-      const snapped = snapPosition(candidate, room, others);
-      setHoverSnap(snapped.snappedWall);
+      const snapped = snapPosition(candidate, room, others, island);
+      setHoverSnap(snapped.snappedWall || snapped.snappedIsland);
       onMove(dragUid, snapped.x, snapped.y, targetRot ?? undefined);
     },
     [dragUid, cabinets, ppi, room, onMove]

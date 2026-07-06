@@ -529,3 +529,7 @@
 - [x] Vendor Portal detects ?as= param when user is admin → shows that vendor's dashboard
 - [x] Admin sees full vendor dashboard without needing email/password login
 - [x] Add vendor selector dropdown in portal header so admin can switch between vendors
+
+## Feature: Island edge snapping in Design Tool
+- [x] When dragging a cabinet near an island, snap it to the island's edges (left, right, front, back sides)
+- [x] Show a snap indicator/highlight when a cabinet is close enough to snap to the island

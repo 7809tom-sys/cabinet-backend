@@ -745,8 +745,9 @@ export function dimLabel(p: PlacedCabinet): string {
 export function snapPosition(
   moving: PlacedCabinet,
   room: RoomData,
-  others: PlacedCabinet[]
-): { x: number; y: number; snappedWall: boolean } {
+  others: PlacedCabinet[],
+  island?: { x: number; y: number; width: number; depth: number } | null
+): { x: number; y: number; snappedWall: boolean; snappedIsland: boolean } {
   // Use the PLAN footprint (not the raw rotated size) so L-corner cabinets
   // (lazy-Susan / corner base) snap by their true SQUARE box. Their stored depth
   // can be the shallow ~24" leg depth, which would leave the box short of the
@@ -755,8 +756,33 @@ export function snapPosition(
   let x = moving.x;
   let y = moving.y;
   let snappedWall = false;
+  let snappedIsland = false;
 
   const T = STD.SNAP_THRESHOLD;
+
+  // ── Island edge snapping ───────────────────────────────────────────────────
+  // When a cabinet is dragged within SNAP_THRESHOLD of any island edge, snap it
+  // flush to that edge. Left/right edges snap the X axis; top/bottom snap Y.
+  if (island) {
+    const iRight = island.x + island.width;
+    const iBottom = island.y + island.depth;
+    // Vertical overlap check (cabinet Y range overlaps island Y range)
+    const yOverlapIsland = y < iBottom + T && y + d > island.y - T;
+    if (yOverlapIsland) {
+      // Snap right edge of cabinet to left edge of island
+      if (Math.abs(x + w - island.x) <= T) { x = island.x - w; snappedIsland = true; }
+      // Snap left edge of cabinet to right edge of island
+      if (Math.abs(x - iRight) <= T) { x = iRight; snappedIsland = true; }
+    }
+    // Horizontal overlap check (cabinet X range overlaps island X range)
+    const xOverlapIsland = x < iRight + T && x + w > island.x - T;
+    if (xOverlapIsland) {
+      // Snap bottom edge of cabinet to top edge of island
+      if (Math.abs(y + d - island.y) <= T) { y = island.y - d; snappedIsland = true; }
+      // Snap top edge of cabinet to bottom edge of island
+      if (Math.abs(y - iBottom) <= T) { y = iBottom; snappedIsland = true; }
+    }
+  }
 
   if (Math.abs(x - 0) <= T) { x = 0; snappedWall = true; }
   if (Math.abs(x + w - room.width) <= T) { x = room.width - w; snappedWall = true; }
@@ -813,7 +839,7 @@ export function snapPosition(
   x = Math.max(0, Math.min(x, room.width - w));
   y = Math.max(0, Math.min(y, room.depth - d));
 
-  return { x, y, snappedWall };
+  return { x, y, snappedWall, snappedIsland };
 }
 
 // Auto-orientation: when a cabinet is dragged near a wall, it should turn so its
