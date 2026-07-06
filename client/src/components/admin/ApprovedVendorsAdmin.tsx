@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy, ExternalLink } from "lucide-react";
+import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy, ExternalLink, Search } from "lucide-react";
 import { Link } from "wouter";
 import {
   Select,
@@ -424,7 +424,18 @@ export default function ApprovedVendorsAdmin() {
     onError: (e) => toast.error(e.message || "Failed to remove"),
   });
 
+  const [search, setSearch] = useState("");
+
   const vendors = (data ?? []) as VendorLine[];
+  const filteredVendors = search.trim()
+    ? vendors.filter(
+        (v) =>
+          v.name.toLowerCase().includes(search.toLowerCase()) ||
+          (v.contactName ?? "").toLowerCase().includes(search.toLowerCase()) ||
+          (v.contactEmail ?? "").toLowerCase().includes(search.toLowerCase()) ||
+          (v.category ?? "").toLowerCase().includes(search.toLowerCase())
+      )
+    : vendors;
   const totalAll = vendors.reduce((sum, v) => sum + (v.totalSalesCents || 0), 0);
 
   return (
@@ -474,6 +485,22 @@ export default function ApprovedVendorsAdmin() {
               </div>
               <div className="text-2xl font-bold">{money(totalAll)}</div>
             </div>
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search vendors by name, contact, category…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              {search && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {filteredVendors.length} of {vendors.length} vendors
+                </p>
+              )}
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -485,7 +512,13 @@ export default function ApprovedVendorsAdmin() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {vendors.map((v) => (
+                {filteredVendors.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                      No vendors match &ldquo;{search}&rdquo;
+                    </TableCell>
+                  </TableRow>
+                ) : filteredVendors.map((v) => (
                   <TableRow key={v.id}>
                     <TableCell>
                       <div className="font-medium">{v.name}</div>
