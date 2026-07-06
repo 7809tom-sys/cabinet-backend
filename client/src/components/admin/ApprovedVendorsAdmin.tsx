@@ -31,7 +31,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy } from "lucide-react";
+import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import {
   Select,
   SelectContent,
@@ -519,6 +520,13 @@ export default function ApprovedVendorsAdmin() {
                           onSaved={() => utils.vendors.list.invalidate()}
                         />
                         <InviteLinkButton vendorId={v.id} vendorName={v.name} />
+                        {v.sourceKey && v.sourceKey.startsWith("dist:") && (
+                          <Link href={`/vendor?as=${v.sourceKey.slice(5)}`}>
+                            <Button size="sm" variant="outline" className="gap-1" title="View Vendor Portal">
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
+                        )}
                         <ProvisionAccountDialog
                           vendorId={v.id}
                           vendorName={v.name}

@@ -37,13 +37,21 @@ export const analyticsRouter = router({
     .input(
       z.object({
         days: z.number().min(1).max(365).default(30),
+        distributorId: z.number().optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
       const db = (await getDb())!;
       const days = input?.days ?? 30;
       const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-      const distId = ctx.distributorId!;
+      // Admin must pass distributorId; distributor uses their own
+      let distId: number;
+      if (ctx.isAdmin) {
+        if (!input?.distributorId) return { totalViews: 0, uniqueProducts: 0, topProducts: [], dailyViews: [] };
+        distId = input.distributorId;
+      } else {
+        distId = ctx.distributorId!;
+      }
 
       // Total views
       const [totalResult] = await db

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect, FormEvent } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, FormEvent, createContext, useContext } from "react";
 import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
@@ -26,6 +26,12 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
+
+// ─── Admin Distributor Context ───────────────────────────────────────────────
+const AdminDistributorContext = createContext<number | undefined>(undefined);
+function useAdminDistributorId(): number | undefined {
+  return useContext(AdminDistributorContext);
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ALL = "__all__";
@@ -56,7 +62,8 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
 
 // ─── Overview Page ────────────────────────────────────────────────────────────
 function OverviewPage() {
-  const myLine = trpc.distributorPortal.myLine.useQuery(undefined);
+  const adminDistId = useAdminDistributorId();
+  const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
 
   if (myLine.isLoading) {
     return (
@@ -159,7 +166,8 @@ function OverviewPage() {
 // ─── Catalog Page ─────────────────────────────────────────────────────────────
 function CatalogPage() {
   const utils = trpc.useUtils();
-  const myLine = trpc.distributorPortal.myLine.useQuery(undefined);
+  const adminDistId = useAdminDistributorId();
+  const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
   const [styleId, setStyleId] = useState<string>(ALL);
   const [category, setCategory] = useState<string>(ALL);
   const [search, setSearch] = useState("");
@@ -167,9 +175,9 @@ function CatalogPage() {
   const [editingPrice, setEditingPrice] = useState<{ skuId: number; field: string; value: string } | null>(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
-
   const catalogInput = useMemo(
     () => ({
+      ...(adminDistId ? { distributorId: adminDistId } : {}),
       styleId: styleId === ALL ? undefined : Number(styleId),
       category: category === ALL ? undefined : category,
       search: search.trim() || undefined,
@@ -177,7 +185,7 @@ function CatalogPage() {
       limit: 100,
       offset: 0,
     }),
-    [styleId, category, search, onlyHidden]
+    [styleId, category, search, onlyHidden, adminDistId]
   );
 
   const catalog = trpc.distributorPortal.catalog.useQuery(catalogInput, {
@@ -224,6 +232,7 @@ function CatalogPage() {
         reader.readAsDataURL(file);
       });
       await updateImage.mutateAsync({
+        ...(adminDistId ? { distributorId: adminDistId } : {}),
         skuId,
         imageBase64: base64,
         contentType: file.type,
@@ -453,6 +462,7 @@ function CatalogPage() {
               <Button
                 onClick={() => {
                   updatePrice.mutate({
+                    ...(adminDistId ? { distributorId: adminDistId } : {}),
                     skuId: editingPrice.skuId,
                     [editingPrice.field]: editingPrice.value || undefined,
                   });
@@ -473,6 +483,7 @@ function CatalogPage() {
 // ─── CSV Upload Section ──────────────────────────────────────────────────────
 function CsvUploadSection() {
   const utils = trpc.useUtils();
+  const adminDistId = useAdminDistributorId();
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [csvParsing, setCsvParsing] = useState(false);
   const [csvResult, setCsvResult] = useState<{ updated: number; notFound: number; total: number; errors: string[] } | null>(null);
@@ -526,7 +537,7 @@ function CsvUploadSection() {
         return;
       }
 
-      bulkUpdate.mutate({ rows });
+      bulkUpdate.mutate({ rows, ...(adminDistId ? { distributorId: adminDistId } : {}) });
     } catch (err: any) {
       toast.error(`CSV parse error: ${err.message}`);
     } finally {
@@ -619,7 +630,8 @@ function CsvUploadSection() {
 // ─── New Product Submission ──────────────────────────────────────────────────
 function NewProductForm({ onClose }: { onClose: () => void }) {
   const utils = trpc.useUtils();
-  const myLine = trpc.distributorPortal.myLine.useQuery(undefined);
+  const adminDistId = useAdminDistributorId();
+  const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
   const [form, setForm] = useState({
     cabinetId: "",
     styleId: "",
@@ -723,6 +735,7 @@ function NewProductForm({ onClose }: { onClose: () => void }) {
               return;
             }
             submit.mutate({
+              ...(adminDistId ? { distributorId: adminDistId } : {}),
               cabinetId: Number(form.cabinetId),
               styleId: Number(form.styleId),
               distributorSku: form.distributorSku,
@@ -747,8 +760,9 @@ function NewProductForm({ onClose }: { onClose: () => void }) {
 // ─── Design Tool Picks Page ───────────────────────────────────────────────────
 function DesignToolPicksPage() {
   const utils = trpc.useUtils();
-  const picks = trpc.distributorPortal.getDesignToolPicks.useQuery(undefined);
-  const catalog = trpc.distributorPortal.catalog.useQuery({ limit: 500, offset: 0 });
+  const adminDistId = useAdminDistributorId();
+  const picks = trpc.distributorPortal.getDesignToolPicks.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+  const catalog = trpc.distributorPortal.catalog.useQuery({ ...(adminDistId ? { distributorId: adminDistId } : {}), limit: 500, offset: 0 });
   const setPicks = trpc.distributorPortal.setDesignToolPicks.useMutation({
     onSuccess: () => {
       utils.distributorPortal.getDesignToolPicks.invalidate();
@@ -769,7 +783,7 @@ function DesignToolPicksPage() {
       toast.error(`Maximum ${MAX_PICKS} picks allowed`);
       return;
     }
-    setPicks.mutate({ skuIds: newPicks });
+    setPicks.mutate({ skuIds: newPicks, ...(adminDistId ? { distributorId: adminDistId } : {}) });
   }, [currentPicks, pickSet, setPicks]);
 
   if (picks.isLoading || catalog.isLoading) {
@@ -801,7 +815,7 @@ function DesignToolPicksPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setPicks.mutate({ skuIds: [] })}
+            onClick={() => setPicks.mutate({ skuIds: [], ...(adminDistId ? { distributorId: adminDistId } : {}) })}
             disabled={setPicks.isPending}
           >
             Clear All
@@ -895,7 +909,8 @@ function DesignToolPicksPage() {
 // ─── Door Styles Page ─────────────────────────────────────────────────────────
 function DoorStylesPage() {
   const utils = trpc.useUtils();
-  const myLine = trpc.distributorPortal.myLine.useQuery(undefined);
+  const adminDistId = useAdminDistributorId();
+  const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
   const updateImage = trpc.distributorPortal.updateDoorStyleImage.useMutation({
     onSuccess: () => {
       utils.distributorPortal.myLine.invalidate();
@@ -916,6 +931,7 @@ function DoorStylesPage() {
       reader.readAsDataURL(file);
     });
     await updateImage.mutateAsync({
+      ...(adminDistId ? { distributorId: adminDistId } : {}),
       styleId: uploadTarget.styleId,
       imageType: uploadTarget.imageType,
       imageBase64: base64,
@@ -1001,7 +1017,8 @@ function DoorStylesPage() {
 
 // ─── Promotions Page ─────────────────────────────────────────────────────────
 function PromotionsPage() {
-  const promos = trpc.promotions.list.useQuery();
+  const adminDistId = useAdminDistributorId();
+  const promos = trpc.promotions.list.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
   const createMut = trpc.promotions.create.useMutation({
     onSuccess: () => { promos.refetch(); toast.success("Promotion created"); setShowCreate(false); },
     onError: (e: any) => toast.error(e.message),
@@ -1072,7 +1089,7 @@ function PromotionsPage() {
                 <TableCell>
                   <Switch
                     checked={p.isActive}
-                    onCheckedChange={() => toggleMut.mutate({ id: p.id, isActive: !p.isActive })}
+                    onCheckedChange={() => toggleMut.mutate({ id: p.id, isActive: !p.isActive, ...(adminDistId ? { distributorId: adminDistId } : {}) })}
                   />
                 </TableCell>
               </TableRow>
@@ -1143,6 +1160,7 @@ function PromotionsPage() {
             <Button
               disabled={!form.name || !form.discountValue || createMut.isPending}
               onClick={() => createMut.mutate({
+                ...(adminDistId ? { distributorId: adminDistId } : {}),
                 name: form.name,
                 discountType: form.discountType,
                 discountValue: Number(form.discountValue),
@@ -1163,15 +1181,15 @@ function PromotionsPage() {
 
 // ─── Gallery Page ─────────────────────────────────────────────────────────────
 function GalleryPage() {
-  const gallery = trpc.gallery.listByDistributor.useQuery();
+  const adminDistId = useAdminDistributorId();
+  const gallery = trpc.gallery.listByDistributor.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
   const uploadMut = trpc.gallery.upload.useMutation();
   const deleteMut = trpc.gallery.delete.useMutation();
   const utils = trpc.useUtils();
   const [selectedSku, setSelectedSku] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-
   // Get catalog for SKU selector
-  const catalog = trpc.distributorPortal.catalog.useQuery({ limit: 500, offset: 0 });
+  const catalog = trpc.distributorPortal.catalog.useQuery({ ...(adminDistId ? { distributorId: adminDistId } : {}), limit: 500, offset: 0 });
   const skuOptions = (catalog.data?.items ?? []).map((item: any) => ({
     id: item.id as number,
     label: `${item.masterCode ?? ""} — ${item.styleName ?? "SKU"} #${item.id}`,
@@ -1185,6 +1203,7 @@ function GalleryPage() {
       const base64 = (reader.result as string).split(",")[1];
       try {
         await uploadMut.mutateAsync({
+          ...(adminDistId ? { distributorId: adminDistId } : {}),
           skuId: selectedSku,
           imageBase64: base64,
           fileName: file.name,
@@ -1201,7 +1220,7 @@ function GalleryPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Delete this image?")) return;
-    await deleteMut.mutateAsync({ id });
+    await deleteMut.mutateAsync({ id, ...(adminDistId ? { distributorId: adminDistId } : {}) });
     utils.gallery.listByDistributor.invalidate();
   };
 
@@ -1275,8 +1294,9 @@ function GalleryPage() {
 
 // ─── Vendor Analytics Page ───────────────────────────────────────────────────
 function VendorAnalyticsPage() {
+  const adminDistId = useAdminDistributorId();
   const [days, setDays] = useState(30);
-  const summary = trpc.analytics.summary.useQuery({ days });
+  const summary = trpc.analytics.summary.useQuery({ days, ...(adminDistId ? { distributorId: adminDistId } : {}) });
 
   if (summary.isLoading) {
     return (
@@ -1319,7 +1339,7 @@ function VendorAnalyticsPage() {
         </div>
         <div className="border rounded-lg p-4">
           <p className="text-sm text-muted-foreground">Top Referrers</p>
-          <p className="text-3xl font-bold">{data.topReferrers.length}</p>
+          <p className="text-3xl font-bold">{data.topReferrers?.length ?? 0}</p>
         </div>
       </div>
 
@@ -1362,11 +1382,11 @@ function VendorAnalyticsPage() {
       )}
 
       {/* Top referrers */}
-      {data.topReferrers.length > 0 && (
+      {(data.topReferrers?.length ?? 0) > 0 && (
         <div className="border rounded-lg p-4">
           <h3 className="font-medium mb-3">Traffic Sources</h3>
           <div className="space-y-2">
-            {data.topReferrers.map((r: any, i: number) => (
+            {data.topReferrers!.map((r: any, i: number) => (
               <div key={r.referrer ?? i} className="flex items-center justify-between text-sm">
                 <span className="flex-1 truncate">{r.referrer || "Direct"}</span>
                 <Badge variant="outline">{r.count} visits</Badge>
@@ -1387,7 +1407,8 @@ function VendorAnalyticsPage() {
 
 // ─── Orders Page ──────────────────────────────────────────────────────────────
 function OrdersPage() {
-  const orders = trpc.distributorPortal.orders.useQuery({ limit: 50 });
+  const adminDistId = useAdminDistributorId();
+  const orders = trpc.distributorPortal.orders.useQuery({ limit: 50, ...(adminDistId ? { distributorId: adminDistId } : {}) });
 
   if (orders.isLoading) {
     return (
@@ -1785,7 +1806,8 @@ function AICatalogServicesPage() {
 }
 
 function ServiceHistoryLog() {
-  const { data: history, isLoading } = trpc.distributorPortal.aiServiceHistory.useQuery();
+  const adminDistId = useAdminDistributorId();
+  const { data: history, isLoading } = trpc.distributorPortal.aiServiceHistory.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
 
   if (isLoading) {
     return (
@@ -2235,6 +2257,17 @@ export default function VendorPortal() {
   const { user, loading } = useAuth();
   const [page, setPage] = useState<VendorPage>("overview");
 
+  // Admin bypass: detect ?as=<distributorId> in URL
+  const params = new URLSearchParams(window.location.search);
+  const asParam = params.get("as");
+  const [adminDistributorId, setAdminDistributorId] = useState<number | null>(
+    asParam ? Number(asParam) : null
+  );
+
+  // Fetch distributors list for admin selector
+  const isAdmin = user?.role === "admin";
+  const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -2264,13 +2297,107 @@ export default function VendorPortal() {
     );
   }
 
+  // Admin must select a vendor to view as
+  if (isAdmin && !adminDistributorId) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center space-y-4 max-w-md">
+          <h1 className="text-2xl font-bold">Vendor Portal — Admin View</h1>
+          <p className="text-muted-foreground">
+            Select a vendor to view their portal as:
+          </p>
+          <div className="flex flex-col gap-2">
+            {distList.isLoading && <Loader2 className="h-5 w-5 animate-spin mx-auto" />}
+            {(distList.data ?? []).map((d: any) => (
+              <Button
+                key={d.id}
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  setAdminDistributorId(d.id);
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("as", String(d.id));
+                  window.history.replaceState({}, "", url.toString());
+                }}
+              >
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{d.code}</span>
+                {d.name}
+              </Button>
+            ))}
+          </div>
+          <Button variant="ghost" className="mt-4" onClick={() => { window.location.href = "/"; }}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
+    <VendorPortalDashboard
+      user={user}
+      page={page}
+      setPage={setPage}
+      isAdmin={isAdmin}
+      adminDistributorId={adminDistributorId}
+      setAdminDistributorId={setAdminDistributorId}
+      distList={distList.data ?? []}
+    />
+  );
+}
+
+function VendorPortalDashboard({
+  user,
+  page,
+  setPage,
+  isAdmin,
+  adminDistributorId,
+  setAdminDistributorId,
+  distList,
+}: {
+  user: any;
+  page: VendorPage;
+  setPage: (p: VendorPage) => void;
+  isAdmin: boolean;
+  adminDistributorId: number | null;
+  setAdminDistributorId: (id: number | null) => void;
+  distList: any[];
+}) {
+  return (
+    <AdminDistributorContext.Provider value={isAdmin && adminDistributorId ? adminDistributorId : undefined}>
     <div className="flex min-h-[calc(100vh-64px)]">
       {/* Sidebar */}
       <aside className="w-64 border-r bg-card hidden md:block">
         <div className="p-4 border-b">
           <h1 className="font-bold text-lg">Vendor Portal</h1>
           <p className="text-xs text-muted-foreground mt-1">{user.name}</p>
+          {isAdmin && adminDistributorId && (
+            <div className="mt-2">
+              <Select
+                value={String(adminDistributorId)}
+                onValueChange={(v) => {
+                  const id = Number(v);
+                  setAdminDistributorId(id);
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("as", String(id));
+                  window.history.replaceState({}, "", url.toString());
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select vendor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {distList.map((d: any) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.code} — {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Badge variant="secondary" className="mt-1 text-[10px]">Admin preview</Badge>
+            </div>
+          )}
         </div>
         <nav className="p-2 space-y-1">
           {NAV_ITEMS.map((item) => {
@@ -2329,5 +2456,6 @@ export default function VendorPortal() {
         {page === "payments" && <PaymentsPage />}
       </main>
     </div>
+    </AdminDistributorContext.Provider>
   );
 }

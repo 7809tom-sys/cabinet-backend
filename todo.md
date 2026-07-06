@@ -523,3 +523,9 @@
 - [x] Copy link to clipboard for admin to share with vendor
 - [x] Vendor clicks link → lands on /vendor registration page with pre-filled vendor info
 - [x] Registration with invite token assigns role=distributor and links to correct distributor
+
+## Admin bypass for Vendor Portal
+- [x] Add "View Portal" link on each vendor in Approved Vendors admin tab → navigates to /vendor?as=<distributorId>
+- [x] Vendor Portal detects ?as= param when user is admin → shows that vendor's dashboard
+- [x] Admin sees full vendor dashboard without needing email/password login
+- [x] Add vendor selector dropdown in portal header so admin can switch between vendors
