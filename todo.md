@@ -497,3 +497,19 @@
 - [x] Replace flat 30+ tab list with grouped navigation (Sales & Orders, People, Products & Catalog, Pricing, Operations, Settings)
 - [x] Each group shows its sub-tabs when selected
 - [x] Preserve all existing functionality and URL deep-linking (?tab=xxx)
+
+## Admin: Delete button for incoming orders/messages
+- [x] Add "Delete All" button to Incoming Orders admin tab (already existed)
+- [x] Add individual delete button per order (already existed)
+- [x] Backend endpoint to delete orders (single + bulk) (already existed)
+- [x] Delete all test orders from the database (359 order_requests cleared)
+
+## Feature: Full Vendor Portal (replace existing Supplier Portal)
+- [x] Phase 1: Vendor auth system (email/password login form — uses existing emailAuth router)
+- [x] Phase 2: Vendor portal dashboard shell (already existed with sidebar nav, overview stats)
+- [x] Phase 3: Order management (already existed in vendor portal)
+- [x] Phase 4: Catalog management (already existed — CSV upload, new product form, visibility toggles)
+- [x] Phase 5: Inventory integrations (NetSuite, Epicor, QuickBooks, generic REST API) — UI added
+- [x] Phase 6: Payment connection (Stripe Connect onboarding UI added)
+- [x] Phase 7: AI Catalog Helper ($100/hr) — already existed in vendor portal
+- [x] Phase 8: Product promotion — already existed in vendor portal

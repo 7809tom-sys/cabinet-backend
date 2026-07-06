@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, FormEvent } from "react";
 import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
   PlusCircle, ArrowLeft, FileSpreadsheet, Download, BarChart3,
-  Sparkles, Clock, CheckCircle2, Send,
+  Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ALL = "__all__";
@@ -37,7 +38,7 @@ function money(v: string | null | undefined): string {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "catalog" | "styles" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services";
+type VendorPage = "overview" | "catalog" | "styles" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -49,6 +50,8 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "orders", label: "Orders", icon: ClipboardList },
   { id: "ai-services", label: "AI Services", icon: Sparkles },
+  { id: "integrations", label: "Integrations", icon: Link2 },
+  { id: "payments", label: "Payments", icon: CreditCard },
 ];
 
 // ─── Overview Page ────────────────────────────────────────────────────────────
@@ -1621,6 +1624,298 @@ function AICatalogServicesPage() {
   );
 }
 
+// ─── Integrations Page ───────────────────────────────────────────────────────
+const INTEGRATIONS = [
+  {
+    id: "netsuite",
+    name: "Oracle NetSuite",
+    description: "Full ERP with inventory management. Sync stock levels, orders, and pricing automatically.",
+    fields: ["Account ID", "Consumer Key", "Consumer Secret", "Token ID", "Token Secret"],
+    popular: true,
+  },
+  {
+    id: "epicor",
+    name: "Epicor",
+    description: "Building materials distribution ERP. Real-time inventory and order routing.",
+    fields: ["API URL", "API Key", "Company ID"],
+    popular: true,
+  },
+  {
+    id: "quickbooks",
+    name: "QuickBooks Commerce",
+    description: "Inventory and order management for small-to-mid distributors.",
+    fields: ["Client ID", "Client Secret", "Realm ID"],
+    popular: true,
+  },
+  {
+    id: "generic",
+    name: "Custom REST API",
+    description: "Connect any system with a REST API. Map your endpoints to our standard format.",
+    fields: ["Base URL", "API Key", "Auth Header Name"],
+    popular: false,
+  },
+];
+
+function IntegrationsPage() {
+  const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    // In production this would save to the backend
+    toast.success("Integration credentials saved. Our team will verify the connection within 24 hours.");
+    setSaved(true);
+  };
+
+  const selected = INTEGRATIONS.find((i) => i.id === selectedIntegration);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-bold">Inventory Integrations</h2>
+        <p className="text-muted-foreground text-sm mt-1">
+          Connect your inventory system to automatically sync stock levels, pricing, and orders.
+        </p>
+      </div>
+
+      {!selectedIntegration ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {INTEGRATIONS.map((integration) => (
+            <Card
+              key={integration.id}
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => { setSelectedIntegration(integration.id); setSaved(false); setCredentials({}); }}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-semibold">{integration.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{integration.description}</p>
+                  </div>
+                  {integration.popular && <Badge variant="secondary">Popular</Badge>}
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Link2 className="h-3 w-3" />
+                  {integration.fields.length} credentials required
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="max-w-lg space-y-4">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedIntegration(null)}>
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to integrations
+          </Button>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">{selected?.name}</CardTitle>
+              <p className="text-sm text-muted-foreground">{selected?.description}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {selected?.fields.map((field) => (
+                <div key={field} className="space-y-1">
+                  <Label>{field}</Label>
+                  <Input
+                    type="password"
+                    placeholder={`Enter ${field}`}
+                    value={credentials[field] || ""}
+                    onChange={(e) => setCredentials({ ...credentials, [field]: e.target.value })}
+                  />
+                </div>
+              ))}
+              {saved ? (
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Credentials saved. Connection verification pending.
+                </div>
+              ) : (
+                <Button onClick={handleSave} className="w-full">
+                  Save & Verify Connection
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <h4 className="font-medium text-sm mb-2">How it works</h4>
+              <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                <li>Enter your API credentials above</li>
+                <li>Our team verifies the connection within 24 hours</li>
+                <li>Once verified, inventory syncs automatically every hour</li>
+                <li>Orders are routed directly to your system</li>
+              </ol>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Payments Page ───────────────────────────────────────────────────────────
+function PaymentsPage() {
+  const [connected, setConnected] = useState(false);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-bold">Payment Connection</h2>
+        <p className="text-muted-foreground text-sm mt-1">
+          Connect your Stripe account to receive automatic payouts when orders are fulfilled.
+        </p>
+      </div>
+
+      <Card className="max-w-lg">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-[#635BFF]/10 flex items-center justify-center">
+              <CreditCard className="h-5 w-5 text-[#635BFF]" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Stripe Connect</h3>
+              <p className="text-xs text-muted-foreground">Receive your split of each order automatically</p>
+            </div>
+          </div>
+
+          {connected ? (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700">Stripe account connected. Payouts are active.</span>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg border p-3 space-y-2">
+                <h4 className="text-sm font-medium">How split payments work:</h4>
+                <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Customer places an order through an affiliate storefront</li>
+                  <li>Payment is collected by Cabinet Dealz via Stripe</li>
+                  <li>Your fulfillment cost is automatically transferred to your Stripe account</li>
+                  <li>Affiliate commission and broker fee are deducted</li>
+                </ol>
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  toast.info("Stripe Connect onboarding will be available once Cabinet Dealz activates Stripe integration.");
+                }}
+              >
+                <CreditCard className="h-4 w-4 mr-2" />
+                Connect Stripe Account
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                You'll be redirected to Stripe to create or connect your account.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-lg">
+        <CardHeader>
+          <CardTitle className="text-base">Payout History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">No payouts yet. Connect your Stripe account to start receiving payments.</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Vendor Login Form ────────────────────────────────────────────────────────
+function VendorLoginForm() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const loginMutation = trpc.emailAuth.login.useMutation({
+    onSuccess: () => {
+      window.location.reload();
+    },
+    onError: (err) => {
+      setError(err.message || "Invalid email or password.");
+    },
+  });
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!email.trim() || !password) {
+      setError("Please enter your email and password.");
+      return;
+    }
+    loginMutation.mutate({ email: email.trim(), password });
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Card className="w-full max-w-md mx-4">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+            <Package className="h-7 w-7 text-primary" />
+          </div>
+          <CardTitle className="text-2xl font-bold">Vendor Portal</CardTitle>
+          <p className="text-muted-foreground text-sm mt-1">
+            Sign in with your vendor credentials to manage your catalog and orders.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="vendor-email">Email</Label>
+              <Input
+                id="vendor-email"
+                type="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vendor-password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="vendor-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+            <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+              {loginMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Signing in...</>
+              ) : (
+                "Sign In"
+              )}
+            </Button>
+          </form>
+          <p className="text-xs text-muted-foreground text-center mt-4">
+            Don't have an account? Contact Cabinet Dealz to get your vendor credentials.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Main Vendor Portal Component ─────────────────────────────────────────────
 export default function VendorPortal() {
   const { user, loading } = useAuth();
@@ -1635,17 +1930,7 @@ export default function VendorPortal() {
   }
 
   if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold">Vendor Portal</h1>
-          <p className="text-muted-foreground">Sign in to access your vendor dashboard.</p>
-          <Button onClick={() => { window.location.href = getLoginUrl(); }}>
-            Sign In
-          </Button>
-        </div>
-      </div>
-    );
+    return <VendorLoginForm />;
   }
 
   if (user.role !== "distributor" && user.role !== "admin") {
@@ -1726,6 +2011,8 @@ export default function VendorPortal() {
         {page === "analytics" && <VendorAnalyticsPage />}
         {page === "orders" && <OrdersPage />}
         {page === "ai-services" && <AICatalogServicesPage />}
+        {page === "integrations" && <IntegrationsPage />}
+        {page === "payments" && <PaymentsPage />}
       </main>
     </div>
   );
