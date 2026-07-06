@@ -537,3 +537,6 @@
 ## Feature: Filler auto-snap into gaps
 - [x] When a filler cabinet is placed/dropped, auto-find the nearest wall gap and snap the filler into it, auto-sizing to fill the gap exactly
 - [x] Show a toast confirming where the filler was placed and its auto-sized width
+
+## Feature: Pantry 4-door elevation rendering
+- [x] All tall pantry cabinets (U-*) render 4 doors in elevation: 2 doors on bottom section (floor to 54") and 2 doors on top section (54" to top), split at the 54" mark

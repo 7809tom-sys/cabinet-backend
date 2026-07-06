@@ -263,6 +263,7 @@ export function ElevationView({
               doorSampleUrl={cabDoorSampleUrl}
               cabinetType={cabType}
               blindOnLeft={blindLeft}
+              cabinetHeightIn={height}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -1316,10 +1317,59 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType, blindOnLeft }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
+
+  // ─── SPECIALTY TYPE: PANTRY (tall cabinet) ───────────────────────────
+  // All tall pantry cabinets render as 4 doors: 2 side-by-side on the bottom
+  // section (floor to 54") and 2 side-by-side on the top section (54" to top).
+  if (cabinetType === "pantry") {
+    const totalH = cabinetHeightIn ?? 84; // default 84" if not provided
+    const splitIn = 54; // split point in inches from floor
+    // Clamp split so it's always between 20% and 80% of the cabinet height
+    const splitPct = Math.min(80, Math.max(20, (splitIn / totalH) * 100));
+    return (
+      <>
+        {/* Bottom section: 2 side-by-side doors from floor to 54" */}
+        <div className="absolute left-0 right-0 bottom-0" style={{ height: `${splitPct}%` }}>
+          {[0, 1].map((i) => (
+            <div
+              key={`pantry-bot-${i}`}
+              className="absolute top-0 bottom-0"
+              style={{ left: `${50 * i}%`, width: "50%" }}
+            >
+              {i > 0 && (
+                <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+              )}
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />
+            </div>
+          ))}
+        </div>
+        {/* Horizontal rail at the split point */}
+        <div
+          className="absolute left-0 right-0"
+          style={{ bottom: `${splitPct}%`, height: 2, background: stroke }}
+        />
+        {/* Top section: 2 side-by-side doors from 54" to top */}
+        <div className="absolute left-0 right-0 top-0" style={{ height: `${100 - splitPct}%` }}>
+          {[0, 1].map((i) => (
+            <div
+              key={`pantry-top-${i}`}
+              className="absolute top-0 bottom-0"
+              style={{ left: `${50 * i}%`, width: "50%" }}
+            >
+              {i > 0 && (
+                <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+              )}
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
 
   // ─── SPECIALTY TYPE: SINK BASE ─────────────────────────────────────────
   // Sink bases have a narrow false tilt-out panel at the top (for the tip-out

@@ -11,7 +11,8 @@ export type CabinetDrawingType =
   | "vanity" // vanity door/drawer combo
   | "ada" // ADA-height unit
   | "accessory-strip" // moldings, fillers, panels, shelves (thin)
-  | "glass-door"; // glass-front wall cabinet
+  | "glass-door" // glass-front wall cabinet
+  | "pantry"; // tall pantry: 4 doors split at 54" (2 bottom, 2 top)
 
 export interface CabinetLike {
   masterCode?: string | null;
@@ -165,6 +166,11 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   }
   if (drawers > 0 && doors === 0) {
     return "drawer-base";
+  }
+
+  // Tall/pantry cabinets: 4-door split at 54" (2 bottom, 2 top).
+  if (cat === "tall") {
+    return "pantry";
   }
 
   // Default: a door box (with optional top drawer handled by the renderer).
@@ -340,6 +346,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     ada: "ADA-compliant cabinet",
     "accessory-strip": "accessory / trim",
     "glass-door": "glass-front wall cabinet",
+    "pantry": "tall pantry cabinet with 4 doors",
   };
 
   let detail = detailMap[type];
