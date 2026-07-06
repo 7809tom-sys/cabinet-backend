@@ -492,3 +492,8 @@
 - [x] Build admin backend endpoint for filtered product export (by category, distributor, door style, or all)
 - [x] Export includes: cabinets, distributor_skus, door_styles, distributors, pricing — all fields needed to rebuild
 - [x] Build admin UI with filter dropdowns (category, distributor, style) and "Download" button
+
+## Admin panel: Reorganize tabs into 6 logical groups
+- [x] Replace flat 30+ tab list with grouped navigation (Sales & Orders, People, Products & Catalog, Pricing, Operations, Settings)
+- [x] Each group shows its sub-tabs when selected
+- [x] Preserve all existing functionality and URL deep-linking (?tab=xxx)

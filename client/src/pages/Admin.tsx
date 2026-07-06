@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl, WEBMAIL_URL } from "@/const";
@@ -60,6 +60,7 @@ import ApprovedVendorsAdmin from "@/components/admin/ApprovedVendorsAdmin";
 import PelicanCatalogAdmin from "@/components/admin/PelicanCatalogAdmin";
 import { AnalyticsAdmin } from "@/components/admin/AnalyticsAdmin";
 import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
+import AdminGroupedTabs from "@/components/admin/AdminGroupedTabs";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -629,188 +630,7 @@ export default function Admin() {
         </div>
       </div>
 
-      <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
-        <TabsList className="h-auto w-full flex-wrap justify-start gap-y-1">
-          <TabsTrigger value="orders">Incoming Orders</TabsTrigger>
-          <TabsTrigger value="crm">Sales CRM</TabsTrigger>
-          <TabsTrigger value="consultations">Consultations</TabsTrigger>
-          <TabsTrigger value="customers">Customers</TabsTrigger>
-          <TabsTrigger value="roles">Roles</TabsTrigger>
-          <TabsTrigger value="design-leads">Design Leads</TabsTrigger>
-          <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
-          <TabsTrigger value="affiliate-invoices">Affiliate Invoices</TabsTrigger>
-          <TabsTrigger value="payouts">Payouts</TabsTrigger>
-          <TabsTrigger value="commissions">Sales Commissions</TabsTrigger>
-          <TabsTrigger value="pros">Pro Applications</TabsTrigger>
-          <TabsTrigger value="vendors">Vendors</TabsTrigger>
-          <TabsTrigger value="quotes">Countertop Quotes</TabsTrigger>
-          <TabsTrigger value="featured">Featured Styles</TabsTrigger>
-          <TabsTrigger value="door-corrections">Door Corrections</TabsTrigger>
-          <TabsTrigger value="distributors">Distributors</TabsTrigger>
-          <TabsTrigger value="images">Product Images</TabsTrigger>
-          <TabsTrigger value="multipliers">Multipliers</TabsTrigger>
-          <TabsTrigger value="margins">Pricing & Margins</TabsTrigger>
-          <TabsTrigger value="approved-vendors">Approved Vendors</TabsTrigger>
-          <TabsTrigger value="pelican-catalog">Pelican Catalog</TabsTrigger>
-          <TabsTrigger value="cost-lookup">Price Audit</TabsTrigger>
-          <TabsTrigger value="shipping">Shipping</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="conflicts">Conflicts</TabsTrigger>
-          <TabsTrigger value="cabinets">Cabinets</TabsTrigger>
-          <TabsTrigger value="dimensions">Dimensions & Weight</TabsTrigger>
-          <TabsTrigger value="coverage">Designer Coverage</TabsTrigger>
-          <TabsTrigger value="pricing-access">Pricing Access</TabsTrigger>
-          <TabsTrigger value="designer-availability">Designer Availability</TabsTrigger>
-          <TabsTrigger value="email-settings">Email Settings</TabsTrigger>
-          <TabsTrigger value="branding">Site Branding</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="api-status">API Status</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="export">Full Export</TabsTrigger>
-        </TabsList>
-        <TabsContent value="orders" className="mt-6">
-          <AdminTabHelp tab="orders" />
-          <IncomingOrdersAdmin />
-        </TabsContent>
-        <TabsContent value="crm" className="mt-6">
-          <AdminTabHelp tab="crm" />
-          <CrmBoard lang="en" />
-        </TabsContent>
-        <TabsContent value="commissions" className="mt-6">
-          <AdminTabHelp tab="commissions" />
-          <SalesCommissionsAdmin />
-        </TabsContent>
-        <TabsContent value="affiliate-invoices" className="mt-6">
-          <AdminTabHelp tab="affiliate-invoices" />
-          <AffiliateInvoicesAdmin />
-        </TabsContent>
-
-        <TabsContent value="consultations" className="mt-6">
-          <AdminTabHelp tab="consultations" />
-          <ConsultationsAdmin />
-        </TabsContent>
-        <TabsContent value="payouts" className="mt-6">
-          <AdminTabHelp tab="payouts" />
-          <PayoutsAdmin />
-        </TabsContent>
-        <TabsContent value="design-leads" className="mt-6">
-          <AdminTabHelp tab="design-leads" />
-          <DesignLeadsAdmin />
-        </TabsContent>
-        <TabsContent value="customers" className="mt-6">
-          <AdminTabHelp tab="customers" />
-          <CustomersAdmin />
-        </TabsContent>
-        <TabsContent value="roles" className="mt-6">
-          <AdminTabHelp tab="roles" />
-          <RolesAdmin />
-        </TabsContent>
-        <TabsContent value="affiliates" className="mt-6">
-          <AdminTabHelp tab="affiliates" />
-          <AffiliatesAdmin />
-        </TabsContent>
-        <TabsContent value="pros" className="mt-6">
-          <AdminTabHelp tab="pros" />
-          <ProApplications />
-        </TabsContent>
-        <TabsContent value="vendors" className="mt-6">
-          <AdminTabHelp tab="vendors" />
-          <VendorApplications />
-        </TabsContent>
-        <TabsContent value="quotes" className="mt-6">
-          <AdminTabHelp tab="quotes" />
-          <CountertopQuotes />
-        </TabsContent>
-        <TabsContent value="door-corrections" className="mt-6">
-          <AdminTabHelp tab="door-corrections" />
-          <DoorCorrectionsAdmin />
-        </TabsContent>
-        <TabsContent value="featured" className="mt-6">
-          <AdminTabHelp tab="featured" />
-          <FeaturedStylesAdmin />
-        </TabsContent>
-        <TabsContent value="images" className="mt-6">
-          <AdminTabHelp tab="images" />
-          <SkuImageManager />
-        </TabsContent>
-        <TabsContent value="distributors" className="mt-6 space-y-6">
-          <AdminTabHelp tab="distributors" />
-          <LineBrandingEditor />
-          <DistributorFulfillmentEditor />
-          <DistributorImport />
-        </TabsContent>
-        <TabsContent value="multipliers" className="mt-6">
-          <DistributorMultipliersAdmin />
-        </TabsContent>
-        <TabsContent value="margins" className="mt-6">
-          <AdminTabHelp tab="margins" />
-          <MarginsAdmin />
-        </TabsContent>
-        <TabsContent value="approved-vendors" className="mt-6">
-          <ApprovedVendorsAdmin />
-        </TabsContent>
-        <TabsContent value="pelican-catalog" className="mt-6">
-          <PelicanCatalogAdmin />
-        </TabsContent>
-        <TabsContent value="cost-lookup" className="mt-6">
-          <AdminTabHelp tab="cost-lookup" />
-          <CostLookupAdmin />
-        </TabsContent>
-        <TabsContent value="shipping" className="mt-6">
-          <AdminTabHelp tab="shipping" />
-          <ShippingAdmin />
-        </TabsContent>
-        <TabsContent value="payments" className="mt-6">
-          <AdminTabHelp tab="payments" />
-          <PaymentsAdmin />
-        </TabsContent>
-        <TabsContent value="conflicts" className="mt-6">
-          <AdminTabHelp tab="conflicts" />
-          <ConflictsAdmin />
-        </TabsContent>
-        <TabsContent value="pricing-access" className="mt-6">
-          <AdminTabHelp tab="pricing-access" />
-          <PricingAccessAdmin />
-        </TabsContent>
-        <TabsContent value="designer-availability" className="mt-6">
-          <AdminTabHelp tab="designer-availability" />
-          <DesignerAvailabilityAdmin />
-        </TabsContent>
-        <TabsContent value="cabinets" className="mt-6">
-          <AdminTabHelp tab="cabinets" />
-          <CabinetSpreadsheetAdmin />
-          <CabinetLineDownload />
-        </TabsContent>
-        <TabsContent value="dimensions" className="mt-6">
-          <AdminTabHelp tab="dimensions" />
-          <BulkDimensionsAdmin />
-        </TabsContent>
-        <TabsContent value="coverage" className="mt-6">
-          <AdminTabHelp tab="coverage" />
-          <DesignerCoverageAdmin />
-        </TabsContent>
-        <TabsContent value="email-settings" className="mt-6">
-          <AdminTabHelp tab="email-settings" />
-          <EmailSettingsAdmin />
-        </TabsContent>
-        <TabsContent value="branding" className="mt-6">
-          <AdminTabHelp tab="branding" />
-          <BrandingSettingsAdmin />
-        </TabsContent>
-        <TabsContent value="notifications" className="mt-6">
-          <AdminTabHelp tab="notifications" />
-          <NotificationSettingsAdmin />
-        </TabsContent>
-        <TabsContent value="api-status" className="mt-6">
-          <ApiStatusAdmin />
-        </TabsContent>
-        <TabsContent value="analytics" className="mt-6">
-          <AnalyticsAdmin />
-        </TabsContent>
-        <TabsContent value="export" className="mt-6">
-          <FullDatabaseExport />
-        </TabsContent>
-      </Tabs>
+      <AdminGroupedTabs />
     </div>
   );
 }
