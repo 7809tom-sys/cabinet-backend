@@ -2409,4 +2409,267 @@ export const pricingRouter = router({
         .limit(input.limit ?? 50);
     }),
 
+  // ── Admin: Full database export (filtered) ──────────────────────────────────
+  // Returns a multi-sheet XLSX workbook with all product data needed to rebuild
+  // the database. Supports filtering by category, distributor, and/or door style.
+  fullExport: adminProcedure
+    .input(
+      z.object({
+        category: z.string().optional(),
+        distributorId: z.number().optional(),
+        styleId: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { xlsx: "", filename: "export.xlsx", counts: {} as Record<string, number> };
+
+      const XLSX = await import("xlsx");
+      const wb = XLSX.utils.book_new();
+      const counts: Record<string, number> = {};
+
+      // ── Build WHERE conditions ──────────────────────────────────────────────
+      const cabinetConds: SQL[] = [eq(cabinets.isActive, true)];
+      if (input.category) cabinetConds.push(eq(cabinets.category, input.category));
+
+      const skuConds: SQL[] = [
+        eq(distributorSkus.isAvailable, true),
+      ];
+      if (input.distributorId) skuConds.push(eq(distributorSkus.distributorId, input.distributorId));
+      if (input.styleId) skuConds.push(eq(distributorSkus.styleId, input.styleId));
+
+      // ── Sheet 1: Cabinets ───────────────────────────────────────────────────
+      let cabinetRows: any[];
+      if (input.distributorId || input.styleId) {
+        cabinetRows = await db
+          .selectDistinct({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            placementType: cabinets.placementType,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            weight: cabinets.weight,
+            numberOfDoors: cabinets.numberOfDoors,
+            numberOfDrawers: cabinets.numberOfDrawers,
+            hingeSide: cabinets.hingeSide,
+            isCornerCabinet: cabinets.isCornerCabinet,
+            cornerSide: cabinets.cornerSide,
+            graphicType: cabinets.graphicType,
+            catalogImageUrl: cabinets.catalogImageUrl,
+            pkgLength: cabinets.pkgLength,
+            pkgWidth: cabinets.pkgWidth,
+            pkgHeight: cabinets.pkgHeight,
+            pkgWeight: cabinets.pkgWeight,
+          })
+          .from(cabinets)
+          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+          .where(and(...cabinetConds, ...skuConds))
+          .orderBy(cabinets.category, cabinets.masterCode);
+      } else {
+        cabinetRows = await db
+          .select({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            placementType: cabinets.placementType,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            weight: cabinets.weight,
+            numberOfDoors: cabinets.numberOfDoors,
+            numberOfDrawers: cabinets.numberOfDrawers,
+            hingeSide: cabinets.hingeSide,
+            isCornerCabinet: cabinets.isCornerCabinet,
+            cornerSide: cabinets.cornerSide,
+            graphicType: cabinets.graphicType,
+            catalogImageUrl: cabinets.catalogImageUrl,
+            pkgLength: cabinets.pkgLength,
+            pkgWidth: cabinets.pkgWidth,
+            pkgHeight: cabinets.pkgHeight,
+            pkgWeight: cabinets.pkgWeight,
+          })
+          .from(cabinets)
+          .where(cabinetConds.length === 1 ? cabinetConds[0] : and(...cabinetConds))
+          .orderBy(cabinets.category, cabinets.masterCode);
+      }
+
+      const cabSheet = [
+        ["id", "masterCode", "description", "category", "subCategory", "placementType",
+         "width", "height", "depth", "weight", "numberOfDoors", "numberOfDrawers",
+         "hingeSide", "isCornerCabinet", "cornerSide", "graphicType", "catalogImageUrl",
+         "pkgLength", "pkgWidth", "pkgHeight", "pkgWeight"],
+        ...cabinetRows.map((r: any) => [
+          r.id, r.masterCode, r.description, r.category, r.subCategory ?? "",
+          r.placementType ?? "", r.width ?? "", r.height ?? "", r.depth ?? "",
+          r.weight ?? "", r.numberOfDoors ?? 0, r.numberOfDrawers ?? 0,
+          r.hingeSide ?? "", r.isCornerCabinet ? "TRUE" : "FALSE",
+          r.cornerSide ?? "", r.graphicType ?? "", r.catalogImageUrl ?? "",
+          r.pkgLength ?? "", r.pkgWidth ?? "", r.pkgHeight ?? "", r.pkgWeight ?? "",
+        ]),
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cabSheet), "Cabinets");
+      counts.cabinets = cabinetRows.length;
+
+      // ── Sheet 2: Distributor SKUs (pricing) ─────────────────────────────────
+      const skuQuery = db
+        .select({
+          id: distributorSkus.id,
+          cabinetId: distributorSkus.cabinetId,
+          distributorId: distributorSkus.distributorId,
+          styleId: distributorSkus.styleId,
+          platformSku: distributorSkus.platformSku,
+          distributorSku: distributorSkus.distributorSku,
+          listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          imageUrl: distributorSkus.imageUrl,
+          supplierCabinetName: distributorSkus.supplierCabinetName,
+          masterCode: cabinets.masterCode,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId));
+
+      const allSkuConds: SQL[] = [...skuConds];
+      if (input.category) allSkuConds.push(eq(cabinets.category, input.category));
+
+      const skuRows = await skuQuery
+        .where(allSkuConds.length > 0 ? and(...allSkuConds) : undefined)
+        .orderBy(cabinets.masterCode);
+
+      const skuSheet = [
+        ["id", "cabinetId", "masterCode", "distributorId", "styleId", "platformSku",
+         "distributorSku", "listPrice", "yourCost", "adjustedListPrice",
+         "wholesalePrice", "contractorPrice", "homeownerPrice",
+         "isAvailable", "isPublished", "imageUrl", "supplierCabinetName"],
+        ...skuRows.map((r: any) => [
+          r.id, r.cabinetId, r.masterCode, r.distributorId, r.styleId,
+          r.platformSku, r.distributorSku,
+          r.listPrice != null ? Number(r.listPrice) : "",
+          r.yourCost != null ? Number(r.yourCost) : "",
+          r.adjustedListPrice != null ? Number(r.adjustedListPrice) : "",
+          r.wholesalePrice != null ? Number(r.wholesalePrice) : "",
+          r.contractorPrice != null ? Number(r.contractorPrice) : "",
+          r.homeownerPrice != null ? Number(r.homeownerPrice) : "",
+          r.isAvailable ? "TRUE" : "FALSE",
+          r.isPublished ? "TRUE" : "FALSE",
+          r.imageUrl ?? "",
+          r.supplierCabinetName ?? "",
+        ]),
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(skuSheet), "Distributor SKUs");
+      counts.skus = skuRows.length;
+
+      // ── Sheet 3: Door Styles ────────────────────────────────────────────────
+      const styleConds: SQL[] = [];
+      if (input.distributorId) styleConds.push(eq(doorStyles.distributorId, input.distributorId));
+      if (input.styleId) styleConds.push(eq(doorStyles.id, input.styleId));
+
+      const styleRows = await db
+        .select({
+          id: doorStyles.id,
+          distributorId: doorStyles.distributorId,
+          styleCode: doorStyles.styleCode,
+          ourName: doorStyles.ourName,
+          aliasName: doorStyles.aliasName,
+          distributorName: doorStyles.distributorName,
+          doorStyle: doorStyles.doorStyle,
+          woodSpecies: doorStyles.woodSpecies,
+          finish: doorStyles.finish,
+          color: doorStyles.color,
+          boxConstruction: doorStyles.boxConstruction,
+          drawerConstruction: doorStyles.drawerConstruction,
+          hardware: doorStyles.hardware,
+          frameSize: doorStyles.frameSize,
+          overlayType: doorStyles.overlayType,
+          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+          roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+          isActive: doorStyles.isActive,
+          isFeatured: doorStyles.isFeatured,
+          isBuilderGrade: doorStyles.isBuilderGrade,
+        })
+        .from(doorStyles)
+        .where(styleConds.length > 0 ? and(...styleConds) : undefined)
+        .orderBy(doorStyles.ourName);
+
+      const styleSheet = [
+        ["id", "distributorId", "styleCode", "ourName", "aliasName", "distributorName",
+         "doorStyle", "woodSpecies", "finish", "color", "boxConstruction",
+         "drawerConstruction", "hardware", "frameSize", "overlayType",
+         "doorSampleImageUrl", "roomSceneImageUrl", "isActive", "isFeatured", "isBuilderGrade"],
+        ...styleRows.map((r: any) => [
+          r.id, r.distributorId, r.styleCode, r.ourName, r.aliasName ?? "",
+          r.distributorName, r.doorStyle ?? "", r.woodSpecies ?? "",
+          r.finish ?? "", r.color ?? "", r.boxConstruction ?? "",
+          r.drawerConstruction ?? "", r.hardware ?? "", r.frameSize ?? "",
+          r.overlayType ?? "", r.doorSampleImageUrl ?? "",
+          r.roomSceneImageUrl ?? "", r.isActive ? "TRUE" : "FALSE",
+          r.isFeatured ? "TRUE" : "FALSE", r.isBuilderGrade ? "TRUE" : "FALSE",
+        ]),
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(styleSheet), "Door Styles");
+      counts.doorStyles = styleRows.length;
+
+      // ── Sheet 4: Distributors ───────────────────────────────────────────────
+      const distConds: SQL[] = [];
+      if (input.distributorId) distConds.push(eq(distributors.id, input.distributorId));
+
+      const distRows = await db
+        .select({
+          id: distributors.id,
+          code: distributors.code,
+          name: distributors.name,
+          brandName: distributors.brandName,
+          costMultiplier: distributors.costMultiplier,
+          baseMultiplier: distributors.baseMultiplier,
+          freightMultiplier: distributors.freightMultiplier,
+          tariffRate: distributors.tariffRate,
+          shippingRate: distributors.shippingRate,
+          leadTimeDays: distributors.leadTimeDays,
+          isActive: distributors.isActive,
+          orderEmail: distributors.orderEmail,
+        })
+        .from(distributors)
+        .where(distConds.length > 0 ? and(...distConds) : undefined)
+        .orderBy(distributors.name);
+
+      const distSheet = [
+        ["id", "code", "name", "brandName", "costMultiplier", "baseMultiplier",
+         "freightMultiplier", "tariffRate", "shippingRate", "leadTimeDays", "isActive", "orderEmail"],
+        ...distRows.map((r: any) => [
+          r.id, r.code, r.name, r.brandName ?? "",
+          r.costMultiplier != null ? Number(r.costMultiplier) : "",
+          r.baseMultiplier != null ? Number(r.baseMultiplier) : "",
+          r.freightMultiplier != null ? Number(r.freightMultiplier) : "",
+          r.tariffRate != null ? Number(r.tariffRate) : "",
+          r.shippingRate != null ? Number(r.shippingRate) : "",
+          r.leadTimeDays ?? "", r.isActive ? "TRUE" : "FALSE", r.orderEmail ?? "",
+        ]),
+      ];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(distSheet), "Distributors");
+      counts.distributors = distRows.length;
+
+      // ── Serialize ───────────────────────────────────────────────────────────
+      const buf: Buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      const xlsx = buf.toString("base64");
+      const date = new Date().toISOString().slice(0, 10);
+      const parts: string[] = [];
+      if (input.category) parts.push(input.category.toLowerCase());
+      if (input.distributorId) parts.push(`dist${input.distributorId}`);
+      if (input.styleId) parts.push(`style${input.styleId}`);
+      const suffix = parts.length > 0 ? parts.join("-") : "full";
+      const filename = `cabinet-dealz-export-${suffix}-${date}.xlsx`;
+      return { xlsx, filename, counts };
+    }),
+
 });

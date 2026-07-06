@@ -487,3 +487,8 @@
 
 ## Footer cleanup
 - [x] Remove CATALOG section (Base, Wall, Tall, ADA, Vanity, Accessory links) from the site footer
+
+## Feature: Full database export with filters in admin
+- [x] Build admin backend endpoint for filtered product export (by category, distributor, door style, or all)
+- [x] Export includes: cabinets, distributor_skus, door_styles, distributors, pricing — all fields needed to rebuild
+- [x] Build admin UI with filter dropdowns (category, distributor, style) and "Download" button

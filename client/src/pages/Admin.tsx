@@ -59,6 +59,7 @@ import { AdminTabHelp } from "@/components/admin/AdminTabHelp";
 import ApprovedVendorsAdmin from "@/components/admin/ApprovedVendorsAdmin";
 import PelicanCatalogAdmin from "@/components/admin/PelicanCatalogAdmin";
 import { AnalyticsAdmin } from "@/components/admin/AnalyticsAdmin";
+import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "approved" || status === "won") return "default";
@@ -665,6 +666,7 @@ export default function Admin() {
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="api-status">API Status</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="export">Full Export</TabsTrigger>
         </TabsList>
         <TabsContent value="orders" className="mt-6">
           <AdminTabHelp tab="orders" />
@@ -804,6 +806,9 @@ export default function Admin() {
         </TabsContent>
         <TabsContent value="analytics" className="mt-6">
           <AnalyticsAdmin />
+        </TabsContent>
+        <TabsContent value="export" className="mt-6">
+          <FullDatabaseExport />
         </TabsContent>
       </Tabs>
     </div>
