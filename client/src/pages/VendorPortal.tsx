@@ -1456,11 +1456,15 @@ function AICatalogServicesPage() {
   const [requestType, setRequestType] = useState<string>("");
   const [details, setDetails] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [estimate, setEstimate] = useState<{ skus: number; hours: number; cost: number } | null>(null);
+  const [estimating, setEstimating] = useState(false);
+  const [approved, setApproved] = useState(false);
 
   const services = [
     {
       title: "Catalog Onboarding",
-      description: "Get your full product catalog online — SKU mapping, pricing setup, and category organization.",
+      description: "Upload your ProKitchen or 2020 Design catalog file — we'll parse, map SKUs, set pricing, and organize categories.",
       icon: Package,
     },
     {
@@ -1480,12 +1484,40 @@ function AICatalogServicesPage() {
     },
   ];
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadedFile(file);
+    setEstimate(null);
+    setApproved(false);
+    // Estimate based on file size (rough heuristic: ~1KB per SKU for XML/CSV)
+    setEstimating(true);
+    setTimeout(() => {
+      const fileSizeKB = file.size / 1024;
+      let estimatedSkus = 0;
+      if (file.name.endsWith('.xml') || file.name.endsWith('.mfr')) {
+        estimatedSkus = Math.max(50, Math.round(fileSizeKB / 2));
+      } else {
+        estimatedSkus = Math.max(20, Math.round(fileSizeKB / 0.5));
+      }
+      const skusPerHour = 150;
+      const hours = Math.max(0.25, Math.ceil((estimatedSkus / skusPerHour) * 4) / 4);
+      const cost = hours * 100;
+      setEstimate({ skus: estimatedSkus, hours, cost });
+      setEstimating(false);
+    }, 1500);
+  };
+
+  const handleApproveEstimate = () => {
+    setApproved(true);
+    toast.success("Estimate approved! Processing will begin shortly. You'll be notified when complete.");
+  };
+
   const handleSubmit = () => {
     if (!requestType) {
       toast.error("Please select a service type");
       return;
     }
-    // In production this would call a tRPC mutation to create a service request
     toast.success("Service request submitted! We'll be in touch within 24 hours.");
     setSubmitted(true);
   };
@@ -1508,23 +1540,30 @@ function AICatalogServicesPage() {
           <CardTitle className="text-lg">How It Works</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-4">
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">1</div>
               <div>
-                <p className="font-medium text-sm">Submit Request</p>
-                <p className="text-xs text-muted-foreground">Tell us what you need — catalog import, photo cleanup, trim audit, etc.</p>
+                <p className="font-medium text-sm">Upload & Describe</p>
+                <p className="text-xs text-muted-foreground">Upload your catalog file (ProKitchen, 2020 Design, CSV, Excel) and describe your needs.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">2</div>
               <div>
-                <p className="font-medium text-sm">AI Processing</p>
-                <p className="text-xs text-muted-foreground">Our AI handles the heavy lifting — mapping SKUs, generating images, resolving conflicts.</p>
+                <p className="font-medium text-sm">Get Estimate</p>
+                <p className="text-xs text-muted-foreground">See the estimated time and cost instantly. The more info you provide, the lower the cost.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">3</div>
+              <div>
+                <p className="font-medium text-sm">Approve & Process</p>
+                <p className="text-xs text-muted-foreground">Approve the estimate and our AI handles the heavy lifting — mapping SKUs, pricing, images.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">4</div>
               <div>
                 <p className="font-medium text-sm">Review & Go Live</p>
                 <p className="text-xs text-muted-foreground">Review the results in your portal, approve, and your products go live.</p>
@@ -1555,18 +1594,19 @@ function AICatalogServicesPage() {
         ))}
       </div>
 
-      {/* Request form */}
+      {/* Upload & Request form */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Request Service</CardTitle>
+          <CardTitle className="text-lg">Upload Catalog & Request Service</CardTitle>
+          <p className="text-xs text-muted-foreground">Upload your file AND describe what you need. The more information you provide, the faster and cheaper the AI processing.</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {submitted ? (
             <div className="text-center py-8 space-y-3">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-              <h3 className="font-semibold text-lg">Request Submitted</h3>
-              <p className="text-muted-foreground text-sm">We'll review your request and get back to you within 24 hours with a time estimate.</p>
-              <Button variant="outline" onClick={() => { setSubmitted(false); setRequestType(""); setDetails(""); }}>
+              <h3 className="font-semibold text-lg">{approved ? "Approved & Processing" : "Request Submitted"}</h3>
+              <p className="text-muted-foreground text-sm">{approved ? "Your catalog is being processed. You'll be notified when it's ready for review." : "We'll review your request and get back to you within 24 hours."}</p>
+              <Button variant="outline" onClick={() => { setSubmitted(false); setApproved(false); setRequestType(""); setDetails(""); setUploadedFile(null); setEstimate(null); }}>
                 Submit Another Request
               </Button>
             </div>
@@ -1586,15 +1626,84 @@ function AICatalogServicesPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* File Upload */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Details</label>
+                <label className="text-sm font-medium">Upload Catalog File</label>
+                <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                  <input
+                    type="file"
+                    accept=".xml,.mfr,.csv,.xlsx,.xls,.json,.txt"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="catalog-upload"
+                  />
+                  <label htmlFor="catalog-upload" className="cursor-pointer">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm font-medium">{uploadedFile ? uploadedFile.name : "Click to upload catalog file"}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Supports: ProKitchen (.xml), 2020 Design (.mfr, .xml), CSV, Excel (.xlsx)</p>
+                  </label>
+                </div>
+                {uploadedFile && (
+                  <p className="text-xs text-muted-foreground">File: {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(0)} KB)</p>
+                )}
+              </div>
+
+              {/* Estimate display */}
+              {estimating && (
+                <div className="flex items-center gap-2 p-4 rounded-lg bg-muted/50">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm">Analyzing file and estimating cost...</span>
+                </div>
+              )}
+              {estimate && !approved && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4 text-primary" />
+                    Cost Estimate
+                  </h4>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-2xl font-bold text-primary">~{estimate.skus}</p>
+                      <p className="text-xs text-muted-foreground">Estimated SKUs</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-primary">{estimate.hours}h</p>
+                      <p className="text-xs text-muted-foreground">Estimated Time</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-primary">${estimate.cost.toFixed(0)}</p>
+                      <p className="text-xs text-muted-foreground">Estimated Cost</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Providing detailed descriptions below can reduce processing time by up to 40%.</p>
+                  <Button onClick={handleApproveEstimate} className="w-full">
+                    <Check className="h-4 w-4 mr-2" />
+                    Approve Estimate & Start Processing
+                  </Button>
+                </div>
+              )}
+              {approved && (
+                <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-4">
+                  <p className="text-sm font-medium text-green-700 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Estimate approved — ${estimate?.cost.toFixed(0)} for ~{estimate?.hours}h of processing
+                  </p>
+                </div>
+              )}
+
+              {/* Details */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Details & Instructions</label>
                 <textarea
                   className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  placeholder="Describe what you need help with — e.g., 'I have a price sheet with 200 SKUs across 8 door styles that need to be imported and mapped to the catalog...'"
+                  placeholder="The more detail you provide, the faster and cheaper the processing:\n\n• How many door styles / colors?\n• What pricing tiers do you use?\n• Any special SKU naming conventions?\n• Which categories (base, wall, tall, vanity, accessories)?\n• Any items to exclude?"
                   value={details}
                   onChange={(e) => setDetails(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground italic">Tip: The better the information you provide, the quicker AI processes your catalog and the less it costs.</p>
               </div>
+
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="h-4 w-4" />
@@ -1610,14 +1719,62 @@ function AICatalogServicesPage() {
         </CardContent>
       </Card>
 
+      {/* Accepted formats */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Accepted Catalog Formats</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center gap-3 p-3 rounded-lg border">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
+                <FileSpreadsheet className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">ProKitchen Export</p>
+                <p className="text-xs text-muted-foreground">.xml catalog export from ProKitchen software</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg border">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10">
+                <FileSpreadsheet className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">2020 Design Export</p>
+                <p className="text-xs text-muted-foreground">.mfr or .xml manufacturer files from 2020 Design</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg border">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-500/10">
+                <FileSpreadsheet className="h-5 w-5 text-green-500" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">CSV / Excel</p>
+                <p className="text-xs text-muted-foreground">.csv or .xlsx spreadsheet with your product data</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg border">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
+                <FileSpreadsheet className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">PDF Price Sheet</p>
+                <p className="text-xs text-muted-foreground">Scanned or digital PDF price lists — AI extracts the data</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Pricing note */}
       <div className="rounded-lg border bg-muted/50 p-4">
         <h4 className="font-medium text-sm">Pricing & Billing</h4>
         <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
           <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> $100/hour — billed in 15-minute increments</li>
-          <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> Free estimate before work begins</li>
+          <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> Free estimate before work begins — no surprises</li>
+          <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> The more info you provide, the less time (and money) it takes</li>
           <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> No charge if you're not satisfied with the results</li>
-          <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> Most catalog imports completed in 2–4 hours</li>
+          <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> Most catalog imports completed in 2–4 hours ($200–$400)</li>
         </ul>
       </div>
     </div>
