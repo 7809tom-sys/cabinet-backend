@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { asc, eq, sql } from "drizzle-orm";
-import { router, adminProcedure } from "../_core/trpc";
+import { router, adminProcedure, publicProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { vendorLines, orders, orderItems } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
@@ -62,6 +62,35 @@ export const vendorsRouter = router({
       if (!db) return { success: false } as const;
       await db.delete(vendorLines).where(eq(vendorLines.id, input.id));
       return { success: true } as const;
+    }),
+
+  // Generate a unique invite token for a vendor line. Returns the full invite URL.
+  generateInvite: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { success: false, url: "" } as const;
+      const crypto = await import("crypto");
+      const token = crypto.randomBytes(24).toString("hex"); // 48-char hex token
+      await db
+        .update(vendorLines)
+        .set({ inviteToken: token, inviteCreatedAt: new Date() })
+        .where(eq(vendorLines.id, input.id));
+      return { success: true, token } as const;
+    }),
+
+  // Look up a vendor line by invite token (public — used by the registration page)
+  getByInvite: publicProcedure
+    .input(z.object({ token: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const [line] = await db
+        .select()
+        .from(vendorLines)
+        .where(eq(vendorLines.inviteToken, input.token))
+        .limit(1);
+      return line ?? null;
     }),
 
   // Recompute lifetime dollar sales for one vendor line from real order data and

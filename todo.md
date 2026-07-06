@@ -516,3 +516,10 @@
 
 ## AI Services: History log for vendors
 - [x] Add history log section to AI Services page showing previously processed catalogs with status, time, and final cost
+
+## Vendor invite links from Approved Vendors admin tab
+- [x] Add "Invite" button to each vendor row in Approved Vendors admin tab
+- [x] Generate unique invite token and link when clicked
+- [x] Copy link to clipboard for admin to share with vendor
+- [x] Vendor clicks link → lands on /vendor registration page with pre-filled vendor info
+- [x] Registration with invite token assigns role=distributor and links to correct distributor

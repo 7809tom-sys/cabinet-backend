@@ -1221,6 +1221,8 @@ export const vendorLines = mysqlTable("vendor_lines", {
   totalSalesCents: int("totalSalesCents").default(0).notNull(),
   salesUpdatedAt: timestamp("salesUpdatedAt"),
   notes: text("notes"),
+  inviteToken: varchar("inviteToken", { length: 64 }).unique(),
+  inviteCreatedAt: timestamp("inviteCreatedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

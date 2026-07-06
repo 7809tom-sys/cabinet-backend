@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, FormEvent } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, FormEvent } from "react";
 import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
@@ -2061,14 +2061,46 @@ function PaymentsPage() {
 function VendorLoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [mode, setMode] = useState<"login" | "register">("login");
+
+  // Check for invite token in URL
+  const params = new URLSearchParams(window.location.search);
+  const inviteToken = params.get("invite");
+  const [inviteVendor, setInviteVendor] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (inviteToken) {
+      setMode("register");
+      // Fetch vendor info from invite token
+      fetch(`/api/trpc/vendors.getByInvite?input=${encodeURIComponent(JSON.stringify({ token: inviteToken }))}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data?.result?.data) {
+            setInviteVendor(data.result.data.name);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [inviteToken]);
+
   const loginMutation = trpc.emailAuth.login.useMutation({
     onSuccess: () => {
       window.location.reload();
     },
     onError: (err) => {
       setError(err.message || "Invalid email or password.");
+    },
+  });
+
+  const registerMutation = trpc.emailAuth.signup.useMutation({
+    onSuccess: () => {
+      window.location.reload();
+    },
+    onError: (err: any) => {
+      setError(err.message || "Registration failed.");
     },
   });
 
@@ -2079,8 +2111,22 @@ function VendorLoginForm() {
       setError("Please enter your email and password.");
       return;
     }
-    loginMutation.mutate({ email: email.trim(), password });
+    if (mode === "register") {
+      if (password !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters.");
+        return;
+      }
+      registerMutation.mutate({ email: email.trim(), password, inviteToken: inviteToken || undefined });
+    } else {
+      loginMutation.mutate({ email: email.trim(), password });
+    }
   };
+
+  const isPending = loginMutation.isPending || registerMutation.isPending;
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -2090,9 +2136,19 @@ function VendorLoginForm() {
             <Package className="h-7 w-7 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold">Vendor Portal</CardTitle>
-          <p className="text-muted-foreground text-sm mt-1">
-            Sign in with your vendor credentials to manage your catalog and orders.
-          </p>
+          {inviteVendor && mode === "register" ? (
+            <p className="text-muted-foreground text-sm mt-1">
+              You've been invited to join as a vendor for <strong>{inviteVendor}</strong>. Create your account below.
+            </p>
+          ) : mode === "register" ? (
+            <p className="text-muted-foreground text-sm mt-1">
+              Create your vendor account to manage your catalog and orders.
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-sm mt-1">
+              Sign in with your vendor credentials to manage your catalog and orders.
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -2114,10 +2170,10 @@ function VendorLoginForm() {
                 <Input
                   id="vendor-password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder={mode === "register" ? "Create a password (8+ chars)" : "Enter your password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
+                  autoComplete={mode === "register" ? "new-password" : "current-password"}
                 />
                 <button
                   type="button"
@@ -2129,20 +2185,45 @@ function VendorLoginForm() {
                 </button>
               </div>
             </div>
+            {mode === "register" && (
+              <div className="space-y-2">
+                <Label htmlFor="vendor-confirm-password">Confirm Password</Label>
+                <Input
+                  id="vendor-confirm-password"
+                  type="password"
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+            )}
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
-              {loginMutation.isPending ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Signing in...</>
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {mode === "register" ? "Creating account..." : "Signing in..."}</>
               ) : (
-                "Sign In"
+                mode === "register" ? "Create Account" : "Sign In"
               )}
             </Button>
           </form>
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            Don't have an account? Contact Cabinet Dealz to get your vendor credentials.
-          </p>
+          <div className="text-center mt-4">
+            {mode === "login" ? (
+              <p className="text-xs text-muted-foreground">
+                Don't have an account? Contact Cabinet Dealz to get your vendor invite link.
+              </p>
+            ) : (
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline"
+                onClick={() => setMode("login")}
+              >
+                Already have an account? Sign in
+              </button>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

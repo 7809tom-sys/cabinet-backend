@@ -414,6 +414,13 @@
       "when": 1783365553757,
       "tag": "0058_perfect_sauron",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "5",
+      "when": 1783366302981,
+      "tag": "0059_conscious_agent_zero",
+      "breakpoints": true
     }
   ]
 }

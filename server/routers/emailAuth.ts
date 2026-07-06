@@ -31,13 +31,14 @@ async function setSessionCookie(
 }
 
 export const emailAuthRouter = router({
-  signup: publicProcedure
+    signup: publicProcedure
     .input(
       z.object({
         email: emailSchema,
         password: passwordSchema,
         name: z.string().trim().max(120).optional(),
         companyName: z.string().trim().max(200).optional(),
+        inviteToken: z.string().max(64).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -49,7 +50,6 @@ export const emailAuthRouter = router({
           message: "An account with this email already exists. Please sign in instead.",
         });
       }
-
       const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
       const created = await db.createEmailUser({
         email: input.email.trim(),
@@ -57,15 +57,14 @@ export const emailAuthRouter = router({
         passwordHash,
         name: input.name ?? null,
         companyName: input.companyName ?? null,
+        inviteToken: input.inviteToken ?? null,
       });
-
       if (!created) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Could not create account. Please try again.",
         });
       }
-
       await setSessionCookie(ctx, created.openId, input.name ?? input.email.trim());
       return { success: true } as const;
     }),

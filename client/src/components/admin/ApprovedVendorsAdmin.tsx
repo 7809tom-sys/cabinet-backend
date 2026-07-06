@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock } from "lucide-react";
+import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -56,6 +56,43 @@ type VendorLine = {
 
 const money = (cents: number) =>
   (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+// ─── Invite Link Button ──────────────────────────────────────────────────────
+function InviteLinkButton({ vendorId, vendorName }: { vendorId: number; vendorName: string }) {
+  const generateInvite = trpc.vendors.generateInvite.useMutation({
+    onSuccess: (res) => {
+      if (res.success && res.token) {
+        const url = `${window.location.origin}/vendor?invite=${res.token}`;
+        navigator.clipboard.writeText(url).then(() => {
+          toast.success(`Invite link copied for ${vendorName}`, {
+            description: url,
+            duration: 8000,
+          });
+        }).catch(() => {
+          // Fallback: show the URL in the toast so they can copy manually
+          toast.success(`Invite link for ${vendorName}`, {
+            description: url,
+            duration: 12000,
+          });
+        });
+      }
+    },
+    onError: (e) => toast.error(e.message || "Failed to generate invite"),
+  });
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="gap-1"
+      disabled={generateInvite.isPending}
+      onClick={() => generateInvite.mutate({ id: vendorId })}
+      title={`Generate invite link for ${vendorName}`}
+    >
+      <Link2 className="h-3.5 w-3.5" />
+    </Button>
+  );
+}
 
 function VendorDialog({
   vendor,
@@ -481,6 +518,7 @@ export default function ApprovedVendorsAdmin() {
                           }
                           onSaved={() => utils.vendors.list.invalidate()}
                         />
+                        <InviteLinkButton vendorId={v.id} vendorName={v.name} />
                         <ProvisionAccountDialog
                           vendorId={v.id}
                           vendorName={v.name}

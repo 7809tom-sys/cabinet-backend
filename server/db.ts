@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { eq, sql, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, cabinets } from "../drizzle/schema";
+import { InsertUser, users, cabinets, vendorLines, distributors } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 // Shared predicate: exclude products held in admin "conflict" (Needs Review)
@@ -122,12 +122,35 @@ export async function createEmailUser(params: {
   passwordHash: string;
   name?: string | null;
   companyName?: string | null;
+  inviteToken?: string | null;
 }): Promise<{ id: number; openId: string } | null> {
   const db = await getDb();
   if (!db) return null;
 
   const openId = `email_${crypto.randomUUID()}`;
   const isOwner = params.emailLower === (ENV.ownerEmail ?? "").toLowerCase();
+
+  // Check if this signup is via a vendor invite token
+  let role: "admin" | "user" | "distributor" = isOwner ? "admin" : "user";
+  let distributorId: number | null = null;
+
+  if (params.inviteToken) {
+    const [vendorLine] = await db
+      .select()
+      .from(vendorLines)
+      .where(eq(vendorLines.inviteToken, params.inviteToken))
+      .limit(1);
+    if (vendorLine) {
+      role = "distributor";
+      // Try to find the matching distributor by name
+      const [dist] = await db
+        .select()
+        .from(distributors)
+        .where(eq(distributors.name, vendorLine.name))
+        .limit(1);
+      if (dist) distributorId = dist.id;
+    }
+  }
 
   await db.insert(users).values({
     openId,
@@ -137,7 +160,8 @@ export async function createEmailUser(params: {
     passwordHash: params.passwordHash,
     loginMethod: "password",
     companyName: params.companyName ?? null,
-    role: isOwner ? "admin" : "user",
+    role,
+    distributorId,
     lastSignedIn: new Date(),
   });
 
