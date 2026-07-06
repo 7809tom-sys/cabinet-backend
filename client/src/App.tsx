@@ -148,11 +148,15 @@ export default function App() {
         </Route>
 
         <Route path="/design">
-          <AppLayout>
-            <Suspense fallback={<PageLoader />}>
-              <DesignTool />
-            </Suspense>
-          </AppLayout>
+          {/* Design Tool uses a fixed-height no-scroll layout to prevent canvas overflow on mobile */}
+          <div className="flex flex-col overflow-hidden" style={{ height: "100dvh" }}>
+            <TopNav />
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <Suspense fallback={<PageLoader />}>
+                <DesignTool />
+              </Suspense>
+            </div>
+          </div>
         </Route>
 
         <Route path="/pro-network">
