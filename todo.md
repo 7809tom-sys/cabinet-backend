@@ -513,3 +513,6 @@
 - [x] Phase 6: Payment connection (Stripe Connect onboarding UI added)
 - [x] Phase 7: AI Catalog Helper ($100/hr) — already existed in vendor portal
 - [x] Phase 8: Product promotion — already existed in vendor portal
+
+## AI Services: History log for vendors
+- [x] Add history log section to AI Services page showing previously processed catalogs with status, time, and final cost

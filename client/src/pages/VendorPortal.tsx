@@ -1777,7 +1777,83 @@ function AICatalogServicesPage() {
           <li className="flex items-center gap-2"><Check className="h-3 w-3 text-green-500" /> Most catalog imports completed in 2–4 hours ($200–$400)</li>
         </ul>
       </div>
+
+      {/* History Log */}
+      <ServiceHistoryLog />
     </div>
+  );
+}
+
+function ServiceHistoryLog() {
+  const { data: history, isLoading } = trpc.distributorPortal.aiServiceHistory.useQuery();
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Request History</CardTitle></CardHeader>
+        <CardContent><div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading history...</div></CardContent>
+      </Card>
+    );
+  }
+
+  if (!history || history.length === 0) {
+    return (
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Request History</CardTitle></CardHeader>
+        <CardContent><p className="text-sm text-muted-foreground">No previous service requests. Submit your first request above!</p></CardContent>
+      </Card>
+    );
+  }
+
+  const statusColors: Record<string, string> = {
+    estimated: "bg-yellow-100 text-yellow-800",
+    approved: "bg-blue-100 text-blue-800",
+    processing: "bg-purple-100 text-purple-800",
+    completed: "bg-green-100 text-green-800",
+    cancelled: "bg-gray-100 text-gray-600",
+    pending: "bg-orange-100 text-orange-800",
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Request History</CardTitle>
+        <p className="text-xs text-muted-foreground">Your previously submitted catalog processing requests and their outcomes.</p>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {history.map((req: any) => (
+            <div key={req.id} className="flex items-center justify-between p-3 rounded-lg border">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm truncate">{req.serviceType}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[req.status] || "bg-gray-100 text-gray-600"}`}>
+                    {req.status}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                  {req.fileName && <span>{req.fileName}</span>}
+                  <span>{new Date(req.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+              <div className="text-right shrink-0 ml-4">
+                {req.status === "completed" && req.actualCost ? (
+                  <div>
+                    <p className="font-semibold text-sm text-green-700">${Number(req.actualCost).toFixed(0)}</p>
+                    <p className="text-xs text-muted-foreground">{Number(req.actualHours).toFixed(1)}h actual</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="font-semibold text-sm">${Number(req.estimatedCost).toFixed(0)}</p>
+                    <p className="text-xs text-muted-foreground">~{Number(req.estimatedHours).toFixed(1)}h est.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

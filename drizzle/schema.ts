@@ -1340,3 +1340,32 @@ export const productViews = mysqlTable("product_views", {
 
 export type ProductView = typeof productViews.$inferSelect;
 export type InsertProductView = typeof productViews.$inferInsert;
+
+
+// ─── AI Service Requests ─────────────────────────────────────────────────────
+// Tracks vendor AI catalog service requests: upload, estimate, approval, processing, completion.
+export const aiServiceRequests = mysqlTable("ai_service_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  userId: int("userId").notNull(),
+  serviceType: varchar("serviceType", { length: 100 }).notNull(),
+  fileName: varchar("fileName", { length: 255 }),
+  fileKey: varchar("fileKey", { length: 512 }),
+  fileUrl: varchar("fileUrl", { length: 1024 }),
+  fileSizeBytes: int("fileSizeBytes"),
+  details: text("details"),
+  estimatedSkus: int("estimatedSkus"),
+  estimatedHours: decimal("estimatedHours", { precision: 5, scale: 2 }),
+  estimatedCost: decimal("estimatedCost", { precision: 8, scale: 2 }),
+  actualHours: decimal("actualHours", { precision: 5, scale: 2 }),
+  actualCost: decimal("actualCost", { precision: 8, scale: 2 }),
+  status: mysqlEnum("status", ["pending", "estimated", "approved", "processing", "completed", "cancelled"]).default("pending").notNull(),
+  approvedAt: timestamp("approvedAt"),
+  completedAt: timestamp("completedAt"),
+  adminNotes: text("adminNotes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AiServiceRequest = typeof aiServiceRequests.$inferSelect;
+export type InsertAiServiceRequest = typeof aiServiceRequests.$inferInsert;

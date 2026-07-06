@@ -1,0 +1,23 @@
+CREATE TABLE `ai_service_requests` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`distributorId` int NOT NULL,
+	`userId` int NOT NULL,
+	`serviceType` varchar(100) NOT NULL,
+	`fileName` varchar(255),
+	`fileKey` varchar(512),
+	`fileUrl` varchar(1024),
+	`fileSizeBytes` int,
+	`details` text,
+	`estimatedSkus` int,
+	`estimatedHours` decimal(5,2),
+	`estimatedCost` decimal(8,2),
+	`actualHours` decimal(5,2),
+	`actualCost` decimal(8,2),
+	`status` enum('pending','estimated','approved','processing','completed','cancelled') NOT NULL DEFAULT 'pending',
+	`approvedAt` timestamp,
+	`completedAt` timestamp,
+	`adminNotes` text,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `ai_service_requests_id` PRIMARY KEY(`id`)
+);

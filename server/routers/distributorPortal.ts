@@ -9,6 +9,7 @@ import {
   distributorSkus,
   doorStyles,
   orderRequests,
+  aiServiceRequests,
 } from "../../drizzle/schema";
 import { storagePut } from "../storage";
 
@@ -569,5 +570,103 @@ export const distributorPortalRouter = router({
         .where(eq(doorStyles.id, input.styleId));
 
       return { styleId: input.styleId, imageType: input.imageType, imageUrl: url };
+    }),
+
+  // ─── AI Service Requests ─────────────────────────────────────────────────────
+
+  aiServiceHistory: distributorProcedure
+    .input(z.object({ distributorId: z.number().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const rows = await db
+        .select()
+        .from(aiServiceRequests)
+        .where(eq(aiServiceRequests.distributorId, lineId))
+        .orderBy(desc(aiServiceRequests.createdAt))
+        .limit(50);
+      return rows;
+    }),
+
+  aiServiceSubmit: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        serviceType: z.string().min(1).max(100),
+        fileName: z.string().max(255).optional(),
+        fileKey: z.string().max(512).optional(),
+        fileUrl: z.string().max(1024).optional(),
+        fileSizeBytes: z.number().int().min(0).optional(),
+        details: z.string().max(5000).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      // Estimate: ~150 SKUs per hour based on file size heuristic
+      const estimatedSkus = input.fileSizeBytes
+        ? Math.max(10, Math.round(input.fileSizeBytes / 500))
+        : 100;
+      const estimatedHours = Math.max(0.25, Number((estimatedSkus / 150).toFixed(2)));
+      const estimatedCost = Number((estimatedHours * 100).toFixed(2));
+      const [result] = await db.insert(aiServiceRequests).values({
+        distributorId: lineId,
+        userId: ctx.user.id,
+        serviceType: input.serviceType,
+        fileName: input.fileName || null,
+        fileKey: input.fileKey || null,
+        fileUrl: input.fileUrl || null,
+        fileSizeBytes: input.fileSizeBytes || null,
+        details: input.details || null,
+        estimatedSkus,
+        estimatedHours: String(estimatedHours),
+        estimatedCost: String(estimatedCost),
+        status: "estimated",
+      });
+      return {
+        id: result.insertId,
+        estimatedSkus,
+        estimatedHours,
+        estimatedCost,
+      };
+    }),
+
+  aiServiceApprove: distributorProcedure
+    .input(z.object({ distributorId: z.number().optional(), requestId: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      await db
+        .update(aiServiceRequests)
+        .set({ status: "approved", approvedAt: new Date() })
+        .where(
+          and(
+            eq(aiServiceRequests.id, input.requestId),
+            eq(aiServiceRequests.distributorId, lineId),
+            eq(aiServiceRequests.status, "estimated")
+          )
+        );
+      return { success: true };
+    }),
+
+  aiServiceCancel: distributorProcedure
+    .input(z.object({ distributorId: z.number().optional(), requestId: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      await db
+        .update(aiServiceRequests)
+        .set({ status: "cancelled" })
+        .where(
+          and(
+            eq(aiServiceRequests.id, input.requestId),
+            eq(aiServiceRequests.distributorId, lineId)
+          )
+        );
+      return { success: true };
     }),
 });
