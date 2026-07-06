@@ -386,6 +386,23 @@ function PendingProductsSection() {
 export default function ApprovedVendorsAdmin() {
   const utils = trpc.useUtils();
   const { data, isLoading, error } = trpc.vendors.list.useQuery();
+  const distList = trpc.distributors.list.useQuery();
+
+  // Map sourceKey → distributorId for the View Portal button
+  function getDistributorIdForVendor(sourceKey: string | null): number | null {
+    if (!sourceKey) return null;
+    if (sourceKey.startsWith("dist:")) return Number(sourceKey.slice(5)) || null;
+    // Match sourceKey against distributor codes (UCD, CS, SK, PEL, pelican, etc.)
+    const dists = distList.data ?? [];
+    const match = dists.find((d: any) => d.code === sourceKey || d.code.toLowerCase() === sourceKey.toLowerCase());
+    if (match) return match.id;
+    // Special case: "pelican" maps to PEL distributor
+    if (sourceKey.toLowerCase() === "pelican") {
+      const pel = dists.find((d: any) => d.code === "PEL");
+      if (pel) return pel.id;
+    }
+    return null;
+  }
 
   const recompute = trpc.vendors.recomputeSales.useMutation({
     onSuccess: (res) => {
@@ -520,13 +537,16 @@ export default function ApprovedVendorsAdmin() {
                           onSaved={() => utils.vendors.list.invalidate()}
                         />
                         <InviteLinkButton vendorId={v.id} vendorName={v.name} />
-                        {v.sourceKey && v.sourceKey.startsWith("dist:") && (
-                          <Link href={`/vendor?as=${v.sourceKey.slice(5)}`}>
-                            <Button size="sm" variant="outline" className="gap-1" title="View Vendor Portal">
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </Button>
-                          </Link>
-                        )}
+                        {(() => {
+                          const distId = getDistributorIdForVendor(v.sourceKey);
+                          return distId ? (
+                            <Link href={`/vendor?as=${distId}`}>
+                              <Button size="sm" variant="outline" className="gap-1" title="View Vendor Portal">
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                            </Link>
+                          ) : null;
+                        })()}
                         <ProvisionAccountDialog
                           vendorId={v.id}
                           vendorName={v.name}
