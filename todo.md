@@ -484,3 +484,6 @@
 
 ## Bug: No "Start New" / clear design button on desktop
 - [x] Add a "Start New" button to the desktop toolbar so users can clear the entire floor plan without needing the mobile "More" sheet
+
+## Footer cleanup
+- [x] Remove CATALOG section (Base, Wall, Tall, ADA, Vanity, Accessory links) from the site footer
