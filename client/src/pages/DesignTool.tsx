@@ -54,7 +54,7 @@ import {
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom,
   resizeRoomByWall, WALL_LABELS, doorPanelKind,
   freeSegmentsOnWall, wallPlacementAt, cabinetWall,
-  formatInches, type WallGap, gapFillCandidatesByWidth,
+  formatInches, type WallGap, wallGaps, gapFillCandidatesByWidth,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
   elevationBox, isStacker, wallCabinetTopLine,
@@ -2282,12 +2282,51 @@ export default function DesignTool() {
 
 
 
+                // ── Filler auto-snap ────────────────────────────────────────────
+        // When a filler strip (FILL-*) is placed, find the nearest filler-sized
+        // gap on any wall and snap the filler into it, auto-resizing to fill
+        // the gap exactly. This lets the user just tap a filler from the catalog
+        // and have it jump straight into the right spot.
+        if (/^FILL-/i.test(newCab.masterCode)) {
+          const allGaps = wallGaps(room, prev, openings, 0.5);
+          // Only consider gaps on the same layer as the filler.
+          const fillerLayer = newCab.placement === "wall" ? "wall" : "base";
+          const layerGaps = allGaps.filter((g) => g.layer === fillerLayer && g.length <= 6 && g.length > 0);
+          if (layerGaps.length > 0) {
+            // Pick the gap whose center is closest to the filler's drop position.
+            const fillerCx = newCab.x + newCab.width / 2;
+            const fillerCy = newCab.y + newCab.depth / 2;
+            const best = layerGaps.reduce((a, b) => {
+              const horizontal = (a.side === "top" || a.side === "bottom");
+              const aCx = horizontal ? (a.start + a.length / 2) : (a.side === "left" ? 12 : room.width - 12);
+              const aCy = horizontal ? (a.side === "top" ? 12 : room.depth - 12) : (a.start + a.length / 2);
+              const bCx = (b.side === "top" || b.side === "bottom") ? (b.start + b.length / 2) : (b.side === "left" ? 12 : room.width - 12);
+              const bCy = (b.side === "top" || b.side === "bottom") ? (b.side === "top" ? 12 : room.depth - 12) : (b.start + b.length / 2);
+              return Math.hypot(aCx - fillerCx, aCy - fillerCy) <= Math.hypot(bCx - fillerCx, bCy - fillerCy) ? a : b;
+            });
+            // Snap the filler into the gap: resize it to the gap width and
+            // position it flush against the wall at the gap's start.
+            const fillerDepth = footprintDepth(c);
+            const snappedSpot = wallPlacementAt(best.start, best.length, fillerDepth, best.side, room);
+            const horizontal = best.side === "top" || best.side === "bottom";
+            return [...prev, {
+              ...newCab,
+              x: snappedSpot.x,
+              y: snappedSpot.y,
+              rotation: snappedSpot.rotation,
+              width: horizontal ? best.length : newCab.width,
+              nominalWidth: horizontal ? best.length : newCab.width,
+              depth: horizontal ? newCab.depth : best.length,
+              nominalDepth: horizontal ? newCab.depth : best.length,
+              masterCode: `FILL-${Math.round(best.length * 10) / 10}`,
+            }];
+          }
+        }
         return [...prev, newCab];
       });
     },
     [room, activeWall, openings, setSinks, setSelectedSinkUid, setCountertop]
   );
-
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
   // makeFiller spec as the auto-fill engine so it carries a code + width and

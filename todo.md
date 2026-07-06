@@ -533,3 +533,7 @@
 ## Feature: Island edge snapping in Design Tool
 - [x] When dragging a cabinet near an island, snap it to the island's edges (left, right, front, back sides)
 - [x] Show a snap indicator/highlight when a cabinet is close enough to snap to the island
+
+## Feature: Filler auto-snap into gaps
+- [x] When a filler cabinet is placed/dropped, auto-find the nearest wall gap and snap the filler into it, auto-sizing to fill the gap exactly
+- [x] Show a toast confirming where the filler was placed and its auto-sized width
