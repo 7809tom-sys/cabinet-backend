@@ -4388,7 +4388,7 @@ export default function DesignTool() {
 
           {/* ── Main "More" sheet ─────────────────────────────────────── */}
           <Sheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen}>
-            <SheetContent side="bottom" className="flex max-h-[80vh] flex-col rounded-t-2xl p-0">
+            <SheetContent side="bottom" className="flex flex-col rounded-t-2xl p-0" style={{ maxHeight: "min(92vh, calc(100dvh - 2rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
               <SheetHeader className="border-b px-4 py-3">
                 <SheetTitle className="text-base">{t("dt_sh_more")}</SheetTitle>
               </SheetHeader>
@@ -4672,7 +4672,7 @@ export default function DesignTool() {
 
           {/* ── Hardware sub-sheet ───────────────────────────────────────── */}
           <Sheet open={hardwareSheetOpen} onOpenChange={setHardwareSheetOpen}>
-            <SheetContent side="bottom" className="flex max-h-[70vh] flex-col rounded-t-2xl p-0">
+            <SheetContent side="bottom" className="flex flex-col rounded-t-2xl p-0" style={{ maxHeight: "min(92vh, calc(100dvh - 2rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
               <SheetHeader className="border-b px-4 py-3">
                 <div className="flex items-center gap-2">
                   <button
@@ -4713,7 +4713,7 @@ export default function DesignTool() {
 
           {/* ── Trim sub-sheet ───────────────────────────────────────────── */}
           <Sheet open={trimSheetOpen} onOpenChange={setTrimSheetOpen}>
-            <SheetContent side="bottom" className="flex max-h-[70vh] flex-col rounded-t-2xl p-0">
+            <SheetContent side="bottom" className="flex flex-col rounded-t-2xl p-0" style={{ maxHeight: "min(92vh, calc(100dvh - 2rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
               <SheetHeader className="border-b px-4 py-3">
                 <div className="flex items-center gap-2">
                   <button
