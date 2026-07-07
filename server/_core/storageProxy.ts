@@ -38,13 +38,41 @@ export function registerStorageProxy(app: Express) {
         return;
       }
 
-      // Storage keys are content-addressed (a content hash is appended to every
-      // uploaded file name), so a given key's bytes never change. Allow the
-      // browser/CDN to cache the redirect so catalog images aren't re-fetched on
-      // every scroll/visit (critical for mobile data). The signed S3 URL itself
-      // carries its own short expiry, but the redirect mapping is safe to cache.
-      res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
-      res.redirect(307, url);
+      // Fetch the actual image bytes and pipe them directly.
+      // This avoids a 307 redirect to a signed/expiring CDN URL, which
+      // Google's image crawler does not follow reliably. Serving bytes
+      // directly gives Google (and all bots) a stable, cacheable URL.
+      const imageResp = await fetch(url);
+      if (!imageResp.ok) {
+        res.status(502).send("Failed to fetch image from storage");
+        return;
+      }
+
+      const contentType = imageResp.headers.get("content-type") || "image/jpeg";
+      const contentLength = imageResp.headers.get("content-length");
+
+      // Storage keys are content-addressed so the bytes never change —
+      // cache aggressively for browsers and CDNs.
+      res.set("Cache-Control", "public, max-age=31536000, immutable");
+      res.set("Content-Type", contentType);
+      if (contentLength) res.set("Content-Length", contentLength);
+
+      // Stream the image body to the client
+      const reader = imageResp.body;
+      if (!reader) {
+        res.status(502).send("Empty image body");
+        return;
+      }
+
+      // Use Node.js Readable.fromWeb if available, otherwise fall back to buffer
+      const { Readable } = await import("stream");
+      if (typeof (Readable as any).fromWeb === "function") {
+        const nodeStream = (Readable as any).fromWeb(reader);
+        nodeStream.pipe(res);
+      } else {
+        const buffer = Buffer.from(await imageResp.arrayBuffer());
+        res.send(buffer);
+      }
     } catch (err) {
       console.error("[StorageProxy] failed:", err);
       res.status(502).send("Storage proxy error");
