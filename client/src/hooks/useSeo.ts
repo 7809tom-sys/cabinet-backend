@@ -25,7 +25,7 @@ export interface SeoOptions {
   /** Absolute or path-relative image used for social previews. */
   image?: string;
   /** Current language for the <html lang> attribute. */
-  lang?: "en" | "es";
+  lang?: "en" | "es" | "zh";
   /** Override canonical URL; defaults to the current location (no query/hash). */
   canonical?: string;
   /**
@@ -113,7 +113,7 @@ export function useSeo(
       setMeta(
         "property",
         "og:locale",
-        lang === "es" ? "es_ES" : "en_US",
+        lang === "es" ? "es_ES" : lang === "zh" ? "zh_CN" : "en_US",
         created,
         prev,
       );

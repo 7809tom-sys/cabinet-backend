@@ -1,4 +1,4 @@
-// Global language context (EN / ES) for the entire Cabinet Dealz site.
+// Global language context (EN / ES / ZH) for the entire Cabinet Dealz site.
 //
 // This is the single source of truth for the visitor's language choice. It
 // reuses the SAME localStorage key, `?lang=` deep-link rule, and browser-
@@ -49,8 +49,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // Keep multiple tabs / the storefront's own toggle in sync.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && (e.newValue === "en" || e.newValue === "es")) {
-        setLangState(e.newValue);
+      if (e.key === STORAGE_KEY && (e.newValue === "en" || e.newValue === "es" || e.newValue === "zh")) {
+        setLangState(e.newValue as Lang);
       }
     };
     window.addEventListener("storage", onStorage);
@@ -59,14 +59,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLang = useCallback((l: Lang) => setLangState(l), []);
   const toggle = useCallback(
-    () => setLangState((prev) => (prev === "en" ? "es" : "en")),
+    () => setLangState((prev) => prev === "en" ? "es" : prev === "es" ? "zh" : "en"),
     []
   );
 
   const t = useCallback(
     (key: SiteStringKey, vars?: Record<string, string | number>) => {
-      const table = SITE_STRINGS[lang] ?? SITE_STRINGS.en;
-      let str: string = table[key] ?? SITE_STRINGS.en[key] ?? key;
+      const table = (SITE_STRINGS as Record<string, Record<string, string>>)[lang] ?? SITE_STRINGS.en;
+      let str: string = table[key] ?? (SITE_STRINGS.en as Record<string, string>)[key] ?? key;
       if (vars) {
         for (const [k, v] of Object.entries(vars)) {
           str = str.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));

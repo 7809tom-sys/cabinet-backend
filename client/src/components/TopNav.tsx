@@ -40,22 +40,35 @@ const PORTAL_LINKS: NavLink[] = [
 // All links flattened for the mobile menu
 const ALL_LINKS: NavLink[] = [...PRIMARY_LINKS, ...MORE_LINKS];
 
-/** Compact EN|ES pill toggle reused on desktop + mobile. */
+/** Compact EN | ES | 中文 selector reused on desktop + mobile. */
 function LangToggle({ className = "" }: { className?: string }) {
-  const { lang, toggle, t } = useLanguage();
+  const { lang, setLang, t } = useLanguage();
+  const langs: { code: "en" | "es" | "zh"; label: string }[] = [
+    { code: "en", label: "EN" },
+    { code: "es", label: "ES" },
+    { code: "zh", label: "中文" },
+  ];
   return (
-    <button
-      type="button"
-      onClick={toggle}
+    <div
+      className={`flex items-center gap-0.5 rounded-md border border-border px-1.5 py-1 text-xs font-semibold ${className}`}
       aria-label={t("lang_toggle_aria")}
-      title={t("lang_toggle_aria")}
-      className={`flex items-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs font-semibold text-foreground/80 transition-colors hover:bg-muted ${className}`}
     >
-      <Languages className="h-3.5 w-3.5" />
-      <span className={lang === "en" ? "text-primary" : "text-muted-foreground"}>EN</span>
-      <span className="text-muted-foreground/40">|</span>
-      <span className={lang === "es" ? "text-primary" : "text-muted-foreground"}>ES</span>
-    </button>
+      <Languages className="h-3.5 w-3.5 text-muted-foreground mr-0.5" />
+      {langs.map((l, i) => (
+        <span key={l.code} className="flex items-center">
+          {i > 0 && <span className="text-muted-foreground/40 mx-0.5">|</span>}
+          <button
+            type="button"
+            onClick={() => setLang(l.code)}
+            className={`px-1 transition-colors ${
+              lang === l.code ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {l.label}
+          </button>
+        </span>
+      ))}
+    </div>
   );
 }
 

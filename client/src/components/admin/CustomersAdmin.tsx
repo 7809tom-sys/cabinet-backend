@@ -13,7 +13,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Users, Search, Building2, Mail, Clock, ShieldCheck } from "lucide-react";
+import { Users, Search, Building2, Mail, Clock, ShieldCheck, Trash2 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 type Tier = "homeowner" | "contractor" | "wholesale";
@@ -78,6 +78,16 @@ export default function CustomersAdmin() {
 
   const { user: me } = useAuth();
   const [confirmAdmin, setConfirmAdmin] = useState<{ id: number; name: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
+
+  const deleteUser = trpc.customers.delete.useMutation({
+    onSuccess: () => {
+      utils.customers.list.invalidate();
+      toast.success("Member deleted");
+      setConfirmDelete(null);
+    },
+    onError: (e) => toast.error("Could not delete member", { description: e.message }),
+  });
 
   const setRole = trpc.customers.setRole.useMutation({
     onSuccess: (res) => {
@@ -218,6 +228,17 @@ export default function CustomersAdmin() {
                         <SelectItem value="wholesale">Wholesale</SelectItem>
                       </SelectContent>
                     </Select>
+                    {me?.id !== u.id && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        title="Delete member"
+                        onClick={() => setConfirmDelete({ id: u.id, name: u.name || u.email || `User #${u.id}` })}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -245,6 +266,29 @@ export default function CustomersAdmin() {
         <strong> Affiliate</strong> (partner store owner), or <strong>Admin</strong> (full access).
         Distributor/dealer/sales-rep accounts are managed elsewhere and shown read-only.
       </p>
+
+      {/* Delete member confirmation */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {confirmDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this member account and all their cart data. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmDelete) deleteUser.mutate({ userId: confirmDelete.id });
+              }}
+            >
+              Delete Member
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!confirmAdmin} onOpenChange={(o) => { if (!o) setConfirmAdmin(null); }}>
         <AlertDialogContent>

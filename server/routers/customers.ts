@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { and, eq, or, like, desc, sql } from "drizzle-orm";
+import { and, eq, or, like, desc, sql, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { users } from "../../drizzle/schema";
+import { users, carts, cartItems } from "../../drizzle/schema";
 import { PRICING_TIERS } from "@shared/pricingTier";
 
 const tierEnum = z.enum(["homeowner", "contractor", "wholesale"]);
@@ -184,6 +184,61 @@ export const customersRouter = router({
         .where(eq(users.id, input.userId));
 
       return { ok: true, userId: input.userId, role: input.role };
+    }),
+
+  // Permanently delete a member account and all their associated data.
+  // Guardrails: cannot delete your own account, cannot delete the last admin.
+  delete: adminProcedure
+    .input(z.object({ userId: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [target] = await db
+        .select({ id: users.id, role: users.role })
+        .from(users)
+        .where(eq(users.id, input.userId))
+        .limit(1);
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+
+      // Cannot delete your own account.
+      if (ctx.user.id === input.userId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You cannot delete your own account.",
+        });
+      }
+
+      // Never delete the last admin.
+      if (target.role === "admin") {
+        const [{ cnt }] = await db
+          .select({ cnt: sql<number>`count(*)` })
+          .from(users)
+          .where(eq(users.role, "admin"));
+        if (Number(cnt) <= 1) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This is the only admin account. Promote another user to admin first.",
+          });
+        }
+      }
+
+      // Delete cart items → carts → saved designs → user (cascade-safe order).
+      const userCarts = await db
+        .select({ id: carts.id })
+        .from(carts)
+        .where(eq(carts.userId, input.userId));
+      if (userCarts.length > 0) {
+        const cartIds = userCarts.map(c => c.id);
+        await db.delete(cartItems).where(inArray(cartItems.cartId, cartIds));
+        await db.delete(carts).where(eq(carts.userId, input.userId));
+      }
+
+      await db.delete(users).where(eq(users.id, input.userId));
+
+      return { ok: true, userId: input.userId };
     }),
 
   // Self-serve: a front-door member classifies themselves as a contractor so they
