@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, inArray, desc, like, sql } from "drizzle-orm";
+import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict } from "../db";
@@ -669,11 +669,18 @@ export const designRouter = router({
       // The trim master codes the designer can auto-add. Kept in sync with the
       // client TRIM_MASTER_CODES map in lib/trimCart.ts.
       const TRIM_CODES = ["TK-8", "LRM-8", "BAM", "SM-8", "BF-3", "BFF-3", "WFF-3-42", "VA-48"];
+      // Trim items may be stored with a specific styleId OR with no styleId
+      // (style-agnostic). Accept both: rows that match one of the requested
+      // styleIds, or rows where styleId is NULL (applies to any style).
+      const styleCondition = or(
+        inArray(distributorSkus.styleId, input.styleIds),
+        isNull(distributorSkus.styleId)
+      );
       const conditions = [
         inArray(cabinets.masterCode, TRIM_CODES),
         eq(cabinets.isActive, true),
         notInConflict(),
-        inArray(distributorSkus.styleId, input.styleIds),
+        styleCondition!,
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
       ];

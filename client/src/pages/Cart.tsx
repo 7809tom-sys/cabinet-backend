@@ -160,8 +160,8 @@ export default function Cart() {
               <div
                 key={`${item.masterCode}-${item.styleId}-${item.tier}-${item.bundleId ?? ""}`}
                 className={inBundle
-                  ? "flex flex-col gap-3 p-3 sm:flex-row sm:items-center"
-                  : "flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center"}
+                  ? "flex flex-col gap-2 p-3"
+                  : "flex flex-col gap-2 rounded-xl border border-border bg-card p-4"}
               >
                 {/* Product artwork: pelican products show their photo; cabinets use CabinetImage */}
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/40">
@@ -174,8 +174,9 @@ export default function Cart() {
                     />
                   )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                <div className="flex gap-3 items-start">
+                  <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-sm font-semibold">{item.masterCode}</span>
                     {item.category ? (
                       <Badge variant="outline" className="text-[10px]">{item.category}</Badge>
@@ -183,7 +184,7 @@ export default function Cart() {
                       <Badge variant="secondary" className="text-[10px]">{item.tier}</Badge>
                     )}
                   </div>
-                  <p className="mt-0.5 truncate text-sm text-foreground">{item.name}</p>
+                  <p className="mt-0.5 text-sm text-foreground leading-snug">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.styleLabel}</p>
 
                   {hasCheckedZip && a && (
@@ -203,9 +204,15 @@ export default function Cart() {
                       )}
                     </div>
                   )}
+                  </div>
+                  {/* Price — right-aligned, stacked next to info block */}
+                  <div className="shrink-0 text-right">
+                    <div className="text-sm font-semibold">{money(lineTotal)}</div>
+                    <div className="text-xs text-muted-foreground">{money(item.unitPrice)} {t("crt_each")}</div>
+                  </div>
                 </div>
 
-                {/* Qty stepper */}
+                {/* Qty stepper + delete on same row */}
                 <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
@@ -226,22 +233,16 @@ export default function Cart() {
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-auto h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeItem(item.masterCode, item.styleId, item.tier)}
+                    aria-label={t("crt_remove_item")}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-
-                <div className="w-24 text-right">
-                  <div className="text-sm font-semibold">{money(lineTotal)}</div>
-                  <div className="text-xs text-muted-foreground">{money(item.unitPrice)} {t("crt_each")}</div>
-                </div>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={() => removeItem(item.masterCode, item.styleId, item.tier)}
-                  aria-label={t("crt_remove_item")}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
             );
             };
