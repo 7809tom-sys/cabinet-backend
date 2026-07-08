@@ -4286,11 +4286,14 @@ export default function DesignTool() {
             setFurniture([]);
             setSelectedFurnUid(null);
             setPonyWalls([]);
+            setSelectedPonyWallUid(null);
             setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
             setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
             setBacksplashMaterialId(null);
             setFlooringMaterialId(null);
             setCabinetsLocked(false);
+            setConsultMessages([]);
+            setConsultOpen(false);
             clearDraft();
             toast.success(t("dt_sh_started_new"));
           }}
@@ -4591,11 +4594,15 @@ export default function DesignTool() {
                       setSelectedSinkUid(null);
                       setFurniture([]);
                       setSelectedFurnUid(null);
-                      setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false);
+                      setPonyWalls([]);
+                      setSelectedPonyWallUid(null);
+                      setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
                       setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
                       setBacksplashMaterialId(null);
                       setFlooringMaterialId(null);
                       setCabinetsLocked(false);
+                      setConsultMessages([]);
+                      setConsultOpen(false);
                       clearDraft();
                       toast.success(t("dt_sh_started_new"));
                       setMoreSheetOpen(false);
