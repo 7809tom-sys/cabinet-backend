@@ -334,6 +334,7 @@ function LockedCatalog({
     [family.styleId, category, subGroup, debounced]
   );
   const { data: catalog, isLoading } = trpc.storefront.familyCatalog.useQuery(catalogInput);
+  const { data: promos } = trpc.promotions.activeForStorefront.useQuery();
 
   return (
     <section id="shop" className="py-12 md:py-16">
@@ -513,6 +514,7 @@ function LockedCatalog({
                 lang={lang}
                 branding={branding}
                 family={family}
+                promos={promos ?? []}
               />
             ))}
           </div>
@@ -534,6 +536,53 @@ function LockedCatalog({
   );
 }
 
+// ─── Promotion helpers ────────────────────────────────────────────────────────
+type ActivePromo = {
+  id: number;
+  distributorId: number;
+  name: string;
+  skuIds: unknown;
+  styleId: number | null;
+  category: string | null;
+  discountType: string;
+  discountValue: string;
+};
+
+/** Find the best matching promo for a catalog item (most specific wins). */
+function findPromo(
+  item: { id: number; category: string | null },
+  styleId: number,
+  distributorId: number,
+  promos: ActivePromo[]
+): ActivePromo | null {
+  const mine = promos.filter((p) => p.distributorId === distributorId);
+  // Priority: SKU-level > style-level > category-level
+  const bySkuId = mine.find((p) => Array.isArray(p.skuIds) && (p.skuIds as number[]).includes(item.id));
+  if (bySkuId) return bySkuId;
+  const byStyle = mine.find((p) => !p.skuIds && p.styleId === styleId && !p.category);
+  if (byStyle) return byStyle;
+  const byCat = mine.find((p) => !p.skuIds && !p.styleId && p.category === item.category);
+  return byCat ?? null;
+}
+
+/** Apply a promo to a base price, returning the sale price. */
+function applyPromoPrice(basePrice: number, promo: ActivePromo): number {
+  const val = Number(promo.discountValue);
+  if (!isFinite(val) || val <= 0) return basePrice;
+  if (promo.discountType === "percent") {
+    return Math.max(0, basePrice * (1 - val / 100));
+  }
+  // fixed_price: discountValue is the final price
+  return Math.max(0, val);
+}
+
+/** Compute the save % badge label for a promo. */
+function promoSavePct(basePrice: number, promo: ActivePromo): number | null {
+  const salePrice = applyPromoPrice(basePrice, promo);
+  if (salePrice >= basePrice) return null;
+  return Math.round(((basePrice - salePrice) / basePrice) * 100);
+}
+
 // ─── Catalog card (with glass-door upsell on solid wall cabinets) ──────────────
 type CatalogItem = {
   id: number;
@@ -550,6 +599,7 @@ function CatalogCard({
   lang,
   branding,
   family,
+  promos,
 }: {
   item: CatalogItem;
   styleId: number;
@@ -557,6 +607,7 @@ function CatalogCard({
   lang: Lang;
   branding: StorefrontBranding;
   family: LockedFamily;
+  promos: ActivePromo[];
 }) {
   const [glass, setGlass] = useState(false);
   const [qty, setQtyState] = useState(1);
@@ -611,7 +662,32 @@ function CatalogCard({
       )}
 
       <div className="mt-auto pt-3 space-y-2">
-        <div className="font-serif text-lg font-bold">{money(price)}</div>
+        {/* Promotion badge + pricing */}
+        {(() => {
+          const basePrice = price != null && price > 0 ? price : null;
+          const promo = basePrice != null
+            ? findPromo(showing, styleId, family.distributorId, promos)
+            : null;
+          const salePrice = promo && basePrice != null ? applyPromoPrice(basePrice, promo) : null;
+          const savePct = promo && basePrice != null ? promoSavePct(basePrice, promo) : null;
+          return (
+            <div className="flex items-center gap-2 flex-wrap">
+              {salePrice != null ? (
+                <>
+                  <span className="font-serif text-lg font-bold text-emerald-600">{money(salePrice)}</span>
+                  <span className="text-sm text-muted-foreground line-through">{money(basePrice)}</span>
+                  {savePct != null && savePct > 0 && (
+                    <Badge className="text-[10px] bg-emerald-600 text-white hover:bg-emerald-600 px-1.5 py-0">
+                      Save {savePct}%
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                <span className="font-serif text-lg font-bold">{money(price)}</span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Quantity stepper + Add to Cart */}
         <div className="flex items-center gap-2">

@@ -333,7 +333,7 @@
 - [x] Add promotions feature: vendors can set sale price or discount % on specific SKUs or entire lines, with optional start/end dates
 - [x] Add promotions DB schema (promo table: distributorId, skuId or lineFilter, discountType, discountValue, startDate, endDate, active)
 - [x] Add promotions management UI in vendor portal (create/edit/delete promos)
-- [ ] Display promotions on storefront (sale badge, strikethrough original price, show promo price)
+- [x] Display promotions on storefront (sale badge, strikethrough original price, show promo price)
 - [ ] Add gallery/image management: vendors can upload product gallery photos and replace existing images
 - [ ] Vendor portal image upload for individual SKU gallery (multiple photos per product)
 
@@ -584,10 +584,10 @@
 
 - [x] Add "Credentials & Links" tab to AffiliateDashboard as first/default tab
 - [x] Show storefront URL, referral code, login link, and template preview button in credentials tab
-- [ ] Enhance AffiliatesAdmin with per-affiliate "View Storefront" preview button
-- [ ] Add "Send Credentials" email button in AffiliatesAdmin
-- [ ] Add template switcher in AffiliatesAdmin per-affiliate card
-- [ ] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
+- [x] Enhance AffiliatesAdmin with per-affiliate "View Storefront" preview button
+- [x] Add "Send Credentials" email button in AffiliatesAdmin
+- [x] Add template switcher in AffiliatesAdmin per-affiliate card
+- [x] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
 - [ ] Add template switcher to demo storefront preview banner
 
 ## Affiliate Dashboard Redesign (White-Label & Performance Focus)
@@ -663,10 +663,10 @@
 
 ## Affiliate Administration Panel Enhancements (Jul 8)
 
-- [ ] Add "View Storefront" preview button per affiliate in AffiliatesAdmin tab (links to /store/{referralCode})
-- [ ] Add "Send Credentials" email button in AffiliatesAdmin per-affiliate card (triggers email with storefront URL + referral code)
-- [ ] Add template switcher in AffiliatesAdmin per-affiliate card (dropdown to change their template)
-- [ ] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
+- [x] Add "View Storefront" preview button per affiliate in AffiliatesAdmin tab (links to /store/{referralCode})
+- [x] Add "Send Credentials" email button in AffiliatesAdmin per-affiliate card (triggers email with storefront URL + referral code)
+- [x] Add template switcher in AffiliatesAdmin per-affiliate card (dropdown to change their template)
+- [x] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
 
 ## Bug: Affiliate Storefront — No Add-to-Cart on Product Cards (Jul 8)
 
@@ -688,9 +688,9 @@
 - [x] Ensure the mobile toolbar (Catalog/Front/Rotate/Delete/Lock/Cart) is always visible at bottom — confirmed fixed bottom-0 position
 
 ## Feature: Affiliate Custom Hero Image Upload
-- [ ] Add heroImageUrl field to affiliates table in drizzle schema
-- [ ] Run migration and apply SQL
-- [ ] Update storefront hero section to use affiliate's heroImageUrl when present (falls back to default kitchen photo)
-- [ ] Add image upload UI in affiliate dashboard (AffiliateDashboard.tsx) — "Upload Kitchen Scene" button with preview
-- [ ] Add updateHeroImage procedure to affiliates router (upload to S3, save URL)
-- [ ] Image should only appear on the affiliate's own storefront, not on main CabinetDealz site
+- [x] Add heroImageUrl field to affiliates table in drizzle schema
+- [x] Run migration and apply SQL
+- [x] Update storefront hero section to use affiliate's heroImageUrl when present (falls back to default kitchen photo)
+- [x] Add image upload UI in affiliate dashboard (AffiliateDashboard.tsx) — "Upload Kitchen Scene" button with preview
+- [x] Add updateHeroImage procedure to affiliates router (upload to S3, save URL)
+- [x] Image should only appear on the affiliate's own storefront, not on main CabinetDealz site
