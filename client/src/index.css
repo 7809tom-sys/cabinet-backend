@@ -217,6 +217,22 @@
   }
 }
 
+/* Thin scrollbar for the design tool toolbar row */
+.toolbar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.90 0.01 55) transparent;
+}
+.toolbar-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.toolbar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.toolbar-scroll::-webkit-scrollbar-thumb {
+  background-color: oklch(0.90 0.01 55);
+  border-radius: 2px;
+}
+
 /* Hide scrollbar for horizontally-scrollable strips (e.g. mobile palette tabs) */
 .no-scrollbar {
   -ms-overflow-style: none;

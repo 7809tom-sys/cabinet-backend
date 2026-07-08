@@ -641,3 +641,8 @@
 - [x] Cart link should use withRef("/cart") to preserve affiliate referral attribution
 - [x] Cart icon should use useCart() to show live count badge
 - [x] Ensure CartContext is available in the Storefront page (main.tsx wraps CartProvider at root level)
+
+## Bug: Design Tool desktop toolbar row clips off screen (Jul 8)
+
+- [x] Make the second toolbar row (Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop, Rotate, Swing, Delete, Lock Cabs, Save, My Designs) scroll horizontally or collapse into an overflow menu so nothing is cut off at narrower desktop widths
+- [x] Ensure all toolbar buttons remain accessible at 1280px viewport width and above

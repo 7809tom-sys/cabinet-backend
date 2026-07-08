@@ -4062,7 +4062,7 @@ export default function DesignTool() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-wrap shrink-0">
+      <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-nowrap shrink-0 overflow-x-auto toolbar-scroll">
         <div className="flex items-center gap-2">
           <h1 className="font-serif text-base lg:text-lg font-bold text-foreground">
             <span className="lg:hidden">{t("dt_sh_title_mobile")}</span>
