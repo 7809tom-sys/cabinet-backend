@@ -3549,3 +3549,34 @@ export const FLOORING_MATERIALS: FlooringMaterial[] = [
 export function flooringMaterial(id: string | null | undefined): FlooringMaterial {
   return FLOORING_MATERIALS.find((m) => m.id === id) ?? FLOORING_MATERIALS[10];
 }
+
+// ─── Pony Wall ────────────────────────────────────────────────────────────────
+// A half-wall / peninsula divider placed freely on the floor plan.
+// Height defaults to 34.5" (counter height) so base cabinets sit flush on top.
+export interface PonyWall {
+  uid: string;
+  x: number;      // inches from room left
+  y: number;      // inches from room top
+  width: number;  // inches (horizontal span)
+  depth: number;  // inches (wall thickness)
+  height: number; // inches tall — default 34.5 (counter height)
+  label?: string;
+}
+
+export function makePonyWall(room: RoomData): PonyWall {
+  return {
+    uid: `pw-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    x: Math.max(6, room.width / 2 - 24),
+    y: Math.max(6, room.depth / 2 - 3),
+    width: Math.min(48, room.width - 12),
+    depth: 6,
+    height: 34.5,
+  };
+}
+
+/** Clamp a pony wall so it stays inside the room bounds. */
+export function clampPonyWall(pw: PonyWall, room: RoomData): PonyWall {
+  const x = Math.max(0, Math.min(pw.x, room.width - pw.width));
+  const y = Math.max(0, Math.min(pw.y, room.depth - pw.depth));
+  return { ...pw, x, y };
+}

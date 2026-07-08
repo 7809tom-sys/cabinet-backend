@@ -7,7 +7,7 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2 } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,7 @@ import {
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
+  type PonyWall, makePonyWall, clampPonyWall,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -86,6 +87,8 @@ import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
+import { IslandElevationView } from "@/components/design/IslandElevationView";
+import { CsvImportDialog } from "@/components/design/CsvImportDialog";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { RoomSizeControl } from "@/components/design/RoomSizeControl";
@@ -135,7 +138,7 @@ type ConsultPlanWall = {
   leftoverInches: number;
 };
 
-type ViewMode = "plan" | "elevation" | "split" | "corner";
+type ViewMode = "plan" | "elevation" | "split" | "corner" | "island";
 type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
 
 // Map the Design Tool's title-case tier onto the shared lowercase pricing tier
@@ -309,7 +312,7 @@ export default function DesignTool() {
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const v = new URLSearchParams(window.location.search).get("view");
-    return v === "front" ? "elevation" : v === "split" ? "split" : v === "corner" ? "corner" : "plan";
+    return v === "front" ? "elevation" : v === "split" ? "split" : v === "corner" ? "corner" : v === "island" ? "island" : "plan";
   });
   // Which corner the corner-view camera stands in.
   const [corner, setCorner] = useState<CornerId>("top-left");
@@ -433,6 +436,8 @@ export default function DesignTool() {
   // Text annotations placed on the floor plan.
   const [annotations, setAnnotations] = useState<PlanAnnotation[]>([]);
   const [selectedAnnotationUid, setSelectedAnnotationUid] = useState<string | null>(null);
+  // Pony walls — free-standing half-walls (34.5" tall) placed on the floor plan.
+  const [ponyWalls, setPonyWalls] = useState<PonyWall[]>([]);
   // Backsplash material: shown in elevation view between countertop and wall cabinets.
   const [backsplashMaterialId, setBacksplashMaterialId] = useState<string | null>(null);
   // Flooring material: shown as a pattern in the bird's-eye plan view.
@@ -3934,6 +3939,7 @@ export default function DesignTool() {
     hardwareStyleId,
     wallCabHeight,
     annotations,
+    ponyWalls,
   }));
 
   const writeDraft = usePersistFn(() => {
@@ -4022,6 +4028,7 @@ export default function DesignTool() {
             wallCabHeightPromptedRef.current = true; // don't re-prompt
           }
           if (Array.isArray(d.annotations)) setAnnotations(d.annotations as PlanAnnotation[]);
+          if (Array.isArray(d.ponyWalls)) setPonyWalls(d.ponyWalls as PonyWall[]);
           if (Array.isArray(d.placed) && d.placed.length > 0) {
             toast.success(t("dt_t_restored"));
           }
@@ -4147,6 +4154,7 @@ export default function DesignTool() {
   // (the DesignActions toolbar itself is desktop-only / hidden on phones).
   const [saveSignal, setSaveSignal] = useState(0);
   const [loadSignal, setLoadSignal] = useState(0);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
   // (Generic flooring/backsplash swatch sheets removed — surfaces now come from
   //  real Pelican recommendations in the "Surfaces" palette tab.)
   const [hardwareSheetOpen, setHardwareSheetOpen] = useState(false);
@@ -4370,6 +4378,17 @@ export default function DesignTool() {
           >
             <ScanLine className="h-3.5 w-3.5" /> {t("dt_sh_corner")}
           </button>
+          {island && (
+            <button
+              onClick={() => setViewMode("island")}
+              title="Island elevation preview"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Square className="h-3.5 w-3.5" /> Island
+            </button>
+          )}
         </div>
 
         {/* Start New / Clear Design — desktop only */}
@@ -4387,6 +4406,7 @@ export default function DesignTool() {
             setSelectedSinkUid(null);
             setFurniture([]);
             setSelectedFurnUid(null);
+            setPonyWalls([]);
             setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
             setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
             setBacksplashMaterialId(null);
@@ -4512,6 +4532,11 @@ export default function DesignTool() {
                     <Square className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_island_zone")}</span>
                     {!!island && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
+                  </button>
+                  <button onClick={() => { setMoreSheetOpen(false); setPonyWalls((prev) => [...prev, makePonyWall(room)]); toast.success("Pony wall added — drag to position, resize with handle"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                    <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left">Add Pony Wall</span>
+                    {ponyWalls.length > 0 && <span className="text-xs text-muted-foreground">{ponyWalls.length}</span>}
                   </button>
                   <button disabled={layoutLocked} onClick={addManualFiller} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -4993,6 +5018,16 @@ export default function DesignTool() {
               })
             }
           />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCsvImportOpen(true)}
+            title="Import parts list from 2020 Design CSV"
+            className="h-8 gap-1.5 border-[#d4a75a]/60 text-[#1a2744] hover:bg-[#d4a75a]/10"
+          >
+            <FileText className="h-3.5 w-3.5" /> Import CSV
+          </Button>
+          <CsvImportDialog open={csvImportOpen} onOpenChange={setCsvImportOpen} />
           <div className="h-5 w-px bg-border" />
           <DesignHelp />
         </div>
@@ -6048,6 +6083,9 @@ export default function DesignTool() {
               onSelectAnnotation={setSelectedAnnotationUid}
               onMoveAnnotation={(uid, x, y) => setAnnotations(prev => prev.map(a => a.uid === uid ? { ...a, x, y } : a))}
               onDeleteAnnotation={(uid) => { setAnnotations(prev => prev.filter(a => a.uid !== uid)); setSelectedAnnotationUid(null); }}
+              ponyWalls={ponyWalls}
+              onPonyWallChange={(pw) => setPonyWalls(prev => prev.map(p => p.uid === pw.uid ? pw : p))}
+              onDeletePonyWall={(uid: string) => setPonyWalls(prev => prev.filter(p => p.uid !== uid))}
             />
           )}
           {viewMode === "elevation" && (
@@ -6074,6 +6112,26 @@ export default function DesignTool() {
               onMove={cabinetsLocked ? undefined : moveCabinet}
               onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
               moveLocked={cabinetsLocked}
+            />
+          )}
+          {viewMode === "island" && island && (
+            <IslandElevationView
+              room={room}
+              cabinets={placed}
+              island={island}
+              selectedUid={selectedUid}
+              onSelect={selectCabinet}
+              countertopMaterialId={countertop ? countertopMaterialId : null}
+              finish={activeFinish}
+              crown={crown}
+              toeKick={toeKick}
+              batten={batten}
+              lightRail={lightRail}
+              panelKind={activePanelKind}
+              hardwareStyleId={hardwareStyleId}
+              finishFor={finishForCab}
+              panelKindFor={panelKindForCab}
+              doorSampleUrlFor={doorSampleForCab}
             />
           )}
           {viewMode === "corner" && (
@@ -6155,6 +6213,9 @@ export default function DesignTool() {
               onSelectAnnotation={setSelectedAnnotationUid}
               onMoveAnnotation={(uid, x, y) => setAnnotations(prev => prev.map(a => a.uid === uid ? { ...a, x, y } : a))}
               onDeleteAnnotation={(uid) => { setAnnotations(prev => prev.filter(a => a.uid !== uid)); setSelectedAnnotationUid(null); }}
+              ponyWalls={ponyWalls}
+              onPonyWallChange={(pw) => setPonyWalls(prev => prev.map(p => p.uid === pw.uid ? pw : p))}
+              onDeletePonyWall={(uid: string) => setPonyWalls(prev => prev.filter(p => p.uid !== uid))}
                 />
               </div>
               <div className="flex-1 min-h-0">
@@ -6187,7 +6248,7 @@ export default function DesignTool() {
           )}
 
           {/* Wall layer toggle (plan only) */}
-          {viewMode !== "elevation" && viewMode !== "corner" && (
+          {viewMode !== "elevation" && viewMode !== "corner" && viewMode !== "island" && (
             <button
               onClick={() => setShowWallLayer((s) => !s)}
               className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-white/90 border border-border rounded-lg px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-white"

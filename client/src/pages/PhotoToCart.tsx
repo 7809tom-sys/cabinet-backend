@@ -25,7 +25,9 @@ import {
   Trash2,
   ImageIcon,
   ShoppingCart,
+  FileText,
 } from "lucide-react";
+import { CsvImportDialog } from "@/components/design/CsvImportDialog";
 
 type MatchRow = {
   rawCode: string;
@@ -62,6 +64,7 @@ export default function PhotoToCart() {
   const [rows, setRows] = useState<MatchRow[] | null>(null);
   const [styleId, setStyleId] = useState<string>("");
   const [tier, setTier] = useState<"wholesale" | "contractor">("contractor");
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   const stylesQuery = trpc.doorStyles.list.useQuery(undefined);
   const styleOptions = useMemo(
@@ -211,16 +214,26 @@ export default function PhotoToCart() {
 
   return (
     <div className="container max-w-4xl py-8">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl font-bold flex items-center gap-2">
-          <ScanLine className="h-7 w-7 text-primary" />
-          Photo to Cart
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Upload a photo or scan of your cabinet list, quote, or floor plan. We'll read the cabinet
-          codes and build your cart for review.
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-3xl font-bold flex items-center gap-2">
+            <ScanLine className="h-7 w-7 text-primary" />
+            Photo to Cart
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Upload a photo or scan of your cabinet list, quote, or floor plan. We'll read the cabinet
+            codes and build your cart for review.
+          </p>
+        </div>
+        <button
+          onClick={() => setCsvImportOpen(true)}
+          className="shrink-0 flex items-center gap-2 rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 px-3 py-2 text-sm font-semibold text-[#1a2744] hover:bg-[#d4a75a]/20 transition-colors"
+        >
+          <FileText className="h-4 w-4" />
+          Import from 2020 Design (CSV)
+        </button>
       </div>
+      <CsvImportDialog open={csvImportOpen} onOpenChange={setCsvImportOpen} />
 
       {/* Upload */}
       <Card className="mb-6">

@@ -13,6 +13,7 @@ import {
   flooringMaterial,
   type PlanAnnotation,
   wallDimensions, type DimensionSeg,
+  type PonyWall, clampPonyWall,
 } from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -104,6 +105,10 @@ interface Props {
   onSelectAnnotation?: (uid: string | null) => void;
   onMoveAnnotation?: (uid: string, x: number, y: number) => void;
   onDeleteAnnotation?: (uid: string) => void;
+  // Pony walls — free-standing half-walls (34.5" tall by default) placed on the floor plan.
+  ponyWalls?: PonyWall[];
+  onPonyWallChange?: (pw: PonyWall) => void;
+  onDeletePonyWall?: (uid: string) => void;
 }
 
 // Compute a readable label color for text drawn directly on a cabinet fill.
@@ -143,6 +148,7 @@ export function PlanCanvas({
   onPlaceFiller,
   onFillGapWithCabAndFiller,
   annotations = [], selectedAnnotationUid = null, onSelectAnnotation, onMoveAnnotation, onDeleteAnnotation,
+  ponyWalls = [], onPonyWallChange, onDeletePonyWall,
 }: Props) {
   const { t } = useLanguage();
   // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
@@ -847,6 +853,82 @@ export function PlanCanvas({
             />
           </div>
         )}
+        {/* Pony walls — free-standing half-walls rendered as solid dark rectangles */}
+        {ponyWalls.map((pw) => {
+          return (
+            <div
+              key={pw.uid}
+              className="absolute z-[2] group"
+              style={{
+                left: pw.x * ppi,
+                top: pw.y * ppi,
+                width: pw.width * ppi,
+                height: pw.depth * ppi,
+                background: "#2a3550",
+                border: "2px solid #1a2744",
+                borderRadius: 2,
+                cursor: layoutLocked ? "default" : "move",
+              }}
+              title={`Pony Wall ${Math.round(pw.width)}″ wide × ${pw.height}″ tall`}
+              onPointerDown={(e) => {
+                if (layoutLocked || !onPonyWallChange) return;
+                e.stopPropagation();
+                const rect = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect();
+                const startX = (e.clientX - rect.left) / ppi;
+                const startY = (e.clientY - rect.top) / ppi;
+                const origX = pw.x; const origY = pw.y;
+                const onMove = (ev: PointerEvent) => {
+                  const dx = (ev.clientX - rect.left) / ppi - startX;
+                  const dy = (ev.clientY - rect.top) / ppi - startY;
+                  const updated = clampPonyWall({ ...pw, x: origX + dx, y: origY + dy }, room);
+                  onPonyWallChange(updated);
+                };
+                const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+                window.addEventListener("pointermove", onMove);
+                window.addEventListener("pointerup", onUp);
+              }}
+            >
+              <span className="absolute left-1 top-0.5 text-[8px] font-bold tracking-wide text-white/80 pointer-events-none whitespace-nowrap">
+                {pw.label || `PONY ${Math.round(pw.width)}″`}
+              </span>
+              <span className="absolute right-0.5 top-0.5 text-[8px] text-white/60 pointer-events-none">{pw.height}″H</span>
+              {/* Delete button */}
+              {onDeletePonyWall && (
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onDeletePonyWall(pw.uid); }}
+                  className="absolute -top-2.5 -right-2.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[9px] shadow z-10"
+                >
+                  ×
+                </button>
+              )}
+              {/* Resize handle */}
+              {onPonyWallChange && !layoutLocked && (
+                <div
+                  className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 rounded-sm bg-[#4a6090] border border-white shadow cursor-nwse-resize z-10"
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    const rect = (e.currentTarget as HTMLElement).closest(".absolute")!.parentElement!.getBoundingClientRect();
+                    const startX = (e.clientX - rect.left) / ppi;
+                    const startY = (e.clientY - rect.top) / ppi;
+                    const origW = pw.width; const origD = pw.depth;
+                    const onMove = (ev: PointerEvent) => {
+                      const dx = (ev.clientX - rect.left) / ppi - startX;
+                      const dy = (ev.clientY - rect.top) / ppi - startY;
+                      const newW = Math.max(6, origW + dx);
+                      const newD = Math.max(4, origD + dy);
+                      const updated = clampPonyWall({ ...pw, width: newW, depth: newD }, room);
+                      onPonyWallChange(updated);
+                    };
+                    const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+                    window.addEventListener("pointermove", onMove);
+                    window.addEventListener("pointerup", onUp);
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
         {/* Doors & Windows on the room walls */}
         {openings.map((o) => {
           const horizontal = o.side === "top" || o.side === "bottom";

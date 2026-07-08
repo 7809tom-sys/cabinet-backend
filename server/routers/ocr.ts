@@ -53,7 +53,99 @@ const dataUrlInput = z
   .min(16)
   .refine((s) => s.startsWith("data:image/"), "Must be a data:image/* URL");
 
+// ─── CSV column headers that 2020 Design / common BOM exports use ────────────
+// We try to auto-detect the code column by scanning the first row for any of
+// these header strings (case-insensitive). The quantity column is optional.
+const CODE_HEADERS = ["code", "sku", "item", "part", "product", "cabinet", "item no", "item #", "item number", "part no", "part #", "part number"];
+const QTY_HEADERS = ["qty", "quantity", "count", "amount", "pcs", "pieces", "units"];
+
 export const ocrRouter = router({
+  // Parse a CSV/TSV parts list and match codes to the catalog.
+  // Accepts a raw CSV text string (max 200KB). No auth required — the catalog
+  // lookup is public, and no user data is stored.
+  parseCSV: protectedProcedure
+    .input(
+      z.object({
+        // Raw CSV or TSV text content
+        csvText: z.string().max(200_000),
+        // Optional: caller can specify which column index to use for code/qty
+        codeCol: z.number().int().min(0).optional(),
+        qtyCol: z.number().int().min(0).optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // 1. Parse the CSV text.
+      const lines = input.csvText
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.length === 0) {
+        return { matches: [], summary: { total: 0, matched: 0, unmatched: 0, units: 0 } };
+      }
+
+      // Detect separator: prefer comma, fall back to tab.
+      const sep = lines[0].includes("\t") ? "\t" : ",";
+      const rows = lines.map((l) => l.split(sep).map((c) => c.replace(/^"|"$/g, "").trim()));
+
+      // 2. Detect header row and column indices.
+      let codeColIdx = input.codeCol ?? -1;
+      let qtyColIdx = input.qtyCol ?? -1;
+      let dataStart = 0;
+
+      const firstRow = rows[0].map((h) => h.toLowerCase());
+      const hasHeader = firstRow.some((h) => CODE_HEADERS.includes(h) || QTY_HEADERS.includes(h));
+      if (hasHeader) {
+        dataStart = 1;
+        if (codeColIdx < 0) {
+          codeColIdx = firstRow.findIndex((h) => CODE_HEADERS.includes(h));
+        }
+        if (qtyColIdx < 0) {
+          qtyColIdx = firstRow.findIndex((h) => QTY_HEADERS.includes(h));
+        }
+      }
+
+      // Fallback: if no header detected, assume col 0 = code, col 1 = qty (if present).
+      if (codeColIdx < 0) codeColIdx = 0;
+      if (qtyColIdx < 0 && rows[0].length > 1) qtyColIdx = 1;
+
+      // 3. Extract codes + quantities from data rows.
+      const extracted: ExtractedCode[] = [];
+      for (let i = dataStart; i < rows.length; i++) {
+        const row = rows[i];
+        const code = row[codeColIdx]?.trim();
+        if (!code) continue;
+        const rawQty = qtyColIdx >= 0 ? row[qtyColIdx]?.trim() : undefined;
+        const qty = rawQty ? Number(rawQty) : 1;
+        extracted.push({ code, quantity: Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1 });
+      }
+
+      // 4. Match against the live master catalog.
+      const catRows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+        })
+        .from(cabinets)
+        .where(and(eq(cabinets.isActive, true), notInConflict()));
+
+      const catalog: CatalogEntry[] = catRows.map((c) => ({
+        id: c.id,
+        masterCode: c.masterCode,
+        description: c.description,
+        category: c.category,
+      }));
+
+      const matches = matchCabinetCodes(extracted, catalog);
+      const summary = summarizeMatches(matches);
+
+      return { matches, summary };
+    }),
+
   // Extract cabinet codes from an uploaded image and match them to the catalog.
   extractFromImage: protectedProcedure
     .input(

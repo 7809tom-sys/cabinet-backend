@@ -540,3 +540,18 @@
 
 ## Feature: Pantry 4-door elevation rendering
 - [x] All tall pantry cabinets (U-*) render 4 doors in elevation: 2 doors on bottom section (floor to 54") and 2 doors on top section (54" to top), split at the 54" mark
+
+## Island Elevation Preview
+
+- [x] Wire ponyWalls props to both PlanCanvas instances in DesignTool (desktop + mobile/split)
+- [x] Create IslandElevationView component — renders island cabinets in front-view elevation using island.width as the span
+- [x] Add "Island" view mode button to DesignTool toolbar (only visible when an island zone is active)
+- [x] Wire IslandElevationView into the main canvas area for the "island" view mode
+- [x] Exclude island view from the wall-layer toggle (plan-only control)
+
+## CSV Parts List Import (2020 Design BOM)
+
+- [x] Add trpc.ocr.parseCSV procedure — parses CSV/TSV text, auto-detects code/qty columns, matches codes against live catalog using existing matchCabinetCodes logic
+- [x] Create CsvImportDialog component — drag-drop CSV upload, review table with match confidence badges, door style + tier selector, add-to-cart action
+- [x] Add "Import from 2020 Design (CSV)" button to PhotoToCart page header
+- [x] Add "Import CSV" button to DesignTool desktop toolbar
