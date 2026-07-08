@@ -1179,46 +1179,60 @@ function DoorStylesPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {styles.map((style) => (
           <Card key={style.id}>
-            <CardContent className="p-4">
-              <h3 className="font-medium mb-3">{style.ourName}</h3>
-              <p className="text-xs text-muted-foreground mb-3">{style.doorStyle}</p>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setUploadTarget({ styleId: style.id, imageType: "doorSample" });
-                    fileInputRef.current?.click();
-                  }}
-                  disabled={updateImage.isPending}
-                >
-                  <Upload className="h-3 w-3 mr-1" />
-                  Door Sample
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setUploadTarget({ styleId: style.id, imageType: "roomScene" });
-                    fileInputRef.current?.click();
-                  }}
-                  disabled={updateImage.isPending}
-                >
-                  <Upload className="h-3 w-3 mr-1" />
-                  Room Scene
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setUploadTarget({ styleId: style.id, imageType: "thumbnail" });
-                    fileInputRef.current?.click();
-                  }}
-                  disabled={updateImage.isPending}
-                >
-                  <Upload className="h-3 w-3 mr-1" />
-                  Thumbnail
-                </Button>
+            <CardContent className="p-4 space-y-3">
+              <div>
+                <h3 className="font-medium">{style.ourName}</h3>
+                <p className="text-xs text-muted-foreground">{style.doorStyle}</p>
+              </div>
+
+              {/* Image previews */}
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { key: "doorSample" as const, label: "Door Sample", url: style.doorSampleImageUrl },
+                  { key: "roomScene" as const, label: "Room Scene", url: style.roomSceneImageUrl },
+                  { key: "thumbnail" as const, label: "Thumbnail", url: style.thumbnailImageUrl },
+                ] as { key: "doorSample" | "roomScene" | "thumbnail"; label: string; url?: string | null }[]).map(({ key, label, url }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setUploadTarget({ styleId: style.id, imageType: key });
+                      fileInputRef.current?.click();
+                    }}
+                    disabled={updateImage.isPending}
+                    className="group relative rounded-md overflow-hidden border border-border bg-muted/30 aspect-square flex flex-col items-center justify-center hover:border-primary transition-colors"
+                    title={url ? `Replace ${label}` : `Upload ${label}`}
+                  >
+                    {url ? (
+                      <>
+                        <img
+                          src={url}
+                          alt={label}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                          <Upload className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                        <Upload className="h-4 w-4" />
+                        <span className="text-[10px] font-medium text-center leading-tight px-1">{label}</span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status badges */}
+              <div className="flex gap-1 flex-wrap">
+                {style.doorSampleImageUrl && <span className="text-[10px] bg-green-100 text-green-700 rounded px-1.5 py-0.5">Door ✓</span>}
+                {style.roomSceneImageUrl && <span className="text-[10px] bg-green-100 text-green-700 rounded px-1.5 py-0.5">Scene ✓</span>}
+                {style.thumbnailImageUrl && <span className="text-[10px] bg-green-100 text-green-700 rounded px-1.5 py-0.5">Thumb ✓</span>}
+                {!style.doorSampleImageUrl && !style.roomSceneImageUrl && !style.thumbnailImageUrl && (
+                  <span className="text-[10px] text-muted-foreground">No images yet — click a slot to upload</span>
+                )}
               </div>
             </CardContent>
           </Card>

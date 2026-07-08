@@ -78,7 +78,14 @@ export const distributorPortalRouter = router({
 
       // Door styles carried by this line.
       const styles = await db
-        .select({ id: doorStyles.id, ourName: doorStyles.ourName, doorStyle: doorStyles.doorStyle })
+        .select({
+          id: doorStyles.id,
+          ourName: doorStyles.ourName,
+          doorStyle: doorStyles.doorStyle,
+          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+          roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+          thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+        })
         .from(doorStyles)
         .where(and(eq(doorStyles.distributorId, lineId), eq(doorStyles.isActive, true)))
         .orderBy(doorStyles.ourName);
