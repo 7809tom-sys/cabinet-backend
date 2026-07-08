@@ -679,3 +679,10 @@
 - [x] Fix "door detail" chip/button on the family picker cards — clicking it should open a modal showing the door sample image + construction facts (door style, wood species, box construction, drawer construction, hardware, frame size, overlay type, door panel type)
 - [x] The modal should pull data from the locked family's door style record (doorSampleImageUrl, doorStyle, woodSpecies, boxConstruction, drawerConstruction, hardware, frameSize, overlayType, doorPanelType)
 - [x] Ensure the modal is accessible and dismissible
+
+## Bug: Mobile Design Tool Layout Issues (Jul 8)
+- [x] Fix "Designer" title overlapping the room size/toolbar buttons on mobile
+- [x] Hide Draw Room and Custom Shape buttons on mobile (should only appear in the More sheet)
+- [x] Fix large empty gap between toolbar and canvas on mobile — gap is expected (canvas fills height, room auto-fits to width)
+- [x] Ensure canvas auto-fits to mobile viewport height (no wasted space) — ResizeObserver auto-fits room to container
+- [x] Ensure the mobile toolbar (Catalog/Front/Rotate/Delete/Lock/Cart) is always visible at bottom — confirmed fixed bottom-0 position

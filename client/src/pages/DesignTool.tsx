@@ -4063,18 +4063,18 @@ export default function DesignTool() {
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
       <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="flex items-center gap-2">
+        {/* Title + badge — desktop only */}
+        <div className="hidden lg:flex items-center gap-2">
           <h1 className="font-serif text-base lg:text-lg font-bold text-foreground">
-            <span className="lg:hidden">{t("dt_sh_title_mobile")}</span>
-            <span className="hidden lg:inline">{t("dt_sh_title_desktop")}</span>
+            {t("dt_sh_title_desktop")}
           </h1>
           <Badge variant="secondary" className="text-xs">{t("dt_sh_items", { n: placed.length })}</Badge>
         </div>
 
-        <div className="h-5 w-px bg-border" />
+        <div className="hidden lg:block h-5 w-px bg-border" />
 
-        {/* Room size editor + mouse-draw mode. Disabled while the layout is locked. */}
-        <div className={layoutLocked ? "pointer-events-none opacity-50" : ""} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
+        {/* Room size editor + mouse-draw mode — desktop only (mobile uses More sheet). */}
+        <div className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
           <RoomSizeControl
             room={room}
             onChange={applyRoom}
@@ -4104,6 +4104,17 @@ export default function DesignTool() {
             }}
           />
         </div>
+
+        {/* Mobile room size indicator — shows current dimensions, tapping opens More sheet */}
+        <button
+          className="lg:hidden flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 rounded-md px-2 py-1 shrink-0"
+          onClick={() => setMoreSheetOpen(true)}
+          title="Room size — tap More to edit"
+        >
+          <span className="font-medium text-foreground">{Math.round(room.width / 12)}' × {Math.round(room.depth / 12)}'</span>
+          <span className="text-muted-foreground/60">·</span>
+          <span>{placed.length} items</span>
+        </button>
 
         {/* Wall cabinet height selector: 30/36/42 toggle */}
         <div className="hidden lg:flex items-center gap-1.5">
