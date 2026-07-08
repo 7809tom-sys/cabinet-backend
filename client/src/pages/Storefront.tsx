@@ -14,6 +14,7 @@ import {
   Ruler, ShieldCheck, Zap, Heart, Languages, Waves, LogIn, ShoppingCart,
 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 const PLATFORM_NAVY = "#1a2b4a";
 const PLATFORM_GOLD = "#c9a227";
@@ -312,13 +313,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           <div className="mt-10 pt-6 border-t border-white/15 text-xs text-white/50 flex flex-col sm:flex-row justify-between gap-2">
             <span>© {new Date().getFullYear()} {data.storeName}. {t("footer_rights")}</span>
             <span>{t("footer_powered")}</span>
-            {/* Discreet affiliate/admin login link */}
-            <a
-              href="/affiliate"
-              className="flex items-center gap-1 text-white/40 hover:text-white/70 transition-colors text-xs"
-            >
-              <LogIn className="h-3 w-3" /> Partner Login
-            </a>
+            <AdminFooterLink />
           </div>
         </div>
       </footer>
@@ -639,5 +634,21 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
         </div>
       </section>
     </>
+  );
+}
+
+// ─── Admin footer link ────────────────────────────────────────────────────────
+// Only visible to logged-in admins. Provides a quick jump to the Affiliates
+// admin page without cluttering the storefront for regular customers.
+function AdminFooterLink() {
+  const { user } = useAuth();
+  if (!user || user.role !== "admin") return null;
+  return (
+    <a
+      href="/admin/affiliates"
+      className="flex items-center gap-1 text-white/40 hover:text-white/80 transition-colors text-xs"
+    >
+      <LogIn className="h-3 w-3" /> Affiliate Admin
+    </a>
   );
 }
