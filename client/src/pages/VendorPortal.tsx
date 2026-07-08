@@ -32,6 +32,13 @@ const AdminDistributorContext = createContext<number | undefined>(undefined);
 function useAdminDistributorId(): number | undefined {
   return useContext(AdminDistributorContext);
 }
+// Carries the distributor code (e.g. "PEL") so sub-pages can branch on it
+const AdminDistributorCodeContext = createContext<string | undefined>(undefined);
+function useAdminDistributorCode(): string | undefined {
+  return useContext(AdminDistributorCodeContext);
+}
+// Pelican is a special distributor whose products live in a separate table
+const PEL_DIST_CODE = "PEL";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ALL = "__all__";
@@ -59,6 +66,211 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
   { id: "integrations", label: "Integrations", icon: Link2 },
   { id: "payments", label: "Payments", icon: CreditCard },
 ];
+
+// ─── Pelican Vendor Catalog Page ─────────────────────────────────────────────
+function PelicanVendorCatalogPage() {
+  const utils = trpc.useUtils();
+  const [category, setCategory] = useState<string>(ALL);
+  const [search, setSearch] = useState("");
+  const input = useMemo(
+    () => ({
+      category: category === ALL ? undefined : (category as any),
+      search: search.trim() || undefined,
+      limit: 200,
+      offset: 0,
+    }),
+    [category, search]
+  );
+  const { data, isLoading, error } = trpc.pelican.adminList.useQuery(input);
+  const setVisibility = trpc.pelican.setVisibility.useMutation({
+    onSuccess: () => utils.pelican.adminList.invalidate(),
+    onError: (e) => toast.error(e.message || "Failed to update"),
+  });
+  const setPopular = trpc.pelican.setPopular.useMutation({
+    onSuccess: () => utils.pelican.adminList.invalidate(),
+    onError: (e) => toast.error(e.message || "Failed to update"),
+  });
+  const setCoverage = trpc.pelican.setCoverage.useMutation({
+    onSuccess: () => utils.pelican.adminList.invalidate(),
+    onError: (e) => toast.error(e.message || "Failed to update"),
+  });
+
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    (data?.items ?? []).forEach((i: any) => { if (i.category) cats.add(i.category); });
+    return Array.from(cats).sort();
+  }, [data]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
+        <h2 className="text-xl font-bold">Pelican Catalog</h2>
+        <Badge variant="outline">{data?.total ?? 0} products</Badge>
+        <div className="flex gap-2 ml-auto flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search products…"
+              className="pl-8 h-9 w-48"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger className="h-9 w-44">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">{[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+      ) : error ? (
+        <div className="text-destructive p-4">Could not load Pelican products: {error.message}</div>
+      ) : !data?.items.length ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">No Pelican items match your filters.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="text-right">Sell</TableHead>
+                <TableHead className="text-center">Active</TableHead>
+                <TableHead className="text-center">Catalog</TableHead>
+                <TableHead className="text-center">Designer</TableHead>
+                <TableHead className="text-center">Featured</TableHead>
+                <TableHead className="text-right">Sq ft/Box</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.items.map((it: any) => (
+                <TableRow key={it.id}>
+                  <TableCell>
+                    <div className="font-medium">{it.name}</div>
+                    <div className="text-xs text-muted-foreground">{it.pelicanCode}</div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{it.category}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{money(it.yourCost ?? it.listPrice)}</TableCell>
+                  <TableCell className="text-right font-semibold">
+                    {money(it.sellPrice)}
+                    {typeof it.markupBps === "number" && (
+                      <Badge variant="outline" className="ml-1 text-[10px]">{(it.markupBps / 100).toFixed(0)}%</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Switch checked={!!it.isActive} onCheckedChange={(v) => setVisibility.mutate({ id: it.id, isActive: v })} />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Switch checked={!!it.showInCatalog} onCheckedChange={(v) => setVisibility.mutate({ id: it.id, showInCatalog: v })} />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Switch checked={!!it.showInDesigner} onCheckedChange={(v) => setVisibility.mutate({ id: it.id, showInDesigner: v })} />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      size="sm" variant={it.isPopular ? "default" : "outline"}
+                      className="h-8 w-8 p-0"
+                      onClick={() => setPopular.mutate({ id: it.id, isPopular: !it.isPopular, popularRank: it.popularRank ?? 0 })}
+                      title={it.isPopular ? "Unfeature" : "Feature"}
+                    >
+                      <Star className={`h-4 w-4 ${it.isPopular ? "fill-current" : ""}`} />
+                    </Button>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <input
+                      type="number" step="0.1" min="0"
+                      className="w-16 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-xs"
+                      defaultValue={it.coverageSqFt ? parseFloat(String(it.coverageSqFt)) : ""}
+                      placeholder="—"
+                      onBlur={(e) => {
+                        const val = e.target.value.trim();
+                        const num = val ? parseFloat(val) : null;
+                        if (num !== (it.coverageSqFt ? parseFloat(String(it.coverageSqFt)) : null)) {
+                          setCoverage.mutate({ id: it.id, coverageSqFt: num && num > 0 ? num : null });
+                        }
+                      }}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Pelican Vendor Overview Page ─────────────────────────────────────────────
+function PelicanVendorOverviewPage() {
+  const { data, isLoading } = trpc.pelican.adminList.useQuery({ limit: 1, offset: 0 });
+  const categories = trpc.pelican.categories.useQuery({ scope: "catalog" });
+  const active = trpc.pelican.adminList.useQuery({ limit: 500, offset: 0 });
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {[1,2,3].map((i) => <Card key={i}><CardContent className="p-6"><Skeleton className="h-16 w-full" /></CardContent></Card>)}
+      </div>
+    );
+  }
+
+  const totalProducts = data?.total ?? 0;
+  const activeCount = (active.data?.items ?? []).filter((i: any) => i.isActive).length;
+  const categoryCount = categories.data?.length ?? 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">Stone Creek Collection (Pelican)</h2>
+        <p className="text-muted-foreground">Manage surfaces, fixtures, and tile products.</p>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{totalProducts}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Active</CardTitle>
+            <Eye className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{activeCount}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Categories</CardTitle>
+            <Palette className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{categoryCount}</div></CardContent>
+        </Card>
+      </div>
+      <Card>
+        <CardHeader><CardTitle>Product Categories</CardTitle></CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {(categories.data ?? []).map((c: any) => (
+              <Badge key={c.category} variant="secondary">{c.category} ({c.count})</Badge>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 // ─── Overview Page ────────────────────────────────────────────────────────────
 function OverviewPage() {
@@ -2364,8 +2576,13 @@ function VendorPortalDashboard({
   setAdminDistributorId: (id: number | null) => void;
   distList: any[];
 }) {
+  const activeDistCode = isAdmin && adminDistributorId
+    ? (distList.find((d: any) => d.id === adminDistributorId)?.code ?? undefined)
+    : undefined;
+  const isPelican = activeDistCode === PEL_DIST_CODE;
   return (
     <AdminDistributorContext.Provider value={isAdmin && adminDistributorId ? adminDistributorId : undefined}>
+    <AdminDistributorCodeContext.Provider value={activeDistCode}>
     <div className="flex min-h-[calc(100vh-64px)]">
       {/* Sidebar */}
       <aside className="w-64 border-r bg-card hidden md:block">
@@ -2443,8 +2660,8 @@ function VendorPortalDashboard({
 
       {/* Main content */}
       <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
-        {page === "overview" && <OverviewPage />}
-        {page === "catalog" && <CatalogPage />}
+        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage /> : <OverviewPage />)}
+        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage /> : <CatalogPage />)}
         {page === "styles" && <DoorStylesPage />}
         {page === "picks" && <DesignToolPicksPage />}
         {page === "promotions" && <PromotionsPage />}
@@ -2456,6 +2673,7 @@ function VendorPortalDashboard({
         {page === "payments" && <PaymentsPage />}
       </main>
     </div>
+    </AdminDistributorCodeContext.Provider>
     </AdminDistributorContext.Provider>
   );
 }

@@ -616,3 +616,9 @@
 
 - [x] Move AI chat button to right of logo in TopNav (inline, not floating)
 - [x] Enable pony wall deletion via the mobile Delete toolbar button and Delete/Backspace key (add selectedPonyWallUid state, extend deleteSelected and keydown handler, pass selection props to PlanCanvas)
+
+## Bug: Pelican products not loading on vendor page (Jul 8)
+
+- [x] Detect PEL distributor in VendorPortal and render Pelican catalog (trpc.pelican.adminList) instead of distributorPortal.catalog
+- [x] Show Pelican product cards with visibility toggle, popular toggle, coverage field in the My Catalog tab for PEL
+- [x] Show correct product count for PEL in Overview stats
