@@ -1030,6 +1030,25 @@ export function isSinkBaseCabinet(c: {
   );
 }
 
+/**
+ * Returns true if the cabinet is a farmer's / apron-front sink base (FSB-*).
+ * These have an exposed apron face below the countertop and no bottom rail.
+ */
+export function isFarmerSinkBase(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
+  const descMatch =
+    /\b(?:farm(?:house)?|apron)\b[^.]*\bsink\b/.test(hay) ||
+    /\bsink\b[^.]*\b(?:farm(?:house)?|apron)\b/.test(hay);
+  if (descMatch) return true;
+  const code = (c.masterCode ?? "").toUpperCase();
+  // FSB-30, FSB-33, FSB-36, ADA-FSB-30, etc.
+  return /^(?:ADA-)?FSB[-_ ]?\d/.test(code);
+}
+
 // A sink FIXTURE placed as an appliance (the SINK-33 palette entry). The kitchen
 // sink naturally sits INSIDE the sink-base cabinet, so a sink appliance over a
 // sink base is expected — never a conflict.

@@ -20,7 +20,7 @@ import {
   type DoorPanelKind,
   countertopMaterial, DEFAULT_COUNTERTOP_MATERIAL_ID,
   isOnIsland, placedFootprint, bearsCountertop,
-  isSinkBaseCabinet, isBlindCorner, resolveSwing,
+  isSinkBaseCabinet, isFarmerSinkBase, isBlindCorner, resolveSwing,
   isRangeOrOven, isStacker, wallCabinetTopLine,
   DEFAULT_CEILING_HEIGHT,
 } from "@/lib/design";
@@ -678,6 +678,67 @@ export function IslandElevationView({
                 <circle cx={svgW / 2 - spoutW} cy={riserH * 0.15 + spoutThick / 2} r={Math.max(2, 2 * ppi)} fill="#6b7d90" />
                 <circle cx={svgW / 2 + knobR * 1.2} cy={riserH * 0.5} r={knobR} fill="#c0ccd8" stroke="#8a9bb0" strokeWidth={1} />
               </svg>
+            );
+          })}
+
+          {/* Apron-front (farmhouse) sink rendering for FSB-* cabinets */}
+          {sorted.filter((p) => isFarmerSinkBase(p)).map((p) => {
+            const cabSizeAlong = sizeAlong(p);
+            const cabPosAlong = posAlong(p);
+            const apronBottom = toeKick ? TOE_KICK_HEIGHT_IN : 0;
+            const apronTop = STD.COUNTERTOP_HEIGHT;
+            const apronH = apronTop - apronBottom;
+            const apronPxH = apronH * ppi;
+            const apronPxW = cabSizeAlong * ppi;
+            const apronLeft = cabPosAlong * ppi;
+            const apronBottomPx = apronBottom * ppi;
+            const basinW = apronPxW * 0.78;
+            const basinH = apronPxH * 0.52;
+            const basinLeft = (apronPxW - basinW) / 2;
+            const basinBottom = apronPxH * 0.12;
+            return (
+              <div
+                key={`apron-${p.uid}`}
+                className="absolute pointer-events-none"
+                style={{ left: apronLeft, width: apronPxW, bottom: apronBottomPx, height: apronPxH, zIndex: 6 }}
+              >
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: "linear-gradient(180deg, #f8f9fb 0%, #eef1f5 35%, #e4e8ee 70%, #d8dce4 100%)",
+                    borderTop: "1.5px solid #c8cdd6",
+                    borderLeft: "1px solid #d0d4dc",
+                    borderRight: "1px solid #d0d4dc",
+                    boxShadow: "inset 0 2px 6px rgba(0,0,0,0.08), inset 0 -1px 3px rgba(0,0,0,0.06)",
+                  }}
+                />
+                <div
+                  className="absolute"
+                  style={{
+                    left: basinLeft, width: basinW, bottom: basinBottom, height: basinH,
+                    background: "linear-gradient(180deg, #c8cdd6 0%, #b8bec9 40%, #a8aebb 100%)",
+                    borderRadius: "3px 3px 6px 6px",
+                    boxShadow: "inset 0 3px 8px rgba(0,0,0,0.22), inset 0 1px 3px rgba(0,0,0,0.15), 0 0 0 1px #9aa0ad",
+                  }}
+                >
+                  <div
+                    className="absolute"
+                    style={{
+                      left: "50%", bottom: "12%",
+                      width: Math.max(4, 2.5 * ppi), height: Math.max(4, 2.5 * ppi),
+                      marginLeft: -(Math.max(4, 2.5 * ppi) / 2),
+                      borderRadius: "50%", background: "#7a8090",
+                      border: "1px solid #5a6070",
+                      boxShadow: "inset 0 1px 2px rgba(0,0,0,0.4)",
+                    }}
+                  />
+                </div>
+                {apronPxH > 20 && (
+                  <div className="absolute inset-0 flex items-end justify-center pointer-events-none" style={{ paddingBottom: basinBottom + basinH + 2, zIndex: 2 }}>
+                    <span style={{ fontSize: Math.max(7, ppi * 1.8), color: "#8a9bb0", fontWeight: 500 }}>{p.masterCode}</span>
+                  </div>
+                )}
+              </div>
             );
           })}
 
