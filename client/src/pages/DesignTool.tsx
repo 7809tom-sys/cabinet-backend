@@ -4062,7 +4062,7 @@ export default function DesignTool() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-nowrap shrink-0 overflow-x-auto toolbar-scroll">
+      <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-nowrap shrink-0">
         <div className="flex items-center gap-2">
           <h1 className="font-serif text-base lg:text-lg font-bold text-foreground">
             <span className="lg:hidden">{t("dt_sh_title_mobile")}</span>
@@ -4714,6 +4714,17 @@ export default function DesignTool() {
 
         {/* Desktop action cluster */}
         <div className="ml-auto hidden lg:flex items-center gap-2">
+          {/* Undo / Redo */}
+          <Button variant="outline" size="sm" onClick={handleUndo} className="h-8 gap-1.5" title={t("dt_sh_undo")}>
+            <Undo2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleRedo} className="h-8 gap-1.5" title={t("dt_sh_redo")}>
+            <Redo2 className="h-3.5 w-3.5" />
+          </Button>
+
+          <div className="h-5 w-px bg-border" />
+
+          {/* Measure / Dimensions */}
           <Button
             variant="outline"
             size="sm"
@@ -4721,6 +4732,14 @@ export default function DesignTool() {
             className={`h-8 gap-1.5 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
             <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_measure")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAutoDimensions((d) => !d)}
+            className={`h-8 gap-1.5 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+          >
+            <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_auto_dim")}
           </Button>
           <Button
             variant="outline"
@@ -4735,104 +4754,10 @@ export default function DesignTool() {
           >
             <StickyNote className="h-3.5 w-3.5" /> {t("dt_ann_add")}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAutoDimensions((d) => !d)}
-            className={`h-8 gap-1.5 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
-          >
-            <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_auto_dim")}
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleUndo} className="h-8 gap-1.5" title={t("dt_sh_undo")}>
-            <Undo2 className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleRedo} className="h-8 gap-1.5" title={t("dt_sh_redo")}>
-            <Redo2 className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setIsland((cur) =>
-                cur
-                  ? null
-                  : {
-                      width: Math.min(48, room.width - 24),
-                      depth: Math.min(24, room.depth - 24),
-                      x: Math.max(0, room.width / 2 - 24),
-                      y: Math.max(0, room.depth / 2 - 12),
-                    }
-              )
-            }
-            className={`h-8 gap-1.5 ${island ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
-          >
-            <Square className="h-3.5 w-3.5" /> {t("dt_sh_island")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { trimOverride.current.crown = true; setCrown((c) => !c); }}
-            title={t("dt_sh_crown_title")}
-            className={`h-8 gap-1.5 ${crown ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
-          >
-            <PanelTop className="h-3.5 w-3.5" /> {t("dt_sh_crown_btn")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { trimOverride.current.toeKick = true; setToeKick((t) => !t); }}
-            title={t("dt_sh_toe_kick_title")}
-            className={`h-8 gap-1.5 ${toeKick ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
-          >
-            <Columns3 className="h-3.5 w-3.5" /> {t("dt_sh_toe_kick_btn")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { trimOverride.current.batten = true; setBatten((b) => !b); }}
-            title={t("dt_sh_batten_title")}
-            className={`h-8 gap-1.5 ${batten ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
-          >
-            <Columns3 className="h-3.5 w-3.5" /> {t("dt_sh_batten_btn")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }}
-            title={t("dt_sh_light_rail_title")}
-            className={`h-8 gap-1.5 ${lightRail ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
-          >
-            <PanelTop className="h-3.5 w-3.5" /> {t("dt_sh_light_rail_btn")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { trimOverride.current.valance = true; setValance((v) => !v); }}
-            title={t("dt_sh_valance_title")}
-            className={`h-8 gap-1.5 ${valance ? "bg-[#1a2744] text-white border-[#1a2744] hover:bg-[#243456]" : ""}`}
-          >
-            <PanelTop className="h-3.5 w-3.5" /> {t("dt_sh_valance_btn")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={addManualFiller}
-            disabled={layoutLocked}
-            title={t("dt_sh_filler_title")}
-            className="h-8 gap-1.5"
-          >
-            <Columns3 className="h-3.5 w-3.5" /> {t("dt_sh_filler_btn")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleCountertop}
-            disabled={!countertop && !hasBaseRun}
-            title={!countertop && !hasBaseRun ? t("dt_sh_countertop_disabled_title") : t("dt_sh_countertop_title")}
-            className={`h-8 gap-1.5 ${countertop ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600" : ""}`}
-          >
-            <Square className="h-3.5 w-3.5" /> {t("dt_sh_countertop_btn")}
-          </Button>
+
+          <div className="h-5 w-px bg-border" />
+
+          {/* Selected-item actions */}
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-8 gap-1.5">
             <RotateCw className="h-3.5 w-3.5" /> {t("dt_sh_rotate")} <span className="text-[10px] opacity-60">(R)</span>
           </Button>
@@ -4842,7 +4767,10 @@ export default function DesignTool() {
           <Button variant="outline" size="sm" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
             <Trash2 className="h-3.5 w-3.5" /> {t("dt_sh_delete")}
           </Button>
+
           <div className="h-5 w-px bg-border" />
+
+          {/* Lock Cabs */}
           <Button
             variant="outline"
             size="sm"
@@ -4858,7 +4786,89 @@ export default function DesignTool() {
             {cabinetsLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
             {cabinetsLocked ? "Locked" : "Lock Cabs"}
           </Button>
+
+          {/* More ▾ dropdown — Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <MoreHorizontal className="h-3.5 w-3.5" /> More
+                {(island || crown || toeKick || batten || lightRail || valance || countertop) && (
+                  <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-[#d4a75a]" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Room Features</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={!!island}
+                onCheckedChange={() =>
+                  setIsland((cur) =>
+                    cur
+                      ? null
+                      : {
+                          width: Math.min(48, room.width - 24),
+                          depth: Math.min(24, room.depth - 24),
+                          x: Math.max(0, room.width / 2 - 24),
+                          y: Math.max(0, room.depth / 2 - 12),
+                        }
+                  )
+                }
+              >
+                <Square className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_island")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Trim & Molding</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={crown}
+                onCheckedChange={() => { trimOverride.current.crown = true; setCrown((c) => !c); }}
+              >
+                <PanelTop className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_crown_btn")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={toeKick}
+                onCheckedChange={() => { trimOverride.current.toeKick = true; setToeKick((tk) => !tk); }}
+              >
+                <Columns3 className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_toe_kick_btn")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={batten}
+                onCheckedChange={() => { trimOverride.current.batten = true; setBatten((b) => !b); }}
+              >
+                <Columns3 className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_batten_btn")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={lightRail}
+                onCheckedChange={() => { trimOverride.current.lightRail = true; setLightRail((l) => !l); }}
+              >
+                <PanelTop className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_light_rail_btn")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={valance}
+                onCheckedChange={() => { trimOverride.current.valance = true; setValance((v) => !v); }}
+              >
+                <PanelTop className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_valance_btn")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Tools</DropdownMenuLabel>
+              <DropdownMenuItem
+                onSelect={addManualFiller}
+                disabled={layoutLocked}
+              >
+                <Columns3 className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_filler_btn")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={toggleCountertop}
+                disabled={!countertop && !hasBaseRun}
+                className={countertop ? "text-amber-600 font-medium" : ""}
+              >
+                <Square className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_countertop_btn")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <div className="h-5 w-px bg-border" />
+
+          {/* Save / Load / Export */}
           <DesignActions
             room={room}
             placed={placed}

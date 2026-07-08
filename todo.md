@@ -646,3 +646,9 @@
 
 - [x] Make the second toolbar row (Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop, Rotate, Swing, Delete, Lock Cabs, Save, My Designs) scroll horizontally or collapse into an overflow menu so nothing is cut off at narrower desktop widths
 - [x] Ensure all toolbar buttons remain accessible at 1280px viewport width and above
+
+## Bug: Design Tool toolbar two rows overlapping (Jul 8)
+
+- [x] Revert flex-nowrap + overflow-x-auto on toolbar row (it caused two rows to stack/overlap)
+- [x] Move secondary toolbar buttons (Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop, Rotate, Swing, Delete, Lock Cabs, Save, My Designs) into a "More ▾" dropdown menu so the toolbar stays on one clean row
+- [x] Keep primary actions (Draw Room, Custom Shape, Wall height, Wall selector, Lock Layout, Auto-Fill, View toggle, Print Sheet, Measure, Add Note, Dimensions, Undo/Redo) visible in the main row
