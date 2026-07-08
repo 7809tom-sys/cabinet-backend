@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Menu, X, ShoppingCart, ChevronDown, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -7,6 +7,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { SiteStringKey } from "@/lib/i18n/site";
 import { ChatTrigger } from "@/components/ChatWidget";
+import { trpc } from "@/lib/trpc";
 
 type NavLink = { key: SiteStringKey; href: string };
 
@@ -77,9 +78,17 @@ export function TopNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [location] = useLocation();
+  const search = useSearch();
   const { user } = useAuth();
   const { count: cartCount } = useCart();
   const { t } = useLanguage();
+
+  // Read ?ref= param to show affiliate branding on design/order pages
+  const refCode = new URLSearchParams(search).get("ref") ?? "";
+  const { data: affiliateBrand } = trpc.affiliates.byCode.useQuery(
+    { code: refCode },
+    { enabled: !!refCode, staleTime: 5 * 60 * 1000 }
+  );
 
   const isActive = (href: string) => location.startsWith(href);
   const moreActive = [...MORE_LINKS, ...PORTAL_LINKS].some((l) => isActive(l.href));
@@ -87,15 +96,39 @@ export function TopNav() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between gap-2">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-navy)] text-white font-bold text-sm">
-            CD
-          </div>
-          <span className="font-serif text-xl font-bold text-[var(--color-navy)] dark:text-foreground">
-            Cabinet<span className="text-[var(--color-gold)]">Dealz</span>
-          </span>
-        </Link>
+        {/* Logo — show affiliate branding when ?ref= is present */}
+        {affiliateBrand ? (
+          <a
+            href={`/store/${affiliateBrand.slug}`}
+            className="flex items-center gap-2 shrink-0 max-w-[200px]"
+          >
+            {affiliateBrand.logoUrl ? (
+              <img
+                src={affiliateBrand.logoUrl}
+                alt={affiliateBrand.storeName}
+                className="h-8 w-auto max-w-[140px] object-contain"
+              />
+            ) : (
+              <>
+                <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-navy)] text-white font-bold text-sm shrink-0">
+                  {affiliateBrand.storeName.slice(0, 1).toUpperCase()}
+                </div>
+                <span className="font-serif text-lg font-bold text-[var(--color-navy)] dark:text-foreground truncate">
+                  {affiliateBrand.storeName}
+                </span>
+              </>
+            )}
+          </a>
+        ) : (
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-[var(--color-navy)] text-white font-bold text-sm">
+              CD
+            </div>
+            <span className="font-serif text-xl font-bold text-[var(--color-navy)] dark:text-foreground">
+              Cabinet<span className="text-[var(--color-gold)]">Dealz</span>
+            </span>
+          </Link>
+        )}
 
         {/* Chat trigger — right after logo, out of the way */}
         <ChatTrigger />

@@ -116,7 +116,7 @@ export const affiliatesRouter = router({
         .limit(1);
       const a = rows[0];
       if (!a || a.status !== "active") return null;
-      return { id: a.id, storeName: a.storeName, slug: a.slug, referralCode: a.referralCode };
+      return { id: a.id, storeName: a.storeName, slug: a.slug, referralCode: a.referralCode, logoUrl: a.logoUrl ?? null };
     }),
 
   // ─── Public: template preview — returns mock storefront data for a given template ──
