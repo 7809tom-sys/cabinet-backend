@@ -634,3 +634,10 @@
 - [x] Pre-fill coverageSqFt from packaging data (size field) for Pelican products — no manual entry needed
 - [x] Remove image column from PelicanVendorCatalogPage (Pelican has no product images — sq ft/box shown as read-only)
 - [x] Fix broken category hyperlink buttons on PelicanVendorOverviewPage — clicking a category should filter the catalog tab
+
+## Bug: Shopping cart not shown on affiliate storefront pages (Jul 8)
+
+- [x] Add cart icon with item count badge to NavLinks in Storefront.tsx (all 4 header templates: Classic, Showcase, Minimal, Craftsman)
+- [x] Cart link should use withRef("/cart") to preserve affiliate referral attribution
+- [x] Cart icon should use useCart() to show live count badge
+- [x] Ensure CartContext is available in the Storefront page (main.tsx wraps CartProvider at root level)

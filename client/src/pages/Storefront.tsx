@@ -11,8 +11,9 @@ import { StorefrontShop } from "@/components/storefront/StorefrontShop";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import {
   ArrowRight, Phone, Mail, MapPin, Globe, Facebook, Instagram, Award,
-  Ruler, ShieldCheck, Zap, Heart, Languages, Waves, LogIn,
+  Ruler, ShieldCheck, Zap, Heart, Languages, Waves, LogIn, ShoppingCart,
 } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
 
 const PLATFORM_NAVY = "#1a2b4a";
 const PLATFORM_GOLD = "#c9a227";
@@ -350,6 +351,7 @@ function NavLinks({
   variant: "light" | "dark";
 }) {
   const cls = variant === "light" ? "text-white hover:bg-white/15" : "";
+  const { count: cartCount } = useCart();
   return (
     <>
       <a href="#shop" className="hidden sm:block">
@@ -357,6 +359,21 @@ function NavLinks({
       </a>
       <Link href={withRef("/design")} className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("nav_design")}</Button>
+      </Link>
+      <Link href={withRef("/cart")} aria-label="Cart">
+        <Button variant="ghost" size="sm" className={`relative ${cls}`}>
+          <ShoppingCart className="h-5 w-5" />
+          {cartCount > 0 && (
+            <span
+              className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              style={{ backgroundColor: variant === "light" ? "#fff" : undefined }}
+            >
+              <span style={{ color: variant === "light" ? "#000" : undefined }}>
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            </span>
+          )}
+        </Button>
       </Link>
     </>
   );
