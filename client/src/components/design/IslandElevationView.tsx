@@ -195,6 +195,8 @@ interface Props {
   room: RoomData;
   cabinets: PlacedCabinet[];
   island: { x: number; y: number; width: number; depth: number };
+  /** Which face of the island to show. Defaults to "front" (the side closest to the room top wall). */
+  face?: "front" | "back";
   selectedUid: string | null;
   onSelect: (uid: string | null) => void;
   countertopMaterialId?: string | null;
@@ -222,7 +224,7 @@ const TOL = 2;
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function IslandElevationView({
-  room, cabinets, island, selectedUid, onSelect,
+  room, cabinets, island, face = "front", selectedUid, onSelect,
   countertopMaterialId = null,
   finish = DEFAULT_FINISH_COLORS,
   crown = false, toeKick = false, batten = false, lightRail = false,
@@ -243,16 +245,43 @@ export function IslandElevationView({
   // Filter cabinets that are on the island.
   const islandCabinets = cabinets.filter((c) => isOnIsland(c, island));
 
-  // Sort by x position (left to right along the island front face).
-  const sorted = [...islandCabinets].sort((a, b) => {
+  // Determine which side of the island each cabinet faces.
+  // "front" = cabinets whose back edge is near the island's top edge (island.y)
+  //           i.e. the cabinet is placed just above the island top edge
+  // "back"  = cabinets whose back edge is near the island's bottom edge (island.y + island.depth)
+  //           i.e. the cabinet is placed just below the island bottom edge
+  // Cabinets fully inside the island zone (island base cabinets) are shown on BOTH faces.
+  const islandMidY = island.y + island.depth / 2;
+  const faceCabinets = islandCabinets.filter((p) => {
+    const fp = placedFootprint(p);
+    const cabCenterY = p.y + fp.d / 2;
+    // Cabinets whose center is in the top half of the island → front face
+    // Cabinets whose center is in the bottom half → back face
+    // Island base cabinets (fully inside) are shown on both faces
+    const isInsideIsland = p.y >= island.y - 1 && p.y + fp.d <= island.y + island.depth + 1;
+    if (isInsideIsland) return true; // show on both faces
+    return face === "front" ? cabCenterY <= islandMidY : cabCenterY > islandMidY;
+  });
+
+  // Sort by x position. For back view, mirror left-to-right so the viewer
+  // sees the back of the island from outside (left = right when viewed from behind).
+  const sorted = [...faceCabinets].sort((a, b) => {
     const order: Record<string, number> = { tall: 0, base: 1, appliance: 1, wall: 2 };
     const byType = (order[a.placement] ?? 1) - (order[b.placement] ?? 1);
     if (byType !== 0) return byType;
-    return a.x - b.x;
+    // Back view: reverse x order so it reads naturally from the back
+    return face === "back" ? b.x - a.x : a.x - b.x;
   });
 
   // posAlong: offset from the island's left edge.
-  const posAlong = (p: PlacedCabinet) => p.x - island.x;
+  // For back view, mirror: posAlong = island.right - cabinet.right
+  const posAlong = (p: PlacedCabinet) => {
+    const fp = placedFootprint(p);
+    if (face === "back") {
+      return (island.x + island.width) - (p.x + fp.w);
+    }
+    return p.x - island.x;
+  };
   const sizeAlong = (p: PlacedCabinet) => placedFootprint(p).w;
 
   useEffect(() => {
@@ -663,7 +692,7 @@ export function IslandElevationView({
 
       {/* Island label pill */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 text-xs font-medium text-[#1a2744] bg-white/80 px-3 py-1 rounded-full shadow-sm">
-        Island — Front View ({Math.round(island.width)}" wide)
+        Island — {face === "back" ? "Back" : "Front"} View ({Math.round(island.width)}" wide)
       </div>
     </div>
   );

@@ -316,6 +316,8 @@ export default function DesignTool() {
   });
   // Which corner the corner-view camera stands in.
   const [corner, setCorner] = useState<CornerId>("top-left");
+  // Which face of the island to show in Island view (front = near top wall, back = near bottom wall).
+  const [islandFace, setIslandFace] = useState<"front" | "back">("front");
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
   const [autoDimensions, setAutoDimensions] = useState(false);
@@ -5963,24 +5965,50 @@ export default function DesignTool() {
             />
           )}
           {viewMode === "island" && island && (
-            <IslandElevationView
-              room={room}
-              cabinets={placed}
-              island={island}
-              selectedUid={selectedUid}
-              onSelect={selectCabinet}
-              countertopMaterialId={countertop ? countertopMaterialId : null}
-              finish={activeFinish}
-              crown={crown}
-              toeKick={toeKick}
-              batten={batten}
-              lightRail={lightRail}
-              panelKind={activePanelKind}
-              hardwareStyleId={hardwareStyleId}
-              finishFor={finishForCab}
-              panelKindFor={panelKindForCab}
-              doorSampleUrlFor={doorSampleForCab}
-            />
+            <div className="relative w-full h-full flex flex-col">
+              {/* Front / Back sub-tab switcher */}
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center rounded-full border border-border bg-white/90 shadow-sm p-0.5">
+                <button
+                  onClick={() => setIslandFace("front")}
+                  className={`px-4 py-1 rounded-full text-xs font-semibold transition-colors ${
+                    islandFace === "front"
+                      ? "bg-[#1a2744] text-white"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Front
+                </button>
+                <button
+                  onClick={() => setIslandFace("back")}
+                  className={`px-4 py-1 rounded-full text-xs font-semibold transition-colors ${
+                    islandFace === "back"
+                      ? "bg-[#1a2744] text-white"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Back
+                </button>
+              </div>
+              <IslandElevationView
+                room={room}
+                cabinets={placed}
+                island={island}
+                face={islandFace}
+                selectedUid={selectedUid}
+                onSelect={selectCabinet}
+                countertopMaterialId={countertop ? countertopMaterialId : null}
+                finish={activeFinish}
+                crown={crown}
+                toeKick={toeKick}
+                batten={batten}
+                lightRail={lightRail}
+                panelKind={activePanelKind}
+                hardwareStyleId={hardwareStyleId}
+                finishFor={finishForCab}
+                panelKindFor={panelKindForCab}
+                doorSampleUrlFor={doorSampleForCab}
+              />
+            </div>
           )}
           {viewMode === "corner" && (
             <CornerView
