@@ -579,3 +579,13 @@
 - [x] Extend orientToWall in design.ts to accept island prop and auto-rotate cabinets to face the nearest island edge when dragged within SNAP_THRESHOLD
 - [x] Pass island to orientToWall in PlanCanvas handlePointerMove so cabinets auto-orient when snapping to island walls
 - [x] Existing snapPosition island edge snapping (flush-to-edge) already worked; now combined with auto-rotation
+
+## Affiliate Administration Panel
+
+- [ ] Add "Credentials & Links" tab to AffiliateDashboard as first/default tab
+- [ ] Show storefront URL, referral code, login link, and template preview button in credentials tab
+- [ ] Enhance AffiliatesAdmin with per-affiliate "View Storefront" preview button
+- [ ] Add "Send Credentials" email button in AffiliatesAdmin
+- [ ] Add template switcher in AffiliatesAdmin per-affiliate card
+- [ ] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
+- [ ] Add template switcher to demo storefront preview banner

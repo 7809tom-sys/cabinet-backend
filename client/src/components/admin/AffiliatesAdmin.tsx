@@ -14,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin,
+  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye,
 } from "lucide-react";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
@@ -56,11 +56,19 @@ export default function AffiliatesAdmin() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-3">
         <p className="text-sm text-muted-foreground">
           {affiliates?.length ?? 0} affiliate{(affiliates?.length ?? 0) === 1 ? "" : "s"}
         </p>
-        <CreateAffiliateDialog onCreated={() => utils.affiliates.adminList.invalidate()} />
+        <div className="flex items-center gap-2">
+          {/* Demo storefront — sales tool: opens the classic template as a live example */}
+          <a href="/store-preview/classic" target="_blank" rel="noreferrer">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <Eye className="h-3.5 w-3.5" /> Demo Storefront
+            </Button>
+          </a>
+          <CreateAffiliateDialog onCreated={() => utils.affiliates.adminList.invalidate()} />
+        </div>
       </div>
 
       {(!affiliates || affiliates.length === 0) ? (
@@ -115,20 +123,164 @@ export default function AffiliatesAdmin() {
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+                  <a href={`${origin}/store/${a.slug}`} target="_blank" rel="noreferrer">
+                    <Button variant="outline" size="sm" className="w-full gap-1.5">
+                      <ExternalLink className="h-3.5 w-3.5" /> View Store
+                    </Button>
+                  </a>
+                  <a href={`/store-preview/${a.template ?? "classic"}`} target="_blank" rel="noreferrer">
+                    <Button variant="outline" size="sm" className="w-full gap-1.5">
+                      <Eye className="h-3.5 w-3.5" /> Preview Template
+                    </Button>
+                  </a>
                   <Button
                     variant="outline" size="sm"
                     onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
                   >
-                    {expandedId === a.id ? "Hide" : "Referrals"}
+                    {expandedId === a.id ? "Hide" : "Details"}
                   </Button>
                 </div>
               </div>
 
-              {expandedId === a.id && <AffiliateReferrals affiliateId={a.id} />}
+              {expandedId === a.id && <AffiliateDetailsPanel affiliate={a} origin={origin} />}
             </CardContent>
           </Card>
         ))
       )}
+    </div>
+  );
+}
+
+// Full details panel shown when an affiliate row is expanded
+type AffiliateItem = {
+  id: number;
+  storeName: string;
+  slug: string;
+  referralCode: string;
+  email: string;
+  contactName: string | null;
+  template: string | null;
+  commissionRate: string | number;
+  status: string;
+  phone: string | null;
+  location: string | null;
+  website: string | null;
+  notes: string | null;
+};
+
+function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateItem; origin: string }) {
+  const utils = trpc.useUtils();
+  const storeUrl = `${origin}/store/${a.slug}`;
+  const refLink = `${origin}/order/new?ref=${a.referralCode}`;
+  const loginUrl = `${origin}/affiliate`;
+  const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals">("credentials");
+
+  const setTemplate = trpc.affiliates.adminUpdate.useMutation({
+    onSuccess: () => {
+      utils.affiliates.adminList.invalidate();
+      toast.success("Template updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function copyText(text: string, label: string) {
+    navigator.clipboard.writeText(text).then(
+      () => toast.success(`${label} copied`),
+      () => toast.error("Could not copy")
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-border bg-muted/20 overflow-hidden">
+      {/* Sub-tab bar */}
+      <div className="flex border-b border-border">
+        {(["credentials", "template", "referrals"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setActiveTab(t)}
+            className={`px-4 py-2.5 text-sm font-medium capitalize transition-colors ${
+              activeTab === t
+                ? "border-b-2 border-primary text-primary bg-background"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <div className="p-4">
+        {activeTab === "credentials" && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Affiliate Credentials</p>
+            {[
+              { label: "Storefront URL", value: storeUrl },
+              { label: "Referral Link", value: refLink },
+              { label: "Referral Code", value: a.referralCode },
+              { label: "Login Portal", value: loginUrl },
+              { label: "Email", value: a.email },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-28 shrink-0">{label}</span>
+                <code className="flex-1 text-xs bg-muted rounded px-2 py-1 truncate">{value}</code>
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => copyText(value, label)}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+                {(label === "Storefront URL" || label === "Login Portal") && (
+                  <a href={value} target="_blank" rel="noreferrer">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </a>
+                )}
+              </div>
+            ))}
+            <div className="pt-2">
+              <Button
+                variant="outline" size="sm" className="gap-1.5"
+                onClick={() => {
+                  const all = `Storefront: ${storeUrl}\nReferral link: ${refLink}\nReferral code: ${a.referralCode}\nLogin: ${loginUrl}\nEmail: ${a.email}`;
+                  copyText(all, "All credentials");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy All Credentials
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "template" && (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Storefront Template</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {TEMPLATES.map((t) => {
+                const active = (a.template ?? "classic") === t.id;
+                return (
+                  <div key={t.id} className={`rounded-lg border p-3 space-y-1.5 cursor-pointer transition-colors ${
+                    active ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                  }`}
+                    onClick={() => !active && setTemplate.mutate({ id: a.id, template: t.id })}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm">{t.name}</span>
+                      {active && <span className="text-xs text-primary font-medium">Active</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-snug">{t.desc}</p>
+                    <a href={`/store-preview/${t.id}`} target="_blank" rel="noreferrer"
+                      className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Eye className="h-3 w-3" /> Preview
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "referrals" && <AffiliateReferrals affiliateId={a.id} />}
+      </div>
     </div>
   );
 }
