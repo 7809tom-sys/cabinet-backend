@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { eq, desc, or, and } from "drizzle-orm";
+import { notifyOwner } from "../_core/notification";
 import { TRPCError } from "@trpc/server";
 import {
   publicProcedure,
@@ -619,5 +620,21 @@ export const affiliatesRouter = router({
         paidAt,
       });
       return { id: (inserted as unknown as { insertId?: number }).insertId ?? null, status: input.status };
+    }),
+
+  // ─── Partner: request AI Concierge service ($100/hr front-page editing) ───────
+  // The affiliate describes what they want; we notify the owner who will follow up.
+  requestAiConcierge: partnerProcedure
+    .input(z.object({
+      description: z.string().min(10).max(4000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      await notifyOwner({
+        title: `AI Concierge Request — ${mine.storeName}`,
+        content: `Affiliate: ${mine.storeName} (${mine.email})\nSlug: ${mine.slug}\n\n${input.description}`,
+      });
+      return { ok: true };
     }),
 });

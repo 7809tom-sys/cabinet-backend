@@ -589,3 +589,25 @@
 - [ ] Add template switcher in AffiliatesAdmin per-affiliate card
 - [ ] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
 - [ ] Add template switcher to demo storefront preview banner
+
+## Affiliate Dashboard Redesign (White-Label & Performance Focus)
+
+- [ ] Strip wholesale pricing, vendor agreements, Stripe, and shipping calculator from AffiliateDashboard
+- [ ] Remove all Cabinet Dealz brand mentions from affiliate storefronts (white-label enforcement)
+- [ ] Add Customize tab: room scene picker, door style selector, template/layout switcher
+- [ ] Add AI Concierge upsell card ($100/hr service request form)
+- [ ] Ensure affiliate dashboard tabs: Performance, Commissions, Payouts, Credentials, Customize, AI Concierge
+
+## Affiliate Dashboard Redesign — Phase 2 (Active)
+
+- [x] Remove My Catalog & Pricing tab from AffiliateDashboard (CatalogBrandingEditor, StyleBrandingTable, StyleBrandingRow)
+- [x] Remove CATEGORY_KEYS, bpsToPct, pctToBps helper functions (only used by CatalogBrandingEditor)
+- [x] Fix "Copy All Credentials" text: replace "Your Cabinet Dealz affiliate credentials:" with generic text
+- [x] Fix Storefront.tsx line 71: change "Go to Cabinet Dealz" button text to "Go Home"
+- [x] Fix Storefront.tsx line 191: remove "through Cabinet Dealz" from Surfaces section copy
+- [x] Fix storefrontI18n.ts: change footer_powered from "Powered by Cabinet Dealz" to generic "Powered by our platform" (all 3 languages)
+- [x] Rename "Storefront Branding" tab to "Customize"
+- [x] Add Room Scene Picker section in BrandingEditor/Customize tab (5 KITCHEN_SCENES as clickable cards)
+- [x] Add Door Style Showcase selector in Customize tab (pick which door styles to feature)
+- [x] Add AI Concierge upsell card in Customize tab ($100/hr service request form)
+- [x] Add requestAiConcierge tRPC procedure to affiliates router (notifyOwner)

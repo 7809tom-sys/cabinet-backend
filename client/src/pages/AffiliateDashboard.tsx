@@ -21,12 +21,14 @@ import {
   Copy, ExternalLink, DollarSign, Package, CheckCircle2, Store,
   LinkIcon, Save, Loader2, PencilRuler, Globe, Users,
   ArrowRight, Sparkles, Star, TrendingUp, Shield, Palette, Truck,
+  Wand2, Send, ChevronRight, ImageIcon,
 } from "lucide-react";
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import {
   AFFILIATE_MEMBERSHIP,
   formatMembershipPrice,
 } from "@shared/affiliate";
+import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 
 const MEMBERSHIP_BENEFIT_ICONS = [PencilRuler, Globe, Users];
 
@@ -398,8 +400,7 @@ export default function AffiliateDashboard() {
           <TabsTrigger value="crm">My CRM</TabsTrigger>
           <TabsTrigger value="orders">Referred Orders</TabsTrigger>
           <TabsTrigger value="earnings">Earnings</TabsTrigger>
-          <TabsTrigger value="catalog">My Catalog &amp; Pricing</TabsTrigger>
-          <TabsTrigger value="branding">Storefront Branding</TabsTrigger>
+          <TabsTrigger value="customize">Customize</TabsTrigger>
         </TabsList>
 
         <TabsContent value="credentials" className="mt-6">
@@ -462,12 +463,8 @@ export default function AffiliateDashboard() {
           <EarningsPanel />
         </TabsContent>
 
-        <TabsContent value="catalog" className="mt-6">
-          <CatalogBrandingEditor />
-        </TabsContent>
-
-        <TabsContent value="branding" className="mt-6">
-          <BrandingEditor
+        <TabsContent value="customize" className="mt-6">
+          <CustomizeTab
             affiliate={affiliate}
             onSaved={() => myRef.refetch()}
           />
@@ -579,7 +576,7 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
-          To change your template, go to the <strong>Storefront Branding</strong> tab. You can preview all four templates before choosing.
+          To change your template, go to the <strong>Customize</strong> tab. You can preview all four templates before choosing.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(["classic", "showcase", "minimal", "craftsman"] as const).map((t) => (
@@ -613,7 +610,7 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
             </Button>
           </a>
           <Button variant="outline" className="gap-2" onClick={() => {
-            const text = `Your Cabinet Dealz affiliate credentials:\n\nStorefront: ${storeUrl}\nReferral link: ${refLink}\nReferral code: ${affiliate.referralCode}\nLogin: ${loginUrl}`;
+            const text = `Your affiliate credentials:\n\nStorefront: ${storeUrl}\nReferral link: ${refLink}\nReferral code: ${affiliate.referralCode}\nLogin: ${loginUrl}`;
             onCopy(text, "All credentials");
           }}>
             <Copy className="h-4 w-4" /> Copy All Credentials
@@ -624,8 +621,10 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
   );
 }
 
-// ─── Branding editor ────────────────────────────────────────────────────────────
-// The affiliate row shape (subset of fields used by the editor).
+// ─── Customize Tab ──────────────────────────────────────────────────────────────
+// Combines the BrandingEditor (template, colors, logo, tagline, about, socials)
+// with a Room Scene Picker and an AI Concierge upsell card.
+
 type AffiliateRow = {
   tagline: string | null;
   taglineEs: string | null;
@@ -649,7 +648,17 @@ const TEMPLATES: { id: "classic" | "showcase" | "minimal" | "craftsman"; name: s
   { id: "craftsman", name: "Craftsman", desc: "Warm, bold type on an accent block — no photo required." },
 ];
 
-function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved: () => void }) {
+type KitchenSceneKey = "shaker-white" | "shaker-gray" | "shaker-espresso" | "raised-cherry" | "slab-natural";
+
+const SCENE_LABELS: Record<KitchenSceneKey, { name: string; desc: string }> = {
+  "shaker-white": { name: "White Shaker", desc: "Bright, timeless, and universally loved." },
+  "shaker-gray": { name: "Gray Shaker", desc: "Warm greige — modern farmhouse feel." },
+  "shaker-espresso": { name: "Espresso", desc: "Rich, dramatic, and contemporary." },
+  "raised-cherry": { name: "Cherry Raised Panel", desc: "Classic warm wood with traditional depth." },
+  "slab-natural": { name: "Natural Wood Slab", desc: "Sleek European-modern with warmth." },
+};
+
+function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved: () => void }) {
   const [form, setForm] = useState({
     tagline: affiliate.tagline ?? "",
     taglineEs: affiliate.taglineEs ?? "",
@@ -698,18 +707,97 @@ function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSav
     });
   }
 
+  // Detect which scene key is currently active (if heroImageUrl matches one)
+  const activeScene = (Object.keys(KITCHEN_SCENES) as KitchenSceneKey[]).find(
+    (k) => KITCHEN_SCENES[k] === form.heroImageUrl
+  ) ?? null;
+
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-      <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-        <div>
-          <div className="font-medium text-sm">Storefront live</div>
-          <div className="text-xs text-muted-foreground">Turn your public storefront on or off.</div>
+    <div className="space-y-6">
+
+      {/* ── Storefront on/off ─────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+        <h2 className="font-semibold text-base flex items-center gap-2">
+          <Globe className="h-4 w-4 text-primary" /> Storefront Visibility
+        </h2>
+        <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+          <div>
+            <div className="font-medium text-sm">Storefront live</div>
+            <div className="text-xs text-muted-foreground">Turn your public storefront on or off.</div>
+          </div>
+          <Switch checked={form.storefrontEnabled} onCheckedChange={(v) => set("storefrontEnabled", v)} />
         </div>
-        <Switch checked={form.storefrontEnabled} onCheckedChange={(v) => set("storefrontEnabled", v)} />
       </div>
 
-      <div className="space-y-2">
-        <Label>Storefront template</Label>
+      {/* ── Room Scene Picker ─────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-base flex items-center gap-2">
+            <ImageIcon className="h-4 w-4 text-primary" /> Hero Room Scene
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Choose the kitchen scene displayed as your storefront hero image. This sets the visual mood for your brand.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {(Object.keys(KITCHEN_SCENES) as KitchenSceneKey[]).map((key) => {
+            const isActive = activeScene === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => set("heroImageUrl", KITCHEN_SCENES[key])}
+                className={`relative rounded-xl overflow-hidden border-2 transition-all text-left group ${
+                  isActive
+                    ? "border-primary ring-2 ring-primary/30"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="aspect-video w-full overflow-hidden">
+                  <img
+                    src={KITCHEN_SCENES[key]}
+                    alt={SCENE_LABELS[key].name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <div className="p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm">{SCENE_LABELS[key].name}</span>
+                    {isActive && (
+                      <Badge variant="default" className="text-xs px-2 py-0.5">Active</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{SCENE_LABELS[key].desc}</p>
+                </div>
+              </button>
+            );
+          })}
+          {/* Custom URL option */}
+          <div className={`rounded-xl border-2 p-3 transition-all ${
+            !activeScene && form.heroImageUrl ? "border-primary ring-2 ring-primary/30" : "border-border"
+          }`}>
+            <div className="font-semibold text-sm mb-2 flex items-center gap-2">
+              <ImageIcon className="h-3.5 w-3.5" /> Custom image URL
+            </div>
+            <Input
+              value={!activeScene ? form.heroImageUrl : ""}
+              onChange={(e) => set("heroImageUrl", e.target.value)}
+              placeholder="https://…/kitchen.jpg"
+              className="font-mono text-xs"
+              onClick={() => {
+                if (activeScene) set("heroImageUrl", "");
+              }}
+            />
+            <p className="text-xs text-muted-foreground mt-1.5">Paste a direct image URL to use your own photo.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Template picker ───────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <h2 className="font-semibold text-base flex items-center gap-2">
+          <Palette className="h-4 w-4 text-primary" /> Layout Template
+        </h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {TEMPLATES.map((tpl) => {
             const active = form.template === tpl.id;
@@ -726,343 +814,210 @@ function BrandingEditor({ affiliate, onSaved }: { affiliate: AffiliateRow; onSav
                     : "border-border hover:bg-muted")
                 }
               >
-                <div className="font-semibold text-sm">{tpl.name}</div>
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-sm">{tpl.name}</div>
+                  {active && <Badge variant="default" className="text-xs px-2 py-0.5">Active</Badge>}
+                </div>
                 <div className="text-xs text-muted-foreground mt-0.5">{tpl.desc}</div>
+                <a
+                  href={`/store-preview/${tpl.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary mt-2 hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Preview <ExternalLink className="h-3 w-3" />
+                </a>
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="tagline">Headline / tagline (English)</Label>
-        <Input id="tagline" value={form.tagline} onChange={(e) => set("tagline", e.target.value)} placeholder="Beautiful Kitchens, Built Around You." />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="taglineEs">Headline / tagline (Spanish, optional)</Label>
-        <Input id="taglineEs" value={form.taglineEs} onChange={(e) => set("taglineEs", e.target.value)} placeholder="Hermosas cocinas, hechas para usted." />
-        <p className="text-xs text-muted-foreground">Shown when a visitor switches your storefront to Spanish. Leave blank to reuse the English headline.</p>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="about">About your store (English)</Label>
-        <Textarea id="about" rows={3} value={form.aboutText} onChange={(e) => set("aboutText", e.target.value)} placeholder="Tell customers about your business…" />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="aboutEs">About your store (Spanish, optional)</Label>
-        <Textarea id="aboutEs" rows={3} value={form.aboutTextEs} onChange={(e) => set("aboutTextEs", e.target.value)} placeholder="Cuéntele a los clientes sobre su negocio…" />
-        <p className="text-xs text-muted-foreground">Optional Spanish version of your store blurb. Leave blank to reuse the English text.</p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="primary">Primary color (hex)</Label>
-          <div className="flex gap-2 items-center">
-            <Input id="primary" value={form.primaryColor} onChange={(e) => set("primaryColor", e.target.value)} placeholder="#1a2b4a" className="font-mono" />
-            <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.primaryColor || "#1a2b4a" }} />
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="accent">Accent color (hex)</Label>
-          <div className="flex gap-2 items-center">
-            <Input id="accent" value={form.accentColor} onChange={(e) => set("accentColor", e.target.value)} placeholder="#c9a227" className="font-mono" />
-            <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.accentColor || "#c9a227" }} />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="logo">Logo URL</Label>
-          <Input id="logo" value={form.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} placeholder="https://…/logo.png" className="font-mono text-sm" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="hero">Hero image URL</Label>
-          <Input id="hero" value={form.heroImageUrl} onChange={(e) => set("heroImageUrl", e.target.value)} placeholder="https://…/kitchen.jpg" className="font-mono text-sm" />
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="area">Service area</Label>
-          <Input id="area" value={form.serviceArea} onChange={(e) => set("serviceArea", e.target.value)} placeholder="Sarasota & Manatee County, FL" />
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="fb">Facebook URL</Label>
-          <Input id="fb" value={form.facebookUrl} onChange={(e) => set("facebookUrl", e.target.value)} placeholder="https://facebook.com/…" className="font-mono text-sm" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="ig">Instagram URL</Label>
-          <Input id="ig" value={form.instagramUrl} onChange={(e) => set("instagramUrl", e.target.value)} placeholder="https://instagram.com/…" className="font-mono text-sm" />
-        </div>
-      </div>
-
-      <Button onClick={handleSave} disabled={save.isPending} className="gap-2">
-        {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-        Save storefront
-      </Button>
-    </div>
-  );
-}
-
-
-// ─── My Catalog & Pricing: white-label door-style names + markup ──────────────
-const CATEGORY_KEYS: { key: string; label: string }[] = [
-  { key: "base", label: "Base cabinets" },
-  { key: "wall", label: "Wall cabinets" },
-  { key: "tall", label: "Tall / pantry" },
-  { key: "vanity", label: "Vanity" },
-];
-
-function bpsToPct(bps: number): string {
-  return (bps / 100).toFixed(bps % 100 === 0 ? 0 : 2);
-}
-function pctToBps(pct: string): number {
-  const n = Number(pct);
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.round(n * 100);
-}
-
-function CatalogBrandingEditor() {
-  const { data, isLoading } = trpc.affiliates.myBranding.useQuery();
-  const utils = trpc.useUtils();
-
-  const [defaultPct, setDefaultPct] = useState<string | null>(null);
-  const [catPct, setCatPct] = useState<Record<string, string>>({});
-
-  const saveMarkup = trpc.affiliates.updateMyMarkup.useMutation({
-    onSuccess: () => {
-      toast.success("Pricing updated");
-      utils.affiliates.myBranding.invalidate();
-    },
-    onError: (e) => toast.error("Could not save", { description: e.message }),
-  });
-  const saveStyle = trpc.affiliates.upsertStyleBranding.useMutation({
-    onSuccess: () => {
-      toast.success("Style saved");
-      utils.affiliates.myBranding.invalidate();
-    },
-    onError: (e) => toast.error("Could not save", { description: e.message }),
-  });
-
-  if (isLoading) {
-    return <div className="flex justify-center py-12"><Spinner /></div>;
-  }
-  if (!data) {
-    return (
-      <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
-        No affiliate account linked to you yet.
-      </div>
-    );
-  }
-
-  const defaultBps = data.defaultMarkupBps;
-  const effectiveDefaultPct = defaultPct ?? bpsToPct(defaultBps);
-
-  function saveDefault() {
-    const categoryMarkup: Record<string, number> = {};
-    for (const c of CATEGORY_KEYS) {
-      const raw = catPct[c.key];
-      const existing = data!.categoryMarkup[c.key];
-      if (raw !== undefined && raw !== "") categoryMarkup[c.key] = pctToBps(raw);
-      else if (existing != null) categoryMarkup[c.key] = existing;
-    }
-    saveMarkup.mutate({
-      defaultMarkupBps: pctToBps(effectiveDefaultPct),
-      categoryMarkup,
-    });
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Markup controls */}
+      {/* ── Brand identity ────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-        <div>
-          <h3 className="font-semibold text-lg">Your markup</h3>
-          <p className="text-sm text-muted-foreground">
-            Your retail prices are your affiliate cost plus this markup. Set a default for the whole
-            catalog, then optionally override it per category or per door style below.
-          </p>
-        </div>
+        <h2 className="font-semibold text-base flex items-center gap-2">
+          <Palette className="h-4 w-4 text-primary" /> Brand Identity
+        </h2>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor="defmarkup">Default markup %</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="defmarkup"
-                type="number"
-                min={0}
-                step="0.5"
-                value={effectiveDefaultPct}
-                onChange={(e) => setDefaultPct(e.target.value)}
-                className="max-w-[140px] tabular-nums"
-              />
-              <span className="text-muted-foreground">%</span>
+            <Label htmlFor="primary">Primary color (hex)</Label>
+            <div className="flex gap-2 items-center">
+              <Input id="primary" value={form.primaryColor} onChange={(e) => set("primaryColor", e.target.value)} placeholder="#1a2b4a" className="font-mono" />
+              <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.primaryColor || "#1a2b4a" }} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="accent">Accent color (hex)</Label>
+            <div className="flex gap-2 items-center">
+              <Input id="accent" value={form.accentColor} onChange={(e) => set("accentColor", e.target.value)} placeholder="#c9a227" className="font-mono" />
+              <span className="h-9 w-9 rounded border border-border shrink-0" style={{ backgroundColor: form.accentColor || "#c9a227" }} />
             </div>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Per-category overrides (optional)</Label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {CATEGORY_KEYS.map((c) => {
-              const current = catPct[c.key] ?? (data.categoryMarkup[c.key] != null ? bpsToPct(data.categoryMarkup[c.key]) : "");
-              return (
-                <div key={c.key} className="flex items-center gap-2">
-                  <span className="text-sm w-32 shrink-0">{c.label}</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.5"
-                    placeholder={`default (${effectiveDefaultPct}%)`}
-                    value={current}
-                    onChange={(e) => setCatPct((m) => ({ ...m, [c.key]: e.target.value }))}
-                    className="max-w-[140px] tabular-nums"
-                  />
-                  <span className="text-muted-foreground text-sm">%</span>
-                </div>
-              );
-            })}
+        <div className="space-y-1.5">
+          <Label htmlFor="logo">Logo URL</Label>
+          <Input id="logo" value={form.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} placeholder="https://…/logo.png" className="font-mono text-sm" />
+        </div>
+      </div>
+
+      {/* ── Storefront copy ───────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+        <h2 className="font-semibold text-base flex items-center gap-2">
+          <PencilRuler className="h-4 w-4 text-primary" /> Storefront Copy
+        </h2>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="tagline">Headline / tagline (English)</Label>
+          <Input id="tagline" value={form.tagline} onChange={(e) => set("tagline", e.target.value)} placeholder="Beautiful Kitchens, Built Around You." />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="taglineEs">Headline / tagline (Spanish, optional)</Label>
+          <Input id="taglineEs" value={form.taglineEs} onChange={(e) => set("taglineEs", e.target.value)} placeholder="Hermosas cocinas, hechas para usted." />
+          <p className="text-xs text-muted-foreground">Shown when a visitor switches your storefront to Spanish. Leave blank to reuse the English headline.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="about">About your store (English)</Label>
+          <Textarea id="about" rows={3} value={form.aboutText} onChange={(e) => set("aboutText", e.target.value)} placeholder="Tell customers about your business…" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="aboutEs">About your store (Spanish, optional)</Label>
+          <Textarea id="aboutEs" rows={3} value={form.aboutTextEs} onChange={(e) => set("aboutTextEs", e.target.value)} placeholder="Cuéntele a los clientes sobre su negocio…" />
+          <p className="text-xs text-muted-foreground">Optional Spanish version of your store blurb. Leave blank to reuse the English text.</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="area">Service area</Label>
+            <Input id="area" value={form.serviceArea} onChange={(e) => set("serviceArea", e.target.value)} placeholder="Sarasota & Manatee County, FL" />
           </div>
         </div>
 
-        <Button onClick={saveDefault} disabled={saveMarkup.isPending} className="gap-2">
-          {saveMarkup.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save pricing
-        </Button>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="fb">Facebook URL</Label>
+            <Input id="fb" value={form.facebookUrl} onChange={(e) => set("facebookUrl", e.target.value)} placeholder="https://facebook.com/…" className="font-mono text-sm" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ig">Instagram URL</Label>
+            <Input id="ig" value={form.instagramUrl} onChange={(e) => set("instagramUrl", e.target.value)} placeholder="https://instagram.com/…" className="font-mono text-sm" />
+          </div>
+        </div>
       </div>
 
-      {/* Per-style branding table */}
-      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+      {/* ── Save button ───────────────────────────────────────────────────── */}
+      <Button onClick={handleSave} disabled={save.isPending} className="gap-2">
+        {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+        Save storefront
+      </Button>
+
+      {/* ── AI Concierge upsell card ──────────────────────────────────────── */}
+      <AiConciergeCard />
+    </div>
+  );
+}
+
+// ─── AI Concierge Upsell Card ───────────────────────────────────────────────────
+function AiConciergeCard() {
+  const [description, setDescription] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const request = trpc.affiliates.requestAiConcierge.useMutation({
+    onSuccess: () => {
+      setSubmitted(true);
+      setDescription("");
+      toast.success("Request sent! Our design team will be in touch within 1 business day.");
+    },
+    onError: (e) => toast.error("Could not send request", { description: e.message }),
+  });
+
+  if (submitted) {
+    return (
+      <div className="rounded-xl border border-emerald-400/40 bg-emerald-50 dark:bg-emerald-950/20 p-6 text-center space-y-3">
+        <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
+        <div className="font-semibold text-lg">Request received!</div>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          Our design team will review your request and reach out within 1 business day to discuss your vision and confirm the scope.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => setSubmitted(false)}>
+          Submit another request
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-[var(--color-gold)]/40 bg-gradient-to-br from-[var(--color-navy)]/5 to-[var(--color-gold)]/5 p-6 space-y-5">
+      <div className="flex items-start gap-4">
+        <div className="h-12 w-12 rounded-xl bg-[var(--color-navy)] flex items-center justify-center shrink-0">
+          <Wand2 className="h-6 w-6 text-[var(--color-gold)]" />
+        </div>
         <div>
-          <h3 className="font-semibold text-lg">Door-style brand names</h3>
-          <p className="text-sm text-muted-foreground">
-            Rename any door style for your storefront. Leave blank to use the catalog name.
-            An optional per-style markup overrides everything above for that style.
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-serif text-xl font-bold">AI Concierge Service</h3>
+            <Badge className="bg-[var(--color-gold)] text-[var(--color-navy)] font-semibold">$100 / hour</Badge>
+          </div>
+          <p className="text-muted-foreground text-sm mt-1 leading-relaxed">
+            Want a truly custom storefront? Our design team will work with you one-on-one to craft your front page, 
+            write compelling copy, select the perfect room scenes, and fine-tune every detail — all powered by AI and 
+            reviewed by a human designer.
           </p>
         </div>
-        <StyleBrandingTable
-          styles={data.styles}
-          defaultBps={pctToBps(effectiveDefaultPct)}
-          onSave={(styleId, brandName, markupBps) => saveStyle.mutate({ styleId, brandName, markupBps })}
-          saving={saveStyle.isPending}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[
+          { icon: Sparkles, title: "Custom copywriting", desc: "Headlines, taglines, and about text tailored to your brand voice" },
+          { icon: ImageIcon, title: "Scene curation", desc: "Hand-picked room scenes and hero images that match your target market" },
+          { icon: Palette, title: "Color & layout tuning", desc: "Brand colors, template selection, and layout optimized for conversions" },
+        ].map((item) => (
+          <div key={item.title} className="rounded-lg border border-border bg-card p-3 flex gap-3">
+            <item.icon className="h-4 w-4 text-[var(--color-gold)] shrink-0 mt-0.5" />
+            <div>
+              <div className="font-medium text-sm">{item.title}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{item.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <Label htmlFor="concierge-desc" className="font-medium">
+          Describe what you'd like to achieve
+        </Label>
+        <Textarea
+          id="concierge-desc"
+          rows={4}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="E.g. I want my storefront to feel upscale and appeal to homeowners in the Sarasota area. I'd like a warm, modern look with cherry wood tones and Spanish language support…"
         />
+        <p className="text-xs text-muted-foreground">
+          Be as detailed as you like — the more context you give, the better we can tailor the work to your vision.
+          We'll confirm the estimated hours and cost before starting.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Button
+          onClick={() => request.mutate({ description })}
+          disabled={request.isPending || description.trim().length < 10}
+          className="gap-2 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
+        >
+          {request.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          Send Request
+        </Button>
+        <span className="text-xs text-muted-foreground flex items-center gap-1">
+          <ChevronRight className="h-3 w-3" /> We'll respond within 1 business day
+        </span>
       </div>
     </div>
   );
 }
 
-interface BrandingStyle {
-  id: number;
-  ourName: string | null;
-  aliasName?: string | null;
-  styleCode: string | null;
-  doorStyle: string | null;
-  color: string | null;
-  thumbnailImageUrl: string | null;
-  override: { brandName: string | null; markupBps: number | null } | null;
-}
-
-function StyleBrandingTable({
-  styles,
-  defaultBps,
-  onSave,
-  saving,
-}: {
-  styles: BrandingStyle[];
-  defaultBps: number;
-  onSave: (styleId: number, brandName: string | null, markupBps: number | null) => void;
-  saving: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Catalog name</TableHead>
-            <TableHead>Your brand name</TableHead>
-            <TableHead className="text-right">Markup % (optional)</TableHead>
-            <TableHead className="w-20"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {styles.map((s) => (
-            <StyleBrandingRow key={s.id} style={s} defaultBps={defaultBps} onSave={onSave} saving={saving} />
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-function StyleBrandingRow({
-  style,
-  defaultBps,
-  onSave,
-  saving,
-}: {
-  style: BrandingStyle;
-  defaultBps: number;
-  onSave: (styleId: number, brandName: string | null, markupBps: number | null) => void;
-  saving: boolean;
-}) {
-  const [brand, setBrand] = useState(style.override?.brandName ?? "");
-  const [markup, setMarkup] = useState(
-    style.override?.markupBps != null ? bpsToPct(style.override.markupBps) : ""
-  );
-  const dirty =
-    brand !== (style.override?.brandName ?? "") ||
-    markup !== (style.override?.markupBps != null ? bpsToPct(style.override.markupBps) : "");
-
-  const effectiveBps = markup !== "" ? pctToBps(markup) : defaultBps;
-
-  return (
-    <TableRow>
-      <TableCell className="text-sm">
-        <div className="font-medium">{style.aliasName || style.ourName}</div>
-        {style.color && <div className="text-xs text-muted-foreground">{style.color}</div>}
-      </TableCell>
-      <TableCell>
-        <Input
-          value={brand}
-          onChange={(e) => setBrand(e.target.value)}
-          placeholder={style.aliasName || style.ourName || ""}
-          className="min-w-[160px]"
-        />
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-1">
-          <Input
-            type="number"
-            min={0}
-            step="0.5"
-            value={markup}
-            onChange={(e) => setMarkup(e.target.value)}
-            placeholder={bpsToPct(defaultBps)}
-            className="max-w-[100px] tabular-nums text-right"
-          />
-          <span className="text-muted-foreground text-sm">%</span>
-        </div>
-        <div className="text-[11px] text-muted-foreground mt-1">
-          effective {bpsToPct(effectiveBps)}%
-        </div>
-      </TableCell>
-      <TableCell>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!dirty || saving}
-          onClick={() => onSave(style.id, brand.trim() || null, markup !== "" ? pctToBps(markup) : null)}
-        >
-          Save
-        </Button>
-      </TableCell>
-    </TableRow>
-  );
-}
-
+// ─── Earnings Panel ─────────────────────────────────────────────────────────────
 
 function money(cents: number) {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });

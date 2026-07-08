@@ -68,7 +68,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           This partner storefront isn't available. It may be paused or the link may be incorrect.
         </p>
         <Link href="/">
-          <Button>Go to Cabinet Dealz</Button>
+          <Button>Go Home</Button>
         </Link>
       </div>
     );
@@ -188,7 +188,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
                   Complete Your Kitchen &amp; Bath
                 </h2>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  Beyond cabinets — shop quartz countertops, waterproof flooring, tile, sinks, faucets, showers, tubs, and toilets. All at trade pricing through Cabinet Dealz.
+                  Beyond cabinets — shop quartz countertops, waterproof flooring, tile, sinks, faucets, showers, tubs, and toilets. All at trade pricing.
                 </p>
                 <a href={withRef("/surfaces")}>
                   <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>

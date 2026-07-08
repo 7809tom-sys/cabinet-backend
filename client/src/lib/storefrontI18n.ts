@@ -95,7 +95,7 @@ export const STOREFRONT_STRINGS = {
     footer_contact: "Contact",
     footer_shop: "Shop",
     footer_rights: "All rights reserved.",
-    footer_powered: "Powered by Cabinet Dealz",
+    footer_powered: "Powered by our platform",
   },
   es: {
     nav_catalog: "Catálogo",
@@ -169,7 +169,7 @@ export const STOREFRONT_STRINGS = {
     footer_contact: "Contacto",
     footer_shop: "Comprar",
     footer_rights: "Todos los derechos reservados.",
-    footer_powered: "Desarrollado por Cabinet Dealz",
+    footer_powered: "Desarrollado por nuestra plataforma",
   },
   zh: {
     nav_catalog: "目录",
@@ -243,7 +243,7 @@ export const STOREFRONT_STRINGS = {
     footer_contact: "联系我们",
     footer_shop: "选购",
     footer_rights: "版权所有。",
-    footer_powered: "由 Cabinet Dealz 提供支持",
+    footer_powered: "由我们的平台提供支持",
   },
 } as const;
 
