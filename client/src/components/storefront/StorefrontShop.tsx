@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -16,7 +22,10 @@ import {
 import { translateSpec } from "@/lib/i18n/specPhrases";
 import {
   ArrowRight, Check, Lock, RefreshCw, Sparkles, Search, Truck, ChevronRight,
+  Minus, Plus, ShoppingCart, Info,
 } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
+import { toast } from "sonner";
 
 type Brand = { primary: string; accent: string };
 
@@ -127,6 +136,7 @@ function FamilyPicker({
   branding: StorefrontBranding;
 }) {
   const { data, isLoading } = trpc.storefront.families.useQuery();
+  const [detailFamily, setDetailFamily] = useState<typeof data extends Array<infer T> ? T : never | null>(null);
 
   return (
     <section id="shop" className="py-16 md:py-20">
@@ -163,8 +173,17 @@ function FamilyPicker({
                       doorStyle: f.doorStyle,
                       finish: f.finish,
                       color: f.color,
+                      woodSpecies: f.woodSpecies,
+                      boxConstruction: f.boxConstruction,
+                      drawerConstruction: f.drawerConstruction,
+                      hardware: f.hardware,
+                      frameSize: f.frameSize,
+                      overlayType: f.overlayType,
+                      doorPanelType: f.doorPanelType,
                       thumbnailImageUrl: f.thumbnailImageUrl,
                       roomSceneImageUrl: f.roomSceneImageUrl,
+                      doorSampleImageUrl: f.doorSampleImageUrl,
+                      styleCode: f.styleCode,
                     })
                   }
                   className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
@@ -202,7 +221,7 @@ function FamilyPicker({
                         {f.doorStyle}
                       </Badge>
                     )}
-                    {/* Door-style detail swatch chip */}
+                    {/* Door-style detail swatch chip — click to open construction specs modal */}
                     <div className="absolute bottom-3 left-3 flex items-center gap-2">
                       <div className="h-12 w-12 overflow-hidden rounded-lg border-2 border-white/90 shadow-md">
                         <DoorStyleSwatch
@@ -218,9 +237,14 @@ function FamilyPicker({
                           className="h-full w-full"
                         />
                       </div>
-                      <span className="rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-foreground shadow-sm">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setDetailFamily(f as never); }}
+                        className="flex items-center gap-1 rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-foreground shadow-sm hover:bg-white transition-colors"
+                      >
+                        <Info className="h-3 w-3" />
                         {t(lang, "family_door_detail")}
-                      </span>
+                      </button>
                     </div>
                   </div>
                   <div className="flex flex-1 flex-col p-5">
@@ -241,6 +265,17 @@ function FamilyPicker({
           </div>
         )}
       </div>
+
+      {/* Door detail modal */}
+      {detailFamily && (
+        <DoorDetailModal
+          family={detailFamily as DoorDetailFamily}
+          brand={brand}
+          lang={lang}
+          open={!!detailFamily}
+          onClose={() => setDetailFamily(null)}
+        />
+      )}
     </section>
   );
 }
@@ -263,6 +298,7 @@ function LockedCatalog({
 }) {
   // The affiliate's white-label name for this line (falls back to central name).
   const displayName = branding.brandName(family.styleId, family.name);
+  const [showDetails, setShowDetails] = useState(false);
   const [category, setCategory] = useState<string | null>(null);
   const [subGroup, setSubGroup] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -363,11 +399,23 @@ function LockedCatalog({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5 bg-card" onClick={() => setShowDetails(true)}>
+              <Info className="h-3.5 w-3.5" /> {t(lang, "family_door_detail")}
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5 bg-card" onClick={onSwitch}>
               <RefreshCw className="h-3.5 w-3.5" /> {t(lang, "family_switch")}
             </Button>
           </div>
         </div>
+
+        {/* Door detail modal for locked family */}
+        <DoorDetailModal
+          family={family as DoorDetailFamily}
+          brand={brand}
+          lang={lang}
+          open={showDetails}
+          onClose={() => setShowDetails(false)}
+        />
 
         <p className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
           <Check className="h-4 w-4" style={{ color: brand.accent }} />
@@ -464,6 +512,7 @@ function LockedCatalog({
                 brand={brand}
                 lang={lang}
                 branding={branding}
+                family={family}
               />
             ))}
           </div>
@@ -500,14 +549,18 @@ function CatalogCard({
   brand,
   lang,
   branding,
+  family,
 }: {
   item: CatalogItem;
   styleId: number;
   brand: Brand;
   lang: Lang;
   branding: StorefrontBranding;
+  family: LockedFamily;
 }) {
   const [glass, setGlass] = useState(false);
+  const [qty, setQtyState] = useState(1);
+  const { addItem } = useCart();
 
   // Only solid WALL cabinets are eligible to offer a glass-door swap. The query
   // returns null for anything else (oven/tall/base, or no buyable GD twin), so
@@ -557,8 +610,74 @@ function CatalogCard({
         </button>
       )}
 
-      <div className="mt-auto pt-3">
+      <div className="mt-auto pt-3 space-y-2">
         <div className="font-serif text-lg font-bold">{money(price)}</div>
+
+        {/* Quantity stepper + Add to Cart */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-md border border-border overflow-hidden">
+            <button
+              type="button"
+              className="px-2 py-1.5 text-muted-foreground hover:bg-muted transition-colors disabled:opacity-40"
+              onClick={() => setQtyState((q) => Math.max(1, q - 1))}
+              disabled={qty <= 1}
+              aria-label="Decrease quantity"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <input
+              type="number"
+              min={1}
+              value={qty}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (!isNaN(v) && v >= 1) setQtyState(v);
+              }}
+              className="w-10 text-center text-sm font-semibold bg-transparent border-x border-border py-1.5 focus:outline-none"
+              aria-label="Quantity"
+            />
+            <button
+              type="button"
+              className="px-2 py-1.5 text-muted-foreground hover:bg-muted transition-colors"
+              onClick={() => setQtyState((q) => q + 1)}
+              aria-label="Increase quantity"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <button
+            type="button"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold text-white transition-transform active:scale-[0.97]"
+            style={{ backgroundColor: brand.accent }}
+            onClick={() => {
+              const unitPrice = price != null && price > 0 ? price : null;
+              const res = addItem({
+                masterCode: code,
+                name: description || code,
+                styleId,
+                styleLabel: family.name,
+                distributorId: family.distributorId,
+                tier: "homeowner",
+                unitPrice,
+                qty,
+                category: showing.category,
+              });
+              if (res.ok) {
+                toast.success(lang === "es" ? `Añadido: ${qty} × ${code}` : `Added ${qty} × ${code} to cart`);
+                setQtyState(1);
+              } else {
+                toast.error(
+                  lang === "es"
+                    ? `Tu carrito está bloqueado a ${res.lockedStyleLabel}. Vacía el carrito para cambiar de línea.`
+                    : `Your cart is locked to ${res.lockedStyleLabel}. Clear your cart to switch lines.`
+                );
+              }
+            }}
+          >
+            <ShoppingCart className="h-3.5 w-3.5" />
+            {t(lang, "btn_add_to_cart")}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -635,5 +754,113 @@ function Recommender({
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Door Detail Modal ────────────────────────────────────────────────────────
+type DoorDetailFamily = {
+  name: string;
+  doorStyle?: string | null;
+  woodSpecies?: string | null;
+  finish?: string | null;
+  color?: string | null;
+  boxConstruction?: string | null;
+  drawerConstruction?: string | null;
+  hardware?: string | null;
+  frameSize?: string | null;
+  overlayType?: string | null;
+  doorPanelType?: string | null;
+  doorSampleImageUrl?: string | null;
+  styleCode?: string | null;
+};
+
+export function DoorDetailModal({
+  family,
+  brand,
+  lang,
+  open,
+  onClose,
+}: {
+  family: DoorDetailFamily;
+  brand: Brand;
+  lang: Lang;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const specs: Array<{ label: string; value: string | null | undefined }> = [
+    { label: lang === "es" ? "Estilo de Puerta" : lang === "zh" ? "门板样式" : "Door Style", value: family.doorStyle },
+    { label: lang === "es" ? "Especie de Madera" : lang === "zh" ? "木材种类" : "Wood Species", value: family.woodSpecies },
+    { label: lang === "es" ? "Acabado" : lang === "zh" ? "饰面" : "Finish", value: family.finish },
+    { label: lang === "es" ? "Color" : lang === "zh" ? "颜色" : "Color", value: family.color },
+    { label: lang === "es" ? "Construcción de Caja" : lang === "zh" ? "箱体结构" : "Box Construction", value: family.boxConstruction },
+    { label: lang === "es" ? "Construcción de Cajón" : lang === "zh" ? "抽屉结构" : "Drawer Construction", value: family.drawerConstruction },
+    { label: lang === "es" ? "Herrajes" : lang === "zh" ? "五金件" : "Hardware", value: family.hardware },
+    { label: lang === "es" ? "Tamaño de Marco" : lang === "zh" ? "框架尺寸" : "Frame Size", value: family.frameSize },
+    { label: lang === "es" ? "Tipo de Overlay" : lang === "zh" ? "覆盖类型" : "Overlay Type", value: family.overlayType },
+    { label: lang === "es" ? "Tipo de Panel" : lang === "zh" ? "门板类型" : "Door Panel Type", value: family.doorPanelType },
+  ].filter((s) => s.value);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="font-serif text-xl">{family.name}</DialogTitle>
+        </DialogHeader>
+
+        {/* Door sample image */}
+        <div className="relative overflow-hidden rounded-xl bg-muted aspect-[4/3]">
+          {family.doorSampleImageUrl ? (
+            <img
+              src={family.doorSampleImageUrl}
+              alt={`${family.name} door sample`}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="h-full w-full">
+              <DoorStyleSwatch
+                style={{
+                  styleCode: family.styleCode,
+                  ourName: family.name,
+                  name: family.name,
+                  doorStyle: family.doorStyle,
+                  color: family.color,
+                  finish: family.finish,
+                  woodSpecies: family.woodSpecies,
+                }}
+                className="h-full w-full"
+              />
+            </div>
+          )}
+          {family.doorStyle && (
+            <Badge
+              className="absolute left-3 top-3 border-0 text-white shadow-sm"
+              style={{ backgroundColor: brand.primary }}
+            >
+              {family.doorStyle}
+            </Badge>
+          )}
+        </div>
+
+        {/* Construction specs grid */}
+        {specs.length > 0 && (
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3">
+            {specs.map((s) => (
+              <div key={s.label} className="flex flex-col">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {s.label}
+                </span>
+                <span className="text-sm font-medium text-foreground">{s.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {specs.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            {lang === "es" ? "Detalles de construcción próximamente." : lang === "zh" ? "建造细节即将推出。" : "Construction details coming soon."}
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

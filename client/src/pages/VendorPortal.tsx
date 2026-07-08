@@ -141,6 +141,7 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12"></TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
@@ -155,6 +156,20 @@ function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: strin
             <TableBody>
               {data.items.map((it: any) => (
                 <TableRow key={it.id}>
+                  <TableCell className="p-1.5">
+                    {it.imageUrl ? (
+                      <img
+                        src={it.imageUrl}
+                        alt={it.name}
+                        className="h-10 w-10 object-cover rounded border border-border"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div className="h-10 w-10 bg-muted rounded border border-border flex items-center justify-center">
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="font-medium">{it.name}</div>
                     <div className="text-xs text-muted-foreground">{it.pelicanCode}</div>

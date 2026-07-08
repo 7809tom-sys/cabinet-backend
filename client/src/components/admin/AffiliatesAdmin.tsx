@@ -14,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye,
+  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye, Send,
 } from "lucide-react";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
@@ -235,7 +235,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
                 )}
               </div>
             ))}
-            <div className="pt-2">
+            <div className="pt-2 flex flex-wrap gap-2">
               <Button
                 variant="outline" size="sm" className="gap-1.5"
                 onClick={() => {
@@ -243,8 +243,9 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
                   copyText(all, "All credentials");
                 }}
               >
-                <Copy className="h-3.5 w-3.5" /> Copy All Credentials
+                <Copy className="h-3.5 w-3.5" /> Copy All
               </Button>
+              <SendCredentialsButton affiliateId={a.id} />
             </div>
           </div>
         )}
@@ -518,6 +519,49 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
           </DialogFooter>
         </DialogContent>
       )}
+    </Dialog>
+  );
+}
+
+// ─── Send Credentials Button ───────────────────────────────────────────────────
+// Triggers adminSendCredentials which notifies the owner to forward credentials
+// to the affiliate. Shows a confirmation dialog before sending.
+function SendCredentialsButton({ affiliateId }: { affiliateId: number }) {
+  const [open, setOpen] = useState(false);
+  const send = trpc.affiliates.adminSendCredentials.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Credentials notification sent for ${data.email}`);
+      setOpen(false);
+    },
+    onError: (err) => {
+      toast.error(`Failed to send: ${err.message}`);
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <Send className="h-3.5 w-3.5" /> Send Credentials
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Send Credentials</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          This will notify the owner to send the affiliate's storefront URL, referral link, and login portal to their email address.
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => send.mutate({ id: affiliateId })}
+            disabled={send.isPending}
+          >
+            {send.isPending ? "Sending…" : "Send Now"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }

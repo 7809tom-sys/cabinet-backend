@@ -96,6 +96,7 @@ export const STOREFRONT_STRINGS = {
     footer_shop: "Shop",
     footer_rights: "All rights reserved.",
     footer_powered: "Powered by our platform",
+    btn_add_to_cart: "Add to Cart",
   },
   es: {
     nav_catalog: "Catálogo",
@@ -170,6 +171,7 @@ export const STOREFRONT_STRINGS = {
     footer_shop: "Comprar",
     footer_rights: "Todos los derechos reservados.",
     footer_powered: "Desarrollado por nuestra plataforma",
+    btn_add_to_cart: "Agregar al Carrito",
   },
   zh: {
     nav_catalog: "目录",
@@ -244,6 +246,7 @@ export const STOREFRONT_STRINGS = {
     footer_shop: "选购",
     footer_rights: "版权所有。",
     footer_powered: "由我们的平台提供支持",
+    btn_add_to_cart: "加入购物车",
   },
 } as const;
 

@@ -32,6 +32,11 @@ function toFamily(row: {
   finish: string | null;
   color: string | null;
   boxConstruction: string | null;
+  drawerConstruction: string | null;
+  hardware: string | null;
+  frameSize: string | null;
+  overlayType: string | null;
+  doorPanelType: string | null;
   distributorId: number;
   doorSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
@@ -48,6 +53,11 @@ function toFamily(row: {
     finish: row.finish,
     color: row.color,
     boxConstruction: row.boxConstruction,
+    drawerConstruction: row.drawerConstruction,
+    hardware: row.hardware,
+    frameSize: row.frameSize,
+    overlayType: row.overlayType,
+    doorPanelType: row.doorPanelType,
     // distributorId is kept so the client can persist the locked supply line,
     // but NO supplier name/brand is ever returned.
     distributorId: row.distributorId,
@@ -139,6 +149,11 @@ export const storefrontRouter = router({
           finish: doorStyles.finish,
           color: doorStyles.color,
           boxConstruction: doorStyles.boxConstruction,
+          drawerConstruction: doorStyles.drawerConstruction,
+          hardware: doorStyles.hardware,
+          frameSize: doorStyles.frameSize,
+          overlayType: doorStyles.overlayType,
+          doorPanelType: doorStyles.doorPanelType,
           distributorId: doorStyles.distributorId,
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
           roomSceneImageUrl: doorStyles.roomSceneImageUrl,
@@ -190,6 +205,11 @@ export const storefrontRouter = router({
           finish: doorStyles.finish,
           color: doorStyles.color,
           boxConstruction: doorStyles.boxConstruction,
+          drawerConstruction: doorStyles.drawerConstruction,
+          hardware: doorStyles.hardware,
+          frameSize: doorStyles.frameSize,
+          overlayType: doorStyles.overlayType,
+          doorPanelType: doorStyles.doorPanelType,
           distributorId: doorStyles.distributorId,
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
           roomSceneImageUrl: doorStyles.roomSceneImageUrl,

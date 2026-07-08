@@ -622,6 +622,39 @@ export const affiliatesRouter = router({
       return { id: (inserted as unknown as { insertId?: number }).insertId ?? null, status: input.status };
     }),
 
+  // ─── Admin: send credentials email to an affiliate ──────────────────────────
+  // Notifies the owner to send credentials to the affiliate (no direct email
+  // sending — owner follows up). Also returns the credentials for copy-paste.
+  adminSendCredentials: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [a] = await db.select().from(affiliates).where(eq(affiliates.id, input.id)).limit(1);
+      if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      const origin = process.env.VITE_FRONTEND_FORGE_API_URL
+        ? "https://www.cabinetdealz.com"
+        : "https://www.cabinetdealz.com";
+      const storeUrl = `${origin}/store/${a.slug}`;
+      const refLink = `${origin}/order/new?ref=${a.referralCode}`;
+      const loginUrl = `${origin}/affiliate`;
+      await notifyOwner({
+        title: `Send Credentials to ${a.storeName}`,
+        content: [
+          `Affiliate: ${a.storeName}`,
+          `Contact: ${a.contactName ?? "—"} <${a.email}>`,
+          ``,
+          `Storefront URL: ${storeUrl}`,
+          `Referral Link: ${refLink}`,
+          `Referral Code: ${a.referralCode}`,
+          `Login Portal: ${loginUrl}`,
+          ``,
+          `Please send the above credentials to the affiliate.`,
+        ].join("\n"),
+      });
+      return { ok: true, storeUrl, refLink, referralCode: a.referralCode, loginUrl, email: a.email };
+    }),
+
   // ─── Partner: request AI Concierge service ($100/hr front-page editing) ───────
   // The affiliate describes what they want; we notify the owner who will follow up.
   requestAiConcierge: partnerProcedure

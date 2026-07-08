@@ -12,8 +12,17 @@ export type LockedFamily = {
   doorStyle: string | null;
   finish: string | null;
   color: string | null;
+  woodSpecies?: string | null;
+  boxConstruction?: string | null;
+  drawerConstruction?: string | null;
+  hardware?: string | null;
+  frameSize?: string | null;
+  overlayType?: string | null;
+  doorPanelType?: string | null;
   thumbnailImageUrl: string | null;
   roomSceneImageUrl: string | null;
+  doorSampleImageUrl?: string | null;
+  styleCode?: string | null;
 };
 
 function keyFor(slug: string) {

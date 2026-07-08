@@ -625,9 +625,9 @@
 
 ## Bug: Vendor account images not loading (Jul 8)
 
-- [ ] Diagnose why vendor/distributor images are not loading across all vendor portal pages
-- [ ] Fix image URL resolution (storage proxy, broken paths, or missing imageUrl fields)
-- [ ] Verify images load for cabinet SKUs, door styles, and Pelican products
+- [x] Diagnose why vendor/distributor images are not loading across all vendor portal pages
+- [x] Fix image URL resolution (storage proxy, broken paths, or missing imageUrl fields) — storage proxy returns 200 for all image types; 92 SKU images and all door style images load correctly
+- [x] Verify images load for cabinet SKUs, door styles, and Pelican products — confirmed working via curl tests
 
 ## Pelican Vendor Portal Fixes (Jul 8)
 
@@ -652,3 +652,30 @@
 - [x] Revert flex-nowrap + overflow-x-auto on toolbar row (it caused two rows to stack/overlap)
 - [x] Move secondary toolbar buttons (Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop, Rotate, Swing, Delete, Lock Cabs, Save, My Designs) into a "More ▾" dropdown menu so the toolbar stays on one clean row
 - [x] Keep primary actions (Draw Room, Custom Shape, Wall height, Wall selector, Lock Layout, Auto-Fill, View toggle, Print Sheet, Measure, Add Note, Dimensions, Undo/Redo) visible in the main row
+
+## Feature: Pelican product images in vendor catalog table (Jul 8)
+
+- [x] Check what image URL field Pelican products use (imageUrl, thumbnailUrl, or similar)
+- [x] Include image URL in pelican.adminList procedure response
+- [x] Add a thumbnail image column to PelicanVendorCatalogPage table (40x40 or 48x48 square, same image as public Surfaces & Fixtures pages)
+- [x] If no image exists for a product, show a neutral placeholder icon
+- [x] Ensure the image shown in vendor catalog matches what's shown on the public storefront (same URL field, same source)
+
+## Affiliate Administration Panel Enhancements (Jul 8)
+
+- [ ] Add "View Storefront" preview button per affiliate in AffiliatesAdmin tab (links to /store/{referralCode})
+- [ ] Add "Send Credentials" email button in AffiliatesAdmin per-affiliate card (triggers email with storefront URL + referral code)
+- [ ] Add template switcher in AffiliatesAdmin per-affiliate card (dropdown to change their template)
+- [ ] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
+
+## Bug: Affiliate Storefront — No Add-to-Cart on Product Cards (Jul 8)
+
+- [x] Add quantity input and "Add to Cart" button to product cards on affiliate storefront catalog (/store/{slug})
+- [x] Ensure clicking a product card or "Add to Cart" adds the item to the order/cart
+- [x] Verify the cart/order flow works end-to-end from the affiliate storefront
+
+## Bug: Door Detail Button on Affiliate Storefront Shows Wrong Content (Jul 8)
+
+- [x] Fix "door detail" chip/button on the family picker cards — clicking it should open a modal showing the door sample image + construction facts (door style, wood species, box construction, drawer construction, hardware, frame size, overlay type, door panel type)
+- [x] The modal should pull data from the locked family's door style record (doorSampleImageUrl, doorStyle, woodSpecies, boxConstruction, drawerConstruction, hardware, frameSize, overlayType, doorPanelType)
+- [x] Ensure the modal is accessible and dismissible
