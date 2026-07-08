@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -21,7 +21,7 @@ import {
   Copy, ExternalLink, DollarSign, Package, CheckCircle2, Store,
   LinkIcon, Save, Loader2, PencilRuler, Globe, Users,
   ArrowRight, Sparkles, Star, TrendingUp, Shield, Palette, Truck,
-  Wand2, Send, ChevronRight, ImageIcon,
+  Wand2, Send, ChevronRight, ImageIcon, FileText, AlertCircle, Upload, Eye, EyeOff,
 } from "lucide-react";
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import {
@@ -401,6 +401,9 @@ export default function AffiliateDashboard() {
           <TabsTrigger value="orders">Referred Orders</TabsTrigger>
           <TabsTrigger value="earnings">Earnings</TabsTrigger>
           <TabsTrigger value="customize">Customize</TabsTrigger>
+          <TabsTrigger value="tax" className="gap-1.5">
+            <FileText className="h-3.5 w-3.5" /> Tax Info (W-9)
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="credentials" className="mt-6">
@@ -468,6 +471,10 @@ export default function AffiliateDashboard() {
             affiliate={affiliate}
             onSaved={() => myRef.refetch()}
           />
+        </TabsContent>
+
+        <TabsContent value="tax" className="mt-6">
+          <W9Panel />
         </TabsContent>
       </Tabs>
     </div>
@@ -1163,6 +1170,350 @@ function EarningsPanel() {
               })}
             </TableBody>
           </Table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── W-9 / Tax Compliance Panel ────────────────────────────────────────────────
+const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
+  "KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT",
+  "VA","WA","WV","WI","WY","DC",
+];
+
+const ENTITY_LABELS: Record<string, string> = {
+  individual: "Individual",
+  sole_proprietor: "Sole Proprietor",
+  llc_single: "LLC (Single-Member)",
+  llc_partnership: "LLC (Partnership)",
+  llc_corp: "LLC (C or S Corp)",
+  c_corp: "C Corporation",
+  s_corp: "S Corporation",
+  partnership: "Partnership",
+  trust: "Trust / Estate",
+  other: "Other",
+};
+
+function W9Panel() {
+  const utils = trpc.useUtils();
+  const { data: w9, isLoading } = trpc.affiliates.getW9Status.useQuery();
+
+  const [legalName, setLegalName] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [entityType, setEntityType] = useState<string>("individual");
+  const [taxIdType, setTaxIdType] = useState<"ssn" | "ein">("ssn");
+  const [taxId, setTaxId] = useState("");
+  const [showTaxId, setShowTaxId] = useState(false);
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("FL");
+  const [zip, setZip] = useState("");
+  const [idFile, setIdFile] = useState<File | null>(null);
+  const [idPreview, setIdPreview] = useState<string | null>(null);
+  const [formReady, setFormReady] = useState(false);
+
+  // Pre-fill form from saved data
+  useEffect(() => {
+    if (!w9 || formReady) return;
+    if (w9.w9LegalName) setLegalName(w9.w9LegalName);
+    if (w9.w9BusinessName) setBusinessName(w9.w9BusinessName);
+    if (w9.w9EntityType) setEntityType(w9.w9EntityType);
+    if (w9.w9TaxIdType) setTaxIdType(w9.w9TaxIdType);
+    if (w9.w9Address) setAddress(w9.w9Address);
+    if (w9.w9City) setCity(w9.w9City);
+    if (w9.w9State) setState(w9.w9State);
+    if (w9.w9Zip) setZip(w9.w9Zip);
+    setFormReady(true);
+  }, [w9, formReady]);
+
+  const saveInfo = trpc.affiliates.saveW9Info.useMutation({
+    onSuccess: () => {
+      toast.success("Tax information saved.");
+      utils.affiliates.getW9Status.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const uploadId = trpc.affiliates.uploadIdDocument.useMutation({
+    onSuccess: (data) => {
+      toast.success("ID document uploaded.");
+      setIdPreview(data.url);
+      utils.affiliates.getW9Status.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const submitW9 = trpc.affiliates.submitW9.useMutation({
+    onSuccess: () => {
+      toast.success("W-9 submitted for review. We'll verify within 1–2 business days.");
+      utils.affiliates.getW9Status.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  async function handleIdUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIdFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      setIdPreview(dataUrl);
+      const base64 = dataUrl.split(",")[1] ?? "";
+      uploadId.mutate({ fileBase64: base64, contentType: file.type, fileName: file.name });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleSave() {
+    if (!legalName || !taxId || !address || !city || !zip) {
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+    saveInfo.mutate({
+      legalName,
+      businessName: businessName || undefined,
+      entityType: entityType as Parameters<typeof saveInfo.mutate>[0]["entityType"],
+      taxId,
+      taxIdType,
+      address,
+      city,
+      state,
+      zip,
+    });
+  }
+
+  if (isLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
+
+  const isVerified = w9?.w9Status === "verified";
+  const isSubmitted = w9?.w9Status === "submitted";
+  const hasId = !!(w9?.w9IdDocumentUrl || idPreview);
+
+  return (
+    <div className="space-y-6">
+      {/* Status banner */}
+      {isVerified && (
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-300 bg-emerald-50 px-5 py-4">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+          <div>
+            <p className="font-semibold text-emerald-800">W-9 Verified</p>
+            <p className="text-sm text-emerald-700">Your tax information has been verified. You are eligible for 1099 payouts.</p>
+          </div>
+        </div>
+      )}
+      {isSubmitted && !isVerified && (
+        <div className="flex items-center gap-3 rounded-xl border border-blue-300 bg-blue-50 px-5 py-4">
+          <AlertCircle className="h-5 w-5 text-blue-600 shrink-0" />
+          <div>
+            <p className="font-semibold text-blue-800">Under Review</p>
+            <p className="text-sm text-blue-700">Your W-9 has been submitted and is being reviewed. We'll confirm within 1–2 business days.</p>
+          </div>
+        </div>
+      )}
+      {!isSubmitted && !isVerified && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4">
+          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+          <div>
+            <p className="font-semibold text-amber-800">Action Required — Complete Your W-9</p>
+            <p className="text-sm text-amber-700">You must submit your tax information and a government-issued ID before commissions can be paid out. This is required by IRS regulations for 1099-NEC reporting.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Legal information form */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+        <h2 className="font-semibold text-base flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" /> Legal &amp; Tax Information
+        </h2>
+        <p className="text-sm text-muted-foreground -mt-2">
+          This information is used solely for IRS 1099-NEC reporting. Your tax ID is stored securely and never shared with third parties.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="w9-legal-name">Legal name (as it appears on your tax return) <span className="text-destructive">*</span></Label>
+            <Input
+              id="w9-legal-name"
+              value={legalName}
+              onChange={(e) => setLegalName(e.target.value)}
+              placeholder="John Smith or ABC Cabinets LLC"
+              disabled={isVerified}
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="w9-biz-name">Business name / DBA <span className="text-muted-foreground font-normal">(if different from above)</span></Label>
+            <Input
+              id="w9-biz-name"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              placeholder="ABC Cabinets (optional)"
+              disabled={isVerified}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Federal tax classification <span className="text-destructive">*</span></Label>
+            <select
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              value={entityType}
+              onChange={(e) => setEntityType(e.target.value)}
+              disabled={isVerified}
+            >
+              {Object.entries(ENTITY_LABELS).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Tax ID type <span className="text-destructive">*</span></Label>
+            <div className="flex gap-3 pt-1">
+              {(["ssn", "ein"] as const).map((t) => (
+                <label key={t} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="taxIdType"
+                    value={t}
+                    checked={taxIdType === t}
+                    onChange={() => setTaxIdType(t)}
+                    disabled={isVerified}
+                    className="accent-primary"
+                  />
+                  <span className="text-sm font-medium">{t === "ssn" ? "SSN (Individual)" : "EIN (Business)"}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="w9-tax-id">
+              {taxIdType === "ssn" ? "Social Security Number (SSN)" : "Employer Identification Number (EIN)"}
+              <span className="text-destructive"> *</span>
+            </Label>
+            <div className="relative">
+              <Input
+                id="w9-tax-id"
+                type={showTaxId ? "text" : "password"}
+                value={isVerified ? (w9?.w9TaxIdMasked ?? "***-**-****") : taxId}
+                onChange={(e) => setTaxId(e.target.value)}
+                placeholder={taxIdType === "ssn" ? "XXX-XX-XXXX" : "XX-XXXXXXX"}
+                disabled={isVerified}
+                className="pr-10"
+              />
+              {!isVerified && (
+                <button
+                  type="button"
+                  onClick={() => setShowTaxId(!showTaxId)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showTaxId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">Your tax ID is encrypted and only used for 1099 reporting.</p>
+          </div>
+        </div>
+
+        <div className="border-t border-border pt-4">
+          <h3 className="text-sm font-semibold mb-3">Mailing Address</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="w9-address">Street address <span className="text-destructive">*</span></Label>
+              <Input id="w9-address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St" disabled={isVerified} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="w9-city">City <span className="text-destructive">*</span></Label>
+              <Input id="w9-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="Sarasota" disabled={isVerified} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>State <span className="text-destructive">*</span></Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+                disabled={isVerified}
+              >
+                {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="w9-zip">ZIP code <span className="text-destructive">*</span></Label>
+              <Input id="w9-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder="34230" disabled={isVerified} />
+            </div>
+          </div>
+        </div>
+
+        {!isVerified && (
+          <Button onClick={handleSave} disabled={saveInfo.isPending} className="gap-2">
+            {saveInfo.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Tax Information
+          </Button>
+        )}
+      </div>
+
+      {/* Government ID upload */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <h2 className="font-semibold text-base flex items-center gap-2">
+          <Upload className="h-4 w-4 text-primary" /> Government-Issued ID
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Upload a clear photo or scan of a valid government-issued ID (driver's license, state ID, or passport). This is required to verify your identity before payouts are released.
+        </p>
+
+        {(w9?.w9IdDocumentUrl || idPreview) ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span className="text-sm font-medium text-emerald-800">ID document uploaded</span>
+              {w9?.w9IdDocumentUrl && (
+                <a href={w9.w9IdDocumentUrl} target="_blank" rel="noreferrer" className="ml-auto text-xs text-primary hover:underline flex items-center gap-1">
+                  <ExternalLink className="h-3 w-3" /> View
+                </a>
+              )}
+            </div>
+            {!isVerified && (
+              <label className="cursor-pointer">
+                <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleIdUpload} className="hidden" />
+                <Button variant="outline" size="sm" className="gap-2 pointer-events-none">
+                  <Upload className="h-3.5 w-3.5" /> Replace ID Document
+                </Button>
+              </label>
+            )}
+          </div>
+        ) : (
+          <label className="cursor-pointer block">
+            <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleIdUpload} className="hidden" disabled={isVerified} />
+            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/30 p-8 text-center hover:border-primary hover:bg-primary/5 transition-colors">
+              <Upload className="h-8 w-8 text-muted-foreground mb-3" />
+              <p className="text-sm font-medium">Click to upload your ID</p>
+              <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WEBP, or PDF · Max 10MB</p>
+              {uploadId.isPending && <Spinner className="mt-3" />}
+            </div>
+          </label>
+        )}
+      </div>
+
+      {/* Submit for review */}
+      {!isVerified && !isSubmitted && (
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+          <h2 className="font-semibold text-base">Submit for Review</h2>
+          <p className="text-sm text-muted-foreground">
+            Once you have filled in all your legal information and uploaded your ID, click below to submit your W-9 for review. We will verify within 1–2 business days and notify you when payouts are enabled.
+          </p>
+          <Button
+            onClick={() => submitW9.mutate()}
+            disabled={submitW9.isPending || !w9?.w9LegalName || !hasId}
+            className="gap-2 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
+          >
+            {submitW9.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Submit W-9 for Review
+          </Button>
+          {(!w9?.w9LegalName || !hasId) && (
+            <p className="text-xs text-muted-foreground">
+              {!w9?.w9LegalName && "Please save your tax information first. "}
+              {!hasId && "Please upload your government ID first."}
+            </p>
+          )}
         </div>
       )}
     </div>

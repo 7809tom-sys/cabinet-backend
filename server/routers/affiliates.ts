@@ -698,4 +698,150 @@ export const affiliatesRouter = router({
       });
       return { ok: true };
     }),
+
+  // ─── Partner: get W-9 / tax compliance status ────────────────────────────────────────────────────
+  getW9Status: partnerProcedure
+    .query(async ({ ctx }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      return {
+        w9Status: mine.w9Status,
+        w9LegalName: mine.w9LegalName,
+        w9BusinessName: mine.w9BusinessName,
+        w9EntityType: mine.w9EntityType,
+        w9TaxIdType: mine.w9TaxIdType,
+        // Return masked tax ID for display (last 4 digits only)
+        w9TaxIdMasked: mine.w9TaxId ? `***-**-${mine.w9TaxId.slice(-4)}` : null,
+        w9Address: mine.w9Address,
+        w9City: mine.w9City,
+        w9State: mine.w9State,
+        w9Zip: mine.w9Zip,
+        w9IdDocumentUrl: mine.w9IdDocumentUrl,
+        w9SubmittedAt: mine.w9SubmittedAt,
+        w9VerifiedAt: mine.w9VerifiedAt,
+      };
+    }),
+
+  // ─── Partner: save W-9 legal information ───────────────────────────────────────────────────────────────
+  saveW9Info: partnerProcedure
+    .input(z.object({
+      legalName: z.string().min(2).max(256),
+      businessName: z.string().max(256).optional(),
+      entityType: z.enum(["individual", "sole_proprietor", "llc_single", "llc_partnership", "llc_corp", "c_corp", "s_corp", "partnership", "trust", "other"]),
+      taxId: z.string().min(9).max(64), // SSN (9 digits) or EIN (9 digits)
+      taxIdType: z.enum(["ssn", "ein"]),
+      address: z.string().min(5).max(256),
+      city: z.string().min(2).max(128),
+      state: z.string().length(2),
+      zip: z.string().min(5).max(16),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      // Only allow editing if not yet verified
+      if (mine.w9Status === "verified") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Your W-9 has already been verified and cannot be changed. Contact support if you need to update your information." });
+      }
+      await db.update(affiliates).set({
+        w9LegalName: input.legalName,
+        w9BusinessName: input.businessName ?? null,
+        w9EntityType: input.entityType,
+        w9TaxId: input.taxId.replace(/[^0-9]/g, ""), // strip formatting, store digits only
+        w9TaxIdType: input.taxIdType,
+        w9Address: input.address,
+        w9City: input.city,
+        w9State: input.state.toUpperCase(),
+        w9Zip: input.zip,
+      }).where(eq(affiliates.id, mine.id));
+      return { ok: true };
+    }),
+
+  // ─── Partner: upload government ID document ───────────────────────────────────────────────────────────
+  uploadIdDocument: partnerProcedure
+    .input(z.object({
+      fileBase64: z.string().min(1),
+      contentType: z.string().regex(/^(image\/(jpeg|png|webp)|application\/pdf)$/),
+      fileName: z.string().max(256).default("id-document.jpg"),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      if (mine.w9Status === "verified") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Your W-9 has already been verified." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const buf = Buffer.from(input.fileBase64, "base64");
+      const ext = input.contentType === "application/pdf" ? "pdf" : input.contentType.split("/")[1] ?? "jpg";
+      const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
+      const { url } = await storagePut(
+        `affiliate-w9-id/${mine.slug}_${Date.now()}_${safeName}.${ext}`,
+        buf,
+        input.contentType,
+      );
+      await db.update(affiliates).set({ w9IdDocumentUrl: url }).where(eq(affiliates.id, mine.id));
+      return { url };
+    }),
+
+  // ─── Partner: submit W-9 for review (marks as submitted) ─────────────────────────────────────────
+  submitW9: partnerProcedure
+    .mutation(async ({ ctx }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      if (mine.w9Status === "verified") return { ok: true, status: "verified" as const };
+      if (!mine.w9LegalName || !mine.w9TaxId || !mine.w9EntityType || !mine.w9Address || !mine.w9IdDocumentUrl) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Please complete all required fields and upload your ID before submitting." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await db.update(affiliates).set({
+        w9Status: "submitted",
+        w9SubmittedAt: new Date(),
+      }).where(eq(affiliates.id, mine.id));
+      await notifyOwner({
+        title: `W-9 Submitted — ${mine.storeName}`,
+        content: [
+          `Affiliate: ${mine.storeName} (${mine.email})`,
+          `Legal Name: ${mine.w9LegalName}`,
+          `Entity Type: ${mine.w9EntityType}`,
+          `Tax ID Type: ${mine.w9TaxIdType?.toUpperCase() ?? "—"}`,
+          `Address: ${mine.w9Address}, ${mine.w9City}, ${mine.w9State} ${mine.w9Zip}`,
+          `ID Document: ${mine.w9IdDocumentUrl}`,
+          ``,
+          `Please review and verify in the Affiliates admin panel.`,
+        ].join("\n"),
+      });
+      return { ok: true, status: "submitted" as const };
+    }),
+
+  // ─── Admin: verify or reject a W-9 submission ──────────────────────────────────────────────────────────────
+  adminVerifyW9: adminProcedure
+    .input(z.object({
+      affiliateId: z.number().int().positive(),
+      action: z.enum(["verify", "reject"]),
+      adminNotes: z.string().max(1000).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [a] = await db.select().from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1);
+      if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      if (input.action === "verify") {
+        await db.update(affiliates).set({
+          w9Status: "verified",
+          w9VerifiedAt: new Date(),
+          w9AdminNotes: input.adminNotes ?? null,
+        }).where(eq(affiliates.id, input.affiliateId));
+      } else {
+        // Reject: reset to pending so they can re-submit
+        await db.update(affiliates).set({
+          w9Status: "pending",
+          w9SubmittedAt: null,
+          w9AdminNotes: input.adminNotes ?? null,
+        }).where(eq(affiliates.id, input.affiliateId));
+      }
+      return { ok: true };
+    }),
 });

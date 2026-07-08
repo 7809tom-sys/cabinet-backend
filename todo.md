@@ -702,3 +702,23 @@
 - [x] Upload welcome guide PDF to static assets (manus-storage)
 - [x] Add welcome guide PDF link to Send Credentials dialog in admin panel
 - [x] Add "Download Welcome Guide" button to affiliate dashboard Credentials tab
+
+## Feature: Nationwide Sales Tax Calculator
+
+- [ ] Add US state sales tax rates table (server-side, all 50 states + DC)
+- [ ] Add getTaxRate tRPC procedure (public, takes state code, returns rate + label)
+- [ ] Wire tax calculation into order/quote form — show state selector, tax rate, tax amount, and order total with tax
+- [ ] Show tax line in admin order detail view
+- [ ] Store calculated tax rate and tax amount on the order record in the database
+
+## Feature: W-9 / Tax Compliance for Affiliates
+
+- [x] Add W-9 fields to affiliates table: legalName, entityType, taxId (SSN/EIN), address, city, state, zip, idDocumentUrl, w9Status (pending/submitted/verified)
+- [x] Run migration and apply SQL
+- [x] Add saveW9Info tRPC procedure (partnerProcedure) to save legal info
+- [x] Add uploadIdDocument tRPC procedure (partnerProcedure) to upload ID to S3
+- [x] Add adminVerifyW9 tRPC procedure (adminProcedure) to mark W-9 as verified
+- [x] Build W-9 tab in affiliate dashboard with form (legal name, entity type, SSN/EIN, address) and ID upload
+- [x] Show W-9 status badge in admin Affiliates panel per affiliate
+- [ ] Gate payout display with W-9 required notice if not yet submitted
+- [x] Notify owner when affiliate submits W-9 for review

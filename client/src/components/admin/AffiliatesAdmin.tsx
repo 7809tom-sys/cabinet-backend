@@ -14,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye, Send, FileText,
+  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye, Send, FileText, CheckCircle2,
 } from "lucide-react";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
@@ -88,6 +88,21 @@ export default function AffiliatesAdmin() {
                     <Badge variant={statusVariant(a.status)} className="capitalize">{a.status}</Badge>
                     <Badge variant="outline" className="font-mono">{a.referralCode}</Badge>
                     <Badge variant="secondary">{(Number(a.commissionRate) * 100).toFixed(1)}%</Badge>
+                    {a.w9Status === "verified" && (
+                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 gap-1">
+                        <FileText className="h-3 w-3" /> W-9 Verified
+                      </Badge>
+                    )}
+                    {a.w9Status === "submitted" && (
+                      <Badge className="bg-blue-100 text-blue-800 border-blue-300 gap-1">
+                        <FileText className="h-3 w-3" /> W-9 Pending Review
+                      </Badge>
+                    )}
+                    {a.w9Status === "pending" && (
+                      <Badge variant="outline" className="text-amber-700 border-amber-400 gap-1">
+                        <FileText className="h-3 w-3" /> W-9 Not Submitted
+                      </Badge>
+                    )}
                   </div>
                   <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
                     {a.contactName && <span>{a.contactName}</span>}
@@ -166,6 +181,12 @@ type AffiliateItem = {
   location: string | null;
   website: string | null;
   notes: string | null;
+  w9Status: string;
+  w9LegalName: string | null;
+  w9IdDocumentUrl: string | null;
+  w9SubmittedAt: Date | null;
+  w9VerifiedAt: Date | null;
+  w9AdminNotes: string | null;
 };
 
 function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateItem; origin: string }) {
@@ -173,7 +194,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
   const storeUrl = `${origin}/store/${a.slug}`;
   const refLink = `${origin}/order/new?ref=${a.referralCode}`;
   const loginUrl = `${origin}/affiliate`;
-  const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals">("credentials");
+  const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals" | "w9">("credentials");
 
   const setTemplate = trpc.affiliates.adminUpdate.useMutation({
     onSuccess: () => {
@@ -194,7 +215,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
     <div className="mt-4 rounded-lg border border-border bg-muted/20 overflow-hidden">
       {/* Sub-tab bar */}
       <div className="flex border-b border-border">
-        {(["credentials", "template", "referrals"] as const).map((t) => (
+        {(["credentials", "template", "referrals", "w9"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
@@ -281,6 +302,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
         )}
 
         {activeTab === "referrals" && <AffiliateReferrals affiliateId={a.id} />}
+        {activeTab === "w9" && <AffiliateW9Review affiliate={a} />}
       </div>
     </div>
   );
@@ -587,5 +609,109 @@ function SendCredentialsButton({ affiliateId }: { affiliateId: number }) {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Admin W-9 Review Panel ────────────────────────────────────────────────────
+function AffiliateW9Review({ affiliate: a }: { affiliate: AffiliateItem }) {
+  const utils = trpc.useUtils();
+  const [adminNotes, setAdminNotes] = useState(a.w9AdminNotes ?? "");
+
+  const verifyW9 = trpc.affiliates.adminVerifyW9.useMutation({
+    onSuccess: () => {
+      toast.success("W-9 status updated.");
+      utils.affiliates.adminList.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (a.w9Status === "pending") {
+    return (
+      <div className="py-6 text-center space-y-2">
+        <FileText className="h-8 w-8 mx-auto text-muted-foreground opacity-50" />
+        <p className="text-sm text-muted-foreground">This affiliate has not yet submitted their W-9 information.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 p-1">
+      <div className="flex items-center gap-3">
+        {a.w9Status === "verified" ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-sm font-medium">
+            <CheckCircle2 className="h-4 w-4" /> Verified
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 text-blue-800 px-3 py-1 text-sm font-medium">
+            <FileText className="h-4 w-4" /> Submitted — Awaiting Review
+          </span>
+        )}
+        {a.w9SubmittedAt && (
+          <span className="text-xs text-muted-foreground">
+            Submitted {new Date(a.w9SubmittedAt).toLocaleDateString()}
+          </span>
+        )}
+        {a.w9VerifiedAt && (
+          <span className="text-xs text-muted-foreground">
+            Verified {new Date(a.w9VerifiedAt).toLocaleDateString()}
+          </span>
+        )}
+      </div>
+
+      <div className="grid gap-2 text-sm">
+        <div className="flex gap-2">
+          <span className="text-muted-foreground w-32 shrink-0">Legal Name</span>
+          <span className="font-medium">{a.w9LegalName ?? "—"}</span>
+        </div>
+      </div>
+
+      {a.w9IdDocumentUrl && (
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Government ID</p>
+          <a
+            href={a.w9IdDocumentUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+          >
+            <ExternalLink className="h-3.5 w-3.5" /> View uploaded ID document
+          </a>
+        </div>
+      )}
+
+      <div className="space-y-1.5">
+        <Label htmlFor={`w9-notes-${a.id}`} className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Admin Notes</Label>
+        <textarea
+          id={`w9-notes-${a.id}`}
+          value={adminNotes}
+          onChange={(e) => setAdminNotes(e.target.value)}
+          rows={2}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder="Internal notes on this W-9 (not visible to affiliate)"
+        />
+      </div>
+
+      {a.w9Status !== "verified" && (
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+            onClick={() => verifyW9.mutate({ affiliateId: a.id, action: "verify", adminNotes })}
+            disabled={verifyW9.isPending}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" /> Verify W-9
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive border-destructive/40 hover:bg-destructive/10 gap-1.5"
+            onClick={() => verifyW9.mutate({ affiliateId: a.id, action: "reject", adminNotes })}
+            disabled={verifyW9.isPending}
+          >
+            Reject &amp; Request Re-submission
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

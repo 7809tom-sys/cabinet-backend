@@ -560,6 +560,24 @@ export const affiliates = mysqlTable("affiliates", {
   membershipPaidAt: timestamp("membershipPaidAt"),
   membershipExpiresAt: timestamp("membershipExpiresAt"),
   notes: text("notes"),
+  // ─── W-9 / Tax compliance ─────────────────────────────────────────────────────
+  // Affiliates must submit legal info + government ID before payouts are released.
+  // w9Status: pending = not started, submitted = affiliate filled it out (awaiting admin review),
+  //           verified = admin confirmed the info is valid.
+  w9Status: mysqlEnum("w9Status", ["pending", "submitted", "verified"]).default("pending").notNull(),
+  w9LegalName: varchar("w9LegalName", { length: 256 }),        // Legal name on tax return
+  w9BusinessName: varchar("w9BusinessName", { length: 256 }),  // DBA / business name (if different)
+  w9EntityType: mysqlEnum("w9EntityType", ["individual", "sole_proprietor", "llc_single", "llc_partnership", "llc_corp", "c_corp", "s_corp", "partnership", "trust", "other"]),
+  w9TaxId: varchar("w9TaxId", { length: 64 }),                 // SSN or EIN (stored encrypted in practice)
+  w9TaxIdType: mysqlEnum("w9TaxIdType", ["ssn", "ein"]),
+  w9Address: varchar("w9Address", { length: 256 }),
+  w9City: varchar("w9City", { length: 128 }),
+  w9State: varchar("w9State", { length: 2 }),
+  w9Zip: varchar("w9Zip", { length: 16 }),
+  w9IdDocumentUrl: varchar("w9IdDocumentUrl", { length: 512 }), // S3 URL of uploaded government ID
+  w9SubmittedAt: timestamp("w9SubmittedAt"),
+  w9VerifiedAt: timestamp("w9VerifiedAt"),
+  w9AdminNotes: text("w9AdminNotes"),                          // Admin-only notes on verification
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
