@@ -68,9 +68,9 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
 ];
 
 // ─── Pelican Vendor Catalog Page ─────────────────────────────────────────────
-function PelicanVendorCatalogPage() {
+function PelicanVendorCatalogPage({ initialCategory }: { initialCategory?: string } = {}) {
   const utils = trpc.useUtils();
-  const [category, setCategory] = useState<string>(ALL);
+  const [category, setCategory] = useState<string>(initialCategory ?? ALL);
   const [search, setSearch] = useState("");
   const input = useMemo(
     () => ({
@@ -186,20 +186,12 @@ function PelicanVendorCatalogPage() {
                       <Star className={`h-4 w-4 ${it.isPopular ? "fill-current" : ""}`} />
                     </Button>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <input
-                      type="number" step="0.1" min="0"
-                      className="w-16 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-xs"
-                      defaultValue={it.coverageSqFt ? parseFloat(String(it.coverageSqFt)) : ""}
-                      placeholder="—"
-                      onBlur={(e) => {
-                        const val = e.target.value.trim();
-                        const num = val ? parseFloat(val) : null;
-                        if (num !== (it.coverageSqFt ? parseFloat(String(it.coverageSqFt)) : null)) {
-                          setCoverage.mutate({ id: it.id, coverageSqFt: num && num > 0 ? num : null });
-                        }
-                      }}
-                    />
+                  <TableCell className="text-right text-sm">
+                    {it.coverageSqFt
+                      ? <span className="font-medium">{parseFloat(String(it.coverageSqFt)).toFixed(2)}</span>
+                      : it.size
+                        ? <span className="text-muted-foreground text-xs">{it.size}</span>
+                        : <span className="text-muted-foreground">—</span>}
                   </TableCell>
                 </TableRow>
               ))}
@@ -212,7 +204,7 @@ function PelicanVendorCatalogPage() {
 }
 
 // ─── Pelican Vendor Overview Page ─────────────────────────────────────────────
-function PelicanVendorOverviewPage() {
+function PelicanVendorOverviewPage({ onNavigateToCatalog }: { onNavigateToCatalog?: (category?: string) => void } = {}) {
   const { data, isLoading } = trpc.pelican.adminList.useQuery({ limit: 1, offset: 0 });
   const categories = trpc.pelican.categories.useQuery({ scope: "catalog" });
   const active = trpc.pelican.adminList.useQuery({ limit: 500, offset: 0 });
@@ -236,14 +228,20 @@ function PelicanVendorOverviewPage() {
         <p className="text-muted-foreground">Manage surfaces, fixtures, and tile products.</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
+        <Card
+          className={onNavigateToCatalog ? "cursor-pointer hover:border-primary transition-colors" : ""}
+          onClick={() => onNavigateToCatalog?.()}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Products</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{totalProducts}</div></CardContent>
         </Card>
-        <Card>
+        <Card
+          className={onNavigateToCatalog ? "cursor-pointer hover:border-primary transition-colors" : ""}
+          onClick={() => onNavigateToCatalog?.()}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Active</CardTitle>
             <Eye className="h-4 w-4 text-muted-foreground" />
@@ -259,11 +257,26 @@ function PelicanVendorOverviewPage() {
         </Card>
       </div>
       <Card>
-        <CardHeader><CardTitle>Product Categories</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Product Categories</CardTitle>
+          {onNavigateToCatalog && (
+            <p className="text-xs text-muted-foreground">Click a category to filter the catalog</p>
+          )}
+        </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
             {(categories.data ?? []).map((c: any) => (
-              <Badge key={c.category} variant="secondary">{c.category} ({c.count})</Badge>
+              onNavigateToCatalog ? (
+                <button
+                  key={c.category}
+                  onClick={() => onNavigateToCatalog(c.category)}
+                  className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-secondary text-secondary-foreground hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer"
+                >
+                  {c.category} ({c.count})
+                </button>
+              ) : (
+                <Badge key={c.category} variant="secondary">{c.category} ({c.count})</Badge>
+              )
             ))}
           </div>
         </CardContent>
@@ -2580,6 +2593,13 @@ function VendorPortalDashboard({
     ? (distList.find((d: any) => d.id === adminDistributorId)?.code ?? undefined)
     : undefined;
   const isPelican = activeDistCode === PEL_DIST_CODE;
+  const [pelicanCategoryFilter, setPelicanCategoryFilter] = useState<string | undefined>(undefined);
+
+  const handleNavigateToCatalog = useCallback((category?: string) => {
+    setPelicanCategoryFilter(category);
+    setPage("catalog");
+  }, [setPage]);
+
   return (
     <AdminDistributorContext.Provider value={isAdmin && adminDistributorId ? adminDistributorId : undefined}>
     <AdminDistributorCodeContext.Provider value={activeDistCode}>
@@ -2660,8 +2680,8 @@ function VendorPortalDashboard({
 
       {/* Main content */}
       <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
-        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage /> : <OverviewPage />)}
-        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage /> : <CatalogPage />)}
+        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage />)}
+        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : <CatalogPage />)}
         {page === "styles" && <DoorStylesPage />}
         {page === "picks" && <DesignToolPicksPage />}
         {page === "promotions" && <PromotionsPage />}

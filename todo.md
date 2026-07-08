@@ -622,3 +622,15 @@
 - [x] Detect PEL distributor in VendorPortal and render Pelican catalog (trpc.pelican.adminList) instead of distributorPortal.catalog
 - [x] Show Pelican product cards with visibility toggle, popular toggle, coverage field in the My Catalog tab for PEL
 - [x] Show correct product count for PEL in Overview stats
+
+## Bug: Vendor account images not loading (Jul 8)
+
+- [ ] Diagnose why vendor/distributor images are not loading across all vendor portal pages
+- [ ] Fix image URL resolution (storage proxy, broken paths, or missing imageUrl fields)
+- [ ] Verify images load for cabinet SKUs, door styles, and Pelican products
+
+## Pelican Vendor Portal Fixes (Jul 8)
+
+- [x] Pre-fill coverageSqFt from packaging data (size field) for Pelican products — no manual entry needed
+- [x] Remove image column from PelicanVendorCatalogPage (Pelican has no product images — sq ft/box shown as read-only)
+- [x] Fix broken category hyperlink buttons on PelicanVendorOverviewPage — clicking a category should filter the catalog tab
