@@ -175,7 +175,9 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
         </section>
 
         {/* ─── Family-locked shop (shared across templates) ─────────────── */}
-        <StorefrontShop slug={data.slug} brand={brand} lang={lang} withRef={withRef} />
+        <div id="shop">
+          <StorefrontShop slug={data.slug} brand={brand} lang={lang} withRef={withRef} />
+        </div>
 
         {/* ─── Surfaces & Fixtures promo band ─────────────────────────── */}
         <section className="py-14 md:py-16 bg-muted/40">
