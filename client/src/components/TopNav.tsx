@@ -6,6 +6,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { SiteStringKey } from "@/lib/i18n/site";
+import { ChatTrigger } from "@/components/ChatWidget";
 
 type NavLink = { key: SiteStringKey; href: string };
 
@@ -95,6 +96,9 @@ export function TopNav() {
             Cabinet<span className="text-[var(--color-gold)]">Dealz</span>
           </span>
         </Link>
+
+        {/* Chat trigger — right after logo, out of the way */}
+        <ChatTrigger />
 
         {/* Desktop nav */}
         <nav className="hidden lg:flex items-center gap-0.5">

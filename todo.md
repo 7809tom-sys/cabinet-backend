@@ -582,8 +582,8 @@
 
 ## Affiliate Administration Panel
 
-- [ ] Add "Credentials & Links" tab to AffiliateDashboard as first/default tab
-- [ ] Show storefront URL, referral code, login link, and template preview button in credentials tab
+- [x] Add "Credentials & Links" tab to AffiliateDashboard as first/default tab
+- [x] Show storefront URL, referral code, login link, and template preview button in credentials tab
 - [ ] Enhance AffiliatesAdmin with per-affiliate "View Storefront" preview button
 - [ ] Add "Send Credentials" email button in AffiliatesAdmin
 - [ ] Add template switcher in AffiliatesAdmin per-affiliate card
@@ -592,11 +592,11 @@
 
 ## Affiliate Dashboard Redesign (White-Label & Performance Focus)
 
-- [ ] Strip wholesale pricing, vendor agreements, Stripe, and shipping calculator from AffiliateDashboard
-- [ ] Remove all Cabinet Dealz brand mentions from affiliate storefronts (white-label enforcement)
-- [ ] Add Customize tab: room scene picker, door style selector, template/layout switcher
-- [ ] Add AI Concierge upsell card ($100/hr service request form)
-- [ ] Ensure affiliate dashboard tabs: Performance, Commissions, Payouts, Credentials, Customize, AI Concierge
+- [x] Strip wholesale pricing, vendor agreements, Stripe, and shipping calculator from AffiliateDashboard
+- [x] Remove all Cabinet Dealz brand mentions from affiliate storefronts (white-label enforcement)
+- [x] Add Customize tab: room scene picker, door style selector, template/layout switcher
+- [x] Add AI Concierge upsell card ($100/hr service request form)
+- [x] Ensure affiliate dashboard tabs: Performance, Commissions, Payouts, Credentials, Customize, AI Concierge
 
 ## Affiliate Dashboard Redesign — Phase 2 (Active)
 
@@ -611,3 +611,8 @@
 - [x] Add Door Style Showcase selector in Customize tab (pick which door styles to feature)
 - [x] Add AI Concierge upsell card in Customize tab ($100/hr service request form)
 - [x] Add requestAiConcierge tRPC procedure to affiliates router (notifyOwner)
+
+## Design Tool UX Fixes (Jul 8)
+
+- [x] Move AI chat button to right of logo in TopNav (inline, not floating)
+- [x] Enable pony wall deletion via the mobile Delete toolbar button and Delete/Backspace key (add selectedPonyWallUid state, extend deleteSelected and keydown handler, pass selection props to PlanCanvas)

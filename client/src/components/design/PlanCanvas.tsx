@@ -107,6 +107,8 @@ interface Props {
   onDeleteAnnotation?: (uid: string) => void;
   // Pony walls — free-standing half-walls (34.5" tall by default) placed on the floor plan.
   ponyWalls?: PonyWall[];
+  selectedPonyWallUid?: string | null;
+  onSelectPonyWall?: (uid: string | null) => void;
   onPonyWallChange?: (pw: PonyWall) => void;
   onDeletePonyWall?: (uid: string) => void;
 }
@@ -148,7 +150,7 @@ export function PlanCanvas({
   onPlaceFiller,
   onFillGapWithCabAndFiller,
   annotations = [], selectedAnnotationUid = null, onSelectAnnotation, onMoveAnnotation, onDeleteAnnotation,
-  ponyWalls = [], onPonyWallChange, onDeletePonyWall,
+  ponyWalls = [], selectedPonyWallUid = null, onSelectPonyWall, onPonyWallChange, onDeletePonyWall,
 }: Props) {
   const { t } = useLanguage();
   // Localized wall names (Back/Front/Left/Right) for on-canvas labels.
@@ -577,7 +579,7 @@ export function PlanCanvas({
     <div
       ref={containerRef}
       className={`relative w-full h-full overflow-hidden bg-[#eef1f5] select-none touch-none ${drawMode ? "cursor-crosshair" : ""}`}
-      onClick={(e) => { if (!measureMode && !drawMode && e.target === e.currentTarget) onSelect(null); }}
+      onClick={(e) => { if (!measureMode && !drawMode && e.target === e.currentTarget) { onSelect(null); onSelectPonyWall?.(null); } }}
       onPointerDown={onCanvasPointerDown}
       onPointerMove={onCanvasPointerMove}
       onPointerUp={onCanvasPointerUp}
@@ -855,24 +857,28 @@ export function PlanCanvas({
         )}
         {/* Pony walls — free-standing half-walls rendered as solid dark rectangles */}
         {ponyWalls.map((pw) => {
+          const isPonySelected = pw.uid === selectedPonyWallUid;
           return (
             <div
               key={pw.uid}
-              className="absolute z-[2] group"
+              className="absolute group"
               style={{
                 left: pw.x * ppi,
                 top: pw.y * ppi,
                 width: pw.width * ppi,
                 height: pw.depth * ppi,
                 background: "#2a3550",
-                border: "2px solid #1a2744",
+                border: isPonySelected ? "2px solid #f59e0b" : "2px solid #1a2744",
                 borderRadius: 2,
                 cursor: layoutLocked ? "default" : "move",
+                zIndex: isPonySelected ? 20 : 2,
+                boxShadow: isPonySelected ? "0 0 0 2px rgba(245,158,11,0.4)" : undefined,
               }}
               title={`Pony Wall ${Math.round(pw.width)}″ wide × ${pw.height}″ tall`}
               onPointerDown={(e) => {
-                if (layoutLocked || !onPonyWallChange) return;
                 e.stopPropagation();
+                onSelectPonyWall?.(pw.uid);
+                if (layoutLocked || !onPonyWallChange) return;
                 const rect = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect();
                 const startX = (e.clientX - rect.left) / ppi;
                 const startY = (e.clientY - rect.top) / ppi;
@@ -892,12 +898,12 @@ export function PlanCanvas({
                 {pw.label || `PONY ${Math.round(pw.width)}″`}
               </span>
               <span className="absolute right-0.5 top-0.5 text-[8px] text-white/60 pointer-events-none">{pw.height}″H</span>
-              {/* Delete button */}
+              {/* Delete button — shown when selected or on hover */}
               {onDeletePonyWall && (
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); onDeletePonyWall(pw.uid); }}
-                  className="absolute -top-2.5 -right-2.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[9px] shadow z-10"
+                  onClick={(e) => { e.stopPropagation(); onDeletePonyWall(pw.uid); onSelectPonyWall?.(null); }}
+                  className={`absolute -top-2.5 -right-2.5 h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[9px] shadow z-10 ${isPonySelected ? "flex" : "hidden group-hover:flex"}`}
                 >
                   ×
                 </button>

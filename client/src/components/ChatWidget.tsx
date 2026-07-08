@@ -18,6 +18,11 @@ const SUGGESTED = [
   "Help me design my kitchen",
 ];
 
+// Shared state lifted out so both ChatTrigger (in TopNav) and ChatPanel (global)
+// can share the same open/messages state via a simple module-level store.
+let _setOpen: ((v: boolean | ((prev: boolean) => boolean)) => void) | null = null;
+export function openChatWidget() { _setOpen?.((v) => !v); }
+
 export function ChatWidget() {
   const [location] = useLocation();
   // The Kitchen/Closet Designer uses a fixed bottom toolbar (Delete/Cart) on
@@ -26,6 +31,8 @@ export function ChatWidget() {
   const isDesignerTouch = useIsMobile(1024) && location.startsWith("/design");
 
   const [open, setOpen] = useState(false);
+  // Register setter so TopNav's inline trigger can toggle this panel.
+  useEffect(() => { _setOpen = setOpen; return () => { _setOpen = null; }; }, [setOpen]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [connecting, setConnecting] = useState(false);
   // The Designer's own "Design Consultant" panel is a second chat surface that
@@ -95,25 +102,11 @@ export function ChatWidget() {
 
   return (
     <>
-      {/* Floating launcher */}
-      <button
-        aria-label={open ? "Close chat" : "Open chat"}
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          "fixed top-20 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full",
-          "bg-[var(--color-navy,#1a2740)] text-white shadow-lg",
-          "transition-transform duration-200 ease-out hover:scale-105 active:scale-95",
-        )}
-        style={{ transitionTimingFunction: "cubic-bezier(0.23, 1, 0.32, 1)" }}
-      >
-        {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
-      </button>
-
-      {/* Panel */}
+      {/* Panel — the trigger is now in TopNav beside the logo */}
       {open && (
         <div
           className={cn(
-            "fixed top-36 right-5 z-50 w-[min(380px,calc(100vw-2.5rem))]",
+            "fixed top-[4.25rem] left-0 z-50 w-[min(380px,calc(100vw-1rem))] sm:left-auto sm:right-5",
             "rounded-xl border border-border bg-card text-card-foreground shadow-2xl overflow-hidden",
             "flex flex-col",
           )}
@@ -155,6 +148,24 @@ export function ChatWidget() {
         </div>
       )}
     </>
+  );
+}
+
+/** Compact inline trigger button to place beside the logo in TopNav. */
+export function ChatTrigger({ isOpen }: { isOpen?: boolean }) {
+  return (
+    <button
+      aria-label={isOpen ? "Close chat" : "Open chat assistant"}
+      onClick={() => openChatWidget()}
+      className={cn(
+        "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+        "border border-border/60 bg-muted/60 hover:bg-muted text-foreground/70 hover:text-foreground",
+        "transition-colors duration-150 shrink-0",
+      )}
+    >
+      <MessageCircle className="h-3.5 w-3.5" />
+      <span className="hidden sm:inline">Ask AI</span>
+    </button>
   );
 }
 

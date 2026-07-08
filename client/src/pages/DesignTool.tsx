@@ -440,6 +440,7 @@ export default function DesignTool() {
   const [selectedAnnotationUid, setSelectedAnnotationUid] = useState<string | null>(null);
   // Pony walls — free-standing half-walls (34.5" tall) placed on the floor plan.
   const [ponyWalls, setPonyWalls] = useState<PonyWall[]>([]);
+  const [selectedPonyWallUid, setSelectedPonyWallUid] = useState<string | null>(null);
   // Backsplash material: shown in elevation view between countertop and wall cabinets.
   const [backsplashMaterialId, setBacksplashMaterialId] = useState<string | null>(null);
   // Flooring material: shown as a pattern in the bird's-eye plan view.
@@ -3025,15 +3026,19 @@ export default function DesignTool() {
   // gated on selectedUid — stayed disabled, so a sink could never be deleted.
   const selectCabinet = useCallback((uid: string | null) => {
     setSelectedUid(uid);
-    if (uid) { setSelectedSinkUid(null); setSelectedOpeningUid(null); }
+    if (uid) { setSelectedSinkUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null); }
   }, []);
   const selectSink = useCallback((uid: string | null) => {
     setSelectedSinkUid(uid);
-    if (uid) { setSelectedUid(null); setSelectedOpeningUid(null); }
+    if (uid) { setSelectedUid(null); setSelectedOpeningUid(null); setSelectedPonyWallUid(null); }
   }, []);
   const selectOpening = useCallback((uid: string | null) => {
     setSelectedOpeningUid(uid);
-    if (uid) { setSelectedUid(null); setSelectedSinkUid(null); }
+    if (uid) { setSelectedUid(null); setSelectedSinkUid(null); setSelectedPonyWallUid(null); }
+  }, []);
+  const selectPonyWall = useCallback((uid: string | null) => {
+    setSelectedPonyWallUid(uid);
+    if (uid) { setSelectedUid(null); setSelectedSinkUid(null); setSelectedOpeningUid(null); }
   }, []);
 
   // Move the island AND every cabinet sitting on it by the same delta, clamped
@@ -3162,9 +3167,9 @@ export default function DesignTool() {
   };
 
   const deleteSelected = () => {
-    // Cabinet selection takes priority; otherwise delete a selected sink or
-    // wall opening so EVERY selectable object on the canvas is removable from
-    // the same Delete control (mobile toolbar + Delete/Backspace key).
+    // Cabinet selection takes priority; otherwise delete a selected sink,
+    // wall opening, or pony wall so EVERY selectable object on the canvas is
+    // removable from the same Delete control (mobile toolbar + Delete/Backspace key).
     if (selectedUid) {
       if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
       setPlaced((prev) => prev.filter((p) => p.uid !== selectedUid));
@@ -3178,6 +3183,11 @@ export default function DesignTool() {
     if (selectedOpeningUid) {
       deleteOpening(selectedOpeningUid);
       setSelectedOpeningUid(null);
+      return;
+    }
+    if (selectedPonyWallUid) {
+      setPonyWalls((prev) => prev.filter((p) => p.uid !== selectedPonyWallUid));
+      setSelectedPonyWallUid(null);
     }
   };
 
@@ -3701,6 +3711,10 @@ export default function DesignTool() {
       } else if ((e.key === "Delete" || e.key === "Backspace") && selectedSinkUid) {
         e.preventDefault();
         deleteSink(selectedSinkUid);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedPonyWallUid) {
+        e.preventDefault();
+        setPonyWalls((prev) => prev.filter((p) => p.uid !== selectedPonyWallUid));
+        setSelectedPonyWallUid(null);
       } else if ((e.key === "Delete" || e.key === "Backspace") && selectedUid) {
         e.preventDefault();
         deleteCabinet(selectedUid);
@@ -3724,12 +3738,13 @@ export default function DesignTool() {
         setSelectedUid(null);
         setSelectedOpeningUid(null);
         setSelectedSinkUid(null);
+        setSelectedPonyWallUid(null);
         setMeasureMode(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening, selectedSinkUid, deleteSink, measureMode, rotateSelected, swingSelected, nudgeSelected]);
+  }, [selectedUid, deleteCabinet, selectedOpeningUid, deleteOpening, selectedSinkUid, deleteSink, selectedPonyWallUid, measureMode, rotateSelected, swingSelected, nudgeSelected]);
 
   const dragDataRef = useState<{ current: DesignCabinet | null }>(() => ({ current: null }))[0];
 
@@ -4824,7 +4839,7 @@ export default function DesignTool() {
           <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-8 gap-1.5">
             <DoorOpen className="h-3.5 w-3.5" /> {t("dt_sh_swing")} <span className="text-[10px] opacity-60">(S)</span>
           </Button>
-          <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
+          <Button variant="outline" size="sm" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
             <Trash2 className="h-3.5 w-3.5" /> {t("dt_sh_delete")}
           </Button>
           <div className="h-5 w-px bg-border" />
@@ -5934,8 +5949,10 @@ export default function DesignTool() {
               onMoveAnnotation={(uid, x, y) => setAnnotations(prev => prev.map(a => a.uid === uid ? { ...a, x, y } : a))}
               onDeleteAnnotation={(uid) => { setAnnotations(prev => prev.filter(a => a.uid !== uid)); setSelectedAnnotationUid(null); }}
               ponyWalls={ponyWalls}
+              selectedPonyWallUid={selectedPonyWallUid}
+              onSelectPonyWall={selectPonyWall}
               onPonyWallChange={(pw) => setPonyWalls(prev => prev.map(p => p.uid === pw.uid ? pw : p))}
-              onDeletePonyWall={(uid: string) => setPonyWalls(prev => prev.filter(p => p.uid !== uid))}
+              onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
             />
           )}
           {viewMode === "elevation" && (
@@ -6090,8 +6107,10 @@ export default function DesignTool() {
               onMoveAnnotation={(uid, x, y) => setAnnotations(prev => prev.map(a => a.uid === uid ? { ...a, x, y } : a))}
               onDeleteAnnotation={(uid) => { setAnnotations(prev => prev.filter(a => a.uid !== uid)); setSelectedAnnotationUid(null); }}
               ponyWalls={ponyWalls}
+              selectedPonyWallUid={selectedPonyWallUid}
+              onSelectPonyWall={selectPonyWall}
               onPonyWallChange={(pw) => setPonyWalls(prev => prev.map(p => p.uid === pw.uid ? pw : p))}
-              onDeletePonyWall={(uid: string) => setPonyWalls(prev => prev.filter(p => p.uid !== uid))}
+              onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
                 />
               </div>
               <div className="flex-1 min-h-0">
@@ -6950,7 +6969,7 @@ export default function DesignTool() {
             <MobileBarButton
               icon={<Trash2 className="h-5 w-5" />}
               label="Delete"
-              disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid) || measureMode}
+              disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode}
               danger
               onClick={deleteSelected}
             />
