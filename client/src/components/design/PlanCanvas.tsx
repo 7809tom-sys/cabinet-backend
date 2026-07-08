@@ -505,7 +505,7 @@ export function PlanCanvas({
         (c) => c.uid !== cabinet.uid &&
           (c.placement === cabinet.placement || c.placement === "appliance" || cabinet.placement === "appliance")
       );
-      const targetRot = orientToWall(candidate, room);
+      const targetRot = orientToWall(candidate, room, island);
       if (targetRot != null) {
         candidate = { ...candidate, rotation: targetRot };
       }

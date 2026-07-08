@@ -852,13 +852,46 @@ export function snapPosition(
 // can leave the user's chosen rotation alone.
 export function orientToWall(
   moving: PlacedCabinet,
-  room: RoomData
+  room: RoomData,
+  island?: { x: number; y: number; width: number; depth: number } | null
 ): number | null {
-  // Note: island cabinets sit out in the middle of the room, so they never fall
-  // within the wall snap threshold below and are left untouched automatically.
   const { w, d } = rotatedSize(moving);
   const T = STD.SNAP_THRESHOLD;
-  // Distance from each wall (negative/positive both count via abs).
+
+  // ── Island-wall orientation ────────────────────────────────────────────────
+  // When a cabinet is dragged within SNAP_THRESHOLD of any island edge, rotate
+  // it so its back faces that island wall (same logic as room-wall orientation).
+  if (island) {
+    const iRight = island.x + island.width;
+    const iBottom = island.y + island.depth;
+    const yOverlap = moving.y < iBottom + T && moving.y + d > island.y - T;
+    const xOverlap = moving.x < iRight + T && moving.x + w > island.x - T;
+    const distIsland: { side: "top" | "bottom" | "left" | "right"; dist: number }[] = [];
+    if (yOverlap) {
+      distIsland.push({ side: "right", dist: Math.abs(moving.x + w - island.x) }); // cab right → island left
+      distIsland.push({ side: "left",  dist: Math.abs(moving.x - iRight) });         // cab left → island right
+    }
+    if (xOverlap) {
+      distIsland.push({ side: "bottom", dist: Math.abs(moving.y + d - island.y) }); // cab bottom → island top
+      distIsland.push({ side: "top",    dist: Math.abs(moving.y - iBottom) });       // cab top → island bottom
+    }
+    let bestIsland: { side: "top" | "bottom" | "left" | "right" } | null = null;
+    let bestIslandDist = T;
+    for (const e of distIsland) {
+      if (e.dist <= bestIslandDist) { bestIslandDist = e.dist; bestIsland = e; }
+    }
+    if (bestIsland) {
+      const horizontal = bestIsland.side === "top" || bestIsland.side === "bottom";
+      const targetRot = horizontal ? 0 : 90;
+      const cur = ((Math.round(moving.rotation) % 180) + 180) % 180;
+      if (cur !== targetRot) return targetRot;
+      return null;
+    }
+  }
+
+  // ── Room-wall orientation ──────────────────────────────────────────────────
+  // Note: island cabinets sit out in the middle of the room, so they never fall
+  // within the wall snap threshold below and are left untouched automatically.
   const dist: Record<WallSide, number> = {
     top: Math.abs(moving.y - 0),
     bottom: Math.abs(moving.y + d - room.depth),

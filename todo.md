@@ -568,3 +568,14 @@
 - [x] Remove the suggestion popover (Place / Place with Filler buttons) from gap label chips in PlanCanvas
 - [x] Keep gap measurement label chips as display-only (pointer-events-none) so designers can still see gap sizes
 - [x] Remove activeGap click handler — chips no longer open any popover
+
+## Remove Wall-Cabinet-Above Suggestion Toasts
+
+- [x] Remove the entire "Place a matching wall cabinet above?" toast block from addCabinet
+- [x] Remove the one-time wall cabinet height prompt toasts (42"/36"/30") that fired on first base cabinet placement
+
+## Island-Wall Cabinet Snapping
+
+- [x] Extend orientToWall in design.ts to accept island prop and auto-rotate cabinets to face the nearest island edge when dragged within SNAP_THRESHOLD
+- [x] Pass island to orientToWall in PlanCanvas handlePointerMove so cabinets auto-orient when snapping to island walls
+- [x] Existing snapPosition island edge snapping (flush-to-edge) already worked; now combined with auto-rotation
