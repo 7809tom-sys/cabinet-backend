@@ -4062,7 +4062,7 @@ export default function DesignTool() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-nowrap shrink-0">
+      <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="flex items-center gap-2">
           <h1 className="font-serif text-base lg:text-lg font-bold text-foreground">
             <span className="lg:hidden">{t("dt_sh_title_mobile")}</span>
@@ -4192,7 +4192,7 @@ export default function DesignTool() {
             }`}
           >
             {layoutLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
-            {layoutLocked ? t("dt_sh_locked") : t("dt_sh_lock_layout")}
+            <span className="hidden xl:inline">{layoutLocked ? t("dt_sh_locked") : t("dt_sh_lock_layout")}</span>
           </button>
           <button
             onClick={autoFillActiveWall}
@@ -4201,7 +4201,7 @@ export default function DesignTool() {
             className="flex items-center gap-1.5 rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
           >
             <Wand2 className="h-3.5 w-3.5" />
-            {t("dt_sh_autofill_wall")}
+            <span className="hidden xl:inline">{t("dt_sh_autofill_wall")}</span>
           </button>
 
         </div>
@@ -4212,36 +4212,39 @@ export default function DesignTool() {
         <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
           <button
             onClick={() => setViewMode("plan")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            title={t("dt_sh_birdseye")}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
               viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <LayoutGrid className="h-3.5 w-3.5" /> {t("dt_sh_birdseye")}
+            <LayoutGrid className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_birdseye")}</span>
           </button>
           <button
             onClick={() => setViewMode("elevation")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            title={t("dt_sh_front_view")}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
               viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Eye className="h-3.5 w-3.5" /> {t("dt_sh_front_view")}
+            <Eye className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_front_view")}</span>
           </button>
           <button
             onClick={() => setViewMode("split")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            title={t("dt_sh_split")}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
               viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Columns3 className="h-3.5 w-3.5" /> {t("dt_sh_split")}
+            <Columns3 className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_split")}</span>
           </button>
           <button
             onClick={() => setViewMode("corner")}
             title={t("dt_sh_corner_title")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
               viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <ScanLine className="h-3.5 w-3.5" /> {t("dt_sh_corner")}
+            <ScanLine className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_corner")}</span>
           </button>
           {island && (
             <button
@@ -4281,7 +4284,7 @@ export default function DesignTool() {
             toast.success(t("dt_sh_started_new"));
           }}
         >
-          <Trash2 className="h-3.5 w-3.5" /> {t("dt_sh_start_new")}
+          <Trash2 className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_start_new")}</span>
         </button>
 
         {/* Printable graph-paper worksheet */}
@@ -4292,7 +4295,7 @@ export default function DesignTool() {
           title={t("dt_sh_print_title")}
           className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
         >
-                    <Printer className="h-3.5 w-3.5" /> {t("dt_sh_print_sheet")}
+                    <Printer className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_print_sheet")}</span>
         </a>
         {/* Preview modes — desktop toolbar button */}
         {placed.length > 0 && (
