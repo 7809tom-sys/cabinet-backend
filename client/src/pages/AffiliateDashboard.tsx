@@ -659,6 +659,7 @@ const SCENE_LABELS: Record<KitchenSceneKey, { name: string; desc: string }> = {
 };
 
 function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved: () => void }) {
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     tagline: affiliate.tagline ?? "",
     taglineEs: affiliate.taglineEs ?? "",
@@ -687,6 +688,34 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  const uploadHeroImage = trpc.affiliates.uploadHeroImage.useMutation({
+    onSuccess: ({ url }) => {
+      set("heroImageUrl", url);
+      toast.success("Hero image uploaded — save to apply");
+    },
+    onError: (e) => toast.error("Upload failed", { description: e.message }),
+  });
+
+  async function handleHeroFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10 MB"); return; }
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+        if (!match) { toast.error("Could not read image"); setUploading(false); return; }
+        uploadHeroImage.mutate({ imageBase64: match[2], contentType: match[1], fileName: file.name }, {
+          onSettled: () => setUploading(false),
+        });
+      };
+      reader.readAsDataURL(file);
+    } catch { setUploading(false); }
+    e.target.value = "";
   }
 
   function handleSave() {
@@ -772,23 +801,42 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
               </button>
             );
           })}
-          {/* Custom URL option */}
-          <div className={`rounded-xl border-2 p-3 transition-all ${
-            !activeScene && form.heroImageUrl ? "border-primary ring-2 ring-primary/30" : "border-border"
-          }`}>
+          {/* Upload your own photo */}
+          <div
+            className={`rounded-xl border-2 p-3 transition-all ${
+              !activeScene && form.heroImageUrl ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/50"
+            }`}
+          >
             <div className="font-semibold text-sm mb-2 flex items-center gap-2">
-              <ImageIcon className="h-3.5 w-3.5" /> Custom image URL
+              <ImageIcon className="h-3.5 w-3.5" /> Upload Your Own Photo
             </div>
-            <Input
-              value={!activeScene ? form.heroImageUrl : ""}
-              onChange={(e) => set("heroImageUrl", e.target.value)}
-              placeholder="https://…/kitchen.jpg"
-              className="font-mono text-xs"
-              onClick={() => {
-                if (activeScene) set("heroImageUrl", "");
-              }}
-            />
-            <p className="text-xs text-muted-foreground mt-1.5">Paste a direct image URL to use your own photo.</p>
+            {/* Preview */}
+            {!activeScene && form.heroImageUrl ? (
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg mb-2">
+                <img src={form.heroImageUrl} alt="Custom hero" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => set("heroImageUrl", "")}
+                  className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-black/80"
+                  title="Remove"
+                >×</button>
+              </div>
+            ) : null}
+            <label className="flex items-center justify-center gap-2 cursor-pointer w-full rounded-lg border border-dashed border-border bg-muted/40 hover:bg-muted/70 transition-colors py-3 px-4 text-sm font-medium">
+              {uploading || uploadHeroImage.isPending ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
+              ) : (
+                <><ImageIcon className="h-4 w-4" /> {!activeScene && form.heroImageUrl ? "Replace photo" : "Choose photo"}</>
+              )}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={handleHeroFileChange}
+                disabled={uploading || uploadHeroImage.isPending}
+              />
+            </label>
+            <p className="text-xs text-muted-foreground mt-1.5">JPG, PNG, or WebP — max 10 MB. Appears only on your storefront.</p>
           </div>
         </div>
       </div>

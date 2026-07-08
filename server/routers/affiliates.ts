@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { eq, desc, or, and } from "drizzle-orm";
+import { storagePut } from "../storage";
 import { notifyOwner } from "../_core/notification";
 import { TRPCError } from "@trpc/server";
 import {
@@ -653,6 +654,30 @@ export const affiliatesRouter = router({
         ].join("\n"),
       });
       return { ok: true, storeUrl, refLink, referralCode: a.referralCode, loginUrl, email: a.email };
+    }),
+
+  // ─── Partner: upload custom hero image ────────────────────────────────────────
+  uploadHeroImage: partnerProcedure
+    .input(z.object({
+      imageBase64: z.string().min(1),
+      contentType: z.string().regex(/^image\/(jpeg|png|webp|gif)$/).default("image/jpeg"),
+      fileName: z.string().max(256).default("hero.jpg"),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const buf = Buffer.from(input.imageBase64, "base64");
+      const ext = input.contentType.split("/")[1] ?? "jpg";
+      const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80);
+      const { url } = await storagePut(
+        `affiliate-hero/${mine.slug}_${Date.now()}_${safeName}.${ext}`,
+        buf,
+        input.contentType,
+      );
+      await db.update(affiliates).set({ heroImageUrl: url }).where(eq(affiliates.id, mine.id));
+      return { url };
     }),
 
   // ─── Partner: request AI Concierge service ($100/hr front-page editing) ───────

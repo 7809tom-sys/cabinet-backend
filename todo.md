@@ -686,3 +686,11 @@
 - [x] Fix large empty gap between toolbar and canvas on mobile — gap is expected (canvas fills height, room auto-fits to width)
 - [x] Ensure canvas auto-fits to mobile viewport height (no wasted space) — ResizeObserver auto-fits room to container
 - [x] Ensure the mobile toolbar (Catalog/Front/Rotate/Delete/Lock/Cart) is always visible at bottom — confirmed fixed bottom-0 position
+
+## Feature: Affiliate Custom Hero Image Upload
+- [ ] Add heroImageUrl field to affiliates table in drizzle schema
+- [ ] Run migration and apply SQL
+- [ ] Update storefront hero section to use affiliate's heroImageUrl when present (falls back to default kitchen photo)
+- [ ] Add image upload UI in affiliate dashboard (AffiliateDashboard.tsx) — "Upload Kitchen Scene" button with preview
+- [ ] Add updateHeroImage procedure to affiliates router (upload to S3, save URL)
+- [ ] Image should only appear on the affiliate's own storefront, not on main CabinetDealz site
