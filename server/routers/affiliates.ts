@@ -639,6 +639,7 @@ export const affiliatesRouter = router({
       const storeUrl = `${origin}/store/${a.slug}`;
       const refLink = `${origin}/order/new?ref=${a.referralCode}`;
       const loginUrl = `${origin}/affiliate`;
+      const welcomeGuideUrl = `${origin}/manus-storage/Cabinet-Dealz-Affiliate-Welcome-Guide_f17152cc.pdf`;
       await notifyOwner({
         title: `Send Credentials to ${a.storeName}`,
         content: [
@@ -650,10 +651,12 @@ export const affiliatesRouter = router({
           `Referral Code: ${a.referralCode}`,
           `Login Portal: ${loginUrl}`,
           ``,
-          `Please send the above credentials to the affiliate.`,
+          `Welcome Guide PDF: ${welcomeGuideUrl}`,
+          ``,
+          `Please send the above credentials and welcome guide to the affiliate.`,
         ].join("\n"),
       });
-      return { ok: true, storeUrl, refLink, referralCode: a.referralCode, loginUrl, email: a.email };
+      return { ok: true, storeUrl, refLink, referralCode: a.referralCode, loginUrl, email: a.email, welcomeGuideUrl };
     }),
 
   // ─── Partner: upload custom hero image ────────────────────────────────────────

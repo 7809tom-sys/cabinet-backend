@@ -615,6 +615,11 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
           }}>
             <Copy className="h-4 w-4" /> Copy All Credentials
           </Button>
+          <a href="/manus-storage/Cabinet-Dealz-Affiliate-Welcome-Guide_f17152cc.pdf" target="_blank" rel="noreferrer">
+            <Button variant="outline" className="gap-2 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+              <Send className="h-4 w-4" /> Download Welcome Guide
+            </Button>
+          </a>
         </div>
       </div>
     </div>

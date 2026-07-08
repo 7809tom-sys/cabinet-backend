@@ -14,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye, Send,
+  Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye, Send, FileText,
 } from "lucide-react";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
@@ -528,10 +528,11 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
 // to the affiliate. Shows a confirmation dialog before sending.
 function SendCredentialsButton({ affiliateId }: { affiliateId: number }) {
   const [open, setOpen] = useState(false);
+  const [sent, setSent] = useState<{ email: string; welcomeGuideUrl?: string } | null>(null);
   const send = trpc.affiliates.adminSendCredentials.useMutation({
     onSuccess: (data) => {
       toast.success(`Credentials notification sent for ${data.email}`);
-      setOpen(false);
+      setSent({ email: data.email, welcomeGuideUrl: data.welcomeGuideUrl });
     },
     onError: (err) => {
       toast.error(`Failed to send: ${err.message}`);
@@ -539,7 +540,7 @@ function SendCredentialsButton({ affiliateId }: { affiliateId: number }) {
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSent(null); }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5">
           <Send className="h-3.5 w-3.5" /> Send Credentials
@@ -549,18 +550,41 @@ function SendCredentialsButton({ affiliateId }: { affiliateId: number }) {
         <DialogHeader>
           <DialogTitle>Send Credentials</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          This will notify the owner to send the affiliate's storefront URL, referral link, and login portal to their email address.
-        </p>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button
-            onClick={() => send.mutate({ id: affiliateId })}
-            disabled={send.isPending}
-          >
-            {send.isPending ? "Sending…" : "Send Now"}
-          </Button>
-        </DialogFooter>
+        {sent ? (
+          <div className="space-y-3">
+            <p className="text-sm text-emerald-600 font-medium">✓ Notification sent for {sent.email}</p>
+            <p className="text-sm text-muted-foreground">Include this Welcome Guide PDF when you email the affiliate their credentials:</p>
+            {sent.welcomeGuideUrl && (
+              <a
+                href={sent.welcomeGuideUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm font-medium hover:bg-muted transition-colors"
+              >
+                <FileText className="h-4 w-4 text-primary shrink-0" />
+                Affiliate Welcome Guide (PDF)
+              </a>
+            )}
+            <DialogFooter>
+              <Button onClick={() => { setOpen(false); setSent(null); }}>Done</Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              This will notify the owner to send the affiliate's storefront URL, referral link, login portal, and Welcome Guide PDF to their email address.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button
+                onClick={() => send.mutate({ id: affiliateId })}
+                disabled={send.isPending}
+              >
+                {send.isPending ? "Sending…" : "Send Now"}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -647,7 +647,7 @@ function AdminFooterLink() {
   if (!user || user.role !== "admin") return null;
   return (
     <a
-      href="/admin/affiliates"
+      href="/admin#affiliates"
       className="flex items-center gap-1 text-white/40 hover:text-white/80 transition-colors text-xs"
     >
       <LogIn className="h-3 w-3" /> Affiliate Admin

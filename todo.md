@@ -694,3 +694,11 @@
 - [x] Add image upload UI in affiliate dashboard (AffiliateDashboard.tsx) — "Upload Kitchen Scene" button with preview
 - [x] Add updateHeroImage procedure to affiliates router (upload to S3, save URL)
 - [x] Image should only appear on the affiliate's own storefront, not on main CabinetDealz site
+
+## Affiliate Link Fix & Welcome Guide (Jul 8)
+
+- [x] Fix broken /admin/affiliates link on storefront footer (changed to /admin#affiliates)
+- [x] Create affiliate welcome guide PDF (storefront, dashboard, marketing, CRM usage)
+- [x] Upload welcome guide PDF to static assets (manus-storage)
+- [x] Add welcome guide PDF link to Send Credentials dialog in admin panel
+- [x] Add "Download Welcome Guide" button to affiliate dashboard Credentials tab
