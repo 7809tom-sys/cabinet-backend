@@ -4330,15 +4330,7 @@ export default function DesignTool() {
             <Wand2 className="h-3.5 w-3.5" />
             {t("dt_sh_autofill_wall")}
           </button>
-          <button
-            type="button"
-            onClick={() => setConsultOpen((o) => !o)}
-            title={t("dt_sh_consultant_title")}
-            className="flex items-center gap-1.5 rounded-lg border border-[#1a2744]/30 bg-[#1a2744]/5 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition-colors hover:bg-[#1a2744]/10"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            {t("dt_sh_consultant")}
-          </button>
+
         </div>
 
         <div className="hidden lg:block h-5 w-px bg-border" />
@@ -6246,6 +6238,22 @@ export default function DesignTool() {
               </div>
             </div>
           )}
+
+          {/* AI Consultant floating action button — bottom-right of canvas */}
+          <button
+            type="button"
+            onClick={() => setConsultOpen((o) => !o)}
+            title={t("dt_sh_consultant_title")}
+            className={`absolute bottom-20 lg:bottom-4 right-4 z-30 flex items-center gap-2 rounded-full shadow-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+              consultOpen
+                ? "bg-[#1a2744] text-white pr-3"
+                : "bg-[#1a2744] text-white hover:bg-[#1a2744]/90 hover:shadow-xl hover:scale-105"
+            }`}
+          >
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">{consultOpen ? "Close AI" : t("dt_sh_consultant")}</span>
+            {consultOpen && <X className="h-3.5 w-3.5 ml-0.5" />}
+          </button>
 
           {/* Wall layer toggle (plan only) */}
           {viewMode !== "elevation" && viewMode !== "corner" && viewMode !== "island" && (

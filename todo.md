@@ -549,6 +549,13 @@
 - [x] Wire IslandElevationView into the main canvas area for the "island" view mode
 - [x] Exclude island view from the wall-layer toggle (plan-only control)
 
+## AI Consultant Chat Button Relocation
+
+- [x] Remove AI Consultant button from the toolbar row
+- [x] Add floating action button (FAB) pinned to bottom-right of canvas — dark pill with sparkle icon + "Design Consultant" label
+- [x] FAB shows "Close AI" + X icon when panel is open
+- [x] On mobile the FAB sits above the bottom nav bar (bottom-20), on desktop it sits at the canvas edge (bottom-4)
+
 ## CSV Parts List Import (2020 Design BOM)
 
 - [x] Add trpc.ocr.parseCSV procedure — parses CSV/TSV text, auto-detects code/qty columns, matches codes against live catalog using existing matchCabinetCodes logic
