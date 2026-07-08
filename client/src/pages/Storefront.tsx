@@ -11,7 +11,7 @@ import { StorefrontShop } from "@/components/storefront/StorefrontShop";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import {
   ArrowRight, Phone, Mail, MapPin, Globe, Facebook, Instagram, Award,
-  Ruler, ShieldCheck, Zap, Heart, Languages,
+  Ruler, ShieldCheck, Zap, Heart, Languages, Waves, LogIn,
 } from "lucide-react";
 
 const PLATFORM_NAVY = "#1a2b4a";
@@ -175,6 +175,44 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
         {/* ─── Family-locked shop (shared across templates) ─────────────── */}
         <StorefrontShop slug={data.slug} brand={brand} lang={lang} withRef={withRef} />
 
+        {/* ─── Surfaces & Fixtures promo band ─────────────────────────── */}
+        <section className="py-14 md:py-16 bg-muted/40">
+          <div className="container">
+            <div className="flex flex-col md:flex-row md:items-center gap-8">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <Waves className="h-5 w-5" style={{ color: brand.accent }} />
+                  <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: brand.accent }}>Surfaces &amp; Fixtures</span>
+                </div>
+                <h2 className={`${headlineFont} text-2xl md:text-3xl font-bold mb-3`}>
+                  Complete Your Kitchen &amp; Bath
+                </h2>
+                <p className="text-muted-foreground leading-relaxed mb-6">
+                  Beyond cabinets — shop quartz countertops, waterproof flooring, tile, sinks, faucets, showers, tubs, and toilets. All at trade pricing through Cabinet Dealz.
+                </p>
+                <a href={withRef("/surfaces")}>
+                  <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
+                    Shop Surfaces &amp; Fixtures <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </a>
+              </div>
+              <div className="flex-1 grid grid-cols-2 gap-3">
+                {[
+                  { icon: "🪨", label: "Quartz Countertops" },
+                  { icon: "🚿", label: "Showers & Tubs" },
+                  { icon: "🚰", label: "Sinks & Faucets" },
+                  { icon: "🏠", label: "Flooring & Tile" },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
+                    <span className="text-2xl">{item.icon}</span>
+                    <span className="text-sm font-medium">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ─── How it works ────────────────────────────────────────────── */}
         <section className="py-16 md:py-20 bg-muted/30">
           <div className="container">
@@ -273,6 +311,13 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           <div className="mt-10 pt-6 border-t border-white/15 text-xs text-white/50 flex flex-col sm:flex-row justify-between gap-2">
             <span>© {new Date().getFullYear()} {data.storeName}. {t("footer_rights")}</span>
             <span>{t("footer_powered")}</span>
+            {/* Discreet affiliate/admin login link */}
+            <a
+              href="/affiliate"
+              className="flex items-center gap-1 text-white/40 hover:text-white/70 transition-colors text-xs"
+            >
+              <LogIn className="h-3 w-3" /> Partner Login
+            </a>
           </div>
         </div>
       </footer>
