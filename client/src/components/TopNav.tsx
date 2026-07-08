@@ -93,6 +93,11 @@ export function TopNav() {
   const isActive = (href: string) => location.startsWith(href);
   const moreActive = [...MORE_LINKS, ...PORTAL_LINKS].some((l) => isActive(l.href));
 
+  // On affiliate pages, hide internal portals (Supplier Portal, Dealer Portal)
+  const visiblePortalLinks = affiliateBrand
+    ? PORTAL_LINKS.filter((l) => l.href === "/affiliate")
+    : PORTAL_LINKS;
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between gap-2">
@@ -185,7 +190,7 @@ export function TopNav() {
                 <div className="px-4 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   {t("nav_more")}
                 </div>
-                {PORTAL_LINKS.map((link) => (
+                {visiblePortalLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
@@ -290,7 +295,7 @@ export function TopNav() {
               </Link>
             ))}
             <div className="border-t border-border my-2" />
-            {PORTAL_LINKS.map((link) => (
+            {visiblePortalLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
