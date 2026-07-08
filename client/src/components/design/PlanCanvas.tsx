@@ -861,38 +861,44 @@ export function PlanCanvas({
           return (
             <div
               key={pw.uid}
-              className="absolute group"
-              style={{
-                left: pw.x * ppi,
-                top: pw.y * ppi,
-                width: pw.width * ppi,
-                height: pw.depth * ppi,
-                background: "#2a3550",
-                border: isPonySelected ? "2px solid #f59e0b" : "2px solid #1a2744",
-                borderRadius: 2,
-                cursor: layoutLocked ? "default" : "move",
-                zIndex: isPonySelected ? 20 : 2,
-                boxShadow: isPonySelected ? "0 0 0 2px rgba(245,158,11,0.4)" : undefined,
-              }}
-              title={`Pony Wall ${Math.round(pw.width)}″ wide × ${pw.height}″ tall`}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                onSelectPonyWall?.(pw.uid);
-                if (layoutLocked || !onPonyWallChange) return;
-                const rect = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect();
-                const startX = (e.clientX - rect.left) / ppi;
-                const startY = (e.clientY - rect.top) / ppi;
-                const origX = pw.x; const origY = pw.y;
-                const onMove = (ev: PointerEvent) => {
-                  const dx = (ev.clientX - rect.left) / ppi - startX;
-                  const dy = (ev.clientY - rect.top) / ppi - startY;
-                  const updated = clampPonyWall({ ...pw, x: origX + dx, y: origY + dy }, room);
-                  onPonyWallChange(updated);
-                };
-                const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
-                window.addEventListener("pointermove", onMove);
-                window.addEventListener("pointerup", onUp);
-              }}
+            className="absolute group touch-none"
+            style={{
+              left: pw.x * ppi,
+              top: pw.y * ppi,
+              width: pw.width * ppi,
+              height: pw.depth * ppi,
+              background: "#2a3550",
+              border: isPonySelected ? "2px solid #f59e0b" : "2px solid #1a2744",
+              borderRadius: 2,
+              cursor: layoutLocked ? "default" : "move",
+              zIndex: isPonySelected ? 20 : 2,
+              boxShadow: isPonySelected ? "0 0 0 2px rgba(245,158,11,0.4)" : undefined,
+            }}
+            title={`Pony Wall ${Math.round(pw.width)}\u2033 wide × ${pw.height}\u2033 tall`}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onSelectPonyWall?.(pw.uid);
+              if (layoutLocked || !onPonyWallChange) return;
+              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+              const rect = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect();
+              const startX = (e.clientX - rect.left) / ppi;
+              const startY = (e.clientY - rect.top) / ppi;
+              const origX = pw.x; const origY = pw.y;
+              const el = e.currentTarget as HTMLElement;
+              const onMove = (ev: PointerEvent) => {
+                const dx = (ev.clientX - rect.left) / ppi - startX;
+                const dy = (ev.clientY - rect.top) / ppi - startY;
+                const updated = clampPonyWall({ ...pw, x: origX + dx, y: origY + dy }, room);
+                onPonyWallChange(updated);
+              };
+              const onUp = () => {
+                try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+                el.removeEventListener("pointermove", onMove as EventListener);
+                el.removeEventListener("pointerup", onUp);
+              };
+              el.addEventListener("pointermove", onMove as EventListener);
+              el.addEventListener("pointerup", onUp);
+            }}
             >
               <span className="absolute left-1 top-0.5 text-[8px] font-bold tracking-wide text-white/80 pointer-events-none whitespace-nowrap">
                 {pw.label || `PONY ${Math.round(pw.width)}″`}
@@ -914,10 +920,12 @@ export function PlanCanvas({
                   className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 rounded-sm bg-[#4a6090] border border-white shadow cursor-nwse-resize z-10"
                   onPointerDown={(e) => {
                     e.stopPropagation();
+                    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
                     const rect = (e.currentTarget as HTMLElement).closest(".absolute")!.parentElement!.getBoundingClientRect();
                     const startX = (e.clientX - rect.left) / ppi;
                     const startY = (e.clientY - rect.top) / ppi;
                     const origW = pw.width; const origD = pw.depth;
+                    const el = e.currentTarget as HTMLElement;
                     const onMove = (ev: PointerEvent) => {
                       const dx = (ev.clientX - rect.left) / ppi - startX;
                       const dy = (ev.clientY - rect.top) / ppi - startY;
@@ -926,9 +934,13 @@ export function PlanCanvas({
                       const updated = clampPonyWall({ ...pw, width: newW, depth: newD }, room);
                       onPonyWallChange(updated);
                     };
-                    const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
-                    window.addEventListener("pointermove", onMove);
-                    window.addEventListener("pointerup", onUp);
+                    const onUp = () => {
+                      try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+                      el.removeEventListener("pointermove", onMove as EventListener);
+                      el.removeEventListener("pointerup", onUp);
+                    };
+                    el.addEventListener("pointermove", onMove as EventListener);
+                    el.addEventListener("pointerup", onUp);
                   }}
                 />
               )}
