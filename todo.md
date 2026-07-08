@@ -562,3 +562,9 @@
 - [x] Create CsvImportDialog component — drag-drop CSV upload, review table with match confidence badges, door style + tier selector, add-to-cart action
 - [x] Add "Import from 2020 Design (CSV)" button to PhotoToCart page header
 - [x] Add "Import CSV" button to DesignTool desktop toolbar
+
+## Remove Gap-Fill Cabinet Suggestions from Designer
+
+- [x] Remove the suggestion popover (Place / Place with Filler buttons) from gap label chips in PlanCanvas
+- [x] Keep gap measurement label chips as display-only (pointer-events-none) so designers can still see gap sizes
+- [x] Remove activeGap click handler — chips no longer open any popover

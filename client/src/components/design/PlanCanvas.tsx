@@ -1388,97 +1388,18 @@ export function PlanCanvas({
           };
           // Only show base-layer gaps (most actionable for the user).
           const baseGaps = gaps.filter((g) => g.layer === "base" && g.length >= 3);
-          const STANDARD_WIDTHS = [9,12,15,18,21,24,27,30,33,36,39,42,45,48];
           return baseGaps.map((g, i) => {
             const pos = gapPx(g);
-            const isActive = activeGap?.side === g.side && activeGap?.start === g.start && activeGap?.layer === g.layer;
             const color = g.isFillerSize ? "#e07b39" : g.isStandardSize ? "#2e7d32" : "#1a2744";
-            // Only suggest widths that (a) physically fit the gap with <=6" of
-            // leftover filler AND (b) have a REAL cabinet in the active palette.
-            // When we don't have palette candidates (no style picked / no map),
-            // fall back to the plain standard-width hint list.
-            const fittingWidths = STANDARD_WIDTHS.filter((w) => w <= g.length && g.length - w <= 6);
-            const realSuggestions = gapFillCandidates
-              ? fittingWidths
-                  .map((w) => ({ w, cab: gapFillCandidates.get(w) }))
-                  .filter((s): s is { w: number; cab: DesignCabinet } => !!s.cab)
-              : [];
-            const hasPalette = !!gapFillCandidates && gapFillCandidates.size > 0;
             return (
-              <div key={`gap-${g.side}-${i}`}>
-                {/* Gap label chip */}
-                <div
-                  className="absolute z-30 cursor-pointer select-none -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md transition-transform hover:scale-110 active:scale-95"
-                  style={{ left: pos.left, top: pos.top, background: color, border: "1.5px solid white" }}
-                  onClick={(e) => { e.stopPropagation(); setActiveGap(isActive ? null : g); }}
-                  title={t("dt_gap_title", { len: formatInches(g.length) })}
-                >
-                  {formatInches(g.length)}
-                </div>
-                {/* Fill suggestions popover */}
-                {isActive && (
-                  <div
-                    className="absolute z-50 rounded-lg bg-white shadow-xl border border-gray-200 p-3 min-w-[200px] max-w-[240px]"
-                    style={{ left: pos.left + 10, top: pos.top + 10 }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="text-[10px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                      {t("dt_gap_title", { len: formatInches(g.length) })}
-                    </div>
-                    {g.isFillerSize ? (
-                      <div className="flex flex-col gap-1.5">
-                        <div className="text-[11px] text-orange-600 font-medium">{t("dt_gap_use_filler")}</div>
-                        {onPlaceFiller && (
-                          <button
-                            className="w-full rounded-md bg-orange-600 px-2 py-1.5 text-[10px] font-semibold text-white transition-transform hover:bg-orange-700 active:scale-95"
-                            onClick={() => { onPlaceFiller(g); setActiveGap(null); }}
-                          >{t("dt_gap_place_filler")}</button>
-                        )}
-                      </div>
-                    ) : !hasPalette ? (
-                      <div className="text-[11px] text-gray-400">{t("dt_gap_pick_style")}</div>
-                    ) : realSuggestions.length > 0 ? (
-                      <>
-                        <div className="text-[10px] text-gray-400 mb-1">{t("dt_gap_fits_header")}</div>
-                        {realSuggestions.map(({ w, cab }) => {
-                          const exact = Math.abs(w - g.length) < 0.5;
-                          const fillerLeft = g.length - w;
-                          const needsFiller = !exact && fillerLeft > 0 && fillerLeft <= 6;
-                          return (
-                            <div key={w} className="flex flex-col gap-1 py-1 border-b border-gray-50 last:border-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="text-[11px] font-semibold text-gray-800 truncate">{cab.masterCode}</div>
-                                  <div className="text-[9px] text-gray-400">
-                                    {w}" · {exact ? t("dt_gap_exact_fit") : t("dt_gap_filler_left", { len: formatInches(fillerLeft) })}
-                                  </div>
-                                </div>
-                                {onFillGap && (
-                                  <button
-                                    className="shrink-0 rounded-md bg-[#1a2744] px-2 py-1 text-[10px] font-semibold text-white transition-transform hover:bg-[#243456] active:scale-95"
-                                    onClick={() => { onFillGap(g, cab); setActiveGap(null); }}
-                                  >{t("dt_gap_place")}</button>
-                                )}
-                              </div>
-                              {needsFiller && onFillGapWithCabAndFiller && (
-                                <button
-                                  className="w-full rounded-md bg-orange-600 px-2 py-1 text-[10px] font-semibold text-white transition-transform hover:bg-orange-700 active:scale-95"
-                                  onClick={() => { onFillGapWithCabAndFiller(g, cab); setActiveGap(null); }}
-                                >{t("dt_gap_place_with_filler", { code: cab.masterCode, filler: formatInches(fillerLeft) })}</button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </>
-                    ) : (
-                      <div className="text-[11px] text-gray-400">{t("dt_gap_none")}</div>
-                    )}
-                    <button
-                      className="mt-2 w-full text-[10px] text-gray-400 hover:text-gray-600 text-right"
-                      onClick={() => setActiveGap(null)}
-                    >×</button>
-                  </div>
-                )}
+              // Gap measurement label chip — display only, no suggestion popover
+              <div
+                key={`gap-${g.side}-${i}`}
+                className="absolute z-30 select-none -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md pointer-events-none"
+                style={{ left: pos.left, top: pos.top, background: color, border: "1.5px solid white" }}
+                title={t("dt_gap_title", { len: formatInches(g.length) })}
+              >
+                {formatInches(g.length)}
               </div>
             );
           });
