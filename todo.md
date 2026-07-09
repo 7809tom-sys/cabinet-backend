@@ -705,11 +705,12 @@
 
 ## Feature: Nationwide Sales Tax Calculator
 
-- [ ] Add US state sales tax rates table (server-side, all 50 states + DC)
-- [ ] Add getTaxRate tRPC procedure (public, takes state code, returns rate + label)
-- [ ] Wire tax calculation into order/quote form — show state selector, tax rate, tax amount, and order total with tax
-- [ ] Show tax line in admin order detail view
-- [ ] Store calculated tax rate and tax amount on the order record in the database
+- [x] Add US state sales tax rates table (shared/usSalesTax.ts, all 50 states + DC)
+- [x] Add getTaxRate tRPC procedure (public, takes state code, returns rate + label)
+- [x] Add listStates tRPC procedure (returns all states for selector dropdown)
+- [x] Wire tax calculation into order/quote form — state selector, tax rate, tax amount, grand total
+- [x] Show tax line in admin order detail view (subtotal + tax + grand total)
+- [x] Store taxState, taxRate, taxAmount on the order record in the database
 
 ## Feature: W-9 / Tax Compliance for Affiliates
 

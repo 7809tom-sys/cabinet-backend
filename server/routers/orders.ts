@@ -635,6 +635,12 @@ export const ordersRouter = router({
         referralCode: z.string().max(32).optional(),
         deliveryMethod: z.enum(["ship", "pickup"]).optional(),
         pickupDistributorId: z.number().int().positive().nullable().optional(),
+        /** 2-letter US state code for sales tax calculation */
+        taxState: z.string().length(2).optional(),
+        /** Combined state+local tax rate as a decimal (e.g. 0.07 = 7%) */
+        taxRate: z.number().min(0).max(0.25).optional(),
+        /** Computed tax amount in dollars */
+        taxAmount: z.number().min(0).optional(),
         submit: z.boolean().default(false),
       })
     )
@@ -719,6 +725,9 @@ export const ordersRouter = router({
         referralCode,
         deliveryMethod: input.deliveryMethod ?? "ship",
         pickupDistributorId: input.deliveryMethod === "pickup" ? input.pickupDistributorId ?? null : null,
+        taxState: input.taxState ?? null,
+        taxRate: input.taxRate != null ? String(input.taxRate) : null,
+        taxAmount: input.taxAmount != null ? String(input.taxAmount.toFixed(2)) : null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 

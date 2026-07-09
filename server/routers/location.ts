@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getStateTaxRate, US_STATE_TAX_RATES } from "../../shared/usSalesTax";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { distributors } from "../../drizzle/schema";
@@ -149,6 +150,33 @@ export const locationRouter = router({
       options.sort((a, b) => a.distanceMiles - b.distanceMiles);
       return { zip, resolved: !!customer, options };
     }),
+
+  // ─── Sales tax rate lookup ────────────────────────────────────────────────
+  // Returns the combined state + average local sales tax rate for a US state.
+  // Used by the order review form to show an estimated tax amount to the customer.
+  getTaxRate: publicProcedure
+    .input(z.object({ stateCode: z.string().length(2) }))
+    .query(({ input }) => {
+      const info = getStateTaxRate(input.stateCode);
+      if (!info) return null;
+      return {
+        stateCode: info.code,
+        stateName: info.name,
+        rate: info.rate,
+        stateRate: info.stateRate,
+        hasLocalTax: info.hasLocalTax,
+        notes: info.notes ?? null,
+      };
+    }),
+
+  // Returns the full list of states with their tax rates for the state selector.
+  listStates: publicProcedure.query(() => {
+    return US_STATE_TAX_RATES.map((s) => ({
+      code: s.code,
+      name: s.name,
+      rate: s.rate,
+    }));
+  }),
 });
 
 type PickupOptionOut = {

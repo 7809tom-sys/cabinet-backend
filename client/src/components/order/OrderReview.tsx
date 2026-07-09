@@ -25,6 +25,7 @@ import {
 import { CabinetImage } from "@/components/CabinetImage";
 import PayWithCard from "@/components/order/PayWithCard";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { US_STATE_TAX_RATES } from "@shared/usSalesTax";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -193,6 +194,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
   const [deliveryMethod, setDeliveryMethod] = useState<"ship" | "pickup">("ship");
   const [pickupDistributorId, setPickupDistributorId] = useState<number | null>(null);
   const [submittedId, setSubmittedId] = useState<number | null>(null);
+  // Sales tax: customer selects their state; we look up the combined rate.
+  const [taxState, setTaxState] = useState<string>("");
   // Referral attribution captured from a storefront visit or ?ref= link.
   const [referralCode, setReferralCode] = useState<string | null>(() => readReferralCode());
   const referralInfo = trpc.affiliates.byCode.useQuery(
@@ -443,6 +446,16 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
   }, [lines, priceMap, costMap]);
 
   const total = pricedLines.reduce((sum, l) => sum + (l.linePrice ?? 0), 0);
+
+  // Sales tax calculation: look up rate for selected state, compute tax amount.
+  const taxRateQuery = trpc.location.getTaxRate.useQuery(
+    { stateCode: taxState },
+    { enabled: taxState.length === 2, retry: false }
+  );
+  const taxInfo = taxRateQuery.data ?? null;
+  const taxAmount = taxInfo && total > 0 ? Number((total * taxInfo.rate).toFixed(2)) : 0;
+  const grandTotal = total + taxAmount;
+
   // Owner-only roll-up: total cost + gross margin across all priced lines.
   const isOwner = user?.role === "admin";
   const ownerCost = pricedLines.reduce((sum, l) => sum + (l.lineCost ?? 0), 0);
@@ -540,6 +553,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
       referralCode: referralCode ?? undefined,
       deliveryMethod,
       pickupDistributorId: deliveryMethod === "pickup" ? pickupDistributorId : null,
+      taxState: taxState || undefined,
+      taxRate: taxInfo?.rate,
+      taxAmount: taxAmount > 0 ? taxAmount : undefined,
       submit: true,
       lineItems: pricedLines.map((l) => ({
         cabinetId: l.cabinetId,
@@ -833,22 +849,87 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
           touch-up kit. (recommendAddOns query + addRecommended/addTouchUpKit
           handlers are retained but unused so the feature can be restored.) */}
 
-      {/* Total */}
-      <div className="flex items-center justify-between rounded-lg border border-border bg-card px-5 py-4">
-        <div>
-          <p className="text-sm text-muted-foreground">
-            {t("or_est_total")}{" "}
-            {pricedCount < matchedCount && (
-              <span className="text-amber-600">{t("or_some_not_priced")}</span>
-            )}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {selectedStyle ? `${selectedStyle.name} · ${tier}` : t("or_select_style_to_price")}
+      {/* Order Total with Tax Breakdown */}
+      <div className="rounded-lg border border-border bg-card px-5 py-4 space-y-3">
+        {/* Subtotal row */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              {t("or_est_total")}{" "}
+              {pricedCount < matchedCount && (
+                <span className="text-amber-600">{t("or_some_not_priced")}</span>
+              )}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {selectedStyle ? `${selectedStyle.name} · ${tier}` : t("or_select_style_to_price")}
+            </p>
+          </div>
+          <p className="font-serif text-xl font-semibold tabular-nums">
+            {total > 0 ? `$${total.toFixed(2)}` : "—"}
           </p>
         </div>
-        <p className="font-serif text-2xl font-bold tabular-nums">
-          {total > 0 ? `$${total.toFixed(2)}` : "—"}
-        </p>
+
+        {/* State selector for sales tax */}
+        <div className="border-t border-border pt-3">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <Label htmlFor="tax-state" className="text-xs text-muted-foreground mb-1 block">
+                Sales Tax State <span className="font-normal">(optional — for estimate)</span>
+              </Label>
+              <Select value={taxState} onValueChange={setTaxState}>
+                <SelectTrigger id="tax-state" className="h-8 text-sm">
+                  <SelectValue placeholder="Select state…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {US_STATE_TAX_RATES.map((s) => (
+                    <SelectItem key={s.code} value={s.code}>
+                      {s.name} {s.rate === 0 ? "(no tax)" : `(${(s.rate * 100).toFixed(2).replace(/\.?0+$/, "")}%)`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {taxState && (
+              <button
+                type="button"
+                onClick={() => setTaxState("")}
+                className="text-xs text-muted-foreground hover:text-foreground mt-5"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Tax line */}
+          {taxInfo && total > 0 && (
+            <div className="flex items-center justify-between mt-2 text-sm">
+              <span className="text-muted-foreground">
+                {taxInfo.stateName} Sales Tax ({((taxInfo.rate) * 100).toFixed(2).replace(/\.?0+$/, "")}%)
+                {taxInfo.hasLocalTax && <span className="text-xs ml-1">(est. incl. local)</span>}
+                {taxInfo.rate === 0 && <span className="ml-1 text-emerald-600">— No tax</span>}
+              </span>
+              <span className="font-medium tabular-nums">
+                {taxInfo.rate === 0 ? "$0.00" : `$${taxAmount.toFixed(2)}`}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Grand total */}
+        {taxInfo && total > 0 && (
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <p className="text-sm font-semibold">Estimated Total (with tax)</p>
+            <p className="font-serif text-2xl font-bold tabular-nums">${grandTotal.toFixed(2)}</p>
+          </div>
+        )}
+
+        {/* No state selected — show pre-tax total prominently */}
+        {!taxInfo && total > 0 && (
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <p className="text-xs text-muted-foreground">Select your state above to see estimated tax</p>
+            <p className="font-serif text-2xl font-bold tabular-nums">${total.toFixed(2)}</p>
+          </div>
+        )}
       </div>
 
       {/* Owner-only cost & margin (never shown to non-admins) */}
@@ -1012,7 +1093,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
           size="lg"
           className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
         >
-          {createReq.isPending ? t("or_submitting") : `${t("or_submit_request")}${total > 0 ? ` · $${total.toFixed(2)}` : ""}`}
+          {createReq.isPending ? t("or_submitting") : `${t("or_submit_request")}${grandTotal > 0 ? ` · $${grandTotal.toFixed(2)}` : ""}`}
         </Button>
       </div>
     </div>

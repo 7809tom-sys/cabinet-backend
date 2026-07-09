@@ -50,6 +50,9 @@ type OrderRow = {
   tier: string;
   styleName: string | null;
   totalAmount: string | null;
+  taxState?: string | null;
+  taxRate?: string | null;
+  taxAmount?: string | null;
   itemCount: number;
   notes: string | null;
   lineItems: EnrichedLine[];
@@ -130,7 +133,19 @@ function OrderDetailDialog({
             <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Order Info</p>
             <p><span className="text-muted-foreground">Style:</span> {order.styleName || "—"}</p>
             <p><span className="text-muted-foreground">Tier:</span> {order.tier}</p>
-            <p><span className="text-muted-foreground">Total:</span> {order.totalAmount ? `$${order.totalAmount}` : "—"}</p>
+            <p><span className="text-muted-foreground">Subtotal:</span> {order.totalAmount ? `$${order.totalAmount}` : "—"}</p>
+            {order.taxState && order.taxAmount && (
+              <p>
+                <span className="text-muted-foreground">Tax ({order.taxState}{order.taxRate ? ` · ${(parseFloat(order.taxRate) * 100).toFixed(2).replace(/\.?0+$/, "")}%` : ""}):</span>{" "}
+                ${order.taxAmount}
+              </p>
+            )}
+            {order.taxState && order.taxAmount && (
+              <p className="font-semibold">
+                <span className="text-muted-foreground font-normal">Grand Total:</span>{" "}
+                ${(parseFloat(order.totalAmount ?? "0") + parseFloat(order.taxAmount)).toFixed(2)}
+              </p>
+            )}
             <p><span className="text-muted-foreground">Date:</span> {new Date(order.createdAt).toLocaleDateString()}</p>
           </div>
         </div>

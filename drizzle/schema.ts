@@ -492,6 +492,11 @@ export const orderRequests = mysqlTable("order_requests", {
   deliveryMethod: mysqlEnum("deliveryMethod", ["ship", "pickup"]).default("ship").notNull(),
   // When pickup is chosen, which distributor's pickup location was selected.
   pickupDistributorId: int("pickupDistributorId"),
+  // Sales tax: 2-letter state code, rate (decimal), and computed tax amount.
+  // taxAmount is stored so historical orders reflect the rate at time of order.
+  taxState: varchar("taxState", { length: 2 }),
+  taxRate: decimal("taxRate", { precision: 7, scale: 6 }),
+  taxAmount: decimal("taxAmount", { precision: 12, scale: 2 }),
   // Which distributor line the confirmed PO is routed to (resolved from lines).
   distributorId: int("distributorId"),
   // Audit of the send-to-distributor action: when it was sent + to whom.

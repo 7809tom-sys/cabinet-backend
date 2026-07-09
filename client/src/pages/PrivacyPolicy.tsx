@@ -9,8 +9,7 @@ export default function PrivacyPolicy() {
         <section>
           <h2 className="text-xl font-semibold mb-3">1. Who We Are</h2>
           <p className="text-muted-foreground leading-relaxed">
-            Cabinet Dealz ("we," "us," or "our") is operated by First Class Flooring &amp; Cabinet Design, located at
-            470 N Tamiami Trail, Osprey, FL 34229. We operate the website cabinetdealz.com and related services.
+            Cabinet Dealz ("we," "us," or "our") is located at 470 N Tamiami Trail, Osprey, FL 34229. We operate the website cabinetdealz.com and related services.
             This Privacy Policy explains how we collect, use, and protect your personal information.
           </p>
         </section>
