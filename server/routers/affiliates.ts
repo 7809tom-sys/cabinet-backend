@@ -415,6 +415,8 @@ export const affiliatesRouter = router({
       brandName: z.string().max(256).nullable().optional(),
       // No business cap on per-style markup (blank/null = fall back to default).
       markupBps: z.number().int().min(0).max(1000000).nullable().optional(),
+      featured: z.boolean().optional(),
+      sortOrder: z.number().int().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const mine = await resolveMyAffiliate(ctx);
@@ -428,16 +430,50 @@ export const affiliatesRouter = router({
       const row = existing.find((r) => r.styleId === input.styleId);
       const brandName = input.brandName === undefined ? row?.brandName ?? null : (input.brandName?.trim() || null);
       const markupBps = input.markupBps === undefined ? row?.markupBps ?? null : input.markupBps;
+      const featured = input.featured === undefined ? (row?.featured ?? false) : input.featured;
+      const sortOrder = input.sortOrder === undefined ? (row?.sortOrder ?? 0) : input.sortOrder;
       if (row) {
         await db.update(affiliateStyleBranding)
-          .set({ brandName, markupBps })
+          .set({ brandName, markupBps, featured, sortOrder })
           .where(eq(affiliateStyleBranding.id, row.id));
       } else {
         await db.insert(affiliateStyleBranding).values({
-          affiliateId: mine.id, styleId: input.styleId, brandName, markupBps,
+          affiliateId: mine.id, styleId: input.styleId, brandName, markupBps, featured, sortOrder,
         });
       }
-      return { styleId: input.styleId, brandName, markupBps };
+      return { styleId: input.styleId, brandName, markupBps, featured, sortOrder };
+    }),
+
+  // Upload a room scene photo for a specific door style on this affiliate's storefront
+  uploadStyleRoomScene: partnerProcedure
+    .input(z.object({
+      styleId: z.number().int(),
+      fileBase64: z.string(),
+      mimeType: z.string().default("image/jpeg"),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const ext = input.mimeType.split("/")[1] ?? "jpg";
+      const key = `affiliate-room-scenes/${mine.id}/${input.styleId}-${Date.now()}.${ext}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      const existing = await db
+        .select()
+        .from(affiliateStyleBranding)
+        .where(and(eq(affiliateStyleBranding.affiliateId, mine.id), eq(affiliateStyleBranding.styleId, input.styleId)));
+      if (existing.length > 0) {
+        await db.update(affiliateStyleBranding)
+          .set({ roomSceneUrl: url })
+          .where(eq(affiliateStyleBranding.id, existing[0].id));
+      } else {
+        await db.insert(affiliateStyleBranding).values({
+          affiliateId: mine.id, styleId: input.styleId, roomSceneUrl: url, featured: false, sortOrder: 0,
+        });
+      }
+      return { url };
     }),
 
   // ─── Admin: referrals for one affiliate ────────────────────────────────────

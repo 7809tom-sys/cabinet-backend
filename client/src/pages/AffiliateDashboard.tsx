@@ -2,6 +2,11 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { AffiliateDashboardLayout, type AffiliateSection } from "@/components/affiliate/AffiliateDashboardLayout";
+import AffiliatePricingPanel from "@/components/affiliate/AffiliatePricingPanel";
+import AffiliateCatalogPanel from "@/components/affiliate/AffiliateCatalogPanel";
+import AffiliateAnalyticsPanel from "@/components/affiliate/AffiliateAnalyticsPanel";
+import AffiliateMarketingHub from "@/components/affiliate/AffiliateMarketingHub";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +27,7 @@ import {
   LinkIcon, Save, Loader2, PencilRuler, Globe, Users,
   ArrowRight, Sparkles, Star, TrendingUp, Shield, Palette, Truck,
   Wand2, Send, ChevronRight, ImageIcon, FileText, AlertCircle, Upload, Eye, EyeOff,
+  ShoppingBag, BarChart2, BookOpen, Tag, Megaphone,
 } from "lucide-react";
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import {
@@ -290,6 +296,7 @@ function statusBadge(status: string) {
 
 export default function AffiliateDashboard() {
   const { isAuthenticated, loading } = useAuth();
+  const [section, setSection] = useState<AffiliateSection>("overview");
   const myRef = trpc.affiliates.myReferrals.useQuery(undefined, {
     enabled: isAuthenticated,
     retry: false,
@@ -331,153 +338,182 @@ export default function AffiliateDashboard() {
     );
   }
 
+  function renderSection() {
+    switch (section) {
+      case "overview":
+        return (
+          <div className="space-y-6 max-w-4xl">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="font-serif text-2xl font-bold">{affiliate.storeName}</h1>
+                {statusBadge(affiliate.status)}
+              </div>
+              <p className="text-muted-foreground text-sm">
+                {(commissionRate * 100).toFixed(1)}% commission on confirmed orders
+              </p>
+            </div>
+            {/* KPI cards */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                { icon: Package, label: "Referred orders", value: summary.referredCount },
+                { icon: CheckCircle2, label: "Confirmed", value: summary.confirmedCount },
+                { icon: DollarSign, label: "Commission earned", value: `$${summary.commission.toFixed(2)}` },
+              ].map((s) => (
+                <div key={s.label} className="rounded-xl border border-border bg-card p-5">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1.5">
+                    <s.icon className="h-4 w-4" /> {s.label}
+                  </div>
+                  <div className="font-serif text-3xl font-bold tabular-nums">{s.value}</div>
+                </div>
+              ))}
+            </div>
+            {/* Quick links */}
+            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+              <h2 className="font-semibold flex items-center gap-2">
+                <LinkIcon className="h-4 w-4" /> Your links
+              </h2>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Branded storefront</Label>
+                <div className="flex gap-2">
+                  <Input readOnly value={storeUrl} className="font-mono text-sm" />
+                  <Button variant="outline" size="icon" onClick={() => copy(storeUrl, "Storefront link")}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <a href={storeUrl} target="_blank" rel="noreferrer">
+                    <Button variant="outline" size="icon"><ExternalLink className="h-4 w-4" /></Button>
+                  </a>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">
+                  Quick referral link (code: <span className="font-mono">{affiliate.referralCode}</span>)
+                </Label>
+                <div className="flex gap-2">
+                  <Input readOnly value={refLink} className="font-mono text-sm" />
+                  <Button variant="outline" size="icon" onClick={() => copy(refLink, "Referral link")}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            {/* Quick nav shortcuts */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {([
+                { label: "My CRM", section: "crm" as AffiliateSection, icon: ShoppingBag },
+                { label: "Earnings", section: "earnings" as AffiliateSection, icon: DollarSign },
+                { label: "Analytics", section: "analytics" as AffiliateSection, icon: BarChart2 },
+                { label: "My Catalog", section: "catalog" as AffiliateSection, icon: BookOpen },
+                { label: "Pricing", section: "pricing" as AffiliateSection, icon: Tag },
+                { label: "Marketing Hub", section: "marketing" as AffiliateSection, icon: Megaphone },
+              ] as const).map((item) => (
+                <button
+                  key={item.section}
+                  onClick={() => setSection(item.section)}
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary hover:bg-primary/5 transition-colors"
+                >
+                  <item.icon className="h-5 w-5 text-primary shrink-0" />
+                  <span className="font-medium text-sm">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      case "crm":
+        return (
+          <div className="max-w-full">
+            <h2 className="text-xl font-bold mb-4">My CRM</h2>
+            <CrmBoard lang="en" />
+          </div>
+        );
+      case "orders":
+        return (
+          <div className="max-w-4xl">
+            <h2 className="text-xl font-bold mb-4">Referred Orders</h2>
+            {orders.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
+                No referred orders yet. Share your storefront or referral link to start earning.
+              </div>
+            ) : (
+              <div className="rounded-xl border border-border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Request #</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Commission</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.map((o) => {
+                      const total = o.totalAmount === null ? null : Number(o.totalAmount);
+                      const commission =
+                        o.status === "confirmed" && total != null
+                          ? total * commissionRate
+                          : null;
+                      return (
+                        <TableRow key={o.id}>
+                          <TableCell className="font-mono text-sm">{o.requestNumber ?? `#${o.id}`}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "—"}
+                          </TableCell>
+                          <TableCell className="text-sm">{o.originatorName || o.originatorEmail || "—"}</TableCell>
+                          <TableCell>{statusBadge(o.status)}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {total != null ? `$${total.toFixed(2)}` : "—"}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums font-medium">
+                            {commission != null ? `$${commission.toFixed(2)}` : "—"}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        );
+      case "earnings":
+        return <EarningsPanel />;
+      case "analytics":
+        return <AffiliateAnalyticsPanel />;
+      case "catalog":
+        return <AffiliateCatalogPanel />;
+      case "pricing":
+        return <AffiliatePricingPanel />;
+      case "customize":
+        return (
+          <div className="max-w-3xl">
+            <h2 className="text-xl font-bold mb-4">Customize Store</h2>
+            <CustomizeTab affiliate={affiliate} onSaved={() => myRef.refetch()} />
+          </div>
+        );
+      case "marketing":
+        return <AffiliateMarketingHub />;
+      case "tax":
+        return (
+          <div className="max-w-3xl">
+            <h2 className="text-xl font-bold mb-4">Tax Info (W-9)</h2>
+            <W9Panel />
+          </div>
+        );
+      default:
+        return null;
+    }
+  }
+
   return (
-    <div className="container py-10 max-w-5xl">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="font-serif text-3xl font-bold">{affiliate.storeName}</h1>
-            {statusBadge(affiliate.status)}
-          </div>
-          <p className="text-muted-foreground">
-            Affiliate dashboard · {(commissionRate * 100).toFixed(1)}% commission on confirmed orders
-          </p>
-        </div>
-        <a href={storeUrl} target="_blank" rel="noreferrer">
-          <Button variant="outline" className="gap-2">
-            <ExternalLink className="h-4 w-4" /> View my storefront
-          </Button>
-        </a>
-      </div>
-
-      {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-3 mb-8">
-        {[
-          { icon: Package, label: "Referred orders", value: summary.referredCount },
-          { icon: CheckCircle2, label: "Confirmed", value: summary.confirmedCount },
-          { icon: DollarSign, label: "Commission earned", value: `$${summary.commission.toFixed(2)}` },
-        ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1.5">
-              <s.icon className="h-4 w-4" /> {s.label}
-            </div>
-            <div className="font-serif text-3xl font-bold tabular-nums">{s.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Links */}
-      <div className="rounded-xl border border-border bg-card p-5 mb-8 space-y-4">
-        <h2 className="font-semibold flex items-center gap-2">
-          <LinkIcon className="h-4 w-4" /> Your links
-        </h2>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Branded storefront</Label>
-          <div className="flex gap-2">
-            <Input readOnly value={storeUrl} className="font-mono text-sm" />
-            <Button variant="outline" size="icon" onClick={() => copy(storeUrl, "Storefront link")}>
-              <Copy className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">
-            Quick referral link (tags any order with your code <span className="font-mono">{affiliate.referralCode}</span>)
-          </Label>
-          <div className="flex gap-2">
-            <Input readOnly value={refLink} className="font-mono text-sm" />
-            <Button variant="outline" size="icon" onClick={() => copy(refLink, "Referral link")}>
-              <Copy className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <Tabs defaultValue="credentials">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="credentials">Credentials &amp; Links</TabsTrigger>
-          <TabsTrigger value="crm">My CRM</TabsTrigger>
-          <TabsTrigger value="orders">Referred Orders</TabsTrigger>
-          <TabsTrigger value="earnings">Earnings</TabsTrigger>
-          <TabsTrigger value="customize">Customize</TabsTrigger>
-          <TabsTrigger value="tax" className="gap-1.5">
-            <FileText className="h-3.5 w-3.5" /> Tax Info (W-9)
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="credentials" className="mt-6">
-          <CredentialsPanel affiliate={affiliate} storeUrl={storeUrl} refLink={refLink} onCopy={copy} />
-        </TabsContent>
-
-        <TabsContent value="crm" className="mt-6">
-          <CrmBoard lang="en" />
-        </TabsContent>
-
-        <TabsContent value="orders" className="mt-6">
-          {orders.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
-              No referred orders yet. Share your storefront or referral link to start earning.
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Request #</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Commission</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.map((o) => {
-                    const total = o.totalAmount === null ? null : Number(o.totalAmount);
-                    const commission =
-                      o.status === "confirmed" && total != null
-                        ? total * commissionRate
-                        : null;
-                    return (
-                      <TableRow key={o.id}>
-                        <TableCell className="font-mono text-sm">{o.requestNumber ?? `#${o.id}`}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "—"}
-                        </TableCell>
-                        <TableCell className="text-sm">{o.originatorName || o.originatorEmail || "—"}</TableCell>
-                        <TableCell>{statusBadge(o.status)}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {total != null ? `$${total.toFixed(2)}` : "—"}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">
-                          {commission != null ? `$${commission.toFixed(2)}` : "—"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="earnings" className="mt-6">
-          <EarningsPanel />
-        </TabsContent>
-
-        <TabsContent value="customize" className="mt-6">
-          <CustomizeTab
-            affiliate={affiliate}
-            onSaved={() => myRef.refetch()}
-          />
-        </TabsContent>
-
-        <TabsContent value="tax" className="mt-6">
-          <W9Panel />
-        </TabsContent>
-      </Tabs>
-    </div>
+    <AffiliateDashboardLayout
+      section={section}
+      onSection={setSection}
+      storeName={affiliate.storeName}
+      storeSlug={affiliate.slug}
+    >
+      {renderSection()}
+    </AffiliateDashboardLayout>
   );
 }
 

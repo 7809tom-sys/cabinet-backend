@@ -722,3 +722,16 @@
 - [x] Show W-9 status badge in admin Affiliates panel per affiliate
 - [ ] Gate payout display with W-9 required notice if not yet submitted
 - [x] Notify owner when affiliate submits W-9 for review
+
+## Feature: Affiliate Admin Panel Rebuild
+
+- [x] Rebuild /affiliate as a proper sidebar admin panel (DashboardLayout) with nav sections: Dashboard, CRM, Orders, Earnings, My Catalog, Pricing & Margins, My Store, Tax Info, Credentials
+- [x] Affiliate cost constants in shared config: AFFILIATE_BASELINE_PCT=0.05, DAMAGE_FEE_PCT=0.01, CC_FEE_PCT=0.04, IT_FEE_PCT=0.10, IT_FEE_MAX=100
+- [x] Build Pricing & Margins tab: default markup %, per-door-style markup overrides, live cost calculator showing floor cost breakdown and net profit at different markups
+- [x] Build My Catalog tab: pick which door styles to feature on storefront, reorder them, rename them (white-label), upload per-style room scene photo
+- [x] Add affiliateStyleBranding table fields: customName (white-label name), roomSceneUrl, markupBps, featured (boolean), sortOrder
+- [ ] Apply markup to storefront prices: storefront catalog uses affiliate's per-style or default markup to compute customer-facing price
+- [ ] Affiliate-branded invoices: customer invoice shows affiliate logo, store name, white-labeled cabinet names (not Cabinet Dealz or distributor names)
+- [ ] White-label names appear on order confirmation emails sent to customers
+- [x] Affiliate Analytics tab: storefront page views, unique visitors, orders, conversion rate, commission over time (weekly/monthly chart), top door styles viewed
+- [x] Marketing Hub: QR code generator, business card PDF, phone strip PDF, digital business card link, sales guides, YouTube resources
