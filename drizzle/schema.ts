@@ -503,6 +503,9 @@ export const orderRequests = mysqlTable("order_requests", {
   sentToDistributorAt: timestamp("sentToDistributorAt"),
   sentToDistributorEmail: varchar("sentToDistributorEmail", { length: 1024 }),
   confirmedAt: timestamp("confirmedAt"),
+  // QuickBooks Online sync: invoice ID returned by QBO after push.
+  qboInvoiceId: varchar("qboInvoiceId", { length: 64 }),
+  qboSyncedAt: timestamp("qboSyncedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1398,3 +1401,20 @@ export const aiServiceRequests = mysqlTable("ai_service_requests", {
 
 export type AiServiceRequest = typeof aiServiceRequests.$inferSelect;
 export type InsertAiServiceRequest = typeof aiServiceRequests.$inferInsert;
+
+// ─── QuickBooks Online OAuth tokens ─────────────────────────────────────────
+// Single-row table storing the connected QBO company's OAuth2 tokens.
+// Upserted on every successful OAuth callback (id=1 always).
+export const qboTokens = mysqlTable("qbo_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  realmId: varchar("realmId", { length: 64 }).notNull(), // QBO company ID
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken").notNull(),
+  accessTokenExpiresAt: timestamp("accessTokenExpiresAt").notNull(),
+  refreshTokenExpiresAt: timestamp("refreshTokenExpiresAt").notNull(),
+  environment: varchar("environment", { length: 16 }).default("production").notNull(),
+  connectedAt: timestamp("connectedAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type QboTokens = typeof qboTokens.$inferSelect;
+export type InsertQboTokens = typeof qboTokens.$inferInsert;

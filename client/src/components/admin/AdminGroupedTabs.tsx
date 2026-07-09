@@ -55,6 +55,7 @@ import EmailSettingsAdmin from "@/components/admin/EmailSettingsAdmin";
 import BrandingSettingsAdmin from "@/components/admin/BrandingSettingsAdmin";
 import NotificationSettingsAdmin from "@/components/admin/NotificationSettingsAdmin";
 import ApiStatusAdmin from "@/components/admin/ApiStatusAdmin";
+import QuickBooksAdmin from "@/components/admin/QuickBooksAdmin";
 import IncomingOrdersAdmin from "@/components/admin/IncomingOrdersAdmin";
 import { BulkDimensionsAdmin } from "@/components/admin/BulkDimensionsAdmin";
 import { DesignerCoverageAdmin } from "@/components/admin/DesignerCoverageAdmin";
@@ -139,6 +140,7 @@ const GROUPS = [
       { value: "email-settings", label: "Email Settings" },
       { value: "branding", label: "Site Branding" },
       { value: "notifications", label: "Notifications" },
+      { value: "quickbooks", label: "QuickBooks" },
       { value: "api-status", label: "API Status" },
       { value: "analytics", label: "Analytics" },
       { value: "export", label: "Full Export" },
@@ -471,6 +473,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="email-settings" className="mt-6"><AdminTabHelp tab="email-settings" /><EmailSettingsAdmin /></TabsContent>
         <TabsContent value="branding" className="mt-6"><AdminTabHelp tab="branding" /><BrandingSettingsAdmin /></TabsContent>
         <TabsContent value="notifications" className="mt-6"><AdminTabHelp tab="notifications" /><NotificationSettingsAdmin /></TabsContent>
+        <TabsContent value="quickbooks" className="mt-6"><QuickBooksAdmin /></TabsContent>
         <TabsContent value="api-status" className="mt-6"><ApiStatusAdmin /></TabsContent>
         <TabsContent value="analytics" className="mt-6"><AnalyticsAdmin /></TabsContent>
         <TabsContent value="export" className="mt-6"><FullDatabaseExport /></TabsContent>

@@ -239,7 +239,7 @@ function ProductShowcase() {
 
 function DistributorsStrip() {
   const { t } = useLanguage();
-  const styles = ["Shaker", "Raised Panel", "Slab", "Slim Shaker", "Oxford"];
+  const styles = ["Shaker", "Raised Panel", "Slim Shaker", "Slab"];
   return (
     <section className="py-10 border-y border-border bg-muted/20">
       <div className="container">

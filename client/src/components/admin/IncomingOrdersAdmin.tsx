@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Copy, Package, Trash2, Send, Building2, Palette, CheckCircle2, Truck, MapPin } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Package, Trash2, Send, Building2, Palette, CheckCircle2, Truck, MapPin, Download, BookOpen } from "lucide-react";
 
 type Status = "draft" | "submitted" | "confirmed" | "cancelled";
 
@@ -62,6 +65,8 @@ type OrderRow = {
   deliveryMethod?: "ship" | "pickup";
   sentToDistributorAt?: Date | null;
   sentToDistributorEmail?: string | null;
+  qboInvoiceId?: string | null;
+  qboSyncedAt?: Date | null;
 };
 
 const STATUS_COLORS: Record<Status, string> = {
@@ -89,6 +94,13 @@ function OrderDetailDialog({
   onClose: () => void;
 }) {
   const utils = trpc.useUtils();
+  const syncToQbo = trpc.qbo.syncOrder.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Synced to QuickBooks — Invoice #${data.invoiceId}`);
+      utils.orders.adminListWithPoSkus.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "QBO sync failed"),
+  });
   const confirm = trpc.orders.confirm.useMutation({
     onSuccess: () => {
       toast.success("Order confirmed");
@@ -255,7 +267,26 @@ function OrderDetailDialog({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-2 pt-2 border-t">
+        <div className="flex justify-end gap-2 pt-2 border-t flex-wrap">
+          {/* QBO sync */}
+          {order.qboInvoiceId ? (
+            <div className="flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400 mr-auto">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              QBO Invoice #{order.qboInvoiceId}
+              {order.qboSyncedAt && <span className="text-muted-foreground">· {new Date(order.qboSyncedAt).toLocaleDateString()}</span>}
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950 mr-auto"
+              onClick={() => syncToQbo.mutate({ orderId: order.id })}
+              disabled={syncToQbo.isPending}
+            >
+              {syncToQbo.isPending ? <Spinner className="h-3.5 w-3.5" /> : <BookOpen className="h-3.5 w-3.5" />}
+              Sync to QuickBooks
+            </Button>
+          )}
           {order.status === "submitted" && (
             <Button
               variant="outline"
@@ -287,6 +318,41 @@ export default function IncomingOrdersAdmin() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [detailOrder, setDetailOrder] = useState<OrderRow | null>(null);
+  const [qboOpen, setQboOpen] = useState(false);
+  const [qboFromDate, setQboFromDate] = useState("");
+  const [qboToDate, setQboToDate] = useState("");
+  const [qboStatus, setQboStatus] = useState<string>("all");
+  const [qboFetch, setQboFetch] = useState(false);
+
+  const { data: qboData, isFetching: qboFetching } = trpc.orders.exportQBO.useQuery(
+    {
+      fromDate: qboFromDate || undefined,
+      toDate: qboToDate || undefined,
+      status: qboStatus !== "all" ? (qboStatus as Status) : undefined,
+    },
+    { enabled: qboFetch }
+  );
+
+  useEffect(() => {
+    if (!qboFetch || qboFetching || !qboData) return;
+    if (!qboData.csv) {
+      toast.error("No orders found for the selected filters.");
+      setQboFetch(false);
+      return;
+    }
+    const blob = new Blob([qboData.csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = qboData.filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${qboData.count} order${qboData.count === 1 ? "" : "s"} to ${qboData.filename}`);
+    setQboFetch(false);
+    setQboOpen(false);
+  }, [qboFetch, qboFetching, qboData]);
+
+  const handleQboExport = () => setQboFetch(true);
 
   const { data: orders, isLoading, error, refetch } = trpc.orders.adminListWithPoSkus.useQuery(
     statusFilter !== "all" ? { status: statusFilter as Status } : undefined
@@ -343,7 +409,67 @@ export default function IncomingOrdersAdmin() {
             format (e.g. <span className="font-mono text-xs text-primary">usd-sw-3db24</span>).
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* QuickBooks CSV Export */}
+          <Popover open={qboOpen} onOpenChange={setQboOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950">
+                <BookOpen className="h-3.5 w-3.5" />
+                Export to QuickBooks
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-4" align="end">
+              <div className="space-y-3">
+                <div>
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-green-600" />
+                    QuickBooks CSV Export
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Downloads a Sales Receipt CSV ready for import into QuickBooks Online or Desktop.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">From Date (optional)</Label>
+                    <Input type="date" value={qboFromDate} onChange={(e) => setQboFromDate(e.target.value)} className="h-8 text-sm mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">To Date (optional)</Label>
+                    <Input type="date" value={qboToDate} onChange={(e) => setQboToDate(e.target.value)} className="h-8 text-sm mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Status Filter</Label>
+                    <Select value={qboStatus} onValueChange={setQboStatus}>
+                      <SelectTrigger className="h-8 text-sm mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All statuses</SelectItem>
+                        <SelectItem value="submitted">Submitted</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button
+                  className="w-full gap-2 bg-green-700 hover:bg-green-800 text-white"
+                  size="sm"
+                  onClick={handleQboExport}
+                  disabled={qboFetching}
+                >
+                  {qboFetching ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                  {qboFetching ? "Generating..." : "Download CSV"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  In QuickBooks: go to <strong>Import Data</strong> → <strong>Sales Receipts</strong> and upload the downloaded file.
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="All statuses" />

@@ -1252,6 +1252,129 @@ export const ordersRouter = router({
       return { deleted: input.ids.length };
     }),
 
+  // ─── Admin: QuickBooks CSV export ────────────────────────────────────────────
+  // Returns orders as a QuickBooks IIF-compatible CSV string that can be imported
+  // directly into QuickBooks Online or Desktop via the CSV import wizard.
+  // Columns follow the QBO Sales Receipt import format:
+  //   TxnType, Date, Num, Name, Memo, ItemDescription, ItemQuantity, ItemRate, ItemAmount, TaxAmount, TxnTaxCodeRef, TotalAmt
+  exportQBO: protectedProcedure
+    .input(
+      z.object({
+        fromDate: z.string().optional(), // ISO date string e.g. "2025-01-01"
+        toDate: z.string().optional(),
+        status: z.enum(["draft", "submitted", "confirmed", "cancelled"]).optional(),
+      }).optional()
+    )
+    .query(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN" });
+      const db = await getDb();
+      if (!db) return { csv: "", filename: "quickbooks-orders.csv", count: 0 };
+
+      let rows = await db
+        .select()
+        .from(orderRequests)
+        .orderBy(desc(orderRequests.createdAt));
+
+      // Apply filters
+      if (input?.status) rows = rows.filter((r) => r.status === input.status);
+      if (input?.fromDate) {
+        const from = new Date(input.fromDate);
+        rows = rows.filter((r) => new Date(r.createdAt) >= from);
+      }
+      if (input?.toDate) {
+        const to = new Date(input.toDate);
+        to.setHours(23, 59, 59, 999);
+        rows = rows.filter((r) => new Date(r.createdAt) <= to);
+      }
+
+      if (rows.length === 0) return { csv: "", filename: "quickbooks-orders.csv", count: 0 };
+
+      // Build QuickBooks Sales Receipt CSV
+      const headers = [
+        "TxnType",
+        "Date",
+        "Num",
+        "Name",
+        "Memo",
+        "ItemDescription",
+        "ItemQuantity",
+        "ItemRate",
+        "ItemAmount",
+        "TaxAmount",
+        "TaxState",
+        "TaxRate",
+        "TotalAmt",
+        "Status",
+      ];
+
+      const escCsv = (v: unknown) => {
+        const s = v == null ? "" : String(v);
+        return s.includes(",") || s.includes('"') || s.includes("\n")
+          ? `"${s.replace(/"/g, '""')}"`
+          : s;
+      };
+
+      const csvLines: string[] = [headers.join(",")];
+
+      for (const row of rows) {
+        const lines = ((row.lineItems ?? []) as OrderLineItem[]);
+        const date = new Date(row.createdAt).toLocaleDateString("en-US");
+        const customerName = row.originatorName || row.originatorEmail || "Guest";
+        const subtotal = parseFloat(row.totalAmount ?? "0") || 0;
+        const taxAmt = parseFloat(row.taxAmount ?? "0") || 0;
+        const grandTotal = subtotal + taxAmt;
+        const memo = `Cabinet Dealz Order ${row.requestNumber} — ${row.styleName || ""} ${row.tier}`;
+
+        if (lines.length === 0) {
+          // Order with no line items — single summary row
+          csvLines.push([
+            "Sales Receipt",
+            date,
+            row.requestNumber,
+            customerName,
+            memo,
+            "Cabinet Order",
+            "1",
+            subtotal.toFixed(2),
+            subtotal.toFixed(2),
+            taxAmt.toFixed(2),
+            row.taxState ?? "",
+            row.taxRate ? (parseFloat(row.taxRate) * 100).toFixed(2) + "%" : "",
+            grandTotal.toFixed(2),
+            row.status,
+          ].map(escCsv).join(","));
+        } else {
+          // First line: full header info + first item
+          for (let i = 0; i < lines.length; i++) {
+            const l = lines[i] as OrderLineItem;
+            const qty = l.qty ?? 1;
+            const rate = l.unitPrice ?? 0;
+            const lineAmt = l.linePrice ?? (qty * rate);
+            csvLines.push([
+              "Sales Receipt",
+              i === 0 ? date : "",
+              i === 0 ? row.requestNumber : "",
+              i === 0 ? customerName : "",
+              i === 0 ? memo : "",
+              l.description || l.masterCode || "",
+              qty,
+              rate.toFixed(2),
+              lineAmt.toFixed(2),
+              i === lines.length - 1 ? taxAmt.toFixed(2) : "",
+              i === lines.length - 1 ? (row.taxState ?? "") : "",
+              i === lines.length - 1 ? (row.taxRate ? (parseFloat(row.taxRate) * 100).toFixed(2) + "%" : "") : "",
+              i === lines.length - 1 ? grandTotal.toFixed(2) : "",
+              i === 0 ? row.status : "",
+            ].map(escCsv).join(","));
+          }
+        }
+      }
+
+      const csv = csvLines.join("\n");
+      const date = new Date().toISOString().slice(0, 10);
+      return { csv, filename: `cabinet-dealz-qbo-${date}.csv`, count: rows.length };
+    }),
+
   // adminDeleteAll: clear all orders, optionally only those matching a status
   // (e.g. all "draft"/"submitted" test orders). Omit status to wipe everything.
   adminDeleteAll: protectedProcedure

@@ -747,3 +747,16 @@
 - [x] Create /terms page
 - [x] Add footer links to all four policy pages + contact
 - [ ] Add Stripe payment integration
+
+## Feature: QuickBooks Integration
+
+- [x] Add tRPC procedure `admin.exportOrdersQBO` — returns orders in QuickBooks-compatible CSV format
+- [x] Build QuickBooks CSV export button in admin Incoming Orders panel (date range picker + download)
+- [x] CSV format: QuickBooks-compatible columns (TxnType, Date, Name, ItemDescription, Qty, Price, Tax, Total)
+- [x] Set up QuickBooks Online OAuth2 flow (server-side: /api/qbo/connect, /api/qbo/callback, token storage)
+- [x] Store QBO tokens in DB (qbo_tokens table: accessToken, refreshToken, realmId, expiresAt)
+- [x] Add tRPC procedures qbo.syncOrder and qbo.syncAll — push orders as QBO Invoices
+- [x] Add "Sync to QuickBooks" button per order in admin Incoming Orders detail dialog
+- [x] Add bulk "Sync All Unsynced" button in Admin → Settings → QuickBooks tab
+- [x] Track qboSyncedAt and qboInvoiceId on order_requests table
+- [x] Show QBO invoice ID + sync date in admin order detail dialog
