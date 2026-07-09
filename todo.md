@@ -781,3 +781,4 @@
 - [x] Identified extra rows as hyphenated-format SKUs (B-12 vs B12) — same cabinets, different naming convention
 - [x] Normalized 144 hyphenated masterCodes in cabinets table to match V6 format (B-12 → B12)
 - [x] Applied 2048 price corrections across all USCD styles to match V6 list prices exactly
+- [x] Removed 1275 inactive/discontinued USCD SKU rows (63 unmatched master codes, 11 cabinet records deleted)
