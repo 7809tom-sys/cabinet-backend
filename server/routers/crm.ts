@@ -748,6 +748,20 @@ export const crmRouter = router({
     }),
 
   // ── Sales-rep commissions: mark paid / void (admin only) ────────────────────
+  // ── Admin: CRM deals for a specific affiliate ─────────────────────────────
+  adminAffiliateDeals: adminProcedure
+    .input(z.object({ affiliateId: z.number().int() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { deals: [] as (typeof crmDeals.$inferSelect)[] };
+      const deals = await db
+        .select()
+        .from(crmDeals)
+        .where(eq(crmDeals.affiliateId, input.affiliateId))
+        .orderBy(crmDeals.boardOrder, desc(crmDeals.updatedAt));
+      return { deals };
+    }),
+
   setCommissionStatus: adminProcedure
     .input(z.object({ id: z.number().int(), status: z.enum(["pending", "paid", "void"]), notes: z.string().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {

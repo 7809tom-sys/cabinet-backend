@@ -476,6 +476,49 @@ export const affiliatesRouter = router({
       return { url };
     }),
 
+  // ─── Admin: earnings for one affiliate (weekly breakdown) ───────────────────
+  adminEarnings: adminProcedure
+    .input(z.object({ affiliateId: z.number().int() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const rows = await db.select().from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1);
+      const a = rows[0];
+      if (!a) return null;
+      const rate = Number(a.commissionRate);
+      const orders = await db
+        .select()
+        .from(orderRequests)
+        .where(and(eq(orderRequests.affiliateId, a.id), eq(orderRequests.status, "confirmed")))
+        .orderBy(desc(orderRequests.confirmedAt));
+      const items = orders.map((o) => {
+        const at = o.confirmedAt ?? o.updatedAt ?? o.createdAt;
+        const customerTotalCents = dollarsToCents(o.totalAmount);
+        const earning = computeEarning({ customerTotalCents, commissionRate: rate });
+        return { at, commissionCents: earning.commissionCents };
+      });
+      const weeks = groupByWeek(items);
+      const payoutRows = await db
+        .select()
+        .from(affiliatePayouts)
+        .where(eq(affiliatePayouts.affiliateId, a.id));
+      const payoutByWeek = new Map(payoutRows.map((p) => [p.weekKey, p]));
+      const thisWeekKey = isoWeekKey(new Date());
+      const lifetimeCents = weeks.reduce((s, w) => s + w.totalCommissionCents, 0);
+      const thisWeekCents = weeks.find((w) => w.weekKey === thisWeekKey)?.totalCommissionCents ?? 0;
+      const paidCents = payoutRows.filter((p) => p.status === "paid").reduce((s, p) => s + p.amountCents, 0);
+      return {
+        affiliateId: a.id,
+        commissionRate: rate,
+        thisWeekKey,
+        thisWeekCents,
+        lifetimeCents,
+        paidCents,
+        pendingCents: Math.max(0, lifetimeCents - paidCents),
+        weeks: weeks.map((w) => ({ ...w, payout: payoutByWeek.get(w.weekKey) ?? null })),
+      };
+    }),
+
   // ─── Admin: referrals for one affiliate ────────────────────────────────────
   adminReferrals: adminProcedure
     .input(z.object({ affiliateId: z.number() }))

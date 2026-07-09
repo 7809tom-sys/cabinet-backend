@@ -213,7 +213,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
   const storeUrl = `${origin}/store/${a.slug}`;
   const refLink = `${origin}/order/new?ref=${a.referralCode}`;
   const loginUrl = `${origin}/affiliate`;
-  const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals" | "w9">("credentials");
+  const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals" | "earnings" | "crm" | "w9">("credentials");
 
   const setTemplate = trpc.affiliates.adminUpdate.useMutation({
     onSuccess: () => {
@@ -233,8 +233,8 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
   return (
     <div className="mt-4 rounded-lg border border-border bg-muted/20 overflow-hidden">
       {/* Sub-tab bar */}
-      <div className="flex border-b border-border">
-        {(["credentials", "template", "referrals", "w9"] as const).map((t) => (
+      <div className="flex flex-wrap border-b border-border">
+        {(["credentials", "template", "referrals", "earnings", "crm", "w9"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
@@ -321,6 +321,8 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
         )}
 
         {activeTab === "referrals" && <AffiliateReferrals affiliateId={a.id} />}
+        {activeTab === "earnings" && <AffiliateEarningsAdmin affiliateId={a.id} />}
+        {activeTab === "crm" && <AffiliateCrmAdmin affiliateId={a.id} />}
         {activeTab === "w9" && <AffiliateW9Review affiliate={a} />}
       </div>
     </div>
@@ -354,6 +356,113 @@ function AffiliateReferrals({ affiliateId }: { affiliateId: number }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// ─── Admin: Earnings tab for one affiliate ───────────────────────────────────
+function AffiliateEarningsAdmin({ affiliateId }: { affiliateId: number }) {
+  const { data, isLoading } = trpc.affiliates.adminEarnings.useQuery({ affiliateId }, { retry: false });
+  if (isLoading) return <div className="py-4 flex justify-center"><Spinner className="h-5 w-5" /></div>;
+  if (!data) return <p className="text-sm text-muted-foreground py-3">No earnings data.</p>;
+
+  const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Lifetime Earned", value: fmt(data.lifetimeCents), color: "text-emerald-600" },
+          { label: "Pending Payout", value: fmt(data.pendingCents), color: "text-amber-600" },
+          { label: "Total Paid", value: fmt(data.paidCents), color: "text-blue-600" },
+        ].map((k) => (
+          <div key={k.label} className="rounded-lg border border-border bg-card p-3 text-center">
+            <div className={`text-lg font-bold tabular-nums ${k.color}`}>{k.value}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{k.label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="text-xs text-muted-foreground">Commission rate: {(data.commissionRate * 100).toFixed(1)}%</div>
+      {data.weeks.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No confirmed orders yet.</p>
+      ) : (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium">Week</th>
+                <th className="text-right px-3 py-2 font-medium">Orders</th>
+                <th className="text-right px-3 py-2 font-medium">Commission</th>
+                <th className="text-right px-3 py-2 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {data.weeks.map((w) => (
+                <tr key={w.weekKey}>
+                  <td className="px-3 py-2 font-mono text-xs">{w.weekKey}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{w.count}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(w.totalCommissionCents)}</td>
+                  <td className="px-3 py-2 text-right">
+                    <Badge variant={w.payout?.status === "paid" ? "default" : "outline"} className="text-xs capitalize">
+                      {w.payout?.status ?? "pending"}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Admin: CRM deals tab for one affiliate ───────────────────────────────────
+function AffiliateCrmAdmin({ affiliateId }: { affiliateId: number }) {
+  const { data, isLoading } = trpc.crm.adminAffiliateDeals.useQuery({ affiliateId }, { retry: false });
+  if (isLoading) return <div className="py-4 flex justify-center"><Spinner className="h-5 w-5" /></div>;
+  if (!data || data.deals.length === 0) return <p className="text-sm text-muted-foreground py-3">No CRM deals found for this affiliate.</p>;
+
+  const stageBadgeVariant = (stage: string): "default" | "secondary" | "outline" | "destructive" => {
+    if (stage === "won") return "default";
+    if (stage === "lost") return "destructive";
+    if (stage === "proposal") return "secondary";
+    return "outline";
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">{data.deals.length} deal{data.deals.length !== 1 ? "s" : ""} in pipeline</p>
+      <div className="rounded-lg border border-border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="text-left px-3 py-2 font-medium">Deal</th>
+              <th className="text-left px-3 py-2 font-medium">Contact</th>
+              <th className="text-right px-3 py-2 font-medium">Value</th>
+              <th className="text-right px-3 py-2 font-medium">Stage</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {data.deals.map((d) => (
+              <tr key={d.id}>
+                <td className="px-3 py-2 font-medium max-w-[180px] truncate">{d.title}</td>
+                <td className="px-3 py-2 text-muted-foreground text-xs max-w-[160px] truncate">
+                  {d.contactName || d.contactEmail || "—"}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {d.estimatedValue != null ? `$${Number(d.estimatedValue).toLocaleString()}` : "—"}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <Badge variant={stageBadgeVariant(d.stage ?? "")} className="text-xs capitalize">
+                    {d.stage ?? "—"}
+                  </Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
