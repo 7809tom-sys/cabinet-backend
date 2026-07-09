@@ -8,7 +8,10 @@
  */
 
 import type { Express, Request, Response } from "express";
-import OAuthClient from "intuit-oauth";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const OAuthClient = (require("intuit-oauth") as any).default ?? require("intuit-oauth");
 import { getDb } from "./db";
 import { qboTokens } from "../drizzle/schema";
 import { eq } from "drizzle-orm";

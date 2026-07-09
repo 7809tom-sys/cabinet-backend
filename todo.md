@@ -760,3 +760,24 @@
 - [x] Add bulk "Sync All Unsynced" button in Admin → Settings → QuickBooks tab
 - [x] Track qboSyncedAt and qboInvoiceId on order_requests table
 - [x] Show QBO invoice ID + sync date in admin order detail dialog
+
+## Feature: Oxford Cashmere & Shaker Unfinished SKU Import
+
+- [x] Scrape full OC-* and SU-* SKU pricing from USCD V6 P&A PDF (OC shares OW price tier, SU shares SW price tier)
+- [x] Import all Oxford Cashmere SKUs (232 rows) with correct list prices into distributor_skus table
+- [x] Import all Shaker Unfinished SKUs (264 rows) with correct list prices into distributor_skus table
+- [x] Upload thumbnail images for OC and SU from USCD website to Manus storage
+- [x] Both styles now visible on Door Styles page under Raised Panel and Shaker filter tabs
+
+## Update: Shipping Policy Page
+
+- [x] Retrieved exact USCD shipping policy terms from uscabinetdepot.com/terms-and-conditions
+- [x] Updated ShippingPolicy.tsx with verbatim USCD shipping terms (LTL freight, lead times, damage claims, warehouse pickup)
+
+## Feature: USCD Full Catalog Audit (V6 P&A)
+
+- [x] Parsed V6 P&A PDF into structured SKU/price table (248 unique master SKUs, all 20 style columns)
+- [x] Compared parsed V6 data against database — found 235 wrong-price rows, 4884 missing rows, 4362 extra rows
+- [x] Identified extra rows as hyphenated-format SKUs (B-12 vs B12) — same cabinets, different naming convention
+- [x] Normalized 144 hyphenated masterCodes in cabinets table to match V6 format (B-12 → B12)
+- [x] Applied 2048 price corrections across all USCD styles to match V6 list prices exactly
