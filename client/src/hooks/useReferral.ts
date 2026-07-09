@@ -6,6 +6,9 @@ import { useCallback, useEffect, useState } from "react";
 // along when an order request is submitted.
 const KEY = "cd_referral_code";
 const KEY_AT = "cd_referral_at";
+/** Affiliate slug stored alongside the referral code so the order builder can
+ *  apply the affiliate's markup to prices (e.g. "abc-cabinets"). */
+const KEY_SLUG = "cd_affiliate_slug";
 // Referral attribution window: 30 days.
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -21,6 +24,7 @@ export function readReferralCode(): string | null {
     if (at && Date.now() - at > TTL_MS) {
       localStorage.removeItem(KEY);
       localStorage.removeItem(KEY_AT);
+      localStorage.removeItem(KEY_SLUG);
       return null;
     }
     return code;
@@ -29,12 +33,22 @@ export function readReferralCode(): string | null {
   }
 }
 
-export function setReferralCode(raw: string): string | null {
+/** Read the affiliate slug that was stored when the storefront was visited. */
+export function readAffiliateSlug(): string | null {
+  try {
+    return localStorage.getItem(KEY_SLUG) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function setReferralCode(raw: string, slug?: string): string | null {
   const code = normalize(raw);
   if (!code) return null;
   try {
     localStorage.setItem(KEY, code);
     localStorage.setItem(KEY_AT, String(Date.now()));
+    if (slug) localStorage.setItem(KEY_SLUG, slug.toLowerCase());
   } catch {
     /* ignore storage errors (private mode, etc.) */
   }
@@ -45,6 +59,7 @@ export function clearReferralCode(): void {
   try {
     localStorage.removeItem(KEY);
     localStorage.removeItem(KEY_AT);
+    localStorage.removeItem(KEY_SLUG);
   } catch {
     /* ignore */
   }

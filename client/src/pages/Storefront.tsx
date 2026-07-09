@@ -5,7 +5,7 @@ import type { AppRouter } from "../../../server/routers";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useReferral } from "@/hooks/useReferral";
+import { useReferral, setReferralCode } from "@/hooks/useReferral";
 import { useStorefrontLangGlobal as useStorefrontLang } from "@/contexts/LanguageContext";
 import { StorefrontShop } from "@/components/storefront/StorefrontShop";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
@@ -40,11 +40,16 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
   const data = previewData ?? fetchedData;
   const { lang, toggle, t } = useStorefrontLang();
 
-  // Capture this affiliate's referral code for the visitor's session.
+  // Capture this affiliate's referral code + slug for the visitor's session.
+  // The slug is stored so the order builder can apply the affiliate's markup.
   const { setReferral } = useReferral(null);
   useEffect(() => {
-    if (data?.referralCode) setReferral(data.referralCode);
-  }, [data?.referralCode, setReferral]);
+    if (data?.referralCode) {
+      setReferral(data.referralCode);
+      // Also persist the slug so priceLines can apply the affiliate markup.
+      setReferralCode(data.referralCode, data.slug);
+    }
+  }, [data?.referralCode, data?.slug, setReferral]);
 
   const brand = useMemo<Brand>(
     () => ({

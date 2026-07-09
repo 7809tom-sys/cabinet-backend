@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { readReferralCode, setReferralCode as persistReferralCode } from "@/hooks/useReferral";
+import { readReferralCode, readAffiliateSlug, setReferralCode as persistReferralCode } from "@/hooks/useReferral";
 import { requiresFinishMatch, finishMatchLabel, finishMatchOrderNote } from "@shared/finishMatch";
 import { isUnfinishedExteriorStyleName, unfinishedExteriorSkinNote } from "@shared/skinMatch";
 import { toast } from "sonner";
@@ -411,8 +411,11 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
   }, [lines, bottomIdSet, styleId]);
 
   // Live pricing for the matched cabinets under the chosen style + tier.
+  // affiliateSlug is read from localStorage (set when the customer visited the
+  // affiliate storefront) so the server can apply the affiliate's markup.
+  const [affiliateSlug] = useState<string | null>(() => readAffiliateSlug());
   const priceQuery = trpc.orders.priceLines.useQuery(
-    { cabinetIds: stableCabinetIds, styleId: styleId ?? 0, tier },
+    { cabinetIds: stableCabinetIds, styleId: styleId ?? 0, tier, affiliateSlug: affiliateSlug ?? undefined },
     { enabled: stableCabinetIds.length > 0 && styleId != null, retry: false }
   );
   const priceMap = useMemo(() => {

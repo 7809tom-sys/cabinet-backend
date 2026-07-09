@@ -35,6 +35,8 @@ import {
 import { invokeLLM } from "../_core/llm";
 import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
+import { resolveMarkupBps } from "@shared/affiliateBranding";
+import { affiliateStyleBranding } from "../../drizzle/schema";
 
 // Map the order tierEnum ("Wholesale" | "Contractor") to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor") =>
@@ -421,6 +423,10 @@ export const ordersRouter = router({
         cabinetIds: z.array(z.number()).max(500),
         styleId: z.number(),
         tier: tierEnum.default("Contractor"),
+        /** Optional affiliate slug — when provided, the affiliate's markup is
+         *  applied on top of the homeowner price so the order builder shows
+         *  the same marked-up prices the customer saw on the storefront. */
+        affiliateSlug: z.string().optional(),
       })
     )
     .query(async ({ input, ctx }) => {
@@ -451,6 +457,45 @@ export const ordersRouter = router({
           )
         );
 
+      // ── Affiliate markup config (loaded once if a slug is provided) ──────────
+      // When the order is placed through an affiliate storefront, apply their
+      // markup on top of the homeowner price so the order builder and review
+      // screen show the same prices the customer saw on the storefront.
+      let affiliateMarkupConfig: {
+        globalMarkupBps: number;
+        categoryMarkupBps: Record<string, number>;
+        styleMarkupBps: Record<number, number>;
+      } | null = null;
+
+      if (input.affiliateSlug) {
+        const slug = input.affiliateSlug.toLowerCase();
+        const affRows = await db
+          .select()
+          .from(affiliates)
+          .where(eq(affiliates.slug, slug))
+          .limit(1);
+        const aff = affRows[0];
+        if (aff && aff.storefrontEnabled && aff.status !== "inactive") {
+          const brandRows = await db
+            .select({ styleId: affiliateStyleBranding.styleId, markupBps: affiliateStyleBranding.markupBps })
+            .from(affiliateStyleBranding)
+            .where(eq(affiliateStyleBranding.affiliateId, aff.id));
+          const styleMarkupBps: Record<number, number> = {};
+          for (const r of brandRows) {
+            if (typeof r.markupBps === "number") styleMarkupBps[r.styleId] = r.markupBps;
+          }
+          let categoryMarkupBps: Record<string, number> = {};
+          try {
+            if (aff.categoryMarkupJson) categoryMarkupBps = JSON.parse(aff.categoryMarkupJson);
+          } catch { categoryMarkupBps = {}; }
+          affiliateMarkupConfig = {
+            globalMarkupBps: aff.defaultMarkupBps ?? 0,
+            categoryMarkupBps,
+            styleMarkupBps,
+          };
+        }
+      }
+
       // Best (lowest) SELL price per cabinet for the chosen tier (cost × markup).
       const best = new Map<number, number>();
       // Best (lowest) WHOLESALE floor per cabinet — owner-only "My Cost".
@@ -469,13 +514,30 @@ export const ordersRouter = router({
           }
         }
       }
+
       return {
-        prices: input.cabinetIds.map((id) => ({
-          cabinetId: id,
-          unitPrice: best.has(id) ? best.get(id)! : null,
-          // Only the owner/admin ever receives a non-null cost.
-          myCost: isAdmin && bestCost.has(id) ? bestCost.get(id)! : null,
-        })),
+        prices: input.cabinetIds.map((id) => {
+          let unitPrice = best.has(id) ? best.get(id)! : null;
+          // Apply affiliate markup on top of the homeowner price when browsing
+          // through an affiliate storefront. The styleId here is the door-style
+          // lock for the whole order — category is unknown at this level so only
+          // global + per-style markup applies (category markup is applied
+          // client-side where the category is known).
+          if (unitPrice !== null && affiliateMarkupConfig) {
+            const bps = resolveMarkupBps(affiliateMarkupConfig, { styleId: input.styleId });
+            if (bps > 0) {
+              const cents = Math.round(unitPrice * 100);
+              const marked = cents + Math.round((cents * bps) / 10000);
+              unitPrice = marked / 100;
+            }
+          }
+          return {
+            cabinetId: id,
+            unitPrice,
+            // Only the owner/admin ever receives a non-null cost.
+            myCost: isAdmin && bestCost.has(id) ? bestCost.get(id)! : null,
+          };
+        }),
       };
     }),
 
