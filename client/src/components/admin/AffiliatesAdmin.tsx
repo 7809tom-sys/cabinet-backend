@@ -157,6 +157,11 @@ export default function AffiliatesAdmin() {
                       <ExternalLink className="h-3.5 w-3.5" /> View Store
                     </Button>
                   </a>
+                  <a href="/affiliate" target="_blank" rel="noreferrer">
+                    <Button variant="outline" size="sm" className="w-full gap-1.5">
+                      <Store className="h-3.5 w-3.5" /> Affiliate Portal
+                    </Button>
+                  </a>
                   <a href={`/store-preview/${a.template ?? "classic"}`} target="_blank" rel="noreferrer">
                     <Button variant="outline" size="sm" className="w-full gap-1.5">
                       <Eye className="h-3.5 w-3.5" /> Preview Template
