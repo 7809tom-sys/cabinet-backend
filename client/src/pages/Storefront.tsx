@@ -320,7 +320,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           <div className="mt-10 pt-6 border-t border-white/15 text-xs text-white/50 flex flex-col sm:flex-row justify-between gap-2">
             <span>© {new Date().getFullYear()} {data.storeName}. {t("footer_rights")}</span>
             <span>{t("footer_powered")}</span>
-            <AdminFooterLink />
+            <AdminFooterLink affiliateId={data.id} storeName={data.storeName} />
           </div>
         </div>
       </footer>
@@ -647,15 +647,16 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
 // ─── Admin footer link ────────────────────────────────────────────────────────
 // Only visible to logged-in admins. Provides a quick jump to the Affiliates
 // admin page without cluttering the storefront for regular customers.
-function AdminFooterLink() {
+function AdminFooterLink({ affiliateId, storeName }: { affiliateId?: number; storeName?: string }) {
   const { user } = useAuth();
   if (!user || user.role !== "admin") return null;
+  const href = affiliateId ? `/admin?tab=affiliates&affiliateId=${affiliateId}` : "/admin#affiliates";
   return (
     <a
-      href="/admin#affiliates"
-      className="flex items-center gap-1 text-white/40 hover:text-white/80 transition-colors text-xs"
+      href={href}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors border border-white/20"
     >
-      <LogIn className="h-3 w-3" /> Affiliate Admin
+      <LogIn className="h-3.5 w-3.5" /> Admin: {storeName ?? "Manage Affiliates"}
     </a>
   );
 }

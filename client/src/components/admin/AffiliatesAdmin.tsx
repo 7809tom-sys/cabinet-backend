@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,20 @@ export default function AffiliatesAdmin() {
   const utils = trpc.useUtils();
   const { data: affiliates, isLoading, error, refetch } = trpc.affiliates.adminList.useQuery();
   const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  // Auto-expand a specific affiliate when arriving from the storefront admin link
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("affiliateId");
+    if (id) {
+      setExpandedId(Number(id));
+      // Scroll to the affiliate card after data loads
+      setTimeout(() => {
+        const el = document.getElementById(`affiliate-row-${id}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 500);
+    }
+  }, []);
 
   const setStatus = trpc.affiliates.adminUpdate.useMutation({
     onSuccess: () => {
@@ -78,7 +92,7 @@ export default function AffiliatesAdmin() {
         </div>
       ) : (
         affiliates.map((a) => (
-          <Card key={a.id}>
+          <Card key={a.id} id={`affiliate-row-${a.id}`}>
             <CardContent className="pt-6 space-y-3">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                 <div className="space-y-2">

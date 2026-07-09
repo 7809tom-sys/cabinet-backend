@@ -782,3 +782,9 @@
 - [x] Normalized 144 hyphenated masterCodes in cabinets table to match V6 format (B-12 → B12)
 - [x] Applied 2048 price corrections across all USCD styles to match V6 list prices exactly
 - [x] Removed 1275 inactive/discontinued USCD SKU rows (63 unmatched master codes, 11 cabinet records deleted)
+## Feature: Affiliate Admin Shortcut from Storefront
+- [x] Add "Manage Affiliates (Admin)" button in affiliate storefront footer (admin-only)
+- [x] Button links to /admin?tab=affiliates&affiliateId=[id] with the specific affiliate's ID
+- [x] AdminGroupedTabs reads ?tab= query param on mount to auto-select the correct group/tab (already wired)
+- [x] AffiliatesAdmin reads ?affiliateId= query param to auto-expand and scroll to the matching affiliate card
+- [x] Add id="affiliate-row-{a.id}" to each affiliate Card element for scroll targeting
