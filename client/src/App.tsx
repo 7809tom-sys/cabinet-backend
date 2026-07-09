@@ -45,6 +45,11 @@ const FabricatorSheet = lazy(() => import("@/pages/FabricatorSheet"));
 const StoneCreekCollection = lazy(() => import("@/pages/StoneCreekCollection"));
 const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
 const PriceShop = lazy(() => import("@/pages/PriceShop"));
+const Contact = lazy(() => import("@/pages/Contact"));
+const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
+const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
+const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const Terms = lazy(() => import("@/pages/Terms"));
 
 function PageLoader() {
   return (
@@ -364,6 +369,46 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <FeeSystemDoc />
           </Suspense>
+        </Route>
+
+        <Route path="/contact">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Contact />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/shipping-policy">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <ShippingPolicy />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/return-policy">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <ReturnPolicy />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/privacy-policy">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <PrivacyPolicy />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/terms">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <Terms />
+            </Suspense>
+          </AppLayout>
         </Route>
 
         <Route>

@@ -1,12 +1,14 @@
 import { Link } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Phone, Mail, MapPin } from "lucide-react";
 
 export function SiteFooter() {
   const { t } = useLanguage();
   return (
     <footer className="bg-[var(--color-navy)] text-white/70">
       <div className="container py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
+          {/* Brand + Contact */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="flex h-7 w-7 items-center justify-center rounded bg-[var(--color-gold)] text-[var(--color-navy)] font-bold text-xs">
@@ -16,11 +18,30 @@ export function SiteFooter() {
                 Cabinet<span className="text-[var(--color-gold)]">Dealz</span>
               </span>
             </div>
-            <p className="text-sm leading-relaxed">
+            <p className="text-sm leading-relaxed mb-4">
               {t("home_footer_blurb")}
             </p>
+            <ul className="space-y-2 text-sm">
+              <li className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-[var(--color-gold)]" />
+                <span>470 N Tamiami Trail<br />Osprey, FL 34229</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Phone className="h-4 w-4 shrink-0 text-[var(--color-gold)]" />
+                <a href="tel:+19418993288" className="hover:text-white transition-colors">
+                  (941) 899-3288
+                </a>
+              </li>
+              <li className="flex items-center gap-2">
+                <Mail className="h-4 w-4 shrink-0 text-[var(--color-gold)]" />
+                <a href="mailto:sales@cabinetdealz.com" className="hover:text-white transition-colors">
+                  sales@cabinetdealz.com
+                </a>
+              </li>
+            </ul>
           </div>
 
+          {/* Tools */}
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">{t("home_footer_col_tools")}</div>
             <ul className="space-y-2 text-sm">
@@ -43,6 +64,7 @@ export function SiteFooter() {
             </ul>
           </div>
 
+          {/* Portals */}
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">{t("home_footer_col_portals")}</div>
             <ul className="space-y-2 text-sm">
@@ -50,6 +72,26 @@ export function SiteFooter() {
                 { label: t("nav_supplier_portal"), href: "/distributor" },
                 { label: t("home_aud_affiliates_cta"), href: "/affiliate" },
                 { label: t("nav_admin"), href: "/admin" },
+                { label: "Contact Us", href: "/contact" },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link href={item.href} className="hover:text-white transition-colors">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-3">Legal</div>
+            <ul className="space-y-2 text-sm">
+              {[
+                { label: "Shipping Policy", href: "/shipping-policy" },
+                { label: "Return Policy", href: "/return-policy" },
+                { label: "Privacy Policy", href: "/privacy-policy" },
+                { label: "Terms & Conditions", href: "/terms" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-white transition-colors">

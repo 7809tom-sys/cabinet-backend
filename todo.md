@@ -735,3 +735,14 @@
 - [ ] White-label names appear on order confirmation emails sent to customers
 - [x] Affiliate Analytics tab: storefront page views, unique visitors, orders, conversion rate, commission over time (weekly/monthly chart), top door styles viewed
 - [x] Marketing Hub: QR code generator, business card PDF, phone strip PDF, digital business card link, sales guides, YouTube resources
+
+## Feature: Stripe Approval Readiness
+
+- [x] Fix contact info on main site — Cabinet Dealz: (941) 899-3288, sales@cabinetdealz.com, 470 N Tamiami Trail, Osprey FL 34229
+- [x] Create /contact page
+- [x] Create /shipping-policy page
+- [x] Create /return-policy page (references vendor policies)
+- [x] Create /privacy-policy page
+- [x] Create /terms page
+- [x] Add footer links to all four policy pages + contact
+- [ ] Add Stripe payment integration
