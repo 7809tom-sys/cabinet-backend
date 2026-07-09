@@ -476,6 +476,76 @@ export const affiliatesRouter = router({
       return { url };
     }),
 
+  // ─── Admin: branding + markup for one affiliate ─────────────────────────────
+  adminBranding: adminProcedure
+    .input(z.object({ affiliateId: z.number().int() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const rows = await db.select().from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1);
+      const a = rows[0];
+      if (!a) return null;
+      const styles = await db
+        .select({ id: doorStyles.id, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+        .from(doorStyles)
+        .where(eq(doorStyles.isActive, true));
+      const overrides = await db
+        .select()
+        .from(affiliateStyleBranding)
+        .where(eq(affiliateStyleBranding.affiliateId, a.id));
+      const byStyle = new Map(overrides.map((o) => [o.styleId, o]));
+      let categoryMarkup: Record<string, number> = {};
+      try { if (a.categoryMarkupJson) categoryMarkup = JSON.parse(a.categoryMarkupJson); } catch { categoryMarkup = {}; }
+      return {
+        affiliateId: a.id,
+        defaultMarkupBps: a.defaultMarkupBps,
+        categoryMarkup,
+        styles: styles.map((s) => ({ ...s, override: byStyle.get(s.id) ?? null })).sort((a, b) => (a.ourName || "").localeCompare(b.ourName || "")),
+      };
+    }),
+
+  adminUpdateMarkup: adminProcedure
+    .input(z.object({
+      affiliateId: z.number().int(),
+      defaultMarkupBps: z.number().int().min(0).max(1000000).optional(),
+      categoryMarkup: z.record(z.string(), z.number().int().min(0).max(1000000)).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const set: Record<string, unknown> = {};
+      if (input.defaultMarkupBps !== undefined) set.defaultMarkupBps = input.defaultMarkupBps;
+      if (input.categoryMarkup !== undefined) set.categoryMarkupJson = JSON.stringify(input.categoryMarkup);
+      if (Object.keys(set).length > 0) await db.update(affiliates).set(set).where(eq(affiliates.id, input.affiliateId));
+      return { id: input.affiliateId };
+    }),
+
+  adminUpsertStyleBranding: adminProcedure
+    .input(z.object({
+      affiliateId: z.number().int(),
+      styleId: z.number().int(),
+      brandName: z.string().max(256).nullable().optional(),
+      markupBps: z.number().int().min(0).max(1000000).nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const existing = await db
+        .select()
+        .from(affiliateStyleBranding)
+        .where(and(eq(affiliateStyleBranding.affiliateId, input.affiliateId), eq(affiliateStyleBranding.styleId, input.styleId)))
+        .limit(1);
+      const row = existing[0];
+      const brandName = input.brandName === undefined ? (row?.brandName ?? null) : (input.brandName?.trim() || null);
+      const markupBps = input.markupBps === undefined ? (row?.markupBps ?? null) : input.markupBps;
+      if (row) {
+        await db.update(affiliateStyleBranding).set({ brandName, markupBps }).where(eq(affiliateStyleBranding.id, row.id));
+      } else {
+        await db.insert(affiliateStyleBranding).values({ affiliateId: input.affiliateId, styleId: input.styleId, brandName, markupBps, featured: false, sortOrder: 0 });
+      }
+      return { styleId: input.styleId, brandName, markupBps };
+    }),
+
   // ─── Admin: earnings for one affiliate (weekly breakdown) ───────────────────
   adminEarnings: adminProcedure
     .input(z.object({ affiliateId: z.number().int() }))

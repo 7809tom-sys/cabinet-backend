@@ -213,7 +213,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
   const storeUrl = `${origin}/store/${a.slug}`;
   const refLink = `${origin}/order/new?ref=${a.referralCode}`;
   const loginUrl = `${origin}/affiliate`;
-  const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals" | "earnings" | "crm" | "w9">("credentials");
+  const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals" | "earnings" | "crm" | "catalog" | "storefront" | "w9">("credentials");
 
   const setTemplate = trpc.affiliates.adminUpdate.useMutation({
     onSuccess: () => {
@@ -234,7 +234,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
     <div className="mt-4 rounded-lg border border-border bg-muted/20 overflow-hidden">
       {/* Sub-tab bar */}
       <div className="flex flex-wrap border-b border-border">
-        {(["credentials", "template", "referrals", "earnings", "crm", "w9"] as const).map((t) => (
+        {(["credentials", "template", "referrals", "earnings", "crm", "catalog", "storefront", "w9"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
@@ -323,6 +323,8 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
         {activeTab === "referrals" && <AffiliateReferrals affiliateId={a.id} />}
         {activeTab === "earnings" && <AffiliateEarningsAdmin affiliateId={a.id} />}
         {activeTab === "crm" && <AffiliateCrmAdmin affiliateId={a.id} />}
+        {activeTab === "catalog" && <AffiliateCatalogMarkupAdmin affiliateId={a.id} />}
+        {activeTab === "storefront" && <AffiliateStorefrontEditor affiliate={a} onSaved={() => utils.affiliates.adminList.invalidate()} />}
         {activeTab === "w9" && <AffiliateW9Review affiliate={a} />}
       </div>
     </div>
@@ -356,6 +358,283 @@ function AffiliateReferrals({ affiliateId }: { affiliateId: number }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// ─── Admin: Catalog + Markup tab for one affiliate ─────────────────────────────
+function AffiliateCatalogMarkupAdmin({ affiliateId }: { affiliateId: number }) {
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.affiliates.adminBranding.useQuery({ affiliateId }, { retry: false });
+  const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState<Record<number, { brandName: string; markupPct: string }>>({});
+  const [defaultMarkupPct, setDefaultMarkupPct] = useState("");
+  const [savingDefault, setSavingDefault] = useState(false);
+
+  const upsert = trpc.affiliates.adminUpsertStyleBranding.useMutation({
+    onSuccess: () => utils.affiliates.adminBranding.invalidate({ affiliateId }),
+    onError: (e) => toast.error(e.message),
+  });
+  const updateMarkup = trpc.affiliates.adminUpdateMarkup.useMutation({
+    onSuccess: () => {
+      utils.affiliates.adminBranding.invalidate({ affiliateId });
+      toast.success("Default markup saved");
+      setSavingDefault(false);
+    },
+    onError: (e) => { toast.error(e.message); setSavingDefault(false); },
+  });
+
+  useEffect(() => {
+    if (data) setDefaultMarkupPct(data.defaultMarkupBps != null ? (data.defaultMarkupBps / 100).toFixed(1) : "");
+  }, [data?.defaultMarkupBps]);
+
+  if (isLoading) return <div className="py-4 flex justify-center"><Spinner className="h-5 w-5" /></div>;
+  if (!data) return <p className="text-sm text-muted-foreground py-3">No catalog data.</p>;
+
+  const filtered = data.styles.filter((s) =>
+    !search || (s.ourName ?? "").toLowerCase().includes(search.toLowerCase()) ||
+    (s.override?.brandName ?? "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  function startEdit(styleId: number, current: { brandName: string | null; markupBps: number | null }) {
+    setEditing((prev) => ({
+      ...prev,
+      [styleId]: {
+        brandName: current.brandName ?? "",
+        markupPct: current.markupBps != null ? (current.markupBps / 100).toFixed(1) : "",
+      },
+    }));
+  }
+
+  function saveStyle(styleId: number) {
+    const e = editing[styleId];
+    if (!e) return;
+    const markupBps = e.markupPct.trim() !== "" ? Math.round(parseFloat(e.markupPct) * 100) : null;
+    upsert.mutate({
+      affiliateId,
+      styleId,
+      brandName: e.brandName.trim() || null,
+      markupBps: isNaN(markupBps as number) ? null : markupBps,
+    }, {
+      onSuccess: () => {
+        setEditing((prev) => { const n = { ...prev }; delete n[styleId]; return n; });
+        toast.success("Style saved");
+      },
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Default markup */}
+      <div className="flex items-end gap-3 p-3 rounded-lg border border-border bg-card">
+        <div className="flex-1">
+          <label className="text-xs text-muted-foreground font-medium block mb-1">Default Markup % (all styles unless overridden)</label>
+          <Input
+            value={defaultMarkupPct}
+            onChange={(e) => setDefaultMarkupPct(e.target.value)}
+            placeholder="e.g. 15"
+            className="h-8 text-sm w-32"
+          />
+        </div>
+        <Button size="sm" disabled={savingDefault} onClick={() => {
+          setSavingDefault(true);
+          const bps = defaultMarkupPct.trim() !== "" ? Math.round(parseFloat(defaultMarkupPct) * 100) : 0;
+          updateMarkup.mutate({ affiliateId, defaultMarkupBps: isNaN(bps) ? 0 : bps });
+        }}>Save Default</Button>
+      </div>
+
+      {/* Per-style search + table */}
+      <Input
+        placeholder="Search door styles…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="h-8 text-sm"
+      />
+      <div className="rounded-lg border border-border overflow-hidden max-h-96 overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 sticky top-0">
+            <tr>
+              <th className="text-left px-3 py-2 font-medium">Style (Central Name)</th>
+              <th className="text-left px-3 py-2 font-medium">Affiliate Name</th>
+              <th className="text-right px-3 py-2 font-medium">Markup %</th>
+              <th className="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {filtered.map((s) => {
+              const isEditing = s.id in editing;
+              const e = editing[s.id];
+              return (
+                <tr key={s.id} className={isEditing ? "bg-primary/5" : ""}>
+                  <td className="px-3 py-2 text-muted-foreground text-xs">{s.ourName ?? s.styleCode}</td>
+                  <td className="px-3 py-2">
+                    {isEditing ? (
+                      <Input
+                        value={e.brandName}
+                        onChange={(ev) => setEditing((p) => ({ ...p, [s.id]: { ...p[s.id], brandName: ev.target.value } }))}
+                        placeholder={s.ourName ?? ""}
+                        className="h-7 text-xs"
+                      />
+                    ) : (
+                      <span className={s.override?.brandName ? "font-medium" : "text-muted-foreground italic"}>
+                        {s.override?.brandName || "(default)"}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {isEditing ? (
+                      <Input
+                        value={e.markupPct}
+                        onChange={(ev) => setEditing((p) => ({ ...p, [s.id]: { ...p[s.id], markupPct: ev.target.value } }))}
+                        placeholder="%"
+                        className="h-7 text-xs w-20 ml-auto"
+                      />
+                    ) : (
+                      <span className="tabular-nums">
+                        {s.override?.markupBps != null ? `${(s.override.markupBps / 100).toFixed(1)}%` : "—"}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {isEditing ? (
+                      <div className="flex gap-1 justify-end">
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => saveStyle(s.id)}>Save</Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditing((p) => { const n = { ...p }; delete n[s.id]; return n; })}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => startEdit(s.id, { brandName: s.override?.brandName ?? null, markupBps: s.override?.markupBps ?? null })}>
+                        Edit
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin: Storefront Editor tab for one affiliate ──────────────────────────
+function AffiliateStorefrontEditor({ affiliate: a, onSaved }: { affiliate: AffiliateItem; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    storeName: a.storeName ?? "",
+    contactName: a.contactName ?? "",
+    email: a.email ?? "",
+    phone: a.phone ?? "",
+    website: a.website ?? "",
+    location: a.location ?? "",
+    tagline: "",
+    taglineEs: "",
+    aboutText: "",
+    aboutTextEs: "",
+    serviceArea: "",
+    yearsInBusiness: "",
+    facebookUrl: "",
+    instagramUrl: "",
+  });
+  const [loaded, setLoaded] = useState(false);
+
+  // Load full affiliate data (adminList only has partial fields)
+  const { data: fullData } = trpc.affiliates.adminList.useQuery(undefined, { retry: false });
+  useEffect(() => {
+    if (!loaded && fullData) {
+      const af = fullData.find((x) => x.id === a.id);
+      if (af) {
+        setForm({
+          storeName: af.storeName ?? "",
+          contactName: af.contactName ?? "",
+          email: af.email ?? "",
+          phone: af.phone ?? "",
+          website: af.website ?? "",
+          location: af.location ?? "",
+          tagline: (af as Record<string, unknown>).tagline as string ?? "",
+          taglineEs: (af as Record<string, unknown>).taglineEs as string ?? "",
+          aboutText: (af as Record<string, unknown>).aboutText as string ?? "",
+          aboutTextEs: (af as Record<string, unknown>).aboutTextEs as string ?? "",
+          serviceArea: (af as Record<string, unknown>).serviceArea as string ?? "",
+          yearsInBusiness: (af as Record<string, unknown>).yearsInBusiness != null ? String((af as Record<string, unknown>).yearsInBusiness) : "",
+          facebookUrl: (af as Record<string, unknown>).facebookUrl as string ?? "",
+          instagramUrl: (af as Record<string, unknown>).instagramUrl as string ?? "",
+        });
+        setLoaded(true);
+      }
+    }
+  }, [fullData, loaded, a.id]);
+
+  const save = trpc.affiliates.adminUpdate.useMutation({
+    onSuccess: () => { toast.success("Storefront updated"); onSaved(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function field(label: string, key: keyof typeof form, multiline?: boolean, hint?: string) {
+    return (
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-muted-foreground">{label}</label>
+        {hint && <p className="text-xs text-muted-foreground/70">{hint}</p>}
+        {multiline ? (
+          <textarea
+            value={form[key]}
+            onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
+            rows={3}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-y min-h-[72px]"
+          />
+        ) : (
+          <Input
+            value={form[key]}
+            onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
+            className="h-8 text-sm"
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        {field("Store Name", "storeName")}
+        {field("Contact Name", "contactName")}
+        {field("Email", "email")}
+        {field("Phone", "phone")}
+        {field("Website", "website")}
+        {field("Location / City", "location")}
+        {field("Service Area", "serviceArea", false, "Shown in footer contact block")}
+        {field("Years in Business", "yearsInBusiness", false, "Shown in hero badge")}
+        {field("Facebook URL", "facebookUrl")}
+        {field("Instagram URL", "instagramUrl")}
+      </div>
+      <div className="space-y-3">
+        {field("Hero Tagline (English)", "tagline", false, "Big headline on the storefront")}
+        {field("Hero Tagline (Spanish)", "taglineEs", false, "Optional — shown when visitor switches to ES")}
+        {field("About Text (English)", "aboutText", true, "Short paragraph about the affiliate's business")}
+        {field("About Text (Spanish)", "aboutTextEs", true, "Optional Spanish version")}
+      </div>
+      <Button
+        size="sm"
+        disabled={save.isPending}
+        onClick={() => save.mutate({
+          id: a.id,
+          storeName: form.storeName || undefined,
+          contactName: form.contactName || null,
+          email: form.email || undefined,
+          phone: form.phone || null,
+          website: form.website || null,
+          location: form.location || null,
+          tagline: form.tagline || null,
+          taglineEs: form.taglineEs || null,
+          aboutText: form.aboutText || null,
+          aboutTextEs: form.aboutTextEs || null,
+          serviceArea: form.serviceArea || null,
+          yearsInBusiness: form.yearsInBusiness ? parseInt(form.yearsInBusiness) : null,
+          facebookUrl: form.facebookUrl || null,
+          instagramUrl: form.instagramUrl || null,
+        })}
+      >
+        {save.isPending ? "Saving…" : "Save Storefront"}
+      </Button>
     </div>
   );
 }
