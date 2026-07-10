@@ -649,19 +649,59 @@ export const storefrontRouter = router({
           styleId: affiliateStyleBranding.styleId,
           brandName: affiliateStyleBranding.brandName,
           markupBps: affiliateStyleBranding.markupBps,
+          featured: affiliateStyleBranding.featured,
+          sortOrder: affiliateStyleBranding.sortOrder,
+          roomSceneUrl: affiliateStyleBranding.roomSceneUrl,
+          hidden: affiliateStyleBranding.hidden,
         })
         .from(affiliateStyleBranding)
         .where(eq(affiliateStyleBranding.affiliateId, a.id));
+
+      // Fetch door style names + thumbnails for featured (non-hidden) styles
+      const featuredStyleIds = brandRows
+        .filter((r) => r.featured && !r.hidden)
+        .map((r) => r.styleId);
+      let doorStyleDetails: Array<{ id: number; ourName: string | null; thumbnailImageUrl: string | null }> = [];
+      if (featuredStyleIds.length > 0) {
+        doorStyleDetails = await db
+          .select({ id: doorStyles.id, ourName: doorStyles.ourName, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+          .from(doorStyles)
+          .where(inArray(doorStyles.id, featuredStyleIds));
+      }
+      const doorStyleMap = new Map(doorStyleDetails.map((d) => [d.id, d]));
 
       // styleId -> brand name override (blank entries omitted)
       const styleNames: Record<number, string> = {};
       // styleId -> per-style markup bps override
       const styleMarkupBps: Record<number, number> = {};
+      // hidden style IDs (affiliate has hidden these from their storefront)
+      const hiddenStyleIds: number[] = [];
+      // featured styles for spotlight section
+      const featuredStyles: Array<{
+        styleId: number;
+        displayName: string;
+        roomSceneUrl: string | null;
+        thumbnailUrl: string | null;
+        sortOrder: number;
+      }> = [];
+
       for (const r of brandRows) {
         const nm = (r.brandName ?? "").trim();
         if (nm) styleNames[r.styleId] = nm;
         if (typeof r.markupBps === "number") styleMarkupBps[r.styleId] = r.markupBps;
+        if (r.hidden) hiddenStyleIds.push(r.styleId);
+        if (r.featured && !r.hidden) {
+          const ds = doorStyleMap.get(r.styleId);
+          featuredStyles.push({
+            styleId: r.styleId,
+            displayName: nm || ds?.ourName || `Style ${r.styleId}`,
+            roomSceneUrl: r.roomSceneUrl ?? null,
+            thumbnailUrl: ds?.thumbnailImageUrl ?? null,
+            sortOrder: r.sortOrder,
+          });
+        }
       }
+      featuredStyles.sort((a, b) => a.sortOrder - b.sortOrder);
 
       let categoryMarkupBps: Record<string, number> = {};
       try {
@@ -675,6 +715,8 @@ export const storefrontRouter = router({
         categoryMarkupBps,
         styleMarkupBps,
         styleNames,
+        hiddenStyleIds,
+        featuredStyles,
       };
     }),
 });

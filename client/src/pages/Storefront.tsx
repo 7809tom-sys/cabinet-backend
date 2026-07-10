@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useReferral, setReferralCode } from "@/hooks/useReferral";
 import { useStorefrontLangGlobal as useStorefrontLang } from "@/contexts/LanguageContext";
 import { StorefrontShop } from "@/components/storefront/StorefrontShop";
+import { useStorefrontBranding } from "@/hooks/useStorefrontBranding";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import {
   ArrowRight, Phone, Mail, MapPin, Globe, Facebook, Instagram, Award,
@@ -58,6 +59,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
     }),
     [data?.primaryColor, data?.accentColor]
   );
+  const branding = useStorefrontBranding(slug);
 
   if (isLoading) {
     return (
@@ -197,6 +199,63 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
             ))}
           </div>
         </section>
+
+        {/* ─── Featured Styles Spotlight ─────────────────────────────── */}
+        {branding.featuredStyles.length > 0 && (
+          <section className="py-12 md:py-16 border-b border-border">
+            <div className="container">
+              <div className="text-center mb-8">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="inline-block h-px w-12 rounded" style={{ backgroundColor: brand.accent }} />
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: brand.accent }}>Featured Styles</span>
+                  <span className="inline-block h-px w-12 rounded" style={{ backgroundColor: brand.accent }} />
+                </div>
+                <h2 className={`${headlineFont} text-2xl md:text-3xl font-bold`}>Our Highlighted Collections</h2>
+              </div>
+              <div className={`grid gap-6 ${
+                branding.featuredStyles.length === 1 ? "grid-cols-1 max-w-sm mx-auto" :
+                branding.featuredStyles.length === 2 ? "sm:grid-cols-2 max-w-2xl mx-auto" :
+                branding.featuredStyles.length === 3 ? "sm:grid-cols-3" :
+                "sm:grid-cols-2 lg:grid-cols-4"
+              }`}>
+                {branding.featuredStyles.map((fs) => (
+                  <a
+                    key={fs.styleId}
+                    href="#shop"
+                    className="group block overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-lg transition-all"
+                  >
+                    <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                      {(fs.roomSceneUrl || fs.thumbnailUrl) ? (
+                        <img
+                          src={(fs.roomSceneUrl || fs.thumbnailUrl) as string}
+                          alt={fs.displayName}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center bg-muted">
+                          <span className="text-muted-foreground text-sm">No photo yet</span>
+                        </div>
+                      )}
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
+                      <div className="absolute bottom-3 left-4">
+                        <p className="font-serif text-lg font-bold text-white drop-shadow">{fs.displayName}</p>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <span
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white transition-transform group-active:scale-[0.98]"
+                        style={{ backgroundColor: brand.accent }}
+                      >
+                        Shop This Style <ArrowRight className="h-4 w-4" />
+                      </span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ─── Family-locked shop (shared across templates) ─────────────── */}
         <div id="shop">

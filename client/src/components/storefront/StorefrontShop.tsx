@@ -156,11 +156,15 @@ function FamilyPicker({
           <p className="text-center text-muted-foreground py-12">—</p>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {data.map((f) => {
+            {data.filter((f) => !branding.hiddenStyleIds.has(f.styleId)).map((f) => {
               // STRICT ONE-FAMILY-ONE-COLOR: lead with this family's OWN verified
               // room scene. No keyword/bucket guessing — if there's no real photo
               // we render the color-accurate swatch on the family's finish color.
-              const scene = f.roomSceneImageUrl || null;
+              // Use affiliate's custom room scene override if set.
+              const affiliateScene = branding.featuredStyles.find((fs) => fs.styleId === f.styleId)?.roomSceneUrl;
+              const scene = affiliateScene || f.roomSceneImageUrl || null;
+              // Apply affiliate's white-label name
+              const displayName = branding.brandName(f.styleId, f.name);
               return (
                 <button
                   key={f.styleId}
@@ -169,7 +173,7 @@ function FamilyPicker({
                     onPick({
                       styleId: f.styleId,
                       distributorId: f.distributorId,
-                      name: f.name,
+                      name: displayName,
                       doorStyle: f.doorStyle,
                       finish: f.finish,
                       color: f.color,
@@ -248,7 +252,7 @@ function FamilyPicker({
                     </div>
                   </div>
                   <div className="flex flex-1 flex-col p-5">
-                    <h3 className="font-serif text-lg font-bold leading-tight">{f.name}</h3>
+                    <h3 className="font-serif text-lg font-bold leading-tight">{displayName}</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {[f.finish, f.color].filter(Boolean).join(" · ") || "\u00A0"}
                     </p>
