@@ -806,3 +806,11 @@
 - [x] "Designer's Choice" badge (indigo, admin-configurable) on style cards
 - [x] Admin toggle for bestValue and designersChoice flags on door_styles table
 - [x] Schema: add bestValue and designersChoice boolean columns to door_styles
+
+## USCD All Lines Import (2026-07-10)
+- [x] Scrape all 20 USCD Capital Collection lines (4,963 SKUs total)
+- [x] Import 938 new cabinet master records into database
+- [x] Import 4,806 distributor_sku records (19 lines, Torrance White pending door style)
+- [x] All records include USCD product thumbnail images (catalogImageUrl / imageUrl)
+- [x] Database totals: 1,693 cabinets, 10,204 distributor_skus
+- [ ] Add Torrance White door style record and import its 336 SKUs
