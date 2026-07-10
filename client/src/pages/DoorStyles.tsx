@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Palette, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { Palette, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Maximize2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,11 +42,15 @@ function displayName(style: DoorStyle): string {
 
 function StyleCard({ style }: { style: DoorStyle }) {
   const { t } = useLanguage();
-  // STRICT ONE-FAMILY-ONE-COLOR: use ONLY this style's own verified photo.
-  // When there's no real photo, fall back to the color-accurate swatch/preview
-  // (recolored to THIS style's exact finish) — never a generic stock door or
-  // another family's scene.
-  const realDoor = style.doorSampleImageUrl || null;
+  const [showDoor, setShowDoor] = useState(false);
+  const [sceneFailed, setSceneFailed] = useState(false);
+  const [doorFailed, setDoorFailed] = useState(false);
+  const roomScene = style.roomSceneImageUrl;
+  const doorSample = style.doorSampleImageUrl;
+  // Hero: room scene is PRIMARY; door icon toggles to close-up door sample
+  const heroSrc = showDoor
+    ? (doorSample && !doorFailed ? doorSample : null)
+    : (roomScene && !sceneFailed ? roomScene : null);
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -54,15 +58,16 @@ function StyleCard({ style }: { style: DoorStyle }) {
           type="button"
           className="cabinet-card group relative rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          {/* Clean studio door sample as the primary visual on a neutral ground */}
+          {/* Room scene is the primary hero; door icon toggles to close-up */}
           <div className="h-48 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
-            {realDoor ? (
+            {heroSrc ? (
               <img
-                src={realDoor}
-                alt={`${style.ourName || style.styleCode} door sample`}
+                src={heroSrc}
+                alt={showDoor ? `${style.ourName || style.styleCode} door sample` : `${style.ourName || style.styleCode} kitchen`}
                 loading="lazy"
                 decoding="async"
                 className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                onError={() => showDoor ? setDoorFailed(true) : setSceneFailed(true)}
               />
             ) : (
               <DoorStyleSwatch
@@ -70,8 +75,22 @@ function StyleCard({ style }: { style: DoorStyle }) {
                 className="relative h-32 w-auto drop-shadow-lg group-hover:scale-105 transition-transform duration-300"
               />
             )}
-            <span className="absolute bottom-2 right-2 text-[10px] font-medium text-white bg-black/55 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-              {t("ds_view_details")}
+            {/* Gradient overlay */}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+            {/* Door toggle button */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowDoor((v) => !v); }}
+              className={`absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-md transition-colors z-10 ${
+                showDoor ? "border-white bg-white text-foreground" : "border-white/80 bg-black/40 text-white hover:bg-black/60"
+              }`}
+              title={showDoor ? "Show room scene" : "View door close-up"}
+            >
+              {showDoor ? <Maximize2 className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
+            </button>
+            {/* View-mode label */}
+            <span className="absolute bottom-2 left-2 text-[10px] font-medium text-white/90 bg-black/50 px-1.5 py-0.5 rounded-full">
+              {showDoor ? "Door" : "Room"}
             </span>
           </div>
 
@@ -122,11 +141,12 @@ function StyleCard({ style }: { style: DoorStyle }) {
 
         {/* Primary: the clean studio door sample for this finish */}
         <div className="rounded-lg overflow-hidden border border-border bg-gradient-to-b from-muted/40 to-muted/70">
-          {realDoor ? (
+          {doorSample && !doorFailed ? (
             <img
-              src={realDoor}
+              src={doorSample}
               alt={`${style.ourName || style.styleCode} door sample`}
               className="w-full h-auto block"
+              onError={() => setDoorFailed(true)}
             />
           ) : (
             <DoorStyleSwatch style={style} className="w-full h-auto block" />

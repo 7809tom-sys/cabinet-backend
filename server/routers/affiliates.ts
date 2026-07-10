@@ -372,7 +372,7 @@ export const affiliatesRouter = router({
     const db = await getDb();
     if (!db) return null;
     const styles = await db
-      .select({ id: doorStyles.id, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+      .select({ id: doorStyles.id, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl, roomSceneImageUrl: doorStyles.roomSceneImageUrl, doorSampleImageUrl: doorStyles.doorSampleImageUrl })
       .from(doorStyles)
       .where(eq(doorStyles.isActive, true));
     const overrides = await db
