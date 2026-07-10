@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,14 @@ import {
 } from "@/components/ui/select";
 import {
   Store, Plus, ExternalLink, Copy, DollarSign, Package, Mail, Phone, MapPin, Eye, Send, FileText, CheckCircle2,
+  Calculator, Save, Info, BarChart2, TrendingUp, Users, QrCode, Megaphone, BookOpen, Download, Youtube,
 } from "lucide-react";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid,
+  LineChart, Line,
+} from "recharts";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "active") return "default";
@@ -213,7 +220,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
   const storeUrl = `${origin}/store/${a.slug}`;
   const refLink = `${origin}/order/new?ref=${a.referralCode}`;
   const loginUrl = `${origin}/affiliate`;
-  const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals" | "earnings" | "crm" | "catalog" | "storefront" | "w9">("credentials");
+  const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals" | "earnings" | "crm" | "catalog" | "storefront" | "analytics" | "pricing" | "marketing" | "w9">("credentials");
 
   const setTemplate = trpc.affiliates.adminUpdate.useMutation({
     onSuccess: () => {
@@ -234,7 +241,7 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
     <div className="mt-4 rounded-lg border border-border bg-muted/20 overflow-hidden">
       {/* Sub-tab bar */}
       <div className="flex flex-wrap border-b border-border">
-        {(["credentials", "template", "referrals", "earnings", "crm", "catalog", "storefront", "w9"] as const).map((t) => (
+        {(["credentials", "template", "referrals", "earnings", "crm", "analytics", "pricing", "catalog", "storefront", "marketing", "w9"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
@@ -325,6 +332,9 @@ function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateI
         {activeTab === "crm" && <AffiliateCrmAdmin affiliateId={a.id} />}
         {activeTab === "catalog" && <AffiliateCatalogMarkupAdmin affiliateId={a.id} />}
         {activeTab === "storefront" && <AffiliateStorefrontEditor affiliate={a} onSaved={() => utils.affiliates.adminList.invalidate()} />}
+        {activeTab === "analytics" && <AffiliateAnalyticsAdmin affiliateId={a.id} />}
+        {activeTab === "pricing" && <AffiliatePricingAdmin affiliateId={a.id} />}
+        {activeTab === "marketing" && <AffiliateMarketingAdmin affiliate={a} origin={origin} />}
         {activeTab === "w9" && <AffiliateW9Review affiliate={a} />}
       </div>
     </div>
@@ -742,6 +752,354 @@ function AffiliateCrmAdmin({ affiliateId }: { affiliateId: number }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ─── Admin Analytics Panel ───────────────────────────────────────────────────
+function AffiliateAnalyticsAdmin({ affiliateId }: { affiliateId: number }) {
+  const earningsQ = trpc.affiliates.adminEarnings.useQuery({ affiliateId }, { retry: false });
+  const referralsQ = trpc.affiliates.adminReferrals.useQuery({ affiliateId }, { retry: false });
+  const isLoading = earningsQ.isLoading || referralsQ.isLoading;
+
+  if (isLoading) return <div className="py-4 flex justify-center"><Spinner className="h-5 w-5" /></div>;
+
+  const earnings = earningsQ.data;
+  const referrals = referralsQ.data;
+
+  if (!earnings || !referrals) return <p className="text-sm text-muted-foreground py-3">No analytics data available.</p>;
+
+  const { summary, orders, commissionRate } = referrals;
+  const conversionRate = summary.referredCount > 0
+    ? ((summary.confirmedCount / summary.referredCount) * 100).toFixed(1)
+    : "0.0";
+
+  const weeklyData = earnings.weeks.slice(-12).map((w) => ({
+    week: w.weekKey.slice(5),
+    commission: parseFloat((w.totalCommissionCents / 100).toFixed(2)),
+    orders: w.count,
+  }));
+
+  const statusCounts = orders.reduce<Record<string, number>>((acc, o) => {
+    acc[o.status] = (acc[o.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const statusData = Object.entries(statusCounts).map(([status, count]) => ({ status: status.charAt(0).toUpperCase() + status.slice(1), count }));
+
+  const confirmedOrders = orders.filter((o) => o.status === "confirmed" && o.totalAmount != null);
+  const avgOrderValue = confirmedOrders.length > 0
+    ? confirmedOrders.reduce((s, o) => s + Number(o.totalAmount), 0) / confirmedOrders.length
+    : 0;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { icon: Package, label: "Total referred", value: summary.referredCount },
+          { icon: TrendingUp, label: "Confirmed", value: summary.confirmedCount, sub: `${conversionRate}% conversion` },
+          { icon: DollarSign, label: "Commission", value: `$${(earnings.lifetimeCents / 100).toFixed(2)}`, sub: `${(commissionRate * 100).toFixed(1)}% rate` },
+          { icon: Users, label: "Avg order", value: avgOrderValue > 0 ? `$${avgOrderValue.toFixed(0)}` : "—" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-1.5 text-muted-foreground text-xs mb-1"><s.icon className="h-3.5 w-3.5" />{s.label}</div>
+            <div className="font-serif text-2xl font-bold tabular-nums">{s.value}</div>
+            {s.sub && <p className="text-xs text-muted-foreground mt-0.5">{s.sub}</p>}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "This week", value: `$${(earnings.thisWeekCents / 100).toFixed(2)}`, color: "text-primary" },
+          { label: "Paid out", value: `$${(earnings.paidCents / 100).toFixed(2)}`, color: "text-emerald-600" },
+          { label: "Pending", value: `$${(earnings.pendingCents / 100).toFixed(2)}`, color: "text-amber-600" },
+        ].map((item) => (
+          <div key={item.label} className="rounded-lg border border-border bg-card p-3">
+            <p className="text-xs text-muted-foreground mb-0.5">{item.label}</p>
+            <p className={`text-xl font-bold tabular-nums ${item.color}`}>{item.value}</p>
+          </div>
+        ))}
+      </div>
+      {weeklyData.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-sm font-semibold mb-3">Weekly Commission (last 12 weeks)</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={weeklyData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="week" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v}`} />
+              <RechartsTooltip formatter={(v: number) => [`$${v.toFixed(2)}`, "Commission"]} contentStyle={{ fontSize: 11, borderRadius: 6 }} />
+              <Bar dataKey="commission" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {statusData.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {statusData.map((s) => (
+            <div key={s.status} className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+              <span className="text-xl font-bold tabular-nums">{s.count}</span>
+              <span className="text-sm text-muted-foreground">{s.status}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {weeklyData.length === 0 && orders.length === 0 && (
+        <p className="text-sm text-muted-foreground py-4 text-center">No analytics data yet for this affiliate.</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Admin Pricing Panel ──────────────────────────────────────────────────────
+const BASELINE_PCT = 0.05;
+const DAMAGE_PCT = 0.01;
+const CC_PCT = 0.04;
+const IT_PCT = 0.10;
+const IT_MAX = 100;
+const PRICE_CATEGORIES = ["base", "wall", "tall", "vanity", "specialty"] as const;
+type PriceCategory = typeof PRICE_CATEGORIES[number];
+const PRICE_CATEGORY_LABELS: Record<PriceCategory, string> = { base: "Base Cabinets", wall: "Wall Cabinets", tall: "Tall / Pantry", vanity: "Vanity", specialty: "Specialty" };
+function computeFloor(retail: number) {
+  const baseline = retail * (1 + BASELINE_PCT);
+  const afterDamage = baseline * (1 + DAMAGE_PCT);
+  const afterCC = afterDamage * (1 + CC_PCT);
+  const itFee = Math.min(retail * IT_PCT, IT_MAX);
+  return { baseline, afterDamage, afterCC, itFee, floor: afterCC + itFee };
+}
+function bpsToPercent(bps: number) { return (bps / 100).toFixed(2); }
+function percentToBps(pct: string) { return Math.round(parseFloat(pct) * 100); }
+
+function AffiliatePricingAdmin({ affiliateId }: { affiliateId: number }) {
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.affiliates.adminBranding.useQuery({ affiliateId }, { retry: false });
+  const [defaultPct, setDefaultPct] = useState("");
+  const [categoryPcts, setCategoryPcts] = useState<Partial<Record<PriceCategory, string>>>({});
+  const [calcRetail, setCalcRetail] = useState("1000");
+  const [initialized, setInitialized] = useState(false);
+
+  const updateMarkup = trpc.affiliates.adminUpdateMarkup.useMutation({
+    onSuccess: () => { toast.success("Pricing saved"); utils.affiliates.adminBranding.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (data && !initialized) {
+    setDefaultPct(bpsToPercent(data.defaultMarkupBps));
+    const cats: Partial<Record<PriceCategory, string>> = {};
+    for (const cat of PRICE_CATEGORIES) {
+      if (data.categoryMarkup[cat] !== undefined) cats[cat] = bpsToPercent(data.categoryMarkup[cat]);
+    }
+    setCategoryPcts(cats);
+    setInitialized(true);
+  }
+
+  const retail = parseFloat(calcRetail) || 0;
+  const { baseline, afterDamage, afterCC, itFee, floor } = useMemo(() => computeFloor(retail), [retail]);
+  const defaultMarkupBps = percentToBps(defaultPct || "0");
+  const customerPrice = floor * (1 + defaultMarkupBps / 10000);
+
+  function save() {
+    const defaultBps = percentToBps(defaultPct || "0");
+    if (isNaN(defaultBps) || defaultBps < 0) { toast.error("Invalid markup"); return; }
+    const catMap: Record<string, number> = {};
+    for (const cat of PRICE_CATEGORIES) {
+      const v = categoryPcts[cat];
+      if (v !== undefined && v !== "") { const bps = percentToBps(v); if (!isNaN(bps) && bps >= 0) catMap[cat] = bps; }
+    }
+    updateMarkup.mutate({ affiliateId, defaultMarkupBps: defaultBps, categoryMarkup: catMap });
+  }
+
+  if (isLoading) return <div className="py-4 flex justify-center"><Spinner className="h-5 w-5" /></div>;
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+        <p className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4 text-primary" /> Cost Floor Calculator</p>
+        <div className="flex items-end gap-3">
+          <div className="space-y-1 flex-1 max-w-xs">
+            <Label className="text-xs">Cabinet Dealz retail price ($)</Label>
+            <Input type="number" value={calcRetail} onChange={(e) => setCalcRetail(e.target.value)} placeholder="1000" />
+          </div>
+        </div>
+        <div className="rounded-lg border border-border overflow-hidden text-sm">
+          {[
+            ["Cabinet Dealz retail", `$${retail.toFixed(2)}`],
+            ["+5% affiliate baseline", `$${baseline.toFixed(2)}`],
+            ["+1% damage protection", `$${afterDamage.toFixed(2)}`],
+            ["+4% credit card fee", `$${afterCC.toFixed(2)}`],
+            ["+IT/platform fee (10%, max $100)", `$${itFee.toFixed(2)}`],
+          ].map(([label, val]) => (
+            <div key={label} className="flex justify-between px-3 py-1.5 border-b border-border last:border-0">
+              <span className="text-muted-foreground text-xs">{label}</span>
+              <span className="tabular-nums text-xs">{val}</span>
+            </div>
+          ))}
+          <div className="flex justify-between px-3 py-2 bg-amber-50 font-semibold text-sm">
+            <span>Cost floor</span><span className="tabular-nums text-amber-700">${floor.toFixed(2)}</span>
+          </div>
+        </div>
+        {defaultMarkupBps > 0 && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm flex justify-between">
+            <span className="text-emerald-800">Customer pays ({bpsToPercent(defaultMarkupBps)}% markup)</span>
+            <span className="tabular-nums font-semibold text-emerald-800">${customerPrice.toFixed(2)}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+        <p className="text-sm font-semibold flex items-center gap-2"><DollarSign className="h-4 w-4 text-primary" /> Markup Settings</p>
+        <div className="space-y-1">
+          <Label className="text-xs">Default markup % (all styles unless overridden)</Label>
+          <div className="flex items-center gap-2 max-w-xs">
+            <Input type="number" min="0" step="0.5" value={defaultPct} onChange={(e) => setDefaultPct(e.target.value)} placeholder="e.g. 20" />
+            <span className="text-muted-foreground text-sm">%</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs">Per-category overrides <span className="text-muted-foreground">(optional)</span></Label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {PRICE_CATEGORIES.map((cat) => (
+              <div key={cat} className="space-y-0.5">
+                <Label className="text-xs text-muted-foreground">{PRICE_CATEGORY_LABELS[cat]}</Label>
+                <div className="flex items-center gap-1">
+                  <Input type="number" min="0" step="0.5" value={categoryPcts[cat] ?? ""} onChange={(e) => setCategoryPcts((p) => ({ ...p, [cat]: e.target.value }))} placeholder={defaultPct || "default"} className="text-xs" />
+                  <span className="text-muted-foreground text-xs">%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-start gap-2 rounded-lg bg-muted/40 p-2.5 text-xs text-muted-foreground">
+          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          Per-style overrides (Catalog tab) take priority over category overrides, which take priority over the default markup.
+        </div>
+        <Button onClick={save} disabled={updateMarkup.isPending} size="sm" className="gap-1.5">
+          <Save className="h-3.5 w-3.5" />{updateMarkup.isPending ? "Saving…" : "Save Pricing"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin Marketing Panel ────────────────────────────────────────────────────
+function useQRCode(url: string) {
+  const [dataUrl, setDataUrl] = useState("");
+  useEffect(() => {
+    if (!url) return;
+    import("qrcode").then((QRCode) => {
+      QRCode.toDataURL(url, { width: 256, margin: 2 }).then(setDataUrl).catch(() => {});
+    });
+  }, [url]);
+  return dataUrl;
+}
+
+function AffiliateMarketingAdmin({ affiliate: a, origin }: { affiliate: AffiliateItem; origin: string }) {
+  const storefrontUrl = `${origin}/store/${a.slug}`;
+  const referralUrl = `${origin}?ref=${a.referralCode}`;
+  const qrDataUrl = useQRCode(storefrontUrl);
+
+  const SCRIPTS = [
+    { label: "Text Message", text: `Hey! I wanted to share my cabinet store with you. We have great prices on kitchen and bath cabinets — check it out: ${storefrontUrl}` },
+    { label: "Email Subject", text: `Check out my cabinet store — ${a.storeName}` },
+    { label: "Email Body", text: `Hi,\n\nI wanted to let you know about my cabinet store, ${a.storeName}. We carry a wide selection of kitchen and bath cabinets at trade pricing.\n\nBrowse the catalog here: ${storefrontUrl}\n\nFeel free to reach out with any questions!` },
+    { label: "Social Media Post", text: `🏠 Looking for quality cabinets at great prices? Check out ${a.storeName}! We carry kitchen and bath cabinets with fast shipping. Shop now: ${storefrontUrl}` },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <Tabs defaultValue="links">
+        <TabsList className="flex-wrap h-auto gap-1">
+          <TabsTrigger value="links" className="gap-1.5 text-xs"><QrCode className="h-3.5 w-3.5" /> Links & QR</TabsTrigger>
+          <TabsTrigger value="scripts" className="gap-1.5 text-xs"><Megaphone className="h-3.5 w-3.5" /> Scripts</TabsTrigger>
+          <TabsTrigger value="training" className="gap-1.5 text-xs"><BookOpen className="h-3.5 w-3.5" /> Training</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="links" className="space-y-4 pt-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Shareable Links</p>
+              {[{ label: "Storefront", url: storefrontUrl }, { label: "Referral Link", url: referralUrl }].map(({ label, url }) => (
+                <div key={label} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="text-xs font-mono truncate">{url}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigator.clipboard.writeText(url).then(() => toast.success(`${label} copied`))}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    <a href={url} target="_blank" rel="noreferrer">
+                      <Button variant="ghost" size="icon" className="h-6 w-6"><ExternalLink className="h-3 w-3" /></Button>
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide self-start">QR Code</p>
+              {qrDataUrl ? (
+                <div className="rounded-xl border border-border p-2 bg-white">
+                  <img src={qrDataUrl} alt="QR code" className="w-32 h-32" />
+                </div>
+              ) : (
+                <div className="w-32 h-32 rounded-xl border border-border flex items-center justify-center bg-muted">
+                  <Spinner className="h-5 w-5" />
+                </div>
+              )}
+              {qrDataUrl && (
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => { const el = document.createElement("a"); el.href = qrDataUrl; el.download = `${a.slug}-qr.png`; el.click(); toast.success("QR downloaded"); }}>
+                  <Download className="h-3 w-3" /> Download QR
+                </Button>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="scripts" className="space-y-3 pt-3">
+          {SCRIPTS.map((s) => (
+            <div key={s.label} className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">{s.label}</Label>
+                <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" onClick={() => navigator.clipboard.writeText(s.text).then(() => toast.success(`${s.label} copied`))}>
+                  <Copy className="h-3 w-3" /> Copy
+                </Button>
+              </div>
+              <Textarea readOnly value={s.text} className="text-xs font-mono resize-none" rows={s.text.split("\n").length + 1} />
+            </div>
+          ))}
+        </TabsContent>
+
+        <TabsContent value="training" className="space-y-3 pt-3">
+          {[
+            { icon: "🎯", title: "10 Steps to a Sale", desc: "Complete sales playbook from prospect to referral." },
+            { icon: "📐", title: "Kitchen Design Fundamentals", desc: "Measurements, standard sizes, work triangle, and layouts." },
+            { icon: "📊", title: "How to Use Your CRM", desc: "Turn your pipeline into predictable sales." },
+            { icon: "✉️", title: "Marketing Scripts & Templates", desc: "Ready-to-use text, email, and social media templates." },
+          ].map((g) => (
+            <div key={g.title} className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
+              <span className="text-2xl">{g.icon}</span>
+              <div>
+                <p className="font-semibold text-sm">{g.title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{g.desc}</p>
+              </div>
+            </div>
+          ))}
+          <div className="rounded-lg border border-border bg-card p-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">YouTube Resources</p>
+            {[
+              { name: "Alex Hormozi", url: "https://www.youtube.com/@AlexHormozi", desc: "Business growth, offers, and sales systems." },
+              { name: "Jeremy Miner", url: "https://www.youtube.com/@JeremyMiner", desc: "Modern sales psychology and objection handling." },
+            ].map((y) => (
+              <a key={y.name} href={y.url} target="_blank" rel="noreferrer" className="flex items-start gap-2 py-2 hover:text-primary transition-colors">
+                <Youtube className="h-4 w-4 mt-0.5 text-red-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">{y.name}</p>
+                  <p className="text-xs text-muted-foreground">{y.desc}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

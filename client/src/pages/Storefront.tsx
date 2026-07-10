@@ -320,6 +320,7 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           <div className="mt-10 pt-6 border-t border-white/15 text-xs text-white/50 flex flex-col sm:flex-row justify-between gap-2">
             <span>© {new Date().getFullYear()} {data.storeName}. {t("footer_rights")}</span>
             <span>{t("footer_powered")}</span>
+            <AffiliateLoginFooterLink />
             <AdminFooterLink affiliateId={data.id} storeName={data.storeName} />
           </div>
         </div>
@@ -641,6 +642,22 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
         </div>
       </section>
     </>
+  );
+}
+
+// ─── Affiliate login footer link ────────────────────────────────────────────
+// Always visible — lets the affiliate log in to manage their store.
+function AffiliateLoginFooterLink() {
+  const { user } = useAuth();
+  // If already logged in as admin, don't show this (they have the admin link)
+  if (user?.role === "admin") return null;
+  return (
+    <a
+      href="/affiliate"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white/60 hover:text-white text-xs font-medium transition-colors"
+    >
+      <LogIn className="h-3.5 w-3.5" /> Manage Your Store
+    </a>
   );
 }
 
