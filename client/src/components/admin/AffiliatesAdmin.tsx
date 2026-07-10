@@ -916,13 +916,13 @@ function AffiliatePricingAdmin({ affiliateId }: { affiliateId: number }) {
         <p className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4 text-primary" /> Cost Floor Calculator</p>
         <div className="flex items-end gap-3">
           <div className="space-y-1 flex-1 max-w-xs">
-            <Label className="text-xs">Cabinet Dealz retail price ($)</Label>
+            <Label className="text-xs">Cabinet Dealz cost ($)</Label>
             <Input type="number" value={calcRetail} onChange={(e) => setCalcRetail(e.target.value)} placeholder="1000" />
           </div>
         </div>
         <div className="rounded-lg border border-border overflow-hidden text-sm">
           {[
-            ["Cabinet Dealz retail", `$${retail.toFixed(2)}`],
+            ["Cabinet Dealz cost", `$${retail.toFixed(2)}`],
             ["+5% affiliate baseline", `$${baseline.toFixed(2)}`],
             ["+1% damage protection", `$${afterDamage.toFixed(2)}`],
             ["+4% credit card fee", `$${afterCC.toFixed(2)}`],

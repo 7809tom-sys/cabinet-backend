@@ -129,7 +129,7 @@ export default function AffiliatePricingPanel() {
         <CardContent className="space-y-4">
           <div className="flex items-end gap-3">
             <div className="space-y-1.5 flex-1 max-w-xs">
-              <Label>Cabinet Dealz retail price ($)</Label>
+              <Label>Cabinet Dealz cost ($)</Label>
               <Input
                 type="number"
                 value={calcRetail}
@@ -145,7 +145,7 @@ export default function AffiliatePricingPanel() {
             </div>
             <div className="divide-y divide-border">
               <div className="flex justify-between px-4 py-2">
-                <span className="text-muted-foreground">Cabinet Dealz retail</span>
+                <span className="text-muted-foreground">Cabinet Dealz cost</span>
                 <span className="tabular-nums">${retail.toFixed(2)}</span>
               </div>
               <div className="flex justify-between px-4 py-2">
