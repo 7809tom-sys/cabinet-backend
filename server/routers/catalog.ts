@@ -131,6 +131,8 @@ export const doorStylesRouter = router({
         featuredRank: doorStyles.featuredRank,
         featuredLabel: doorStyles.featuredLabel,
         isBuilderGrade: doorStyles.isBuilderGrade,
+        bestValue: doorStyles.bestValue,
+        designersChoice: doorStyles.designersChoice,
         isActive: doorStyles.isActive,
         createdAt: doorStyles.createdAt,
       };
@@ -302,6 +304,43 @@ export const doorStylesRouter = router({
         .update(doorStyles)
         .set({ featuredLabel: label })
         .where(eq(doorStyles.id, input.id));
+      return { ok: true };
+    }),
+
+  // Admin: toggle "Best Value" badge (max 5 at a time).
+  setBestValue: adminProcedure
+    .input(z.object({ id: z.number(), value: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      if (input.value) {
+        const [{ cnt }] = await db
+          .select({ cnt: sql<number>`count(*)` })
+          .from(doorStyles)
+          .where(and(eq(doorStyles.isActive, true), eq(doorStyles.bestValue, true)));
+        const already = await db
+          .select({ bestValue: doorStyles.bestValue })
+          .from(doorStyles)
+          .where(eq(doorStyles.id, input.id))
+          .limit(1);
+        if (!already[0]?.bestValue && Number(cnt) >= 5) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You can mark up to 5 styles as Best Value. Remove one before adding another.",
+          });
+        }
+      }
+      await db.update(doorStyles).set({ bestValue: input.value }).where(eq(doorStyles.id, input.id));
+      return { ok: true };
+    }),
+
+  // Admin: toggle "Designer's Choice" badge.
+  setDesignersChoice: adminProcedure
+    .input(z.object({ id: z.number(), value: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.update(doorStyles).set({ designersChoice: input.value }).where(eq(doorStyles.id, input.id));
       return { ok: true };
     }),
 

@@ -795,3 +795,14 @@
 - [x] Identify Accessory items with no subCategory and no approved SKUs (2 records)
 - [x] Mark all 175 ambiguous cabinets as conflictStatus='conflict' with descriptive reasons
 - [ ] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)
+
+## Oxford Cashmere cabinet line import
+- [x] Import Oxford Cashmere (OC) 249 SKUs into database with USCD product image URLs
+- [x] Assign USCD generic thumbnail images as master image_url per cabinet type
+
+## Room-scene card browse UI
+- [x] Room-scene card browse UI: full-bleed room scene photo cards for each cabinet style
+- [x] "Best Value" badge (gold ribbon, admin-configurable, max 5 styles) on style cards
+- [x] "Designer's Choice" badge (indigo, admin-configurable) on style cards
+- [x] Admin toggle for bestValue and designersChoice flags on door_styles table
+- [x] Schema: add bestValue and designersChoice boolean columns to door_styles

@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
-  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon,
+  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, Award,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,8 @@ interface AdminStyle {
   doorSampleVerified: boolean;
   isFeatured: boolean;
   featuredRank: number;
+  bestValue: boolean;
+  designersChoice: boolean;
   distributorId: number;
   distributorName: string | null;
 }
@@ -455,6 +457,16 @@ export default function FeaturedStylesAdmin() {
       .sort((a, b) => a.ourName.localeCompare(b.ourName));
   }, [styles, search, distributorFilter]);
 
+  const setBestValue = trpc.doorStyles.setBestValue.useMutation({
+    onSuccess: () => { utils.doorStyles.listForAdmin.invalidate(); utils.doorStyles.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const setDesignersChoice = trpc.doorStyles.setDesignersChoice.useMutation({
+    onSuccess: () => { utils.doorStyles.listForAdmin.invalidate(); utils.doorStyles.list.invalidate(); },
+    onError: (e) => toast.error(e.message),
+  });
+
   const setFeatured = trpc.doorStyles.setFeatured.useMutation({
     onSuccess: () => {
       utils.doorStyles.listForAdmin.invalidate();
@@ -730,6 +742,30 @@ export default function FeaturedStylesAdmin() {
                     title="Edit style"
                   >
                     <Pencil className="h-4 w-4" />
+                  </Button>
+                  {/* Best Value badge toggle */}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={`h-8 w-8 ${s.bestValue ? "text-amber-500 bg-amber-50" : "text-muted-foreground/60"}`}
+                    onClick={() => setBestValue.mutate({ id: s.id, value: !s.bestValue })}
+                    disabled={setBestValue.isPending}
+                    aria-label={s.bestValue ? "Remove Best Value badge" : "Mark as Best Value"}
+                    title={s.bestValue ? "Remove Best Value badge" : "Mark as Best Value (max 5)"}
+                  >
+                    <Star className="h-4 w-4" />
+                  </Button>
+                  {/* Designer's Choice badge toggle */}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={`h-8 w-8 ${s.designersChoice ? "text-indigo-600 bg-indigo-50" : "text-muted-foreground/60"}`}
+                    onClick={() => setDesignersChoice.mutate({ id: s.id, value: !s.designersChoice })}
+                    disabled={setDesignersChoice.isPending}
+                    aria-label={s.designersChoice ? "Remove Designer's Choice badge" : "Mark as Designer's Choice"}
+                    title={s.designersChoice ? "Remove Designer's Choice badge" : "Mark as Designer's Choice"}
+                  >
+                    <Award className="h-4 w-4" />
                   </Button>
                   <Button
                     size="icon"

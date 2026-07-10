@@ -130,6 +130,9 @@ export const doorStyles = mysqlTable("door_styles", {
   // ships STANDARD hardware (not soft-close) and is a lower-spec value line.
   // Drives a UI badge + hardware note so it is clearly distinguished from premium lines.
   isBuilderGrade: boolean("isBuilderGrade").default(false).notNull(),
+  // Storefront badge flags — admin-configurable
+  bestValue: boolean("bestValue").default(false).notNull(),        // shows gold "Best Value" ribbon (max 4-5)
+  designersChoice: boolean("designersChoice").default(false).notNull(), // shows navy "Designer's Choice" ribbon
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
