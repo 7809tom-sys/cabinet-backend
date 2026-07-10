@@ -204,54 +204,68 @@ function RoomSceneCard({ style, href }: { style: DoorStyle; href?: string }) {
 
 function CompactCard({ style }: { style: DoorStyle }) {
   const { t } = useLanguage();
-  const realDoor = style.doorSampleImageUrl || null;
+  const bg = style.roomSceneImageUrl || style.doorSampleImageUrl || null;
   const name = displayName(style);
+  const sub = subtitle(style);
   return (
     <Dialog>
       <DialogTrigger asChild>
         <button
           type="button"
-          className="cabinet-card group relative rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="cabinet-card group relative rounded-xl overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          style={{ aspectRatio: "4/3" }}
         >
-          <div className="h-40 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
-            {realDoor ? (
-              <img
-                src={realDoor}
-                alt={`${name} door`}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-            ) : (
-              <DoorStyleSwatch
-                style={style}
-                className="relative h-28 w-auto drop-shadow-lg group-hover:scale-105 transition-transform duration-300"
-              />
-            )}
-            {/* Badge ribbons */}
+          {/* Background room scene photo */}
+          {bg ? (
+            <img
+              src={bg}
+              alt={`${name} kitchen`}
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-105"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/60">
+              <DoorStyleSwatch style={style} className="h-16 w-auto drop-shadow-lg" />
+            </div>
+          )}
+
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+
+          {/* Badge ribbons — top-left */}
+          <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
             {style.bestValue && (
-              <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide
-                               text-amber-950 bg-amber-400/95 px-2 py-0.5 rounded-full shadow-sm">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide
+                               text-amber-950 bg-amber-400 px-2 py-0.5 rounded-full shadow-md">
                 <Star className="h-2.5 w-2.5 fill-amber-950" /> Best Value
               </span>
             )}
-            {style.designersChoice && !style.bestValue && (
-              <span className="absolute top-2 left-2 z-10 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide
-                               text-white bg-indigo-600/95 px-2 py-0.5 rounded-full shadow-sm">
-                <Award className="h-2.5 w-2.5" /> Designer's
+            {style.designersChoice && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide
+                               text-white bg-indigo-600 px-2 py-0.5 rounded-full shadow-md">
+                <Award className="h-2.5 w-2.5" /> Designer's Choice
               </span>
             )}
-            {style.isBuilderGrade && !style.bestValue && !style.designersChoice && (
-              <span className="absolute top-2 left-2 z-10 text-[10px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-300/95 px-2 py-0.5 rounded-full shadow-sm">
+            {style.isBuilderGrade && !style.bestValue && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-300 px-2 py-0.5 rounded-full shadow-sm">
                 {t("ds_builder_grade")}
               </span>
             )}
           </div>
-          <div className="p-3">
-            <p className="font-semibold text-sm text-foreground leading-snug truncate">{name}</p>
-            {style.doorStyle && (
-              <p className="text-xs text-muted-foreground mt-0.5">{style.doorStyle}</p>
-            )}
+
+          {/* Name + subtitle — bottom */}
+          <div className="absolute bottom-0 left-0 right-0 px-3 py-3 flex items-end justify-between z-10">
+            <div className="min-w-0">
+              <p className="text-white font-bold text-sm leading-tight drop-shadow-sm truncate">{name}</p>
+              {sub && (
+                <p className="text-white/70 text-xs leading-tight mt-0.5 truncate">{sub}</p>
+              )}
+            </div>
+            <div className="ml-2 shrink-0 h-6 w-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center
+                            group-hover:bg-white/35 transition-colors duration-200">
+              <ChevronRight className="h-3 w-3 text-white" />
+            </div>
           </div>
         </button>
       </DialogTrigger>
@@ -273,8 +287,8 @@ function CompactCard({ style }: { style: DoorStyle }) {
           </DialogTitle>
         </DialogHeader>
         <div className="rounded-lg overflow-hidden border border-border bg-muted">
-          {realDoor ? (
-            <img src={realDoor} alt={`${name} door`} className="w-full h-auto block" />
+          {bg ? (
+            <img src={bg} alt={`${name} kitchen`} className="w-full h-auto block" />
           ) : (
             <DoorStyleSwatch style={style} className="w-full h-auto block" />
           )}
