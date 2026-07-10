@@ -12,9 +12,11 @@ import { DollarSign, Calculator, Save, Info } from "lucide-react";
 // ─── Fee constants ────────────────────────────────────────────────────────────
 const BASELINE_PCT = 0.05;   // 5% Cabinet Dealz margin on affiliate
 const DAMAGE_PCT   = 0.01;   // 1% damage fee
-const CC_PCT       = 0.04;   // 4% credit card processing
+const CC_PCT       = 0.04;   // 4% credit card processing (waived for ACH/wire)
 const IT_PCT       = 0.10;   // 10% IT/platform fee
 const IT_MAX       = 100;    // capped at $100
+
+type PaymentMethod = "card" | "ach_wire";
 
 const CATEGORIES = ["base", "wall", "tall", "vanity", "specialty"] as const;
 type Category = typeof CATEGORIES[number];
@@ -27,19 +29,22 @@ const CATEGORY_LABELS: Record<Category, string> = {
   specialty: "Specialty",
 };
 
-function computeFloor(retail: number): {
+function computeFloor(retail: number, paymentMethod: PaymentMethod): {
   baseline: number;
   afterDamage: number;
   afterCC: number;
+  ccFee: number;
   itFee: number;
   floor: number;
 } {
-  const baseline  = retail * (1 + BASELINE_PCT);
+  const baseline    = retail * (1 + BASELINE_PCT);
   const afterDamage = baseline * (1 + DAMAGE_PCT);
-  const afterCC   = afterDamage * (1 + CC_PCT);
-  const itFee     = Math.min(retail * IT_PCT, IT_MAX);
-  const floor     = afterCC + itFee;
-  return { baseline, afterDamage, afterCC, itFee, floor };
+  const ccRate      = paymentMethod === "card" ? CC_PCT : 0;
+  const afterCC     = afterDamage * (1 + ccRate);
+  const ccFee       = afterCC - afterDamage;
+  const itFee       = Math.min(retail * IT_PCT, IT_MAX);
+  const floor       = afterCC + itFee;
+  return { baseline, afterDamage, afterCC, ccFee, itFee, floor };
 }
 
 function bpsToPercent(bps: number) {
@@ -60,6 +65,7 @@ export default function AffiliatePricingPanel() {
 
   // Calculator state
   const [calcRetail, setCalcRetail] = useState("1000");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
 
   const updateMarkup = trpc.affiliates.updateMyMarkup.useMutation({
     onSuccess: () => {
@@ -83,7 +89,10 @@ export default function AffiliatePricingPanel() {
   }
 
   const retail = parseFloat(calcRetail) || 0;
-  const { baseline, afterDamage, afterCC, itFee, floor } = useMemo(() => computeFloor(retail), [retail]);
+  const { baseline, afterDamage, afterCC, ccFee, itFee, floor } = useMemo(
+    () => computeFloor(retail, paymentMethod),
+    [retail, paymentMethod]
+  );
   const defaultMarkupBps = percentToBps(defaultPct || "0");
   const customerPrice = floor * (1 + defaultMarkupBps / 10000);
   const profit = customerPrice - floor;
@@ -127,8 +136,8 @@ export default function AffiliatePricingPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-end gap-3">
-            <div className="space-y-1.5 flex-1 max-w-xs">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5 flex-1 min-w-[140px] max-w-xs">
               <Label>Cabinet Dealz cost ($)</Label>
               <Input
                 type="number"
@@ -136,6 +145,33 @@ export default function AffiliatePricingPanel() {
                 onChange={(e) => setCalcRetail(e.target.value)}
                 placeholder="1000"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Payment method</Label>
+              <div className="flex rounded-md border border-border overflow-hidden text-sm">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("card")}
+                  className={`px-3 py-2 font-medium transition-colors ${
+                    paymentMethod === "card"
+                      ? "bg-primary text-white"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Credit Card
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("ach_wire")}
+                  className={`px-3 py-2 font-medium transition-colors border-l border-border ${
+                    paymentMethod === "ach_wire"
+                      ? "bg-primary text-white"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  ACH / Wire
+                </button>
+              </div>
             </div>
           </div>
 
@@ -157,8 +193,12 @@ export default function AffiliatePricingPanel() {
                 <span className="tabular-nums">${afterDamage.toFixed(2)}</span>
               </div>
               <div className="flex justify-between px-4 py-2">
-                <span className="text-muted-foreground">+ 4% credit card fee</span>
-                <span className="tabular-nums">${afterCC.toFixed(2)}</span>
+                <span className="text-muted-foreground">
+                  {paymentMethod === "card" ? "+ 4% credit card fee" : "Credit card fee (waived — ACH/wire)"}
+                </span>
+                <span className={`tabular-nums ${paymentMethod === "ach_wire" ? "text-emerald-600 line-through" : ""}`}>
+                  {paymentMethod === "card" ? `$${afterCC.toFixed(2)}` : `$${(afterDamage * (1 + CC_PCT)).toFixed(2)}`}
+                </span>
               </div>
               <div className="flex justify-between px-4 py-2">
                 <span className="text-muted-foreground">+ IT/platform fee (10%, max $100)</span>
