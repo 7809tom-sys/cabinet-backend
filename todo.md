@@ -788,3 +788,10 @@
 - [x] AdminGroupedTabs reads ?tab= query param on mount to auto-select the correct group/tab (already wired)
 - [x] AffiliatesAdmin reads ?affiliateId= query param to auto-expand and scroll to the matching affiliate card
 - [x] Add id="affiliate-row-{a.id}" to each affiliate Card element for scroll targeting
+
+## Conflict Status: Ambiguous Cabinet Records
+
+- [x] Identify cabinets with no approved distributor SKUs and no placementType (166 records)
+- [x] Identify Accessory items with no subCategory and no approved SKUs (2 records)
+- [x] Mark all 175 ambiguous cabinets as conflictStatus='conflict' with descriptive reasons
+- [ ] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)
