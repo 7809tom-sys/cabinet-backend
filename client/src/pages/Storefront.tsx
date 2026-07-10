@@ -651,12 +651,16 @@ function AffiliateLoginFooterLink() {
   const { user } = useAuth();
   // If already logged in as admin, don't show this (they have the admin link)
   if (user?.role === "admin") return null;
+  // If already logged in as the affiliate, link directly to their dashboard
+  const href = user ? "/affiliate" : "/affiliate";
   return (
     <a
-      href="/affiliate"
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white/60 hover:text-white text-xs font-medium transition-colors"
+      href={href}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold text-xs transition-colors"
+      style={{ backgroundColor: "rgba(201,162,39,0.2)", color: "#c9a227", border: "1px solid rgba(201,162,39,0.4)" }}
     >
-      <LogIn className="h-3.5 w-3.5" /> Manage Your Store
+      <LogIn className="h-3.5 w-3.5" />
+      {user ? "My Store Dashboard" : "My Store"}
     </a>
   );
 }
@@ -671,9 +675,9 @@ function AdminFooterLink({ affiliateId, storeName }: { affiliateId?: number; sto
   return (
     <a
       href={href}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors border border-white/20"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition-colors border border-white/30"
     >
-      <LogIn className="h-3.5 w-3.5" /> Admin: {storeName ?? "Manage Affiliates"}
+      <LogIn className="h-3.5 w-3.5" /> Admin: View Dashboard
     </a>
   );
 }

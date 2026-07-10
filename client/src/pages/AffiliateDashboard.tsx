@@ -27,7 +27,7 @@ import {
   LinkIcon, Save, Loader2, PencilRuler, Globe, Users,
   ArrowRight, Sparkles, Star, TrendingUp, Shield, Palette, Truck,
   Wand2, Send, ChevronRight, ImageIcon, FileText, AlertCircle, Upload, Eye, EyeOff,
-  ShoppingBag, BarChart2, BookOpen, Tag, Megaphone,
+  ShoppingBag, BarChart2, BookOpen, Tag, Megaphone, LogIn, KeyRound,
 } from "lucide-react";
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import {
@@ -37,6 +37,62 @@ import {
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 
 const MEMBERSHIP_BENEFIT_ICONS = [PencilRuler, Globe, Users];
+
+// ─── Affiliate Login Gate (shown when not authenticated) ─────────────────────
+function AffiliateLoginGate() {
+  const loginUrl = getLoginUrl();
+  return (
+    <div className="min-h-screen bg-[var(--color-navy)] flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 mb-4">
+            <div className="h-10 w-10 rounded-lg bg-[var(--color-gold)] flex items-center justify-center">
+              <Store className="h-5 w-5 text-[var(--color-navy)]" />
+            </div>
+            <span className="text-white font-bold text-xl">CabinetDealz</span>
+          </div>
+          <h1 className="text-white text-2xl font-bold">Affiliate Sign In</h1>
+          <p className="text-white/60 text-sm mt-2">Sign in with your CabinetDealz account to access your store dashboard.</p>
+        </div>
+
+        {/* Login card */}
+        <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 p-8 space-y-6">
+          <div className="flex items-center gap-3 rounded-xl bg-white/10 border border-white/10 px-4 py-3">
+            <KeyRound className="h-5 w-5 text-[var(--color-gold)] shrink-0" />
+            <p className="text-white/80 text-sm">
+              Use the same login you use on <strong className="text-white">CabinetDealz.com</strong> — no separate password needed.
+            </p>
+          </div>
+
+          <a href={loginUrl} className="block">
+            <Button
+              size="lg"
+              className="w-full gap-2 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-bold text-base"
+            >
+              <LogIn className="h-5 w-5" />
+              Sign In to My Store
+            </Button>
+          </a>
+
+          <div className="text-center">
+            <p className="text-white/40 text-xs">Not an affiliate yet?</p>
+            <a href="/affiliate-program" className="text-[var(--color-gold)] text-sm hover:underline font-medium">
+              Learn about the affiliate program →
+            </a>
+          </div>
+        </div>
+
+        {/* Back to site */}
+        <div className="text-center mt-6">
+          <a href="/" className="text-white/40 hover:text-white/70 text-xs transition-colors">
+            ← Back to CabinetDealz.com
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Affiliate Landing Page (shown to non-members) ──────────────────────────
 function AffiliateLanding() {
@@ -311,7 +367,7 @@ export default function AffiliateDashboard() {
   }
 
   if (!isAuthenticated) {
-    return <AffiliateLanding />;
+    return <AffiliateLoginGate />;
   }
 
   if (myRef.isLoading) {

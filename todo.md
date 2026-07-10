@@ -814,3 +814,8 @@
 - [x] All records include USCD product thumbnail images (catalogImageUrl / imageUrl)
 - [x] Database totals: 1,693 cabinets, 10,204 distributor_skus
 - [ ] Add Torrance White door style record and import its 336 SKUs
+
+## Affiliate Back-Door / Dashboard Access
+- [ ] /affiliate page: show login screen (not marketing page) when user is not authenticated
+- [ ] Affiliate storefront (/store/:slug): add "My Store" / "Admin" link in footer for affiliate to log in and access their dashboard
+- [ ] Admin panel: add "View Dashboard" button on each affiliate row to open their dashboard directly
