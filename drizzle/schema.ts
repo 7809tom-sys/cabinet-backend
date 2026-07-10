@@ -130,9 +130,6 @@ export const doorStyles = mysqlTable("door_styles", {
   // ships STANDARD hardware (not soft-close) and is a lower-spec value line.
   // Drives a UI badge + hardware note so it is clearly distinguished from premium lines.
   isBuilderGrade: boolean("isBuilderGrade").default(false).notNull(),
-  // Storefront badge flags — admin-configurable
-  bestValue: boolean("bestValue").default(false).notNull(),        // shows gold "Best Value" ribbon (max 4-5)
-  designersChoice: boolean("designersChoice").default(false).notNull(), // shows navy "Designer's Choice" ribbon
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -554,6 +551,15 @@ export const affiliates = mysqlTable("affiliates", {
   yearsInBusiness: int("yearsInBusiness"),
   facebookUrl: varchar("facebookUrl", { length: 512 }),
   instagramUrl: varchar("instagramUrl", { length: 512 }),
+  // Hero section customization
+  heroHeadline: varchar("heroHeadline", { length: 256 }),
+  // Promotional banner strip
+  promoBannerText: varchar("promoBannerText", { length: 512 }),
+  promoBannerActive: boolean("promoBannerActive").default(false).notNull(),
+  promoBannerImageUrl: varchar("promoBannerImageUrl", { length: 512 }),
+  // Contact info shown on storefront footer
+  address: varchar("address", { length: 512 }),
+  businessHours: varchar("businessHours", { length: 512 }),
   storefrontEnabled: boolean("storefrontEnabled").default(true).notNull(),
   // Storefront layout template variant
   template: mysqlEnum("template", ["classic", "showcase", "minimal", "craftsman"]).default("classic").notNull(),
@@ -589,6 +595,34 @@ export const affiliates = mysqlTable("affiliates", {
   w9SubmittedAt: timestamp("w9SubmittedAt"),
   w9VerifiedAt: timestamp("w9VerifiedAt"),
   w9AdminNotes: text("w9AdminNotes"),                          // Admin-only notes on verification
+  // ─── Payout / 1099-NEC banking info ──────────────────────────────────────────
+  // Bank details for ACH direct deposit of commissions. Routing + account numbers
+  // are stored as-is here; in a production hardening pass these would be encrypted
+  // at rest. The last-4 digits of the account number are safe to display.
+  bankName: varchar("bankName", { length: 256 }),
+  bankRoutingNumber: varchar("bankRoutingNumber", { length: 9 }),   // 9-digit ABA routing number
+  bankAccountNumber: varchar("bankAccountNumber", { length: 64 }),  // full account number (admin-only display)
+  bankAccountType: mysqlEnum("bankAccountType", ["checking", "savings"]),
+  bankVerified: boolean("bankVerified").default(false).notNull(),
+  bankVerifiedAt: timestamp("bankVerifiedAt"),
+  bankAdminNotes: text("bankAdminNotes"),
+  // ─── Identity documents (S3 URLs, admin-only access) ─────────────────────────
+  ssnCardUrl: varchar("ssnCardUrl", { length: 512 }),    // Social Security card front
+  dlFrontUrl: varchar("dlFrontUrl", { length: 512 }),    // Driver's license front
+  dlBackUrl: varchar("dlBackUrl", { length: 512 }),      // Driver's license back
+  idVerified: boolean("idVerified").default(false).notNull(),
+  idVerifiedAt: timestamp("idVerifiedAt"),
+  idAdminNotes: text("idAdminNotes"),
+  // ─── E-signature / 1099 consent ───────────────────────────────────────────────
+  // Affiliate acknowledges independent-contractor status and consents to 1099-NEC.
+  payoutConsentSigned: boolean("payoutConsentSigned").default(false).notNull(),
+  payoutConsentSignedAt: timestamp("payoutConsentSignedAt"),
+  payoutConsentIp: varchar("payoutConsentIp", { length: 64 }),
+  payoutConsentName: varchar("payoutConsentName", { length: 256 }), // typed legal name at signing
+  // ─── Payout gate ──────────────────────────────────────────────────────────────
+  // Set by admin once w9 verified + bank verified + id verified + consent signed.
+  payoutReady: boolean("payoutReady").default(false).notNull(),
+  payoutReadyAt: timestamp("payoutReadyAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -609,13 +643,47 @@ export const affiliateStyleBranding = mysqlTable("affiliate_style_branding", {
   // Catalog curation: affiliate can feature specific styles and upload their own room scene photo
   featured: boolean("featured").default(false).notNull(),
   sortOrder: int("sortOrder").default(0).notNull(),
-  roomSceneUrl: text("roomSceneUrl"), // affiliate's own room scene photo for this style
+  roomSceneUrl: text("roomSceneUrl"), // affiliate's own primary room scene photo for this style
+  hidden: boolean("hidden").default(false).notNull(), // affiliate hides this style from their storefront
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type AffiliateStyleBranding = typeof affiliateStyleBranding.$inferSelect;
 export type InsertAffiliateStyleBranding = typeof affiliateStyleBranding.$inferInsert;
+
+// ─── Affiliate room scene gallery ──────────────────────────────────────────────────────────────
+// Additional room scene photos per (affiliate, style). Business rule: images
+// can only be REPLACED, never deleted outright — a replacement upload must be
+// provided before the old slot is overwritten.
+export const affiliateRoomSceneGallery = mysqlTable("affiliate_room_scene_gallery", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  styleId: int("styleId").notNull(),
+  imageUrl: varchar("imageUrl", { length: 512 }).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AffiliateRoomSceneGallery = typeof affiliateRoomSceneGallery.$inferSelect;
+
+// ─── Affiliate promo discount rules ──────────────────────────────────────────────────────────────
+// Affiliate-controlled discount rules that reduce the effective markup for a
+// targeted set of products during a promo window.
+// targetType: "all" = every style, "category" = category slug, "style" = styleId
+export const affiliatePromoDiscounts = mysqlTable("affiliate_promo_discounts", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  label: varchar("label", { length: 256 }).notNull(),
+  targetType: mysqlEnum("targetType", ["all", "category", "style"]).notNull().default("all"),
+  targetId: varchar("targetId", { length: 64 }),
+  discountBps: int("discountBps").notNull(),
+  startsAt: timestamp("startsAt"),
+  endsAt: timestamp("endsAt"),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AffiliatePromoDiscount = typeof affiliatePromoDiscounts.$inferSelect;
 
 // ─── CRM: Sales pipeline (admin) + affiliate pipeline ──────────────────────────
 // A lightweight task-board / pipeline over leads & deals. A deal with

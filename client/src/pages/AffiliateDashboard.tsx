@@ -7,6 +7,8 @@ import AffiliatePricingPanel from "@/components/affiliate/AffiliatePricingPanel"
 import AffiliateCatalogPanel from "@/components/affiliate/AffiliateCatalogPanel";
 import AffiliateAnalyticsPanel from "@/components/affiliate/AffiliateAnalyticsPanel";
 import AffiliateMarketingHub from "@/components/affiliate/AffiliateMarketingHub";
+import AffiliatePayoutSetup from "@/components/affiliate/AffiliatePayoutSetup";
+import AffiliateResourcesHub from "@/components/affiliate/AffiliateResourcesHub";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,7 +29,7 @@ import {
   LinkIcon, Save, Loader2, PencilRuler, Globe, Users,
   ArrowRight, Sparkles, Star, TrendingUp, Shield, Palette, Truck,
   Wand2, Send, ChevronRight, ImageIcon, FileText, AlertCircle, Upload, Eye, EyeOff,
-  ShoppingBag, BarChart2, BookOpen, Tag, Megaphone, LogIn, KeyRound,
+  ShoppingBag, BarChart2, BookOpen, Tag, Megaphone,
 } from "lucide-react";
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import {
@@ -37,62 +39,6 @@ import {
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 
 const MEMBERSHIP_BENEFIT_ICONS = [PencilRuler, Globe, Users];
-
-// ─── Affiliate Login Gate (shown when not authenticated) ─────────────────────
-function AffiliateLoginGate() {
-  const loginUrl = getLoginUrl();
-  return (
-    <div className="min-h-screen bg-[var(--color-navy)] flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="h-10 w-10 rounded-lg bg-[var(--color-gold)] flex items-center justify-center">
-              <Store className="h-5 w-5 text-[var(--color-navy)]" />
-            </div>
-            <span className="text-white font-bold text-xl">CabinetDealz</span>
-          </div>
-          <h1 className="text-white text-2xl font-bold">Affiliate Sign In</h1>
-          <p className="text-white/60 text-sm mt-2">Sign in with your CabinetDealz account to access your store dashboard.</p>
-        </div>
-
-        {/* Login card */}
-        <div className="rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 p-8 space-y-6">
-          <div className="flex items-center gap-3 rounded-xl bg-white/10 border border-white/10 px-4 py-3">
-            <KeyRound className="h-5 w-5 text-[var(--color-gold)] shrink-0" />
-            <p className="text-white/80 text-sm">
-              Use the same login you use on <strong className="text-white">CabinetDealz.com</strong> — no separate password needed.
-            </p>
-          </div>
-
-          <a href={loginUrl} className="block">
-            <Button
-              size="lg"
-              className="w-full gap-2 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-bold text-base"
-            >
-              <LogIn className="h-5 w-5" />
-              Sign In to My Store
-            </Button>
-          </a>
-
-          <div className="text-center">
-            <p className="text-white/40 text-xs">Not an affiliate yet?</p>
-            <a href="/affiliate-program" className="text-[var(--color-gold)] text-sm hover:underline font-medium">
-              Learn about the affiliate program →
-            </a>
-          </div>
-        </div>
-
-        {/* Back to site */}
-        <div className="text-center mt-6">
-          <a href="/" className="text-white/40 hover:text-white/70 text-xs transition-colors">
-            ← Back to CabinetDealz.com
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Affiliate Landing Page (shown to non-members) ──────────────────────────
 function AffiliateLanding() {
@@ -367,7 +313,7 @@ export default function AffiliateDashboard() {
   }
 
   if (!isAuthenticated) {
-    return <AffiliateLoginGate />;
+    return <AffiliateLanding />;
   }
 
   if (myRef.isLoading) {
@@ -556,6 +502,10 @@ export default function AffiliateDashboard() {
             <W9Panel />
           </div>
         );
+      case "payout":
+        return <AffiliatePayoutSetup affiliateId={affiliate.id} storeName={affiliate.storeName} />;
+      case "resources":
+        return <AffiliateResourcesHub />;
       default:
         return null;
     }
@@ -773,11 +723,17 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
     accentColor: affiliate.accentColor ?? "",
     logoUrl: affiliate.logoUrl ?? "",
     heroImageUrl: affiliate.heroImageUrl ?? "",
+    heroHeadline: (affiliate as Record<string, unknown>).heroHeadline as string ?? "",
     serviceArea: affiliate.serviceArea ?? "",
     facebookUrl: affiliate.facebookUrl ?? "",
     instagramUrl: affiliate.instagramUrl ?? "",
     storefrontEnabled: affiliate.storefrontEnabled ?? true,
     template: (affiliate.template ?? "classic") as "classic" | "showcase" | "minimal" | "craftsman",
+    promoBannerText: (affiliate as Record<string, unknown>).promoBannerText as string ?? "",
+    promoBannerActive: (affiliate as Record<string, unknown>).promoBannerActive as boolean ?? false,
+    phone: (affiliate as Record<string, unknown>).phone as string ?? "",
+    address: (affiliate as Record<string, unknown>).address as string ?? "",
+    businessHours: (affiliate as Record<string, unknown>).businessHours as string ?? "",
   });
 
   const utils = trpc.useUtils();
@@ -822,8 +778,17 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
     e.target.value = "";
   }
 
+  const saveHeader = trpc.affiliates.saveHeaderCustomization.useMutation({
+    onSuccess: () => {
+      toast.success("Storefront updated");
+      utils.affiliates.bySlug.invalidate();
+      onSaved();
+    },
+    onError: (e) => toast.error("Could not save", { description: e.message }),
+  });
+
   function handleSave() {
-    save.mutate({
+    saveHeader.mutate({
       tagline: form.tagline || null,
       taglineEs: form.taglineEs || null,
       aboutText: form.aboutText || null,
@@ -832,11 +797,17 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
       accentColor: form.accentColor || null,
       logoUrl: form.logoUrl || null,
       heroImageUrl: form.heroImageUrl || null,
+      heroHeadline: form.heroHeadline || null,
       serviceArea: form.serviceArea || null,
       facebookUrl: form.facebookUrl || null,
       instagramUrl: form.instagramUrl || null,
       storefrontEnabled: form.storefrontEnabled,
       template: form.template,
+      promoBannerText: form.promoBannerText || null,
+      promoBannerActive: form.promoBannerActive,
+      phone: form.phone || null,
+      address: form.address || null,
+      businessHours: form.businessHours || null,
     });
   }
 
@@ -1059,9 +1030,86 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
         </div>
       </div>
 
+      {/* ── Hero Headline ─────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <h2 className="font-semibold text-base flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" /> Hero Headline
+        </h2>
+        <div className="space-y-1.5">
+          <Label htmlFor="heroHeadline">Main headline shown above your hero image</Label>
+          <Input id="heroHeadline" value={form.heroHeadline} onChange={e => set("heroHeadline", e.target.value)} placeholder="Transform Your Kitchen Today" />
+          <p className="text-xs text-muted-foreground">This appears as the large bold text over your storefront hero section. Keep it short and compelling.</p>
+        </div>
+      </div>
+
+      {/* ── Promotional Banner ───────────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-base flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-primary" /> Promotional Banner
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{form.promoBannerActive ? "Active" : "Inactive"}</span>
+            <Switch checked={form.promoBannerActive} onCheckedChange={v => set("promoBannerActive", v)} />
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground">Show a scrolling announcement bar at the top of your storefront. Great for seasonal sales, holiday promotions, or limited-time offers.</p>
+        <div className="space-y-1.5">
+          <Label htmlFor="promoBannerText">Banner message</Label>
+          <Input id="promoBannerText" value={form.promoBannerText} onChange={e => set("promoBannerText", e.target.value)} placeholder="🎄 Holiday Sale — 10% off all Shaker styles through Dec 31!" />
+        </div>
+        {/* Holiday presets */}
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Holiday presets (click to use):</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "🎄 Christmas", text: "🎄 Holiday Sale — Special pricing on select cabinet lines through December 31!" },
+              { label: "🦃 Thanksgiving", text: "🦃 Thanksgiving Sale — Save big on kitchen upgrades this holiday season!" },
+              { label: "🇺🇸 4th of July", text: "🇺🇸 Independence Day Sale — Celebrate with savings on all cabinet styles!" },
+              { label: "⚫ Black Friday", text: "⚫ Black Friday Deal — Our biggest discount of the year on all cabinet lines!" },
+              { label: "💝 Valentine's", text: "💝 Valentine's Day — Give the gift of a beautiful kitchen this February!" },
+              { label: "🌸 Spring Sale", text: "🌸 Spring Kitchen Refresh — Fresh styles, fresh savings. Limited time only!" },
+              { label: "🎓 Memorial Day", text: "🎓 Memorial Day Sale — Honor the season with a kitchen upgrade at special pricing!" },
+              { label: "🏖 Labor Day", text: "🏖 Labor Day Sale — End of summer savings on all cabinet collections!" },
+            ].map(preset => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => { set("promoBannerText", preset.text); set("promoBannerActive", true); }}
+                className="inline-flex items-center rounded-full border border-border bg-muted/50 px-3 py-1 text-xs hover:bg-muted hover:border-[var(--color-gold)] transition-colors"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Contact Info ─────────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <h2 className="font-semibold text-base flex items-center gap-2">
+          <Store className="h-4 w-4 text-primary" /> Contact & Business Info
+        </h2>
+        <p className="text-sm text-muted-foreground">This information appears in your storefront footer so customers can reach you easily.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="phone">Phone number</Label>
+            <Input id="phone" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="(555) 123-4567" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="address">Business address</Label>
+            <Input id="address" value={form.address} onChange={e => set("address", e.target.value)} placeholder="123 Main St, Sarasota, FL 34231" />
+          </div>
+          <div className="sm:col-span-2 space-y-1.5">
+            <Label htmlFor="businessHours">Business hours</Label>
+            <Input id="businessHours" value={form.businessHours} onChange={e => set("businessHours", e.target.value)} placeholder="Mon–Fri 9am–5pm, Sat 10am–3pm" />
+          </div>
+        </div>
+      </div>
+
       {/* ── Save button ───────────────────────────────────────────────────── */}
-      <Button onClick={handleSave} disabled={save.isPending} className="gap-2">
-        {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+      <Button onClick={handleSave} disabled={saveHeader.isPending} className="gap-2">
+        {saveHeader.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
         Save storefront
       </Button>
 

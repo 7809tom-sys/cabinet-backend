@@ -64,6 +64,7 @@ import ApprovedVendorsAdmin from "@/components/admin/ApprovedVendorsAdmin";
 import PelicanCatalogAdmin from "@/components/admin/PelicanCatalogAdmin";
 import { AnalyticsAdmin } from "@/components/admin/AnalyticsAdmin";
 import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
+import PayoutVerificationAdmin from "@/components/admin/PayoutVerificationAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -90,6 +91,7 @@ const GROUPS = [
       { value: "affiliates", label: "Affiliates" },
       { value: "affiliate-invoices", label: "Affiliate Invoices" },
       { value: "payouts", label: "Payouts" },
+      { value: "payout-verification", label: "Payout Verification" },
       { value: "commissions", label: "Sales Commissions" },
       { value: "pros", label: "Pro Applications" },
       { value: "vendors", label: "Vendors" },
@@ -443,6 +445,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="affiliates" className="mt-6"><AdminTabHelp tab="affiliates" /><AffiliatesAdmin /></TabsContent>
         <TabsContent value="affiliate-invoices" className="mt-6"><AdminTabHelp tab="affiliate-invoices" /><AffiliateInvoicesAdmin /></TabsContent>
         <TabsContent value="payouts" className="mt-6"><AdminTabHelp tab="payouts" /><PayoutsAdmin /></TabsContent>
+        <TabsContent value="payout-verification" className="mt-6"><PayoutVerificationAdmin /></TabsContent>
         <TabsContent value="commissions" className="mt-6"><AdminTabHelp tab="commissions" /><SalesCommissionsAdmin /></TabsContent>
         <TabsContent value="pros" className="mt-6"><AdminTabHelp tab="pros" /><ProApplications /></TabsContent>
         <TabsContent value="vendors" className="mt-6"><AdminTabHelp tab="vendors" /><VendorApplications /></TabsContent>

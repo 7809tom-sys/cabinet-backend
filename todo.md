@@ -796,26 +796,29 @@
 - [x] Mark all 175 ambiguous cabinets as conflictStatus='conflict' with descriptive reasons
 - [ ] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)
 
-## Oxford Cashmere cabinet line import
-- [x] Import Oxford Cashmere (OC) 249 SKUs into database with USCD product image URLs
-- [x] Assign USCD generic thumbnail images as master image_url per cabinet type
+## Affiliate Resources Hub Tab
+- [x] Add "Resources" tab to AffiliateDashboardLayout sidebar nav
+- [x] Create AffiliateResourcesHub.tsx component
+- [x] Section 1 — Platform Guides: "How to Use Cabinet Dealz Website", "How to Use the Design Tool", "How to Set Up Your Storefront", "Affiliate Welcome Guide" (existing PDF)
+- [x] Section 2 — Sales Training: "How to Sell Kitchen Cabinets", "Handling Objections & Closing Techniques", "Kitchen Remodel Consultation Guide", "Building Your Pipeline with the CRM"
+- [x] Section 3 — Design Training: "Kitchen Design Principles & Layout Rules", "Cabinet Sizing Reference Guide", "Two-Tone & Mixed Finish Design Guide", "Countertop & Backsplash Pairing Guide"
+- [x] Section 4 — Curated YouTube Channels: embed cards with channel name, description, subscriber count context, and direct link (channels: Kitchen & Bath Design TV, NKBA, Cliqstudios, Lily Ann Cabinets, Leanne Ford Interiors, The Futur - sales/business, Patrick Dang - sales techniques, Alex Hormozi - sales/closing)
+- [x] Section 5 — Quick-Start Checklist: 10-step onboarding checklist (set up storefront, upload logo, set markup, customize hero, share referral link, etc.) with checkboxes that persist per affiliate
+- [x] Wire Resources tab into AffiliateDashboard.tsx section routing
 
-## Room-scene card browse UI
-- [x] Room-scene card browse UI: full-bleed room scene photo cards for each cabinet style
-- [x] "Best Value" badge (gold ribbon, admin-configurable, max 5 styles) on style cards
-- [x] "Designer's Choice" badge (indigo, admin-configurable) on style cards
-- [x] Admin toggle for bestValue and designersChoice flags on door_styles table
-- [x] Schema: add bestValue and designersChoice boolean columns to door_styles
-
-## USCD All Lines Import (2026-07-10)
-- [x] Scrape all 20 USCD Capital Collection lines (4,963 SKUs total)
-- [x] Import 938 new cabinet master records into database
-- [x] Import 4,806 distributor_sku records (19 lines, Torrance White pending door style)
-- [x] All records include USCD product thumbnail images (catalogImageUrl / imageUrl)
-- [x] Database totals: 1,693 cabinets, 10,204 distributor_skus
-- [ ] Add Torrance White door style record and import its 336 SKUs
-
-## Affiliate Back-Door / Dashboard Access
-- [ ] /affiliate page: show login screen (not marketing page) when user is not authenticated
-- [ ] Affiliate storefront (/store/:slug): add "My Store" / "Admin" link in footer for affiliate to log in and access their dashboard
-- [ ] Admin panel: add "View Dashboard" button on each affiliate row to open their dashboard directly
+## Affiliate 1099-NEC Payout Setup Flow
+- [x] Add payout fields to affiliates table in schema.ts: bankName, bankRoutingNumber (encrypted), bankAccountNumber (encrypted), bankAccountType (checking/savings), bankVerified, bankVerifiedAt, ssnCardUrl (S3, admin-only), dlFrontUrl (S3, admin-only), dlBackUrl (S3, admin-only), idVerified, idVerifiedAt, payoutConsentSigned, payoutConsentSignedAt, payoutConsentIp, payoutReadyAt (all verified = payout unlocked)
+- [x] DB migration: ALTER TABLE affiliates to add all payout fields
+- [x] Server: savePayoutBankInfo procedure (partner) — save routing/account/type, mask account number in response
+- [x] Server: uploadPayoutIdDoc procedure (partner) — upload SSN card or DL front/back to S3 private path, store URL
+- [x] Server: signPayoutConsent procedure (partner) — record e-signature timestamp + IP
+- [x] Server: getPayoutSetupStatus procedure (partner) — return checklist: w9Done, bankDone, idDone, consentSigned, payoutReady
+- [x] Server: adminReviewPayoutSetup procedure (admin) — view bank info (masked), view ID doc URLs, approve/reject bank + ID separately, add admin notes
+- [x] AffiliatePayoutSetup.tsx: progress checklist (4 steps: W-9, Bank Info, ID Docs, E-Sign)
+- [x] AffiliatePayoutSetup.tsx: Step 1 — W-9 form (reuse/link existing W-9 tab)
+- [x] AffiliatePayoutSetup.tsx: Step 2 — Bank info form (bank name, routing #, account #, account type) with security notice
+- [x] AffiliatePayoutSetup.tsx: Step 3 — ID document upload (SSN card front, DL front, DL back) with file size/type validation
+- [x] AffiliatePayoutSetup.tsx: Step 4 — E-signature consent (checkbox + typed name + timestamp) — 1099-NEC independent contractor acknowledgment
+- [x] AffiliatePayoutSetup.tsx: locked banner when payoutReady (all verified by admin)
+- [x] Admin panel: Payout Verification tab in affiliate Details — show W-9 status, masked bank info, ID doc links (secure presigned URLs), approve/reject buttons, admin notes
+- [x] Payout gating: commissions show "Pending payout setup" until payoutReady = true

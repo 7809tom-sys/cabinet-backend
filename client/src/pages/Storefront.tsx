@@ -147,6 +147,25 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {/* ─── Promo Banner Strip ───────────────────────────────────────────── */}
+{(() => {
+        const bannerActive = (data as Record<string, unknown>).promoBannerActive;
+        const bannerText = (data as Record<string, unknown>).promoBannerText as string | null | undefined;
+        return bannerActive && bannerText ? (
+          <div
+            className="relative overflow-hidden py-2 px-4 text-center text-sm font-semibold"
+            style={{ backgroundColor: brand.primary, color: brand.accent }}
+          >
+            <div className="animate-[marquee_25s_linear_infinite] whitespace-nowrap inline-block">
+              {bannerText}
+              &nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
+              {bannerText}
+              &nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
+              {bannerText}
+            </div>
+          </div>
+        ) : null;
+      })()}
       {/* ─── Header + Hero (varies by template) ──────────────────────────── */}
       {template === "classic" && (
         <ClassicHeader {...{ data: localizedData, brand, t, withRef, headlineFont, LangToggle, Logo }} />
@@ -298,6 +317,26 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
                     <span>{data.serviceArea || data.location}</span>
                   </li>
                 )}
+{(() => {
+                  const addr = (data as Record<string, unknown>).address as string | null | undefined;
+                  const hours = (data as Record<string, unknown>).businessHours as string | null | undefined;
+                  return (
+                    <>
+                      {addr && (
+                        <li className="flex items-start gap-2">
+                          <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
+                          <span>{addr}</span>
+                        </li>
+                      )}
+                      {hours && (
+                        <li className="flex items-start gap-2">
+                          <Globe className="h-4 w-4 shrink-0 mt-0.5" />
+                          <span>{hours}</span>
+                        </li>
+                      )}
+                    </>
+                  );
+                })()}
                 {data.website && (
                   <li className="flex items-center gap-2">
                     <Globe className="h-4 w-4 shrink-0" />
@@ -412,7 +451,7 @@ function ClassicHeader({ data, brand, t, withRef, headlineFont, LangToggle, Logo
                 </div>
               ) : null}
               <h1 className={`${headlineFont} text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6`}>
-                {data.tagline || (
+                {(data as Record<string, unknown>).heroHeadline as string || data.tagline || (
                   <>
                     Beautiful Kitchens,
                     <br />
@@ -491,7 +530,7 @@ function ShowcaseHero({ data, brand, t, withRef, headlineFont, heroImg, LangTogg
               </div>
             ) : null}
             <h1 className={`${headlineFont} text-4xl md:text-6xl lg:text-7xl font-bold leading-[1.05] mb-6 tracking-tight`}>
-              {data.tagline || "Beautiful Kitchens, Built Around You."}
+              {(data as Record<string, unknown>).heroHeadline as string || data.tagline || "Beautiful Kitchens, Built Around You."}
             </h1>
             <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed max-w-xl">
               {data.aboutText ||
@@ -544,7 +583,7 @@ function MinimalHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggl
               </div>
             ) : null}
             <h1 className={`${headlineFont} text-4xl md:text-6xl font-bold leading-[1.08] mb-6 tracking-tight text-foreground`}>
-              {data.tagline || "Beautiful Kitchens, Built Around You."}
+              {(data as Record<string, unknown>).heroHeadline as string || data.tagline || "Beautiful Kitchens, Built Around You."}
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl">
               {data.aboutText ||
@@ -615,7 +654,7 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
               className={`${headlineFont} text-5xl md:text-7xl font-black leading-[0.98] mb-6 uppercase tracking-tight`}
               style={{ color: brand.primary }}
             >
-              {data.tagline || "Beautiful Kitchens, Built To Last."}
+              {(data as Record<string, unknown>).heroHeadline as string || data.tagline || "Beautiful Kitchens, Built To Last."}
             </h1>
             <p className="text-lg md:text-xl mb-8 leading-relaxed max-w-2xl font-medium" style={{ color: brand.primary }}>
               {data.aboutText ||
@@ -651,16 +690,12 @@ function AffiliateLoginFooterLink() {
   const { user } = useAuth();
   // If already logged in as admin, don't show this (they have the admin link)
   if (user?.role === "admin") return null;
-  // If already logged in as the affiliate, link directly to their dashboard
-  const href = user ? "/affiliate" : "/affiliate";
   return (
     <a
-      href={href}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold text-xs transition-colors"
-      style={{ backgroundColor: "rgba(201,162,39,0.2)", color: "#c9a227", border: "1px solid rgba(201,162,39,0.4)" }}
+      href="/affiliate"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white/60 hover:text-white text-xs font-medium transition-colors"
     >
-      <LogIn className="h-3.5 w-3.5" />
-      {user ? "My Store Dashboard" : "My Store"}
+      <LogIn className="h-3.5 w-3.5" /> Manage Your Store
     </a>
   );
 }
@@ -675,9 +710,9 @@ function AdminFooterLink({ affiliateId, storeName }: { affiliateId?: number; sto
   return (
     <a
       href={href}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition-colors border border-white/30"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors border border-white/20"
     >
-      <LogIn className="h-3.5 w-3.5" /> Admin: View Dashboard
+      <LogIn className="h-3.5 w-3.5" /> Admin: {storeName ?? "Manage Affiliates"}
     </a>
   );
 }
