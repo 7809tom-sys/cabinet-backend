@@ -94,7 +94,7 @@ function RoomSceneCard({ style, href }: { style: DoorStyle; href?: string }) {
             Designer's Choice
           </span>
         )}
-        {style.isBuilderGrade && (
+        {style.isBuilderGrade && !style.bestValue && (
           <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider
                            text-amber-950 bg-amber-300 px-2.5 py-1 rounded-full shadow-sm">
             Value Line
@@ -150,7 +150,7 @@ function RoomSceneCard({ style, href }: { style: DoorStyle; href?: string }) {
                 <Award className="h-3 w-3" /> Designer's Choice
               </Badge>
             )}
-            {style.isBuilderGrade && (
+            {style.isBuilderGrade && !style.bestValue && (
               <Badge className="text-xs bg-amber-300 text-amber-950 hover:bg-amber-300">{t("ds_builder_grade")}</Badge>
             )}
           </DialogTitle>
