@@ -3210,10 +3210,26 @@ export default function DesignTool() {
   const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
     if (!selectedUid) return;
     setPlaced((prev) => {
+      const cabinet = prev.find((p) => p.uid === selectedUid);
+      if (!cabinet) return prev;
+      // Candidate position after the nudge.
+      const candidate: PlacedCabinet = {
+        ...cabinet,
+        x: Math.round((cabinet.x + dxIn) * 10) / 10,
+        y: Math.round((cabinet.y + dyIn) * 10) / 10,
+      };
+      // Run through snapPosition so the nudge cannot push the cabinet into a
+      // neighbour — same collision resolution used by plan-view drag.
+      const others = prev.filter(
+        (c) =>
+          c.uid !== selectedUid &&
+          (c.placement === cabinet.placement ||
+            c.placement === "appliance" ||
+            cabinet.placement === "appliance"),
+      );
+      const snapped = snapPosition(candidate, room, others);
       const moved = prev.map((p) =>
-        p.uid === selectedUid
-          ? { ...p, x: Math.round((p.x + dxIn) * 10) / 10, y: Math.round((p.y + dyIn) * 10) / 10 }
-          : p
+        p.uid === selectedUid ? { ...p, x: snapped.x, y: snapped.y } : p
       );
       return clampCabinetsToRoom(moved, room);
     });

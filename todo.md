@@ -838,3 +838,9 @@
 - [x] DesignTool adjustMountHeight: clamps at STD.WALL_MOUNT_BOTTOM instead of 0
 - [x] DesignTool setMountBottomFor: clamps at STD.WALL_MOUNT_BOTTOM instead of 0
 - [x] loadSavedDesign sanitization: wall cabinets with mountBottom < 54" are reset to null on load (auto-corrects old designs)
+
+## Feature: Horizontal Collision Detection During Drag and Arrow Key Movement
+- [x] ElevationView drag: collision detection already present (bandOverlap + lo/hi interval clamp)
+- [x] ElevationView arrow keys (Left/Right): added same bandOverlap neighbour filter + lo/hi clamp so arrow nudge cannot push cabinet into a neighbour
+- [x] DesignTool plan-view nudgeSelected (arrow keys in plan view): now runs snapPosition after nudge to push cabinet out of any overlap, same as plan-view drag
+- [x] Plan-view drag (PlanCanvas): already uses snapPosition with overlap-resolution loop (no change needed)
