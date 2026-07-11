@@ -844,3 +844,11 @@
 - [x] ElevationView arrow keys (Left/Right): added same bandOverlap neighbour filter + lo/hi clamp so arrow nudge cannot push cabinet into a neighbour
 - [x] DesignTool plan-view nudgeSelected (arrow keys in plan view): now runs snapPosition after nudge to push cabinet out of any overlap, same as plan-view drag
 - [x] Plan-view drag (PlanCanvas): already uses snapPosition with overlap-resolution loop (no change needed)
+
+## Clark & Son (Ashford Series) Corner Cabinets Import
+
+- [x] Parse Clark & Son 2026 price sheet from Google Drive for corner cabinet SKUs
+- [x] Map Clark & Son code aliases (WDC→DCW, LS33/36→LSB33/36) to existing cabinet records
+- [x] Create 5 missing cabinet records: CDB36, DCSB36, WCA1230, WCA1236, WCA1242
+- [x] Import 134 new corner cabinet SKUs for all 13 Clark & Son styles (distributor ID 2)
+- [x] Ashford corner cabinets in designer: 18 (BBC36, CDB36, DCSB36, LSB33/36, WBC, DCW, WCA, WER)
