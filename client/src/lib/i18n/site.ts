@@ -618,6 +618,7 @@ export const SITE_STRINGS = {
     dt_cs_pick_line_help: "Choose a supply line to see its door styles. Your design locks to that line once you pick a style.",
     dt_cs_view_collection: "View collection",
     dt_cs_back_to_lines: "All supply lines",
+    dt_cs_current_series: "Current series",
 
     // --- Design Tool: Room Size Control ---
     dt_room_label: "Room: {w} × {d}",
@@ -1928,6 +1929,7 @@ export const SITE_STRINGS = {
     dt_cs_pick_line_help: "Elija una línea de suministro para ver sus estilos de puerta. Su diseño se fija a esa línea al elegir un estilo.",
     dt_cs_view_collection: "Ver colección",
     dt_cs_back_to_lines: "Todas las líneas",
+    dt_cs_current_series: "Serie actual",
 
     // --- Herramienta de Diseño: Tamaño de la Habitación ---
     dt_room_label: "Habitación: {w} × {d}",
@@ -3389,6 +3391,7 @@ export const SITE_STRINGS = {
     dt_cs_pick_line_help: "选择一个供货系列以查看其门板款式。一旦您选择款式，您的设计将锁定该系列。",
     dt_cs_view_collection: "查看系列",
     dt_cs_back_to_lines: "所有供货系列",
+    dt_cs_current_series: "当前系列",
     dt_room_label_h: "房间：{w} × {d} · {h} 天花板",
     dt_rs_measure_hint: "拿起卷尺，输入每面墙的尺寸。输入任何格式 —",
     dt_rs_ceiling: "天花板高度（地面到天花板）",

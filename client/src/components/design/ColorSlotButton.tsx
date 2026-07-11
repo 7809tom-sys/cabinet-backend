@@ -72,6 +72,8 @@ interface ColorSlotButtonProps {
   disabled?: boolean;
   /** Tooltip shown when the user tries to open a disabled picker. */
   disabledReason?: string;
+  /** When set, the LineChooser shows a "Current series" badge on the locked distributor's row. */
+  lockedDistributorId?: number | null;
 }
 
 interface StyleGroup {
@@ -91,6 +93,7 @@ export function ColorSlotButton({
   onClear,
   disabled = false,
   disabledReason,
+  lockedDistributorId,
 }: ColorSlotButtonProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile(1024);
@@ -211,6 +214,7 @@ export function ColorSlotButton({
         const hasSelected = g.styles.some(
           (s) => (style as { id?: number } | null)?.id === s.id
         );
+        const isLocked = lockedDistributorId != null && g.distributorId === lockedDistributorId;
         return (
           <button
             key={String(g.distributorId)}
@@ -218,7 +222,7 @@ export function ColorSlotButton({
             onClick={() => setChosenGroup(g.distributorId)}
             className={[
               "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left transition-all active:scale-[0.99]",
-              hasSelected
+              hasSelected || isLocked
                 ? "border-[#d4a75a] bg-[#d4a75a]/10"
                 : "border-border bg-white hover:border-[#d4a75a]/60 hover:bg-accent/50",
             ].join(" ")}
@@ -228,10 +232,12 @@ export function ColorSlotButton({
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-semibold text-foreground">{g.label}</span>
                 <span className="block text-[10px] text-muted-foreground">
-                  {t("dt_cs_group_count", { count: g.styles.length })}
+                  {isLocked
+                    ? t("dt_cs_current_series")
+                    : t("dt_cs_group_count", { count: g.styles.length })}
                 </span>
               </span>
-              {hasSelected && (
+              {(hasSelected || isLocked) && (
                 <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#d4a75a] text-white">
                   <Check className="h-2 w-2" strokeWidth={3} />
                 </span>

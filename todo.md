@@ -852,3 +852,10 @@
 - [x] Create 5 missing cabinet records: CDB36, DCSB36, WCA1230, WCA1236, WCA1242
 - [x] Import 134 new corner cabinet SKUs for all 13 Clark & Son styles (distributor ID 2)
 - [x] Ashford corner cabinets in designer: 18 (BBC36, CDB36, DCSB36, LSB33/36, WBC, DCW, WCA, WER)
+
+## Bug: Cannot switch from Faircrest (Ashford/Clark & Son) series to other series in designer
+
+- [x] Diagnose why the style picker is locked to the current distributor and cannot show other series
+- [x] Fix the style picker to show all series (with a clear "switch series" affordance) even when a distributor is locked
+- [x] Ensure the cross-distributor confirmation dialog fires correctly when user picks a style from a different series
+- [x] Verify switching works in both directions (Faircrest → other, other → Faircrest)

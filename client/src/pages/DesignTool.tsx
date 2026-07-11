@@ -558,8 +558,31 @@ export default function DesignTool() {
     return distA !== distB;
   }, [doorStyles, styleA, styleB]);
   // De-duplicate by display name so the same style isn't listed once per line.
-  // When locked, only offer styles from the locked distributor so changing the
-  // finish never silently switches supply lines.
+  // allDoorStyles: ALL styles across every distributor, de-duped by
+  // (distributorId, name). Used by the ColorSlotButton picker so users can
+  // always see — and switch to — any series, even when a distributor is locked.
+  // The cross-distributor confirmation is handled inside setSlotStyle.
+  const allDoorStyles = useMemo(() => {
+    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number; styleCode?: string | null }>();
+    const source = (doorStyles ?? []) as Array<{
+      id: number;
+      ourName: string | null;
+      aliasName?: string | null;
+      thumbnailImageUrl?: string | null;
+      doorSampleImageUrl?: string | null;
+      distributorId?: number;
+      styleCode?: string | null;
+    }>;
+    for (const s of source) {
+      const key = `${s.distributorId ?? "_"}::${(styleDisplayName(s) || String(s.id)).toLowerCase()}`;
+      if (!map.has(key)) map.set(key, s);
+    }
+    return Array.from(map.values()).sort((a, b) => (styleDisplayName(a) || "").localeCompare(styleDisplayName(b) || ""));
+  }, [doorStyles]);
+
+  // uniqueDoorStyles: styles scoped to the locked distributor (used for the
+  // palette cabinet filter, pricing, and other places where the design must
+  // stay within one supply line). NOT used by the style picker itself.
   const uniqueDoorStyles = useMemo(() => {
     const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number; styleCode?: string | null }>();
     const source = (doorStyles ?? []) as Array<{
@@ -6285,8 +6308,9 @@ export default function DesignTool() {
                 slot="A"
                 active={activeSlot === "A"}
                 style={styleA != null ? (doorStyles?.find((d) => d.id === styleA) ?? null) : null}
-                styles={uniqueDoorStyles}
+                styles={allDoorStyles}
                 distributors={distributorLabels ?? []}
+                lockedDistributorId={lockedDistributorId}
                 onSelect={() => {
                   if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
                   selectColorSlot("A");
