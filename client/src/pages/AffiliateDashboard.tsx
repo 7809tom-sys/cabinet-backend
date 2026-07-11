@@ -680,6 +680,7 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
 // with a Room Scene Picker and an AI Concierge upsell card.
 
 type AffiliateRow = {
+  slug: string;
   tagline: string | null;
   taglineEs: string | null;
   aboutText: string | null;
@@ -818,6 +819,23 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
 
   return (
     <div className="space-y-6">
+
+      {/* ── Preview bar ──────────────────────────────────────────────────── */}
+      <div className="rounded-xl border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex-1">
+          <p className="text-sm font-semibold flex items-center gap-1.5"><Eye className="h-4 w-4 text-[var(--color-gold)]" /> Preview your storefront</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Save your changes first, then open your live storefront to see exactly how customers see it.</p>
+        </div>
+        <a
+          href={`/store/${affiliate.slug}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white shrink-0 transition-opacity hover:opacity-90"
+          style={{ backgroundColor: "var(--color-gold, #c9a227)" }}
+        >
+          <ExternalLink className="h-4 w-4" /> Open My Storefront
+        </a>
+      </div>
 
       {/* ── Storefront on/off ─────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-6 space-y-5">
@@ -1060,7 +1078,7 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
         </div>
         {/* Holiday presets */}
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2">Holiday presets (click to use):</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Holiday presets — click any to use:</p>
           <div className="flex flex-wrap gap-2">
             {[
               { label: "🎄 Christmas", text: "🎄 Holiday Sale — Special pricing on select cabinet lines through December 31!" },
@@ -1083,6 +1101,27 @@ function CustomizeTab({ affiliate, onSaved }: { affiliate: AffiliateRow; onSaved
             ))}
           </div>
         </div>
+
+        {/* Live banner preview */}
+        {form.promoBannerText && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Live preview:</p>
+            <div
+              className="rounded-lg overflow-hidden"
+              style={{ background: form.promoBannerActive ? "var(--color-navy, #0f1f3d)" : "#6b7280" }}
+            >
+              <div className="flex items-center gap-2 px-4 py-2.5 overflow-hidden">
+                <span className="text-white/90 text-xs font-medium whitespace-nowrap animate-[marquee_18s_linear_infinite]">
+                  ★ &nbsp; {form.promoBannerText} &nbsp; ★ &nbsp; {form.promoBannerText} &nbsp; ★
+                </span>
+              </div>
+              <div className="px-4 pb-1.5 flex items-center gap-1.5">
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${form.promoBannerActive ? "bg-emerald-400" : "bg-gray-400"}`} />
+                <span className="text-[10px] text-white/60">{form.promoBannerActive ? "Will appear on your storefront" : "Toggle ON above to activate"}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Contact Info ─────────────────────────────────────────────────── */}
