@@ -7,6 +7,7 @@ import ChatWidget from "@/components/ChatWidget";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
+import { setReferralCode } from "@/hooks/useReferral";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
@@ -72,6 +73,16 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Global referral capture — persist ?ref= on every page load so affiliate
+  // attribution is preserved even when customers land on non-storefront pages.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref");
+      if (ref) setReferralCode(ref);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     // Show a gentle, non-blocking refresh prompt when a newer build is deployed,
     // so users (and customers) never get stuck on a stale cached version.
