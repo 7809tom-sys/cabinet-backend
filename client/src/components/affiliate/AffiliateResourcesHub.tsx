@@ -23,7 +23,7 @@ const PLATFORM_GUIDES = [
     badge: "Start Here",
     badgeColor: "bg-[var(--color-gold)] text-[var(--color-navy)]",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/01-getting-started_7112e75c.pdf",
   },
   {
     title: "How to Use the 2D Kitchen Design Tool",
@@ -32,7 +32,7 @@ const PLATFORM_GUIDES = [
     badge: "Design Tool",
     badgeColor: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/02-design-tool_86325f23.pdf",
   },
   {
     title: "Customizing Your Storefront",
@@ -41,7 +41,7 @@ const PLATFORM_GUIDES = [
     badge: "Branding",
     badgeColor: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/03-customize-storefront_5771b58a.pdf",
   },
   {
     title: "Setting Up Your Payout Account",
@@ -50,7 +50,7 @@ const PLATFORM_GUIDES = [
     badge: "Payouts",
     badgeColor: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/04-payout-setup_f2b719b0.pdf",
   },
   {
     title: "Using Your CRM Board",
@@ -59,7 +59,7 @@ const PLATFORM_GUIDES = [
     badge: "CRM",
     badgeColor: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/05-crm-guide_3c194803.pdf",
   },
 ];
 
@@ -71,7 +71,7 @@ const SALES_TRAINING = [
     badge: "Core Guide",
     badgeColor: "bg-[var(--color-gold)] text-[var(--color-navy)]",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/06-sales-playbook_a817aa30.pdf",
   },
   {
     title: "Handling Common Objections",
@@ -80,7 +80,7 @@ const SALES_TRAINING = [
     badge: "Objection Handling",
     badgeColor: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/07-objection-handling_b6e2a924.pdf",
   },
   {
     title: "Closing Techniques for Cabinet Sales",
@@ -89,7 +89,7 @@ const SALES_TRAINING = [
     badge: "Closing",
     badgeColor: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/08-closing-techniques_fe0ee6cc.pdf",
   },
   {
     title: "Building Your Local Referral Network",
@@ -98,7 +98,7 @@ const SALES_TRAINING = [
     badge: "Networking",
     badgeColor: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/09-referral-network_c2f4bf94.pdf",
   },
   {
     title: "Social Media for Cabinet Affiliates",
@@ -107,7 +107,7 @@ const SALES_TRAINING = [
     badge: "Social Media",
     badgeColor: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/10-social-media_505fee8f.pdf",
   },
 ];
 
@@ -119,7 +119,7 @@ const DESIGN_TRAINING = [
     badge: "Fundamentals",
     badgeColor: "bg-[var(--color-gold)] text-[var(--color-navy)]",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/11-design-fundamentals_cf44ef06.pdf",
   },
   {
     title: "Cabinet Sizing & Specification Guide",
@@ -128,7 +128,7 @@ const DESIGN_TRAINING = [
     badge: "Reference",
     badgeColor: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/12-cabinet-sizing_05b7722e.pdf",
   },
   {
     title: "Door Style Selection Guide",
@@ -137,7 +137,7 @@ const DESIGN_TRAINING = [
     badge: "Door Styles",
     badgeColor: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/13-door-styles-guide_02a8df95.pdf",
   },
   {
     title: "Color & Finish Trends",
@@ -146,7 +146,7 @@ const DESIGN_TRAINING = [
     badge: "Trends",
     badgeColor: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/15-trends-and-vision_af6791c7.pdf",
   },
   {
     title: "Presenting Your Design to Customers",
@@ -155,7 +155,7 @@ const DESIGN_TRAINING = [
     badge: "Presentation",
     badgeColor: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
     action: "Download PDF",
-    href: "#",
+    href: "/manus-storage/14-reading-a-kitchen_547b0735.pdf",
   },
 ];
 
