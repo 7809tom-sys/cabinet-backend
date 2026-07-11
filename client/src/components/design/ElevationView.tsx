@@ -317,7 +317,11 @@ export function ElevationView({
       const { height } = elevationBox(cabinet, room);
       const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
       let nextBottom = vDragStartBottom.current + dyIn;
-      nextBottom = Math.max(0, Math.min(maxBottom, nextBottom));
+      // Wall cabinets must never be dragged below the standard 54" mount line
+      // (WALL_MOUNT_BOTTOM). Clamping at 0 would allow them to sit on the floor,
+      // which violates the placement rule: wall cabinets belong above the counter.
+      const minBottom = STD.WALL_MOUNT_BOTTOM;
+      nextBottom = Math.max(minBottom, Math.min(maxBottom, nextBottom));
       // Snap to the standard mount line (54") and the upper-run top line so it
       // is easy to line back up with neighbors.
       const SNAP_IN = 1.5;
@@ -443,7 +447,8 @@ export function ElevationView({
         const dir = e.key === "ArrowUp" ? 1 : -1;
         const { bottom, height } = elevationBox(cab, room);
         const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
-        const next = Math.max(0, Math.min(maxBottom, bottom + dir * step));
+        // Wall cabinets must never go below the 54" mount line (same rule as drag).
+        const next = Math.max(STD.WALL_MOUNT_BOTTOM, Math.min(maxBottom, bottom + dir * step));
         onMoveVertical(cab.uid, Math.round(next * 10) / 10);
       }
     };

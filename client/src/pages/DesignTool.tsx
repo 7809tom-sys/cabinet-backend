@@ -1191,7 +1191,18 @@ export default function DesignTool() {
       selectedSurfaces?: SelectedSurface[] | null;
     }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
-      setPlaced(normalizeLCornerDepths(Array.isArray(d.placed) ? d.placed : []));
+      // Sanitize saved designs: wall cabinets with a mountBottom below the
+      // standard 54" mount line (e.g. from old saves before the rule was
+      // enforced) are reset to null so they snap back to the default hang rule.
+      const rawPlaced = Array.isArray(d.placed) ? d.placed : [];
+      const sanitizedPlaced = rawPlaced.map((p) =>
+        p.placement === "wall" &&
+        typeof p.mountBottom === "number" &&
+        p.mountBottom < STD.WALL_MOUNT_BOTTOM
+          ? { ...p, mountBottom: null }
+          : p
+      );
+      setPlaced(normalizeLCornerDepths(sanitizedPlaced));
       setStyleId(d.styleId ?? null);
       // Restore the supply-line lock if the saved design was pinned to one.
       setLockedDistributorId(typeof d.distributorId === "number" ? d.distributorId : null);
@@ -3218,7 +3229,8 @@ export default function DesignTool() {
         if (p.uid !== selectedUid) return p;
         if (p.placement !== "wall") return p;
         const cur = elevationBox(p, room).bottom;
-        const next = Math.max(0, Math.round((cur + deltaIn) * 10) / 10);
+        // Wall cabinets must never go below the 54" standard mount line.
+        const next = Math.max(STD.WALL_MOUNT_BOTTOM, Math.round((cur + deltaIn) * 10) / 10);
         return { ...p, mountBottom: next };
       })
     );
@@ -3226,12 +3238,13 @@ export default function DesignTool() {
 
   // Set an ABSOLUTE mount height (inches from floor to the box bottom) for a
   // specific cabinet — used by the elevation view's vertical drag / Arrow keys.
-  // Wall cabinets only; clamped at 0.
+  // Wall cabinets only; clamped at WALL_MOUNT_BOTTOM (54") so they can never
+  // be dragged below the standard counter-height mount line.
   const setMountBottomFor = useCallback((uid: string, mountBottom: number) => {
     setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== uid || p.placement !== "wall") return p;
-        return { ...p, mountBottom: Math.max(0, Math.round(mountBottom * 10) / 10) };
+        return { ...p, mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, Math.round(mountBottom * 10) / 10) };
       })
     );
   }, []);

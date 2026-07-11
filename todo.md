@@ -831,3 +831,10 @@
 - [ ] Create/edit modal: message, start date, end date, holiday preset picker
 - [ ] Delete confirmation for scheduled banners
 - [ ] Storefront uses date-resolved scheduled banner when one is active
+
+## Cabinet Design Tool Placement Rules
+- [x] ElevationView drag clamp: wall cabinets clamped at STD.WALL_MOUNT_BOTTOM (54") minimum — cannot be dragged to floor
+- [x] ElevationView arrow key handler: same 54" clamp applied to Up/Down arrow key movement
+- [x] DesignTool adjustMountHeight: clamps at STD.WALL_MOUNT_BOTTOM instead of 0
+- [x] DesignTool setMountBottomFor: clamps at STD.WALL_MOUNT_BOTTOM instead of 0
+- [x] loadSavedDesign sanitization: wall cabinets with mountBottom < 54" are reset to null on load (auto-corrects old designs)
