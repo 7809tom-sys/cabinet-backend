@@ -25,7 +25,7 @@ import { DashboardLayoutSkeleton } from "@/components/DashboardLayoutSkeleton";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, LogOut, PanelLeft, ShoppingBag, DollarSign,
-  Palette, FileText, BarChart2, Megaphone, Tag, BookOpen, ExternalLink, CreditCard,
+  Palette, FileText, BarChart2, Megaphone, Tag, BookOpen, ExternalLink, CreditCard, CalendarDays,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -43,7 +43,8 @@ export type AffiliateSection =
   | "marketing"
   | "tax"
   | "payout"
-  | "resources";
+  | "resources"
+  | "banners";
 
 const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSection }[] = [
   { icon: LayoutDashboard, label: "Overview", section: "overview" },
@@ -57,6 +58,7 @@ const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSec
   { icon: Megaphone, label: "Marketing Hub", section: "marketing" },
   { icon: FileText, label: "Tax Info (W-9)", section: "tax" },
   { icon: CreditCard, label: "Payout Setup", section: "payout" },
+  { icon: CalendarDays, label: "Banner Scheduler", section: "banners" },
   { icon: BookOpen, label: "Resources", section: "resources" },
 ];
 

@@ -10,7 +10,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, orderRequests, affiliateStyleBranding, affiliateRoomSceneGallery, affiliatePromoDiscounts, doorStyles, affiliatePayouts } from "../../drizzle/schema";
+import { affiliates, orderRequests, affiliateStyleBranding, affiliateRoomSceneGallery, affiliatePromoDiscounts, affiliateBannerSchedules, doorStyles, affiliatePayouts } from "../../drizzle/schema";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -1433,6 +1433,88 @@ export const affiliatesRouter = router({
         } catch (_) { /* non-critical */ }
       }
 
+      return { ok: true };
+    }),
+
+  // ─── Banner Scheduler ─────────────────────────────────────────────────────
+
+  listBannerSchedules: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return [];
+    const aff = await resolveMyAffiliate(ctx);
+    if (!aff) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+    const rows = await db
+      .select()
+      .from(affiliateBannerSchedules)
+      .where(eq(affiliateBannerSchedules.affiliateId, aff.id))
+      .orderBy(affiliateBannerSchedules.startDate);
+    return rows;
+  }),
+
+  createBannerSchedule: protectedProcedure
+    .input(z.object({
+      message: z.string().min(1).max(500),
+      holidayKey: z.string().max(64).optional(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const aff = await resolveMyAffiliate(ctx);
+      if (!aff) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      const now = Date.now();
+      await db.insert(affiliateBannerSchedules).values({
+        affiliateId: aff.id,
+        message: input.message,
+        holidayKey: input.holidayKey ?? null,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { ok: true };
+    }),
+
+  updateBannerSchedule: protectedProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      message: z.string().min(1).max(500),
+      holidayKey: z.string().max(64).optional(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const aff = await resolveMyAffiliate(ctx);
+      if (!aff) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      const existing = await db
+        .select()
+        .from(affiliateBannerSchedules)
+        .where(and(eq(affiliateBannerSchedules.id, input.id), eq(affiliateBannerSchedules.affiliateId, aff.id)))
+        .limit(1);
+      if (!existing[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Banner schedule not found" });
+      await db.update(affiliateBannerSchedules)
+        .set({ message: input.message, holidayKey: input.holidayKey ?? null, startDate: input.startDate, endDate: input.endDate, updatedAt: Date.now() })
+        .where(eq(affiliateBannerSchedules.id, input.id));
+      return { ok: true };
+    }),
+
+  deleteBannerSchedule: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const aff = await resolveMyAffiliate(ctx);
+      if (!aff) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      const existing = await db
+        .select()
+        .from(affiliateBannerSchedules)
+        .where(and(eq(affiliateBannerSchedules.id, input.id), eq(affiliateBannerSchedules.affiliateId, aff.id)))
+        .limit(1);
+      if (!existing[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Banner schedule not found" });
+      await db.delete(affiliateBannerSchedules).where(eq(affiliateBannerSchedules.id, input.id));
       return { ok: true };
     }),
 });

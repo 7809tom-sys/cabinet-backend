@@ -9,6 +9,7 @@ import AffiliateAnalyticsPanel from "@/components/affiliate/AffiliateAnalyticsPa
 import AffiliateMarketingHub from "@/components/affiliate/AffiliateMarketingHub";
 import AffiliatePayoutSetup from "@/components/affiliate/AffiliatePayoutSetup";
 import AffiliateResourcesHub from "@/components/affiliate/AffiliateResourcesHub";
+import { AffiliateBannerScheduler } from "@/components/affiliate/AffiliateBannerScheduler";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -504,6 +505,12 @@ export default function AffiliateDashboard() {
         );
       case "payout":
         return <AffiliatePayoutSetup affiliateId={affiliate.id} storeName={affiliate.storeName} />;
+      case "banners":
+        return (
+          <div className="max-w-3xl">
+            <AffiliateBannerScheduler />
+          </div>
+        );
       case "resources":
         return <AffiliateResourcesHub />;
       default:

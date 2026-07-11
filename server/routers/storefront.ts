@@ -10,6 +10,7 @@ import {
   distributorSkus,
   affiliates,
   affiliateStyleBranding,
+  affiliateBannerSchedules,
 } from "../../drizzle/schema";
 
 // ─── Family-locked storefront browsing ─────────────────────────────────────────
@@ -710,6 +711,27 @@ export const storefrontRouter = router({
         categoryMarkupBps = {};
       }
 
+      // Resolve active scheduled banner by today's date
+      const today = new Date().toISOString().slice(0, 10);
+      const bannerRows = await db
+        .select()
+        .from(affiliateBannerSchedules)
+        .where(
+          and(
+            eq(affiliateBannerSchedules.affiliateId, a.id),
+            sql`${affiliateBannerSchedules.startDate} <= ${today}`,
+            sql`${affiliateBannerSchedules.endDate} >= ${today}`,
+          )
+        )
+        .orderBy(affiliateBannerSchedules.createdAt)
+        .limit(1);
+      const scheduledBanner = bannerRows[0] ?? null;
+
+      // Merge: scheduled banner overrides manual promo banner if active
+      const activeBannerText = scheduledBanner
+        ? scheduledBanner.message
+        : (a.promoBannerActive ? (a.promoBannerText ?? null) : null);
+
       return {
         globalMarkupBps: a.defaultMarkupBps ?? 0,
         categoryMarkupBps,
@@ -717,6 +739,8 @@ export const storefrontRouter = router({
         styleNames,
         hiddenStyleIds,
         featuredStyles,
+        promoBannerText: activeBannerText,
+        promoBannerActive: activeBannerText !== null,
       };
     }),
 });

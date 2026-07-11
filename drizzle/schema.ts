@@ -9,6 +9,8 @@ import {
   decimal,
   boolean,
   json,
+  date,
+  bigint,
 } from "drizzle-orm/mysql-core";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -684,6 +686,19 @@ export const affiliatePromoDiscounts = mysqlTable("affiliate_promo_discounts", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 export type AffiliatePromoDiscount = typeof affiliatePromoDiscounts.$inferSelect;
+
+// ─── Affiliate Banner Schedules ─────────────────────────────────────────────
+export const affiliateBannerSchedules = mysqlTable("affiliate_banner_schedules", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliate_id").notNull(),
+  message: varchar("message", { length: 500 }).notNull(),
+  holidayKey: varchar("holiday_key", { length: 64 }),
+  startDate: varchar("start_date", { length: 10 }).notNull(),
+  endDate: varchar("end_date", { length: 10 }).notNull(),
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
+});
+export type AffiliateBannerSchedule = typeof affiliateBannerSchedules.$inferSelect;
 
 // ─── CRM: Sales pipeline (admin) + affiliate pipeline ──────────────────────────
 // A lightweight task-board / pipeline over leads & deals. A deal with

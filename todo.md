@@ -822,3 +822,12 @@
 - [x] AffiliatePayoutSetup.tsx: locked banner when payoutReady (all verified by admin)
 - [x] Admin panel: Payout Verification tab in affiliate Details — show W-9 status, masked bank info, ID doc links (secure presigned URLs), approve/reject buttons, admin notes
 - [x] Payout gating: commissions show "Pending payout setup" until payoutReady = true
+
+## Holiday Banner Scheduler
+- [ ] affiliate_banner_schedules DB table (id, affiliateId, message, startDate, endDate, holidayKey, createdAt)
+- [ ] Server procedures: listBannerSchedules, createBannerSchedule, updateBannerSchedule, deleteBannerSchedule
+- [ ] Auto-resolve active banner by today's date in brandingForSlug (scheduled overrides manual)
+- [ ] AffiliateBannerScheduler UI: list of upcoming/active/past banners with status badges
+- [ ] Create/edit modal: message, start date, end date, holiday preset picker
+- [ ] Delete confirmation for scheduled banners
+- [ ] Storefront uses date-resolved scheduled banner when one is active
