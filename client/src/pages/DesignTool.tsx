@@ -10,6 +10,7 @@ import {
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -5930,68 +5931,98 @@ export default function DesignTool() {
                     // as an add-on sale in the design tool and is hidden here.
                     if (paletteType === "accessory") {
                       if (!isPlaceableAccessory(c)) return null;
+                      const cabPrice = styleId ? (priceMap.get(`${c.id}:${styleId}`) ?? null) : null;
                       return (
-                        <button
-                          key={c.masterCode}
-                          draggable
-                          onDragStart={() => { dragDataRef.current = c; }}
-                          onClick={() => addCabinet(c)}
-                          className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
-                        >
-                          <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
-                            <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                            <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
-                          </div>
-                          <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                        </button>
+                        <Tooltip key={c.masterCode} delayDuration={400}>
+                          <TooltipTrigger asChild>
+                            <button
+                              draggable
+                              onDragStart={() => { dragDataRef.current = c; }}
+                              onClick={() => addCabinet(c)}
+                              className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                            >
+                              <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                                <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
+                                <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                                <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
+                              </div>
+                              <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-[220px] space-y-1 text-xs">
+                            <p className="font-mono font-semibold">{c.masterCode}</p>
+                            <p className="text-muted-foreground leading-snug">{c.description}</p>
+                            <p className="text-foreground">
+                              {dim(c.width, 24)}"W
+                              {c.height ? ` × ${dim(c.height, 0)}"H` : ""}
+                              {c.depth ? ` × ${dim(c.depth, 0)}"D` : ""}
+                            </p>
+                            {cabPrice != null && (
+                              <p className="font-semibold text-primary">${cabPrice.toFixed(2)}</p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
                       );
                     }
-                    return (
-                    <button
-                      key={c.masterCode}
-                      draggable
-                      onDragStart={() => { dragDataRef.current = c; }}
-                      onClick={() => addCabinet(c)}
-                      className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
-                    >
-                      <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
-                        <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                        {(() => {
-                          // A base-family box (Base/Vanity tab, or a corner BASE
-                          // cabinet inside the unified Corner tab) is always the
-                          // standard 34.5" tall; wall/tall/corner-wall boxes use
-                          // their real catalog height.
-                          const isBaseBox =
-                            paletteType === "base" ||
-                            paletteType === "vanity" ||
-                            (paletteType === "corner" && isCornerBase(c));
-                          const hVal = isBaseBox ? "34.5" : (dim(c.height, 0) > 0 ? String(dim(c.height, 0)) : null) ?? "—";
-                          const showH = isBaseBox || dim(c.height, 0) > 0;
-                          return (
-                            <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {hVal}{showH ? "\"H" : ""}</div>
-                          );
-                        })()}
-                      </div>
-                      {paletteFinishSwatch && (
-                        <img
-                          src={paletteFinishSwatch}
-                          alt={activeStyleName ? `${activeStyleName} finish` : "selected finish"}
-                          title={activeStyleName ?? undefined}
-                          loading="lazy"
-                          className="h-7 w-7 rounded-sm object-cover border border-[#a07d4a]/40 shrink-0"
-                        />
-                      )}
-                      <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                    </button>
-                    );
+                    {
+                      const isBaseBox =
+                        paletteType === "base" ||
+                        paletteType === "vanity" ||
+                        (paletteType === "corner" && isCornerBase(c));
+                      const hVal = isBaseBox ? "34.5" : (dim(c.height, 0) > 0 ? String(dim(c.height, 0)) : null) ?? "—";
+                      const showH = isBaseBox || dim(c.height, 0) > 0;
+                      const cabPrice = styleId ? (priceMap.get(`${c.id}:${styleId}`) ?? null) : null;
+                      return (
+                        <Tooltip key={c.masterCode} delayDuration={400}>
+                          <TooltipTrigger asChild>
+                            <button
+                              draggable
+                              onDragStart={() => { dragDataRef.current = c; }}
+                              onClick={() => addCabinet(c)}
+                              className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                            >
+                              <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                                <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
+                                <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                                <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {hVal}{showH ? "\"H" : ""}</div>
+                              </div>
+                              {paletteFinishSwatch && (
+                                <img
+                                  src={paletteFinishSwatch}
+                                  alt={activeStyleName ? `${activeStyleName} finish` : "selected finish"}
+                                  title={activeStyleName ?? undefined}
+                                  loading="lazy"
+                                  className="h-7 w-7 rounded-sm object-cover border border-[#a07d4a]/40 shrink-0"
+                                />
+                              )}
+                              <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-[240px] space-y-1 text-xs">
+                            <p className="font-mono font-semibold">{c.masterCode}</p>
+                            <p className="text-muted-foreground leading-snug">{c.description}</p>
+                            <p className="text-foreground">
+                              {dim(c.width, 24)}"W
+                              {showH ? ` × ${hVal}"H` : ""}
+                              {c.depth ? ` × ${dim(c.depth, 0)}"D` : ""}
+                            </p>
+                            {c.numberOfDoors != null && c.numberOfDoors > 0 && (
+                              <p className="text-muted-foreground">{c.numberOfDoors} door{c.numberOfDoors !== 1 ? "s" : ""}{c.numberOfDrawers ? `, ${c.numberOfDrawers} drawer${c.numberOfDrawers !== 1 ? "s" : ""}` : ""}</p>
+                            )}
+                            {cabPrice != null && (
+                              <p className="font-semibold text-primary">${cabPrice.toFixed(2)}</p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground/70 pt-0.5">Click or drag to place</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    }
                   })}
                 </div>
                 );
