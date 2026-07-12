@@ -348,14 +348,21 @@ export const designRouter = router({
           sql`(LOWER(${cabinets.description}) LIKE '%bridge%' OR (CAST(${cabinets.height} AS DECIMAL) <= 18 AND LOWER(${cabinets.description}) LIKE '%wall%'))`,
           sql`CAST(${cabinets.depth} AS DECIMAL) <= 12`
         ));
-      // Refrigerator end panels: codes contain REPV (e.g. REPV3096, Unfinished-REPV3096, TDEP*).
+      // End panels: REPV*, TDEP*, and S2496/S3696 shelf boards (used as refrigerator side panels).
       const endPanelRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(
           gate,
-          sql`(${cabinets.masterCode} LIKE '%REPV%' OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%' OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%')`
+          sql`(
+            ${cabinets.masterCode} LIKE '%REPV%'
+            OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%'
+            OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%'
+            OR ${cabinets.masterCode} LIKE '%S2496%'
+            OR ${cabinets.masterCode} LIKE '%S3696%'
+            OR LOWER(${cabinets.description}) LIKE '%shelf board%'
+          )`
         ));
       // Smooth skin panels: codes contain WSV, USV, or description contains "Skin" / "Veneer".
       // Exclude REPV items (those are end panels, not smooth skins).
@@ -455,11 +462,19 @@ export const designRouter = router({
         .select(cols).from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(gate, sql`CAST(${cabinets.depth} AS DECIMAL) = 24`, sql`LOWER(${cabinets.description}) LIKE '%wall%'`));
-      // Refrigerator end panels (REPV*, TDEP*, Unfinished-REPV*).
+      // Refrigerator end panels: REPV*, TDEP*, and S2496/S3696 shelf boards.
       const panelRows = await db
         .select(cols).from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, sql`(${cabinets.masterCode} LIKE '%REPV%' OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%')`))
+        .where(and(gate, sql`(
+          ${cabinets.masterCode} LIKE '%REPV%'
+          OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%'
+          OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%'
+          OR ${cabinets.masterCode} LIKE '%S2496%'
+          OR ${cabinets.masterCode} LIKE '%S3696%'
+          OR LOWER(${cabinets.description}) LIKE '%shelf board%'
+        )`))
+      
       // Standard wall cabinets (12" deep, not bridge, not deep fridge box).
       const wallRows = await db
         .select(cols).from(cabinets)
