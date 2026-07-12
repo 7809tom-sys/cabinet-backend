@@ -319,17 +319,17 @@ export default function DoorStyles() {
           >
             {t("ds_all_styles")}
           </button>
-          {types.map((t) => (
+          {types.map((doorType) => (
             <button
-              key={t}
-              onClick={() => setSelectedType(t)}
+              key={doorType}
+              onClick={() => setSelectedType(doorType)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedType === t
+                selectedType === doorType
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              {t}
+              {doorType}
             </button>
           ))}
         </div>
