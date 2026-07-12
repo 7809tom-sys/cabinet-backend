@@ -95,6 +95,10 @@ export const designRouter = router({
       const isAccessory = (r: { category: string | null; placementType: string | null }) => {
         const pt = (r.placementType || "").toLowerCase();
         const cat = (r.category || "").toLowerCase();
+        // Items with a specific tall/wall/base placement type are real cabinets/panels
+        // that belong in the Tall/Wall/Base tab — NOT the Accessories tab — even if
+        // their category is "Accessory" (e.g. Decorative End Panels with placementType=tall).
+        if (pt === "tall" || pt === "wall" || pt === "base") return false;
         return cat === "accessory" || pt.includes("accessory") || pt.includes("trim");
       };
 
