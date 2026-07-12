@@ -205,6 +205,59 @@ function DimStepper({
   );
 }
 
+/**
+ * Creates a styled drag ghost element showing the cabinet thumbnail + code.
+ * Appended off-screen, used as the drag image, then removed after a tick.
+ */
+function makeDragGhost(c: import("@/lib/design").DesignCabinet): HTMLElement {
+  const SIZE = 72;
+  const ghost = document.createElement("div");
+  ghost.style.cssText = [
+    "position:fixed",
+    "top:-9999px",
+    "left:-9999px",
+    `width:${SIZE}px`,
+    "display:flex",
+    "flex-direction:column",
+    "align-items:center",
+    "gap:4px",
+    "padding:6px",
+    "background:rgba(26,39,68,0.92)",
+    "border:1.5px solid #d4a75a",
+    "border-radius:8px",
+    "box-shadow:0 4px 16px rgba(0,0,0,0.4)",
+    "pointer-events:none",
+    "z-index:99999",
+  ].join(";");
+
+  // Image or placeholder
+  const imgWrap = document.createElement("div");
+  imgWrap.style.cssText = `width:${SIZE - 12}px;height:${SIZE - 12}px;background:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;overflow:hidden;`;
+  const url = c.catalogImageUrl?.trim();
+  if (url) {
+    const img = document.createElement("img");
+    img.src = url;
+    img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
+    imgWrap.appendChild(img);
+  } else {
+    imgWrap.style.background = "#2a3a5c";
+    const code = document.createElement("span");
+    code.textContent = c.masterCode.slice(0, 6);
+    code.style.cssText = "font-size:9px;font-family:monospace;color:#d4a75a;font-weight:700;text-align:center;";
+    imgWrap.appendChild(code);
+  }
+  ghost.appendChild(imgWrap);
+
+  // Label
+  const label = document.createElement("span");
+  label.textContent = c.masterCode;
+  label.style.cssText = "font-size:9px;font-family:monospace;color:#d4a75a;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;";
+  ghost.appendChild(label);
+
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
 export default function DesignTool() {
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_design_t"), description: t("seo_design_d"), lang });
@@ -5937,7 +5990,7 @@ export default function DesignTool() {
                           <TooltipTrigger asChild>
                             <button
                               draggable
-                              onDragStart={() => { dragDataRef.current = c; }}
+                              onDragStart={(e) => { dragDataRef.current = c; const g = makeDragGhost(c); e.dataTransfer.setDragImage(g, 36, 36); setTimeout(() => g.remove(), 0); }}
                               onClick={() => addCabinet(c)}
                               className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                             >
@@ -5987,7 +6040,7 @@ export default function DesignTool() {
                           <TooltipTrigger asChild>
                             <button
                               draggable
-                              onDragStart={() => { dragDataRef.current = c; }}
+                              onDragStart={(e) => { dragDataRef.current = c; const g = makeDragGhost(c); e.dataTransfer.setDragImage(g, 36, 36); setTimeout(() => g.remove(), 0); }}
                               onClick={() => addCabinet(c)}
                               className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                             >
