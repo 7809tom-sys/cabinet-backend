@@ -56,7 +56,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
       <DialogTrigger asChild>
         <button
           type="button"
-          className="cabinet-card group relative rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="cabinet-card group relative rounded-xl border border-border bg-card text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {/* Room scene is the primary hero; door icon toggles to close-up */}
           <div className="h-28 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
@@ -117,6 +117,26 @@ function StyleCard({ style }: { style: DoorStyle }) {
               )}
             </div>
           </div>
+
+          {/* Hover detail overlay — slides up from bottom on hover */}
+          {(style.woodSpecies || style.finish) && (
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200 ease-out z-20 bg-popover/95 backdrop-blur-sm border-t border-border px-2.5 py-2 rounded-b-xl"
+            >
+              <div className="space-y-0.5">
+                {style.woodSpecies && (
+                  <p className="text-[10px] text-popover-foreground">
+                    <span className="text-muted-foreground">Wood:</span> {style.woodSpecies}
+                  </p>
+                )}
+                {style.finish && (
+                  <p className="text-[10px] text-popover-foreground">
+                    <span className="text-muted-foreground">Finish:</span> {style.finish}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </button>
       </DialogTrigger>
 
