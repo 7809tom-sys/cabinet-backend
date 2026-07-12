@@ -211,17 +211,50 @@ export default function DesignTool() {
   const wallLabel: Record<WallSide, string> = {
     top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
   };
-  // Contact gate (email required; name + phone optional)
-  const [verified, setVerified] = useState(false);
-  const [verifiedEmail, setVerifiedEmail] = useState("");
-  const [verifiedName, setVerifiedName] = useState("");
-  const [verifiedPhone, setVerifiedPhone] = useState("");
+  // Contact gate (email required; name + phone optional).
+  // Persisted to localStorage so returning visitors skip the gate automatically.
+  const [verified, setVerified] = useState(() => {
+    try {
+      const saved = localStorage.getItem("cabinet-dealz:designer-gate:v1");
+      if (saved) {
+        const p = JSON.parse(saved) as { email?: string };
+        return typeof p?.email === "string" && p.email.length > 0;
+      }
+    } catch { /* ignore */ }
+    return false;
+  });
+  const [verifiedEmail, setVerifiedEmail] = useState(() => {
+    try {
+      const saved = localStorage.getItem("cabinet-dealz:designer-gate:v1");
+      return saved ? ((JSON.parse(saved) as { email?: string }).email ?? "") : "";
+    } catch { return ""; }
+  });
+  const [verifiedName, setVerifiedName] = useState(() => {
+    try {
+      const saved = localStorage.getItem("cabinet-dealz:designer-gate:v1");
+      return saved ? ((JSON.parse(saved) as { name?: string }).name ?? "") : "";
+    } catch { return ""; }
+  });
+  const [verifiedPhone, setVerifiedPhone] = useState(() => {
+    try {
+      const saved = localStorage.getItem("cabinet-dealz:designer-gate:v1");
+      return saved ? ((JSON.parse(saved) as { phone?: string }).phone ?? "") : "";
+    } catch { return ""; }
+  });
   const captureLead = trpc.design.captureLead.useMutation();
   const handleVerified = useCallback((contact: LeadContact) => {
     setVerifiedEmail(contact.email);
     setVerifiedName(contact.name ?? "");
     setVerifiedPhone(contact.phone ?? "");
     setVerified(true);
+    // Persist so the gate is skipped on future visits from this browser.
+    try {
+      localStorage.setItem("cabinet-dealz:designer-gate:v1", JSON.stringify({
+        email: contact.email,
+        name: contact.name ?? "",
+        phone: contact.phone ?? "",
+      }));
+    } catch { /* ignore quota errors */ }
     // Record the lead so a rep has contact info even if the visitor never saves
     // a design or requests a quote. Fire-and-forget — never block entry on it.
     captureLead.mutate({

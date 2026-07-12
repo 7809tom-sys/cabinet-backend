@@ -985,6 +985,8 @@ export const SITE_STRINGS = {
     // --- Design Tool: toasts ---
     dt_t_build_first: "Build the kitchen layout first — place base cabinets, then add the countertop.",
     dt_t_sink_added: "Sink base added — dropped a sink + faucet over it.",
+    dt_blind_pull_label: "Pull:",
+    dt_blind_pull_range: "min {min}\" \u2013 max {max}\"",
     dt_blind_filler_placed: "3\" filler auto-placed next to blind corner for door clearance.",
     dt_t_unlock_filler: "Unlock the layout to add a filler.",
     dt_t_filler_gt0: "Enter a filler width greater than 0.",
@@ -2296,6 +2298,8 @@ export const SITE_STRINGS = {
     // --- Herramienta de Diseño: notificaciones ---
     dt_t_build_first: "Primero construye el diseño de la cocina — coloca gabinetes base, luego agrega la encimera.",
     dt_t_sink_added: "Base de fregadero agregada — se colocó un fregadero + grifo encima.",
+    dt_blind_pull_label: "Jale:",
+    dt_blind_pull_range: "mín {min}\" – máx {max}\"",
     dt_blind_filler_placed: "Relleno de 3\" colocado junto al gabinete ciego para holgura de puerta.",
     dt_t_unlock_filler: "Desbloquea el diseño para agregar un relleno.",
     dt_t_filler_gt0: "Ingresa un ancho de relleno mayor que 0.",
@@ -3610,6 +3614,8 @@ export const SITE_STRINGS = {
     dt_sh_filler_note: " + {n}\\\" 填充物",
     dt_t_build_first: "首先构建厨房布局 — 放置地柜，然后添加台面。",
     dt_t_sink_added: "已添加水槽柜 — 在其上方放置了水槽和水龙头。",
+    dt_blind_pull_label: "拉出:",
+    dt_blind_pull_range: "最小 {min}\" – 最大 {max}\"",
     dt_blind_filler_placed: "盲角柜旁边自动放置 3\\\" 填充物以确保门板间隙。",
     dt_t_unlock_filler: "解锁布局以添加填充物。",
     dt_t_filler_gt0: "输入大于 0 的填充物宽度。",

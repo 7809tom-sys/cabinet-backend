@@ -859,3 +859,13 @@
 - [x] Fix the style picker to show all series (with a clear "switch series" affordance) even when a distributor is locked
 - [x] Ensure the cross-distributor confirmation dialog fires correctly when user picks a style from a different series
 - [x] Verify switching works in both directions (Faircrest → other, other → Faircrest)
+
+## Feature: Blind Corner Pull Distance Tooltip
+- [ ] Show min/max pull distance tooltip when a BBC/WBC is selected or being placed in the designer
+- [ ] Tooltip should appear in both plan view (PlanCanvas) and elevation view (ElevationView)
+- [ ] Display current pull value, min pull, and max pull clearly
+- [ ] Add i18n keys for the tooltip text
+
+## Bug: Email Gate Not Working in Designer
+- [ ] Diagnose why email verification fails — user enters email but cabinets don't appear
+- [ ] Fix email submission and verification so designer unlocks after entering email

@@ -5,7 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, blindPullRange,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -287,6 +287,30 @@ export function ElevationView({
               {p.masterCode}
             </span>
           </div>
+          {/* Blind corner pull-distance tooltip: shown when this cabinet is
+              selected. Floats above the cabinet box as a gold chip. */}
+          {isBlind && isSelected && (() => {
+            const pr = blindPullRange(p);
+            if (!pr) return null;
+            const current = typeof p.blindPull === "number" ? p.blindPull : pr.max;
+            return (
+              <div
+                className="pointer-events-none absolute left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full px-2 py-0.5 shadow-lg"
+                style={{
+                  bottom: "calc(100% + 6px)",
+                  background: "#1a2744",
+                  border: "1.5px solid #d4a75a",
+                  zIndex: 20,
+                  whiteSpace: "nowrap",
+                  ...textFlip,
+                }}
+              >
+                <span className="text-[9px] font-semibold text-[#d4a75a]">{t("dt_blind_pull_label")}</span>
+                <span className="text-[9px] text-white font-bold">{current}"</span>
+                <span className="text-[8px] text-white/60">({t("dt_blind_pull_range", { min: pr.min, max: pr.max })})</span>
+              </div>
+            );
+          })()}
         </div>
       </div>
     );

@@ -13,7 +13,7 @@ import {
   flooringMaterial,
   type PlanAnnotation,
   wallDimensions, type DimensionSeg,
-  type PonyWall, clampPonyWall,
+  type PonyWall, clampPonyWall, blindPullRange,
 } from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -1207,6 +1207,30 @@ export function PlanCanvas({
                     <X className="h-3 w-3" strokeWidth={3} />
                   </button>
                 )}
+                {/* Blind corner pull-distance chip: floats above the cabinet
+                    in plan view when it is selected so the user can see the
+                    current pull and the allowed min/max range at a glance. */}
+                {isSelected && !measureMode && isBlind && (() => {
+                  const pr = blindPullRange(p);
+                  if (!pr) return null;
+                  const current = typeof p.blindPull === "number" ? p.blindPull : pr.max;
+                  return (
+                    <div
+                      className="pointer-events-none absolute left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full px-2 py-0.5 shadow-lg"
+                      style={{
+                        bottom: "calc(100% + 6px)",
+                        background: "#1a2744",
+                        border: "1.5px solid #d4a75a",
+                        zIndex: 30,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <span className="text-[9px] font-semibold text-[#d4a75a]">{t("dt_blind_pull_label")}</span>
+                      <span className="text-[9px] text-white font-bold">{current}"</span>
+                      <span className="text-[8px] text-white/60">({t("dt_blind_pull_range", { min: pr.min, max: pr.max })})</span>
+                    </div>
+                  );
+                })()}
                 {/* Lock badge: shown on selected cabinet when cabinets are locked */}
                 {isSelected && !measureMode && cabinetsLocked && (
                   <div
