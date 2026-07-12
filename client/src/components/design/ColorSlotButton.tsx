@@ -245,37 +245,14 @@ export function ColorSlotButton({
     </div>
   );
 
-  // Distributor-first picker: step 1 = choose a supply line, step 2 = its styles.
-  // When only one line is in scope (slot B, or a locked design) we skip step 1.
+  // Flat picker: show all available styles directly with no supply-line drill-down.
   const StyleList = ({ cols = 2 }: { cols?: 2 | 3 }) =>
     styles.length === 0 ? (
       <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
         {t("dt_cs_none_available")}
       </div>
-    ) : onlyOneGroup ? (
-      <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} />
-    ) : activeGroup == null ? (
-      <LineChooser />
     ) : (
-      <div className="space-y-2">
-        {/* Back to supply-line list */}
-        <button
-          type="button"
-          onClick={() => setChosenGroup(null)}
-          className="flex items-center gap-1 rounded-md px-1 py-1 text-[11px] font-medium text-[#1a2744] hover:underline"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          {t("dt_cs_back_to_lines")}
-        </button>
-        <div className="flex items-center gap-1.5 px-1">
-          <Layers className="h-3.5 w-3.5 text-[#d4a75a]" />
-          <span className="truncate text-[12px] font-semibold text-foreground">{activeGroup.label}</span>
-          <span className="text-[10px] text-muted-foreground">
-            {t("dt_cs_group_count", { count: activeGroup.styles.length })}
-          </span>
-        </div>
-        <StyleGrid list={activeGroup.styles} cols={cols} />
-      </div>
+      <StyleGrid list={styles} cols={cols} />
     );
 
   return (

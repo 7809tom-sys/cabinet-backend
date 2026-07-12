@@ -5888,45 +5888,7 @@ export default function DesignTool() {
                 </button>
               )}
             </div>
-            {/* Distributor / Collection filter — simple dropdown so the user
-                can switch between supply lines. Auto-selects the locked one. */}
-            {styleId && (distributorLabels ?? []).length > 1 && (
-              <div className="mt-2">
-                <Select
-                  value={lockedDistributorId != null ? String(lockedDistributorId) : "all"}
-                  onValueChange={(val) => {
-                    if (val === "all") {
-                      if (placed.length > 0 && lockedDistributorId != null) {
-                        const ok = window.confirm(t("dt_dist_override_body"));
-                        if (!ok) return;
-                        setMixedWarehouseOverride(true);
-                      }
-                      setLockedDistributorId(null);
-                    } else {
-                      const newDist = Number(val);
-                      if (placed.length > 0 && lockedDistributorId != null && newDist !== lockedDistributorId) {
-                        const ok = window.confirm(t("dt_dist_override_body"));
-                        if (!ok) return;
-                        setMixedWarehouseOverride(true);
-                      }
-                      setLockedDistributorId(newDist);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="All Collections" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Collections</SelectItem>
-                    {(distributorLabels ?? []).map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
