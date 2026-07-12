@@ -309,6 +309,16 @@ export const designRouter = router({
         isCornerCabinet: cabinets.isCornerCabinet,
         catalogImageUrl: cabinets.catalogImageUrl,
       };
+      // Resolve the distributor that owns this door style so we can fall back
+      // to distributor-wide standard panels (S2496, REPV, etc.) that are shared
+      // across all lines from the same supplier.
+      const styleRow = await db
+        .select({ distributorId: doorStyles.distributorId })
+        .from(doorStyles)
+        .where(eq(doorStyles.id, input.styleId))
+        .limit(1);
+      const distributorId = styleRow[0]?.distributorId ?? null;
+
       const gate = and(
         eq(cabinets.isActive, true),
         notInConflict(),
@@ -316,6 +326,17 @@ export const designRouter = router({
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true)
       );
+      // Fallback gate: same distributor, any published+available SKU.
+      // Used for standard panels (S2496, REPV, TDEP) that are shared across all lines.
+      const distGate = distributorId
+        ? and(
+            eq(cabinets.isActive, true),
+            notInConflict(),
+            eq(distributorSkus.distributorId, distributorId),
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true)
+          )
+        : gate;
       const sortByWidth = (rows: { width: unknown; masterCode: string }[]) =>
         [...rows].sort((a, b) => {
           const na = parseFloat(String(a.width ?? ""));
@@ -349,23 +370,31 @@ export const designRouter = router({
           sql`CAST(${cabinets.depth} AS DECIMAL) <= 12`
         ));
       // End panels: REPV*, TDEP*, and S2496/S3696 shelf boards (used as refrigerator side panels).
-      const endPanelRows = await db
+      // These are standard across all US Cabinet Depot lines, so if the style-gated query
+      // returns nothing we fall back to any published SKU from the same distributor.
+      const panelCodeFilter = sql`(
+        ${cabinets.masterCode} LIKE '%REPV%'
+        OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%'
+        OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%'
+        OR ${cabinets.masterCode} LIKE '%S2496%'
+        OR ${cabinets.masterCode} LIKE '%S3696%'
+        OR LOWER(${cabinets.description}) LIKE '%shelf board%'
+      )`;
+      const panelWidthFilter = sql`(${cabinets.width} IS NULL OR CAST(${cabinets.width} AS DECIMAL) <= 200)`;
+      let endPanelRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(
-          gate,
-          sql`(
-            ${cabinets.masterCode} LIKE '%REPV%'
-            OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%'
-            OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%'
-            OR ${cabinets.masterCode} LIKE '%S2496%'
-            OR ${cabinets.masterCode} LIKE '%S3696%'
-            OR LOWER(${cabinets.description}) LIKE '%shelf board%'
-          )`,
-          // Exclude entries where width is clearly a product code number (> 200") not an actual dimension
-          sql`(${cabinets.width} IS NULL OR CAST(${cabinets.width} AS DECIMAL) <= 200)`
-        ));
+        .where(and(gate, panelCodeFilter, panelWidthFilter));
+      // Fallback: if no panels found for this specific style, use any published SKU
+      // from the same distributor (S2496/REPV are standard across all their lines).
+      if (endPanelRows.length === 0 && distGate !== gate) {
+        endPanelRows = await db
+          .select(cols)
+          .from(cabinets)
+          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+          .where(and(distGate, panelCodeFilter, panelWidthFilter));
+      }
       // Smooth skin panels: codes contain WSV, USV, or description contains "Skin" / "Veneer".
       // Exclude REPV items (those are end panels, not smooth skins).
       const skinRows = await db
