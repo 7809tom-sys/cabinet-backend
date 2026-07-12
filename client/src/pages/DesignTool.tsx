@@ -2756,7 +2756,7 @@ export default function DesignTool() {
               : STD.WALL_DEPTH;
           // Use the user-chosen bridge height directly (12/18/24) so the placed cabinet
           // always has the exact height the user selected, even if the catalog entry differs.
-          const catalogH = parseFloat(String(chosen.height ?? STD.WALL_HEIGHT)) || STD.WALL_HEIGHT;
+          const catalogH = parseFloat(String((chosen.height ?? STD.WALL_HEIGHT))) || STD.WALL_HEIGHT;
           const aHeight = (opts.above === "bridge" && opts.bridgeHeight) ? opts.bridgeHeight : catalogH;
           bridgeHeightPlaced = aHeight;
           // Center the upper over the fridge run, flush to the same wall.
