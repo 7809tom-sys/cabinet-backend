@@ -4383,7 +4383,7 @@ export default function DesignTool() {
             toast.success(t("dt_sh_started_new"));
           }}
         >
-          <Trash2 className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_start_new")}</span>
+          <Trash2 className="h-3.5 w-3.5" />
         </button>
 
         {/* Printable graph-paper worksheet */}
@@ -4394,7 +4394,7 @@ export default function DesignTool() {
           title={t("dt_sh_print_title")}
           className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
         >
-                    <Printer className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_print_sheet")}</span>
+                    <Printer className="h-3.5 w-3.5" />
         </a>
         {/* Preview modes — desktop toolbar button */}
         {placed.length > 0 && (
@@ -4821,10 +4821,10 @@ export default function DesignTool() {
         {/* Desktop action cluster */}
         <div className="ml-auto hidden lg:flex items-center gap-2">
           {/* Undo / Redo */}
-          <Button variant="outline" size="sm" onClick={handleUndo} className="h-8 gap-1.5" title={t("dt_sh_undo")}>
+          <Button variant="outline" size="icon" onClick={handleUndo} className="h-8 w-8" title={t("dt_sh_undo")}>
             <Undo2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="sm" onClick={handleRedo} className="h-8 gap-1.5" title={t("dt_sh_redo")}>
+          <Button variant="outline" size="icon" onClick={handleRedo} className="h-8 w-8" title={t("dt_sh_redo")}>
             <Redo2 className="h-3.5 w-3.5" />
           </Button>
 
@@ -4833,45 +4833,48 @@ export default function DesignTool() {
           {/* Measure / Dimensions */}
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}
-            className={`h-8 gap-1.5 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+            title={t("dt_sh_measure")}
+            className={`h-8 w-8 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
-            <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_measure")}
+            <Ruler className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={() => setAutoDimensions((d) => !d)}
-            className={`h-8 gap-1.5 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+            title={t("dt_sh_auto_dim")}
+            className={`h-8 w-8 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
-            <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_auto_dim")}
+            <Ruler className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            title={t("dt_ann_add")}
             onClick={() => {
               const text = window.prompt(t("dt_ann_prompt"));
               if (text && text.trim()) {
                 setAnnotations((prev) => [...prev, makeAnnotation(room.width / 2, room.depth / 2, text.trim())]);
               }
             }}
-            className="h-8 gap-1.5"
+            className="h-8 w-8"
           >
-            <StickyNote className="h-3.5 w-3.5" /> {t("dt_ann_add")}
+            <StickyNote className="h-3.5 w-3.5" />
           </Button>
 
           <div className="h-5 w-px bg-border" />
 
           {/* Selected-item actions */}
-          <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-8 gap-1.5">
-            <RotateCw className="h-3.5 w-3.5" /> {t("dt_sh_rotate")} <span className="text-[10px] opacity-60">(R)</span>
+          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-8 w-8" title={`${t("dt_sh_rotate")} (R)`}>
+            <RotateCw className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-8 gap-1.5">
-            <DoorOpen className="h-3.5 w-3.5" /> {t("dt_sh_swing")} <span className="text-[10px] opacity-60">(S)</span>
+          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-8 w-8" title={`${t("dt_sh_swing")} (S)`}>
+            <DoorOpen className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="sm" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
-            <Trash2 className="h-3.5 w-3.5" /> {t("dt_sh_delete")}
+          <Button variant="outline" size="icon" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-8 w-8 text-destructive" title={t("dt_sh_delete")}>
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
 
           <div className="h-5 w-px bg-border" />
@@ -4879,18 +4882,17 @@ export default function DesignTool() {
           {/* Lock Cabs */}
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={() => {
               setCabinetsLocked((v) => !v);
               toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked — you can move them again");
             }}
             title={cabinetsLocked ? "Unlock cabinets (allow moving)" : "Lock cabinets (freeze positions)"}
-            className={`h-8 gap-1.5 ${
+            className={`h-8 w-8 ${
               cabinetsLocked ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600" : ""
             }`}
           >
             {cabinetsLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
-            {cabinetsLocked ? "Locked" : "Lock Cabs"}
           </Button>
 
           {/* More ▾ dropdown — Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop */}
@@ -5001,12 +5003,12 @@ export default function DesignTool() {
           />
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
             onClick={() => setCsvImportOpen(true)}
             title="Import parts list from 2020 Design CSV"
-            className="h-8 gap-1.5 border-[#d4a75a]/60 text-[#1a2744] hover:bg-[#d4a75a]/10"
+            className="h-8 w-8 border-[#d4a75a]/60 text-[#1a2744] hover:bg-[#d4a75a]/10"
           >
-            <FileText className="h-3.5 w-3.5" /> Import CSV
+            <FileText className="h-3.5 w-3.5" />
           </Button>
           <CsvImportDialog open={csvImportOpen} onOpenChange={setCsvImportOpen} />
           <div className="h-5 w-px bg-border" />
@@ -5640,7 +5642,7 @@ export default function DesignTool() {
             {/* Catalog tabs. Closet mode leads with the Closet parts tab but
                 still exposes cabinets + the Door/Win tool so a closet can hold
                 cabinets and an entry door. Kitchen mode keeps its tab set. */}
-            <div className="flex lg:flex-wrap overflow-x-auto no-scrollbar rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
+            <div className="grid grid-cols-5 gap-0.5 rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
                 ? (["closetparts", "base", "wall", "tall", "opening", "accessory"] as const)
                 : roomType === "bathroom"
@@ -5652,7 +5654,7 @@ export default function DesignTool() {
                 <button
                   key={tab}
                   onClick={() => setPaletteType(tab)}
-                  className={`shrink-0 whitespace-nowrap px-2.5 lg:px-1 lg:flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
+                  className={`py-1.5 rounded-md text-[10px] font-semibold text-center leading-tight transition-colors ${
                     paletteType === tab ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
