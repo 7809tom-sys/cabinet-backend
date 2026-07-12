@@ -196,7 +196,7 @@ export function ElevationView({
     // the right. This drives the door flip so the door faces the exposed side.
     const isBlind = isBlindCorner(p.masterCode, p.description);
     const blindLeft = isBlind ? (posAlong <= 2) : true;
-    const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
+    const canDrag = !seam && !moveLocked && !!onMove;
 
     return (
       <div
