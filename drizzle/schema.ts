@@ -1507,3 +1507,18 @@ export const qboTokens = mysqlTable("qbo_tokens", {
 });
 export type QboTokens = typeof qboTokens.$inferSelect;
 export type InsertQboTokens = typeof qboTokens.$inferInsert;
+
+// ─── Page Content (CMS) ───────────────────────────────────────────────────────
+// Key-value store for admin-editable page content (hero text, banners, etc.)
+// pageKey = page identifier (e.g. "home", "door-styles", "surfaces")
+// field   = field name within the page (e.g. "hero_title", "hero_subtitle", "banner_text")
+export const pageContent = mysqlTable("page_content", {
+  id: int("id").autoincrement().primaryKey(),
+  pageKey: varchar("pageKey", { length: 64 }).notNull(),
+  field: varchar("field", { length: 128 }).notNull(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedBy: int("updatedBy"), // user id of last editor
+});
+export type PageContent = typeof pageContent.$inferSelect;
+export type InsertPageContent = typeof pageContent.$inferInsert;

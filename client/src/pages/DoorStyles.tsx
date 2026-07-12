@@ -35,9 +35,9 @@ interface DoorStyle {
   roomSceneImageUrl: string | null;
 }
 
-/** Returns the public-facing display name: aliasName → featuredLabel → ourName → styleCode */
+/** Returns the public-facing display name: aliasName → ourName → styleCode (white-label, no distributor names) */
 function displayName(style: DoorStyle): string {
-  return styleDisplayName(style) || style.featuredLabel || style.styleCode;
+  return styleDisplayName(style) || style.styleCode;
 }
 
 function StyleCard({ style }: { style: DoorStyle }) {

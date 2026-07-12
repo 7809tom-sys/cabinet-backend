@@ -415,8 +415,11 @@ export default function Family({ styleCode }: { styleCode: string }) {
       return true;
     });
   }, [items, activeType, debounced, showFavsOnly, favs, s?.id]);
-  // Prefer white-label name (set by admin) over internal name for all public display.
-  const familyName = s?.featuredLabel || s?.ourName || s?.styleCode || "Door Style";
+  // White-label display name: always use ourName (our branded name).
+  // featuredLabel is an optional admin override for special marketing names;
+  // it should only be used if it differs from the distributor name.
+  // ourName is the primary white-label identity shown to the public.
+  const familyName = s?.ourName || s?.featuredLabel || s?.styleCode || "Door Style";
   useSeo({
     title: t("seo_family_t", { name: familyName }),
     description: t("seo_family_d", { name: familyName }),
