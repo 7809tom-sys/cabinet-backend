@@ -7,12 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+// Sheet removed — mobile picker is now inline to avoid nested-Sheet Chrome bug
 import { useIsMobile } from "@/hooks/useMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { styleDisplayName } from "@/lib/styleDisplayName";
@@ -350,11 +345,16 @@ export function ColorSlotButton({
       {/* The trigger looks identical on desktop & mobile; only what it opens differs. */}
       {isMobile ? (
         <>
+          {/* On mobile we render the picker INLINE (no nested Sheet) to avoid
+              Chrome's nested-Sheet pointer-event capture bug where taps on
+              items inside a second Sheet opened from within a first Sheet are
+              silently swallowed. The inline accordion expands below the button
+              and collapses when a style is picked or the button is tapped again. */}
           <button
             type="button"
             onClick={() => {
               if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); return; }
-              setPickerOpen(true);
+              setPickerOpen((prev) => !prev);
             }}
             className={[
               "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium hover:underline",
@@ -362,26 +362,18 @@ export function ColorSlotButton({
             ].join(" ")}
           >
             <Pencil className="h-3 w-3" />
-            {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
+            {pickerOpen ? "Close" : hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
           </button>
-          <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
-            <SheetContent
-              side="bottom"
-              className="flex max-h-[85vh] flex-col rounded-t-2xl p-0"
+          {pickerOpen && (
+            <div
+              className="mt-2 rounded-lg border border-border bg-white overflow-y-auto overscroll-contain"
+              style={{ maxHeight: "55vh", WebkitOverflowScrolling: "touch" }}
             >
-              <SheetHeader className="border-b px-4 py-3">
-                <SheetTitle className="text-base">
-                  {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
-                </SheetTitle>
-              </SheetHeader>
-              <div
-                className="flex-1 overflow-y-auto overscroll-contain px-3 py-2"
-                style={{ WebkitOverflowScrolling: "touch" }}
-              >
+              <div className="px-2 py-2">
                 <StyleList cols={3} />
               </div>
-            </SheetContent>
-          </Sheet>
+            </div>
+          )}
         </>
       ) : (
         <Popover open={disabled ? false : pickerOpen} onOpenChange={(o) => { if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); return; } setPickerOpen(o); }}>
