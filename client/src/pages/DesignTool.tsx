@@ -2702,6 +2702,8 @@ export default function DesignTool() {
       }
 
       const toPlace: PlacedCabinet[] = [];
+      // Track the bridge height so end panels can be sized to fridge + bridge combined.
+      let bridgeHeightPlaced = 0;
 
       // 1) Cabinet ABOVE the fridge (upper zone → exempt from appliance collision).
       if (opts.above !== "none") {
@@ -2720,6 +2722,7 @@ export default function DesignTool() {
           const aDepth = isDeep ? fridgeCornerUpperDepth() : STD.WALL_DEPTH;
           const catalogH = parseFloat(String(chosen.height ?? STD.WALL_HEIGHT)) || STD.WALL_HEIGHT;
           const aHeight = catalogH;
+          bridgeHeightPlaced = aHeight;
           // Center the upper over the fridge run, flush to the same wall.
           const along = horizontal ? fridge.x + fw / 2 - aWidth / 2 : fridge.y + fw / 2 - aWidth / 2;
           const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
@@ -2762,7 +2765,13 @@ export default function DesignTool() {
         const inferredDepth = (code.includes("REPV") || code.includes("S2496") || code.includes("S3696")) ? 0.75 : 0.75;
         // pThick: the panel's face thickness (3/4" for S2496/REPV flat stock).
         const pThick = parseFloat(String(panelRow.depth ?? "")) || inferredDepth;
-        const pHeight = parseFloat(String(panelRow.height ?? "")) || inferredHeight;
+        // Panel height = fridge height + bridge height (if any), so the panel covers
+        // the full built-in column: 72" fridge + 12" bridge → 84", + 18" → 90", + 24" → 96".
+        const rawFridgeH = parseFloat(String(fridge.height ?? "72")) || 72;
+        const fridgeH = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeH;
+        const pHeight = opts.above !== "none" && bridgeHeightPlaced > 0
+          ? fridgeH + bridgeHeightPlaced
+          : (parseFloat(String(panelRow.height ?? "")) || inferredHeight);
         // Along-wall position: just outside the fridge edge on the chosen side.
         let along: number;
         if (horizontal) {
