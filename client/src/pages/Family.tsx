@@ -1,6 +1,6 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -288,9 +288,19 @@ function FamilyCabinetCard({
 
 export default function Family({ styleCode }: { styleCode: string }) {
   const { t, lang } = useLanguage();
+  const [, navigate] = useLocation();
   const [activeType, setActiveType] = useState("all");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
+
+  // Smart back: use browser history if available, otherwise go to /styles
+  const handleBack = useCallback(() => {
+    if (window.history.length > 1 && document.referrer && !document.referrer.includes('/family/')) {
+      window.history.back();
+    } else {
+      navigate('/styles');
+    }
+  }, [navigate]);
 
 
   useEffect(() => {
@@ -402,13 +412,14 @@ export default function Family({ styleCode }: { styleCode: string }) {
 
   return (
     <div className="container py-8">
-      <Link
-        href="/styles"
+      <button
+        type="button"
+        onClick={handleBack}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
       >
         <ChevronLeft className="h-4 w-4" />
         {t("fam_back")}
-      </Link>
+      </button>
 
       {/* ── Family header: room scene + sample door + the facts ───────────────── */}
       <div className="relative overflow-hidden rounded-2xl border border-border mb-8">
