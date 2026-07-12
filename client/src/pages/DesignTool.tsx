@@ -4581,35 +4581,43 @@ export default function DesignTool() {
         <div className="hidden lg:block h-5 w-px bg-border" />
 
         {/* Start New / Clear Design — desktop only */}
-        <button
-          type="button"
-          className="hidden lg:flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
-          onClick={() => {
-            if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
-            setPlaced([]);
-            setOpenings([]);
-            setIsland(null);
-            setSelectedUid(null);
-            setSelectedOpeningUid(null);
-            setSinks([]);
-            setSelectedSinkUid(null);
-            setFurniture([]);
-            setSelectedFurnUid(null);
-            setPonyWalls([]);
-            setSelectedPonyWallUid(null);
-            setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
-            setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
-            setBacksplashMaterialId(null);
-            setFlooringMaterialId(null);
-            setCabinetsLocked(false);
-            setConsultMessages([]);
-            setConsultOpen(false);
-            clearDraft();
-            toast.success(t("dt_sh_started_new"));
-          }}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        <Tooltip delayDuration={300}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="hidden lg:flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+              onClick={() => {
+                if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
+                setPlaced([]);
+                setOpenings([]);
+                setIsland(null);
+                setSelectedUid(null);
+                setSelectedOpeningUid(null);
+                setSinks([]);
+                setSelectedSinkUid(null);
+                setFurniture([]);
+                setSelectedFurnUid(null);
+                setPonyWalls([]);
+                setSelectedPonyWallUid(null);
+                setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
+                setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
+                setBacksplashMaterialId(null);
+                setFlooringMaterialId(null);
+                setCabinetsLocked(false);
+                setConsultMessages([]);
+                setConsultOpen(false);
+                clearDraft();
+                toast.success(t("dt_sh_started_new"));
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
+            <p className="font-semibold">Clear Design</p>
+            <p className="text-muted-foreground mt-0.5">Removes all placed cabinets, appliances, openings, and trim from the current drawing and starts fresh. The room shape is kept.</p>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Printable graph-paper worksheet */}
         <a
