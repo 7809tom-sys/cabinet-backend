@@ -1189,6 +1189,13 @@ export const cabinetsRouter = router({
     const db = await getDb();
     if (!db) return { xlsx: "", filename: "cabinets.xlsx", count: 0 };
 
+    // Fetch all distributor color names so we can exclude style-specific accessories
+    // (e.g. "ANTIQUE WHITE-F342", "Cashmere-10") from the generic cabinets export.
+    const styleNames = await db
+      .select({ distributorName: doorStyles.distributorName })
+      .from(doorStyles);
+    const styleNameList = styleNames.map((s) => s.distributorName.toUpperCase());
+
     const rows = await db
       .select({
         masterCode: cabinets.masterCode,
@@ -1210,13 +1217,24 @@ export const cabinetsRouter = router({
       .from(cabinets)
       .orderBy(asc(cabinets.category), asc(cabinets.masterCode));
 
+    // Filter out style-specific accessories: any row whose masterCode starts with
+    // a known distributor color name followed by a hyphen (e.g. "ANTIQUE WHITE-F342").
+    const genericRows = rows.filter((r) => {
+      const code = r.masterCode.toUpperCase();
+      // Check if this masterCode starts with any style distributorName + "-"
+      for (const name of styleNameList) {
+        if (code.startsWith(name + "-")) return false;
+      }
+      return true;
+    });
+
     const sheetData = [
       [
         "masterCode", "description", "category", "subCategory", "placementType",
         "width", "height", "depth", "numberOfDoors", "numberOfDrawers",
         "hingeSide", "isCornerCabinet", "cornerSide", "graphicType", "isActive",
       ],
-      ...rows.map((r) => [
+      ...genericRows.map((r) => [
         r.masterCode,
         r.description,
         r.category,
@@ -1240,7 +1258,7 @@ export const cabinetsRouter = router({
     XLSX.utils.book_append_sheet(wb, ws, "Cabinets");
     const buf = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
     const date = new Date().toISOString().slice(0, 10);
-    return { xlsx: buf as string, filename: `cabinet-dealz-cabinets-${date}.xlsx`, count: rows.length };
+    return { xlsx: buf as string, filename: `cabinet-dealz-cabinets-${date}.xlsx`, count: genericRows.length };
   }),
 
   // ── Admin: Cabinet spreadsheet import ────────────────────────────────────
