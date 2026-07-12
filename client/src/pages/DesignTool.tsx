@@ -5,7 +5,7 @@ import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
-  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
+  ChevronUp, ChevronDown, ChevronLeft, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
@@ -4314,19 +4314,24 @@ export default function DesignTool() {
                 </button>
               ))
             ) : (
-              // Classic rectangle mode: 4 fixed walls
-              (["top", "left", "right", "bottom"] as WallSide[]).map((w) => {
+              // Classic rectangle mode: 4 fixed walls — compact icon-only squares with tooltips
+              ([
+                { w: "top" as WallSide, icon: <ChevronUp className="h-3.5 w-3.5" />, label: "Back wall (top)" },
+                { w: "left" as WallSide, icon: <ChevronLeft className="h-3.5 w-3.5" />, label: "Left wall" },
+                { w: "right" as WallSide, icon: <ChevronRight className="h-3.5 w-3.5" />, label: "Right wall" },
+                { w: "bottom" as WallSide, icon: <ChevronDown className="h-3.5 w-3.5" />, label: "Front wall (bottom)" },
+              ]).map(({ w, icon, label }) => {
                 const wLocked = layoutLocked || lockedWalls.has(w);
                 return (
-                  <div key={w} className="flex items-center">
+                  <div key={w} className="relative flex items-center">
                     <button
                       onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                      title={t("dt_sh_wall_highlight", { wall: wallLabel[w] })}
-                      className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      title={`${label} — click to place cabinets here`}
+                      className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
                         activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {wallLabel[w]}
+                      {icon}
                     </button>
                     <button
                       onClick={() => {
@@ -4337,12 +4342,12 @@ export default function DesignTool() {
                           return next;
                         });
                       }}
-                      title={wLocked ? t("dt_sh_wall_locked_unlock", { wall: wallLabel[w] }) : t("dt_sh_wall_lock", { wall: wallLabel[w] })}
-                      className={`ml-0.5 mr-0.5 rounded p-1 transition-colors ${
-                        wLocked ? "text-[#d4a75a]" : "text-muted-foreground/50 hover:text-foreground"
+                      title={wLocked ? `Unlock ${label}` : `Lock ${label} (prevent changes)`}
+                      className={`rounded p-0.5 transition-colors ${
+                        wLocked ? "text-[#d4a75a]" : "text-muted-foreground/40 hover:text-foreground"
                       }`}
                     >
-                      {wLocked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
+                      {wLocked ? <Lock className="h-2.5 w-2.5" /> : <LockOpen className="h-2.5 w-2.5" />}
                     </button>
                   </div>
                 );
