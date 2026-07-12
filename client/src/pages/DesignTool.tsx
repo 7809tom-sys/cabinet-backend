@@ -2706,11 +2706,13 @@ export default function DesignTool() {
       // 1) Cabinet ABOVE the fridge (upper zone → exempt from appliance collision).
       if (opts.above !== "none") {
         const src = opts.above === "deep" ? surround.deepAbove : surround.bridgeAbove;
+        // Use fp.w (updated fridge width) — rotatedSize(fridge).w is the stale pre-resize value.
         const chosen = opts.above === "bridge"
-          ? pickById(src, opts.bridgeCabinetId, rotatedSize(fridge).w)
-          : pickByWidth(src, rotatedSize(fridge).w);
+          ? pickById(src, opts.bridgeCabinetId, fp.w)
+          : pickByWidth(src, fp.w);
         if (chosen) {
-          const aWidth = parseFloat(String(chosen.width ?? rotatedSize(fridge).w)) || rotatedSize(fridge).w;
+          // Always place the bridge at the fridge's actual width (fp.w), not the catalog width.
+          const aWidth = fp.w;
           const isDeep = opts.above === "deep";
           // Deep refrigerator/corner upper: project 27" and step UP 6" taller
           // than a standard wall cabinet for the staggered built-in look. The
