@@ -7,6 +7,9 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   RoomData, inchesToFeetInches, parseLengthToInches, clampRoomInches,
   roomCeiling, CEILING_HEIGHT_PRESETS, MIN_CEILING_HEIGHT, MAX_CEILING_HEIGHT,
   type WallSide, type WallCeiling, wallCeiling, clampCeilingHeight,
@@ -261,26 +264,50 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
         </PopoverContent>
       </Popover>
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onToggleDraw}
-        title={t("dt_rs_draw_title")}
-        className={`h-8 gap-1.5 ${drawMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
-      >
-        <Pencil className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_rs_draw_room")}</span>
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onToggleDraw}
+            aria-label={t("dt_rs_draw_room")}
+            className={`w-7 h-7 shrink-0 ${
+              drawMode
+                ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]"
+                : ""
+            }`}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p className="font-semibold">{t("dt_rs_draw_room")}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Click and drag on the canvas to draw the room outline</p>
+        </TooltipContent>
+      </Tooltip>
 
       {onTogglePolygon && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onTogglePolygon}
-          title="Custom room shape — add bump-outs, bay windows, chimney recesses"
-          className={`h-8 gap-1.5 ${isPolygon ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
-        >
-          <Pentagon className="h-3.5 w-3.5" /> <span className="hidden xl:inline">Custom Shape</span>
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onTogglePolygon}
+              aria-label="Custom Shape"
+              className={`w-7 h-7 shrink-0 ${
+                isPolygon
+                  ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]"
+                  : ""
+              }`}
+            >
+              <Pentagon className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="font-semibold">Custom Shape</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Add bump-outs, bay windows, chimney recesses, and other non-rectangular room shapes</p>
+          </TooltipContent>
+        </Tooltip>
       )}
     </div>
   );
