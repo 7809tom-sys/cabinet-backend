@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useSearch, useLocation } from "wouter";
 import { useCart, type CartItem } from "@/contexts/CartContext";
 import {
@@ -63,6 +64,7 @@ import {
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
+  hasCollision,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -3908,6 +3910,72 @@ export default function DesignTool() {
 
   const dragDataRef = useState<{ current: DesignCabinet | null }>(() => ({ current: null }))[0];
 
+  // Live drag ghost state: position + validity (gold = valid, red = invalid).
+  const [dragGhost, setDragGhost] = useState<{ x: number; y: number; isInvalid: boolean; cabinet: DesignCabinet } | null>(null);
+  const dragGhostRef = useRef<{ active: boolean; cabinet: DesignCabinet | null }>({ active: false, cabinet: null });
+  const planCanvasRef = useRef<HTMLElement | null>(null);
+
+  // Track mouse position during drag and update ghost validity.
+  useEffect(() => {
+    const PLAN_PPI = 4;
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragGhostRef.current.active || !dragGhostRef.current.cabinet) return;
+      const c = dragGhostRef.current.cabinet;
+      // Check if cursor is over the plan canvas (data-room element).
+      const roomEl = document.querySelector("[data-room]") as HTMLElement | null;
+      let isInvalid = false;
+      if (roomEl) {
+        const rect = roomEl.getBoundingClientRect();
+        const inRoom = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        if (inRoom) {
+          const cabW = dim(c.width, 24);
+          const cabD = footprintDepth(c);
+          const x = (e.clientX - rect.left) / PLAN_PPI - cabW / 2;
+          const y = (e.clientY - rect.top) / PLAN_PPI - cabD / 2;
+          // Out of room bounds?
+          if (x < 0 || y < 0 || x + cabW > room.width || y + cabD > room.depth) {
+            isInvalid = true;
+          } else {
+            // Overlap check against placed cabinets.
+            const temp: PlacedCabinet = {
+              uid: "__drag_preview__",
+              cabinetId: c.id,
+              masterCode: c.masterCode,
+              description: c.description,
+              category: c.category,
+              subCategory: c.subCategory,
+              width: dim(c.width, 24),
+              height: dim(c.height, standardHeight(c.placement)),
+              depth: dim(c.depth, footprintDepth(c)),
+              placement: c.placement,
+              numberOfDoors: c.numberOfDoors,
+              numberOfDrawers: c.numberOfDrawers,
+              catalogImageUrl: c.catalogImageUrl,
+              x,
+              y,
+              rotation: 0,
+            };
+            isInvalid = hasCollision(temp, placed);
+          }
+        }
+      }
+      setDragGhost({ x: e.clientX, y: e.clientY, isInvalid, cabinet: c });
+    };
+    const onDragEnd = () => {
+      dragGhostRef.current.active = false;
+      dragGhostRef.current.cabinet = null;
+      setDragGhost(null);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("dragend", onDragEnd);
+    window.addEventListener("drop", onDragEnd);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("dragend", onDragEnd);
+      window.removeEventListener("drop", onDragEnd);
+    };
+  }, [placed, room]);
+
   // Load a saved design from ?load=<id> (e.g. opened from a CRM deal).
   useEffect(() => {
     if (loadDesignId == null || !savedDesign || loadedDesignRef.current === loadDesignId) return;
@@ -5990,7 +6058,8 @@ export default function DesignTool() {
                           <TooltipTrigger asChild>
                             <button
                               draggable
-                              onDragStart={(e) => { dragDataRef.current = c; const g = makeDragGhost(c); e.dataTransfer.setDragImage(g, 36, 36); setTimeout(() => g.remove(), 0); }}
+                              onDragStart={(e) => { dragDataRef.current = c; dragGhostRef.current = { active: true, cabinet: c }; const px = document.createElement("canvas"); px.width = 1; px.height = 1; e.dataTransfer.setDragImage(px, 0, 0); }}
+                              onDragEnd={() => { dragGhostRef.current.active = false; dragGhostRef.current.cabinet = null; setDragGhost(null); }}
                               onClick={() => addCabinet(c)}
                               className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                             >
@@ -6040,7 +6109,8 @@ export default function DesignTool() {
                           <TooltipTrigger asChild>
                             <button
                               draggable
-                              onDragStart={(e) => { dragDataRef.current = c; const g = makeDragGhost(c); e.dataTransfer.setDragImage(g, 36, 36); setTimeout(() => g.remove(), 0); }}
+                              onDragStart={(e) => { dragDataRef.current = c; dragGhostRef.current = { active: true, cabinet: c }; const px = document.createElement("canvas"); px.width = 1; px.height = 1; e.dataTransfer.setDragImage(px, 0, 0); }}
+                              onDragEnd={() => { dragGhostRef.current.active = false; dragGhostRef.current.cabinet = null; setDragGhost(null); }}
                               onClick={() => addCabinet(c)}
                               className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                             >
@@ -7370,6 +7440,47 @@ export default function DesignTool() {
         countertopName={countertopMaterial(countertopMaterialId).name}
         hardwareName={hardwareStyleId !== "none" ? (HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label || undefined) : undefined}
       />
+
+      {/* Live drag ghost portal — follows cursor and turns red on invalid placement */}
+      {dragGhost && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            left: dragGhost.x + 12,
+            top: dragGhost.y + 12,
+            width: 72,
+            pointerEvents: "none",
+            zIndex: 99999,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 4,
+            padding: 6,
+            background: dragGhost.isInvalid ? "rgba(180,30,30,0.92)" : "rgba(26,39,68,0.92)",
+            border: `1.5px solid ${dragGhost.isInvalid ? "#ff6b6b" : "#d4a75a"}`,
+            borderRadius: 8,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            transition: "background 120ms ease-out, border-color 120ms ease-out",
+          }}
+        >
+          <div style={{ width: 60, height: 60, background: "#fff", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: 2 }}>
+            {dragGhost.cabinet.catalogImageUrl ? (
+              <img src={dragGhost.cabinet.catalogImageUrl} alt={dragGhost.cabinet.masterCode} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
+            ) : (
+              <span style={{ fontSize: 9, fontFamily: "monospace", color: dragGhost.isInvalid ? "#ff6b6b" : "#d4a75a", fontWeight: 700, textAlign: "center" }}>
+                {dragGhost.cabinet.masterCode.slice(0, 6)}
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize: 9, fontFamily: "monospace", color: dragGhost.isInvalid ? "#ffaaaa" : "#d4a75a", fontWeight: 700, whiteSpace: "nowrap", maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis" }}>
+            {dragGhost.cabinet.masterCode}
+          </span>
+          {dragGhost.isInvalid && (
+            <span style={{ fontSize: 8, color: "#ffaaaa", fontWeight: 600, textAlign: "center", lineHeight: 1.2 }}>Invalid</span>
+          )}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
