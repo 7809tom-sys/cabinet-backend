@@ -5131,14 +5131,22 @@ export default function DesignTool() {
 
           {/* More ▾ dropdown — Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                <MoreHorizontal className="h-3.5 w-3.5" /> More
-                {(island || crown || toeKick || batten || lightRail || valance || countertop) && (
-                  <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-[#d4a75a]" />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-7 w-7 relative">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                    {(island || crown || toeKick || batten || lightRail || valance || countertop) && (
+                      <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-[#d4a75a]" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
+                <p className="font-semibold">More Options</p>
+                <p className="text-muted-foreground mt-0.5">Toggle island, crown molding, toe kick, batten, light rail, valance, filler, and countertop.</p>
+              </TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel className="text-xs text-muted-foreground">Room Features</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
@@ -5235,15 +5243,22 @@ export default function DesignTool() {
               })
             }
           />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setCsvImportOpen(true)}
-            title="Import parts list from 2020 Design CSV"
-            className="h-8 w-8 border-[#d4a75a]/60 text-[#1a2744] hover:bg-[#d4a75a]/10"
-          >
-            <FileText className="h-3.5 w-3.5" />
-          </Button>
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCsvImportOpen(true)}
+                className="h-7 w-7 border-[#d4a75a]/60 text-[#1a2744] hover:bg-[#d4a75a]/10"
+              >
+                <FileText className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+              <p className="font-semibold">Import CSV</p>
+              <p className="text-muted-foreground mt-0.5">Import a parts list from a 2020 Design CSV export to populate the design.</p>
+            </TooltipContent>
+          </Tooltip>
           <CsvImportDialog open={csvImportOpen} onOpenChange={setCsvImportOpen} />
           <div className="h-5 w-px bg-border" />
           <DesignHelp />
