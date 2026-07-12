@@ -38,6 +38,8 @@ export interface FridgeSurroundChoice {
   bridgeCabinetId: number | null;
   /** The chosen bridge height in inches (12, 18, or 24). Null when above !== "bridge". */
   bridgeHeight: number | null;
+  /** The chosen bridge depth in inches (12 or 24). Null when above !== "bridge". */
+  bridgeDepth: number | null;
   panels: FridgePanels;
   /** The specific end panel chosen by the user (id). Null when panels === "none". */
   endPanelId: number | null;
@@ -78,6 +80,9 @@ const FRIDGE_DEPTHS = [24, 27, 30, 33, 36];
 // Allowed bridge cabinet heights — exactly 12", 18", 24"
 const BRIDGE_HEIGHT_OPTIONS = [12, 18, 24] as const;
 type BridgeHeight = typeof BRIDGE_HEIGHT_OPTIONS[number];
+// Allowed bridge cabinet depths — 12" (standard shallow) or 24" (full depth)
+const BRIDGE_DEPTH_OPTIONS = [12, 24] as const;
+type BridgeDepth = typeof BRIDGE_DEPTH_OPTIONS[number];
 
 // A small pill-style single-select control.
 function OptionPills<T extends string>({
@@ -154,6 +159,43 @@ function DimSelector({
   );
 }
 
+// A compact 2-option toggle for bridge depth
+function DepthToggle({
+  value,
+  onChange,
+  options,
+}: {
+  value: BridgeDepth;
+  onChange: (v: BridgeDepth) => void;
+  options: { value: BridgeDepth; label: string; disabled?: boolean }[];
+}) {
+  return (
+    <div className="flex gap-2">
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            disabled={o.disabled}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              "flex-1 rounded-lg border py-3 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
+              active
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
+              o.disabled && "cursor-not-allowed opacity-40 hover:bg-background hover:text-foreground"
+            )}
+            aria-pressed={active}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function RefrigeratorOptionsDialog({
   open,
   onOpenChange,
@@ -172,33 +214,66 @@ export function RefrigeratorOptionsDialog({
   const [fridgeH, setFridgeH] = useState<number>(70);
   const [fridgeD, setFridgeD] = useState<number>(30);
 
-  // ── Bridge height selection (12", 18", or 24") ─────────────────────────────
+  // ── Bridge dimension selections ────────────────────────────────────────────
   const [bridgeHeightChoice, setBridgeHeightChoice] = useState<BridgeHeight>(12);
+  const [bridgeDepthChoice, setBridgeDepthChoice] = useState<BridgeDepth>(12);
 
   const hasDeepAbove = deepAbove.length > 0;
 
-  // For each of the 3 bridge height options, find the best-matching catalog
-  // cabinet (closest width ≤ fridge width). Used to check availability.
-  const bridgeByHeight = useMemo(() => {
-    const result: Record<BridgeHeight, SurroundCabinet | null> = { 12: null, 18: null, 24: null };
+  // For each height+depth combination, find the best-matching catalog cabinet
+  // (closest width ≤ fridge width). Used to check availability and show the
+  // matched SKU code.
+  const bridgeByDims = useMemo(() => {
+    const result: Record<BridgeHeight, Record<BridgeDepth, SurroundCabinet | null>> = {
+      12: { 12: null, 24: null },
+      18: { 12: null, 24: null },
+      24: { 12: null, 24: null },
+    };
     for (const targetH of BRIDGE_HEIGHT_OPTIONS) {
-      const candidates = bridgeAbove.filter((c) => {
-        const w = parseFloat(String(c.width ?? "0"));
-        const h = parseFloat(String(c.height ?? "0"));
-        return w <= fridgeW + 0.5 && Math.abs(h - targetH) < 1.5;
-      });
-      if (candidates.length === 0) continue;
-      // Prefer exact width match, then closest ≤ fridge width
-      result[targetH] = [...candidates].sort(
-        (a, b) =>
-          Math.abs(parseFloat(String(a.width ?? "0")) - fridgeW) -
-          Math.abs(parseFloat(String(b.width ?? "0")) - fridgeW)
-      )[0];
+      for (const targetD of BRIDGE_DEPTH_OPTIONS) {
+        const candidates = bridgeAbove.filter((c) => {
+          const w = parseFloat(String(c.width ?? "0"));
+          const h = parseFloat(String(c.height ?? "0"));
+          const d = parseFloat(String(c.depth ?? "0"));
+          return (
+            w <= fridgeW + 0.5 &&
+            Math.abs(h - targetH) < 1.5 &&
+            Math.abs(d - targetD) < 1.5
+          );
+        });
+        if (candidates.length === 0) continue;
+        // Prefer exact width match, then closest ≤ fridge width
+        result[targetH][targetD] = [...candidates].sort(
+          (a, b) =>
+            Math.abs(parseFloat(String(a.width ?? "0")) - fridgeW) -
+            Math.abs(parseFloat(String(b.width ?? "0")) - fridgeW)
+        )[0];
+      }
     }
     return result;
   }, [bridgeAbove, fridgeW]);
 
-  const hasBridgeAbove = BRIDGE_HEIGHT_OPTIONS.some((h) => bridgeByHeight[h] !== null);
+  // Check if any bridge option is available at all
+  const hasBridgeAbove = BRIDGE_HEIGHT_OPTIONS.some((h) =>
+    BRIDGE_DEPTH_OPTIONS.some((d) => bridgeByDims[h][d] !== null)
+  );
+
+  // Check which depths are available for the currently chosen height
+  const depthAvailability = useMemo(() => {
+    return {
+      12: bridgeByDims[bridgeHeightChoice][12] !== null,
+      24: bridgeByDims[bridgeHeightChoice][24] !== null,
+    };
+  }, [bridgeByDims, bridgeHeightChoice]);
+
+  // Check which heights are available for the currently chosen depth
+  const heightAvailability = useMemo(() => {
+    return {
+      12: bridgeByDims[12][bridgeDepthChoice] !== null,
+      18: bridgeByDims[18][bridgeDepthChoice] !== null,
+      24: bridgeByDims[24][bridgeDepthChoice] !== null,
+    };
+  }, [bridgeByDims, bridgeDepthChoice]);
 
   // Best-match end panel
   const bestPanel = useMemo(() => {
@@ -218,6 +293,7 @@ export function RefrigeratorOptionsDialog({
       setFridgeH(70);
       setFridgeD(30);
       setBridgeHeightChoice(12);
+      setBridgeDepthChoice(12);
       const defaultAbove: FridgeAbove = hasDeepAbove ? "deep" : hasBridgeAbove ? "bridge" : "none";
       setAbove(defaultAbove);
       setPanels("none");
@@ -233,14 +309,26 @@ export function RefrigeratorOptionsDialog({
     }
   }, [panels, selectedPanelId, bestPanel]);
 
-  // The chosen bridge cabinet (auto-selected by height + fridge width)
-  const chosenBridge = above === "bridge" ? bridgeByHeight[bridgeHeightChoice] : null;
+  // Auto-switch depth if the current depth becomes unavailable for the new height
+  useEffect(() => {
+    if (above === "bridge" && !depthAvailability[bridgeDepthChoice]) {
+      // Try to switch to the other depth if it's available
+      const other = bridgeDepthChoice === 12 ? 24 : 12;
+      if (depthAvailability[other as BridgeDepth]) {
+        setBridgeDepthChoice(other as BridgeDepth);
+      }
+    }
+  }, [bridgeHeightChoice]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The chosen bridge cabinet (auto-selected by height + depth + fridge width)
+  const chosenBridge = above === "bridge" ? bridgeByDims[bridgeHeightChoice][bridgeDepthChoice] : null;
 
   const handleApply = () => {
     onApply({
       above,
       bridgeCabinetId: chosenBridge ? chosenBridge.id : null,
       bridgeHeight: above === "bridge" ? bridgeHeightChoice : null,
+      bridgeDepth: above === "bridge" ? bridgeDepthChoice : null,
       panels,
       endPanelId: panels !== "none" && selectedPanelId ? parseInt(selectedPanelId, 10) : null,
       smooth,
@@ -283,46 +371,74 @@ export function RefrigeratorOptionsDialog({
               ]}
             />
 
-            {/* Bridge height selector — simple 3-button row */}
+            {/* Bridge height + depth selectors */}
             {above === "bridge" && (
-              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Cabinet height above refrigerator
-                </p>
-                <div className="flex gap-2">
-                  {BRIDGE_HEIGHT_OPTIONS.map((h) => {
-                    const cab = bridgeByHeight[h];
-                    const active = bridgeHeightChoice === h;
-                    const disabled = cab === null;
-                    return (
-                      <button
-                        key={h}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => setBridgeHeightChoice(h)}
-                        className={cn(
-                          "flex-1 rounded-lg border py-3 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
-                          active
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
-                          disabled && "cursor-not-allowed opacity-40 hover:bg-background hover:text-foreground"
-                        )}
-                        aria-pressed={active}
-                      >
-                        {h}"
-                      </button>
-                    );
-                  })}
-                </div>
-                {chosenBridge && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Will use: <span className="font-medium text-foreground">{chosenBridge.masterCode}</span>
-                    {" "}— sized to match {fridgeW}" fridge width
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-4">
+
+                {/* Height row */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Cabinet height above refrigerator
                   </p>
-                )}
-                {!chosenBridge && (
+                  <div className="flex gap-2">
+                    {BRIDGE_HEIGHT_OPTIONS.map((h) => {
+                      const active = bridgeHeightChoice === h;
+                      const disabled = !heightAvailability[h];
+                      return (
+                        <button
+                          key={h}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => setBridgeHeightChoice(h)}
+                          className={cn(
+                            "flex-1 rounded-lg border py-3 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
+                            active
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
+                            disabled && "cursor-not-allowed opacity-40 hover:bg-background hover:text-foreground"
+                          )}
+                          aria-pressed={active}
+                        >
+                          {h}"
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Depth row */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Cabinet depth above refrigerator
+                  </p>
+                  <DepthToggle
+                    value={bridgeDepthChoice}
+                    onChange={setBridgeDepthChoice}
+                    options={[
+                      {
+                        value: 12,
+                        label: '12" Shallow',
+                        disabled: !depthAvailability[12],
+                      },
+                      {
+                        value: 24,
+                        label: '24" Full Depth',
+                        disabled: !depthAvailability[24],
+                      },
+                    ]}
+                  />
+                </div>
+
+                {/* Matched catalog SKU confirmation */}
+                {chosenBridge ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Will use:{" "}
+                    <span className="font-medium text-foreground">{chosenBridge.masterCode}</span>
+                    {" "}— {bridgeHeightChoice}" H × {bridgeDepthChoice}" D, sized to match {fridgeW}" fridge width
+                  </p>
+                ) : (
                   <p className="text-[11px] text-amber-600">
-                    No {bridgeHeightChoice}" bridge cabinet available for this style. Try a different height.
+                    No {bridgeHeightChoice}" × {bridgeDepthChoice}" bridge cabinet available for this style. Try a different combination.
                   </p>
                 )}
               </div>

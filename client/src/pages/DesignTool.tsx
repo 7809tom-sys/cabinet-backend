@@ -2642,6 +2642,8 @@ export default function DesignTool() {
       bridgeCabinetId?: number | null;
       /** The chosen bridge height in inches (12, 18, or 24). Used to auto-select catalog cabinet. */
       bridgeHeight?: number | null;
+      /** The chosen bridge depth in inches (12 or 24). Defaults to 12 (standard wall depth) when not provided. */
+      bridgeDepth?: number | null;
       panels: "left" | "right" | "both" | "none";
       endPanelId?: number | null;
       smooth: boolean;
@@ -2715,11 +2717,24 @@ export default function DesignTool() {
         let chosen: DesignCabinet | undefined;
         if (opts.above === "bridge" && opts.bridgeHeight) {
           const targetH = opts.bridgeHeight;
+          const targetD = opts.bridgeDepth ?? 12;
           const heightFiltered = src.filter((c) => {
+            const h = parseFloat(String(c.height ?? "0"));
+            const d = parseFloat(String(c.depth ?? "0"));
+            // Match on height; also try to match depth when the catalog has depth data.
+            const heightOk = Math.abs(h - targetH) < 1.5;
+            const depthOk = d === 0 || Math.abs(d - targetD) < 1.5;
+            return heightOk && depthOk;
+          });
+          // Fall back to height-only match if no depth-matched candidates exist.
+          const fallback = src.filter((c) => {
             const h = parseFloat(String(c.height ?? "0"));
             return Math.abs(h - targetH) < 1.5;
           });
-          chosen = pickByWidth(heightFiltered.length > 0 ? heightFiltered : src, fp.w);
+          chosen = pickByWidth(
+            heightFiltered.length > 0 ? heightFiltered : fallback.length > 0 ? fallback : src,
+            fp.w
+          );
         } else {
           chosen = opts.above === "bridge"
             ? pickById(src, opts.bridgeCabinetId, fp.w)
@@ -2732,7 +2747,13 @@ export default function DesignTool() {
           // Deep refrigerator/corner upper: project 27" and step UP 6" taller
           // than a standard wall cabinet for the staggered built-in look. The
           // shallow bridge stays a normal-height, 12"-deep upper.
-          const aDepth = isDeep ? fridgeCornerUpperDepth() : STD.WALL_DEPTH;
+          // For bridge cabinets, use the user-chosen depth (12" shallow or 24" full depth).
+          // Deep/corner uppers always project to fridgeCornerUpperDepth().
+          const aDepth = isDeep
+            ? fridgeCornerUpperDepth()
+            : (opts.above === "bridge" && opts.bridgeDepth)
+              ? opts.bridgeDepth
+              : STD.WALL_DEPTH;
           // Use the user-chosen bridge height directly (12/18/24) so the placed cabinet
           // always has the exact height the user selected, even if the catalog entry differs.
           const catalogH = parseFloat(String(chosen.height ?? STD.WALL_HEIGHT)) || STD.WALL_HEIGHT;
