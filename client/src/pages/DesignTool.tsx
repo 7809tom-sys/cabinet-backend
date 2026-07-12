@@ -6144,7 +6144,7 @@ export default function DesignTool() {
                     <span className="flex-1 text-left">{group.label}</span>
                     <span className="font-normal normal-case">({group.items.length})</span>
                   </button>
-                  {open && group.items.map((c) => {
+                  {open && group.items.map((c, ci) => {
                     // Accessories & Trim: only PHYSICAL placeable items
                     // (decorative/end panels, skins, appliance garages) appear —
                     // they drop onto the drawing like a cabinet box. Loose
@@ -6155,7 +6155,7 @@ export default function DesignTool() {
                       if (!isPlaceableAccessory(c)) return null;
                       const cabPrice = styleId ? (priceMap.get(`${c.id}:${styleId}`) ?? null) : null;
                       return (
-                        <Tooltip key={c.masterCode} delayDuration={400}>
+                        <Tooltip key={`${group.label}:${c.masterCode}:${ci}`} delayDuration={400}>
                           <TooltipTrigger asChild>
                             <button
                               draggable
@@ -6206,7 +6206,7 @@ export default function DesignTool() {
                       const showH = isBaseBox || dim(c.height, 0) > 0;
                       const cabPrice = styleId ? (priceMap.get(`${c.id}:${styleId}`) ?? null) : null;
                       return (
-                        <Tooltip key={c.masterCode} delayDuration={400}>
+                        <Tooltip key={`${group.label}:${c.masterCode}:${ci}`} delayDuration={400}>
                           <TooltipTrigger asChild>
                             <button
                               draggable
