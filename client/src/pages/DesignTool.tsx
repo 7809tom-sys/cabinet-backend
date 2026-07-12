@@ -2583,7 +2583,9 @@ export default function DesignTool() {
   const applyFridgeSurround = useCallback(
     (opts: {
       above: "deep" | "bridge" | "none";
+      bridgeCabinetId?: number | null;
       panels: "left" | "right" | "both" | "none";
+      endPanelId?: number | null;
       smooth: boolean;
     }) => {
       const fridge = fridgeForDialog;
@@ -2597,12 +2599,20 @@ export default function DesignTool() {
       const fw = fp.w; // width along the wall run
       const fd = fp.d; // depth into the room
 
-      // Pick the surround row whose width best matches the fridge width.
+      // Pick the surround row whose width best matches the fridge width (fallback).
       const pickByWidth = (rows: DesignCabinet[] | undefined, target: number): DesignCabinet | undefined => {
         if (!rows || rows.length === 0) return undefined;
         return [...rows].sort(
           (a, b) => Math.abs(parseFloat(String(a.width ?? "999")) - target) - Math.abs(parseFloat(String(b.width ?? "999")) - target)
         )[0];
+      };
+      // Pick a specific cabinet by id, falling back to pickByWidth.
+      const pickById = (rows: DesignCabinet[] | undefined, id: number | null | undefined, fallbackTarget: number): DesignCabinet | undefined => {
+        if (id && rows) {
+          const found = rows.find((r) => r.id === id);
+          if (found) return found;
+        }
+        return pickByWidth(rows, fallbackTarget);
       };
 
       const toPlace: PlacedCabinet[] = [];
@@ -2610,7 +2620,9 @@ export default function DesignTool() {
       // 1) Cabinet ABOVE the fridge (upper zone → exempt from appliance collision).
       if (opts.above !== "none") {
         const src = opts.above === "deep" ? surround.deepAbove : surround.bridgeAbove;
-        const chosen = pickByWidth(src, rotatedSize(fridge).w);
+        const chosen = opts.above === "bridge"
+          ? pickById(src, opts.bridgeCabinetId, rotatedSize(fridge).w)
+          : pickByWidth(src, rotatedSize(fridge).w);
         if (chosen) {
           const aWidth = parseFloat(String(chosen.width ?? rotatedSize(fridge).w)) || rotatedSize(fridge).w;
           const isDeep = opts.above === "deep";
@@ -4158,6 +4170,64 @@ export default function DesignTool() {
 
         <div className="hidden lg:block h-5 w-px bg-border" />
 
+        {/* View toggle — always visible, with labels */}
+        <div className="hidden lg:flex items-center rounded-lg border border-border p-0.5 bg-muted/30 shrink-0">
+          <button
+            onClick={() => setViewMode("plan")}
+            title={t("dt_sh_birdseye")}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span>Plan</span>
+          </button>
+          <button
+            onClick={() => setViewMode("elevation")}
+            title={t("dt_sh_front_view")}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span>Front</span>
+          </button>
+          <button
+            onClick={() => setViewMode("split")}
+            title={t("dt_sh_split")}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Columns3 className="h-3.5 w-3.5" />
+            <span>Split</span>
+          </button>
+          <button
+            onClick={() => setViewMode("corner")}
+            title={t("dt_sh_corner_title")}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <ScanLine className="h-3.5 w-3.5" />
+            <span>Corner</span>
+          </button>
+          {island && (
+            <button
+              onClick={() => setViewMode("island")}
+              title="Island elevation preview"
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Square className="h-3.5 w-3.5" />
+              <span>Island</span>
+            </button>
+          )}
+        </div>
+
+        <div className="hidden lg:block h-5 w-px bg-border" />
+
         {/* Room size editor + mouse-draw mode — desktop only (mobile uses More sheet). */}
         <div className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
           <RoomSizeControl
@@ -4301,57 +4371,6 @@ export default function DesignTool() {
         </div>
 
         <div className="hidden lg:block h-5 w-px bg-border" />
-
-        {/* View toggle — ONE CLICK */}
-        <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
-          <button
-            onClick={() => setViewMode("plan")}
-            title={t("dt_sh_birdseye")}
-            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
-              viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("elevation")}
-            title={t("dt_sh_front_view")}
-            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
-              viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("split")}
-            title={t("dt_sh_split")}
-            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
-              viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Columns3 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("corner")}
-            title={t("dt_sh_corner_title")}
-            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
-              viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <ScanLine className="h-3.5 w-3.5" />
-          </button>
-          {island && (
-            <button
-              onClick={() => setViewMode("island")}
-              title="Island elevation preview"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Square className="h-3.5 w-3.5" /> Island
-            </button>
-          )}
-        </div>
 
         {/* Start New / Clear Design — desktop only */}
         <button
@@ -7168,9 +7187,10 @@ export default function DesignTool() {
       <RefrigeratorOptionsDialog
         open={!!fridgeDialog}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
-        hasDeepAbove={((fridgeSurround as { deepAbove?: unknown[] } | undefined)?.deepAbove?.length ?? 0) > 0}
-        hasBridgeAbove={((fridgeSurround as { bridgeAbove?: unknown[] } | undefined)?.bridgeAbove?.length ?? 0) > 0}
-        hasEndPanels={((fridgeSurround as { endPanels?: unknown[] } | undefined)?.endPanels?.length ?? 0) > 0}
+        fridgeWidthInches={fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined}
+        deepAbove={(fridgeSurround as { deepAbove?: DesignCabinet[] } | undefined)?.deepAbove ?? []}
+        bridgeAbove={(fridgeSurround as { bridgeAbove?: DesignCabinet[] } | undefined)?.bridgeAbove ?? []}
+        endPanels={(fridgeSurround as { endPanels?: DesignCabinet[] } | undefined)?.endPanels ?? []}
         hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
         onApply={applyFridgeSurround}
         onSkip={() => setFridgeDialog(null)}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Dialog,
@@ -10,26 +10,49 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type FridgeAbove = "deep" | "bridge" | "none";
 export type FridgePanels = "left" | "right" | "both" | "none";
 
+/** Minimal cabinet shape needed by the dialog. */
+export interface SurroundCabinet {
+  id: number;
+  masterCode: string;
+  description: string;
+  width: string | null;
+  height: string | null;
+  depth: string | null;
+}
+
 export interface FridgeSurroundChoice {
   above: FridgeAbove;
+  /** The specific bridge cabinet chosen by the user (id). Null when above !== "bridge". */
+  bridgeCabinetId: number | null;
   panels: FridgePanels;
+  /** The specific end panel chosen by the user (id). Null when panels === "none". */
+  endPanelId: number | null;
   smooth: boolean;
 }
 
 export interface RefrigeratorOptionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** True when the style has a buyable deep 24" refrigerator wall cabinet. */
-  hasDeepAbove?: boolean;
-  /** True when the style has a buyable shallow bridge wall cabinet. */
-  hasBridgeAbove?: boolean;
-  /** True when the style has a buyable refrigerator end panel. */
-  hasEndPanels?: boolean;
+  /** Fridge width in inches — used to filter bridge cabinets. */
+  fridgeWidthInches?: number;
+  /** All deep 24" refrigerator wall cabinets available for this style. */
+  deepAbove?: SurroundCabinet[];
+  /** All bridge wall cabinets available for this style (will be filtered to ≤ fridge width). */
+  bridgeAbove?: SurroundCabinet[];
+  /** All end panels available for this style. */
+  endPanels?: SurroundCabinet[];
   /** True when the style has a buyable smooth skin/refrigerator panel. */
   hasSmoothPanel?: boolean;
   /** Apply the chosen surround. */
@@ -38,8 +61,7 @@ export interface RefrigeratorOptionsDialogProps {
   onSkip: () => void;
 }
 
-// A small pill-style single-select control (keeps the dialog dependency-light;
-// no radix radio group needed for these short option sets).
+// A small pill-style single-select control.
 function OptionPills<T extends string>({
   value,
   onChange,
@@ -76,29 +98,106 @@ function OptionPills<T extends string>({
   );
 }
 
+/** Format a cabinet option label: "30"W × 12"H – W3012" */
+function cabinetLabel(c: SurroundCabinet): string {
+  const w = c.width ? `${parseFloat(c.width)}"W` : "";
+  const h = c.height ? ` × ${parseFloat(c.height)}"H` : "";
+  const code = c.masterCode ? ` – ${c.masterCode}` : "";
+  return `${w}${h}${code}`;
+}
+
 export function RefrigeratorOptionsDialog({
   open,
   onOpenChange,
-  hasDeepAbove = true,
-  hasBridgeAbove = true,
-  hasEndPanels = true,
-  hasSmoothPanel = true,
+  fridgeWidthInches,
+  deepAbove = [],
+  bridgeAbove = [],
+  endPanels = [],
+  hasSmoothPanel = false,
   onApply,
   onSkip,
 }: RefrigeratorOptionsDialogProps) {
   const { t } = useLanguage();
+
+  const hasDeepAbove = deepAbove.length > 0;
+  const hasEndPanels = endPanels.length > 0;
+
+  // Filter bridge cabinets: only show those whose width ≤ fridge width.
+  // If fridge width is unknown, show all. Sort by width ascending.
+  const filteredBridge = useMemo(() => {
+    const fw = fridgeWidthInches ?? Infinity;
+    return [...bridgeAbove]
+      .filter((c) => {
+        const w = parseFloat(String(c.width ?? "0"));
+        return !isNaN(w) && w <= fw + 0.5; // +0.5" tolerance for rounding
+      })
+      .sort((a, b) => {
+        const wa = parseFloat(String(a.width ?? "0"));
+        const wb = parseFloat(String(b.width ?? "0"));
+        return wa - wb;
+      });
+  }, [bridgeAbove, fridgeWidthInches]);
+
+  const hasBridgeAbove = filteredBridge.length > 0;
+
+  // Best-match bridge: prefer exact width match, then closest ≤ fridge width.
+  const bestBridge = useMemo(() => {
+    if (!filteredBridge.length) return null;
+    const fw = fridgeWidthInches ?? 0;
+    return [...filteredBridge].sort(
+      (a, b) =>
+        Math.abs(parseFloat(String(a.width ?? "0")) - fw) -
+        Math.abs(parseFloat(String(b.width ?? "0")) - fw)
+    )[0];
+  }, [filteredBridge, fridgeWidthInches]);
+
+  // Best-match end panel: prefer depth closest to fridge depth (24").
+  const bestPanel = useMemo(() => {
+    if (!endPanels.length) return null;
+    return endPanels[0]; // already sorted by width from server
+  }, [endPanels]);
+
   const [above, setAbove] = useState<FridgeAbove>("none");
+  const [selectedBridgeId, setSelectedBridgeId] = useState<string>("");
   const [panels, setPanels] = useState<FridgePanels>("none");
+  const [selectedPanelId, setSelectedPanelId] = useState<string>("");
   const [smooth, setSmooth] = useState(false);
 
-  // Reset the form each time the dialog opens for a freshly dropped fridge.
+  // Reset form each time the dialog opens.
   useEffect(() => {
     if (open) {
-      setAbove(hasDeepAbove ? "deep" : hasBridgeAbove ? "bridge" : "none");
+      const defaultAbove: FridgeAbove = hasDeepAbove ? "deep" : hasBridgeAbove ? "bridge" : "none";
+      setAbove(defaultAbove);
+      setSelectedBridgeId(bestBridge ? String(bestBridge.id) : "");
       setPanels("none");
+      setSelectedPanelId(bestPanel ? String(bestPanel.id) : "");
       setSmooth(false);
     }
-  }, [open, hasDeepAbove, hasBridgeAbove]);
+  }, [open, hasDeepAbove, hasBridgeAbove, bestBridge, bestPanel]);
+
+  // When above changes to "bridge", ensure a bridge is pre-selected.
+  useEffect(() => {
+    if (above === "bridge" && !selectedBridgeId && bestBridge) {
+      setSelectedBridgeId(String(bestBridge.id));
+    }
+  }, [above, selectedBridgeId, bestBridge]);
+
+  // When panels changes away from "none", pre-select best panel.
+  useEffect(() => {
+    if (panels !== "none" && !selectedPanelId && bestPanel) {
+      setSelectedPanelId(String(bestPanel.id));
+    }
+  }, [panels, selectedPanelId, bestPanel]);
+
+  const handleApply = () => {
+    onApply({
+      above,
+      bridgeCabinetId: above === "bridge" && selectedBridgeId ? parseInt(selectedBridgeId, 10) : null,
+      panels,
+      endPanelId: panels !== "none" && selectedPanelId ? parseInt(selectedPanelId, 10) : null,
+      smooth,
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -121,6 +220,29 @@ export function RefrigeratorOptionsDialog({
                 { value: "none", label: t("dt_fridge_above_none") },
               ]}
             />
+
+            {/* Bridge cabinet dropdown — shown only when "bridge" is selected */}
+            {above === "bridge" && filteredBridge.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  {fridgeWidthInches
+                    ? `Bridge cabinets ≤ ${fridgeWidthInches}" wide (${filteredBridge.length} available)`
+                    : `Bridge cabinets (${filteredBridge.length} available)`}
+                </Label>
+                <Select value={selectedBridgeId} onValueChange={setSelectedBridgeId}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Select bridge cabinet…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredBridge.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {cabinetLabel(c)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Refrigerator end panels */}
@@ -136,6 +258,27 @@ export function RefrigeratorOptionsDialog({
                 { value: "none", label: t("dt_fridge_panel_none") },
               ]}
             />
+
+            {/* End panel dropdown — shown when a panel side is selected */}
+            {panels !== "none" && endPanels.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Panel style ({endPanels.length} available)
+                </Label>
+                <Select value={selectedPanelId} onValueChange={setSelectedPanelId}>
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Select end panel…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {endPanels.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.description ?? cabinetLabel(c)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Optional smooth refrigerator panel */}
@@ -156,7 +299,13 @@ export function RefrigeratorOptionsDialog({
           <Button variant="outline" className="bg-background" onClick={onSkip}>
             {t("dt_fridge_skip")}
           </Button>
-          <Button onClick={() => onApply({ above, panels, smooth })}>
+          <Button
+            onClick={handleApply}
+            disabled={
+              (above === "bridge" && filteredBridge.length > 0 && !selectedBridgeId) ||
+              (panels !== "none" && endPanels.length > 0 && !selectedPanelId)
+            }
+          >
             {t("dt_fridge_apply")}
           </Button>
         </DialogFooter>
