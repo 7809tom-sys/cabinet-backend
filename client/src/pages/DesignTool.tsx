@@ -4283,21 +4283,19 @@ export default function DesignTool() {
               toast.success(!layoutLocked ? t("dt_sh_layout_locked_toast") : t("dt_sh_layout_unlocked_toast"));
             }}
             title={layoutLocked ? t("dt_sh_unlock_plan") : t("dt_sh_lock_plan")}
-            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
               layoutLocked ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >
             {layoutLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
-            <span className="hidden xl:inline">{layoutLocked ? t("dt_sh_locked") : t("dt_sh_lock_layout")}</span>
           </button>
           <button
             onClick={autoFillActiveWall}
             disabled={layoutLocked}
             title={t("dt_sh_autofill_title", { wall: wallLabel[activeWall] })}
-            className="flex items-center gap-1.5 rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
           >
             <Wand2 className="h-3.5 w-3.5" />
-            <span className="hidden xl:inline">{t("dt_sh_autofill_wall")}</span>
           </button>
 
         </div>
@@ -4309,38 +4307,38 @@ export default function DesignTool() {
           <button
             onClick={() => setViewMode("plan")}
             title={t("dt_sh_birdseye")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
               viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <LayoutGrid className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_birdseye")}</span>
+            <LayoutGrid className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setViewMode("elevation")}
             title={t("dt_sh_front_view")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
               viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Eye className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_front_view")}</span>
+            <Eye className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setViewMode("split")}
             title={t("dt_sh_split")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
               viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Columns3 className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_split")}</span>
+            <Columns3 className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setViewMode("corner")}
             title={t("dt_sh_corner_title")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
               viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <ScanLine className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_corner")}</span>
+            <ScanLine className="h-3.5 w-3.5" />
           </button>
           {island && (
             <button

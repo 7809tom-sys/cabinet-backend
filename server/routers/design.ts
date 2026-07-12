@@ -326,31 +326,51 @@ export const designRouter = router({
           return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
         });
 
-      // Deep refrigerator wall cabinets end in "-24" (24" deep) e.g. W-30-12-24.
+      // Deep refrigerator wall cabinets: 24" deep wall cabinets (e.g. SU-W301224, SU-W361224).
+      // Actual DB codes end with two-digit depth "24" as last segment, depth column = 24.
       const deepRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, like(cabinets.masterCode, "W-%-24")));
-      // Shallow bridge wall cabinets: short W-* that are NOT the deep "-24" ones.
-      const wallRows = await db
+        .where(and(
+          gate,
+          sql`CAST(${cabinets.depth} AS DECIMAL) = 24`,
+          sql`LOWER(${cabinets.description}) LIKE '%wall%'`
+        ));
+      // Shallow bridge wall cabinets: short (≤ 18" tall) wall cabinets, 12" deep.
+      // Actual DB codes: W3612, SU-W3612, SU-W3018, etc. — description contains "Bridge".
+      const bridgeRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, like(cabinets.masterCode, "W-%")));
-      const bridgeRows = wallRows.filter((r) => {
-        const h = parseFloat(String(r.height ?? ""));
-        // A bridge is a short (≤ 18") wall cabinet, and NOT a deep 24" fridge box.
-        return !/-24$/.test(r.masterCode) && Number.isFinite(h) && h <= 18;
-      });
-      // Refrigerator end panels + smooth skin panels.
-      const panelRows = await db
+        .where(and(
+          gate,
+          sql`(LOWER(${cabinets.description}) LIKE '%bridge%' OR (CAST(${cabinets.height} AS DECIMAL) <= 18 AND LOWER(${cabinets.description}) LIKE '%wall%'))`,
+          sql`CAST(${cabinets.depth} AS DECIMAL) <= 12`
+        ));
+      // Refrigerator end panels: codes contain REPV (e.g. REPV3096, Unfinished-REPV3096, TDEP*).
+      const endPanelRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, sql`(${cabinets.masterCode} LIKE 'REPV-%' OR ${cabinets.masterCode} LIKE 'WSV-%')`));
-      const endPanels = panelRows.filter((r) => /^REPV-/.test(r.masterCode));
-      const smoothPanels = panelRows.filter((r) => /^WSV-/.test(r.masterCode));
+        .where(and(
+          gate,
+          sql`(${cabinets.masterCode} LIKE '%REPV%' OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%' OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%')`
+        ));
+      // Smooth skin panels: codes contain WSV, USV, or description contains "Skin" / "Veneer".
+      // Exclude REPV items (those are end panels, not smooth skins).
+      const skinRows = await db
+        .select(cols)
+        .from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(
+          gate,
+          sql`(${cabinets.masterCode} LIKE '%WSV%' OR ${cabinets.masterCode} LIKE '%USV%' OR ${cabinets.masterCode} LIKE '%FPV%' OR LOWER(${cabinets.description}) LIKE '%skin%')`,
+          sql`${cabinets.masterCode} NOT LIKE '%REPV%'`,
+          sql`CAST(${cabinets.depth} AS DECIMAL) <= 1`
+        ));
+      const endPanels = endPanelRows;
+      const smoothPanels = skinRows;
 
       // Dedupe helper (a cabinet can join multiple SKU rows).
       const uniq = <T extends { id: number }>(rows: T[]) => {
@@ -421,15 +441,30 @@ export const designRouter = router({
           .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
           .where(and(gate, cond));
 
-      // Pantry: 96"-tall utility (U-*-96-24). Fall back to any ≥ 84" utility.
-      let pantryRows = await run(like(cabinets.masterCode, "U-%-96-24"));
-      if (pantryRows.length === 0) pantryRows = await run(like(cabinets.masterCode, "UC%96"));
-      const deepRows = await run(like(cabinets.masterCode, "W-%-24"));
-      const panelRows = await run(like(cabinets.masterCode, "REPV-%"));
-      // Standard wall cabinets (short/tall boxes) minus the deep "-24" fridge box.
-      const wallRows = (await run(like(cabinets.masterCode, "W-%"))).filter(
-        (r) => !/-24$/.test(r.masterCode)
-      );
+      // Pantry: 96"-tall utility/pantry cabinet (U*9624, U*96). Fall back to any ≥ 84" tall.
+      let pantryRows = await db
+        .select(cols).from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(gate, sql`CAST(${cabinets.height} AS DECIMAL) = 96`, sql`LOWER(${cabinets.description}) LIKE '%pantry%'`));
+      if (pantryRows.length === 0) pantryRows = await db
+        .select(cols).from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(gate, sql`CAST(${cabinets.height} AS DECIMAL) >= 84`, sql`LOWER(${cabinets.description}) LIKE '%tall%'`));
+      // Deep 24" wall cabinets above fridge (e.g. SU-W301224, SU-W361224).
+      const deepRows = await db
+        .select(cols).from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(gate, sql`CAST(${cabinets.depth} AS DECIMAL) = 24`, sql`LOWER(${cabinets.description}) LIKE '%wall%'`));
+      // Refrigerator end panels (REPV*, TDEP*, Unfinished-REPV*).
+      const panelRows = await db
+        .select(cols).from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(gate, sql`(${cabinets.masterCode} LIKE '%REPV%' OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%')`))
+      // Standard wall cabinets (12" deep, not bridge, not deep fridge box).
+      const wallRows = await db
+        .select(cols).from(cabinets)
+        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(gate, sql`LOWER(${cabinets.description}) LIKE '%wall%'`, sql`CAST(${cabinets.depth} AS DECIMAL) = 12`, sql`CAST(${cabinets.height} AS DECIMAL) > 18`));
 
       return {
         pantry: sortByWidth(uniq(pantryRows)),
