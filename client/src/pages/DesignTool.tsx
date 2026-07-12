@@ -2660,12 +2660,21 @@ export default function DesignTool() {
       }
 
       // 2) Refrigerator END PANELS: tall/deep panels flush to the fridge L/R edge.
-      const panelRow = pickByWidth(surround.endPanels, fd) ?? surround.endPanels?.[0];
+      // Use the user-selected panel id if provided, otherwise fall back to best-width match.
+      const panelRow = pickById(surround.endPanels, opts.endPanelId, fd) ?? surround.endPanels?.[0];
       const placePanel = (leftEdge: boolean) => {
         if (!panelRow) return;
-        const pDepth = parseFloat(String(panelRow.width ?? fd)) || fd; // panel spans the fridge depth
-        const pThick = 1; // REPV panels are ~1" thick flat stock
-        const pHeight = parseFloat(String(panelRow.height ?? 96)) || 96;
+        // pDepth: how far the panel extends into the room — matches the fridge depth.
+        const pDepth = fd;
+        // Infer dimensions from masterCode when catalog values are null
+        // (style-prefixed variants like "ANTIQUE WHITE-S2496" often lack stored dims).
+        const code = (panelRow.masterCode ?? "").toUpperCase();
+        const inferredHeight = code.includes("S2496") || code.includes("REPV") || code.includes("TDEP") ? 96
+          : code.includes("S3696") ? 96 : 96;
+        const inferredDepth = (code.includes("REPV") || code.includes("S2496") || code.includes("S3696")) ? 0.75 : 0.75;
+        // pThick: the panel's face thickness (3/4" for S2496/REPV flat stock).
+        const pThick = parseFloat(String(panelRow.depth ?? "")) || inferredDepth;
+        const pHeight = parseFloat(String(panelRow.height ?? "")) || inferredHeight;
         // Along-wall position: just outside the fridge edge on the chosen side.
         let along: number;
         if (horizontal) {

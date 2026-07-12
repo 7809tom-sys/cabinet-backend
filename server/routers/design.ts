@@ -362,7 +362,9 @@ export const designRouter = router({
             OR ${cabinets.masterCode} LIKE '%S2496%'
             OR ${cabinets.masterCode} LIKE '%S3696%'
             OR LOWER(${cabinets.description}) LIKE '%shelf board%'
-          )`
+          )`,
+          // Exclude entries where width is clearly a product code number (> 200") not an actual dimension
+          sql`(${cabinets.width} IS NULL OR CAST(${cabinets.width} AS DECIMAL) <= 200)`
         ));
       // Smooth skin panels: codes contain WSV, USV, or description contains "Skin" / "Veneer".
       // Exclude REPV items (those are end panels, not smooth skins).
@@ -466,15 +468,18 @@ export const designRouter = router({
       const panelRows = await db
         .select(cols).from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, sql`(
-          ${cabinets.masterCode} LIKE '%REPV%'
-          OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%'
-          OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%'
-          OR ${cabinets.masterCode} LIKE '%S2496%'
-          OR ${cabinets.masterCode} LIKE '%S3696%'
-          OR LOWER(${cabinets.description}) LIKE '%shelf board%'
-        )`))
-      
+                .where(and(
+          gate,
+          sql`(
+            ${cabinets.masterCode} LIKE '%REPV%'
+            OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%'
+            OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%'
+            OR ${cabinets.masterCode} LIKE '%S2496%'
+            OR ${cabinets.masterCode} LIKE '%S3696%'
+            OR LOWER(${cabinets.description}) LIKE '%shelf board%'
+          )`,
+          sql`(${cabinets.width} IS NULL OR CAST(${cabinets.width} AS DECIMAL) <= 200)`
+        ));
       // Standard wall cabinets (12" deep, not bridge, not deep fridge box).
       const wallRows = await db
         .select(cols).from(cabinets)
