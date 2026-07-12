@@ -54,9 +54,11 @@ function StyleCard({ style }: { style: DoorStyle }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button
-          type="button"
-          className="cabinet-card group relative rounded-xl border border-border bg-card text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        <div
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.click(); }}
+          className="cabinet-card group relative rounded-xl border border-border bg-card text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
         >
           {/* Room scene is the primary hero; door icon toggles to close-up */}
           <div className="h-28 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
@@ -137,7 +139,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
               </div>
             </div>
           )}
-        </button>
+        </div>
       </DialogTrigger>
 
       <DialogContent className="max-w-2xl">
