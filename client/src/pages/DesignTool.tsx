@@ -5952,17 +5952,24 @@ export default function DesignTool() {
                               <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[220px] space-y-1 text-xs">
-                            <p className="font-mono font-semibold">{c.masterCode}</p>
-                            <p className="text-muted-foreground leading-snug">{c.description}</p>
-                            <p className="text-foreground">
-                              {dim(c.width, 24)}"W
-                              {c.height ? ` × ${dim(c.height, 0)}"H` : ""}
-                              {c.depth ? ` × ${dim(c.depth, 0)}"D` : ""}
-                            </p>
-                            {cabPrice != null && (
-                              <p className="font-semibold text-primary">${cabPrice.toFixed(2)}</p>
-                            )}
+                          <TooltipContent side="right" className="max-w-[240px] p-2 space-y-1.5 text-xs">
+                            <div className="flex gap-2 items-start">
+                              <div className="h-16 w-16 rounded bg-white border border-border flex items-center justify-center shrink-0 p-1">
+                                <CabinetImage cabinet={c} className="h-full w-auto max-w-full object-contain" />
+                              </div>
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <p className="font-mono font-semibold leading-tight">{c.masterCode}</p>
+                                <p className="text-muted-foreground leading-snug">{c.description}</p>
+                                <p className="text-foreground">
+                                  {dim(c.width, 24)}"W
+                                  {c.height ? ` × ${dim(c.height, 0)}"H` : ""}
+                                  {c.depth ? ` × ${dim(c.depth, 0)}"D` : ""}
+                                </p>
+                                {cabPrice != null && (
+                                  <p className="font-semibold text-primary">${cabPrice.toFixed(2)}</p>
+                                )}
+                              </div>
+                            </div>
                           </TooltipContent>
                         </Tooltip>
                       );
@@ -6004,21 +6011,28 @@ export default function DesignTool() {
                               <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[240px] space-y-1 text-xs">
-                            <p className="font-mono font-semibold">{c.masterCode}</p>
-                            <p className="text-muted-foreground leading-snug">{c.description}</p>
-                            <p className="text-foreground">
-                              {dim(c.width, 24)}"W
-                              {showH ? ` × ${hVal}"H` : ""}
-                              {c.depth ? ` × ${dim(c.depth, 0)}"D` : ""}
-                            </p>
-                            {c.numberOfDoors != null && c.numberOfDoors > 0 && (
-                              <p className="text-muted-foreground">{c.numberOfDoors} door{c.numberOfDoors !== 1 ? "s" : ""}{c.numberOfDrawers ? `, ${c.numberOfDrawers} drawer${c.numberOfDrawers !== 1 ? "s" : ""}` : ""}</p>
-                            )}
-                            {cabPrice != null && (
-                              <p className="font-semibold text-primary">${cabPrice.toFixed(2)}</p>
-                            )}
-                            <p className="text-[10px] text-muted-foreground/70 pt-0.5">Click or drag to place</p>
+                          <TooltipContent side="right" className="max-w-[260px] p-2 space-y-1.5 text-xs">
+                            <div className="flex gap-2 items-start">
+                              <div className="h-16 w-16 rounded bg-white border border-border flex items-center justify-center shrink-0 p-1">
+                                <CabinetImage cabinet={c} className="h-full w-auto max-w-full object-contain" />
+                              </div>
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <p className="font-mono font-semibold leading-tight">{c.masterCode}</p>
+                                <p className="text-muted-foreground leading-snug">{c.description}</p>
+                                <p className="text-foreground">
+                                  {dim(c.width, 24)}"W
+                                  {showH ? ` × ${hVal}"H` : ""}
+                                  {c.depth ? ` × ${dim(c.depth, 0)}"D` : ""}
+                                </p>
+                                {c.numberOfDoors != null && c.numberOfDoors > 0 && (
+                                  <p className="text-muted-foreground">{c.numberOfDoors} door{c.numberOfDoors !== 1 ? "s" : ""}{c.numberOfDrawers ? `, ${c.numberOfDrawers} drawer${c.numberOfDrawers !== 1 ? "s" : ""}` : ""}</p>
+                                )}
+                                {cabPrice != null && (
+                                  <p className="font-semibold text-primary">${cabPrice.toFixed(2)}</p>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground/70">Click or drag to place</p>
                           </TooltipContent>
                         </Tooltip>
                       );
