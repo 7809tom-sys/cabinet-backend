@@ -1,0 +1,7112 @@
+[
+  {
+    "sku": "SW-3VDB21",
+    "list": 654,
+    "cost": 228.9
+  },
+  {
+    "sku": "SW-BBC39",
+    "list": 580,
+    "cost": 203
+  },
+  {
+    "sku": "SW-BEC24",
+    "list": 449,
+    "cost": 157.15
+  },
+  {
+    "sku": "SW-BFH15",
+    "list": 308,
+    "cost": 107.8
+  },
+  {
+    "sku": "SW-BFH18",
+    "list": 340,
+    "cost": 119
+  },
+  {
+    "sku": "SW-BFH21",
+    "list": 370,
+    "cost": 129.5
+  },
+  {
+    "sku": "SW-BFH27",
+    "list": 454,
+    "cost": 158.9
+  },
+  {
+    "sku": "SW-BFH30",
+    "list": 489,
+    "cost": 171.15
+  },
+  {
+    "sku": "SW-BFH33",
+    "list": 522,
+    "cost": 182.7
+  },
+  {
+    "sku": "SW-BFH36",
+    "list": 556,
+    "cost": 194.6
+  },
+  {
+    "sku": "SW-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "SW-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "SW-DCW2712GD",
+    "list": 239,
+    "cost": 83.65
+  },
+  {
+    "sku": "SW-DCW2736",
+    "list": 575,
+    "cost": 201.25
+  },
+  {
+    "sku": "SW-DCW2742",
+    "list": 698,
+    "cost": 244.3
+  },
+  {
+    "sku": "SW-DFB18",
+    "list": 485,
+    "cost": 169.75
+  },
+  {
+    "sku": "SW-ERB36",
+    "list": 681,
+    "cost": 238.35
+  },
+  {
+    "sku": "SW-FS36",
+    "list": 223,
+    "cost": 78.05
+  },
+  {
+    "sku": "SW-MB33",
+    "list": 680,
+    "cost": 238
+  },
+  {
+    "sku": "SW-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "SW-MO3030",
+    "list": 563,
+    "cost": 197.05
+  },
+  {
+    "sku": "SW-MO3036",
+    "list": 652,
+    "cost": 228.2
+  },
+  {
+    "sku": "SW-MO3042",
+    "list": 767,
+    "cost": 268.45
+  },
+  {
+    "sku": "SW-OE630",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SW-OE636",
+    "list": 147,
+    "cost": 51.45
+  },
+  {
+    "sku": "SW-OE642",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SW-PR3015",
+    "list": 377,
+    "cost": 131.95
+  },
+  {
+    "sku": "SW-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SW-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SW-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SW-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "SW-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SW-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "SW-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SW-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "SW-SB30",
+    "list": 499,
+    "cost": 174.65
+  },
+  {
+    "sku": "SW-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "SW-SPB9",
+    "list": 427,
+    "cost": 149.45
+  },
+  {
+    "sku": "SW-TUK",
+    "list": 15,
+    "cost": 5.25
+  },
+  {
+    "sku": "SW-V3321DL",
+    "list": 786,
+    "cost": 275.1
+  },
+  {
+    "sku": "SW-V3321DR",
+    "list": 786,
+    "cost": 275.1
+  },
+  {
+    "sku": "SW-VS30",
+    "list": 443,
+    "cost": 155.05
+  },
+  {
+    "sku": "SW-VSD36",
+    "list": 701,
+    "cost": 245.35
+  },
+  {
+    "sku": "SW-VSD42",
+    "list": 745,
+    "cost": 260.75
+  },
+  {
+    "sku": "SW-VSD48",
+    "list": 819,
+    "cost": 286.65
+  },
+  {
+    "sku": "SW-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "SW-WBC2430",
+    "list": 321,
+    "cost": 112.35
+  },
+  {
+    "sku": "SW-WBC2442",
+    "list": 430,
+    "cost": 150.5
+  },
+  {
+    "sku": "SW-WBC3630",
+    "list": 440,
+    "cost": 154
+  },
+  {
+    "sku": "SW-WBC3642",
+    "list": 589,
+    "cost": 206.15
+  },
+  {
+    "sku": "SW-WD1848",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SW-WD1854",
+    "list": 576,
+    "cost": 201.6
+  },
+  {
+    "sku": "SW-WD1860",
+    "list": 621,
+    "cost": 217.35
+  },
+  {
+    "sku": "SW-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SW-WRC2430",
+    "list": 370,
+    "cost": 129.5
+  },
+  {
+    "sku": "SW-WRC3015",
+    "list": 340,
+    "cost": 119
+  },
+  {
+    "sku": "SW-WRC3018",
+    "list": 355,
+    "cost": 124.25
+  },
+  {
+    "sku": "SG-2DB24",
+    "list": 664,
+    "cost": 232.4
+  },
+  {
+    "sku": "SG-2DB30",
+    "list": 745,
+    "cost": 260.75
+  },
+  {
+    "sku": "SG-2DB36",
+    "list": 810,
+    "cost": 283.5
+  },
+  {
+    "sku": "SG-3DB12",
+    "list": 548,
+    "cost": 191.8
+  },
+  {
+    "sku": "SG-3DB15",
+    "list": 616,
+    "cost": 215.6
+  },
+  {
+    "sku": "SG-3DB18",
+    "list": 641,
+    "cost": 224.35
+  },
+  {
+    "sku": "SG-3DB21",
+    "list": 680,
+    "cost": 238
+  },
+  {
+    "sku": "SG-3DB24",
+    "list": 721,
+    "cost": 252.35
+  },
+  {
+    "sku": "SG-3DB27",
+    "list": 765,
+    "cost": 267.75
+  },
+  {
+    "sku": "SG-3DB30",
+    "list": 809,
+    "cost": 283.15
+  },
+  {
+    "sku": "SG-3DB33",
+    "list": 849,
+    "cost": 297.15
+  },
+  {
+    "sku": "SG-3DB36",
+    "list": 880,
+    "cost": 308
+  },
+  {
+    "sku": "SG-3VDB21",
+    "list": 654,
+    "cost": 228.9
+  },
+  {
+    "sku": "SG-ACM8",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SG-ALRM8",
+    "list": 216,
+    "cost": 75.6
+  },
+  {
+    "sku": "SG-B30",
+    "list": 681,
+    "cost": 238.35
+  },
+  {
+    "sku": "SG-BAM",
+    "list": 39,
+    "cost": 13.65
+  },
+  {
+    "sku": "SG-BBC36",
+    "list": 479,
+    "cost": 167.65
+  },
+  {
+    "sku": "SG-BBC39",
+    "list": 580,
+    "cost": 203
+  },
+  {
+    "sku": "SG-BBC42",
+    "list": 667,
+    "cost": 233.45
+  },
+  {
+    "sku": "SG-BCM8(DCM)",
+    "list": 181,
+    "cost": 63.35
+  },
+  {
+    "sku": "SG-BDEP",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SG-BEC24",
+    "list": 449,
+    "cost": 157.15
+  },
+  {
+    "sku": "SG-BES12",
+    "list": 292,
+    "cost": 102.2
+  },
+  {
+    "sku": "SG-BFH12",
+    "list": 278,
+    "cost": 97.3
+  },
+  {
+    "sku": "SG-BFH15",
+    "list": 308,
+    "cost": 107.8
+  },
+  {
+    "sku": "SG-BFH18",
+    "list": 340,
+    "cost": 119
+  },
+  {
+    "sku": "SG-BFH21",
+    "list": 370,
+    "cost": 129.5
+  },
+  {
+    "sku": "SG-BFH24",
+    "list": 422,
+    "cost": 147.7
+  },
+  {
+    "sku": "SG-BFH27",
+    "list": 454,
+    "cost": 158.9
+  },
+  {
+    "sku": "SG-BFH30",
+    "list": 489,
+    "cost": 171.15
+  },
+  {
+    "sku": "SG-BFH33",
+    "list": 522,
+    "cost": 182.7
+  },
+  {
+    "sku": "SG-BFH36",
+    "list": 556,
+    "cost": 194.6
+  },
+  {
+    "sku": "SG-BSDC6",
+    "list": 387,
+    "cost": 135.45
+  },
+  {
+    "sku": "SG-BSV",
+    "list": 49,
+    "cost": 17.15
+  },
+  {
+    "sku": "SG-BT09",
+    "list": 277,
+    "cost": 96.95
+  },
+  {
+    "sku": "SG-BWB18",
+    "list": 585,
+    "cost": 204.75
+  },
+  {
+    "sku": "SG-CB9",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SG-CBT",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "SG-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "SG-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "SG-CLDL",
+    "list": 261,
+    "cost": 91.35
+  },
+  {
+    "sku": "SG-CM8",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SG-COV",
+    "list": 233,
+    "cost": 81.55
+  },
+  {
+    "sku": "SG-CSB36",
+    "list": 603,
+    "cost": 211.05
+  },
+  {
+    "sku": "SG-DCSF42",
+    "list": 229,
+    "cost": 80.15
+  },
+  {
+    "sku": "SG-DCW2712GD",
+    "list": 239,
+    "cost": 83.65
+  },
+  {
+    "sku": "SG-DCW2736",
+    "list": 575,
+    "cost": 201.25
+  },
+  {
+    "sku": "SG-DCW2742",
+    "list": 698,
+    "cost": 244.3
+  },
+  {
+    "sku": "SG-DFB18",
+    "list": 485,
+    "cost": 169.75
+  },
+  {
+    "sku": "SG-DWR3",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SG-ERB33",
+    "list": 614,
+    "cost": 214.9
+  },
+  {
+    "sku": "SG-ERB36",
+    "list": 681,
+    "cost": 238.35
+  },
+  {
+    "sku": "SG-F342",
+    "list": 38,
+    "cost": 13.3
+  },
+  {
+    "sku": "SG-F396",
+    "list": 128,
+    "cost": 44.8
+  },
+  {
+    "sku": "SG-F642",
+    "list": 74,
+    "cost": 25.9
+  },
+  {
+    "sku": "SG-F696",
+    "list": 191,
+    "cost": 66.85
+  },
+  {
+    "sku": "SG-FBM",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "SG-FLDL",
+    "list": 266,
+    "cost": 93.1
+  },
+  {
+    "sku": "SG-FPV4296",
+    "list": 165,
+    "cost": 57.75
+  },
+  {
+    "sku": "SG-FS24",
+    "list": 182,
+    "cost": 63.7
+  },
+  {
+    "sku": "SG-FS30",
+    "list": 202,
+    "cost": 70.7
+  },
+  {
+    "sku": "SG-FS36",
+    "list": 223,
+    "cost": 78.05
+  },
+  {
+    "sku": "SG-LRM8",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SG-MB30",
+    "list": 641,
+    "cost": 224.35
+  },
+  {
+    "sku": "SG-MB33",
+    "list": 680,
+    "cost": 238
+  },
+  {
+    "sku": "SG-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "SG-MO3030",
+    "list": 563,
+    "cost": 197.05
+  },
+  {
+    "sku": "SG-MO3036",
+    "list": 652,
+    "cost": 228.2
+  },
+  {
+    "sku": "SG-MO3042",
+    "list": 767,
+    "cost": 268.45
+  },
+  {
+    "sku": "SG-O308424",
+    "list": 1606,
+    "cost": 562.1
+  },
+  {
+    "sku": "SG-O309024",
+    "list": 1625,
+    "cost": 568.75
+  },
+  {
+    "sku": "SG-O309624",
+    "list": 1746,
+    "cost": 611.1
+  },
+  {
+    "sku": "SG-OCM8",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "SG-OE630",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SG-OE636",
+    "list": 147,
+    "cost": 51.45
+  },
+  {
+    "sku": "SG-OE642",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SG-PR3015",
+    "list": 377,
+    "cost": 131.95
+  },
+  {
+    "sku": "SG-RCM4S(LCM)",
+    "list": 170,
+    "cost": 59.5
+  },
+  {
+    "sku": "SG-REPV2496",
+    "list": 229,
+    "cost": 80.15
+  },
+  {
+    "sku": "SG-REPV2796",
+    "list": 281,
+    "cost": 98.35
+  },
+  {
+    "sku": "SG-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SG-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SG-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SG-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "SG-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SG-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "SG-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SG-S2496",
+    "list": 222,
+    "cost": 77.7
+  },
+  {
+    "sku": "SG-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "SG-SB27",
+    "list": 456,
+    "cost": 159.6
+  },
+  {
+    "sku": "SG-SB30",
+    "list": 499,
+    "cost": 174.65
+  },
+  {
+    "sku": "SG-SBF4242",
+    "list": 91,
+    "cost": 31.85
+  },
+  {
+    "sku": "SG-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "SG-SGH30",
+    "list": 127,
+    "cost": 44.45
+  },
+  {
+    "sku": "SG-SHM",
+    "list": 31,
+    "cost": 10.85
+  },
+  {
+    "sku": "SG-SM8(SCR)",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SG-SPB6",
+    "list": 375,
+    "cost": 131.25
+  },
+  {
+    "sku": "SG-SPB9",
+    "list": 427,
+    "cost": 149.45
+  },
+  {
+    "sku": "SG-TDEP2484",
+    "list": 555,
+    "cost": 194.25
+  },
+  {
+    "sku": "SG-TDEP2490",
+    "list": 586,
+    "cost": 205.1
+  },
+  {
+    "sku": "SG-TDEP2496",
+    "list": 645,
+    "cost": 225.75
+  },
+  {
+    "sku": "SG-TKC",
+    "list": 38,
+    "cost": 13.3
+  },
+  {
+    "sku": "SG-TUK",
+    "list": 22,
+    "cost": 7.7
+  },
+  {
+    "sku": "SG-USV2496",
+    "list": 102,
+    "cost": 35.7
+  },
+  {
+    "sku": "SG-V3321DL",
+    "list": 786,
+    "cost": 275.1
+  },
+  {
+    "sku": "SG-V3321DR",
+    "list": 786,
+    "cost": 275.1
+  },
+  {
+    "sku": "SG-VA30",
+    "list": 108,
+    "cost": 37.8
+  },
+  {
+    "sku": "SG-VA36",
+    "list": 128,
+    "cost": 44.8
+  },
+  {
+    "sku": "SG-VA42",
+    "list": 146,
+    "cost": 51.1
+  },
+  {
+    "sku": "SG-VA48",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SG-VDEP",
+    "list": 221,
+    "cost": 77.35
+  },
+  {
+    "sku": "SG-VS30",
+    "list": 443,
+    "cost": 155.05
+  },
+  {
+    "sku": "SG-W1830GD",
+    "list": 329,
+    "cost": 115.15
+  },
+  {
+    "sku": "SG-W1836GD",
+    "list": 411,
+    "cost": 143.85
+  },
+  {
+    "sku": "SG-W1842GD",
+    "list": 430,
+    "cost": 150.5
+  },
+  {
+    "sku": "SG-W2418",
+    "list": 286,
+    "cost": 100.1
+  },
+  {
+    "sku": "SG-W3312",
+    "list": 260,
+    "cost": 91
+  },
+  {
+    "sku": "SG-W3315",
+    "list": 287,
+    "cost": 100.45
+  },
+  {
+    "sku": "SG-W3318",
+    "list": 314,
+    "cost": 109.9
+  },
+  {
+    "sku": "SG-W3324",
+    "list": 377,
+    "cost": 131.95
+  },
+  {
+    "sku": "SG-W3930",
+    "list": 539,
+    "cost": 188.65
+  },
+  {
+    "sku": "SG-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "SG-WBC2430",
+    "list": 321,
+    "cost": 112.35
+  },
+  {
+    "sku": "SG-WBC2442",
+    "list": 430,
+    "cost": 150.5
+  },
+  {
+    "sku": "SG-WBC3630",
+    "list": 440,
+    "cost": 154
+  },
+  {
+    "sku": "SG-WBC3642",
+    "list": 589,
+    "cost": 206.15
+  },
+  {
+    "sku": "SG-WD1848",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SG-WD1854",
+    "list": 576,
+    "cost": 201.6
+  },
+  {
+    "sku": "SG-WD1860",
+    "list": 621,
+    "cost": 217.35
+  },
+  {
+    "sku": "SG-WDEP30",
+    "list": 105,
+    "cost": 36.75
+  },
+  {
+    "sku": "SG-WDEP36",
+    "list": 119,
+    "cost": 41.65
+  },
+  {
+    "sku": "SG-WDEP42",
+    "list": 134,
+    "cost": 46.9
+  },
+  {
+    "sku": "SG-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SG-WRC2430",
+    "list": 370,
+    "cost": 129.5
+  },
+  {
+    "sku": "SG-WRC3015",
+    "list": 340,
+    "cost": 119
+  },
+  {
+    "sku": "SG-WRC3018",
+    "list": 355,
+    "cost": 124.25
+  },
+  {
+    "sku": "SG-WSD630",
+    "list": 262,
+    "cost": 91.7
+  },
+  {
+    "sku": "SG-WSV42",
+    "list": 31,
+    "cost": 10.85
+  },
+  {
+    "sku": "SEO-2DB24",
+    "list": 698,
+    "cost": 244.3
+  },
+  {
+    "sku": "SEO-2DB30",
+    "list": 783,
+    "cost": 274.05
+  },
+  {
+    "sku": "SEO-2DB36",
+    "list": 851,
+    "cost": 297.85
+  },
+  {
+    "sku": "SEO-3DB12",
+    "list": 563,
+    "cost": 197.05
+  },
+  {
+    "sku": "SEO-3DB15",
+    "list": 634,
+    "cost": 221.9
+  },
+  {
+    "sku": "SEO-3DB18",
+    "list": 674,
+    "cost": 235.9
+  },
+  {
+    "sku": "SEO-3DB21",
+    "list": 694,
+    "cost": 242.9
+  },
+  {
+    "sku": "SEO-3DB24",
+    "list": 733,
+    "cost": 256.55
+  },
+  {
+    "sku": "SEO-3DB27",
+    "list": 792,
+    "cost": 277.2
+  },
+  {
+    "sku": "SEO-3DB30",
+    "list": 850,
+    "cost": 297.5
+  },
+  {
+    "sku": "SEO-3DB33",
+    "list": 881,
+    "cost": 308.35
+  },
+  {
+    "sku": "SEO-3DB36",
+    "list": 934,
+    "cost": 326.9
+  },
+  {
+    "sku": "SEO-3VDB21",
+    "list": 687,
+    "cost": 240.45
+  },
+  {
+    "sku": "SEO-ACM8",
+    "list": 146,
+    "cost": 51.1
+  },
+  {
+    "sku": "SEO-ALRM8",
+    "list": 226,
+    "cost": 79.1
+  },
+  {
+    "sku": "SEO-AW1230",
+    "list": 261,
+    "cost": 91.35
+  },
+  {
+    "sku": "SEO-AW1236",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SEO-AW1242",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SEO-B30",
+    "list": 717,
+    "cost": 250.95
+  },
+  {
+    "sku": "SEO-BAM",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SEO-BBC36",
+    "list": 506,
+    "cost": 177.1
+  },
+  {
+    "sku": "SEO-BBC39",
+    "list": 615,
+    "cost": 215.25
+  },
+  {
+    "sku": "SEO-BBC42",
+    "list": 697,
+    "cost": 243.95
+  },
+  {
+    "sku": "SEO-BCM8(DCM)",
+    "list": 195,
+    "cost": 68.25
+  },
+  {
+    "sku": "SEO-BEC24",
+    "list": 478,
+    "cost": 167.3
+  },
+  {
+    "sku": "SEO-BES12",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SEO-BFH12",
+    "list": 292,
+    "cost": 102.2
+  },
+  {
+    "sku": "SEO-BFH15",
+    "list": 324,
+    "cost": 113.4
+  },
+  {
+    "sku": "SEO-BFH18",
+    "list": 356,
+    "cost": 124.6
+  },
+  {
+    "sku": "SEO-BFH21",
+    "list": 388,
+    "cost": 135.8
+  },
+  {
+    "sku": "SEO-BFH24",
+    "list": 442,
+    "cost": 154.7
+  },
+  {
+    "sku": "SEO-BFH27",
+    "list": 477,
+    "cost": 166.95
+  },
+  {
+    "sku": "SEO-BFH30",
+    "list": 513,
+    "cost": 179.55
+  },
+  {
+    "sku": "SEO-BFH33",
+    "list": 548,
+    "cost": 191.8
+  },
+  {
+    "sku": "SEO-BFH36",
+    "list": 583,
+    "cost": 204.05
+  },
+  {
+    "sku": "SEO-BSDC6",
+    "list": 408,
+    "cost": 142.8
+  },
+  {
+    "sku": "SEO-BSV",
+    "list": 52,
+    "cost": 18.2
+  },
+  {
+    "sku": "SEO-BT09",
+    "list": 289,
+    "cost": 101.15
+  },
+  {
+    "sku": "SEO-BWB18",
+    "list": 614,
+    "cost": 214.9
+  },
+  {
+    "sku": "SEO-CB9",
+    "list": 44,
+    "cost": 15.4
+  },
+  {
+    "sku": "SEO-CBT",
+    "list": 188,
+    "cost": 65.8
+  },
+  {
+    "sku": "SEO-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "SEO-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "SEO-CLDL",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SEO-CM8",
+    "list": 158,
+    "cost": 55.3
+  },
+  {
+    "sku": "SEO-COV",
+    "list": 242,
+    "cost": 84.7
+  },
+  {
+    "sku": "SEO-CSB36",
+    "list": 638,
+    "cost": 223.3
+  },
+  {
+    "sku": "SEO-DCSF42",
+    "list": 245,
+    "cost": 85.75
+  },
+  {
+    "sku": "SEO-DCW2412GD",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SEO-DCW2430GD",
+    "list": 535,
+    "cost": 187.25
+  },
+  {
+    "sku": "SEO-DCW2436GD",
+    "list": 603,
+    "cost": 211.05
+  },
+  {
+    "sku": "SEO-DCW2442GD",
+    "list": 706,
+    "cost": 247.1
+  },
+  {
+    "sku": "SEO-DCW2712GD",
+    "list": 249,
+    "cost": 87.15
+  },
+  {
+    "sku": "SEO-DCW2736",
+    "list": 622,
+    "cost": 217.7
+  },
+  {
+    "sku": "SEO-DCW2742",
+    "list": 731,
+    "cost": 255.85
+  },
+  {
+    "sku": "SEO-DFB18",
+    "list": 520,
+    "cost": 182
+  },
+  {
+    "sku": "SEO-DWR3",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SEO-ERB33",
+    "list": 645,
+    "cost": 225.75
+  },
+  {
+    "sku": "SEO-ERB36",
+    "list": 720,
+    "cost": 252
+  },
+  {
+    "sku": "SEO-F342",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SEO-F396",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SEO-F642",
+    "list": 78,
+    "cost": 27.3
+  },
+  {
+    "sku": "SEO-F696",
+    "list": 199,
+    "cost": 69.65
+  },
+  {
+    "sku": "SEO-FBM",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SEO-FLDL",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SEO-FPV4296",
+    "list": 174,
+    "cost": 60.9
+  },
+  {
+    "sku": "SEO-FS24",
+    "list": 191,
+    "cost": 66.85
+  },
+  {
+    "sku": "SEO-FS30",
+    "list": 213,
+    "cost": 74.55
+  },
+  {
+    "sku": "SEO-FS36",
+    "list": 246,
+    "cost": 86.1
+  },
+  {
+    "sku": "SEO-LRM8",
+    "list": 171,
+    "cost": 59.85
+  },
+  {
+    "sku": "SEO-MB30",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SEO-MB33",
+    "list": 718,
+    "cost": 251.3
+  },
+  {
+    "sku": "SEO-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "SEO-MO3030",
+    "list": 587,
+    "cost": 205.45
+  },
+  {
+    "sku": "SEO-MO3036",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SEO-MO3042",
+    "list": 799,
+    "cost": 279.65
+  },
+  {
+    "sku": "SEO-O308424",
+    "list": 1619,
+    "cost": 566.65
+  },
+  {
+    "sku": "SEO-O309024",
+    "list": 1694,
+    "cost": 592.9
+  },
+  {
+    "sku": "SEO-O309624",
+    "list": 1827,
+    "cost": 639.45
+  },
+  {
+    "sku": "SEO-OCM8",
+    "list": 38,
+    "cost": 13.3
+  },
+  {
+    "sku": "SEO-OE630",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SEO-OE636",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SEO-OE642",
+    "list": 170,
+    "cost": 59.5
+  },
+  {
+    "sku": "SEO-PR3015",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SEO-RCM4S(LCM)",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "SEO-REPV2496",
+    "list": 240,
+    "cost": 84
+  },
+  {
+    "sku": "SEO-REPV2796",
+    "list": 295,
+    "cost": 103.25
+  },
+  {
+    "sku": "SEO-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SEO-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SEO-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SEO-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "SEO-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SEO-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "SEO-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SEO-S2496",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SEO-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "SEO-SB27",
+    "list": 480,
+    "cost": 168
+  },
+  {
+    "sku": "SEO-SB30",
+    "list": 526,
+    "cost": 184.1
+  },
+  {
+    "sku": "SEO-SBF4242",
+    "list": 97,
+    "cost": 33.95
+  },
+  {
+    "sku": "SEO-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "SEO-SGH30",
+    "list": 132,
+    "cost": 46.2
+  },
+  {
+    "sku": "SEO-SHM",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SEO-SM8(SCR)",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "SEO-SPB6",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SEO-SPB9",
+    "list": 449,
+    "cost": 157.15
+  },
+  {
+    "sku": "SEO-TKC",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SEO-TUK",
+    "list": 15,
+    "cost": 5.25
+  },
+  {
+    "sku": "SEO-USV2496",
+    "list": 108,
+    "cost": 37.8
+  },
+  {
+    "sku": "SEO-V3321DL",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SEO-V3321DR",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SEO-VA30",
+    "list": 112,
+    "cost": 39.2
+  },
+  {
+    "sku": "SEO-VA36",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SEO-VA42",
+    "list": 152,
+    "cost": 53.2
+  },
+  {
+    "sku": "SEO-VA48",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SEO-VS30",
+    "list": 489,
+    "cost": 171.15
+  },
+  {
+    "sku": "SEO-W1212GD",
+    "list": 119,
+    "cost": 41.65
+  },
+  {
+    "sku": "SEO-W1512GD",
+    "list": 134,
+    "cost": 46.9
+  },
+  {
+    "sku": "SEO-W1530GD",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "SEO-W1536GD",
+    "list": 340,
+    "cost": 119
+  },
+  {
+    "sku": "SEO-W1542GD",
+    "list": 390,
+    "cost": 136.5
+  },
+  {
+    "sku": "SEO-W1812GD",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SEO-W1830GD",
+    "list": 348,
+    "cost": 121.8
+  },
+  {
+    "sku": "SEO-W1836GD",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "SEO-W1842GD",
+    "list": 459,
+    "cost": 160.65
+  },
+  {
+    "sku": "SEO-W2112GD",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SEO-W2412GD",
+    "list": 206,
+    "cost": 72.1
+  },
+  {
+    "sku": "SEO-W2418",
+    "list": 287,
+    "cost": 100.45
+  },
+  {
+    "sku": "SEO-W2430GD",
+    "list": 443,
+    "cost": 155.05
+  },
+  {
+    "sku": "SEO-W2436GD",
+    "list": 461,
+    "cost": 161.35
+  },
+  {
+    "sku": "SEO-W2442GD",
+    "list": 589,
+    "cost": 206.15
+  },
+  {
+    "sku": "SEO-W2712GD",
+    "list": 224,
+    "cost": 78.4
+  },
+  {
+    "sku": "SEO-W301224",
+    "list": 332,
+    "cost": 116.2
+  },
+  {
+    "sku": "SEO-W3012GD",
+    "list": 282,
+    "cost": 98.7
+  },
+  {
+    "sku": "SEO-W301524",
+    "list": 360,
+    "cost": 126
+  },
+  {
+    "sku": "SEO-W301824",
+    "list": 402,
+    "cost": 140.7
+  },
+  {
+    "sku": "SEO-W3018GD",
+    "list": 354,
+    "cost": 123.9
+  },
+  {
+    "sku": "SEO-W3024",
+    "list": 388,
+    "cost": 135.8
+  },
+  {
+    "sku": "SEO-W302424",
+    "list": 485,
+    "cost": 169.75
+  },
+  {
+    "sku": "SEO-W3030GD",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SEO-W3036GD",
+    "list": 613,
+    "cost": 214.55
+  },
+  {
+    "sku": "SEO-W3042GD",
+    "list": 700,
+    "cost": 245
+  },
+  {
+    "sku": "SEO-W3312",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SEO-W331224",
+    "list": 351,
+    "cost": 122.85
+  },
+  {
+    "sku": "SEO-W3312GD",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "SEO-W3315",
+    "list": 302,
+    "cost": 105.7
+  },
+  {
+    "sku": "SEO-W331524",
+    "list": 380,
+    "cost": 133
+  },
+  {
+    "sku": "SEO-W3318",
+    "list": 332,
+    "cost": 116.2
+  },
+  {
+    "sku": "SEO-W331824",
+    "list": 414,
+    "cost": 144.9
+  },
+  {
+    "sku": "SEO-W3324",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SEO-W332424",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SEO-W361224",
+    "list": 368,
+    "cost": 128.8
+  },
+  {
+    "sku": "SEO-W3612GD",
+    "list": 317,
+    "cost": 110.95
+  },
+  {
+    "sku": "SEO-W361524",
+    "list": 393,
+    "cost": 137.55
+  },
+  {
+    "sku": "SEO-W361824",
+    "list": 428,
+    "cost": 149.8
+  },
+  {
+    "sku": "SEO-W3624",
+    "list": 455,
+    "cost": 159.25
+  },
+  {
+    "sku": "SEO-W362424",
+    "list": 560,
+    "cost": 196
+  },
+  {
+    "sku": "SEO-W3930",
+    "list": 566,
+    "cost": 198.1
+  },
+  {
+    "sku": "SEO-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "SEO-WBC2430",
+    "list": 336,
+    "cost": 117.6
+  },
+  {
+    "sku": "SEO-WBC2442",
+    "list": 456,
+    "cost": 159.6
+  },
+  {
+    "sku": "SEO-WBC3630",
+    "list": 463,
+    "cost": 162.05
+  },
+  {
+    "sku": "SEO-WBC3642",
+    "list": 619,
+    "cost": 216.65
+  },
+  {
+    "sku": "SEO-WD1848",
+    "list": 552,
+    "cost": 193.2
+  },
+  {
+    "sku": "SEO-WD1854",
+    "list": 605,
+    "cost": 211.75
+  },
+  {
+    "sku": "SEO-WD1860",
+    "list": 652,
+    "cost": 228.2
+  },
+  {
+    "sku": "SEO-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SEO-WRC2430",
+    "list": 389,
+    "cost": 136.15
+  },
+  {
+    "sku": "SEO-WRC3015",
+    "list": 357,
+    "cost": 124.95
+  },
+  {
+    "sku": "SEO-WRC3018",
+    "list": 373,
+    "cost": 130.55
+  },
+  {
+    "sku": "SEO-WSD630",
+    "list": 276,
+    "cost": 96.6
+  },
+  {
+    "sku": "SEO-WSV42",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SN-2DB24",
+    "list": 698,
+    "cost": 244.3
+  },
+  {
+    "sku": "SN-2DB30",
+    "list": 783,
+    "cost": 274.05
+  },
+  {
+    "sku": "SN-2DB36",
+    "list": 851,
+    "cost": 297.85
+  },
+  {
+    "sku": "SN-3DB12",
+    "list": 563,
+    "cost": 197.05
+  },
+  {
+    "sku": "SN-3DB15",
+    "list": 634,
+    "cost": 221.9
+  },
+  {
+    "sku": "SN-3DB18",
+    "list": 674,
+    "cost": 235.9
+  },
+  {
+    "sku": "SN-3DB21",
+    "list": 694,
+    "cost": 242.9
+  },
+  {
+    "sku": "SN-3DB24",
+    "list": 733,
+    "cost": 256.55
+  },
+  {
+    "sku": "SN-3DB27",
+    "list": 792,
+    "cost": 277.2
+  },
+  {
+    "sku": "SN-3DB30",
+    "list": 850,
+    "cost": 297.5
+  },
+  {
+    "sku": "SN-3DB33",
+    "list": 881,
+    "cost": 308.35
+  },
+  {
+    "sku": "SN-3DB36",
+    "list": 934,
+    "cost": 326.9
+  },
+  {
+    "sku": "SN-3VDB21",
+    "list": 687,
+    "cost": 240.45
+  },
+  {
+    "sku": "SN-ACM8",
+    "list": 146,
+    "cost": 51.1
+  },
+  {
+    "sku": "SN-ALRM8",
+    "list": 226,
+    "cost": 79.1
+  },
+  {
+    "sku": "SN-B30",
+    "list": 717,
+    "cost": 250.95
+  },
+  {
+    "sku": "SN-BAM",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SN-BBC36",
+    "list": 506,
+    "cost": 177.1
+  },
+  {
+    "sku": "SN-BBC39",
+    "list": 615,
+    "cost": 215.25
+  },
+  {
+    "sku": "SN-BBC42",
+    "list": 697,
+    "cost": 243.95
+  },
+  {
+    "sku": "SN-BCM8(DCM)",
+    "list": 195,
+    "cost": 68.25
+  },
+  {
+    "sku": "SN-BDEP",
+    "list": 247,
+    "cost": 86.45
+  },
+  {
+    "sku": "SN-BEC24",
+    "list": 478,
+    "cost": 167.3
+  },
+  {
+    "sku": "SN-BES12",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SN-BFH12",
+    "list": 292,
+    "cost": 102.2
+  },
+  {
+    "sku": "SN-BFH15",
+    "list": 324,
+    "cost": 113.4
+  },
+  {
+    "sku": "SN-BFH18",
+    "list": 356,
+    "cost": 124.6
+  },
+  {
+    "sku": "SN-BFH21",
+    "list": 388,
+    "cost": 135.8
+  },
+  {
+    "sku": "SN-BFH24",
+    "list": 442,
+    "cost": 154.7
+  },
+  {
+    "sku": "SN-BFH27",
+    "list": 477,
+    "cost": 166.95
+  },
+  {
+    "sku": "SN-BFH30",
+    "list": 513,
+    "cost": 179.55
+  },
+  {
+    "sku": "SN-BFH33",
+    "list": 548,
+    "cost": 191.8
+  },
+  {
+    "sku": "SN-BFH36",
+    "list": 583,
+    "cost": 204.05
+  },
+  {
+    "sku": "SN-BSDC6",
+    "list": 408,
+    "cost": 142.8
+  },
+  {
+    "sku": "SN-BSV",
+    "list": 52,
+    "cost": 18.2
+  },
+  {
+    "sku": "SN-BT09",
+    "list": 289,
+    "cost": 101.15
+  },
+  {
+    "sku": "SN-BWB18",
+    "list": 614,
+    "cost": 214.9
+  },
+  {
+    "sku": "SN-CB9",
+    "list": 44,
+    "cost": 15.4
+  },
+  {
+    "sku": "SN-CBT",
+    "list": 188,
+    "cost": 65.8
+  },
+  {
+    "sku": "SN-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "SN-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "SN-CLDL",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SN-CM8",
+    "list": 158,
+    "cost": 55.3
+  },
+  {
+    "sku": "SN-COV",
+    "list": 242,
+    "cost": 84.7
+  },
+  {
+    "sku": "SN-CSB36",
+    "list": 638,
+    "cost": 223.3
+  },
+  {
+    "sku": "SN-DCW2712GD",
+    "list": 249,
+    "cost": 87.15
+  },
+  {
+    "sku": "SN-DCW2736",
+    "list": 622,
+    "cost": 217.7
+  },
+  {
+    "sku": "SN-DCW2742",
+    "list": 731,
+    "cost": 255.85
+  },
+  {
+    "sku": "SN-DFB18",
+    "list": 520,
+    "cost": 182
+  },
+  {
+    "sku": "SN-DWR3",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SN-ERB33",
+    "list": 645,
+    "cost": 225.75
+  },
+  {
+    "sku": "SN-ERB36",
+    "list": 720,
+    "cost": 252
+  },
+  {
+    "sku": "SN-F342",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SN-F396",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SN-F642",
+    "list": 78,
+    "cost": 27.3
+  },
+  {
+    "sku": "SN-F696",
+    "list": 199,
+    "cost": 69.65
+  },
+  {
+    "sku": "SN-FBM",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SN-FLDL",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SN-FPV4296",
+    "list": 174,
+    "cost": 60.9
+  },
+  {
+    "sku": "SN-FS24",
+    "list": 191,
+    "cost": 66.85
+  },
+  {
+    "sku": "SN-FS30",
+    "list": 213,
+    "cost": 74.55
+  },
+  {
+    "sku": "SN-FS36",
+    "list": 246,
+    "cost": 86.1
+  },
+  {
+    "sku": "SN-LRM8",
+    "list": 171,
+    "cost": 59.85
+  },
+  {
+    "sku": "SN-MB30",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SN-MB33",
+    "list": 718,
+    "cost": 251.3
+  },
+  {
+    "sku": "SN-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "SN-MO3030",
+    "list": 587,
+    "cost": 205.45
+  },
+  {
+    "sku": "SN-MO3036",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SN-MO3042",
+    "list": 799,
+    "cost": 279.65
+  },
+  {
+    "sku": "SN-O308424",
+    "list": 1619,
+    "cost": 566.65
+  },
+  {
+    "sku": "SN-O309024",
+    "list": 1694,
+    "cost": 592.9
+  },
+  {
+    "sku": "SN-O309624",
+    "list": 1827,
+    "cost": 639.45
+  },
+  {
+    "sku": "SN-O338424",
+    "list": 1699,
+    "cost": 594.65
+  },
+  {
+    "sku": "SN-O339024",
+    "list": 1778,
+    "cost": 622.3
+  },
+  {
+    "sku": "SN-O339624",
+    "list": 1938,
+    "cost": 678.3
+  },
+  {
+    "sku": "SN-OCM8",
+    "list": 38,
+    "cost": 13.3
+  },
+  {
+    "sku": "SN-OE630",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SN-OE636",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SN-OE642",
+    "list": 170,
+    "cost": 59.5
+  },
+  {
+    "sku": "SN-PR3015",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SN-RCM4S(LCM)",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "SN-REPV2496",
+    "list": 240,
+    "cost": 84
+  },
+  {
+    "sku": "SN-REPV2796",
+    "list": 295,
+    "cost": 103.25
+  },
+  {
+    "sku": "SN-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SN-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SN-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SN-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "SN-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SN-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "SN-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SN-S2496",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SN-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "SN-SB27",
+    "list": 480,
+    "cost": 168
+  },
+  {
+    "sku": "SN-SB30",
+    "list": 526,
+    "cost": 184.1
+  },
+  {
+    "sku": "SN-SBF4242",
+    "list": 97,
+    "cost": 33.95
+  },
+  {
+    "sku": "SN-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "SN-SGH30",
+    "list": 132,
+    "cost": 46.2
+  },
+  {
+    "sku": "SN-SHM",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SN-SM8(SCR)",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "SN-SPB6",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SN-SPB9",
+    "list": 449,
+    "cost": 157.15
+  },
+  {
+    "sku": "SN-TDEP2484",
+    "list": 580,
+    "cost": 203
+  },
+  {
+    "sku": "SN-TDEP2490",
+    "list": 615,
+    "cost": 215.25
+  },
+  {
+    "sku": "SN-TDEP2496",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SN-TKC",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SN-TUK",
+    "list": 15,
+    "cost": 5.25
+  },
+  {
+    "sku": "SN-USV2496",
+    "list": 108,
+    "cost": 37.8
+  },
+  {
+    "sku": "SN-V3321DL",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SN-V3321DR",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SN-VA30",
+    "list": 112,
+    "cost": 39.2
+  },
+  {
+    "sku": "SN-VA36",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SN-VA42",
+    "list": 152,
+    "cost": 53.2
+  },
+  {
+    "sku": "SN-VA48",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SN-VDEP",
+    "list": 232,
+    "cost": 81.2
+  },
+  {
+    "sku": "SN-VS30",
+    "list": 489,
+    "cost": 171.15
+  },
+  {
+    "sku": "SN-W1830GD",
+    "list": 348,
+    "cost": 121.8
+  },
+  {
+    "sku": "SN-W1836GD",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "SN-W1842GD",
+    "list": 459,
+    "cost": 160.65
+  },
+  {
+    "sku": "SN-W2418",
+    "list": 287,
+    "cost": 100.45
+  },
+  {
+    "sku": "SN-W3312",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SN-W3315",
+    "list": 302,
+    "cost": 105.7
+  },
+  {
+    "sku": "SN-W3318",
+    "list": 332,
+    "cost": 116.2
+  },
+  {
+    "sku": "SN-W3324",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SN-W3930",
+    "list": 566,
+    "cost": 198.1
+  },
+  {
+    "sku": "SN-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "SN-WBC2430",
+    "list": 336,
+    "cost": 117.6
+  },
+  {
+    "sku": "SN-WBC2442",
+    "list": 456,
+    "cost": 159.6
+  },
+  {
+    "sku": "SN-WBC3630",
+    "list": 463,
+    "cost": 162.05
+  },
+  {
+    "sku": "SN-WBC3642",
+    "list": 619,
+    "cost": 216.65
+  },
+  {
+    "sku": "SN-WD1848",
+    "list": 552,
+    "cost": 193.2
+  },
+  {
+    "sku": "SN-WD1854",
+    "list": 605,
+    "cost": 211.75
+  },
+  {
+    "sku": "SN-WD1860",
+    "list": 652,
+    "cost": 228.2
+  },
+  {
+    "sku": "SN-WDEP30",
+    "list": 110,
+    "cost": 38.5
+  },
+  {
+    "sku": "SN-WDEP36",
+    "list": 128,
+    "cost": 44.8
+  },
+  {
+    "sku": "SN-WDEP42",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SN-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SN-WRC2430",
+    "list": 389,
+    "cost": 136.15
+  },
+  {
+    "sku": "SN-WRC3015",
+    "list": 357,
+    "cost": 124.95
+  },
+  {
+    "sku": "SN-WRC3018",
+    "list": 373,
+    "cost": 130.55
+  },
+  {
+    "sku": "SN-WSD630",
+    "list": 276,
+    "cost": 96.6
+  },
+  {
+    "sku": "SN-WSV42",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SA-3VDB21",
+    "list": 687,
+    "cost": 240.45
+  },
+  {
+    "sku": "SA-ALRM8",
+    "list": 226,
+    "cost": 79.1
+  },
+  {
+    "sku": "SA-AW1230",
+    "list": 261,
+    "cost": 91.35
+  },
+  {
+    "sku": "SA-AW1236",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SA-AW1242",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SA-B30",
+    "list": 717,
+    "cost": 250.95
+  },
+  {
+    "sku": "SA-BAM",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SA-BBC39",
+    "list": 615,
+    "cost": 215.25
+  },
+  {
+    "sku": "SA-BCM8(DCM)",
+    "list": 195,
+    "cost": 68.25
+  },
+  {
+    "sku": "SA-BES12",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SA-BFH12",
+    "list": 292,
+    "cost": 102.2
+  },
+  {
+    "sku": "SA-BFH15",
+    "list": 324,
+    "cost": 113.4
+  },
+  {
+    "sku": "SA-BFH18",
+    "list": 356,
+    "cost": 124.6
+  },
+  {
+    "sku": "SA-BFH21",
+    "list": 388,
+    "cost": 135.8
+  },
+  {
+    "sku": "SA-BFH24",
+    "list": 442,
+    "cost": 154.7
+  },
+  {
+    "sku": "SA-BFH27",
+    "list": 477,
+    "cost": 166.95
+  },
+  {
+    "sku": "SA-BFH30",
+    "list": 513,
+    "cost": 179.55
+  },
+  {
+    "sku": "SA-BFH33",
+    "list": 548,
+    "cost": 191.8
+  },
+  {
+    "sku": "SA-BFH36",
+    "list": 583,
+    "cost": 204.05
+  },
+  {
+    "sku": "SA-BSDC6",
+    "list": 408,
+    "cost": 142.8
+  },
+  {
+    "sku": "SA-BSV",
+    "list": 52,
+    "cost": 18.2
+  },
+  {
+    "sku": "SA-BT09",
+    "list": 289,
+    "cost": 101.15
+  },
+  {
+    "sku": "SA-BWB18",
+    "list": 614,
+    "cost": 214.9
+  },
+  {
+    "sku": "SA-CB9",
+    "list": 44,
+    "cost": 15.4
+  },
+  {
+    "sku": "SA-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "SA-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "SA-CM8",
+    "list": 158,
+    "cost": 55.3
+  },
+  {
+    "sku": "SA-CSB36",
+    "list": 638,
+    "cost": 223.3
+  },
+  {
+    "sku": "SA-DCW2412GD",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SA-DCW2430GD",
+    "list": 535,
+    "cost": 187.25
+  },
+  {
+    "sku": "SA-DCW2436GD",
+    "list": 603,
+    "cost": 211.05
+  },
+  {
+    "sku": "SA-DCW2442GD",
+    "list": 706,
+    "cost": 247.1
+  },
+  {
+    "sku": "SA-DWR3",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SA-ERB33",
+    "list": 645,
+    "cost": 225.75
+  },
+  {
+    "sku": "SA-ERB36",
+    "list": 720,
+    "cost": 252
+  },
+  {
+    "sku": "SA-F342",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SA-F396",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SA-F642",
+    "list": 78,
+    "cost": 27.3
+  },
+  {
+    "sku": "SA-F696",
+    "list": 199,
+    "cost": 69.65
+  },
+  {
+    "sku": "SA-FLDL",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SA-FPV4296",
+    "list": 174,
+    "cost": 60.9
+  },
+  {
+    "sku": "SA-FS24",
+    "list": 191,
+    "cost": 66.85
+  },
+  {
+    "sku": "SA-FS30",
+    "list": 213,
+    "cost": 74.55
+  },
+  {
+    "sku": "SA-FS36",
+    "list": 246,
+    "cost": 86.1
+  },
+  {
+    "sku": "SA-LRM8",
+    "list": 171,
+    "cost": 59.85
+  },
+  {
+    "sku": "SA-MB30",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SA-MB33",
+    "list": 718,
+    "cost": 251.3
+  },
+  {
+    "sku": "SA-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "SA-MO3030",
+    "list": 587,
+    "cost": 205.45
+  },
+  {
+    "sku": "SA-MO3036",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SA-MO3042",
+    "list": 799,
+    "cost": 279.65
+  },
+  {
+    "sku": "SA-O308424",
+    "list": 1619,
+    "cost": 566.65
+  },
+  {
+    "sku": "SA-O309024",
+    "list": 1694,
+    "cost": 592.9
+  },
+  {
+    "sku": "SA-O309624",
+    "list": 1827,
+    "cost": 639.45
+  },
+  {
+    "sku": "SA-OCM8",
+    "list": 38,
+    "cost": 13.3
+  },
+  {
+    "sku": "SA-OE630",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SA-OE636",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SA-OE642",
+    "list": 170,
+    "cost": 59.5
+  },
+  {
+    "sku": "SA-PR3015",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SA-RCM4S(LCM)",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "SA-REPV2496",
+    "list": 240,
+    "cost": 84
+  },
+  {
+    "sku": "SA-REPV2796",
+    "list": 295,
+    "cost": 103.25
+  },
+  {
+    "sku": "SA-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SA-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SA-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SA-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "SA-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SA-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "SA-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SA-S2496",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SA-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "SA-SB27",
+    "list": 480,
+    "cost": 168
+  },
+  {
+    "sku": "SA-SB30",
+    "list": 526,
+    "cost": 184.1
+  },
+  {
+    "sku": "SA-SBF4242",
+    "list": 97,
+    "cost": 33.95
+  },
+  {
+    "sku": "SA-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "SA-SGH30",
+    "list": 132,
+    "cost": 46.2
+  },
+  {
+    "sku": "SA-SHM",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SA-SM8(SCR)",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "SA-SPB6",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SA-SPB9",
+    "list": 449,
+    "cost": 157.15
+  },
+  {
+    "sku": "SA-TKC",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SA-TUK",
+    "list": 15,
+    "cost": 5.25
+  },
+  {
+    "sku": "SA-USV2496",
+    "list": 108,
+    "cost": 37.8
+  },
+  {
+    "sku": "SA-V3321DL",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SA-V3321DR",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SA-VA30",
+    "list": 112,
+    "cost": 39.2
+  },
+  {
+    "sku": "SA-VA36",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SA-VA42",
+    "list": 152,
+    "cost": 53.2
+  },
+  {
+    "sku": "SA-VA48",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SA-VKD36",
+    "list": 182,
+    "cost": 63.7
+  },
+  {
+    "sku": "SA-VS30",
+    "list": 489,
+    "cost": 171.15
+  },
+  {
+    "sku": "SA-VSD36",
+    "list": 752,
+    "cost": 263.2
+  },
+  {
+    "sku": "SA-VSD42",
+    "list": 839,
+    "cost": 293.65
+  },
+  {
+    "sku": "SA-VSD48",
+    "list": 916,
+    "cost": 320.6
+  },
+  {
+    "sku": "SA-W1212GD",
+    "list": 119,
+    "cost": 41.65
+  },
+  {
+    "sku": "SA-W1512GD",
+    "list": 134,
+    "cost": 46.9
+  },
+  {
+    "sku": "SA-W1530GD",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "SA-W1536GD",
+    "list": 340,
+    "cost": 119
+  },
+  {
+    "sku": "SA-W1542GD",
+    "list": 390,
+    "cost": 136.5
+  },
+  {
+    "sku": "SA-W1812GD",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SA-W1830GD",
+    "list": 348,
+    "cost": 121.8
+  },
+  {
+    "sku": "SA-W1836GD",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "SA-W1842GD",
+    "list": 459,
+    "cost": 160.65
+  },
+  {
+    "sku": "SA-W2112GD",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SA-W2412GD",
+    "list": 206,
+    "cost": 72.1
+  },
+  {
+    "sku": "SA-W2418",
+    "list": 287,
+    "cost": 100.45
+  },
+  {
+    "sku": "SA-W2430GD",
+    "list": 443,
+    "cost": 155.05
+  },
+  {
+    "sku": "SA-W2436GD",
+    "list": 461,
+    "cost": 161.35
+  },
+  {
+    "sku": "SA-W2442GD",
+    "list": 589,
+    "cost": 206.15
+  },
+  {
+    "sku": "SA-W2712GD",
+    "list": 224,
+    "cost": 78.4
+  },
+  {
+    "sku": "SA-W3012GD",
+    "list": 282,
+    "cost": 98.7
+  },
+  {
+    "sku": "SA-W301824",
+    "list": 402,
+    "cost": 140.7
+  },
+  {
+    "sku": "SA-W3018GD",
+    "list": 354,
+    "cost": 123.9
+  },
+  {
+    "sku": "SA-W302424",
+    "list": 485,
+    "cost": 169.75
+  },
+  {
+    "sku": "SA-W3030GD",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SA-W3036GD",
+    "list": 613,
+    "cost": 214.55
+  },
+  {
+    "sku": "SA-W3042GD",
+    "list": 700,
+    "cost": 245
+  },
+  {
+    "sku": "SA-W3312",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SA-W3312GD",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "SA-W3315",
+    "list": 302,
+    "cost": 105.7
+  },
+  {
+    "sku": "SA-W3318",
+    "list": 332,
+    "cost": 116.2
+  },
+  {
+    "sku": "SA-W331824",
+    "list": 414,
+    "cost": 144.9
+  },
+  {
+    "sku": "SA-W3324",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SA-W332424",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SA-W3612GD",
+    "list": 317,
+    "cost": 110.95
+  },
+  {
+    "sku": "SA-W361824",
+    "list": 428,
+    "cost": 149.8
+  },
+  {
+    "sku": "SA-W362424",
+    "list": 560,
+    "cost": 196
+  },
+  {
+    "sku": "SA-W3930",
+    "list": 566,
+    "cost": 198.1
+  },
+  {
+    "sku": "SA-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "SA-WBC2430",
+    "list": 336,
+    "cost": 117.6
+  },
+  {
+    "sku": "SA-WBC2442",
+    "list": 456,
+    "cost": 159.6
+  },
+  {
+    "sku": "SA-WBC3630",
+    "list": 463,
+    "cost": 162.05
+  },
+  {
+    "sku": "SA-WBC3642",
+    "list": 619,
+    "cost": 216.65
+  },
+  {
+    "sku": "SA-WD1848",
+    "list": 552,
+    "cost": 193.2
+  },
+  {
+    "sku": "SA-WD1854",
+    "list": 605,
+    "cost": 211.75
+  },
+  {
+    "sku": "SA-WD1860",
+    "list": 652,
+    "cost": 228.2
+  },
+  {
+    "sku": "SA-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SA-WRC2430",
+    "list": 389,
+    "cost": 136.15
+  },
+  {
+    "sku": "SA-WRC3015",
+    "list": 357,
+    "cost": 124.95
+  },
+  {
+    "sku": "SA-WRC3018",
+    "list": 373,
+    "cost": 130.55
+  },
+  {
+    "sku": "SA-WSD630",
+    "list": 276,
+    "cost": 96.6
+  },
+  {
+    "sku": "SA-WSV24",
+    "list": 25,
+    "cost": 8.75
+  },
+  {
+    "sku": "SA-WSV30",
+    "list": 29,
+    "cost": 10.15
+  },
+  {
+    "sku": "SA-WSV36",
+    "list": 32,
+    "cost": 11.2
+  },
+  {
+    "sku": "SA-WSV42",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SI-2DB24",
+    "list": 698,
+    "cost": 244.3
+  },
+  {
+    "sku": "SI-2DB30",
+    "list": 783,
+    "cost": 274.05
+  },
+  {
+    "sku": "SI-2DB36",
+    "list": 851,
+    "cost": 297.85
+  },
+  {
+    "sku": "SI-3DB12",
+    "list": 563,
+    "cost": 197.05
+  },
+  {
+    "sku": "SI-3DB15",
+    "list": 634,
+    "cost": 221.9
+  },
+  {
+    "sku": "SI-3DB18",
+    "list": 674,
+    "cost": 235.9
+  },
+  {
+    "sku": "SI-3DB21",
+    "list": 694,
+    "cost": 242.9
+  },
+  {
+    "sku": "SI-3DB24",
+    "list": 733,
+    "cost": 256.55
+  },
+  {
+    "sku": "SI-3DB27",
+    "list": 792,
+    "cost": 277.2
+  },
+  {
+    "sku": "SI-3DB30",
+    "list": 850,
+    "cost": 297.5
+  },
+  {
+    "sku": "SI-3DB33",
+    "list": 881,
+    "cost": 308.35
+  },
+  {
+    "sku": "SI-3DB36",
+    "list": 934,
+    "cost": 326.9
+  },
+  {
+    "sku": "SI-3VDB21",
+    "list": 687,
+    "cost": 240.45
+  },
+  {
+    "sku": "SI-ACM8",
+    "list": 146,
+    "cost": 51.1
+  },
+  {
+    "sku": "SI-ALRM8",
+    "list": 226,
+    "cost": 79.1
+  },
+  {
+    "sku": "SI-B30",
+    "list": 717,
+    "cost": 250.95
+  },
+  {
+    "sku": "SI-BAM",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SI-BBC36",
+    "list": 506,
+    "cost": 177.1
+  },
+  {
+    "sku": "SI-BBC39",
+    "list": 615,
+    "cost": 215.25
+  },
+  {
+    "sku": "SI-BBC42",
+    "list": 697,
+    "cost": 243.95
+  },
+  {
+    "sku": "SI-BCM8(DCM)",
+    "list": 195,
+    "cost": 68.25
+  },
+  {
+    "sku": "SI-BEC24",
+    "list": 478,
+    "cost": 167.3
+  },
+  {
+    "sku": "SI-BES12",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SI-BFH12",
+    "list": 292,
+    "cost": 102.2
+  },
+  {
+    "sku": "SI-BFH15",
+    "list": 324,
+    "cost": 113.4
+  },
+  {
+    "sku": "SI-BFH18",
+    "list": 356,
+    "cost": 124.6
+  },
+  {
+    "sku": "SI-BFH21",
+    "list": 388,
+    "cost": 135.8
+  },
+  {
+    "sku": "SI-BFH24",
+    "list": 442,
+    "cost": 154.7
+  },
+  {
+    "sku": "SI-BFH27",
+    "list": 477,
+    "cost": 166.95
+  },
+  {
+    "sku": "SI-BFH30",
+    "list": 513,
+    "cost": 179.55
+  },
+  {
+    "sku": "SI-BFH33",
+    "list": 548,
+    "cost": 191.8
+  },
+  {
+    "sku": "SI-BFH36",
+    "list": 583,
+    "cost": 204.05
+  },
+  {
+    "sku": "SI-BSDC6",
+    "list": 408,
+    "cost": 142.8
+  },
+  {
+    "sku": "SI-BSV",
+    "list": 52,
+    "cost": 18.2
+  },
+  {
+    "sku": "SI-BT09",
+    "list": 289,
+    "cost": 101.15
+  },
+  {
+    "sku": "SI-BWB18",
+    "list": 614,
+    "cost": 214.9
+  },
+  {
+    "sku": "SI-CB9",
+    "list": 44,
+    "cost": 15.4
+  },
+  {
+    "sku": "SI-CBT",
+    "list": 188,
+    "cost": 65.8
+  },
+  {
+    "sku": "SI-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "SI-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "SI-CLDL",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SI-CM8",
+    "list": 158,
+    "cost": 55.3
+  },
+  {
+    "sku": "SI-COV",
+    "list": 242,
+    "cost": 84.7
+  },
+  {
+    "sku": "SI-CSB36",
+    "list": 638,
+    "cost": 223.3
+  },
+  {
+    "sku": "SI-DFB18",
+    "list": 520,
+    "cost": 182
+  },
+  {
+    "sku": "SI-DWR3",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SI-ERB33",
+    "list": 645,
+    "cost": 225.75
+  },
+  {
+    "sku": "SI-ERB36",
+    "list": 720,
+    "cost": 252
+  },
+  {
+    "sku": "SI-F342",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SI-F396",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SI-F642",
+    "list": 78,
+    "cost": 27.3
+  },
+  {
+    "sku": "SI-F696",
+    "list": 199,
+    "cost": 69.65
+  },
+  {
+    "sku": "SI-FBM",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SI-FLDL",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SI-FPV4296",
+    "list": 174,
+    "cost": 60.9
+  },
+  {
+    "sku": "SI-FS24",
+    "list": 191,
+    "cost": 66.85
+  },
+  {
+    "sku": "SI-FS30",
+    "list": 213,
+    "cost": 74.55
+  },
+  {
+    "sku": "SI-FS36",
+    "list": 246,
+    "cost": 86.1
+  },
+  {
+    "sku": "SI-LRM8",
+    "list": 171,
+    "cost": 59.85
+  },
+  {
+    "sku": "SI-MB30",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SI-MB33",
+    "list": 718,
+    "cost": 251.3
+  },
+  {
+    "sku": "SI-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "SI-MO3030",
+    "list": 587,
+    "cost": 205.45
+  },
+  {
+    "sku": "SI-MO3036",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SI-MO3042",
+    "list": 799,
+    "cost": 279.65
+  },
+  {
+    "sku": "SI-O308424",
+    "list": 1619,
+    "cost": 566.65
+  },
+  {
+    "sku": "SI-O309024",
+    "list": 1694,
+    "cost": 592.9
+  },
+  {
+    "sku": "SI-O309624",
+    "list": 1827,
+    "cost": 639.45
+  },
+  {
+    "sku": "SI-OCM8",
+    "list": 38,
+    "cost": 13.3
+  },
+  {
+    "sku": "SI-OE630",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SI-OE636",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SI-OE642",
+    "list": 170,
+    "cost": 59.5
+  },
+  {
+    "sku": "SI-PR3015",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SI-RCM4S(LCM)",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "SI-REPV2496",
+    "list": 240,
+    "cost": 84
+  },
+  {
+    "sku": "SI-REPV2796",
+    "list": 295,
+    "cost": 103.25
+  },
+  {
+    "sku": "SI-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SI-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SI-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SI-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "SI-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SI-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "SI-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SI-S2496",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SI-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "SI-SB27",
+    "list": 480,
+    "cost": 168
+  },
+  {
+    "sku": "SI-SB30",
+    "list": 526,
+    "cost": 184.1
+  },
+  {
+    "sku": "SI-SBF4242",
+    "list": 97,
+    "cost": 33.95
+  },
+  {
+    "sku": "SI-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "SI-SGH30",
+    "list": 132,
+    "cost": 46.2
+  },
+  {
+    "sku": "SI-SHM",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SI-SM8(SCR)",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "SI-SPB6",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SI-SPB9",
+    "list": 449,
+    "cost": 157.15
+  },
+  {
+    "sku": "SI-TKC",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SI-TUK",
+    "list": 15,
+    "cost": 5.25
+  },
+  {
+    "sku": "SI-USV2496",
+    "list": 108,
+    "cost": 37.8
+  },
+  {
+    "sku": "SI-V3321DL",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SI-V3321DR",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SI-VA30",
+    "list": 112,
+    "cost": 39.2
+  },
+  {
+    "sku": "SI-VA36",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SI-VA42",
+    "list": 152,
+    "cost": 53.2
+  },
+  {
+    "sku": "SI-VA48",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SI-VS30",
+    "list": 489,
+    "cost": 171.15
+  },
+  {
+    "sku": "SI-W1830GD",
+    "list": 348,
+    "cost": 121.8
+  },
+  {
+    "sku": "SI-W1836GD",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "SI-W1842GD",
+    "list": 459,
+    "cost": 160.65
+  },
+  {
+    "sku": "SI-W2418",
+    "list": 287,
+    "cost": 100.45
+  },
+  {
+    "sku": "SI-W3312",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SI-W3315",
+    "list": 302,
+    "cost": 105.7
+  },
+  {
+    "sku": "SI-W3318",
+    "list": 332,
+    "cost": 116.2
+  },
+  {
+    "sku": "SI-W3324",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SI-W3930",
+    "list": 566,
+    "cost": 198.1
+  },
+  {
+    "sku": "SI-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "SI-WBC2430",
+    "list": 336,
+    "cost": 117.6
+  },
+  {
+    "sku": "SI-WBC2442",
+    "list": 456,
+    "cost": 159.6
+  },
+  {
+    "sku": "SI-WBC3630",
+    "list": 463,
+    "cost": 162.05
+  },
+  {
+    "sku": "SI-WBC3642",
+    "list": 619,
+    "cost": 216.65
+  },
+  {
+    "sku": "SI-WD1848",
+    "list": 552,
+    "cost": 193.2
+  },
+  {
+    "sku": "SI-WD1854",
+    "list": 605,
+    "cost": 211.75
+  },
+  {
+    "sku": "SI-WD1860",
+    "list": 652,
+    "cost": 228.2
+  },
+  {
+    "sku": "SI-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SI-WRC2430",
+    "list": 389,
+    "cost": 136.15
+  },
+  {
+    "sku": "SI-WRC3015",
+    "list": 357,
+    "cost": 124.95
+  },
+  {
+    "sku": "SI-WRC3018",
+    "list": 373,
+    "cost": 130.55
+  },
+  {
+    "sku": "SI-WSD630",
+    "list": 276,
+    "cost": 96.6
+  },
+  {
+    "sku": "SI-WSV24",
+    "list": 25,
+    "cost": 8.75
+  },
+  {
+    "sku": "SI-WSV30",
+    "list": 29,
+    "cost": 10.15
+  },
+  {
+    "sku": "SI-WSV36",
+    "list": 32,
+    "cost": 11.2
+  },
+  {
+    "sku": "SI-WSV42",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SA-3VDB21",
+    "list": 687,
+    "cost": 240.45
+  },
+  {
+    "sku": "SA-ALRM8",
+    "list": 226,
+    "cost": 79.1
+  },
+  {
+    "sku": "SA-AW1230",
+    "list": 261,
+    "cost": 91.35
+  },
+  {
+    "sku": "SA-AW1236",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SA-AW1242",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SA-B30",
+    "list": 717,
+    "cost": 250.95
+  },
+  {
+    "sku": "SA-BAM",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SA-BBC39",
+    "list": 615,
+    "cost": 215.25
+  },
+  {
+    "sku": "SA-BCM8(DCM)",
+    "list": 195,
+    "cost": 68.25
+  },
+  {
+    "sku": "SA-BES12",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SA-BFH12",
+    "list": 292,
+    "cost": 102.2
+  },
+  {
+    "sku": "SA-BFH15",
+    "list": 324,
+    "cost": 113.4
+  },
+  {
+    "sku": "SA-BFH18",
+    "list": 356,
+    "cost": 124.6
+  },
+  {
+    "sku": "SA-BFH21",
+    "list": 388,
+    "cost": 135.8
+  },
+  {
+    "sku": "SA-BFH24",
+    "list": 442,
+    "cost": 154.7
+  },
+  {
+    "sku": "SA-BFH27",
+    "list": 477,
+    "cost": 166.95
+  },
+  {
+    "sku": "SA-BFH30",
+    "list": 513,
+    "cost": 179.55
+  },
+  {
+    "sku": "SA-BFH33",
+    "list": 548,
+    "cost": 191.8
+  },
+  {
+    "sku": "SA-BFH36",
+    "list": 583,
+    "cost": 204.05
+  },
+  {
+    "sku": "SA-BSDC6",
+    "list": 408,
+    "cost": 142.8
+  },
+  {
+    "sku": "SA-BSV",
+    "list": 52,
+    "cost": 18.2
+  },
+  {
+    "sku": "SA-BT09",
+    "list": 289,
+    "cost": 101.15
+  },
+  {
+    "sku": "SA-BWB18",
+    "list": 614,
+    "cost": 214.9
+  },
+  {
+    "sku": "SA-CB9",
+    "list": 44,
+    "cost": 15.4
+  },
+  {
+    "sku": "SA-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "SA-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "SA-CM8",
+    "list": 158,
+    "cost": 55.3
+  },
+  {
+    "sku": "SA-CSB36",
+    "list": 638,
+    "cost": 223.3
+  },
+  {
+    "sku": "SA-DCW2412GD",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SA-DCW2430GD",
+    "list": 535,
+    "cost": 187.25
+  },
+  {
+    "sku": "SA-DCW2436GD",
+    "list": 603,
+    "cost": 211.05
+  },
+  {
+    "sku": "SA-DCW2442GD",
+    "list": 706,
+    "cost": 247.1
+  },
+  {
+    "sku": "SA-DWR3",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SA-ERB33",
+    "list": 645,
+    "cost": 225.75
+  },
+  {
+    "sku": "SA-ERB36",
+    "list": 720,
+    "cost": 252
+  },
+  {
+    "sku": "SA-F342",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SA-F396",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SA-F642",
+    "list": 78,
+    "cost": 27.3
+  },
+  {
+    "sku": "SA-F696",
+    "list": 199,
+    "cost": 69.65
+  },
+  {
+    "sku": "SA-FLDL",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SA-FPV4296",
+    "list": 174,
+    "cost": 60.9
+  },
+  {
+    "sku": "SA-FS24",
+    "list": 191,
+    "cost": 66.85
+  },
+  {
+    "sku": "SA-FS30",
+    "list": 213,
+    "cost": 74.55
+  },
+  {
+    "sku": "SA-FS36",
+    "list": 246,
+    "cost": 86.1
+  },
+  {
+    "sku": "SA-LRM8",
+    "list": 171,
+    "cost": 59.85
+  },
+  {
+    "sku": "SA-MB30",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SA-MB33",
+    "list": 718,
+    "cost": 251.3
+  },
+  {
+    "sku": "SA-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "SA-MO3030",
+    "list": 587,
+    "cost": 205.45
+  },
+  {
+    "sku": "SA-MO3036",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SA-MO3042",
+    "list": 799,
+    "cost": 279.65
+  },
+  {
+    "sku": "SA-O308424",
+    "list": 1619,
+    "cost": 566.65
+  },
+  {
+    "sku": "SA-O309024",
+    "list": 1694,
+    "cost": 592.9
+  },
+  {
+    "sku": "SA-O309624",
+    "list": 1827,
+    "cost": 639.45
+  },
+  {
+    "sku": "SA-OCM8",
+    "list": 38,
+    "cost": 13.3
+  },
+  {
+    "sku": "SA-OE630",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SA-OE636",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SA-OE642",
+    "list": 170,
+    "cost": 59.5
+  },
+  {
+    "sku": "SA-PR3015",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SA-RCM4S(LCM)",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "SA-REPV2496",
+    "list": 240,
+    "cost": 84
+  },
+  {
+    "sku": "SA-REPV2796",
+    "list": 295,
+    "cost": 103.25
+  },
+  {
+    "sku": "SA-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SA-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SA-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SA-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "SA-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SA-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "SA-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SA-S2496",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SA-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "SA-SB27",
+    "list": 480,
+    "cost": 168
+  },
+  {
+    "sku": "SA-SB30",
+    "list": 526,
+    "cost": 184.1
+  },
+  {
+    "sku": "SA-SBF4242",
+    "list": 97,
+    "cost": 33.95
+  },
+  {
+    "sku": "SA-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "SA-SGH30",
+    "list": 132,
+    "cost": 46.2
+  },
+  {
+    "sku": "SA-SHM",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SA-SM8(SCR)",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "SA-SPB6",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SA-SPB9",
+    "list": 449,
+    "cost": 157.15
+  },
+  {
+    "sku": "SA-TKC",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SA-TUK",
+    "list": 15,
+    "cost": 5.25
+  },
+  {
+    "sku": "SA-USV2496",
+    "list": 108,
+    "cost": 37.8
+  },
+  {
+    "sku": "SA-V3321DL",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SA-V3321DR",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SA-VA30",
+    "list": 112,
+    "cost": 39.2
+  },
+  {
+    "sku": "SA-VA36",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SA-VA42",
+    "list": 152,
+    "cost": 53.2
+  },
+  {
+    "sku": "SA-VA48",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SA-VKD36",
+    "list": 182,
+    "cost": 63.7
+  },
+  {
+    "sku": "SA-VS30",
+    "list": 489,
+    "cost": 171.15
+  },
+  {
+    "sku": "SA-VSD36",
+    "list": 752,
+    "cost": 263.2
+  },
+  {
+    "sku": "SA-VSD42",
+    "list": 839,
+    "cost": 293.65
+  },
+  {
+    "sku": "SA-VSD48",
+    "list": 916,
+    "cost": 320.6
+  },
+  {
+    "sku": "SA-W1212GD",
+    "list": 119,
+    "cost": 41.65
+  },
+  {
+    "sku": "SA-W1512GD",
+    "list": 134,
+    "cost": 46.9
+  },
+  {
+    "sku": "SA-W1530GD",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "SA-W1536GD",
+    "list": 340,
+    "cost": 119
+  },
+  {
+    "sku": "SA-W1542GD",
+    "list": 390,
+    "cost": 136.5
+  },
+  {
+    "sku": "SA-W1812GD",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SA-W1830GD",
+    "list": 348,
+    "cost": 121.8
+  },
+  {
+    "sku": "SA-W1836GD",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "SA-W1842GD",
+    "list": 459,
+    "cost": 160.65
+  },
+  {
+    "sku": "SA-W2112GD",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SA-W2412GD",
+    "list": 206,
+    "cost": 72.1
+  },
+  {
+    "sku": "SA-W2418",
+    "list": 287,
+    "cost": 100.45
+  },
+  {
+    "sku": "SA-W2430GD",
+    "list": 443,
+    "cost": 155.05
+  },
+  {
+    "sku": "SA-W2436GD",
+    "list": 461,
+    "cost": 161.35
+  },
+  {
+    "sku": "SA-W2442GD",
+    "list": 589,
+    "cost": 206.15
+  },
+  {
+    "sku": "SA-W2712GD",
+    "list": 224,
+    "cost": 78.4
+  },
+  {
+    "sku": "SA-W3012GD",
+    "list": 282,
+    "cost": 98.7
+  },
+  {
+    "sku": "SA-W301824",
+    "list": 402,
+    "cost": 140.7
+  },
+  {
+    "sku": "SA-W3018GD",
+    "list": 354,
+    "cost": 123.9
+  },
+  {
+    "sku": "SA-W302424",
+    "list": 485,
+    "cost": 169.75
+  },
+  {
+    "sku": "SA-W3030GD",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SA-W3036GD",
+    "list": 613,
+    "cost": 214.55
+  },
+  {
+    "sku": "SA-W3042GD",
+    "list": 700,
+    "cost": 245
+  },
+  {
+    "sku": "SA-W3312",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SA-W3312GD",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "SA-W3315",
+    "list": 302,
+    "cost": 105.7
+  },
+  {
+    "sku": "SA-W3318",
+    "list": 332,
+    "cost": 116.2
+  },
+  {
+    "sku": "SA-W331824",
+    "list": 414,
+    "cost": 144.9
+  },
+  {
+    "sku": "SA-W3324",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SA-W332424",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SA-W3612GD",
+    "list": 317,
+    "cost": 110.95
+  },
+  {
+    "sku": "SA-W361824",
+    "list": 428,
+    "cost": 149.8
+  },
+  {
+    "sku": "SA-W362424",
+    "list": 560,
+    "cost": 196
+  },
+  {
+    "sku": "SA-W3930",
+    "list": 566,
+    "cost": 198.1
+  },
+  {
+    "sku": "SA-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "SA-WBC2430",
+    "list": 336,
+    "cost": 117.6
+  },
+  {
+    "sku": "SA-WBC2442",
+    "list": 456,
+    "cost": 159.6
+  },
+  {
+    "sku": "SA-WBC3630",
+    "list": 463,
+    "cost": 162.05
+  },
+  {
+    "sku": "SA-WBC3642",
+    "list": 619,
+    "cost": 216.65
+  },
+  {
+    "sku": "SA-WD1848",
+    "list": 552,
+    "cost": 193.2
+  },
+  {
+    "sku": "SA-WD1854",
+    "list": 605,
+    "cost": 211.75
+  },
+  {
+    "sku": "SA-WD1860",
+    "list": 652,
+    "cost": 228.2
+  },
+  {
+    "sku": "SA-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SA-WRC2430",
+    "list": 389,
+    "cost": 136.15
+  },
+  {
+    "sku": "SA-WRC3015",
+    "list": 357,
+    "cost": 124.95
+  },
+  {
+    "sku": "SA-WRC3018",
+    "list": 373,
+    "cost": 130.55
+  },
+  {
+    "sku": "SA-WSD630",
+    "list": 276,
+    "cost": 96.6
+  },
+  {
+    "sku": "SA-WSV24",
+    "list": 25,
+    "cost": 8.75
+  },
+  {
+    "sku": "SA-WSV30",
+    "list": 29,
+    "cost": 10.15
+  },
+  {
+    "sku": "SA-WSV36",
+    "list": 32,
+    "cost": 11.2
+  },
+  {
+    "sku": "SA-WSV42",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SB-3VDB12",
+    "list": 550,
+    "cost": 192.5
+  },
+  {
+    "sku": "SB-3VDB15",
+    "list": 599,
+    "cost": 209.65
+  },
+  {
+    "sku": "SB-3VDB18",
+    "list": 648,
+    "cost": 226.8
+  },
+  {
+    "sku": "SB-3VDB21",
+    "list": 687,
+    "cost": 240.45
+  },
+  {
+    "sku": "SB-3VDB24",
+    "list": 765,
+    "cost": 267.75
+  },
+  {
+    "sku": "SB-ACM8",
+    "list": 146,
+    "cost": 51.1
+  },
+  {
+    "sku": "SB-ALRM8",
+    "list": 226,
+    "cost": 79.1
+  },
+  {
+    "sku": "SB-AW1230",
+    "list": 261,
+    "cost": 91.35
+  },
+  {
+    "sku": "SB-AW1236",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SB-AW1242",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SB-B30",
+    "list": 717,
+    "cost": 250.95
+  },
+  {
+    "sku": "SB-BAM",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SB-BBC39",
+    "list": 615,
+    "cost": 215.25
+  },
+  {
+    "sku": "SB-BCM8(DCM)",
+    "list": 195,
+    "cost": 68.25
+  },
+  {
+    "sku": "SB-BDEP",
+    "list": 247,
+    "cost": 86.45
+  },
+  {
+    "sku": "SB-BES12",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SB-BFH12",
+    "list": 292,
+    "cost": 102.2
+  },
+  {
+    "sku": "SB-BFH15",
+    "list": 324,
+    "cost": 113.4
+  },
+  {
+    "sku": "SB-BFH18",
+    "list": 356,
+    "cost": 124.6
+  },
+  {
+    "sku": "SB-BFH21",
+    "list": 388,
+    "cost": 135.8
+  },
+  {
+    "sku": "SB-BFH24",
+    "list": 442,
+    "cost": 154.7
+  },
+  {
+    "sku": "SB-BFH27",
+    "list": 477,
+    "cost": 166.95
+  },
+  {
+    "sku": "SB-BFH30",
+    "list": 513,
+    "cost": 179.55
+  },
+  {
+    "sku": "SB-BFH33",
+    "list": 548,
+    "cost": 191.8
+  },
+  {
+    "sku": "SB-BFH36",
+    "list": 583,
+    "cost": 204.05
+  },
+  {
+    "sku": "SB-BSDC6",
+    "list": 408,
+    "cost": 142.8
+  },
+  {
+    "sku": "SB-BSV",
+    "list": 52,
+    "cost": 18.2
+  },
+  {
+    "sku": "SB-BT09",
+    "list": 289,
+    "cost": 101.15
+  },
+  {
+    "sku": "SB-BWB18",
+    "list": 614,
+    "cost": 214.9
+  },
+  {
+    "sku": "SB-CB9",
+    "list": 44,
+    "cost": 15.4
+  },
+  {
+    "sku": "SB-CBT",
+    "list": 188,
+    "cost": 65.8
+  },
+  {
+    "sku": "SB-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "SB-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "SB-CLDL",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SB-CM8",
+    "list": 158,
+    "cost": 55.3
+  },
+  {
+    "sku": "SB-COV",
+    "list": 242,
+    "cost": 84.7
+  },
+  {
+    "sku": "SB-CSB36",
+    "list": 638,
+    "cost": 223.3
+  },
+  {
+    "sku": "SB-DCW2412GD",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SB-DCW2430",
+    "list": 508,
+    "cost": 177.8
+  },
+  {
+    "sku": "SB-DCW2430GD",
+    "list": 535,
+    "cost": 187.25
+  },
+  {
+    "sku": "SB-DCW2436",
+    "list": 573,
+    "cost": 200.55
+  },
+  {
+    "sku": "SB-DCW2436GD",
+    "list": 603,
+    "cost": 211.05
+  },
+  {
+    "sku": "SB-DCW2442",
+    "list": 664,
+    "cost": 232.4
+  },
+  {
+    "sku": "SB-DCW2442GD",
+    "list": 706,
+    "cost": 247.1
+  },
+  {
+    "sku": "SB-DWR3",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SB-ERB33",
+    "list": 645,
+    "cost": 225.75
+  },
+  {
+    "sku": "SB-ERB36",
+    "list": 720,
+    "cost": 252
+  },
+  {
+    "sku": "SB-F342",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SB-F396",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SB-F642",
+    "list": 78,
+    "cost": 27.3
+  },
+  {
+    "sku": "SB-F696",
+    "list": 199,
+    "cost": 69.65
+  },
+  {
+    "sku": "SB-FBM",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SB-FLDL",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SB-FPV4296",
+    "list": 174,
+    "cost": 60.9
+  },
+  {
+    "sku": "SB-FS24",
+    "list": 191,
+    "cost": 66.85
+  },
+  {
+    "sku": "SB-FS30",
+    "list": 213,
+    "cost": 74.55
+  },
+  {
+    "sku": "SB-FS36",
+    "list": 246,
+    "cost": 86.1
+  },
+  {
+    "sku": "SB-LRM8",
+    "list": 171,
+    "cost": 59.85
+  },
+  {
+    "sku": "SB-MB30",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SB-MB33",
+    "list": 718,
+    "cost": 251.3
+  },
+  {
+    "sku": "SB-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "SB-MO3030",
+    "list": 587,
+    "cost": 205.45
+  },
+  {
+    "sku": "SB-MO3036",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SB-MO3042",
+    "list": 799,
+    "cost": 279.65
+  },
+  {
+    "sku": "SB-O308424",
+    "list": 1619,
+    "cost": 566.65
+  },
+  {
+    "sku": "SB-O309024",
+    "list": 1694,
+    "cost": 592.9
+  },
+  {
+    "sku": "SB-O309624",
+    "list": 1827,
+    "cost": 639.45
+  },
+  {
+    "sku": "SB-OCM8",
+    "list": 38,
+    "cost": 13.3
+  },
+  {
+    "sku": "SB-OE630",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SB-OE636",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SB-OE642",
+    "list": 170,
+    "cost": 59.5
+  },
+  {
+    "sku": "SB-PR3015",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SB-RCM4S(LCM)",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "SB-REPV2496",
+    "list": 240,
+    "cost": 84
+  },
+  {
+    "sku": "SB-REPV2796",
+    "list": 295,
+    "cost": 103.25
+  },
+  {
+    "sku": "SB-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SB-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SB-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SB-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "SB-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SB-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "SB-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SB-S2496",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SB-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "SB-SB27",
+    "list": 480,
+    "cost": 168
+  },
+  {
+    "sku": "SB-SB30",
+    "list": 526,
+    "cost": 184.1
+  },
+  {
+    "sku": "SB-SBF4242",
+    "list": 97,
+    "cost": 33.95
+  },
+  {
+    "sku": "SB-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "SB-SGH30",
+    "list": 132,
+    "cost": 46.2
+  },
+  {
+    "sku": "SB-SHM",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SB-SM8(SCR)",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "SB-SPB6",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SB-SPB9",
+    "list": 449,
+    "cost": 157.15
+  },
+  {
+    "sku": "SB-TDEP2484",
+    "list": 580,
+    "cost": 203
+  },
+  {
+    "sku": "SB-TDEP2490",
+    "list": 615,
+    "cost": 215.25
+  },
+  {
+    "sku": "SB-TDEP2496",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SB-TKC",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SB-TUK",
+    "list": 15,
+    "cost": 5.25
+  },
+  {
+    "sku": "SB-USV2496",
+    "list": 108,
+    "cost": 37.8
+  },
+  {
+    "sku": "SB-V3021DL",
+    "list": 795,
+    "cost": 278.25
+  },
+  {
+    "sku": "SB-V3021DR",
+    "list": 795,
+    "cost": 278.25
+  },
+  {
+    "sku": "SB-V3321DL",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SB-V3321DR",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SB-V3621DL",
+    "list": 848,
+    "cost": 296.8
+  },
+  {
+    "sku": "SB-V3621DR",
+    "list": 848,
+    "cost": 296.8
+  },
+  {
+    "sku": "SB-VA30",
+    "list": 112,
+    "cost": 39.2
+  },
+  {
+    "sku": "SB-VA36",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SB-VA42",
+    "list": 152,
+    "cost": 53.2
+  },
+  {
+    "sku": "SB-VA48",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SB-VDEP",
+    "list": 232,
+    "cost": 81.2
+  },
+  {
+    "sku": "SB-VKD36",
+    "list": 182,
+    "cost": 63.7
+  },
+  {
+    "sku": "SB-VS30",
+    "list": 489,
+    "cost": 171.15
+  },
+  {
+    "sku": "SB-VSD36",
+    "list": 752,
+    "cost": 263.2
+  },
+  {
+    "sku": "SB-VSD42",
+    "list": 839,
+    "cost": 293.65
+  },
+  {
+    "sku": "SB-VSD48",
+    "list": 916,
+    "cost": 320.6
+  },
+  {
+    "sku": "SB-W0942",
+    "list": 259,
+    "cost": 90.65
+  },
+  {
+    "sku": "SB-W1212GD",
+    "list": 119,
+    "cost": 41.65
+  },
+  {
+    "sku": "SB-W1242",
+    "list": 301,
+    "cost": 105.35
+  },
+  {
+    "sku": "SB-W1512GD",
+    "list": 134,
+    "cost": 46.9
+  },
+  {
+    "sku": "SB-W1530GD",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "SB-W1536GD",
+    "list": 340,
+    "cost": 119
+  },
+  {
+    "sku": "SB-W1542",
+    "list": 354,
+    "cost": 123.9
+  },
+  {
+    "sku": "SB-W1542GD",
+    "list": 390,
+    "cost": 136.5
+  },
+  {
+    "sku": "SB-W1812GD",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SB-W1830GD",
+    "list": 348,
+    "cost": 121.8
+  },
+  {
+    "sku": "SB-W1836GD",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "SB-W1842",
+    "list": 404,
+    "cost": 141.4
+  },
+  {
+    "sku": "SB-W1842GD",
+    "list": 459,
+    "cost": 160.65
+  },
+  {
+    "sku": "SB-W2112GD",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SB-W2142",
+    "list": 443,
+    "cost": 155.05
+  },
+  {
+    "sku": "SB-W2412GD",
+    "list": 206,
+    "cost": 72.1
+  },
+  {
+    "sku": "SB-W2418",
+    "list": 287,
+    "cost": 100.45
+  },
+  {
+    "sku": "SB-W2430GD",
+    "list": 443,
+    "cost": 155.05
+  },
+  {
+    "sku": "SB-W2436",
+    "list": 462,
+    "cost": 161.7
+  },
+  {
+    "sku": "SB-W2436GD",
+    "list": 461,
+    "cost": 161.35
+  },
+  {
+    "sku": "SB-W2442",
+    "list": 539,
+    "cost": 188.65
+  },
+  {
+    "sku": "SB-W2442GD",
+    "list": 589,
+    "cost": 206.15
+  },
+  {
+    "sku": "SB-W2712GD",
+    "list": 224,
+    "cost": 78.4
+  },
+  {
+    "sku": "SB-W2736",
+    "list": 498,
+    "cost": 174.3
+  },
+  {
+    "sku": "SB-W2742",
+    "list": 555,
+    "cost": 194.25
+  },
+  {
+    "sku": "SB-W3012",
+    "list": 261,
+    "cost": 91.35
+  },
+  {
+    "sku": "SB-W301224",
+    "list": 332,
+    "cost": 116.2
+  },
+  {
+    "sku": "SB-W3012GD",
+    "list": 282,
+    "cost": 98.7
+  },
+  {
+    "sku": "SB-W3015",
+    "list": 293,
+    "cost": 102.55
+  },
+  {
+    "sku": "SB-W301524",
+    "list": 360,
+    "cost": 126
+  },
+  {
+    "sku": "SB-W3018",
+    "list": 322,
+    "cost": 112.7
+  },
+  {
+    "sku": "SB-W301824",
+    "list": 402,
+    "cost": 140.7
+  },
+  {
+    "sku": "SB-W3018GD",
+    "list": 354,
+    "cost": 123.9
+  },
+  {
+    "sku": "SB-W3024",
+    "list": 388,
+    "cost": 135.8
+  },
+  {
+    "sku": "SB-W302424",
+    "list": 485,
+    "cost": 169.75
+  },
+  {
+    "sku": "SB-W3030GD",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SB-W3036",
+    "list": 545,
+    "cost": 190.75
+  },
+  {
+    "sku": "SB-W3036GD",
+    "list": 613,
+    "cost": 214.55
+  },
+  {
+    "sku": "SB-W3042",
+    "list": 632,
+    "cost": 221.2
+  },
+  {
+    "sku": "SB-W3042GD",
+    "list": 700,
+    "cost": 245
+  },
+  {
+    "sku": "SB-W3312",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SB-W331224",
+    "list": 351,
+    "cost": 122.85
+  },
+  {
+    "sku": "SB-W3312GD",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "SB-W3315",
+    "list": 302,
+    "cost": 105.7
+  },
+  {
+    "sku": "SB-W331524",
+    "list": 380,
+    "cost": 133
+  },
+  {
+    "sku": "SB-W3318",
+    "list": 332,
+    "cost": 116.2
+  },
+  {
+    "sku": "SB-W331824",
+    "list": 414,
+    "cost": 144.9
+  },
+  {
+    "sku": "SB-W3324",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SB-W332424",
+    "list": 525,
+    "cost": 183.75
+  },
+  {
+    "sku": "SB-W3336",
+    "list": 591,
+    "cost": 206.85
+  },
+  {
+    "sku": "SB-W3342",
+    "list": 674,
+    "cost": 235.9
+  },
+  {
+    "sku": "SB-W3612",
+    "list": 290,
+    "cost": 101.5
+  },
+  {
+    "sku": "SB-W361224",
+    "list": 368,
+    "cost": 128.8
+  },
+  {
+    "sku": "SB-W3612GD",
+    "list": 317,
+    "cost": 110.95
+  },
+  {
+    "sku": "SB-W3615",
+    "list": 312,
+    "cost": 109.2
+  },
+  {
+    "sku": "SB-W361524",
+    "list": 393,
+    "cost": 137.55
+  },
+  {
+    "sku": "SB-W3618",
+    "list": 349,
+    "cost": 122.15
+  },
+  {
+    "sku": "SB-W361824",
+    "list": 428,
+    "cost": 149.8
+  },
+  {
+    "sku": "SB-W3624",
+    "list": 455,
+    "cost": 159.25
+  },
+  {
+    "sku": "SB-W362424",
+    "list": 560,
+    "cost": 196
+  },
+  {
+    "sku": "SB-W3636",
+    "list": 631,
+    "cost": 220.85
+  },
+  {
+    "sku": "SB-W3642",
+    "list": 722,
+    "cost": 252.7
+  },
+  {
+    "sku": "SB-W3930",
+    "list": 566,
+    "cost": 198.1
+  },
+  {
+    "sku": "SB-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "SB-WBC2430",
+    "list": 336,
+    "cost": 117.6
+  },
+  {
+    "sku": "SB-WBC2442",
+    "list": 456,
+    "cost": 159.6
+  },
+  {
+    "sku": "SB-WBC2730",
+    "list": 364,
+    "cost": 127.4
+  },
+  {
+    "sku": "SB-WBC2736",
+    "list": 413,
+    "cost": 144.55
+  },
+  {
+    "sku": "SB-WBC2742",
+    "list": 483,
+    "cost": 169.05
+  },
+  {
+    "sku": "SB-WBC3630",
+    "list": 463,
+    "cost": 162.05
+  },
+  {
+    "sku": "SB-WBC3642",
+    "list": 619,
+    "cost": 216.65
+  },
+  {
+    "sku": "SB-WD1848",
+    "list": 552,
+    "cost": 193.2
+  },
+  {
+    "sku": "SB-WD1854",
+    "list": 605,
+    "cost": 211.75
+  },
+  {
+    "sku": "SB-WD1860",
+    "list": 652,
+    "cost": 228.2
+  },
+  {
+    "sku": "SB-WDEP30",
+    "list": 110,
+    "cost": 38.5
+  },
+  {
+    "sku": "SB-WDEP36",
+    "list": 128,
+    "cost": 44.8
+  },
+  {
+    "sku": "SB-WDEP42",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SB-WER2430",
+    "list": 503,
+    "cost": 176.05
+  },
+  {
+    "sku": "SB-WER2436",
+    "list": 604,
+    "cost": 211.4
+  },
+  {
+    "sku": "SB-WER2442",
+    "list": 708,
+    "cost": 247.8
+  },
+  {
+    "sku": "SB-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SB-WRC2430",
+    "list": 389,
+    "cost": 136.15
+  },
+  {
+    "sku": "SB-WRC3015",
+    "list": 357,
+    "cost": 124.95
+  },
+  {
+    "sku": "SB-WRC3018",
+    "list": 373,
+    "cost": 130.55
+  },
+  {
+    "sku": "SB-WSD630",
+    "list": 276,
+    "cost": 96.6
+  },
+  {
+    "sku": "SB-WSV24",
+    "list": 25,
+    "cost": 8.75
+  },
+  {
+    "sku": "SB-WSV30",
+    "list": 29,
+    "cost": 10.15
+  },
+  {
+    "sku": "SB-WSV36",
+    "list": 32,
+    "cost": 11.2
+  },
+  {
+    "sku": "SB-WSV42",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SD-3VDB12",
+    "list": 550,
+    "cost": 192.5
+  },
+  {
+    "sku": "SD-3VDB15",
+    "list": 599,
+    "cost": 209.65
+  },
+  {
+    "sku": "SD-3VDB18",
+    "list": 648,
+    "cost": 226.8
+  },
+  {
+    "sku": "SD-3VDB21",
+    "list": 687,
+    "cost": 240.45
+  },
+  {
+    "sku": "SD-3VDB24",
+    "list": 765,
+    "cost": 267.75
+  },
+  {
+    "sku": "SD-ACM8",
+    "list": 146,
+    "cost": 51.1
+  },
+  {
+    "sku": "SD-ALRM8",
+    "list": 226,
+    "cost": 79.1
+  },
+  {
+    "sku": "SD-BAM",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SD-BBC39",
+    "list": 615,
+    "cost": 215.25
+  },
+  {
+    "sku": "SD-BCM8(DCM)",
+    "list": 195,
+    "cost": 68.25
+  },
+  {
+    "sku": "SD-BEC24",
+    "list": 478,
+    "cost": 167.3
+  },
+  {
+    "sku": "SD-BES12",
+    "list": 306,
+    "cost": 107.1
+  },
+  {
+    "sku": "SD-BFH12",
+    "list": 292,
+    "cost": 102.2
+  },
+  {
+    "sku": "SD-BFH15",
+    "list": 324,
+    "cost": 113.4
+  },
+  {
+    "sku": "SD-BFH18",
+    "list": 356,
+    "cost": 124.6
+  },
+  {
+    "sku": "SD-BFH21",
+    "list": 388,
+    "cost": 135.8
+  },
+  {
+    "sku": "SD-BFH24",
+    "list": 442,
+    "cost": 154.7
+  },
+  {
+    "sku": "SD-BFH27",
+    "list": 477,
+    "cost": 166.95
+  },
+  {
+    "sku": "SD-BFH30",
+    "list": 513,
+    "cost": 179.55
+  },
+  {
+    "sku": "SD-BFH33",
+    "list": 548,
+    "cost": 191.8
+  },
+  {
+    "sku": "SD-BFH36",
+    "list": 583,
+    "cost": 204.05
+  },
+  {
+    "sku": "SD-BSDC6",
+    "list": 408,
+    "cost": 142.8
+  },
+  {
+    "sku": "SD-BSV",
+    "list": 52,
+    "cost": 18.2
+  },
+  {
+    "sku": "SD-BT09",
+    "list": 289,
+    "cost": 101.15
+  },
+  {
+    "sku": "SD-BWB18",
+    "list": 614,
+    "cost": 214.9
+  },
+  {
+    "sku": "SD-CB9",
+    "list": 44,
+    "cost": 15.4
+  },
+  {
+    "sku": "SD-CBT",
+    "list": 188,
+    "cost": 65.8
+  },
+  {
+    "sku": "SD-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "SD-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "SD-CLDL",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SD-CM8",
+    "list": 158,
+    "cost": 55.3
+  },
+  {
+    "sku": "SD-COV",
+    "list": 242,
+    "cost": 84.7
+  },
+  {
+    "sku": "SD-CSB36",
+    "list": 638,
+    "cost": 223.3
+  },
+  {
+    "sku": "SD-DFB18",
+    "list": 520,
+    "cost": 182
+  },
+  {
+    "sku": "SD-DWR3",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SD-ERB33",
+    "list": 645,
+    "cost": 225.75
+  },
+  {
+    "sku": "SD-ERB36",
+    "list": 720,
+    "cost": 252
+  },
+  {
+    "sku": "SD-F342",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SD-F396",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SD-F642",
+    "list": 78,
+    "cost": 27.3
+  },
+  {
+    "sku": "SD-F696",
+    "list": 199,
+    "cost": 69.65
+  },
+  {
+    "sku": "SD-FBM",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SD-FLDL",
+    "list": 283,
+    "cost": 99.05
+  },
+  {
+    "sku": "SD-FPV4296",
+    "list": 174,
+    "cost": 60.9
+  },
+  {
+    "sku": "SD-FS24",
+    "list": 191,
+    "cost": 66.85
+  },
+  {
+    "sku": "SD-FS30",
+    "list": 213,
+    "cost": 74.55
+  },
+  {
+    "sku": "SD-FS36",
+    "list": 246,
+    "cost": 86.1
+  },
+  {
+    "sku": "SD-LRM8",
+    "list": 171,
+    "cost": 59.85
+  },
+  {
+    "sku": "SD-MB30",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SD-MB33",
+    "list": 718,
+    "cost": 251.3
+  },
+  {
+    "sku": "SD-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "SD-MO3030",
+    "list": 587,
+    "cost": 205.45
+  },
+  {
+    "sku": "SD-MO3036",
+    "list": 679,
+    "cost": 237.65
+  },
+  {
+    "sku": "SD-MO3042",
+    "list": 799,
+    "cost": 279.65
+  },
+  {
+    "sku": "SD-O308424",
+    "list": 1619,
+    "cost": 566.65
+  },
+  {
+    "sku": "SD-O309024",
+    "list": 1694,
+    "cost": 592.9
+  },
+  {
+    "sku": "SD-O309624",
+    "list": 1827,
+    "cost": 639.45
+  },
+  {
+    "sku": "SD-OCM8",
+    "list": 38,
+    "cost": 13.3
+  },
+  {
+    "sku": "SD-OE630",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "SD-OE636",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "SD-OE642",
+    "list": 170,
+    "cost": 59.5
+  },
+  {
+    "sku": "SD-PR3015",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SD-RCM4S(LCM)",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "SD-REPV2496",
+    "list": 240,
+    "cost": 84
+  },
+  {
+    "sku": "SD-REPV2796",
+    "list": 295,
+    "cost": 103.25
+  },
+  {
+    "sku": "SD-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "SD-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "SD-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "SD-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "SD-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SD-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "SD-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "SD-S2496",
+    "list": 235,
+    "cost": 82.25
+  },
+  {
+    "sku": "SD-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "SD-SB27",
+    "list": 480,
+    "cost": 168
+  },
+  {
+    "sku": "SD-SBF4242",
+    "list": 97,
+    "cost": 33.95
+  },
+  {
+    "sku": "SD-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "SD-SGH30",
+    "list": 132,
+    "cost": 46.2
+  },
+  {
+    "sku": "SD-SHM",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "SD-SM8(SCR)",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "SD-SPB6",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SD-SPB9",
+    "list": 449,
+    "cost": 157.15
+  },
+  {
+    "sku": "SD-TKC",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "SD-TUK",
+    "list": 15,
+    "cost": 5.25
+  },
+  {
+    "sku": "SD-USV2496",
+    "list": 108,
+    "cost": 37.8
+  },
+  {
+    "sku": "SD-V3021DL",
+    "list": 795,
+    "cost": 278.25
+  },
+  {
+    "sku": "SD-V3021DR",
+    "list": 795,
+    "cost": 278.25
+  },
+  {
+    "sku": "SD-V3321DL",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SD-V3321DR",
+    "list": 825,
+    "cost": 288.75
+  },
+  {
+    "sku": "SD-V3621DL",
+    "list": 848,
+    "cost": 296.8
+  },
+  {
+    "sku": "SD-V3621DR",
+    "list": 848,
+    "cost": 296.8
+  },
+  {
+    "sku": "SD-VA30",
+    "list": 112,
+    "cost": 39.2
+  },
+  {
+    "sku": "SD-VA36",
+    "list": 131,
+    "cost": 45.85
+  },
+  {
+    "sku": "SD-VA42",
+    "list": 152,
+    "cost": 53.2
+  },
+  {
+    "sku": "SD-VA48",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "SD-VKD36",
+    "list": 182,
+    "cost": 63.7
+  },
+  {
+    "sku": "SD-VS30",
+    "list": 489,
+    "cost": 171.15
+  },
+  {
+    "sku": "SD-VSD36",
+    "list": 752,
+    "cost": 263.2
+  },
+  {
+    "sku": "SD-VSD42",
+    "list": 839,
+    "cost": 293.65
+  },
+  {
+    "sku": "SD-VSD48",
+    "list": 916,
+    "cost": 320.6
+  },
+  {
+    "sku": "SD-W1830GD",
+    "list": 348,
+    "cost": 121.8
+  },
+  {
+    "sku": "SD-W1836GD",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "SD-W1842GD",
+    "list": 459,
+    "cost": 160.65
+  },
+  {
+    "sku": "SD-W2418",
+    "list": 287,
+    "cost": 100.45
+  },
+  {
+    "sku": "SD-W3312",
+    "list": 274,
+    "cost": 95.9
+  },
+  {
+    "sku": "SD-W3315",
+    "list": 302,
+    "cost": 105.7
+  },
+  {
+    "sku": "SD-W3318",
+    "list": 332,
+    "cost": 116.2
+  },
+  {
+    "sku": "SD-W3324",
+    "list": 396,
+    "cost": 138.6
+  },
+  {
+    "sku": "SD-W3930",
+    "list": 566,
+    "cost": 198.1
+  },
+  {
+    "sku": "SD-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "SD-WBC2430",
+    "list": 336,
+    "cost": 117.6
+  },
+  {
+    "sku": "SD-WBC2442",
+    "list": 456,
+    "cost": 159.6
+  },
+  {
+    "sku": "SD-WBC3630",
+    "list": 463,
+    "cost": 162.05
+  },
+  {
+    "sku": "SD-WBC3642",
+    "list": 619,
+    "cost": 216.65
+  },
+  {
+    "sku": "SD-WD1848",
+    "list": 552,
+    "cost": 193.2
+  },
+  {
+    "sku": "SD-WD1854",
+    "list": 605,
+    "cost": 211.75
+  },
+  {
+    "sku": "SD-WD1860",
+    "list": 652,
+    "cost": 228.2
+  },
+  {
+    "sku": "SD-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "SD-WRC2430",
+    "list": 389,
+    "cost": 136.15
+  },
+  {
+    "sku": "SD-WRC3015",
+    "list": 357,
+    "cost": 124.95
+  },
+  {
+    "sku": "SD-WRC3018",
+    "list": 373,
+    "cost": 130.55
+  },
+  {
+    "sku": "SD-WSD630",
+    "list": 276,
+    "cost": 96.6
+  },
+  {
+    "sku": "SD-WSV24",
+    "list": 25,
+    "cost": 8.75
+  },
+  {
+    "sku": "SD-WSV30",
+    "list": 29,
+    "cost": 10.15
+  },
+  {
+    "sku": "SD-WSV36",
+    "list": 32,
+    "cost": 11.2
+  },
+  {
+    "sku": "SD-WSV42",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "CW-3VDB21",
+    "list": 722,
+    "cost": 252.7
+  },
+  {
+    "sku": "CW-ACM8",
+    "list": 154,
+    "cost": 53.9
+  },
+  {
+    "sku": "CW-ALRM8",
+    "list": 238,
+    "cost": 83.3
+  },
+  {
+    "sku": "CW-B30",
+    "list": 749,
+    "cost": 262.15
+  },
+  {
+    "sku": "CW-BAM",
+    "list": 43,
+    "cost": 15.05
+  },
+  {
+    "sku": "CW-BBC39",
+    "list": 648,
+    "cost": 226.8
+  },
+  {
+    "sku": "CW-BCM8(DCM)",
+    "list": 204,
+    "cost": 71.4
+  },
+  {
+    "sku": "CW-BES12",
+    "list": 322,
+    "cost": 112.7
+  },
+  {
+    "sku": "CW-BFH12",
+    "list": 305,
+    "cost": 106.75
+  },
+  {
+    "sku": "CW-BFH15",
+    "list": 338,
+    "cost": 118.3
+  },
+  {
+    "sku": "CW-BFH18",
+    "list": 372,
+    "cost": 130.2
+  },
+  {
+    "sku": "CW-BFH21",
+    "list": 408,
+    "cost": 142.8
+  },
+  {
+    "sku": "CW-BFH24",
+    "list": 464,
+    "cost": 162.4
+  },
+  {
+    "sku": "CW-BFH27",
+    "list": 501,
+    "cost": 175.35
+  },
+  {
+    "sku": "CW-BFH30",
+    "list": 538,
+    "cost": 188.3
+  },
+  {
+    "sku": "CW-BFH33",
+    "list": 572,
+    "cost": 200.2
+  },
+  {
+    "sku": "CW-BFH36",
+    "list": 611,
+    "cost": 213.85
+  },
+  {
+    "sku": "CW-BSDC6",
+    "list": 423,
+    "cost": 148.05
+  },
+  {
+    "sku": "CW-BSV",
+    "list": 57,
+    "cost": 19.95
+  },
+  {
+    "sku": "CW-BT09",
+    "list": 301,
+    "cost": 105.35
+  },
+  {
+    "sku": "CW-BWB18",
+    "list": 641,
+    "cost": 224.35
+  },
+  {
+    "sku": "CW-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "CW-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "CW-COV",
+    "list": 256,
+    "cost": 89.6
+  },
+  {
+    "sku": "CW-CSB36",
+    "list": 672,
+    "cost": 235.2
+  },
+  {
+    "sku": "CW-DCW2712GD",
+    "list": 262,
+    "cost": 91.7
+  },
+  {
+    "sku": "CW-DCW2736",
+    "list": 633,
+    "cost": 221.55
+  },
+  {
+    "sku": "CW-DCW2742",
+    "list": 762,
+    "cost": 266.7
+  },
+  {
+    "sku": "CW-DWR3",
+    "list": 146,
+    "cost": 51.1
+  },
+  {
+    "sku": "CW-ERB33",
+    "list": 681,
+    "cost": 238.35
+  },
+  {
+    "sku": "CW-ERB36",
+    "list": 758,
+    "cost": 265.3
+  },
+  {
+    "sku": "CW-F342",
+    "list": 43,
+    "cost": 15.05
+  },
+  {
+    "sku": "CW-F396",
+    "list": 142,
+    "cost": 49.7
+  },
+  {
+    "sku": "CW-F642",
+    "list": 84,
+    "cost": 29.4
+  },
+  {
+    "sku": "CW-F696",
+    "list": 211,
+    "cost": 73.85
+  },
+  {
+    "sku": "CW-FLDL",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "CW-FPV4296",
+    "list": 183,
+    "cost": 64.05
+  },
+  {
+    "sku": "CW-FS24",
+    "list": 200,
+    "cost": 70
+  },
+  {
+    "sku": "CW-FS30",
+    "list": 224,
+    "cost": 78.4
+  },
+  {
+    "sku": "CW-FS36",
+    "list": 259,
+    "cost": 90.65
+  },
+  {
+    "sku": "CW-LRM8",
+    "list": 181,
+    "cost": 63.35
+  },
+  {
+    "sku": "CW-MB30",
+    "list": 693,
+    "cost": 242.55
+  },
+  {
+    "sku": "CW-MB33",
+    "list": 745,
+    "cost": 260.75
+  },
+  {
+    "sku": "CW-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "CW-MO3030",
+    "list": 617,
+    "cost": 215.95
+  },
+  {
+    "sku": "CW-MO3036",
+    "list": 714,
+    "cost": 249.9
+  },
+  {
+    "sku": "CW-MO3042",
+    "list": 842,
+    "cost": 294.7
+  },
+  {
+    "sku": "CW-O308424",
+    "list": 1630,
+    "cost": 570.5
+  },
+  {
+    "sku": "CW-O309024",
+    "list": 1770,
+    "cost": 619.5
+  },
+  {
+    "sku": "CW-O309624",
+    "list": 1922,
+    "cost": 672.7
+  },
+  {
+    "sku": "CW-OCM8",
+    "list": 39,
+    "cost": 13.65
+  },
+  {
+    "sku": "CW-OE630",
+    "list": 146,
+    "cost": 51.1
+  },
+  {
+    "sku": "CW-OE636",
+    "list": 161,
+    "cost": 56.35
+  },
+  {
+    "sku": "CW-OE642",
+    "list": 178,
+    "cost": 62.3
+  },
+  {
+    "sku": "CW-PR3015",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "CW-RCM4S(LCM)",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "CW-REPV2496",
+    "list": 256,
+    "cost": 89.6
+  },
+  {
+    "sku": "CW-REPV2796",
+    "list": 314,
+    "cost": 109.9
+  },
+  {
+    "sku": "CW-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "CW-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "CW-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "CW-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "CW-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "CW-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "CW-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "CW-S2496",
+    "list": 247,
+    "cost": 86.45
+  },
+  {
+    "sku": "CW-SB15MINI",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "CW-SB27",
+    "list": 503,
+    "cost": 176.05
+  },
+  {
+    "sku": "CW-SB30",
+    "list": 552,
+    "cost": 193.2
+  },
+  {
+    "sku": "CW-SBF4242",
+    "list": 103,
+    "cost": 36.05
+  },
+  {
+    "sku": "CW-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "CW-SGH30",
+    "list": 140,
+    "cost": 49
+  },
+  {
+    "sku": "CW-SHM",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "CW-SM8(SCR)",
+    "list": 39,
+    "cost": 13.65
+  },
+  {
+    "sku": "CW-SPB6",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "CW-SPB9",
+    "list": 472,
+    "cost": 165.2
+  },
+  {
+    "sku": "CW-TKC",
+    "list": 43,
+    "cost": 15.05
+  },
+  {
+    "sku": "CW-TUK",
+    "list": 24,
+    "cost": 8.4
+  },
+  {
+    "sku": "CW-USV2496",
+    "list": 114,
+    "cost": 39.9
+  },
+  {
+    "sku": "CW-V3321DL",
+    "list": 867,
+    "cost": 303.45
+  },
+  {
+    "sku": "CW-V3321DR",
+    "list": 867,
+    "cost": 303.45
+  },
+  {
+    "sku": "CW-VA30",
+    "list": 115,
+    "cost": 40.25
+  },
+  {
+    "sku": "CW-VA36",
+    "list": 134,
+    "cost": 46.9
+  },
+  {
+    "sku": "CW-VA42",
+    "list": 158,
+    "cost": 55.3
+  },
+  {
+    "sku": "CW-VA48",
+    "list": 171,
+    "cost": 59.85
+  },
+  {
+    "sku": "CW-W1830GD",
+    "list": 366,
+    "cost": 128.1
+  },
+  {
+    "sku": "CW-W1836GD",
+    "list": 422,
+    "cost": 147.7
+  },
+  {
+    "sku": "CW-W1842GD",
+    "list": 483,
+    "cost": 169.05
+  },
+  {
+    "sku": "CW-W2418",
+    "list": 331,
+    "cost": 115.85
+  },
+  {
+    "sku": "CW-W3312",
+    "list": 288,
+    "cost": 100.8
+  },
+  {
+    "sku": "CW-W3315",
+    "list": 317,
+    "cost": 110.95
+  },
+  {
+    "sku": "CW-W3318",
+    "list": 349,
+    "cost": 122.15
+  },
+  {
+    "sku": "CW-W3324",
+    "list": 416,
+    "cost": 145.6
+  },
+  {
+    "sku": "CW-W3930",
+    "list": 592,
+    "cost": 207.2
+  },
+  {
+    "sku": "CW-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "CW-WBC2430",
+    "list": 356,
+    "cost": 124.6
+  },
+  {
+    "sku": "CW-WBC2442",
+    "list": 479,
+    "cost": 167.65
+  },
+  {
+    "sku": "CW-WBC3630",
+    "list": 488,
+    "cost": 170.8
+  },
+  {
+    "sku": "CW-WBC3642",
+    "list": 653,
+    "cost": 228.55
+  },
+  {
+    "sku": "CW-WD1848",
+    "list": 580,
+    "cost": 203
+  },
+  {
+    "sku": "CW-WD1854",
+    "list": 636,
+    "cost": 222.6
+  },
+  {
+    "sku": "CW-WD1860",
+    "list": 685,
+    "cost": 239.75
+  },
+  {
+    "sku": "CW-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "CW-WRC2430",
+    "list": 405,
+    "cost": 141.75
+  },
+  {
+    "sku": "CW-WRC3015",
+    "list": 373,
+    "cost": 130.55
+  },
+  {
+    "sku": "CW-WRC3018",
+    "list": 390,
+    "cost": 136.5
+  },
+  {
+    "sku": "CW-WSD630",
+    "list": 288,
+    "cost": 100.8
+  },
+  {
+    "sku": "CW-WSV42",
+    "list": 37,
+    "cost": 12.95
+  },
+  {
+    "sku": "OS-B30",
+    "list": 793,
+    "cost": 277.55
+  },
+  {
+    "sku": "OS-B39",
+    "list": 934,
+    "cost": 326.9
+  },
+  {
+    "sku": "OS-BBC39",
+    "list": 694,
+    "cost": 242.9
+  },
+  {
+    "sku": "OS-PWB-BBC45 Tray",
+    "list": 486,
+    "cost": 170.1
+  },
+  {
+    "sku": "OS-BWB18",
+    "list": 898,
+    "cost": 314.3
+  },
+  {
+    "sku": "OS-CHROME TRAY33",
+    "list": 155,
+    "cost": 54.25
+  },
+  {
+    "sku": "OS-CHROME TRAY36",
+    "list": 173,
+    "cost": 60.55
+  },
+  {
+    "sku": "OS-DWR3",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "OS-ERB33",
+    "list": 751,
+    "cost": 262.85
+  },
+  {
+    "sku": "OS-ERB36",
+    "list": 831,
+    "cost": 290.85
+  },
+  {
+    "sku": "OS-F342",
+    "list": 44,
+    "cost": 15.4
+  },
+  {
+    "sku": "OS-F396",
+    "list": 91,
+    "cost": 31.85
+  },
+  {
+    "sku": "OS-F642",
+    "list": 67,
+    "cost": 23.45
+  },
+  {
+    "sku": "OS-F696",
+    "list": 148,
+    "cost": 51.8
+  },
+  {
+    "sku": "OS-FHB09",
+    "list": 348,
+    "cost": 121.8
+  },
+  {
+    "sku": "OS-FHB18",
+    "list": 440,
+    "cost": 154
+  },
+  {
+    "sku": "OS-FHB24",
+    "list": 559,
+    "cost": 195.65
+  },
+  {
+    "sku": "OS-FHB30",
+    "list": 651,
+    "cost": 227.85
+  },
+  {
+    "sku": "OS-FHB36",
+    "list": 723,
+    "cost": 253.05
+  },
+  {
+    "sku": "OS-FPL2496",
+    "list": 435,
+    "cost": 152.25
+  },
+  {
+    "sku": "OS-FPL3796",
+    "list": 667,
+    "cost": 233.45
+  },
+  {
+    "sku": "OS-MB30",
+    "list": 778,
+    "cost": 272.3
+  },
+  {
+    "sku": "OS-MINI",
+    "list": 100,
+    "cost": 35
+  },
+  {
+    "sku": "OS-O308424",
+    "list": 1923,
+    "cost": 673.05
+  },
+  {
+    "sku": "OS-O309024",
+    "list": 1933,
+    "cost": 676.55
+  },
+  {
+    "sku": "OS-O309624",
+    "list": 2073,
+    "cost": 725.55
+  },
+  {
+    "sku": "OS-OCM8",
+    "list": 42,
+    "cost": 14.7
+  },
+  {
+    "sku": "OS-PWB-MOS3018",
+    "list": 188,
+    "cost": 65.8
+  },
+  {
+    "sku": "OS-REPV2496",
+    "list": 286,
+    "cost": 100.1
+  },
+  {
+    "sku": "OS-REPV2796",
+    "list": 323,
+    "cost": 113.05
+  },
+  {
+    "sku": "OS-RS18",
+    "list": 133,
+    "cost": 46.55
+  },
+  {
+    "sku": "OS-RS21",
+    "list": 144,
+    "cost": 50.4
+  },
+  {
+    "sku": "OS-RS24",
+    "list": 153,
+    "cost": 53.55
+  },
+  {
+    "sku": "OS-RS27",
+    "list": 159,
+    "cost": 55.65
+  },
+  {
+    "sku": "OS-RS30",
+    "list": 169,
+    "cost": 59.15
+  },
+  {
+    "sku": "OS-RS33",
+    "list": 175,
+    "cost": 61.25
+  },
+  {
+    "sku": "OS-RS36",
+    "list": 185,
+    "cost": 64.75
+  },
+  {
+    "sku": "OS-SB27",
+    "list": 518,
+    "cost": 181.3
+  },
+  {
+    "sku": "OS-SB30",
+    "list": 567,
+    "cost": 198.45
+  },
+  {
+    "sku": "OS-SB42",
+    "list": 814,
+    "cost": 284.9
+  },
+  {
+    "sku": "OS-SD",
+    "list": 0,
+    "cost": 0
+  },
+  {
+    "sku": "OS-SHM",
+    "list": 35,
+    "cost": 12.25
+  },
+  {
+    "sku": "OS-SM8(SCR)",
+    "list": 40,
+    "cost": 14
+  },
+  {
+    "sku": "OS-TKC",
+    "list": 50,
+    "cost": 17.5
+  },
+  {
+    "sku": "OS-TUK",
+    "list": 15,
+    "cost": 5.25
+  },
+  {
+    "sku": "OS-V30TDL",
+    "list": 801,
+    "cost": 280.35
+  },
+  {
+    "sku": "OS-V30TDR",
+    "list": 801,
+    "cost": 280.35
+  },
+  {
+    "sku": "OS-V36TDL",
+    "list": 853,
+    "cost": 298.55
+  },
+  {
+    "sku": "OS-V36TDR",
+    "list": 853,
+    "cost": 298.55
+  },
+  {
+    "sku": "OS-VS30",
+    "list": 497,
+    "cost": 173.95
+  },
+  {
+    "sku": "OS-W3312",
+    "list": 299,
+    "cost": 104.65
+  },
+  {
+    "sku": "OS-W3315",
+    "list": 328,
+    "cost": 114.8
+  },
+  {
+    "sku": "OS-W3318",
+    "list": 354,
+    "cost": 123.9
+  },
+  {
+    "sku": "OS-W3324",
+    "list": 421,
+    "cost": 147.35
+  },
+  {
+    "sku": "OS-Waste Bin",
+    "list": 21,
+    "cost": 7.35
+  },
+  {
+    "sku": "OS-WOOD TRAY",
+    "list": 169,
+    "cost": 59.15
+  }
+]

@@ -225,6 +225,9 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   status: mysqlEnum("status", ["approved", "pending", "rejected"]).default("approved").notNull(),
   // PO-only fields (internal; never shown to customers)
   supplierCabinetName: varchar("supplierCabinetName", { length: 255 }), // distributor's own cabinet name on the PO
+  // Warehouse availability: which distributor warehouses stock this SKU, e.g. ["Orlando", "Atlanta", "Dallas"]
+  // null = available from all warehouses (default); empty array = not stocked anywhere
+  availableWarehouses: json("availableWarehouses").$type<string[]>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
