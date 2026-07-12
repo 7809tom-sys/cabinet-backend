@@ -4268,12 +4268,12 @@ export default function DesignTool() {
 
         {/* Wall cabinet height selector: 30/36/42 toggle */}
         <div className="hidden lg:flex items-center gap-1.5">
-          <span className="text-[11px] font-medium text-muted-foreground">{t("dt_wall_height_label")}</span>
           <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
             {([30, 36, 42] as const).map((h) => (
               <button
                 key={h}
                 onClick={() => { setWallCabHeight(h); wallCabHeightRef.current = h; wallCabHeightPromptedRef.current = true; }}
+                title={`Wall cabinet height: ${h}"`}
                 className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
                   wallCabHeight === h ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -4290,7 +4290,6 @@ export default function DesignTool() {
             can be dragged on the canvas to resize the room on that side.
             Desktop-only — on mobile these live in the "More" menu to save space. */}
         <div className="hidden lg:flex items-center gap-1.5">
-          <span className="text-[11px] font-medium text-muted-foreground">{t("dt_sh_wall")}</span>
           <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30 overflow-x-auto">
             {isPolygonRoom && room.customWalls ? (
               // Polygon mode: show custom wall segment tabs
@@ -4404,18 +4403,19 @@ export default function DesignTool() {
           target="_blank"
           rel="noopener noreferrer"
           title={t("dt_sh_print_title")}
-          className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          className="hidden lg:flex w-8 h-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
         >
-                    <Printer className="h-3.5 w-3.5" />
+          <Printer className="h-3.5 w-3.5" />
         </a>
         {/* Preview modes — desktop toolbar button */}
         {placed.length > 0 && (
           <button
             type="button"
             onClick={() => setPreviewModalOpen(true)}
-            className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+            title="3D Preview"
+            className="hidden lg:flex w-8 h-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
           >
-            <Eye className="h-3.5 w-3.5" /> Preview
+            <Eye className="h-3.5 w-3.5" />
           </button>
         )}
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
