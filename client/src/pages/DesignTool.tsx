@@ -2729,7 +2729,6 @@ export default function DesignTool() {
           // Hang so its TOP finishes at the wall-cabinet top line (flush with a
           // pantry/tall run cap); a taller stepped box hangs lower at the bottom
           // while sharing that top line. mountBottom = topLine - height.
-          const topLine = wallCabinetTopLine(room);
           toPlace.push({
             uid: makeUid(),
             cabinetId: chosen.id,
@@ -2745,7 +2744,8 @@ export default function DesignTool() {
             numberOfDoors: chosen.numberOfDoors ?? undefined,
             catalogImageUrl: chosen.catalogImageUrl ?? null,
             styleId: styleIdRef.current ?? null,
-            mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, aHeight)),
+            // Bridge cabinets above fridge/range always mount at 72" from the floor.
+            mountBottom: 72,
           });
         }
       }
@@ -2937,7 +2937,8 @@ export default function DesignTool() {
           placement: "wall", x: upSpot.x, y: upSpot.y, width: aWidth, depth: aDepth, height: aHeight,
           rotation: upSpot.rotation, numberOfDoors: deep.numberOfDoors ?? undefined,
           catalogImageUrl: deep.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
-          mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, aHeight)),
+          // Bridge cabinets above fridge always mount at 72" from the floor.
+          mountBottom: 72,
         });
       }
       along += fridgeW;
