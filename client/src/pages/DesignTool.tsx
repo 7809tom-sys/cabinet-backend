@@ -8,7 +8,7 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronLeft, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, AlertTriangle } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -7133,11 +7133,22 @@ export default function DesignTool() {
                 {t("dt_dist_surcharge_body")}
               </div>
             )}
+            {/* No door style selected warning */}
+            {!styleId && cartableLines.length > 0 && (
+              <div className="mb-2 rounded-lg border border-red-400/60 bg-red-50 px-3 py-2.5 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-red-700">Door style &amp; series required</p>
+                  <p className="text-[11px] text-red-600 mt-0.5 leading-snug">Please select a door style and series above before adding cabinets to your cart.</p>
+                </div>
+              </div>
+            )}
             {/* PRIMARY action: turn the design into a real, orderable cart. */}
             <Button
-              className="w-full mt-2 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 gap-2"
-              disabled={cartableLines.length === 0}
+              className="w-full mt-2 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={cartableLines.length === 0 || !styleId}
               onClick={() => {
+                if (!styleId) return;
                 if (hasConflicts && !window.confirm(
                   t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
                 )) return;
