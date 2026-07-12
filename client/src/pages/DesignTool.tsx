@@ -2643,6 +2643,9 @@ export default function DesignTool() {
       panels: "left" | "right" | "both" | "none";
       endPanelId?: number | null;
       smooth: boolean;
+      fridgeWidth?: number;
+      fridgeHeight?: number;
+      fridgeDepth?: number;
     }) => {
       const fridge = fridgeForDialog;
       const surround = fridgeSurround as
@@ -2670,6 +2673,33 @@ export default function DesignTool() {
         }
         return pickByWidth(rows, fallbackTarget);
       };
+
+      // 0) Resize the fridge itself if the user changed its dimensions.
+      if (opts.fridgeWidth || opts.fridgeHeight || opts.fridgeDepth) {
+        setPlaced((prev) =>
+          prev.map((p) => {
+            if (p.uid !== fridge.uid) return p;
+            const newW = opts.fridgeWidth ?? p.width;
+            const newH = opts.fridgeHeight ?? p.height;
+            const newD = opts.fridgeDepth ?? p.depth;
+            return {
+              ...p,
+              width: newW,
+              nominalWidth: newW,
+              height: newH,
+              nominalHeight: newH,
+              depth: newD,
+              nominalDepth: newD,
+              masterCode: `FRIDGE-${newW}`,
+              description: `Refrigerator ${newW}"`,
+            };
+          })
+        );
+        // Re-derive fp/fw/fd from the new dimensions so surround pieces align.
+        const newW = opts.fridgeWidth ?? fw;
+        const newD = opts.fridgeDepth ?? fd;
+        Object.assign(fp, { w: newW, d: newD });
+      }
 
       const toPlace: PlacedCabinet[] = [];
 
