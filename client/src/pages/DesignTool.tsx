@@ -5359,42 +5359,7 @@ export default function DesignTool() {
                   </>
                 )}
               </div>
-              {/* Per-cabinet finish (two-tone): give THIS cabinet a different
-                  color/finish than the design default, within the locked supply
-                  line. "Match design" clears the override. */}
-              {styleId && uniqueDoorStyles.length > 0 && !cabinetsLocked && (
-                <>
-                  <div className="h-4 w-px bg-border" />
-                  <div className="flex items-center gap-1 rounded-md bg-[#d4a75a]/10 px-1.5 py-1 ring-1 ring-[#d4a75a]/30">
-                    <Palette className="h-3.5 w-3.5 text-[#1a2744]" />
-                    <span className="text-[11px] font-semibold text-[#1a2744] mr-0.5">{t("dt_cx_finish_this")}</span>
-                    <Select
-                      value={selectedCab.styleId != null ? String(selectedCab.styleId) : "__match__"}
-                      onValueChange={(v) => setCabinetStyle(v === "__match__" ? null : Number(v))}
-                    >
-                      <SelectTrigger className="h-7 w-[150px] text-[11px] bg-white">
-                        <SelectValue placeholder={t("dt_cx_match_design")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
-                        {uniqueDoorStyles.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>{styleDisplayName(s) || s.ourName}</SelectItem>
-                        ))}                      </SelectContent>
-                    </Select>
-                    {selectedCab.styleId != null && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-[11px] text-[#1a2744] hover:bg-[#d4a75a]/20"
-                        title={t("dt_cx_apply_all")}
-                        onClick={applySelectedFinishToMatching}
-                      >
-                        {t("dt_cx_apply_to_all")}
-                      </Button>
-                    )}
-                  </div>
-                </>
-              )}
+{/* Per-cabinet finish selector removed — style selection is only in the Cart panel */}
               {selectedCab.placement === "wall" && (
                 <>
                   <div className="h-4 w-px bg-border" />
@@ -5650,38 +5615,7 @@ export default function DesignTool() {
                   )}
                 </div>
 
-                {styleId && uniqueDoorStyles.length > 0 && !cabinetsLocked && (
-                  <div className="rounded-xl border border-border bg-[#d4a75a]/10 p-3 ring-1 ring-[#d4a75a]/30">
-                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#1a2744]">
-                      <Palette className="h-4 w-4" />
-                      <span>{t("dt_cx_finish_this")}</span>
-                    </div>
-                    <Select
-                      value={selectedCab.styleId != null ? String(selectedCab.styleId) : "__match__"}
-                      onValueChange={(v) => setCabinetStyle(v === "__match__" ? null : Number(v))}
-                    >
-                      <SelectTrigger className="h-9 w-full bg-white text-[12px]">
-                        <SelectValue placeholder={t("dt_cx_match_design")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
-                        {uniqueDoorStyles.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>{styleDisplayName(s) || s.ourName}</SelectItem>
-                        ))}                      </SelectContent>
-                    </Select>
-                    {selectedCab.styleId != null && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-2 h-8 px-2 text-[11px] text-[#1a2744] hover:bg-[#d4a75a]/20"
-                        title={t("dt_cx_apply_all")}
-                        onClick={applySelectedFinishToMatching}
-                      >
-                        {t("dt_cx_apply_to_all")}
-                      </Button>
-                    )}
-                  </div>
-                )}
+{/* Per-cabinet finish selector removed — style selection is only in the Cart panel */}
 
                 {selectedCab.placement === "wall" && (
                   <div className="rounded-xl border border-border bg-muted/30 p-3">
@@ -6012,22 +5946,7 @@ export default function DesignTool() {
                   <p className="text-[11px] leading-snug text-muted-foreground">
                     {t("dt_pl_need_style_body")}
                   </p>
-                  <Button
-                    size="sm"
-                    className="h-7 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 text-[11px]"
-                    onClick={() => {
-                      const el = document.getElementById("door-style-picker-card");
-                      if (el) {
-                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                        el.classList.add("ring-2", "ring-[#a87f33]", "rounded-lg");
-                        window.setTimeout(() => {
-                          el.classList.remove("ring-2", "ring-[#a87f33]", "rounded-lg");
-                        }, 1800);
-                      }
-                    }}
-                  >
-                    {t("dt_pl_need_style_cta")}
-                  </Button>
+                  <p className="text-[11px] text-muted-foreground">Open the Cart panel to choose a door style.</p>
                 </div>
               )}
             {/* Per-style availability hint: when a style is selected and the user
