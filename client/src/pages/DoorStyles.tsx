@@ -59,7 +59,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
           className="cabinet-card group relative rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {/* Room scene is the primary hero; door icon toggles to close-up */}
-          <div className="h-48 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
+          <div className="h-28 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
             {heroSrc ? (
               <img
                 src={heroSrc}
@@ -101,9 +101,9 @@ function StyleCard({ style }: { style: DoorStyle }) {
             </span>
           )}
 
-          <div className="p-4">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <p className="font-semibold text-sm text-foreground leading-snug">
+          <div className="p-2">
+            <div className="flex items-start justify-between gap-1 mb-0.5">
+              <p className="font-semibold text-xs text-foreground leading-snug">
                 {displayName(style)}
               </p>
               {style.doorStyle && (
@@ -111,15 +111,9 @@ function StyleCard({ style }: { style: DoorStyle }) {
               )}
             </div>
 
-            <div className="mt-1 space-y-0.5">
-              {style.woodSpecies && (
-                <p className="text-xs text-muted-foreground">{t("ds_wood")}: {style.woodSpecies}</p>
-              )}
-              {style.finish && (
-                <p className="text-xs text-muted-foreground">{t("ds_finish")}: {style.finish}</p>
-              )}
+            <div className="mt-0 space-y-0">
               {style.color && (
-                <p className="text-xs text-muted-foreground">{t("ds_color")}: {style.color}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{style.color}</p>
               )}
             </div>
           </div>
@@ -290,28 +284,26 @@ export default function DoorStyles() {
     : gridStyles;
 
   return (
-    <div className="container py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl font-bold text-foreground mb-2">
-          {t("ds_title")}
-        </h1>
-        <p className="text-muted-foreground">
-          {t("ds_sub")}
-        </p>
-      </div>
-
-      {/* Match a door from a photo */}
-      <div className="mb-8">
-        <DoorPhotoMatchWidget />
+    <div className="container py-3">
+      {/* Header + photo-match in one compact bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <h1 className="font-serif text-xl font-bold text-foreground leading-tight">
+            {t("ds_title")}
+          </h1>
+          <p className="text-xs text-muted-foreground">{t("ds_sub")}</p>
+        </div>
+        <div className="shrink-0">
+          <DoorPhotoMatchWidget compact />
+        </div>
       </div>
 
       {/* Door-style type filter */}
       {types.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-8">
+        <div className="flex flex-wrap gap-1.5 mb-3">
           <button
             onClick={() => setSelectedType(null)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
               selectedType === null
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:text-foreground"
@@ -323,7 +315,7 @@ export default function DoorStyles() {
             <button
               key={doorType}
               onClick={() => setSelectedType(doorType)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 selectedType === doorType
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
@@ -337,12 +329,12 @@ export default function DoorStyles() {
 
       {/* Featured: Skyline (Aero) styles lead the page */}
       {!isLoading && showFeatured && (
-        <div className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="font-serif text-xl font-bold text-foreground">{t("ds_featured")}</h2>
-            <Badge className="bg-primary text-primary-foreground">{t("ds_editors_picks")}</Badge>
+        <div className="mb-3">
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="font-serif text-sm font-bold text-foreground">{t("ds_featured")}</h2>
+            <Badge className="bg-primary text-primary-foreground text-[10px] py-0">{t("ds_editors_picks")}</Badge>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
             {featured.map((style) => (
               <StyleCard key={style.id} style={style} />
             ))}
@@ -351,14 +343,14 @@ export default function DoorStyles() {
       )}
 
       {!isLoading && showFeatured && gridStyles.length > 0 && (
-        <h2 className="font-serif text-xl font-bold text-foreground mb-4">{t("ds_all_door_styles")}</h2>
+        <h2 className="font-serif text-sm font-bold text-foreground mb-2">{t("ds_all_door_styles")}</h2>
       )}
 
       {isLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
           {Array.from({ length: 20 }).map((_, i) => (
             <div key={i} className="rounded-xl border border-border overflow-hidden">
-              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-28 w-full" />
               <div className="p-4 space-y-2">
                 <Skeleton className="h-4 w-16" />
                 <Skeleton className="h-3 w-full" />
@@ -374,7 +366,7 @@ export default function DoorStyles() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
             {pagedStyles.map((style) => (
               <StyleCard key={style.id} style={style} />
             ))}
@@ -382,7 +374,7 @@ export default function DoorStyles() {
 
           {/* Desktop pager: 16 styles per page, Prev / Next + position. */}
           {paginate && pageCount > 1 && (
-            <div className="mt-8 flex items-center justify-center gap-4">
+            <div className="mt-3 flex items-center justify-center gap-4">
               <Button
                 variant="outline"
                 size="sm"

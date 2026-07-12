@@ -25,7 +25,7 @@ function matchThumb(m: RankedMatch): string | null {
   return m.doorSampleImageUrl || m.thumbnailImageUrl || m.roomSceneImageUrl || null;
 }
 
-export default function DoorPhotoMatchWidget() {
+export default function DoorPhotoMatchWidget({ compact }: { compact?: boolean } = {}) {
   const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -69,6 +69,32 @@ export default function DoorPhotoMatchWidget() {
   function reset() {
     setPreview(null);
     setMatches(null);
+  }
+
+  if (compact) {
+    return (
+      <>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={onPick}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+          className="gap-1.5 text-xs"
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+          {matches ? t("dpm_try_another") : t("dpm_upload")}
+        </Button>
+      </>
+    );
   }
 
   return (
