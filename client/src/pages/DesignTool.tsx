@@ -2640,6 +2640,8 @@ export default function DesignTool() {
     (opts: {
       above: "deep" | "bridge" | "none";
       bridgeCabinetId?: number | null;
+      /** The chosen bridge height in inches (12, 18, or 24). Used to auto-select catalog cabinet. */
+      bridgeHeight?: number | null;
       panels: "left" | "right" | "both" | "none";
       endPanelId?: number | null;
       smooth: boolean;
@@ -2709,9 +2711,20 @@ export default function DesignTool() {
       if (opts.above !== "none") {
         const src = opts.above === "deep" ? surround.deepAbove : surround.bridgeAbove;
         // Use fp.w (updated fridge width) — rotatedSize(fridge).w is the stale pre-resize value.
-        const chosen = opts.above === "bridge"
-          ? pickById(src, opts.bridgeCabinetId, fp.w)
-          : pickByWidth(src, fp.w);
+        // For bridge mode: filter candidates by the chosen bridge height, then pick best width match.
+        let chosen: DesignCabinet | undefined;
+        if (opts.above === "bridge" && opts.bridgeHeight) {
+          const targetH = opts.bridgeHeight;
+          const heightFiltered = src.filter((c) => {
+            const h = parseFloat(String(c.height ?? "0"));
+            return Math.abs(h - targetH) < 1.5;
+          });
+          chosen = pickByWidth(heightFiltered.length > 0 ? heightFiltered : src, fp.w);
+        } else {
+          chosen = opts.above === "bridge"
+            ? pickById(src, opts.bridgeCabinetId, fp.w)
+            : pickByWidth(src, fp.w);
+        }
         if (chosen) {
           // Always place the bridge at the fridge's actual width (fp.w), not the catalog width.
           const aWidth = fp.w;
@@ -2720,8 +2733,10 @@ export default function DesignTool() {
           // than a standard wall cabinet for the staggered built-in look. The
           // shallow bridge stays a normal-height, 12"-deep upper.
           const aDepth = isDeep ? fridgeCornerUpperDepth() : STD.WALL_DEPTH;
+          // Use the user-chosen bridge height directly (12/18/24) so the placed cabinet
+          // always has the exact height the user selected, even if the catalog entry differs.
           const catalogH = parseFloat(String(chosen.height ?? STD.WALL_HEIGHT)) || STD.WALL_HEIGHT;
-          const aHeight = catalogH;
+          const aHeight = (opts.above === "bridge" && opts.bridgeHeight) ? opts.bridgeHeight : catalogH;
           bridgeHeightPlaced = aHeight;
           // Center the upper over the fridge run, flush to the same wall.
           const along = horizontal ? fridge.x + fw / 2 - aWidth / 2 : fridge.y + fw / 2 - aWidth / 2;

@@ -358,15 +358,16 @@ export const designRouter = router({
           sql`CAST(${cabinets.depth} AS DECIMAL) = 24`,
           sql`LOWER(${cabinets.description}) LIKE '%wall%'`
         ));
-      // Shallow bridge wall cabinets: short (≤ 18" tall) wall cabinets, 12" deep.
-      // Actual DB codes: W3612, SU-W3612, SU-W3018, etc. — description contains "Bridge".
+      // Bridge wall cabinets: short (≤ 24" tall) wall cabinets, 12" deep.
+      // Supports user-selectable heights of 12", 18", and 24".
+      // Actual DB codes: W3612, W3618, W3624, SU-W3612, etc. — description contains "Bridge" or "wall".
       const bridgeRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(
           gate,
-          sql`(LOWER(${cabinets.description}) LIKE '%bridge%' OR (CAST(${cabinets.height} AS DECIMAL) <= 18 AND LOWER(${cabinets.description}) LIKE '%wall%'))`,
+          sql`(LOWER(${cabinets.description}) LIKE '%bridge%' OR (CAST(${cabinets.height} AS DECIMAL) <= 24 AND LOWER(${cabinets.description}) LIKE '%wall%'))`,
           sql`CAST(${cabinets.depth} AS DECIMAL) <= 12`
         ));
       // End panels: REPV*, TDEP*, and S2496/S3696 shelf boards (used as refrigerator side panels).
