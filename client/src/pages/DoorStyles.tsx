@@ -142,7 +142,7 @@ function StyleCard({ style }: { style: DoorStyle }) {
         </div>
       </DialogTrigger>
 
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
             {displayName(style)}
@@ -156,17 +156,17 @@ function StyleCard({ style }: { style: DoorStyle }) {
         </DialogHeader>
 
         {/* Primary: the clean studio door sample for this finish */}
-        <div className="rounded-lg overflow-hidden border border-border bg-gradient-to-b from-muted/40 to-muted/70 flex items-center justify-center" style={{ maxHeight: '260px' }}>
+        <div className="rounded-lg overflow-hidden border border-border bg-gradient-to-b from-muted/40 to-muted/70 flex items-center justify-center" style={{ height: '200px', minHeight: '120px', maxHeight: '200px' }}>
           {doorSample && !doorFailed ? (
             <img
               src={doorSample}
               alt={`${style.ourName || style.styleCode} door sample`}
-              className="w-auto h-auto max-w-full object-contain block"
-              style={{ maxHeight: '260px' }}
+              className="max-w-full object-contain block"
+              style={{ maxHeight: '200px', width: 'auto', height: '100%' }}
               onError={() => setDoorFailed(true)}
             />
           ) : (
-            <DoorStyleSwatch style={style} className="h-48 w-auto" />
+            <DoorStyleSwatch style={style} className="h-40 w-auto" />
           )}
         </div>
 

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,23 +87,61 @@ const TYPE_FILTERS: { key: string; labelKey: string; match: (cat: string) => boo
   { key: "accessory", labelKey: "fam_f_accessory", match: (c) => c === "accessory" },
 ];
 
+// ── Favorites helpers ────────────────────────────────────────────────────────
+const FAV_KEY = "cabinet-dealz:favorites";
+
+function readFavs(): Set<string> {
+  try {
+    const raw = localStorage.getItem(FAV_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeFavs(favs: Set<string>) {
+  localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(favs)));
+}
+
+function useFavorites() {
+  const [favs, setFavs] = useState<Set<string>>(() => readFavs());
+
+  const toggle = useCallback((key: string) => {
+    setFavs((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      writeFavs(next);
+      return next;
+    });
+  }, []);
+
+  return { favs, toggle };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function FamilyCabinetCard({
   item,
   finish,
   styleId,
   styleLabel,
   tier,
+  isFavorite,
+  onToggleFavorite,
 }: {
   item: FamilyItem;
   finish: string;
   styleId: number;
   styleLabel: string;
   tier: PricingTier;
+  isFavorite: boolean;
+  onToggleFavorite: (key: string) => void;
 }) {
   const { lang } = useLanguage();
   const { addItem, lockedDistributorId, lockedStyleLabel } = useCart();
   const [qty, setQty] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
+  const favKey = `${item.masterCode}::${styleId}`;
 
   const unitPrice = resolveTierPrice(tier, {
     listPrice: item.listPrice,
@@ -153,6 +191,19 @@ function FamilyCabinetCard({
       {/* Image + specs link through to the detail page */}
       <Link href={`/catalog/${item.masterCode}?style=${styleId}`} className="block">
         <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3 cursor-pointer">
+          {/* Heart / favorite button */}
+          <button
+            type="button"
+            aria-label={isFavorite ? "Remove from favorites" : "Save to favorites"}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(favKey); }}
+            className={`absolute top-2 right-2 z-10 h-7 w-7 flex items-center justify-center rounded-full transition-all duration-150 ${
+              isFavorite
+                ? "bg-rose-50 text-rose-500 scale-110"
+                : "bg-white/70 text-muted-foreground hover:text-rose-400 hover:bg-rose-50 opacity-0 group-hover:opacity-100"
+            }`}
+          >
+            <Heart className={`h-4 w-4 ${isFavorite ? "fill-rose-500" : ""}`} />
+          </button>
           {item.skuImageUrl ? (
             <img
               src={item.skuImageUrl}
@@ -292,6 +343,8 @@ export default function Family({ styleCode }: { styleCode: string }) {
   const [activeType, setActiveType] = useState("all");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [showFavsOnly, setShowFavsOnly] = useState(false);
+  const { favs, toggle: toggleFav } = useFavorites();
 
   // Smart back: use browser history if available, otherwise go to /styles
   const handleBack = useCallback(() => {
@@ -348,6 +401,8 @@ export default function Family({ styleCode }: { styleCode: string }) {
     return TYPE_FILTERS.filter((f) => f.key === "all" || cats.has(f.key));
   }, [items]);
 
+  const s = style as FamilyStyle | null;
+
   const visible = useMemo(() => {
     const f = TYPE_FILTERS.find((t) => t.key === activeType) ?? TYPE_FILTERS[0];
     return items.filter((i) => {
@@ -356,11 +411,10 @@ export default function Family({ styleCode }: { styleCode: string }) {
         const hay = `${i.masterCode} ${i.description ?? ""} ${i.subCategory ?? ""}`.toLowerCase();
         if (!hay.includes(debounced)) return false;
       }
+      if (showFavsOnly && !favs.has(`${i.masterCode}::${s?.id ?? 0}`)) return false;
       return true;
     });
-  }, [items, activeType, debounced]);
-
-  const s = style as FamilyStyle | null;
+  }, [items, activeType, debounced, showFavsOnly, favs, s?.id]);
   // Prefer white-label name (set by admin) over internal name for all public display.
   const familyName = s?.featuredLabel || s?.ourName || s?.styleCode || "Door Style";
   useSeo({
@@ -633,7 +687,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
 
       {/* ── Type filter + search ──────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 mb-6">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           {availableTypes.map((f) => (
             <button
               key={f.key}
@@ -647,6 +701,21 @@ export default function Family({ styleCode }: { styleCode: string }) {
               {t(f.labelKey as never)}
             </button>
           ))}
+          {/* end type filters */}
+          {/* Favorites toggle */}
+          {favs.size > 0 && (
+            <button
+              onClick={() => setShowFavsOnly((v) => !v)}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                showFavsOnly
+                  ? "bg-rose-500 text-white"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Heart className={`h-3.5 w-3.5 ${showFavsOnly ? "fill-white" : ""}`} />
+              {lang === "es" ? `Favoritos (${favs.size})` : `Favorites (${favs.size})`}
+            </button>
+          )}
         </div>
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -693,6 +762,8 @@ export default function Family({ styleCode }: { styleCode: string }) {
                 styleId={s.id}
                 styleLabel={familyName}
                 tier={viewerTier}
+                isFavorite={favs.has(`${item.masterCode}::${s.id}`)}
+                onToggleFavorite={toggleFav}
               />
             ))}
           </div>
