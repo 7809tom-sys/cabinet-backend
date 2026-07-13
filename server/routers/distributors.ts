@@ -1,4 +1,5 @@
 import { z } from "zod";
+import * as XLSX from "xlsx";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
@@ -587,5 +588,233 @@ export const distributorImportRouter = router({
       });
       const id = (res as unknown as [{ insertId: number }])[0].insertId;
       return { id, ourName: input.ourName.trim(), styleCode: input.styleCode.trim() };
+    }),
+
+  /**
+   * Parse an uploaded XLSX/CSV file and return its sheet names and column
+   * headers (plus a preview of the first 5 data rows) so the UI can present
+   * a column-mapping step before committing the import.
+   */
+  parseXlsxColumns: adminProcedure
+    .input(
+      z.object({
+        /** Base64-encoded XLSX or CSV file content */
+        fileBase64: z.string().min(1),
+        /** Original filename — used to decide whether to parse as CSV or XLSX */
+        filename: z.string().default("upload.xlsx"),
+      })
+    )
+    .query(async ({ input }) => {
+      const isCsv = input.filename.toLowerCase().endsWith(".csv");
+      let sheetNames: string[];
+      let wb: XLSX.WorkBook;
+      try {
+        if (isCsv) {
+          const text = Buffer.from(input.fileBase64, "base64").toString("utf-8");
+          wb = XLSX.read(text, { type: "string" });
+        } else {
+          wb = XLSX.read(input.fileBase64, { type: "base64" });
+        }
+        sheetNames = wb.SheetNames;
+      } catch {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Could not parse the file. Make sure it is a valid .xlsx or .csv file." });
+      }
+
+      const sheets: Array<{
+        name: string;
+        headers: string[];
+        previewRows: Array<Record<string, string>>;
+      }> = [];
+
+      for (const name of sheetNames) {
+        const ws = wb.Sheets[name];
+        if (!ws) continue;
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: false });
+        if (rows.length === 0) {
+          sheets.push({ name, headers: [], previewRows: [] });
+          continue;
+        }
+        const headers = Object.keys(rows[0]);
+        const previewRows = rows.slice(0, 5).map((r) =>
+          Object.fromEntries(headers.map((h) => [h, String(r[h] ?? "")]))
+        );
+        sheets.push({ name, headers, previewRows });
+      }
+
+      return { sheets };
+    }),
+
+  /**
+   * Import distributor prices (and optionally descriptions) from an XLSX/CSV
+   * file using an explicit column mapping chosen by the admin.
+   *
+   * The mapping tells us which spreadsheet column contains the model/SKU,
+   * which contains the price, and whether that price is list or cost.
+   * The door style + distributor are required when importing prices.
+   */
+  importWithMapping: adminProcedure
+    .input(
+      z.object({
+        fileBase64: z.string().min(1),
+        filename: z.string().default("upload.xlsx"),
+        sheetName: z.string().optional(),
+        /** Column header in the spreadsheet that contains the model/SKU */
+        skuColumn: z.string().min(1),
+        /** Column header for the price */
+        priceColumn: z.string().min(1),
+        /** Whether the price column is list price or your cost */
+        priceType: z.enum(["listPrice", "yourCost"]),
+        /** Optional: column header for description */
+        descriptionColumn: z.string().optional(),
+        /** Distributor this upload belongs to */
+        distributorId: z.number(),
+        /** Door style these prices apply to */
+        styleId: z.number(),
+        /** Preview-only: if true, return what would happen without writing */
+        dryRun: z.boolean().default(false),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Parse file
+      const isCsv = input.filename.toLowerCase().endsWith(".csv");
+      let wb: XLSX.WorkBook;
+      try {
+        if (isCsv) {
+          const text = Buffer.from(input.fileBase64, "base64").toString("utf-8");
+          wb = XLSX.read(text, { type: "string" });
+        } else {
+          wb = XLSX.read(input.fileBase64, { type: "base64" });
+        }
+      } catch {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Could not parse the file." });
+      }
+
+      const sheetName = input.sheetName ?? wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      if (!ws) throw new TRPCError({ code: "BAD_REQUEST", message: `Sheet "${sheetName}" not found.` });
+
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: false });
+      if (rawRows.length === 0) return { matched: 0, unmatched: 0, priced: 0, skipped: 0, aliasesLearned: 0, unmatchedCodes: [] as string[], dryRun: input.dryRun };
+
+      // Build fuzzy lookup
+      const allCabs = await db.select({ id: cabinets.id, masterCode: cabinets.masterCode }).from(cabinets);
+      const byNorm = new Map<string, typeof allCabs[number]>();
+      for (const c of allCabs) byNorm.set(normalizeCode(c.masterCode), c);
+      const aliases = await db.select({ rawCodeCanon: codeAliases.rawCodeCanon, cabinetId: codeAliases.cabinetId }).from(codeAliases);
+      const byCabId = new Map(allCabs.map((c) => [c.id, c]));
+      const byAlias = new Map<string, typeof allCabs[number]>();
+      for (const a of aliases) {
+        const cab = byCabId.get(a.cabinetId);
+        if (cab) byAlias.set(a.rawCodeCanon, cab);
+      }
+      function resolveCode(raw: string): { cab: typeof allCabs[number] | undefined; confidence: string } {
+        const norm = normalizeCode(raw);
+        const direct = byNorm.get(norm);
+        if (direct) return { cab: direct, confidence: normalizeCode(direct.masterCode) === norm ? "exact" : "normalized" };
+        const aliased = byAlias.get(norm);
+        if (aliased) return { cab: aliased, confidence: "alias" };
+        return { cab: undefined, confidence: "none" };
+      }
+
+      let matched = 0;
+      let unmatched = 0;
+      let priced = 0;
+      let skipped = 0;
+      const unmatchedCodes: string[] = [];
+      const newAliases: Array<{ rawCodeCanon: string; rawCodeSample: string; cabinetId: number }> = [];
+
+      for (const row of rawRows) {
+        const rawSku = String(row[input.skuColumn] ?? "").trim();
+        if (!rawSku) { skipped++; continue; }
+
+        const rawPrice = String(row[input.priceColumn] ?? "").trim();
+        const priceVal = parseMoney(rawPrice);
+
+        const { cab, confidence } = resolveCode(rawSku);
+
+        if (!cab) {
+          unmatched++;
+          if (unmatchedCodes.length < 50) unmatchedCodes.push(rawSku);
+          continue;
+        }
+
+        matched++;
+
+        // Learn alias if this SKU format is new
+        const normRaw = normalizeCode(rawSku);
+        if (confidence === "normalized" && !byAlias.has(normRaw)) {
+          newAliases.push({ rawCodeCanon: normRaw, rawCodeSample: rawSku, cabinetId: cab.id });
+          byAlias.set(normRaw, cab);
+        }
+
+        if (input.dryRun) continue;
+
+        // Update description if column provided
+        if (input.descriptionColumn) {
+          const desc = String(row[input.descriptionColumn] ?? "").trim();
+          if (desc) {
+            await db.update(cabinets).set({ description: desc }).where(eq(cabinets.id, cab.id));
+          }
+        }
+
+        // Upsert price
+        if (priceVal === NOT_AVAILABLE) {
+          await db.update(distributorSkus)
+            .set({ isAvailable: false })
+            .where(and(
+              eq(distributorSkus.cabinetId, cab.id),
+              eq(distributorSkus.distributorId, input.distributorId),
+              eq(distributorSkus.styleId, input.styleId)
+            ));
+          priced++;
+          continue;
+        }
+
+        const numPrice = typeof priceVal === "number" && !Number.isNaN(priceVal) ? priceVal : null;
+        if (numPrice === null) { skipped++; continue; }
+
+        const pricePatch: Record<string, unknown> = { isAvailable: true };
+        pricePatch[input.priceType] = String(numPrice);
+
+        const existing = await db
+          .select({ id: distributorSkus.id })
+          .from(distributorSkus)
+          .where(and(
+            eq(distributorSkus.cabinetId, cab.id),
+            eq(distributorSkus.distributorId, input.distributorId),
+            eq(distributorSkus.styleId, input.styleId)
+          ))
+          .limit(1);
+
+        if (existing.length > 0) {
+          await db.update(distributorSkus).set(pricePatch).where(eq(distributorSkus.id, existing[0].id));
+        } else {
+              await db.insert(distributorSkus).values({
+                cabinetId: cab.id,
+                distributorId: input.distributorId,
+                styleId: input.styleId,
+                platformSku: `${normalizeCode(rawSku)}-S${input.styleId}-D${input.distributorId}`,
+                distributorSku: rawSku,
+                listPrice: input.priceType === "listPrice" ? String(numPrice) : null,
+                yourCost: input.priceType === "yourCost" ? String(numPrice) : null,
+                isAvailable: true,
+              });
+        }
+        priced++;
+      }
+
+      // Bulk-insert new aliases
+      let aliasesLearned = 0;
+      if (!input.dryRun && newAliases.length > 0) {
+        try {
+          await db.insert(codeAliases).values(newAliases).onDuplicateKeyUpdate({ set: { rawCodeSample: sql`VALUES(raw_code_sample)` } });
+          aliasesLearned = newAliases.length;
+        } catch { /* ignore duplicate alias errors */ }
+      }
+
+      return { matched, unmatched, priced, skipped, aliasesLearned, unmatchedCodes, dryRun: input.dryRun };
     }),
 });

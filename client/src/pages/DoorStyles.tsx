@@ -1,29 +1,36 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Palette, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Maximize2 } from "lucide-react";
+import {
+  Palette, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Maximize2,
+  Pencil, Star, StarOff, Save, X, Upload as UploadIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import DoorPhotoMatchWidget from "@/components/DoorPhotoMatchWidget";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { useIsMobile } from "@/hooks/useMobile";
+import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 
 // ─── Style card ───────────────────────────────────────────────────────────────
-// Presents purely by door-style attributes. No supplier/line identity is shown.
-
 interface DoorStyle {
   id: number;
   styleCode: string;
   ourName: string | null;
   aliasName?: string | null;
   featuredLabel?: string | null;
+  featuredRank?: number | null;
   doorStyle: string | null;
   woodSpecies: string | null;
   color: string | null;
@@ -35,22 +42,239 @@ interface DoorStyle {
   roomSceneImageUrl: string | null;
 }
 
-/** Returns the public-facing display name: aliasName → ourName → styleCode (white-label, no distributor names) */
+/** Returns the public-facing display name */
 function displayName(style: DoorStyle): string {
   return styleDisplayName(style) || style.styleCode;
 }
 
-function StyleCard({ style }: { style: DoorStyle }) {
+// ─── Admin inline edit panel (shown inside the detail dialog) ─────────────────
+function AdminEditPanel({ style, onSaved }: { style: DoorStyle; onSaved: () => void }) {
+  const utils = trpc.useUtils();
+  const [editing, setEditing] = useState(false);
+
+  // Editable fields
+  const [ourName, setOurName] = useState(style.ourName ?? "");
+  const [aliasName, setAliasName] = useState(style.aliasName ?? "");
+  const [featuredLabel, setFeaturedLabel] = useState(style.featuredLabel ?? "");
+  const [doorStyle, setDoorStyle] = useState(style.doorStyle ?? "");
+  const [finish, setFinish] = useState(style.finish ?? "");
+  const [woodSpecies, setWoodSpecies] = useState(style.woodSpecies ?? "");
+  const [color, setColor] = useState(style.color ?? "");
+  const [hardware, setHardware] = useState(style.hardware ?? "");
+
+  // Image upload state
+  const roomSceneRef = useRef<HTMLInputElement>(null);
+  const doorSampleRef = useRef<HTMLInputElement>(null);
+  const thumbnailRef = useRef<HTMLInputElement>(null);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+
+  const uploadMut = trpc.doorStyles.adminUploadDoorStyleImage.useMutation();
+  const updateMut = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
+    onSuccess: () => {
+      toast.success("Door style updated.");
+      utils.doorStyles.list.invalidate();
+      utils.doorStyles.featured.invalidate();
+      setEditing(false);
+      onSaved();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // Featured toggle (star/unstar)
+  const isFeatured = Boolean(style.featuredRank && style.featuredRank > 0);
+  const featureMut = trpc.doorStyles.setFeatured.useMutation({
+    onSuccess: () => {
+      utils.doorStyles.list.invalidate();
+      utils.doorStyles.featured.invalidate();
+      toast.success(isFeatured ? "Removed from featured." : "Added to featured.");
+      onSaved();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  async function uploadImage(
+    file: File,
+    field: "roomSceneImageUrl" | "doorSampleImageUrl" | "thumbnailImageUrl"
+  ) {
+    setUploadingField(field);
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((res, rej) => {
+        reader.onload = () => res(String(reader.result));
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+      const { url } = await uploadMut.mutateAsync({
+        filename: file.name,
+        dataBase64: dataUrl,
+        contentType: file.type || "image/jpeg",
+      });
+      await updateMut.mutateAsync({ id: style.id, [field]: url });
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Upload failed");
+    } finally {
+      setUploadingField(null);
+    }
+  }
+
+  function handleSave() {
+    updateMut.mutate({
+      id: style.id,
+      ourName: ourName.trim() || style.ourName || style.styleCode,
+      aliasName: aliasName.trim() || null,
+      featuredLabel: featuredLabel.trim() || null,
+      doorStyle: doorStyle.trim() || null,
+      finish: finish.trim() || null,
+      woodSpecies: woodSpecies.trim() || null,
+      color: color.trim() || null,
+    });
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2 pt-1 border-t border-border mt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={() => setEditing(true)}
+        >
+          <Pencil className="h-3.5 w-3.5" /> Edit style
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className={`gap-1.5 text-xs ${isFeatured ? "text-amber-600 border-amber-300" : ""}`}
+          disabled={featureMut.isPending}
+          onClick={() =>
+            featureMut.mutate({ id: style.id, featured: !isFeatured })
+          }
+        >
+          {featureMut.isPending ? (
+            <Spinner className="h-3.5 w-3.5" />
+          ) : isFeatured ? (
+            <StarOff className="h-3.5 w-3.5" />
+          ) : (
+            <Star className="h-3.5 w-3.5" />
+          )}
+          {isFeatured ? "Remove from featured" : "Add to featured"}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-border mt-2 pt-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Admin — Edit door style
+        </p>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditing(false)}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <Label className="text-xs">Display name</Label>
+          <Input value={ourName} onChange={(e) => setOurName(e.target.value)} className="h-7 text-xs mt-0.5" />
+        </div>
+        <div>
+          <Label className="text-xs">Alias / white-label name</Label>
+          <Input value={aliasName} onChange={(e) => setAliasName(e.target.value)} className="h-7 text-xs mt-0.5" placeholder="Optional override" />
+        </div>
+        <div>
+          <Label className="text-xs">Featured label</Label>
+          <Input value={featuredLabel} onChange={(e) => setFeaturedLabel(e.target.value)} className="h-7 text-xs mt-0.5" placeholder="e.g. Best Seller" />
+        </div>
+        <div>
+          <Label className="text-xs">Door style type</Label>
+          <Input value={doorStyle} onChange={(e) => setDoorStyle(e.target.value)} className="h-7 text-xs mt-0.5" placeholder="e.g. Shaker" />
+        </div>
+        <div>
+          <Label className="text-xs">Finish</Label>
+          <Input value={finish} onChange={(e) => setFinish(e.target.value)} className="h-7 text-xs mt-0.5" placeholder="e.g. Painted White" />
+        </div>
+        <div>
+          <Label className="text-xs">Wood species</Label>
+          <Input value={woodSpecies} onChange={(e) => setWoodSpecies(e.target.value)} className="h-7 text-xs mt-0.5" placeholder="e.g. Maple" />
+        </div>
+        <div>
+          <Label className="text-xs">Color</Label>
+          <Input value={color} onChange={(e) => setColor(e.target.value)} className="h-7 text-xs mt-0.5" placeholder="e.g. White" />
+        </div>
+        <div>
+          <Label className="text-xs">Hardware</Label>
+          <Input value={hardware} onChange={(e) => setHardware(e.target.value)} className="h-7 text-xs mt-0.5" placeholder="e.g. Soft-close" />
+        </div>
+      </div>
+
+      {/* Image upload buttons */}
+      <div className="flex flex-wrap gap-2">
+        <input ref={roomSceneRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f, "roomSceneImageUrl"); e.target.value = ""; }} />
+        <input ref={doorSampleRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f, "doorSampleImageUrl"); e.target.value = ""; }} />
+        <input ref={thumbnailRef} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f, "thumbnailImageUrl"); e.target.value = ""; }} />
+
+        {(["roomSceneImageUrl", "doorSampleImageUrl", "thumbnailImageUrl"] as const).map((field) => {
+          const labels: Record<string, string> = {
+            roomSceneImageUrl: "Room scene",
+            doorSampleImageUrl: "Door sample",
+            thumbnailImageUrl: "Thumbnail",
+          };
+          const refs = { roomSceneImageUrl: roomSceneRef, doorSampleImageUrl: doorSampleRef, thumbnailImageUrl: thumbnailRef };
+          return (
+            <Button
+              key={field}
+              variant="outline"
+              size="sm"
+              className="text-xs h-7 gap-1"
+              disabled={uploadingField !== null}
+              onClick={() => refs[field].current?.click()}
+            >
+              {uploadingField === field ? <Spinner className="h-3 w-3" /> : <UploadIcon className="h-3 w-3" />}
+              {labels[field]}
+            </Button>
+          );
+        })}
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          className="text-xs h-7 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+          disabled={updateMut.isPending}
+          onClick={handleSave}
+        >
+          {updateMut.isPending ? <Spinner className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+          Save changes
+        </Button>
+        <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setEditing(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Style card ───────────────────────────────────────────────────────────────
+function StyleCard({ style, isAdmin }: { style: DoorStyle; isAdmin: boolean }) {
   const { t } = useLanguage();
   const [showDoor, setShowDoor] = useState(false);
   const [sceneFailed, setSceneFailed] = useState(false);
   const [doorFailed, setDoorFailed] = useState(false);
-  const roomScene = style.roomSceneImageUrl;
-  const doorSample = style.doorSampleImageUrl;
-  // Hero: room scene is PRIMARY; door icon toggles to close-up door sample
+  const [localStyle, setLocalStyle] = useState(style);
+  const roomScene = localStyle.roomSceneImageUrl;
+  const doorSample = localStyle.doorSampleImageUrl;
   const heroSrc = showDoor
     ? (doorSample && !doorFailed ? doorSample : null)
     : (roomScene && !sceneFailed ? roomScene : null);
+
+  // Sync if parent data refreshes
+  useEffect(() => { setLocalStyle(style); }, [style]);
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -60,12 +284,11 @@ function StyleCard({ style }: { style: DoorStyle }) {
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.click(); }}
           className="cabinet-card group relative rounded-xl border border-border bg-card text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
         >
-          {/* Room scene is the primary hero; door icon toggles to close-up */}
           <div className="h-28 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
             {heroSrc ? (
               <img
                 src={heroSrc}
-                alt={showDoor ? `${style.ourName || style.styleCode} door sample` : `${style.ourName || style.styleCode} kitchen`}
+                alt={showDoor ? `${localStyle.ourName || localStyle.styleCode} door sample` : `${localStyle.ourName || localStyle.styleCode} kitchen`}
                 loading="lazy"
                 decoding="async"
                 className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -73,13 +296,11 @@ function StyleCard({ style }: { style: DoorStyle }) {
               />
             ) : (
               <DoorStyleSwatch
-                style={style}
+                style={localStyle}
                 className="relative h-32 w-auto drop-shadow-lg group-hover:scale-105 transition-transform duration-300"
               />
             )}
-            {/* Gradient overlay */}
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-            {/* Door toggle button */}
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setShowDoor((v) => !v); }}
@@ -90,14 +311,18 @@ function StyleCard({ style }: { style: DoorStyle }) {
             >
               {showDoor ? <Maximize2 className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
             </button>
-            {/* View-mode label */}
             <span className="absolute bottom-2 left-2 text-[10px] font-medium text-white/90 bg-black/50 px-1.5 py-0.5 rounded-full">
               {showDoor ? "Door" : "Room"}
             </span>
+            {/* Admin star indicator */}
+            {isAdmin && localStyle.featuredRank && localStyle.featuredRank > 0 && (
+              <span className="absolute top-2 right-2 z-10">
+                <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 drop-shadow" />
+              </span>
+            )}
           </div>
 
-          {/* Builder Grade line marker — standard hardware, value line */}
-          {style.isBuilderGrade && (
+          {localStyle.isBuilderGrade && (
             <span className="absolute top-2 left-2 z-10 text-[10px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-300/95 px-2 py-0.5 rounded-full shadow-sm">
               {t("ds_builder_grade")}
             </span>
@@ -106,34 +331,30 @@ function StyleCard({ style }: { style: DoorStyle }) {
           <div className="p-2">
             <div className="flex items-start justify-between gap-1 mb-0.5">
               <p className="font-semibold text-xs text-foreground leading-snug">
-                {displayName(style)}
+                {displayName(localStyle)}
               </p>
-              {style.doorStyle && (
-                <Badge variant="outline" className="text-xs shrink-0">{style.doorStyle}</Badge>
+              {localStyle.doorStyle && (
+                <Badge variant="outline" className="text-xs shrink-0">{localStyle.doorStyle}</Badge>
               )}
             </div>
-
             <div className="mt-0 space-y-0">
-              {style.color && (
-                <p className="text-[10px] text-muted-foreground truncate">{style.color}</p>
+              {localStyle.color && (
+                <p className="text-[10px] text-muted-foreground truncate">{localStyle.color}</p>
               )}
             </div>
           </div>
 
-          {/* Hover detail overlay — slides up from bottom on hover */}
-          {(style.woodSpecies || style.finish) && (
-            <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200 ease-out z-20 bg-popover/95 backdrop-blur-sm border-t border-border px-2.5 py-2 rounded-b-xl"
-            >
+          {(localStyle.woodSpecies || localStyle.finish) && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200 ease-out z-20 bg-popover/95 backdrop-blur-sm border-t border-border px-2.5 py-2 rounded-b-xl">
               <div className="space-y-0.5">
-                {style.woodSpecies && (
+                {localStyle.woodSpecies && (
                   <p className="text-[10px] text-popover-foreground">
-                    <span className="text-muted-foreground">Wood:</span> {style.woodSpecies}
+                    <span className="text-muted-foreground">Wood:</span> {localStyle.woodSpecies}
                   </p>
                 )}
-                {style.finish && (
+                {localStyle.finish && (
                   <p className="text-[10px] text-popover-foreground">
-                    <span className="text-muted-foreground">Finish:</span> {style.finish}
+                    <span className="text-muted-foreground">Finish:</span> {localStyle.finish}
                   </p>
                 )}
               </div>
@@ -145,72 +366,82 @@ function StyleCard({ style }: { style: DoorStyle }) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 flex-wrap">
-            {displayName(style)}
-            {style.doorStyle && (
-              <Badge variant="outline" className="text-xs">{style.doorStyle}</Badge>
+            {displayName(localStyle)}
+            {localStyle.doorStyle && (
+              <Badge variant="outline" className="text-xs">{localStyle.doorStyle}</Badge>
             )}
-            {style.isBuilderGrade && (
+            {localStyle.isBuilderGrade && (
               <Badge className="text-xs bg-amber-300 text-amber-950 hover:bg-amber-300">{t("ds_builder_grade")}</Badge>
+            )}
+            {localStyle.featuredLabel && (
+              <Badge className="text-xs bg-primary/10 text-primary border-primary/20">{localStyle.featuredLabel}</Badge>
             )}
           </DialogTitle>
         </DialogHeader>
 
-        {/* Primary: the clean studio door sample for this finish */}
         <div className="rounded-lg overflow-hidden border border-border bg-gradient-to-b from-muted/40 to-muted/70 flex items-center justify-center" style={{ height: '200px', minHeight: '120px', maxHeight: '200px' }}>
           {doorSample && !doorFailed ? (
             <img
               src={doorSample}
-              alt={`${style.ourName || style.styleCode} door sample`}
+              alt={`${localStyle.ourName || localStyle.styleCode} door sample`}
               className="max-w-full object-contain block"
               style={{ maxHeight: '200px', width: 'auto', height: '100%' }}
               onError={() => setDoorFailed(true)}
             />
           ) : (
-            <DoorStyleSwatch style={style} className="h-40 w-auto" />
+            <DoorStyleSwatch style={localStyle} className="h-40 w-auto" />
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
           <div className="flex items-center gap-2">
-            <DoorStyleSwatch style={style} className="h-12 w-auto" />
+            <DoorStyleSwatch style={localStyle} className="h-12 w-auto" />
             <div className="text-xs text-muted-foreground">{t("ds_true_color")}</div>
           </div>
           <div className="space-y-0.5">
-            {style.doorStyle && <p className="text-xs"><span className="text-muted-foreground">{t("ds_style")}:</span> {style.doorStyle}</p>}
-            {style.woodSpecies && <p className="text-xs"><span className="text-muted-foreground">{t("ds_wood")}:</span> {style.woodSpecies}</p>}
-            {style.finish && <p className="text-xs"><span className="text-muted-foreground">{t("ds_finish")}:</span> {style.finish}</p>}
-            {style.color && <p className="text-xs"><span className="text-muted-foreground">{t("ds_color")}:</span> {style.color}</p>}
-            {style.hardware && <p className="text-xs"><span className="text-muted-foreground">{t("ds_hardware")}:</span> {style.hardware}</p>}
+            {localStyle.doorStyle && <p className="text-xs"><span className="text-muted-foreground">{t("ds_style")}:</span> {localStyle.doorStyle}</p>}
+            {localStyle.woodSpecies && <p className="text-xs"><span className="text-muted-foreground">{t("ds_wood")}:</span> {localStyle.woodSpecies}</p>}
+            {localStyle.finish && <p className="text-xs"><span className="text-muted-foreground">{t("ds_finish")}:</span> {localStyle.finish}</p>}
+            {localStyle.color && <p className="text-xs"><span className="text-muted-foreground">{t("ds_color")}:</span> {localStyle.color}</p>}
+            {localStyle.hardware && <p className="text-xs"><span className="text-muted-foreground">{t("ds_hardware")}:</span> {localStyle.hardware}</p>}
           </div>
         </div>
 
-        {/* Builder Grade advisory: this value line ships standard hardware, not soft-close */}
-        {style.isBuilderGrade && (
+        {localStyle.isBuilderGrade && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             {t("ds_builder_grade_note")}
           </div>
         )}
 
-        {/* Primary path into shopping: see EVERY cabinet available in this family */}
-        <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
+        <Link href={`/family/${encodeURIComponent(localStyle.styleCode)}`}>
           <Button className="w-full mt-1" size="lg">
-            {t("ds_shop_collection", { name: displayName(style) })}
+            {t("ds_shop_collection", { name: displayName(localStyle) })}
             <ArrowRight className="h-4 w-4 ml-1" />
           </Button>
         </Link>
+
+        {/* Admin inline edit panel — only visible to admins */}
+        {isAdmin && (
+          <AdminEditPanel
+            style={localStyle}
+            onSaved={() => {
+              // The mutations already invalidate the list query; local state
+              // will update on the next render via the useEffect above.
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
 }
 
 // ─── Main Door Styles page ────────────────────────────────────────────────────
-
 export default function DoorStyles() {
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_styles_t"), description: t("seo_styles_d"), lang });
-  // Read an optional ?door=<DoorStyle> query param so links from the Home page
-  // hero chips (e.g. /styles?door=Shaker) open the grid pre-filtered to that
-  // door profile. Falls back to "All Styles" when absent or unrecognized.
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   const initialType = (() => {
     if (typeof window === "undefined") return null;
     const p = new URLSearchParams(window.location.search).get("door");
@@ -218,14 +449,10 @@ export default function DoorStyles() {
   })();
   const [selectedType, setSelectedType] = useState<string | null>(initialType);
   const isMobile = useIsMobile();
-  // Desktop pages the main grid 16-at-a-time (a 4x4 grid) so the photos load
-  // fast and the page stays light. Mobile keeps the familiar single scroll.
   const PER_PAGE = 16;
   const [page, setPage] = useState(0);
-  // Reset to the first page whenever the active filter changes.
   useEffect(() => { setPage(0); }, [selectedType]);
 
-  // Keep the URL in sync so the filtered view is shareable/back-button friendly.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -235,11 +462,8 @@ export default function DoorStyles() {
   }, [selectedType]);
 
   const { data: styles, isLoading } = trpc.doorStyles.list.useQuery();
-  // Admin-curated featured set (80/20 merchandising), ordered by rank, max 30.
   const { data: featuredData } = trpc.doorStyles.featured.useQuery();
 
-  // De-duplicate styles by display name (the same style can be carried by more
-  // than one supply line internally; members should only ever see it once).
   const uniqueStyles = useMemo(() => {
     const map = new Map<string, DoorStyle>();
     for (const s of (styles ?? []) as DoorStyle[]) {
@@ -251,16 +475,12 @@ export default function DoorStyles() {
     );
   }, [styles]);
 
-  // Door-style type facets (Shaker, Raised Panel, Slab, ...) derived from data.
   const types = useMemo(() => {
     const set = new Set<string>();
     for (const s of uniqueStyles) if (s.doorStyle) set.add(s.doorStyle);
     return Array.from(set).sort();
   }, [uniqueStyles]);
 
-  // Featured push styles come from the admin-curated list (Admin → Featured
-  // Styles). The backend already orders by rank and caps at 30; we preserve
-  // that order here. Membership is keyed by display name so de-duped rows match.
   const featuredNames = useMemo(() => {
     const names = new Map<string, number>();
     ((featuredData ?? []) as DoorStyle[]).forEach((s, i) => {
@@ -290,15 +510,11 @@ export default function DoorStyles() {
     ? uniqueStyles.filter((s) => s.doorStyle === selectedType)
     : uniqueStyles;
 
-  // When no profile filter is active, show the Featured row separately and keep
-  // the main grid as the rest (so featured styles aren't duplicated below).
   const showFeatured = !selectedType && featured.length > 0;
   const gridStyles = showFeatured
     ? visible.filter((s) => !isFeatured(s))
     : visible;
 
-  // Desktop pages the main grid by 16 (4x4). Mobile shows the full list so the
-  // familiar scroll is preserved. Clamp the page if the list shrank.
   const paginate = !isMobile;
   const pageCount = paginate ? Math.max(1, Math.ceil(gridStyles.length / PER_PAGE)) : 1;
   const safePage = Math.min(page, pageCount - 1);
@@ -308,7 +524,6 @@ export default function DoorStyles() {
 
   return (
     <div className="container py-3">
-      {/* Header + photo-match in one compact bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h1 className="font-serif text-xl font-bold text-foreground leading-tight">
@@ -321,7 +536,18 @@ export default function DoorStyles() {
         </div>
       </div>
 
-      {/* Door-style type filter */}
+      {/* Admin mode indicator */}
+      {isAdmin && (
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-1.5 text-xs text-amber-800 dark:text-amber-300">
+          <Pencil className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            <strong>Admin mode:</strong> Click any style card to open its detail view, then use the{" "}
+            <strong>Edit style</strong> button to change name, images, finish, wood species, and more.
+            Use the <strong>star button</strong> to feature or unfeature a style.
+          </span>
+        </div>
+      )}
+
       {types.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           <button
@@ -350,7 +576,6 @@ export default function DoorStyles() {
         </div>
       )}
 
-      {/* Featured: Skyline (Aero) styles lead the page */}
       {!isLoading && showFeatured && (
         <div className="mb-3">
           <div className="flex items-center gap-2 mb-2">
@@ -359,7 +584,7 @@ export default function DoorStyles() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
             {featured.map((style) => (
-              <StyleCard key={style.id} style={style} />
+              <StyleCard key={style.id} style={style} isAdmin={isAdmin} />
             ))}
           </div>
         </div>
@@ -391,11 +616,10 @@ export default function DoorStyles() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
             {pagedStyles.map((style) => (
-              <StyleCard key={style.id} style={style} />
+              <StyleCard key={style.id} style={style} isAdmin={isAdmin} />
             ))}
           </div>
 
-          {/* Desktop pager: 16 styles per page, Prev / Next + position. */}
           {paginate && pageCount > 1 && (
             <div className="mt-3 flex items-center justify-center gap-4">
               <Button

@@ -1,7 +1,8 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check, Heart, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check, Heart, Pencil, Upload } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -212,6 +213,169 @@ function InlinePriceEditor({ item, styleId }: { item: FamilyItem; styleId: numbe
   );
 }
 
+// --- Admin inline cabinet editor -------------------------------------------
+function InlineCabinetEditor({ item, styleId }: { item: FamilyItem; styleId: number }) {
+  const utils = trpc.useUtils();
+  const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState(item.description ?? "");
+  const [category, setCategory] = useState(item.category ?? "");
+  const [subCategory, setSubCategory] = useState(item.subCategory ?? "");
+  const [width, setWidth] = useState(item.width ?? "");
+  const [height, setHeight] = useState(item.height ?? "");
+  const [depth, setDepth] = useState(item.depth ?? "");
+  const [uploading, setUploading] = useState(false);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadMut = trpc.cabinets.adminUploadCatalogImage.useMutation();
+  const updateMut = trpc.cabinets.adminUpdateCabinet.useMutation({
+    onSuccess: () => {
+      toast.success("Cabinet updated");
+      utils.doorStyles.familyCatalog.invalidate({ styleId });
+      setOpen(false);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function handleOpen(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDescription(item.description ?? "");
+    setCategory(item.category ?? "");
+    setSubCategory(item.subCategory ?? "");
+    setWidth(item.width ?? "");
+    setHeight(item.height ?? "");
+    setDepth(item.depth ?? "");
+    setOpen(true);
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((res, rej) => {
+        reader.onload = () => res(String(reader.result));
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+      const { url } = await uploadMut.mutateAsync({
+        filename: file.name,
+        dataBase64: dataUrl,
+        contentType: file.type || "image/jpeg",
+      });
+      await updateMut.mutateAsync({ id: item.cabinetId, catalogImageUrl: url });
+      toast.success("Image updated");
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message ?? "Upload failed");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleOpen}
+        title="Edit cabinet details"
+        className="absolute bottom-2 right-2 z-20 h-6 w-6 flex items-center justify-center rounded bg-blue-600/90 text-white hover:bg-blue-700 opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-card rounded-xl shadow-xl border border-border p-5 w-80 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm">Edit Cabinet — {item.masterCode}</h3>
+              <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-2.5">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Description</label>
+                <textarea
+                  rows={2}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Category</label>
+                  <Input value={category} onChange={(e) => setCategory(e.target.value)} className="h-7 text-xs" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Sub-category</label>
+                  <Input value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="h-7 text-xs" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">W (in)</label>
+                  <Input value={width} onChange={(e) => setWidth(e.target.value)} className="h-7 text-xs" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">H (in)</label>
+                  <Input value={height} onChange={(e) => setHeight(e.target.value)} className="h-7 text-xs" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">D (in)</label>
+                  <Input value={depth} onChange={(e) => setDepth(e.target.value)} className="h-7 text-xs" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Cabinet image</label>
+                <input ref={imgInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-7 text-xs gap-1"
+                  disabled={uploading}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); imgInputRef.current?.click(); }}
+                >
+                  {uploading ? <Spinner className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
+                  {uploading ? "Uploading…" : "Upload new image"}
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() =>
+                  updateMut.mutate({
+                    id: item.cabinetId,
+                    description: description.trim() || undefined,
+                    category: category.trim() || undefined,
+                    subCategory: subCategory.trim() || null,
+                    width: width.trim() || null,
+                    height: height.trim() || null,
+                    depth: depth.trim() || null,
+                  })
+                }
+                disabled={updateMut.isPending}
+              >
+                {updateMut.isPending ? "Saving…" : "Save"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function FamilyCabinetCard({
   item,
   finish,
@@ -299,6 +463,7 @@ function FamilyCabinetCard({
             <Heart className={`h-4 w-4 ${isFavorite ? "fill-rose-500" : ""}`} />
           </button>
           {isAdmin && <InlinePriceEditor item={item} styleId={styleId} />}
+          {isAdmin && <InlineCabinetEditor item={item} styleId={styleId} />}
           {item.skuImageUrl ? (
             <img
               src={item.skuImageUrl}

@@ -908,3 +908,45 @@
 - [x] Add imageUrl column to master catalog export (catalogExport procedure) so the generic cabinet profile photo is included in the download and can be re-uploaded to attach to all door styles
 - [x] On importCommit: save every matched distributor SKU as a new codeAlias entry so future imports from any distributor using that format resolve automatically
 - [x] In import parser: treat NA, N/A, X, x, or blank price cell as "not available" — mark that SKU as isAvailable=false instead of saving a price
+
+## Site-wide Inline Admin Edit System
+
+- [ ] Build InlineEditText component: pencil icon on hover, click to edit in place, save/cancel/reset, backed by adminUpdateCabinet or adminUpdateDoorStyle
+- [ ] Build InlineEditImage component: camera icon on hover, file picker, upload to S3, save URL to record
+- [ ] Build InlineEditDropdown component: pencil icon, opens popover with searchable list (e.g. pick a door style to feature)
+- [ ] Build InlineEditPrice component: pencil icon, numeric input with $ prefix, saves listPrice/cost
+- [ ] Build InlineEditToggle component: click to toggle boolean fields (isFeatured, isActive, showInCatalog)
+- [ ] Wire inline edit to cabinet description on Family page cabinet cards (admin sees pencil on hover)
+- [ ] Wire inline edit to cabinet description on Storefront cabinet cards
+- [ ] Wire inline edit to cabinet category/subCategory on Family page
+- [ ] Wire inline edit to cabinet image (catalogImageUrl) on Family page and Storefront cards
+- [ ] Wire inline edit to cabinet price (listPrice) on Family page cards
+- [ ] Wire inline edit to cabinet availability (isActive toggle) on Family page and Storefront
+- [ ] Wire inline edit to door style name (ourName/featuredLabel) on DoorStyles page cards
+- [ ] Wire inline edit to door style finish/woodSpecies on DoorStyles page
+- [ ] Wire inline edit to door style images (thumbnail, room scene, door sample) on DoorStyles page
+- [ ] Wire inline edit to door style isFeatured toggle on DoorStyles page (one-click feature/unfeature)
+- [ ] Wire inline edit to homepage hero headline and subheadline (AdminEditField)
+- [ ] Wire inline edit to homepage category card titles and descriptions (AdminEditField)
+- [ ] Wire inline edit to homepage StyleShowcase featured styles order (drag-to-reorder for admins)
+- [ ] Wire inline edit to homepage AffiliatePromo section headings and advantage card text
+- [ ] Wire inline edit to homepage PlatformFeatures section headings and feature card text
+- [ ] Wire inline edit to homepage JulyBanner text (seasonal banner)
+- [ ] Wire inline edit to SiteFooter links and text
+- [ ] Wire inline edit to TopNav links and labels
+- [ ] Wire inline edit to static pages (Terms, Privacy, Shipping, Return policies) via AdminEditField
+- [ ] Add "Feature this style" quick action on DoorStyles page: admin clicks star → dropdown picks style → saves isFeatured + featuredRank
+- [ ] Add "Set as homepage featured" quick action on door style cards
+- [ ] Ensure all inline edits invalidate the relevant tRPC query so the change appears immediately everywhere on the page without reload
+- [ ] Add a floating "Admin Edit Mode" indicator bar at top of page (only visible to admins) so it's clear when edit controls are active
+
+## Cabinet Spreadsheet Upload — Column Mapping
+
+- [ ] Add backend procedure cabinets.parseXlsxColumns: accepts base64 xlsx, returns sheet names + column headers for each sheet (no import yet)
+- [ ] Add backend procedure cabinets.adminImportWithMapping: accepts base64 xlsx + column mapping object (field -> columnHeader) + optional sheetName, runs the import using the mapped columns
+- [ ] Upgrade CabinetSpreadsheetAdmin UI: after file is chosen, show a "Map Columns" step before the Import button
+- [ ] Column mapping UI: show a row per importable field (masterCode, description, category, subCategory, width, height, depth, isActive, etc.), each with a dropdown of detected column headers + "(skip)" option
+- [ ] Auto-detect: if a detected column header exactly or fuzzily matches a known field name, pre-select it
+- [ ] Show a preview of the first 3 data rows using the current mapping so admin can verify before committing
+- [ ] Allow selecting which sheet to import from if the workbook has multiple sheets
+- [ ] masterCode mapping is required — show validation error if not mapped before allowing import

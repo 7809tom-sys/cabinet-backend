@@ -742,6 +742,27 @@ export const doorStylesRouter = router({
 
       return { style: scrubDoorStyle(style), items };
     }),
+
+  // Admin: upload an image for a door style (room scene, door sample, or thumbnail).
+  // Accepts a base64 data URL, uploads to storage, and returns the URL so the
+  // client can save it via adminUpdateDoorStyle.
+  adminUploadDoorStyleImage: adminProcedure
+    .input(
+      z.object({
+        filename: z.string().min(1),
+        dataBase64: z.string().min(1),
+        contentType: z.string().default("image/jpeg"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const raw = input.dataBase64.includes(",")
+        ? input.dataBase64.slice(input.dataBase64.indexOf(",") + 1)
+        : input.dataBase64;
+      const buf = Buffer.from(raw, "base64");
+      const safe = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const { url } = await storagePut(`door-style-images/${Date.now()}_${safe}`, buf, input.contentType);
+      return { url };
+    }),
 });
 
 // --- Cabinets -----------------------------------------------------------------
@@ -1311,13 +1332,23 @@ export const cabinetsRouter = router({
         if (Object.keys(patch).length === 0) { skipped++; continue; }
 
         try {
-          const result = await db
+          // Verify the masterCode exists first — TiDB/MySQL rowsAffected is unreliable
+          // (returns 0 even for real updates when CLIENT_FOUND_ROWS flag is not set).
+          const existing = await db
+            .select({ id: cabinets.id })
+            .from(cabinets)
+            .where(eq(cabinets.masterCode, masterCode))
+            .limit(1);
+          if (existing.length === 0) {
+            skipped++;
+            errors.push(`Row ${i + 2}: masterCode "${masterCode}" not found -- skipped.`);
+            continue;
+          }
+          await db
             .update(cabinets)
             .set(patch)
             .where(eq(cabinets.masterCode, masterCode));
-          const affected = (result as unknown as { rowsAffected?: number })?.rowsAffected ?? 0;
-          if (affected > 0) updated++;
-          else { skipped++; errors.push(`Row ${i + 2}: masterCode "${masterCode}" not found -- skipped.`); }
+          updated++;
         } catch (err) {
           errors.push(`Row ${i + 2}: ${masterCode} -- ${err instanceof Error ? err.message : String(err)}`);
           skipped++;
