@@ -65,6 +65,8 @@ interface FamilyItem extends CabinetLike {
   contractorPrice?: string | null;
   homeownerPrice?: string | null;
   distributorId?: number | null;
+  skuId?: number | null;
+  yourCost?: string | null;
 }
 
 function fmtPrice(n: number | null): string {
@@ -120,6 +122,96 @@ function useFavorites() {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+function InlinePriceEditor({ item, styleId }: { item: FamilyItem; styleId: number }) {
+  const utils = trpc.useUtils();
+  const [open, setOpen] = useState(false);
+  const [listVal, setListVal] = useState("");
+  const [costVal, setCostVal] = useState("");
+  const updateMut = trpc.pricing.adminUpdateSkuCost.useMutation({
+    onSuccess: () => {
+      toast.success("Price updated");
+      utils.doorStyles.familyCatalog.invalidate({ styleId });
+      utils.pricing.stylesForCabinet.invalidate();
+      setOpen(false);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  function handleOpen(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setListVal(item.listPrice ? String(Number(item.listPrice)) : "");
+    setCostVal(item.yourCost ? String(Number(item.yourCost)) : "");
+    setOpen(true);
+  }
+  if (!item.skuId) return null;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleOpen}
+        title="Edit price"
+        className="absolute bottom-2 left-2 z-20 h-6 w-6 flex items-center justify-center rounded bg-amber-500/90 text-white hover:bg-amber-600 opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <Pencil className="h-3 w-3" />
+      </button>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-card rounded-xl shadow-xl border border-border p-5 w-72"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-semibold text-sm mb-3">Edit Price — {item.masterCode}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">List Price ($)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={listVal}
+                  onChange={(e) => setListVal(e.target.value)}
+                  placeholder="e.g. 138.00"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Your Cost ($)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={costVal}
+                  onChange={(e) => setCostVal(e.target.value)}
+                  placeholder="e.g. 95.00"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() =>
+                  updateMut.mutate({
+                    skuId: item.skuId!,
+                    listPrice: listVal !== "" ? Number(listVal) : undefined,
+                    yourCost: costVal !== "" ? Number(costVal) : undefined,
+                  })
+                }
+                disabled={updateMut.isPending}
+              >
+                {updateMut.isPending ? "Saving…" : "Save"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function FamilyCabinetCard({
   item,
   finish,
@@ -128,6 +220,7 @@ function FamilyCabinetCard({
   tier,
   isFavorite,
   onToggleFavorite,
+  isAdmin,
 }: {
   item: FamilyItem;
   finish: string;
@@ -136,6 +229,7 @@ function FamilyCabinetCard({
   tier: PricingTier;
   isFavorite: boolean;
   onToggleFavorite: (key: string) => void;
+  isAdmin?: boolean;
 }) {
   const { lang } = useLanguage();
   const { addItem, lockedDistributorId, lockedStyleLabel } = useCart();
@@ -204,6 +298,7 @@ function FamilyCabinetCard({
           >
             <Heart className={`h-4 w-4 ${isFavorite ? "fill-rose-500" : ""}`} />
           </button>
+          {isAdmin && <InlinePriceEditor item={item} styleId={styleId} />}
           {item.skuImageUrl ? (
             <img
               src={item.skuImageUrl}
@@ -781,6 +876,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
                 tier={viewerTier}
                 isFavorite={favs.has(`${item.masterCode}::${s.id}`)}
                 onToggleFavorite={toggleFav}
+                isAdmin={user?.role === "admin"}
               />
             ))}
           </div>

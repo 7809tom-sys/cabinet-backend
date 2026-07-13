@@ -665,14 +665,9 @@ export const doorStylesRouter = router({
       const db = await getDb();
       if (!db) return { style: null, items: [] };
 
-      // Price entitlement: guests/homeowners see retail; approved pros see the
-      // tier the owner assigned them; admin sees all. Sell prices are ALWAYS
-      // computed from the cost base × per-tier markup (never the raw stored
-      // price columns) so the markup can't be double-applied or fall back to
-      // list price. This mirrors `stylesForCabinet` above.
-      const viewerTier = resolveStorefrontTier(ctx.user);
+      // Simplified pricing: storefront shows listPrice directly (what the
+      // distributor uploaded). No tier math, no markup stacking.
       const isAdmin = ctx.user?.role === "admin";
-      const ps = await getPricingSettings();
 
       const styleRows = await db
         .select()
@@ -705,6 +700,7 @@ export const doorStylesRouter = router({
           platformSku: distributorSkus.platformSku,
           skuImageUrl: distributorSkus.imageUrl,
           distributorId: distributorSkus.distributorId,
+          skuId: distributorSkus.id,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
@@ -719,7 +715,7 @@ export const doorStylesRouter = router({
         );
 
       // Collapse to one row per cabinet (a cabinet may be carried by multiple
-      // supply lines in the same style). Prefer the lowest contractor price.
+      // supply lines in the same style). Prefer the lowest list price.
       const byCabinet = new Map<number, (typeof rows)[number]>();
       for (const r of rows) {
         const existing = byCabinet.get(r.cabinetId);
@@ -727,10 +723,8 @@ export const doorStylesRouter = router({
           byCabinet.set(r.cabinetId, r);
           continue;
         }
-        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
-        const b = Number(
-          existing.contractorPrice ?? existing.wholesalePrice ?? Infinity
-        );
+        const a = Number(r.listPrice ?? Infinity);
+        const b = Number(existing.listPrice ?? Infinity);
         if (a < b) byCabinet.set(r.cabinetId, r);
       }
 
@@ -740,38 +734,11 @@ export const doorStylesRouter = router({
             numeric: true,
           })
         )
-        .map((r) => {
-          // Cost base precedence (yourCost first) MUST match stylesForCabinet
-          // so the Family page and the Cabinet Detail page price identically.
-          const costRow = {
-            yourCost: r.yourCost,
-            wholesalePrice: r.wholesalePrice,
-            adjustedListPrice: r.adjustedListPrice,
-            listPrice: r.listPrice,
-          };
-          const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
-          const sellContractor = sellPriceForTier(costRow, ps, "contractor");
-          const sellWholesale = sellPriceForTier(costRow, ps, "wholesale");
-          const gated = visiblePricesForViewer(
-            {
-              listPrice: r.listPrice,
-              adjustedListPrice: r.adjustedListPrice,
-              wholesalePrice: sellWholesale?.toFixed(2) ?? null,
-              contractorPrice: sellContractor?.toFixed(2) ?? null,
-              homeownerPrice: sellHomeowner?.toFixed(2) ?? null,
-            },
-            viewerTier,
-            isAdmin,
-          );
-          return {
-            ...r,
-            listPrice: gated.listPrice,
-            adjustedListPrice: gated.adjustedListPrice,
-            wholesalePrice: gated.wholesalePrice,
-            contractorPrice: gated.contractorPrice,
-            homeownerPrice: gated.homeownerPrice,
-          };
-        });
+        .map((r) => ({
+          ...r,
+          // Admins see cost; customers never see it
+          yourCost: isAdmin ? r.yourCost : null,
+        }));
 
       return { style: scrubDoorStyle(style), items };
     }),
@@ -1437,7 +1404,7 @@ export const cabinetsRouter = router({
   // Returns an XLSX workbook with all cabinets available for a given door style,
   // including description, dimensions, pricing, and catalog image URL.
   // The caller can optionally pass a list of cabinetIds to restrict the export.
-  cabinetLineExport: adminProcedure
+    cabinetLineExport: adminProcedure
     .input(
       z.object({
         styleId: z.number(),
@@ -1448,10 +1415,27 @@ export const cabinetsRouter = router({
       const db = await getDb();
       if (!db) return { xlsx: "", filename: "cabinet-line.xlsx", count: 0 };
 
-      // Load the Margins tab settings so we can compute correct tier prices.
-      const ps = await getPricingSettings();
+      // Fetch the door style name + distributor name for the filename.
+      const styleRows = await db
+        .select({
+          ourName: doorStyles.ourName,
+          styleCode: doorStyles.styleCode,
+          distributorName: distributors.name,
+          distributorSeriesName: distributors.seriesName,
+        })
+        .from(doorStyles)
+        .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
+        .where(eq(doorStyles.id, input.styleId))
+        .limit(1);
+      const style = styleRows[0];
+      const brandName = style?.distributorSeriesName || style?.distributorName || "Cabinet Line";
+      const styleName = style?.ourName || style?.styleCode || `Style ${input.styleId}`;
+      // Sanitize for filename: replace chars that are invalid in filenames.
+      const safe = (s: string) => s.replace(/[/\\:*?"<>|]/g, "-").trim();
+      const filename = `${safe(brandName)} - ${safe(styleName)}.xlsx`;
 
       // Fetch all cabinets for this style with pricing.
+      // Image URL comes from the master cabinet record (not the SKU).
       const rows = await db
         .select({
           id: cabinets.id,
@@ -1459,17 +1443,13 @@ export const cabinetsRouter = router({
           description: cabinets.description,
           category: cabinets.category,
           subCategory: cabinets.subCategory,
-          placement: cabinets.placementType,
           width: cabinets.width,
           height: cabinets.height,
           depth: cabinets.depth,
-          numberOfDoors: cabinets.numberOfDoors,
-          numberOfDrawers: cabinets.numberOfDrawers,
-          catalogImageUrl: cabinets.catalogImageUrl,
-          wholesalePrice: distributorSkus.wholesalePrice,
-          adjustedListPrice: distributorSkus.adjustedListPrice,
+          catalogImageUrl: cabinets.catalogImageUrl,  // image from master cabinet
           listPrice: distributorSkus.listPrice,
           yourCost: distributorSkus.yourCost,
+          platformSku: distributorSkus.platformSku,
         })
         .from(cabinets)
         .innerJoin(
@@ -1491,48 +1471,33 @@ export const cabinetsRouter = router({
         )
         .orderBy(cabinets.category, cabinets.masterCode);
 
-      // Build XLSX — compute contractor/homeowner prices from Margins tab markup settings.
-      const { sellPriceForTier } = await import("../../shared/margins");
+      // Build XLSX with headers that exactly match the importer's HEADER_ALIASES
+      // so a downloaded file can be re-uploaded without any column errors.
       const XLSX = await import("xlsx");
       const wsData = [
-        ["masterCode", "description", "category", "subCategory", "placement",
-         "width", "height", "depth", "doors", "drawers",
-         "yourCost", "wholesalePrice", "contractorPrice", "homeownerPrice", "imageUrl"],
-        ...rows.map((r) => {
-          const costRow = {
-            yourCost: r.yourCost,
-            wholesalePrice: r.wholesalePrice,
-            adjustedListPrice: r.adjustedListPrice,
-            listPrice: r.listPrice,
-          };
-          const contractorPrice = sellPriceForTier(costRow, ps, "contractor");
-          const homeownerPrice = sellPriceForTier(costRow, ps, "homeowner");
-          return [
-            r.masterCode ?? "",
-            r.description ?? "",
-            r.category ?? "",
-            r.subCategory ?? "",
-            r.placement ?? "",
-            r.width ?? "",
-            r.height ?? "",
-            r.depth ?? "",
-            r.numberOfDoors ?? "",
-            r.numberOfDrawers ?? "",
-            r.yourCost != null ? Number(r.yourCost) : "",
-            r.wholesalePrice != null ? Number(r.wholesalePrice) : "",
-            contractorPrice ?? "",
-            homeownerPrice ?? "",
-            r.catalogImageUrl ?? "",
-          ];
-        }),
+        // These headers are accepted verbatim by parseDistributorCsv / HEADER_ALIASES.
+        ["Master Code", "Description", "Category", "Sub Category",
+         "Width", "Height", "Depth",
+         "List Price", "Your Cost", "Style Code", "Image URL"],
+        ...rows.map((r) => [
+          r.masterCode ?? "",
+          r.description ?? "",
+          r.category ?? "",
+          r.subCategory ?? "",
+          r.width != null ? Number(r.width) : "",
+          r.height != null ? Number(r.height) : "",
+          r.depth != null ? Number(r.depth) : "",
+          r.listPrice != null ? Number(r.listPrice) : "",
+          r.yourCost != null ? Number(r.yourCost) : "",
+          style?.styleCode ?? "",
+          r.catalogImageUrl ?? "",
+        ]),
       ];
-
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Cabinets");
       const buf: Buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
       const xlsx = buf.toString("base64");
-      const filename = `cabinet-line-style-${input.styleId}.xlsx`;
       return { xlsx, filename, count: rows.length };
     }),
 
@@ -1720,12 +1685,9 @@ export const pricingRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
-      // Price-column entitlement: never ship a trade/base cost to a viewer who
-      // isn't entitled to it. Admin/owner sees all; everyone else is gated by
-      // their assigned tier (guests default to homeowner/retail).
-      const viewerTier = resolveStorefrontTier(ctx.user);
+      // Simplified pricing: sell price = listPrice × distributor.markupPercent
+      // (falls back to yourCost if listPrice is absent). No tier stacking.
       const isAdmin = ctx.user?.role === "admin";
-      const ps = await getPricingSettings();
       const rows = await db
         .select({
           styleId: distributorSkus.styleId,
@@ -1770,8 +1732,7 @@ export const pricingRouter = router({
           )
         );
 
-      // Collapse to one row per style code (some styles exist across multiple
-      // supply lines). Prefer the lowest contractor price as the sourced option.
+            // Collapse to one row per style code (prefer lowest list price).
       const byStyle = new Map<string, (typeof rows)[number]>();
       for (const r of rows) {
         const key = (r.styleCode || r.ourName || String(r.styleId)).toUpperCase();
@@ -1780,68 +1741,40 @@ export const pricingRouter = router({
           byStyle.set(key, r);
           continue;
         }
-        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
-        const b = Number(existing.contractorPrice ?? existing.wholesalePrice ?? Infinity);
+        const a = Number(r.listPrice ?? r.yourCost ?? Infinity);
+        const b = Number(existing.listPrice ?? existing.yourCost ?? Infinity);
         if (a < b) byStyle.set(key, r);
       }
-
       return Array.from(byStyle.values())
-        .map((r) => {
-          // Sell prices are ALWAYS computed from our cost base × the per-tier
-          // markup (matches the admin Margins tab). We never surface the stored,
-          // pre-marked-up price columns to the customer, so the markup can't be
-          // double-applied. The cost base itself stays entitlement-gated below.
-          const costRow = {
-            wholesalePrice: r.wholesalePrice,
-            adjustedListPrice: r.adjustedListPrice,
-            yourCost: r.yourCost,
-            listPrice: r.listPrice,
-          };
-          const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
-          const sellContractor = sellPriceForTier(costRow, ps, "contractor");
-          const sellWholesale = sellPriceForTier(costRow, ps, "wholesale");
-          const gated = visiblePricesForViewer(
-            {
-              listPrice: r.listPrice,
-              adjustedListPrice: r.adjustedListPrice,
-              wholesalePrice: sellWholesale?.toFixed(2) ?? null,
-              contractorPrice: sellContractor?.toFixed(2) ?? null,
-              homeownerPrice: sellHomeowner?.toFixed(2) ?? null,
-            },
-            viewerTier,
-            isAdmin,
-          );
-          return {
-            styleId: r.styleId,
-            styleCode: r.styleCode,
-            name: r.ourName,
-            doorStyle: r.doorStyle,
-            finish: r.finish,
-            color: r.color,
-            doorSampleImageUrl: r.doorSampleImageUrl,
-            roomSceneImageUrl: r.roomSceneImageUrl,
-            thumbnailImageUrl: r.thumbnailImageUrl,
-            woodSpecies: r.woodSpecies,
-            boxConstruction: r.boxConstruction,
-            drawerConstruction: r.drawerConstruction,
-            hardware: r.hardware,
-            frameSize: r.frameSize,
-            overlayType: r.overlayType,
-            isBuilderGrade: r.isBuilderGrade,
-            listPrice: gated.listPrice,
-            adjustedListPrice: gated.adjustedListPrice,
-            wholesalePrice: gated.wholesalePrice,
-            contractorPrice: gated.contractorPrice,
-            homeownerPrice: gated.homeownerPrice,
-            // True acquisition cost is owner-only intelligence — never send it to
-            // non-admin viewers. Used by the owner “My Cost / margin” panel.
-            yourCost: isAdmin ? r.yourCost : null,
-            platformSku: r.platformSku,
-            skuImageUrl: r.skuImageUrl,
-            leadTimeDays: r.leadTimeDays,
-            distributorId: r.distributorId,
-          };
-        })
+        .map((r) => ({
+          styleId: r.styleId,
+          styleCode: r.styleCode,
+          name: r.ourName,
+          doorStyle: r.doorStyle,
+          finish: r.finish,
+          color: r.color,
+          doorSampleImageUrl: r.doorSampleImageUrl,
+          roomSceneImageUrl: r.roomSceneImageUrl,
+          thumbnailImageUrl: r.thumbnailImageUrl,
+          woodSpecies: r.woodSpecies,
+          boxConstruction: r.boxConstruction,
+          drawerConstruction: r.drawerConstruction,
+          hardware: r.hardware,
+          frameSize: r.frameSize,
+          overlayType: r.overlayType,
+          isBuilderGrade: r.isBuilderGrade,
+          // Simplified: show listPrice directly; fall back to yourCost
+          listPrice: r.listPrice ?? r.yourCost ?? null,
+          adjustedListPrice: r.adjustedListPrice,
+          wholesalePrice: r.wholesalePrice,
+          contractorPrice: r.contractorPrice,
+          homeownerPrice: r.homeownerPrice,
+          yourCost: isAdmin ? r.yourCost : null,
+          platformSku: r.platformSku,
+          skuImageUrl: r.skuImageUrl,
+          leadTimeDays: r.leadTimeDays,
+          distributorId: r.distributorId,
+        }))
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }),
 

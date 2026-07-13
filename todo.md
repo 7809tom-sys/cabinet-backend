@@ -875,3 +875,29 @@
 - [x] Add bow window kind and preset to the door/window system
 - [x] Fix semi-circle bump-out width handling so the user can use the full wall width while keeping depth capped at 24 inches
 - [ ] Audit Skyline for any remaining missing cabinet SKUs beyond the drawer bases
+
+## CSV Catalog Import Feature
+- [ ] Read existing schema and routers to understand current cabinet/product data model
+- [ ] Create master_sku reference table (B12 → width/height/depth/category/name) in schema
+- [ ] Add catalog_import tRPC endpoint that parses CSV rows and upserts products
+- [ ] Build admin CSV Import page: template download, file upload, preview table, validation errors, import button
+- [ ] Wire /admin/catalog-import route in App.tsx
+- [ ] Add single-item "Add Cabinet" form to admin panel (master SKU lookup, supplier SKU, door style, list price, cost)
+- [ ] Add single-item "Add Cabinet" form to vendor/distributor panel
+- [ ] Build CSV bulk-import component with template download, preview, and validation
+- [ ] Wire both into Admin panel and Distributor panel
+- [ ] Add inline "Add Item" button on storefront category sections (pre-fills category + door style)
+- [ ] Fix approve/reject status to be reversible (rejected items can be re-approved) and clarify labels
+- [ ] Enhance product download to include master SKU, cabinet name, category, width, height, depth
+- [ ] Fix CSV round-trip bug: downloaded sheet cannot be re-uploaded without errors (column mismatch between export and import validator)
+- [ ] Rewrite cabinetLineExport: import-compatible headers, brand+style filename, image URL from master cabinet, add listPrice and distributorSku columns
+- [ ] Fix price display bug: uploaded list price ($138) shows wrong number on storefront (markup/margin formula being applied on top of uploaded price instead of displaying it directly)
+- [x] Add inline price edit pencil on cabinet cards/rows in admin panel and storefront (admin-only) to edit list price and cost directly without CSV upload
+- [ ] Simplify storefront price: yourCost (or listPrice) × distributor costMultiplier only, no tier stacking
+- [ ] Add skuAliases column to cabinets table + fuzzy SKU normalizer (strips dashes/spaces/dots, case-insensitive)
+- [ ] Build smart CatalogUpload page: distributor picker/creator, door style picker/creator, door photo upload, spreadsheet drop with fuzzy match preview table
+- [ ] Fix cabinetLineExport: import-compatible headers, real brand+style filename, image from master cabinet record
+- [ ] Add inline pencil price editor on storefront cabinet cards (admin-only)
+- [ ] Add inline edit button on featured door styles in admin panel to edit style specs (name, finish, wood species, construction, images) — changes apply to all cabinets in that style
+- [x] Set up PWA (Progressive Web App): manifest.json, service worker, install prompt button on homepage so users can install the app directly from the website
+- [ ] Investigate and fix price display bug: list price was correct in DB but storefront was showing yourCost instead of listPrice on the front end
