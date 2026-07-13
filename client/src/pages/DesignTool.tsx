@@ -4495,6 +4495,45 @@ export default function DesignTool() {
             can be dragged on the canvas to resize the room on that side.
             Desktop-only — on mobile these live in the "More" menu to save space. */}
         <div className="hidden lg:flex items-center gap-1.5">
+          <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
+            {([
+              { w: "top" as WallSide, icon: <ChevronUp className="h-3.5 w-3.5" />, label: "Back wall (top)" },
+              { w: "left" as WallSide, icon: <ChevronLeft className="h-3.5 w-3.5" />, label: "Left wall" },
+              { w: "right" as WallSide, icon: <ChevronRight className="h-3.5 w-3.5" />, label: "Right wall" },
+              { w: "bottom" as WallSide, icon: <ChevronDown className="h-3.5 w-3.5" />, label: "Front wall (bottom)" },
+            ]).map(({ w, icon, label }) => {
+              const wLocked = layoutLocked || lockedWalls.has(w);
+              return (
+                <div key={w} className="relative flex items-center">
+                  <button
+                    onClick={() => { setActiveWall(w); setDrawMode(false); }}
+                    title={`${label} — click to place cabinets here`}
+                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
+                      activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {icon}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (layoutLocked) { toast.info(t("dt_sh_whole_locked")); return; }
+                      setLockedWalls((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(w)) next.delete(w); else next.add(w);
+                        return next;
+                      });
+                    }}
+                    title={wLocked ? `Unlock ${label}` : `Lock ${label} (prevent changes)`}
+                    className={`rounded p-0.5 transition-colors ${
+                      wLocked ? "text-[#d4a75a]" : "text-muted-foreground/40 hover:text-foreground"
+                    }`}
+                  >
+                    {wLocked ? <Lock className="h-2.5 w-2.5" /> : <LockOpen className="h-2.5 w-2.5" />}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
           <button
             onClick={() => {
               setLayoutLocked((v) => !v);
