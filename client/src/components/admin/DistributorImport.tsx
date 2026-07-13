@@ -226,6 +226,102 @@ function AddDoorStyleDialog({
   );
 }
 
+// ─── Unmatched SKU Alias Resolution Panel ────────────────────────────────────
+/**
+ * After an import, shows all unmatched distributor SKU codes with an input
+ * next to each one. Admin types the correct cabinet master code and clicks
+ * "Save aliases" to create the mapping so the next import resolves them.
+ */
+function UnmatchedAliasPanel({
+  unmatchedCodes,
+  distributorId,
+}: {
+  unmatchedCodes: string[];
+  distributorId: number;
+}) {
+  const [aliases, setAliases] = useState<Record<string, string>>(
+    () => Object.fromEntries(unmatchedCodes.map((c) => [c, ""]))
+  );
+  const [savedSet, setSavedSet] = useState<Set<string>>(new Set());
+  const saveAliasesMut = trpc.distributorAdmin.saveSkuAliases.useMutation({
+    onSuccess: (r) => {
+      setSavedSet((prev) => {
+        const next = new Set(prev);
+        r.saved > 0 && Object.entries(aliases).forEach(([raw, master]) => {
+          if (master.trim()) next.add(raw);
+        });
+        return next;
+      });
+      if (r.notFound.length > 0) {
+        toast.error(`Cabinet codes not found: ${r.notFound.join(", ")}`);
+      } else {
+        toast.success(`${r.saved} alias${r.saved !== 1 ? "es" : ""} saved — re-import to apply.`);
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const pendingCodes = unmatchedCodes.filter((c) => !savedSet.has(c));
+  if (pendingCodes.length === 0) {
+    return (
+      <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-3">
+        <p className="text-xs font-medium text-emerald-700 flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5" /> All aliases saved — re-import the file to apply them.
+        </p>
+      </div>
+    );
+  }
+
+  const filledCount = pendingCodes.filter((c) => aliases[c]?.trim()).length;
+
+  return (
+    <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
+      <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+        <AlertTriangle className="h-3.5 w-3.5" />
+        {pendingCodes.length} model number{pendingCodes.length !== 1 ? "s" : ""} not found — type the correct cabinet code next to each one:
+      </p>
+      <div className="space-y-2">
+        {pendingCodes.map((code) => (
+          <div key={code} className="flex items-center gap-2">
+            <code className="text-xs font-mono bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded text-amber-900 dark:text-amber-200 min-w-[120px] shrink-0">
+              {code}
+            </code>
+            <span className="text-amber-600 text-xs shrink-0">=</span>
+            <Input
+              className="h-7 text-xs font-mono flex-1 max-w-[200px]"
+              placeholder="e.g. B24, DB-24-3"
+              value={aliases[code] ?? ""}
+              onChange={(e) => setAliases((prev) => ({ ...prev, [code]: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && filledCount > 0) {
+                  const toSave = pendingCodes
+                    .filter((c) => aliases[c]?.trim())
+                    .map((c) => ({ rawCode: c, masterCode: aliases[c].trim() }));
+                  if (toSave.length > 0) saveAliasesMut.mutate({ aliases: toSave, distributorId });
+                }
+              }}
+            />
+          </div>
+        ))}
+      </div>
+      <Button
+        size="sm"
+        disabled={filledCount === 0 || saveAliasesMut.isPending}
+        className="bg-amber-600 hover:bg-amber-700 text-white"
+        onClick={() => {
+          const toSave = pendingCodes
+            .filter((c) => aliases[c]?.trim())
+            .map((c) => ({ rawCode: c, masterCode: aliases[c].trim() }));
+          if (toSave.length > 0) saveAliasesMut.mutate({ aliases: toSave, distributorId });
+        }}
+      >
+        {saveAliasesMut.isPending ? <Spinner className="mr-1.5 h-3.5 w-3.5" /> : null}
+        Save {filledCount > 0 ? filledCount : ""} alias{filledCount !== 1 ? "es" : ""}
+      </Button>
+    </div>
+  );
+}
+
 // ─── Column Mapping Step ───────────────────────────────────────────────────
 /**
  * Multi-column mapping step: shows ALL price columns from the spreadsheet in a
@@ -546,30 +642,12 @@ function MultiColumnMappingStep({
         </div>
       )}
 
-      {/* Commit results with unmatched codes */}
+      {/* Commit results with unmatched codes — inline alias resolution */}
       {commitResult && commitResult.results.some((r) => r.unmatched > 0) && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
-          <p className="text-xs font-medium text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5" /> Some model numbers did not match the master catalog:
-          </p>
-          {commitResult.results.filter((r) => r.unmatched > 0).map((r) => (
-            <div key={r.columnCode} className="space-y-1">
-              <p className="text-[11px] font-medium text-amber-700">
-                Column <code className="font-mono">{r.columnCode}</code> — {r.unmatched} unmatched:
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {r.unmatchedCodes.slice(0, 20).map((c) => (
-                  <code key={c} className="text-[10px] bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded font-mono text-amber-900 dark:text-amber-200">
-                    {c}
-                  </code>
-                ))}
-                {r.unmatchedCodes.length > 20 && (
-                  <span className="text-[10px] text-amber-700">+{r.unmatchedCodes.length - 20} more</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        <UnmatchedAliasPanel
+          unmatchedCodes={Array.from(new Set(commitResult.results.flatMap((r) => r.unmatchedCodes)))}
+          distributorId={distributorId}
+        />
       )}
 
       {/* Action buttons */}
@@ -831,24 +909,12 @@ function ColumnMappingStep({
         </div>
       )}
 
-      {/* Unmatched codes from last run */}
+      {/* Unmatched codes from last run — inline alias resolution */}
       {commitResult && commitResult.unmatched > 0 && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-1">
-          <p className="text-xs font-medium text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            {commitResult.unmatched} model numbers did not match any cabinet in the master catalog:
-          </p>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {commitResult.unmatchedCodes.slice(0, 30).map((c) => (
-              <code key={c} className="text-[10px] bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded font-mono text-amber-900 dark:text-amber-200">
-                {c}
-              </code>
-            ))}
-            {commitResult.unmatchedCodes.length > 30 && (
-              <span className="text-[10px] text-amber-700">+{commitResult.unmatchedCodes.length - 30} more</span>
-            )}
-          </div>
-        </div>
+        <UnmatchedAliasPanel
+          unmatchedCodes={commitResult.unmatchedCodes}
+          distributorId={distributorId}
+        />
       )}
 
       {/* Action buttons */}

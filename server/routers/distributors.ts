@@ -1110,4 +1110,83 @@ export const distributorImportRouter = router({
 
       return { results, totalRows: rows.length, dryRun: input.dryRun };
     }),
+
+  /**
+   * Save SKU aliases: admin types the correct cabinet master code for each
+   * unmatched distributor SKU code. Creates a code_aliases entry so the
+   * code resolves automatically on the next import.
+   */
+  saveSkuAliases: adminProcedure
+    .input(
+      z.object({
+        aliases: z.array(
+          z.object({
+            /** The raw code from the distributor spreadsheet that didn't match */
+            rawCode: z.string().min(1),
+            /** The cabinet masterCode the admin says this maps to */
+            masterCode: z.string().min(1),
+          })
+        ).min(1),
+        distributorId: z.number().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Look up cabinets by masterCode
+      const masterCodes = input.aliases.map((a) => a.masterCode.trim().toUpperCase());
+      const found = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(inArray(sql`UPPER(${cabinets.masterCode})`, masterCodes));
+
+      const byMaster = new Map(found.map((c) => [c.masterCode.toUpperCase(), c]));
+
+      const saved: string[] = [];
+      const notFound: string[] = [];
+
+      for (const alias of input.aliases) {
+        const cab = byMaster.get(alias.masterCode.trim().toUpperCase());
+        if (!cab) {
+          notFound.push(alias.masterCode);
+          continue;
+        }
+        const rawCodeCanon = normalizeCode(alias.rawCode);
+        try {
+          await db.insert(codeAliases).values({
+            rawCodeCanon,
+            rawCodeSample: alias.rawCode.trim(),
+            cabinetId: cab.id,
+          }).onDuplicateKeyUpdate({
+            set: { cabinetId: cab.id, rawCodeSample: alias.rawCode.trim() },
+          });
+          saved.push(alias.rawCode);
+        } catch {
+          // ignore duplicate key errors
+          saved.push(alias.rawCode);
+        }
+      }
+
+      return { saved: saved.length, notFound };
+    }),
+
+  /**
+   * Search cabinets by masterCode prefix or description keyword.
+   * Used by the unmatched SKU resolution panel to help the admin find
+   * the right cabinet to map to.
+   */
+  searchCabinets: adminProcedure
+    .input(z.object({ q: z.string().min(1).max(80) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const term = `%${input.q.trim()}%`;
+      const rows = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description, category: cabinets.category })
+        .from(cabinets)
+        .where(sql`(UPPER(${cabinets.masterCode}) LIKE UPPER(${term}) OR ${cabinets.description} LIKE ${term})`)
+        .limit(20);
+      return rows;
+    }),
 });

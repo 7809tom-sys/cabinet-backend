@@ -29,6 +29,7 @@ import {
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LineBrandingEditor from "@/components/admin/LineBrandingEditor";
 import DistributorFulfillmentEditor from "@/components/admin/DistributorFulfillmentEditor";
 import CustomersAdmin from "@/components/admin/CustomersAdmin";
@@ -453,7 +454,7 @@ export default function AdminGroupedTabs() {
 
         {/* Products & Catalog */}
         <TabsContent value="cabinets" className="mt-6"><AdminTabHelp tab="cabinets" /><CabinetSpreadsheetAdmin /><CabinetLineDownload /></TabsContent>
-        <TabsContent value="distributors" className="mt-6 space-y-6"><AdminTabHelp tab="distributors" /><LineBrandingEditor /><DistributorFulfillmentEditor /><DistributorImport /></TabsContent>
+        <TabsContent value="distributors" className="mt-6 space-y-6"><AdminTabHelp tab="distributors" /><LineBrandingEditor /><DistributorFulfillmentEditor /><ErrorBoundary><DistributorImport /></ErrorBoundary></TabsContent>
         <TabsContent value="featured" className="mt-6"><AdminTabHelp tab="featured" /><FeaturedStylesAdmin /></TabsContent>
         <TabsContent value="door-corrections" className="mt-6"><AdminTabHelp tab="door-corrections" /><DoorCorrectionsAdmin /></TabsContent>
         <TabsContent value="images" className="mt-6"><AdminTabHelp tab="images" /><SkuImageManager /></TabsContent>
