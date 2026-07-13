@@ -37,6 +37,7 @@ import {
   ArrowRight,
   RotateCcw,
   Table2,
+  Link2,
 } from "lucide-react";
 
 const ACTION_LABEL: Record<string, string> = {
@@ -542,6 +543,17 @@ export default function DistributorImport() {
   const [xlsxSheets, setXlsxSheets] = useState<XlsxSheet[] | null>(null);
   const [xlsxParsing, setXlsxParsing] = useState(false);
 
+  // ── Google Drive link flow ────────────────────────────────────────────────
+  const [driveLink, setDriveLink] = useState("");
+  const driveMut = trpc.distributorAdmin.fetchFromDriveLink.useMutation({
+    onSuccess: (r) => {
+      setXlsxFile({ base64: r.base64, name: r.filename });
+      setDriveLink("");
+      toast.success(`Downloaded "${r.filename}" from Google Drive (${(r.sizeBytes / 1024).toFixed(0)} KB)`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const parseColumnsMut = trpc.distributorAdmin.parseXlsxColumns.useQuery(
     { fileBase64: xlsxFile?.base64 ?? "", filename: xlsxFile?.name ?? "" },
     { enabled: Boolean(xlsxFile) }
@@ -804,29 +816,65 @@ export default function DistributorImport() {
             </div>
 
             {!xlsxSheets ? (
-              <div className="flex flex-wrap gap-2">
-                <input
-                  ref={xlsxFileRef}
-                  type="file"
-                  accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-                  className="hidden"
-                  onChange={onXlsxFile}
-                />
-                <Button
-                  variant="outline"
-                  disabled={xlsxParsing || parseColumnsMut.isFetching}
-                  onClick={() => xlsxFileRef.current?.click()}
-                >
-                  {(xlsxParsing || parseColumnsMut.isFetching) ? (
-                    <Spinner className="mr-1.5 h-4 w-4" />
-                  ) : (
-                    <FileSpreadsheet className="mr-1.5 h-4 w-4" />
-                  )}
-                  {xlsxFile ? xlsxFile.name : "Choose file…"}
-                </Button>
-                <p className="text-xs text-muted-foreground self-center">
-                  Supports .xlsx and .csv — any column layout, any number of columns
-                </p>
+              <div className="space-y-3">
+                {/* Local file upload */}
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    ref={xlsxFileRef}
+                    type="file"
+                    accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+                    className="hidden"
+                    onChange={onXlsxFile}
+                  />
+                  <Button
+                    variant="outline"
+                    disabled={xlsxParsing || parseColumnsMut.isFetching || driveMut.isPending}
+                    onClick={() => xlsxFileRef.current?.click()}
+                  >
+                    {(xlsxParsing || parseColumnsMut.isFetching) ? (
+                      <Spinner className="mr-1.5 h-4 w-4" />
+                    ) : (
+                      <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+                    )}
+                    {xlsxFile ? xlsxFile.name : "Choose file from device…"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground self-center">
+                    Supports .xlsx and .csv — any column layout
+                  </p>
+                </div>
+
+                {/* Google Drive link */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                    <Link2 className="h-3.5 w-3.5" /> Or paste a Google Drive share link
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      value={driveLink}
+                      onChange={(e) => setDriveLink(e.target.value)}
+                      placeholder="https://drive.google.com/file/d/…/view"
+                      className="flex-1 h-8 text-sm font-mono"
+                      disabled={driveMut.isPending}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!driveLink.trim() || driveMut.isPending}
+                      onClick={() => driveMut.mutate({ url: driveLink.trim() })}
+                    >
+                      {driveMut.isPending ? (
+                        <Spinner className="mr-1.5 h-4 w-4" />
+                      ) : (
+                        <Download className="mr-1.5 h-4 w-4" />
+                      )}
+                      Fetch
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    The file must be shared as <strong>"Anyone with the link can view"</strong>.
+                    Supports Google Sheets and any .xlsx or .csv file in Drive.
+                  </p>
+                </div>
               </div>
             ) : (
               <ColumnMappingStep

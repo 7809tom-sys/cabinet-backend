@@ -817,4 +817,87 @@ export const distributorImportRouter = router({
 
       return { matched, unmatched, priced, skipped, aliasesLearned, unmatchedCodes, dryRun: input.dryRun };
     }),
+
+  /**
+   * Download a file from a Google Drive shareable link and return it as
+   * base64 so the frontend can feed it into parseXlsxColumns / importWithMapping
+   * without the user having to download the file first.
+   *
+   * Supports all common share-link formats:
+   *   https://drive.google.com/file/d/<ID>/view
+   *   https://drive.google.com/open?id=<ID>
+   *   https://docs.google.com/spreadsheets/d/<ID>/...
+   *   https://drive.google.com/uc?id=<ID>
+   *
+   * The file must be shared as "Anyone with the link can view".
+   */
+  fetchFromDriveLink: adminProcedure
+    .input(z.object({ url: z.string().url() }))
+    .mutation(async ({ input }) => {
+      // Extract the file ID from any known Drive URL format
+      let fileId: string | null = null;
+
+      // /file/d/<ID>/ or /spreadsheets/d/<ID>/
+      const pathMatch = input.url.match(/\/d\/([a-zA-Z0-9_-]{20,})/i);
+      if (pathMatch) fileId = pathMatch[1];
+
+      // ?id=<ID> or open?id=<ID>
+      if (!fileId) {
+        const qMatch = input.url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/i);
+        if (qMatch) fileId = qMatch[1];
+      }
+
+      if (!fileId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Could not extract a file ID from that link. Make sure it is a valid Google Drive share link.",
+        });
+      }
+
+      // Use the direct-download URL (works for files shared as "anyone with the link")
+      const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+
+      let response: Response;
+      try {
+        response = await fetch(downloadUrl, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+          redirect: "follow",
+        });
+      } catch {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Network error while trying to download the file from Google Drive.",
+        });
+      }
+
+      if (!response.ok) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Google Drive returned HTTP ${response.status}. Make sure the file is shared as "Anyone with the link can view".`,
+        });
+      }
+
+      // Detect filename from Content-Disposition header
+      const contentDisposition = response.headers.get("content-disposition") ?? "";
+      const nameMatch = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;'"\n]+)/i);
+      const rawFilename = nameMatch
+        ? decodeURIComponent(nameMatch[1].trim())
+        : `drive-file-${fileId}.xlsx`;
+      // Sanitize filename — keep extension
+      const filename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+      // Read response body as buffer and convert to base64
+      const arrayBuffer = await response.arrayBuffer();
+
+      // Sanity-check size (max 20 MB)
+      if (arrayBuffer.byteLength > 20 * 1024 * 1024) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "File is too large (max 20 MB). Please trim the spreadsheet and try again.",
+        });
+      }
+
+      const base64 = Buffer.from(arrayBuffer).toString("base64");
+      return { base64, filename, sizeBytes: arrayBuffer.byteLength };
+    }),
 });

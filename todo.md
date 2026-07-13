@@ -950,3 +950,7 @@
 - [ ] Show a preview of the first 3 data rows using the current mapping so admin can verify before committing
 - [ ] Allow selecting which sheet to import from if the workbook has multiple sheets
 - [ ] masterCode mapping is required — show validation error if not mapped before allowing import
+
+## Google Drive Import for Distributor Price Upload
+- [x] Add backend fetchFromDriveLink procedure (extracts file ID from any Drive URL format, downloads as base64)
+- [x] Add Google Drive share-link input to DistributorImport UI (paste link → Fetch → feeds into column-mapping flow)
