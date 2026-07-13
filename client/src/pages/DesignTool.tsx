@@ -7519,14 +7519,13 @@ export default function DesignTool() {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                    Depth (inches){bumpOutShape === "semicircle" && <span className="ml-1 text-[#d4a75a] font-normal normal-case tracking-normal text-[10px]">— radius = width ÷ 2</span>}
+                    Depth (inches){bumpOutShape === "semicircle" && <span className="ml-1 text-[#d4a75a] font-normal normal-case tracking-normal text-[10px]">— arc projection</span>}
                   </label>
                   <input
-                    type="number" min={6} max={bumpOutWidth} step={6}
-                    value={bumpOutShape === "semicircle" ? Math.round(bumpOutWidth / 2) : bumpOutDepth}
-                    readOnly={bumpOutShape === "semicircle"}
-                    onChange={(e) => { if (bumpOutShape !== "semicircle") setBumpOutDepth(Math.min(Number(e.target.value), bumpOutWidth)); }}
-                    className={`w-full rounded-lg border border-border bg-background px-3 py-2 text-sm ${bumpOutShape === "semicircle" ? "opacity-50 cursor-not-allowed" : ""}`} />
+                    type="number" min={6} max={600} step={6}
+                    value={bumpOutDepth}
+                    onChange={(e) => setBumpOutDepth(Number(e.target.value))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
                 </div>
               </div>
               {/* Shape selector */}
@@ -7534,7 +7533,7 @@ export default function DesignTool() {
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Shape</label>
                 <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
                   {(["rectangle", "semicircle", "triangle"] as const).map((s) => (
-                    <button key={s} onClick={() => { setBumpOutShape(s); if (s === "semicircle") setBumpOutDepth(Math.round(bumpOutWidth / 2)); }}
+                    <button key={s} onClick={() => { setBumpOutShape(s); if (s === "semicircle" && bumpOutDepth === 0) setBumpOutDepth(Math.round(bumpOutWidth / 2)); }}
                       className={`py-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
                         bumpOutShape === s ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                       }`}>
@@ -7576,7 +7575,7 @@ export default function DesignTool() {
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                {bumpOutShape === "semicircle" ? `Semi-circle: depth = width ÷ 2 (${Math.round(bumpOutWidth / 2)}").` : ""}
+                {bumpOutShape === "semicircle" ? `Arc: projects ${bumpOutDepth}" from the wall.` : ""}
                 {" "}Width must be less than the selected wall length.
               </p>
               <div className="flex gap-2 pt-1">
@@ -7592,7 +7591,7 @@ export default function DesignTool() {
                     const offsetArg = bumpOutOffset !== null ? currentOffset : undefined;
                     const effectiveDepth = bumpOutShape === "semicircle" ? Math.round(bumpOutWidth / 2) : bumpOutDepth;
                     const result = bumpOutShape === "semicircle"
-                      ? addHalfCircle(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, bumpOutDir, 12, offsetArg)
+                      ? addHalfCircle(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, bumpOutDir, 12, offsetArg, bumpOutDepth)
                       : bumpOutShape === "triangle"
                       ? addTriangle(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, effectiveDepth, bumpOutDir, offsetArg)
                       : addOpenSquare(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, effectiveDepth, bumpOutDir, offsetArg);

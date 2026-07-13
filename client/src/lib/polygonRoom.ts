@@ -494,6 +494,7 @@ export function addHalfCircle(
   direction: "in" | "out",
   segments = 8,
   offsetFromStart?: number, // inches from start vertex; undefined = centered
+  shapeDepth?: number, // optional depth override; defaults to shapeWidth/2 (true semicircle)
 ): { vertices: RoomVertex[]; customWalls: CustomWall[] } | null {
   const wallIdx = customWalls.findIndex((w) => w.id === wallId);
   if (wallIdx === -1) return null;
@@ -507,6 +508,7 @@ export function addHalfCircle(
   if (shapeWidth > wallLen - 1) return null; // must leave at least 0.5" stub on each side
 
   const radius = shapeWidth / 2;
+  const depth = shapeDepth !== undefined ? shapeDepth : radius; // depth of arc peak from wall
 
   // Unit vector along the wall
   const ux = (end.x - start.x) / wallLen;
@@ -542,7 +544,8 @@ export function addHalfCircle(
     const angle = Math.PI * (1 - t); // π → 0 (left to right)
     // In local wall space: x along wall, y perpendicular (outward)
     const localX = Math.cos(angle) * radius; // -radius → +radius
-    const localY = -Math.sin(angle) * radius; // 0 → -radius → 0 (arc peak at center)
+    // Scale y by depth/radius so the arc peak matches the requested depth
+    const localY = -Math.sin(angle) * depth; // 0 → -depth → 0 (arc peak at center)
 
     // Transform to world space
     const wx = cx + ux * localX + nx * (-localY);
