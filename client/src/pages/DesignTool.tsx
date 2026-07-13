@@ -6214,7 +6214,6 @@ export default function DesignTool() {
               onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
               activeWall={activeWall}
               onSelectWall={setActiveWall}
-              onResizeWall={resizeWall}
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}
               lockedWalls={lockedWalls}
@@ -6372,7 +6371,6 @@ export default function DesignTool() {
                   onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
                   activeWall={activeWall}
                   onSelectWall={setActiveWall}
-                  onResizeWall={resizeWall}
                   conflictUids={conflictUids}
                   layoutLocked={layoutLocked}
                   lockedWalls={lockedWalls}

@@ -697,14 +697,14 @@ export function PlanCanvas({
                 width: roomPxW,
                 height: band,
                 top: side === "top" ? 0 : roomPxH - band,
-                cursor: wallLocked ? "pointer" : onResizeWall ? "ns-resize" : "pointer",
+                cursor: "pointer",
               }
             : {
                 top: 0,
                 height: roomPxH,
                 width: band,
                 left: side === "left" ? 0 : roomPxW - band,
-                cursor: wallLocked ? "pointer" : onResizeWall ? "ew-resize" : "pointer",
+                cursor: "pointer",
               };
           return (
             <div
@@ -725,7 +725,7 @@ export function PlanCanvas({
                   className="pointer-events-none rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold text-white shadow whitespace-nowrap"
                   style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
                 >
-                  {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : t("dt_pc_wall_resize_suffix")}
+                  {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : ""}
                 </span>
               )}
               {wallLocked && !isActive && (
