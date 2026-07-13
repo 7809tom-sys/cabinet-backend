@@ -55,7 +55,8 @@ const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
 
 type PreviewData = inferRouterOutputs<AppRouter>["distributorAdmin"]["importPreview"];
 type PreviewRow = PreviewData["rows"][number];
-type XlsxSheet = inferRouterOutputs<AppRouter>["distributorAdmin"]["parseXlsxColumns"]["sheets"][number];
+type ParseColumnsOutput = inferRouterOutputs<AppRouter>["distributorAdmin"]["parseXlsxColumns"];
+type XlsxSheet = ParseColumnsOutput["sheets"][number];
 
 /** Green/yellow/red confidence indicator for each row */
 function MatchBadge({ row }: { row: PreviewRow }) {
@@ -286,18 +287,52 @@ function MultiColumnMappingStep({
   type ColMapping = { doorStyleId: string; priceType: "list" | "cost"; enabled: boolean };
   const [colMappings, setColMappings] = useState<Record<string, ColMapping>>({});
 
-  // Pre-fill from saved mappings once loaded
+  // Fuzzy match a column code against door style names/codes
+  function autoMatchStyle(col: string): string {
+    if (!allStyles || allStyles.length === 0) return "";
+    const colLower = col.toLowerCase();
+    // 1. Exact style code match
+    const exactCode = allStyles.find((s) => s.styleCode?.toLowerCase() === colLower);
+    if (exactCode) return String(exactCode.id);
+    // 2. Style code starts with col
+    const codePrefix = allStyles.find((s) => s.styleCode?.toLowerCase().startsWith(colLower));
+    if (codePrefix) return String(codePrefix.id);
+    // 3. Style name contains all letters of col as initials
+    // e.g. SW → "Shaker White", GR → "Gray", SE → "Stone/Espresso"
+    const nameWords = (name: string) => name.toLowerCase().split(/[\s\-_/]+/);
+    const initials = allStyles.find((s) => {
+      const words = nameWords(s.ourName);
+      const firstLetters = words.map((w) => w[0] ?? "").join("");
+      return firstLetters.includes(colLower) || firstLetters === colLower;
+    });
+    if (initials) return String(initials.id);
+    // 4. Style name contains col as substring
+    const nameContains = allStyles.find((s) => s.ourName.toLowerCase().includes(colLower));
+    if (nameContains) return String(nameContains.id);
+    return "";
+  }
+
+  // Pre-fill from saved mappings (or auto-suggest) once loaded
   const savedRef = useRef(false);
-  if (savedMappings && !savedRef.current && priceColumns.length > 0) {
+  if (savedMappings !== undefined && allStyles !== undefined && !savedRef.current && priceColumns.length > 0) {
     savedRef.current = true;
     const initial: Record<string, ColMapping> = {};
     for (const col of priceColumns) {
       const saved = savedMappings.find((m) => m.columnCode === col);
-      initial[col] = {
-        doorStyleId: saved ? String(saved.doorStyleId) : "",
-        priceType: saved ? (saved.priceType as "list" | "cost") : "list",
-        enabled: Boolean(saved),
-      };
+      if (saved) {
+        initial[col] = {
+          doorStyleId: String(saved.doorStyleId),
+          priceType: saved.priceType as "list" | "cost",
+          enabled: true,
+        };
+      } else {
+        const suggested = autoMatchStyle(col);
+        initial[col] = {
+          doorStyleId: suggested,
+          priceType: "list",
+          enabled: Boolean(suggested),
+        };
+      }
     }
     setColMappings(initial);
   }
@@ -914,24 +949,10 @@ export default function DistributorImport() {
     onError: (e) => toast.error(e.message),
   });
 
-  const parseColumnsMut = trpc.distributorAdmin.parseXlsxColumns.useQuery(
-    { fileBase64: xlsxFile?.base64 ?? "", filename: xlsxFile?.name ?? "" },
-    { enabled: Boolean(xlsxFile) }
-  );
-
-  // React to parse results
-  const parseData = parseColumnsMut.data;
-  const parseError = parseColumnsMut.error;
-  const prevParseDataRef = useRef<typeof parseData>(undefined);
-  const prevParseErrorRef = useRef<typeof parseError>(undefined);
-  if (parseData !== prevParseDataRef.current) {
-    prevParseDataRef.current = parseData;
-    if (parseData) setXlsxSheets(parseData.sheets);
-  }
-  if (parseError !== prevParseErrorRef.current) {
-    prevParseErrorRef.current = parseError;
-    if (parseError) { toast.error(parseError.message); setXlsxFile(null); }
-  }
+  const parseColumnsMut = trpc.distributorAdmin.parseXlsxColumns.useMutation({
+    onSuccess: (data) => { setXlsxSheets(data.sheets); setXlsxParsing(false); },
+    onError: (e) => { toast.error(e.message); setXlsxFile(null); setXlsxParsing(false); },
+  });
 
   function onXlsxFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -942,8 +963,9 @@ export default function DistributorImport() {
     reader.onload = () => {
       const dataUrl = String(reader.result ?? "");
       const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
-      setXlsxFile({ base64: b64, name: f.name });
-      setXlsxParsing(false);
+      const fileData = { base64: b64, name: f.name };
+      setXlsxFile(fileData);
+      parseColumnsMut.mutate({ fileBase64: b64, filename: f.name });
     };
     reader.readAsDataURL(f);
     // Reset the input so the same file can be re-selected
@@ -1188,10 +1210,10 @@ export default function DistributorImport() {
                   />
                   <Button
                     variant="outline"
-                    disabled={xlsxParsing || parseColumnsMut.isFetching || driveMut.isPending}
+                    disabled={xlsxParsing || parseColumnsMut.isPending || driveMut.isPending}
                     onClick={() => xlsxFileRef.current?.click()}
                   >
-                    {(xlsxParsing || parseColumnsMut.isFetching) ? (
+                    {(xlsxParsing || parseColumnsMut.isPending) ? (
                       <Spinner className="mr-1.5 h-4 w-4" />
                     ) : (
                       <FileSpreadsheet className="mr-1.5 h-4 w-4" />

@@ -604,7 +604,7 @@ export const distributorImportRouter = router({
         filename: z.string().default("upload.xlsx"),
       })
     )
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const isCsv = input.filename.toLowerCase().endsWith(".csv");
       let sheetNames: string[];
       let wb: XLSX.WorkBook;
