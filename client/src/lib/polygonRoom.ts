@@ -417,6 +417,7 @@ export function addOpenSquare(
   shapeWidth: number,
   shapeDepth: number,
   direction: "in" | "out",
+  offsetFromStart?: number, // inches from start vertex; undefined = centered
 ): { vertices: RoomVertex[]; customWalls: CustomWall[] } | null {
   const wallIdx = customWalls.findIndex((w) => w.id === wallId);
   if (wallIdx === -1) return null;
@@ -442,8 +443,10 @@ export function addOpenSquare(
   const nx = inNx * sign;
   const ny = inNy * sign;
 
-  // Center offset along the wall
-  const leftOffset = (wallLen - shapeWidth) / 2;
+  // Offset along the wall (user-specified or centered)
+  const leftOffset = offsetFromStart !== undefined
+    ? Math.max(0, Math.min(offsetFromStart, wallLen - shapeWidth))
+    : (wallLen - shapeWidth) / 2;
   const rightOffset = leftOffset + shapeWidth;
 
   // 4 new vertices
@@ -490,6 +493,7 @@ export function addHalfCircle(
   shapeWidth: number,
   direction: "in" | "out",
   segments = 8,
+  offsetFromStart?: number, // inches from start vertex; undefined = centered
 ): { vertices: RoomVertex[]; customWalls: CustomWall[] } | null {
   const wallIdx = customWalls.findIndex((w) => w.id === wallId);
   if (wallIdx === -1) return null;
@@ -517,8 +521,10 @@ export function addHalfCircle(
   const nx = inNx * sign;
   const ny = inNy * sign;
 
-  // Center of the semicircle on the wall
-  const leftOffset = (wallLen - shapeWidth) / 2;
+  // Offset along the wall (user-specified or centered)
+  const leftOffset = offsetFromStart !== undefined
+    ? Math.max(0, Math.min(offsetFromStart, wallLen - shapeWidth))
+    : (wallLen - shapeWidth) / 2;
   const cx = start.x + ux * (leftOffset + radius);
   const cy = start.y + uy * (leftOffset + radius);
 

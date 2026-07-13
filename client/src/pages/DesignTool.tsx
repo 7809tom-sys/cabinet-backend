@@ -4360,6 +4360,8 @@ export default function DesignTool() {
   const [bumpOutWidth, setBumpOutWidth] = useState(36);
   const [bumpOutDepth, setBumpOutDepth] = useState(24);
   const [bumpOutDir, setBumpOutDir] = useState<"out" | "in">("out");
+  const [bumpOutShape, setBumpOutShape] = useState<"rectangle" | "semicircle">("rectangle");
+  const [bumpOutOffset, setBumpOutOffset] = useState<number | null>(null); // null = centered
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
 
@@ -7433,9 +7435,31 @@ export default function DesignTool() {
                 document.body
       )}
       {/* ─── Bump-Out / Bay Window Dialog ─────────────────────────────── */}
-      {bumpOutOpen && (
+      {bumpOutOpen && (() => {
+        // Compute the wall length so we can show the slider range
+        const wallLabels: Record<string, string> = { top: "Back", right: "Right", bottom: "Front", left: "Left" };
+        const targetLabel = wallLabels[bumpOutWall];
+        const base = room.vertices && room.customWalls
+          ? { vertices: room.vertices, customWalls: room.customWalls }
+          : null;
+        const wallLen = (() => {
+          if (!base) {
+            // rectangle fallback
+            if (bumpOutWall === "top" || bumpOutWall === "bottom") return room.width;
+            return room.depth;
+          }
+          const w = base.customWalls.find((w) => w.label === targetLabel || w.label?.startsWith(targetLabel));
+          if (!w) return bumpOutWall === "top" || bumpOutWall === "bottom" ? room.width : room.depth;
+          const s = base.vertices.find((v) => v.id === w.startVertexId);
+          const e = base.vertices.find((v) => v.id === w.endVertexId);
+          if (!s || !e) return 0;
+          return Math.round(Math.sqrt((e.x - s.x) ** 2 + (e.y - s.y) ** 2));
+        })();
+        const maxOffset = Math.max(0, wallLen - bumpOutWidth);
+        const currentOffset = bumpOutOffset ?? Math.round(maxOffset / 2);
+        return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setBumpOutOpen(false)}>
-          <div className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-md p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-bold text-foreground">Add Bump-Out / Bay Window</h2>
               <button onClick={() => setBumpOutOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
@@ -7481,21 +7505,68 @@ export default function DesignTool() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
                 </div>
               </div>
-              <p className="text-[11px] text-muted-foreground">Width must be less than the selected wall length. Bump-out will be centered on the wall.</p>
+              {/* Shape selector */}
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Shape</label>
+                <div className="grid grid-cols-2 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
+                  {(["rectangle", "semicircle"] as const).map((s) => (
+                    <button key={s} onClick={() => setBumpOutShape(s)}
+                      className={`py-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                        bumpOutShape === s ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+                      }`}>
+                      {s === "rectangle" ? (
+                        <><svg width="14" height="10" viewBox="0 0 14 10" fill="none"><rect x="1" y="1" width="12" height="8" rx="0.5" stroke="currentColor" strokeWidth="1.5"/><rect x="3" y="1" width="8" height="4" fill="currentColor" opacity="0.3"/></svg> Rectangular</>
+                      ) : (
+                        <><svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 9 Q1 1 7 1 Q13 1 13 9" stroke="currentColor" strokeWidth="1.5" fill="none"/><line x1="1" y1="9" x2="13" y2="9" stroke="currentColor" strokeWidth="1.5"/></svg> Semi-Circle</>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Position slider */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Position on Wall</label>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setBumpOutOffset(null)}
+                      className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                        bumpOutOffset === null ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a]" : "border-border text-muted-foreground hover:text-foreground"
+                      }`}>Center</button>
+                    <span className="text-[11px] text-muted-foreground">{bumpOutOffset !== null ? `${currentOffset}" from left` : "Centered"}</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, maxOffset)}
+                  step={1}
+                  value={currentOffset}
+                  onChange={(e) => setBumpOutOffset(Number(e.target.value))}
+                  className="w-full accent-[#d4a75a]"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                  <span>Left edge</span>
+                  <span>Right edge</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {bumpOutShape === "semicircle" ? "Semi-circle depth = half the width (radius)." : ""}
+                {" "}Width must be less than the selected wall length.
+              </p>
               <div className="flex gap-2 pt-1">
                 <button onClick={() => setBumpOutOpen(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
                 <button
                   onClick={async () => {
-                    const { rectToPolygon, addOpenSquare } = await import("@/lib/polygonRoom");
-                    const base = room.vertices && room.customWalls
+                    const { rectToPolygon, addOpenSquare, addHalfCircle } = await import("@/lib/polygonRoom");
+                    const baseGeom = room.vertices && room.customWalls
                       ? { vertices: room.vertices, customWalls: room.customWalls }
                       : rectToPolygon(room.width, room.depth);
-                    // Find the wall matching the selected side
-                    const wallLabels: Record<string, string> = { top: "Back", right: "Right", bottom: "Front", left: "Left" };
-                    const targetLabel = wallLabels[bumpOutWall];
-                    const wall = base.customWalls.find((w) => w.label === targetLabel || w.label?.startsWith(targetLabel));
+                    const wall = baseGeom.customWalls.find((w) => w.label === targetLabel || w.label?.startsWith(targetLabel));
                     if (!wall) { toast.error("Could not find the selected wall"); return; }
-                    const result = addOpenSquare(wall.id, base.vertices, base.customWalls, bumpOutWidth, bumpOutDepth, bumpOutDir);
+                    const offsetArg = bumpOutOffset !== null ? currentOffset : undefined;
+                    const result = bumpOutShape === "semicircle"
+                      ? addHalfCircle(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, bumpOutDir, 12, offsetArg)
+                      : addOpenSquare(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, bumpOutDepth, bumpOutDir, offsetArg);
                     if (!result) { toast.error("Bump-out is wider than the wall — reduce width"); return; }
                     const bounds = result.vertices.reduce((acc, v) => ({
                       minX: Math.min(acc.minX, v.x), minY: Math.min(acc.minY, v.y),
@@ -7509,7 +7580,7 @@ export default function DesignTool() {
                       depth: Math.round(bounds.maxY - bounds.minY),
                     }));
                     setBumpOutOpen(false);
-                    toast.success(`Bump-${bumpOutDir === "out" ? "out" : "in"} added to ${targetLabel} wall`);
+                    toast.success(`${bumpOutShape === "semicircle" ? "Semi-circle" : "Rectangular"} bump-${bumpOutDir === "out" ? "out" : "in"} added to ${targetLabel} wall`);
                   }}
                   className="flex-1 rounded-lg bg-[#1a2744] text-white px-4 py-2 text-sm font-semibold hover:bg-[#1a2744]/90 transition-colors"
                 >Apply</button>
@@ -7517,7 +7588,8 @@ export default function DesignTool() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
       {/* ─── Door / Window Dialog ──────────────────────────────────────── */}
       {doorWindowOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setDoorWindowOpen(false)}>
