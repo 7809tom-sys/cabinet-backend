@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
@@ -105,6 +105,12 @@ function Hero() {
               <Link href="/design">
                 <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
                   Design Your Kitchen
+                </Button>
+              </Link>
+              <Link href="/app">
+                <Button size="lg" variant="outline" className="border-[var(--color-gold)] text-[var(--color-gold)] bg-transparent hover:bg-[var(--color-gold)] hover:text-[var(--color-navy)] gap-2 font-semibold">
+                  <Smartphone className="h-4 w-4" />
+                  Get the App
                 </Button>
               </Link>
             </div>
