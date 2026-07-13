@@ -16,6 +16,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -32,6 +41,8 @@ import {
   AlertTriangle,
   Plus,
   CheckCheck,
+  Check,
+  ChevronsUpDown,
   AlertCircle,
   HelpCircle,
   ArrowRight,
@@ -322,6 +333,79 @@ function UnmatchedAliasPanel({
   );
 }
 
+// ─── Style Combobox (searchable) ────────────────────────────────────────────────
+/** Searchable combobox for picking a door style by typing its name. */
+function StyleCombobox({
+  styles,
+  value,
+  onChange,
+}: {
+  styles: Array<{ id: number; ourName: string; styleCode?: string | null }>;
+  value: string; // door style id as string, or ""
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const selected = styles.find((s) => String(s.id) === value);
+
+  const filtered = search.trim()
+    ? styles.filter((s) =>
+        s.ourName.toLowerCase().includes(search.toLowerCase()) ||
+        (s.styleCode ?? "").toLowerCase().includes(search.toLowerCase())
+      )
+    : styles;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex items-center justify-between h-7 text-xs w-full min-w-[160px] rounded-md border border-input bg-background px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          <span className={selected ? "" : "text-muted-foreground"}>
+            {selected ? selected.ourName : "— Not imported —"}
+          </span>
+          <ChevronsUpDown className="h-3 w-3 text-muted-foreground ml-1 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[220px] p-0" align="start">
+        <Command>
+          <CommandInput
+            placeholder="Type style name..."
+            value={search}
+            onValueChange={setSearch}
+            className="h-8 text-xs"
+          />
+          <CommandList className="max-h-[200px]">
+            <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">No styles found.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="__none__"
+                onSelect={() => { onChange(""); setOpen(false); setSearch(""); }}
+                className="text-xs text-muted-foreground"
+              >
+                — Not imported —
+              </CommandItem>
+              {filtered.map((s) => (
+                <CommandItem
+                  key={s.id}
+                  value={s.ourName}
+                  onSelect={() => { onChange(String(s.id)); setOpen(false); setSearch(""); }}
+                  className="text-xs"
+                >
+                  <Check className={`mr-1.5 h-3 w-3 ${String(s.id) === value ? "opacity-100" : "opacity-0"}`} />
+                  {s.ourName}
+                  {s.styleCode && <span className="ml-1 text-muted-foreground">({s.styleCode})</span>}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── Column Mapping Step ───────────────────────────────────────────────────
 /**
  * Multi-column mapping step: shows ALL price columns from the spreadsheet in a
@@ -574,26 +658,14 @@ function MultiColumnMappingStep({
                     {sampleVal != null ? String(sampleVal) : "—"}
                   </td>
                   <td className="px-3 py-2">
-                    <Select
-                      value={mapping.doorStyleId || "__none__"}
-                      onValueChange={(v) => {
-                        const val = v === "__none__" ? "" : v;
+                    <StyleCombobox
+                      styles={allStyles ?? []}
+                      value={mapping.doorStyleId}
+                      onChange={(val) => {
                         setColField(col, "doorStyleId", val);
                         if (val) setColField(col, "enabled", true);
                       }}
-                    >
-                      <SelectTrigger className="h-7 text-xs w-full min-w-[160px]">
-                        <SelectValue placeholder="— Not imported —" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— Not imported —</SelectItem>
-                        {(allStyles ?? []).map((s) => (
-                          <SelectItem key={s.id} value={String(s.id)}>
-                            {s.ourName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </td>
                   <td className="px-3 py-2">
                     <Select
