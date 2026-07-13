@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Download, Smartphone, Ruler, BookOpen, Save, Bell, Lock, CheckCircle } from "lucide-react";
+import { Download, Smartphone, Ruler, BookOpen, Save, Bell, Lock, CheckCircle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 
@@ -12,7 +12,8 @@ const FEATURES = [
   {
     icon: <Ruler className="h-7 w-7 text-[#d4a75a]" />,
     title: "AR Tape Measure",
-    desc: "Use your phone camera to measure walls, windows, and spaces with augmented reality. No physical tape measure needed.",
+    desc: "Use your phone camera to measure walls, windows, and spaces. Android gets live AR overlay; iPhone uses photo reference measurement.",
+    href: "/measure",
   },
   {
     icon: <BookOpen className="h-7 w-7 text-[#d4a75a]" />,
@@ -172,16 +173,29 @@ export default function MobileApp() {
             All the tools of the CabinetDealz trade platform — now in your pocket.
           </p>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className="bg-[#1e2e4a] border border-[#2a3a5c] rounded-2xl p-6 hover:border-[#d4a75a]/40 transition-colors"
-              >
-                <div className="mb-3">{f.icon}</div>
-                <h3 className="text-base font-bold text-white mb-2">{f.title}</h3>
-                <p className="text-sm text-[#8a9bb8] leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
+            {FEATURES.map((f) => {
+              const card = (
+                <div
+                  key={f.title}
+                  className={[
+                    "bg-[#1e2e4a] border border-[#2a3a5c] rounded-2xl p-6 transition-colors",
+                    (f as { href?: string }).href
+                      ? "hover:border-[#d4a75a] cursor-pointer"
+                      : "hover:border-[#d4a75a]/40",
+                  ].join(" ")}
+                >
+                  <div className="mb-3">{f.icon}</div>
+                  <h3 className="text-base font-bold text-white mb-2 flex items-center gap-2">
+                    {f.title}
+                    {(f as { href?: string }).href && <ExternalLink className="h-3.5 w-3.5 text-[#d4a75a]" />}
+                  </h3>
+                  <p className="text-sm text-[#8a9bb8] leading-relaxed">{f.desc}</p>
+                </div>
+              );
+              return (f as { href?: string }).href ? (
+                <Link key={f.title} href={(f as { href?: string }).href!}>{card}</Link>
+              ) : card;
+            })}
           </div>
         </div>
       </section>

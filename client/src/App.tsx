@@ -52,6 +52,7 @@ const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const MobileApp = lazy(() => import("@/pages/MobileApp"));
+const ARMeasure = lazy(() => import("@/pages/ARMeasure"));
 
 function PageLoader() {
   return (
@@ -429,6 +430,12 @@ export default function App() {
               <MobileApp />
             </Suspense>
           </AppLayout>
+        </Route>
+
+        <Route path="/measure">
+          <Suspense fallback={<PageLoader />}>
+            <ARMeasure />
+          </Suspense>
         </Route>
 
         <Route>

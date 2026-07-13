@@ -84,35 +84,21 @@ function Hero() {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-              <Link href="/styles">
-                <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
-                  Shop Cabinets
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/surfaces">
-                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                  Surfaces & Fixtures
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/plumbers-choice">
-                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                  Plumber's Choice
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/design">
-                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                  Design Your Kitchen
-                </Button>
-              </Link>
-              <Link href="/app">
-                <Button size="lg" variant="outline" className="border-[var(--color-gold)] text-[var(--color-gold)] bg-transparent hover:bg-[var(--color-gold)] hover:text-[var(--color-navy)] gap-2 font-semibold">
-                  <Smartphone className="h-4 w-4" />
-                  Get the App
-                </Button>
-              </Link>
+              <Button asChild size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
+                <Link href="/styles">Shop Cabinets <ArrowRight className="h-4 w-4" /></Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                <Link href="/surfaces">Surfaces & Fixtures <ArrowRight className="h-4 w-4" /></Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                <Link href="/plumbers-choice">Plumber's Choice <ArrowRight className="h-4 w-4" /></Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                <Link href="/design">Design Your Kitchen</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="border-[var(--color-gold)] text-[var(--color-gold)] bg-transparent hover:bg-[var(--color-gold)] hover:text-[var(--color-navy)] gap-2 font-semibold">
+                <Link href="/app"><Smartphone className="h-4 w-4" /> Get the App</Link>
+              </Button>
             </div>
           </div>
 
@@ -365,11 +351,9 @@ function StyleShowcase() {
         </div>
 
         <div className="mt-10 text-center">
-          <Link href="/styles">
-            <Button size="lg" variant="outline" className="gap-2 bg-card">
-              {t("home_showcase_explore_all")} <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+          <Button asChild size="lg" variant="outline" className="gap-2 bg-card">
+            <Link href="/styles">{t("home_showcase_explore_all")} <ArrowRight className="h-4 w-4" /></Link>
+          </Button>
         </div>
       </div>
     </section>
@@ -443,12 +427,9 @@ function AffiliatePromo() {
         </div>
 
         <div className="text-center">
-          <Link href="/affiliate">
-            <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 px-8 py-6 text-base">
-              Start Your Affiliate Storefront
-              <ArrowRight className="h-5 w-5" />
-            </Button>
-          </Link>
+          <Button asChild size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 px-8 py-6 text-base">
+            <Link href="/affiliate">Start Your Affiliate Storefront <ArrowRight className="h-5 w-5" /></Link>
+          </Button>
           <p className="text-sm text-muted-foreground mt-3">
             Free to join. No upfront costs. Start earning from day one.
           </p>
@@ -500,12 +481,9 @@ function PlatformFeatures() {
             </div>
 
             <div className="mt-8">
-              <Link href="/order/new">
-                <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2">
-                  {t("home_feat_build_cta")}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+              <Button asChild size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2">
+                <Link href="/order/new">{t("home_feat_build_cta")} <ArrowRight className="h-4 w-4" /></Link>
+              </Button>
               <p className="text-xs text-muted-foreground mt-2">
                 {t("home_feat_build_note")}
               </p>
