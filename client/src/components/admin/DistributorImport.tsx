@@ -1197,7 +1197,25 @@ export default function DistributorImport() {
               )}
             </div>
 
-            {!xlsxSheets ? (
+            {/* Loading overlay while parsing */}
+            {(xlsxParsing || parseColumnsMut.isPending || driveMut.isPending) && (
+              <div className="flex flex-col items-center justify-center py-8 gap-3">
+                <Spinner className="h-8 w-8 text-primary" />
+                <div className="text-center">
+                  <p className="text-sm font-medium">
+                    {driveMut.isPending ? "Downloading from Google Drive…" : "Parsing spreadsheet…"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {xlsxFile?.name ?? "Reading file columns and rows"}
+                  </p>
+                </div>
+                <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full animate-[progress_1.5s_ease-in-out_infinite]" style={{ width: "60%" }} />
+                </div>
+              </div>
+            )}
+
+            {!xlsxSheets && !(xlsxParsing || parseColumnsMut.isPending || driveMut.isPending) ? (
               <div className="space-y-3">
                 {/* Local file upload */}
                 <div className="flex flex-wrap gap-2">
@@ -1258,7 +1276,7 @@ export default function DistributorImport() {
                   </p>
                 </div>
               </div>
-            ) : (
+            ) : !xlsxSheets ? null : (
               <MultiColumnMappingStep
                 sheets={xlsxSheets}
                 distributorId={Number(distributorId)}

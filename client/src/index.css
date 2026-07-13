@@ -199,6 +199,12 @@
   }
 }
 
+/* ─── Progress bar shimmer ─────────────────────────────────────────────── */
+@keyframes progress {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(250%); }
+}
+
 /* ─── Promo banner marquee ──────────────────────────────────────────────── */
 @keyframes marquee {
   0%   { transform: translateX(0); }
