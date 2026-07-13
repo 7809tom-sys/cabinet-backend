@@ -900,4 +900,214 @@ export const distributorImportRouter = router({
       const base64 = Buffer.from(arrayBuffer).toString("base64");
       return { base64, filename, sizeBytes: arrayBuffer.byteLength };
     }),
+
+  /**
+   * Parse an XLSX/CSV file and return all "price columns" — every column that
+   * is NOT the SKU/model column, the Description column, or the Assemble column.
+   * Also returns the first 5 data rows so the admin can sanity-check.
+   */
+  parseAllPriceColumns: adminProcedure
+    .input(z.object({
+      fileBase64: z.string().min(1),
+      filename: z.string(),
+      skuColumn: z.string().default("SKU"),  // header name for the SKU/model column
+      skipColumns: z.array(z.string()).default(["Description", "Assemble", "description", "assemble"]),
+    }))
+    .mutation(async ({ input }) => {
+      const buf = Buffer.from(input.fileBase64, "base64");
+      const wb = XLSX.read(buf, { type: "buffer" });
+      const sheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
+
+      if (rows.length === 0) return { priceColumns: [], sampleRows: [], totalRows: 0 };
+
+      const allHeaders = Object.keys(rows[0]);
+      const skipSet = new Set([input.skuColumn, ...input.skipColumns].map((s) => s.toLowerCase()));
+      const priceColumns = allHeaders.filter((h) => !skipSet.has(h.toLowerCase()));
+
+      // Build sample rows: first 5 data rows, only SKU + price columns
+      const sampleRows = rows.slice(0, 5).map((row) => {
+        const sku = String(row[input.skuColumn] ?? "");
+        const prices: Record<string, string | null> = {};
+        for (const col of priceColumns) {
+          const v = row[col];
+          prices[col] = v == null ? null : String(v);
+        }
+        return { sku, prices };
+      });
+
+      return { priceColumns, sampleRows, totalRows: rows.length };
+    }),
+
+  /**
+   * Return saved column→style mappings for a distributor so the UI can
+   * pre-fill the mapping table on the next upload.
+   */
+  getColumnMappings: adminProcedure
+    .input(z.object({ distributorId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const { distributorColumnMappings } = await import("../../drizzle/schema");
+      return db
+        .select()
+        .from(distributorColumnMappings)
+        .where(eq(distributorColumnMappings.distributorId, input.distributorId))
+        .orderBy(distributorColumnMappings.columnCode);
+    }),
+
+  /**
+   * Import prices from multiple columns at once.
+   * Each entry in `mappings` specifies which column maps to which door style
+   * and whether the prices are list or cost.
+   * Saves/updates the column mappings so they are remembered next time.
+   */
+  importAllColumns: adminProcedure
+    .input(z.object({
+      distributorId: z.number().int().positive(),
+      fileBase64: z.string().min(1),
+      filename: z.string(),
+      skuColumn: z.string().default("SKU"),
+      mappings: z.array(z.object({
+        columnCode: z.string().min(1),
+        doorStyleId: z.number().int().positive(),
+        priceType: z.enum(["list", "cost"]).default("list"),
+      })).min(1),
+      dryRun: z.boolean().default(false),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+
+      const { distributorColumnMappings } = await import("../../drizzle/schema");
+
+      // Parse the file
+      const buf = Buffer.from(input.fileBase64, "base64");
+      const wb = XLSX.read(buf, { type: "buffer" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
+
+      if (rows.length === 0) return { results: [], totalRows: 0 };
+
+      // Build cabinet lookup (same fuzzy logic as importCommit)
+      const allCabinets = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets);
+      const byNorm = new Map<string, typeof allCabinets[number]>();
+      for (const c of allCabinets) byNorm.set(normalizeCode(c.masterCode), c);
+      const aliases = await db.select({ rawCodeCanon: codeAliases.rawCodeCanon, cabinetId: codeAliases.cabinetId }).from(codeAliases);
+      const aliasByCabId = new Map(allCabinets.map((c) => [c.id, c]));
+      const byAlias = new Map<string, typeof allCabinets[number]>();
+      for (const a of aliases) {
+        const cab = aliasByCabId.get(a.cabinetId);
+        if (cab) byAlias.set(a.rawCodeCanon, cab);
+      }
+
+      function resolveCabinet(rawCode: string) {
+        const norm = normalizeCode(rawCode);
+        return byNorm.get(norm) ?? byAlias.get(norm);
+      }
+
+      const results: Array<{
+        columnCode: string;
+        doorStyleId: number;
+        priceType: string;
+        matched: number;
+        unmatched: number;
+        priced: number;
+        unmatchedCodes: string[];
+      }> = [];
+
+      const newAliases: Array<{ cabinetId: number; rawCodeSample: string; rawCodeCanon: string; distributorId: number }> = [];
+
+      for (const mapping of input.mappings) {
+        let matched = 0, unmatched = 0, priced = 0;
+        const unmatchedCodes: string[] = [];
+        const upserts: Array<typeof distributorSkus.$inferInsert> = [];
+
+        for (const row of rows) {
+          const rawSku = String(row[input.skuColumn] ?? "").trim();
+          if (!rawSku) continue;
+
+          const rawPrice = row[mapping.columnCode];
+          if (rawPrice == null || String(rawPrice).trim() === "") continue;
+
+          const priceStr = String(rawPrice).trim();
+          // Treat NA/X/blank as not available
+          const NOT_AVAIL_RE = /^(na|n\/a|x|-)$/i;
+          const isNotAvailable = NOT_AVAIL_RE.test(priceStr);
+          const parsedPrice = isNotAvailable ? null : parseFloat(priceStr.replace(/[^0-9.-]/g, ""));
+          if (!isNotAvailable && (parsedPrice == null || isNaN(parsedPrice))) continue;
+
+          const cabinet = resolveCabinet(rawSku);
+          if (!cabinet) {
+            unmatched++;
+            if (unmatchedCodes.length < 50) unmatchedCodes.push(rawSku);
+            continue;
+          }
+          matched++;
+
+          // Learn alias
+          const norm = normalizeCode(rawSku);
+          if (norm !== normalizeCode(cabinet.masterCode)) {
+            newAliases.push({ cabinetId: cabinet.id, rawCodeSample: rawSku, rawCodeCanon: norm, distributorId: input.distributorId });
+          }
+
+          const listPrice = mapping.priceType === "list" ? parsedPrice : null;
+          const yourCost = mapping.priceType === "cost" ? parsedPrice : null;
+          const platformSku = `${input.distributorId}-${mapping.doorStyleId}-${cabinet.masterCode}`;
+
+          upserts.push({
+            distributorId: input.distributorId,
+            cabinetId: cabinet.id,
+            styleId: mapping.doorStyleId,
+            platformSku,
+            distributorSku: rawSku,
+            listPrice: listPrice !== null ? String(listPrice) : null,
+            yourCost: yourCost !== null ? String(yourCost) : null,
+            isAvailable: !isNotAvailable,
+          });
+          priced++;
+        }
+
+        if (!input.dryRun && upserts.length > 0) {
+          // Batch upsert in chunks of 200
+          for (let i = 0; i < upserts.length; i += 200) {
+            const chunk = upserts.slice(i, i + 200);
+            await db.insert(distributorSkus).values(chunk).onDuplicateKeyUpdate({
+              set: {
+                listPrice: sql`VALUES(list_price)`,
+                yourCost: sql`VALUES(your_cost)`,
+                isAvailable: sql`VALUES(is_available)`,
+              },
+            });
+          }
+        }
+
+        results.push({ columnCode: mapping.columnCode, doorStyleId: mapping.doorStyleId, priceType: mapping.priceType, matched, unmatched, priced, unmatchedCodes });
+      }
+
+      // Save/update column mappings for next time
+      if (!input.dryRun) {
+        for (const mapping of input.mappings) {
+          await db.insert(distributorColumnMappings).values({
+            distributorId: input.distributorId,
+            columnCode: mapping.columnCode,
+            doorStyleId: mapping.doorStyleId,
+            priceType: mapping.priceType,
+          }).onDuplicateKeyUpdate({
+            set: { doorStyleId: mapping.doorStyleId, priceType: mapping.priceType, lastUsedAt: new Date() },
+          });
+        }
+        // Bulk-insert new aliases
+        if (newAliases.length > 0) {
+          try {
+            await db.insert(codeAliases).values(newAliases).onDuplicateKeyUpdate({ set: { rawCodeSample: sql`VALUES(raw_code_sample)` } });
+          } catch { /* ignore */ }
+        }
+      }
+
+      return { results, totalRows: rows.length, dryRun: input.dryRun };
+    }),
 });

@@ -11,6 +11,7 @@ import {
   json,
   date,
   bigint,
+  unique,
 } from "drizzle-orm/mysql-core";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -1522,3 +1523,20 @@ export const pageContent = mysqlTable("page_content", {
 });
 export type PageContent = typeof pageContent.$inferSelect;
 export type InsertPageContent = typeof pageContent.$inferInsert;
+
+// ─── Distributor Column Mappings ──────────────────────────────────────────────
+// Remembers which price column (e.g. "SW") maps to which door style for a
+// given distributor so the admin doesn't have to re-map on every upload.
+export const distributorColumnMappings = mysqlTable("distributor_column_mappings", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  columnCode: varchar("columnCode", { length: 32 }).notNull(), // e.g. "SW", "GR", "SE"
+  doorStyleId: int("doorStyleId").notNull(),
+  priceType: mysqlEnum("priceType", ["list", "cost"]).default("list").notNull(),
+  lastUsedAt: timestamp("lastUsedAt").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  uniqDistCol: unique("uniq_dist_col").on(t.distributorId, t.columnCode),
+}));
+export type DistributorColumnMapping = typeof distributorColumnMappings.$inferSelect;
+export type InsertDistributorColumnMapping = typeof distributorColumnMappings.$inferInsert;

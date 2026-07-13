@@ -463,6 +463,20 @@
       "when": 1783899865802,
       "tag": "0065_absurd_blizzard",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "5",
+      "when": 1783974526563,
+      "tag": "0066_warm_leo",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "5",
+      "when": 1783974825837,
+      "tag": "0067_classy_living_lightning",
+      "breakpoints": true
     }
   ]
 }

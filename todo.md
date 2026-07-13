@@ -954,3 +954,11 @@
 ## Google Drive Import for Distributor Price Upload
 - [x] Add backend fetchFromDriveLink procedure (extracts file ID from any Drive URL format, downloads as base64)
 - [x] Add Google Drive share-link input to DistributorImport UI (paste link → Fetch → feeds into column-mapping flow)
+
+## Multi-Column Price Import (Milestone-style spreadsheets)
+- [x] Add distributorColumnMappings table to schema (distributorId, columnCode, doorStyleId, lastUsed)
+- [x] Add backend: parseXlsxAllColumns procedure — returns all non-SKU/Description columns + row count
+- [x] Add backend: getColumnMappings — returns saved mappings for a distributor
+- [x] Add backend: importAllColumns — accepts array of {columnCode, doorStyleId, priceType} + fileBase64, imports all in one transaction
+- [x] Build multi-column mapping UI: table of all price columns, auto-suggest door style from saved mappings, confirm and import all
+- [x] Remember mappings per distributor so next upload auto-fills the style assignments

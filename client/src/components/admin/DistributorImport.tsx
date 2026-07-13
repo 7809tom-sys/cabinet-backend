@@ -227,12 +227,372 @@ function AddDoorStyleDialog({
 
 // ─── Column Mapping Step ───────────────────────────────────────────────────
 /**
- * After an XLSX/CSV is parsed, this step lets the admin choose:
- *  - Which sheet (if multi-sheet workbook)
- *  - Which column = model/SKU
- *  - Which column = price
- *  - Whether price is list or cost
- *  - Which column = description (optional)
+ * Multi-column mapping step: shows ALL price columns from the spreadsheet in a
+ * table. Each row lets the admin assign a door style (and price type) to that
+ * column. Saved mappings are pre-filled from the database. Imports all selected
+ * columns in one shot.
+ */
+function MultiColumnMappingStep({
+  sheets,
+  distributorId,
+  fileBase64,
+  filename,
+  onDone,
+  onReset,
+}: {
+  sheets: XlsxSheet[];
+  distributorId: number;
+  fileBase64: string;
+  filename: string;
+  onDone: () => void;
+  onReset: () => void;
+}) {
+  const [sheetName, setSheetName] = useState(sheets[0]?.name ?? "");
+  const activeSheet = sheets.find((s) => s.name === sheetName) ?? sheets[0];
+  const headers = activeSheet?.headers ?? [];
+
+  // Auto-detect the SKU column
+  function autoDetect(candidates: string[]): string {
+    for (const c of candidates) {
+      const found = headers.find((h) => h.toLowerCase().includes(c.toLowerCase()));
+      if (found) return found;
+    }
+    return "";
+  }
+
+  const [skuCol, setSkuCol] = useState(() =>
+    autoDetect(["model", "sku", "item", "code", "part", "number"])
+  );
+
+  // Columns to skip (non-price columns)
+  const SKIP_COLS = new Set(["description", "assemble", "assembled", "taxable", "hinge", "notes", "note"]);
+  const priceColumns = headers.filter(
+    (h) => h !== skuCol && !SKIP_COLS.has(h.toLowerCase())
+  );
+
+  // Load all door styles for this distributor
+  const { data: allStyles } = trpc.distributorAdmin.adminStyles.useQuery(
+    { distributorId },
+    { enabled: distributorId > 0 }
+  );
+
+  // Load saved column mappings for this distributor
+  const { data: savedMappings } = trpc.distributorAdmin.getColumnMappings.useQuery(
+    { distributorId },
+    { enabled: distributorId > 0 }
+  );
+
+  // Per-column state: { doorStyleId, priceType, enabled }
+  type ColMapping = { doorStyleId: string; priceType: "list" | "cost"; enabled: boolean };
+  const [colMappings, setColMappings] = useState<Record<string, ColMapping>>({});
+
+  // Pre-fill from saved mappings once loaded
+  const savedRef = useRef(false);
+  if (savedMappings && !savedRef.current && priceColumns.length > 0) {
+    savedRef.current = true;
+    const initial: Record<string, ColMapping> = {};
+    for (const col of priceColumns) {
+      const saved = savedMappings.find((m) => m.columnCode === col);
+      initial[col] = {
+        doorStyleId: saved ? String(saved.doorStyleId) : "",
+        priceType: saved ? (saved.priceType as "list" | "cost") : "list",
+        enabled: Boolean(saved),
+      };
+    }
+    setColMappings(initial);
+  }
+
+  function setColField<K extends keyof ColMapping>(col: string, field: K, value: ColMapping[K]) {
+    setColMappings((prev) => ({
+      ...prev,
+      [col]: { ...(prev[col] ?? { doorStyleId: "", priceType: "list", enabled: false }), [field]: value },
+    }));
+  }
+
+  const activeMappings = priceColumns
+    .filter((col) => colMappings[col]?.enabled && colMappings[col]?.doorStyleId)
+    .map((col) => ({
+      columnCode: col,
+      doorStyleId: Number(colMappings[col].doorStyleId),
+      priceType: colMappings[col].priceType,
+    }));
+
+  const importAllMut = trpc.distributorAdmin.importAllColumns.useMutation({
+    onSuccess: (r) => {
+      if (r.dryRun) return;
+      const total = r.results.reduce((s, x) => s + x.priced, 0);
+      const totalUnmatched = r.results.reduce((s, x) => s + x.unmatched, 0);
+      toast.success(
+        `Imported ${total} prices across ${r.results.length} styles.` +
+        (totalUnmatched > 0 ? ` ${totalUnmatched} unmatched SKUs — see details below.` : "")
+      );
+      if (totalUnmatched === 0) onDone();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const dryRunResult = importAllMut.data?.dryRun ? importAllMut.data : null;
+  const commitResult = importAllMut.data && !importAllMut.data.dryRun ? importAllMut.data : null;
+
+  const canImport = activeMappings.length > 0 && Boolean(skuCol);
+
+  // Sample prices for the first data row (for preview column)
+  const firstRow = activeSheet?.previewRows?.[0] ?? {};
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <Table2 className="h-4 w-4" /> Map price columns to door styles
+        </h3>
+        <Button variant="ghost" size="sm" onClick={onReset}>
+          <RotateCcw className="h-3.5 w-3.5 mr-1" /> Choose different file
+        </Button>
+      </div>
+
+      {/* Sheet selector (only shown for multi-sheet workbooks) */}
+      {sheets.length > 1 && (
+        <div>
+          <Label className="text-xs font-medium">Sheet</Label>
+          <Select value={sheetName} onValueChange={setSheetName}>
+            <SelectTrigger className="mt-1 h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {sheets.map((s) => (
+                <SelectItem key={s.name} value={s.name}>
+                  {s.name} ({s.headers.length} columns, {s.previewRows.length}+ rows)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* SKU column selector */}
+      <div className="flex items-center gap-3">
+        <Label className="text-xs font-medium whitespace-nowrap">
+          Model / SKU column <span className="text-destructive">*</span>
+        </Label>
+        <Select value={skuCol} onValueChange={setSkuCol}>
+          <SelectTrigger className="h-8 text-sm w-48">
+            <SelectValue placeholder="Select column…" />
+          </SelectTrigger>
+          <SelectContent>
+            {headers.map((h) => (
+              <SelectItem key={h} value={h}>{h}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">
+          {activeSheet?.previewRows?.length ?? 0}+ rows detected
+        </span>
+      </div>
+
+      {/* Multi-column mapping table */}
+      <div className="rounded-md border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/60 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium w-8">
+                <input
+                  type="checkbox"
+                  checked={priceColumns.every((c) => colMappings[c]?.enabled)}
+                  onChange={(e) => {
+                    setColMappings((prev) => {
+                      const next = { ...prev };
+                      for (const col of priceColumns) {
+                        next[col] = { ...(prev[col] ?? { doorStyleId: "", priceType: "list" as const }), enabled: e.target.checked };
+                      }
+                      return next;
+                    });
+                  }}
+                  className="cursor-pointer"
+                />
+              </th>
+              <th className="px-3 py-2 text-left font-medium">Column</th>
+              <th className="px-3 py-2 text-left font-medium">Sample price</th>
+              <th className="px-3 py-2 text-left font-medium">Door style</th>
+              <th className="px-3 py-2 text-left font-medium">Price type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {priceColumns.map((col) => {
+              const mapping = colMappings[col] ?? { doorStyleId: "", priceType: "list" as const, enabled: false };
+              const sampleVal = firstRow[col];
+              return (
+                <tr key={col} className={`border-t transition-colors ${mapping.enabled ? "bg-background" : "bg-muted/20 opacity-60"}`}>
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={mapping.enabled}
+                      onChange={(e) => setColField(col, "enabled", e.target.checked)}
+                      className="cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{col}</code>
+                    {savedMappings?.find((m) => m.columnCode === col) && (
+                      <span className="ml-1.5 text-[10px] text-emerald-600 font-medium">saved</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground font-mono text-xs">
+                    {sampleVal != null ? String(sampleVal) : "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <Select
+                      value={mapping.doorStyleId}
+                      onValueChange={(v) => {
+                        setColField(col, "doorStyleId", v);
+                        if (v) setColField(col, "enabled", true);
+                      }}
+                    >
+                      <SelectTrigger className="h-7 text-xs w-full min-w-[160px]">
+                        <SelectValue placeholder="— Not imported —" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">— Not imported —</SelectItem>
+                        {(allStyles ?? []).map((s) => (
+                          <SelectItem key={s.id} value={String(s.id)}>
+                            {s.ourName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <Select
+                      value={mapping.priceType}
+                      onValueChange={(v) => setColField(col, "priceType", v as "list" | "cost")}
+                      disabled={!mapping.enabled}
+                    >
+                      <SelectTrigger className="h-7 text-xs w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="list">List price</SelectItem>
+                        <SelectItem value="cost">My cost</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {activeMappings.length} of {priceColumns.length} columns selected for import.
+        Mappings are saved automatically and pre-filled next time you upload this distributor's sheet.
+      </p>
+
+      {/* Dry-run results */}
+      {dryRunResult && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 space-y-2">
+          <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">Preview results:</p>
+          <div className="space-y-1">
+            {dryRunResult.results.map((r) => {
+              const style = allStyles?.find((s) => s.id === r.doorStyleId);
+              return (
+                <div key={r.columnCode} className="flex items-center gap-3 text-xs">
+                  <code className="font-mono bg-muted px-1 rounded">{r.columnCode}</code>
+                  <span className="text-muted-foreground">{style?.ourName ?? `Style #${r.doorStyleId}`}</span>
+                  <span className="text-emerald-600 font-medium">{r.matched} match</span>
+                  {r.unmatched > 0 && <span className="text-amber-600">{r.unmatched} unmatched</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Commit results with unmatched codes */}
+      {commitResult && commitResult.results.some((r) => r.unmatched > 0) && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+          <p className="text-xs font-medium text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" /> Some model numbers did not match the master catalog:
+          </p>
+          {commitResult.results.filter((r) => r.unmatched > 0).map((r) => (
+            <div key={r.columnCode} className="space-y-1">
+              <p className="text-[11px] font-medium text-amber-700">
+                Column <code className="font-mono">{r.columnCode}</code> — {r.unmatched} unmatched:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {r.unmatchedCodes.slice(0, 20).map((c) => (
+                  <code key={c} className="text-[10px] bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded font-mono text-amber-900 dark:text-amber-200">
+                    {c}
+                  </code>
+                ))}
+                {r.unmatchedCodes.length > 20 && (
+                  <span className="text-[10px] text-amber-700">+{r.unmatchedCodes.length - 20} more</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          disabled={!canImport || importAllMut.isPending}
+          variant="outline"
+          onClick={() =>
+            importAllMut.mutate({
+              distributorId,
+              fileBase64,
+              filename,
+              skuColumn: skuCol,
+              mappings: activeMappings,
+              dryRun: true,
+            })
+          }
+        >
+          {importAllMut.isPending && importAllMut.variables?.dryRun ? (
+            <Spinner className="mr-1.5 h-4 w-4" />
+          ) : null}
+          Preview
+        </Button>
+
+        {dryRunResult && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-emerald-600 font-medium">
+              {dryRunResult.results.reduce((s, r) => s + r.matched, 0)} will match
+            </span>
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+        )}
+
+        <Button
+          disabled={!canImport || importAllMut.isPending}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          onClick={() =>
+            importAllMut.mutate({
+              distributorId,
+              fileBase64,
+              filename,
+              skuColumn: skuCol,
+              mappings: activeMappings,
+              dryRun: false,
+            })
+          }
+        >
+          {importAllMut.isPending && !importAllMut.variables?.dryRun ? (
+            <Spinner className="mr-1.5 h-4 w-4" />
+          ) : (
+            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+          )}
+          Import {activeMappings.length} style{activeMappings.length !== 1 ? "s" : ""}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Legacy single-column mapping step (kept for backward compatibility).
+ * @deprecated Use MultiColumnMappingStep instead.
  */
 function ColumnMappingStep({
   sheets,
@@ -877,10 +1237,9 @@ export default function DistributorImport() {
                 </div>
               </div>
             ) : (
-              <ColumnMappingStep
+              <MultiColumnMappingStep
                 sheets={xlsxSheets}
                 distributorId={Number(distributorId)}
-                styleId={Number(styleId)}
                 fileBase64={xlsxFile!.base64}
                 filename={xlsxFile!.name}
                 onDone={() => { setXlsxFile(null); setXlsxSheets(null); }}
@@ -890,9 +1249,6 @@ export default function DistributorImport() {
 
             {!xlsxSheets && !distributorId && (
               <p className="text-xs text-amber-600">Select a distributor first before uploading.</p>
-            )}
-            {!xlsxSheets && distributorId && !styleId && (
-              <p className="text-xs text-amber-600">Select a door style before uploading so prices are saved correctly.</p>
             )}
           </div>
 
