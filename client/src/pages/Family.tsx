@@ -531,14 +531,17 @@ export default function Family({ styleCode }: { styleCode: string }) {
             </div>
 
             {/* Build This Look CTA — takes user to designer pre-loaded with this style */}
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6 space-y-3">
               <Link
                 href={`/design?style=${s.styleCode}`}
                 className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-gold)] px-5 py-2.5 text-sm font-semibold text-[var(--color-navy)] shadow-md transition-all hover:brightness-110 active:scale-95"
               >
                 <Pencil className="h-4 w-4" />
-                Build This Look in {familyName}
+                Build This Look — Design Your Kitchen in {familyName}
               </Link>
+              <p className="text-white/70 text-xs leading-relaxed max-w-sm">
+                Shop this cabinet and the full matching line — base, wall, tall, vanity and trim — all in this one finish, with member trade pricing built in.
+              </p>
             </div>
 
             {/* In-place finish picker: switch the color within this door profile
