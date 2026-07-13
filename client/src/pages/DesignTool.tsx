@@ -87,7 +87,6 @@ import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
-import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
@@ -364,8 +363,6 @@ export default function DesignTool() {
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
-  const [polygonEditMode, setPolygonEditMode] = useState(false);
-  const isPolygonRoom = !!(room.vertices && room.vertices.length >= 3);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
   // ── Undo / Redo for placed cabinets ──────────────────────────────────────
   const undoRedo = useUndoRedo<PlacedCabinet[]>();
@@ -4469,23 +4466,6 @@ export default function DesignTool() {
               setSelectedUid(null);
               setMeasureMode(false);
             }}
-            isPolygon={isPolygonRoom}
-            onTogglePolygon={() => {
-              if (layoutLocked) return;
-              if (!isPolygonRoom) {
-                // Convert current rectangle to polygon
-                import("@/lib/polygonRoom").then(({ rectToPolygon }) => {
-                  const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
-                  setRoom((prev) => ({ ...prev, vertices, customWalls }));
-                });
-                setPolygonEditMode(true);
-                setDrawMode(false);
-                setMeasureMode(false);
-                toast.success("Custom shape mode — split walls and drag vertices to create bump-outs");
-              } else {
-                setPolygonEditMode((v) => !v);
-              }
-            }}
           />
         </div>
 
@@ -4515,61 +4495,6 @@ export default function DesignTool() {
             can be dragged on the canvas to resize the room on that side.
             Desktop-only — on mobile these live in the "More" menu to save space. */}
         <div className="hidden lg:flex items-center gap-1.5">
-          <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30 overflow-x-auto">
-            {isPolygonRoom && room.customWalls ? (
-              // Polygon mode: show custom wall segment tabs
-              room.customWalls.map((cw) => (
-                <button
-                  key={cw.id}
-                  onClick={() => { setActiveWall(cw.id as any); setDrawMode(false); }}
-                  className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                    activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {cw.label || cw.id.slice(0, 6)}
-                </button>
-              ))
-            ) : (
-              // Classic rectangle mode: 4 fixed walls — compact icon-only squares with tooltips
-              ([
-                { w: "top" as WallSide, icon: <ChevronUp className="h-3.5 w-3.5" />, label: "Back wall (top)" },
-                { w: "left" as WallSide, icon: <ChevronLeft className="h-3.5 w-3.5" />, label: "Left wall" },
-                { w: "right" as WallSide, icon: <ChevronRight className="h-3.5 w-3.5" />, label: "Right wall" },
-                { w: "bottom" as WallSide, icon: <ChevronDown className="h-3.5 w-3.5" />, label: "Front wall (bottom)" },
-              ]).map(({ w, icon, label }) => {
-                const wLocked = layoutLocked || lockedWalls.has(w);
-                return (
-                  <div key={w} className="relative flex items-center">
-                    <button
-                      onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                      title={`${label} — click to place cabinets here`}
-                      className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
-                        activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {icon}
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (layoutLocked) { toast.info(t("dt_sh_whole_locked")); return; }
-                        setLockedWalls((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(w)) next.delete(w); else next.add(w);
-                          return next;
-                        });
-                      }}
-                      title={wLocked ? `Unlock ${label}` : `Lock ${label} (prevent changes)`}
-                      className={`rounded p-0.5 transition-colors ${
-                        wLocked ? "text-[#d4a75a]" : "text-muted-foreground/40 hover:text-foreground"
-                      }`}
-                    >
-                      {wLocked ? <Lock className="h-2.5 w-2.5" /> : <LockOpen className="h-2.5 w-2.5" />}
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
           <button
             onClick={() => {
               setLayoutLocked((v) => !v);
@@ -4669,32 +4594,18 @@ export default function DesignTool() {
 
                 {/* Active wall selector */}
                 <p className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dt_sh_active_wall")}</p>
-                <div className={`grid gap-1 px-3 pb-2 ${isPolygonRoom && room.customWalls ? "grid-cols-3" : "grid-cols-4"}`}>
-                  {isPolygonRoom && room.customWalls ? (
-                    room.customWalls.map((cw) => (
-                      <button
-                        key={cw.id}
-                        onClick={() => { setActiveWall(cw.id as any); setDrawMode(false); }}
-                        className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
-                          activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {cw.label || cw.id.slice(0, 6)}
-                      </button>
-                    ))
-                  ) : (
-                    (["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
-                      <button
-                        key={w}
-                        onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                        className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
-                          activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {wallLabel[w]}
-                      </button>
-                    ))
-                  )}
+                <div className="grid gap-1 px-3 pb-2 grid-cols-4">
+                  {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
+                    <button
+                      key={w}
+                      onClick={() => { setActiveWall(w); setDrawMode(false); }}
+                      className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                        activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {wallLabel[w]}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Wall cabinet height selector (mobile) */}
@@ -6185,21 +6096,7 @@ export default function DesignTool() {
 
         {/* Canvas */}
         <div className="flex-1 min-w-0 relative pb-16 lg:pb-0">
-          {viewMode === "plan" && isPolygonRoom && polygonEditMode && (
-            <div className="absolute inset-0 z-20">
-              <PolygonRoomEditor
-                vertices={room.vertices!}
-                customWalls={room.customWalls!}
-                ppi={4}
-                onChange={(vertices, customWalls, width, depth) => {
-                  setRoom((prev) => ({ ...prev, vertices, customWalls, width, depth }));
-                }}
-                activeWallId={activeWall}
-                onSelectWall={(wallId) => setActiveWall(wallId as any)}
-                locked={layoutLocked}
-              />
-            </div>
-          )}
+
           {viewMode === "plan" && (
             <PlanCanvas
               room={room}

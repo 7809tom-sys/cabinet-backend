@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Maximize, Pencil, Ruler, Check, ChevronDown, Pentagon } from "lucide-react";
+import { Maximize, Pencil, Ruler, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,10 +22,6 @@ interface Props {
   onChange: (room: RoomData) => void;
   drawMode: boolean;
   onToggleDraw: () => void;
-  /** Whether the room is currently in polygon (custom shape) mode. */
-  isPolygon?: boolean;
-  /** Toggle polygon editing mode. */
-  onTogglePolygon?: () => void;
 }
 
 const PRESETS: { label: string; width: number; depth: number }[] = [
@@ -83,7 +79,7 @@ function parseToInches(raw: string, metric: boolean): number | null {
 
 const METRIC_STORAGE_KEY = "dt_use_metric";
 
-export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPolygon, onTogglePolygon }: Props) {
+export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Props) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [showPerWall, setShowPerWall] = useState(
@@ -381,30 +377,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
         </TooltipContent>
       </Tooltip>
 
-      {onTogglePolygon && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onTogglePolygon}
-              aria-label="Custom Shape"
-              className={`hidden lg:flex h-8 gap-1.5 shrink-0 ${
-                isPolygon
-                  ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945] font-bold"
-                  : ""
-              }`}
-            >
-              <Pentagon className="h-3.5 w-3.5" />
-              <span className="text-xs">Custom Shape</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p className="font-semibold">Custom Room Shape</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Add bump-outs, bay windows, half-circles, chimney recesses, and other non-rectangular shapes</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
+
     </div>
   );
 }
