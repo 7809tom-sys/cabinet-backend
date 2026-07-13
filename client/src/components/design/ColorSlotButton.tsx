@@ -334,11 +334,15 @@ export function ColorSlotButton({
               setPickerOpen((prev) => !prev);
             }}
             className={[
-              "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium hover:underline",
-              disabled ? "text-muted-foreground opacity-50 cursor-not-allowed" : "text-[#1a2744]",
+              "mt-2 w-full flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors",
+              disabled
+                ? "border-border text-muted-foreground opacity-50 cursor-not-allowed bg-muted/30"
+                : hasStyle
+                  ? "border-[#d4a75a]/60 text-[#1a2744] bg-[#d4a75a]/10 hover:bg-[#d4a75a]/20"
+                  : "border-[#d4a75a] text-white bg-[#1a2744] hover:bg-[#1a2744]/90",
             ].join(" ")}
           >
-            <Pencil className="h-3 w-3" />
+            <Pencil className="h-3.5 w-3.5" />
             {pickerOpen ? "Close" : hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
           </button>
           {pickerOpen && (
@@ -359,11 +363,15 @@ export function ColorSlotButton({
               type="button"
               onClick={() => { if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); } }}
               className={[
-                "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium hover:underline",
-                disabled ? "text-muted-foreground opacity-50 cursor-not-allowed" : "text-[#1a2744]",
+                "mt-2 w-full flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors",
+                disabled
+                  ? "border-border text-muted-foreground opacity-50 cursor-not-allowed bg-muted/30"
+                  : hasStyle
+                    ? "border-[#d4a75a]/60 text-[#1a2744] bg-[#d4a75a]/10 hover:bg-[#d4a75a]/20"
+                    : "border-[#d4a75a] text-white bg-[#1a2744] hover:bg-[#1a2744]/90",
               ].join(" ")}
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-3.5 w-3.5" />
               {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
             </button>
           </PopoverTrigger>

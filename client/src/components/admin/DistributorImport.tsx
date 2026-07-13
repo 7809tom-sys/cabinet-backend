@@ -554,6 +554,30 @@ function MultiColumnMappingStep({
 
   const canImport = activeMappings.length > 0 && Boolean(skuCol);
 
+  // Auto dry-run whenever the active mappings change (debounced via useEffect)
+  // so unmatched codes appear before the user clicks Import.
+  const prevMappingKey = useRef("");
+  useEffect(() => {
+    if (!canImport) return;
+    const key = JSON.stringify(activeMappings) + skuCol;
+    if (key === prevMappingKey.current) return;
+    prevMappingKey.current = key;
+    importAllMut.mutate({
+      distributorId,
+      fileBase64,
+      filename,
+      skuColumn: skuCol,
+      mappings: activeMappings,
+      dryRun: true,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMappings.map(m => `${m.columnCode}:${m.doorStyleId}`).join(","), skuCol, canImport]);
+
+  // Collect all unmatched codes from the latest dry run
+  const preImportUnmatched = dryRunResult
+    ? Array.from(new Set(dryRunResult.results.flatMap((r) => r.unmatchedCodes)))
+    : [];
+
   // Sample prices for the first data row (for preview column)
   const firstRow = activeSheet?.previewRows?.[0] ?? {};
 
