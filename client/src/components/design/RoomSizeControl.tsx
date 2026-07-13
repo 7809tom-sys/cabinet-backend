@@ -386,21 +386,22 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
           <TooltipTrigger asChild>
             <Button
               variant="outline"
-              size="icon"
+              size="sm"
               onClick={onTogglePolygon}
               aria-label="Custom Shape"
-              className={`hidden lg:flex w-7 h-7 shrink-0 ${
+              className={`hidden lg:flex h-8 gap-1.5 shrink-0 ${
                 isPolygon
-                  ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]"
+                  ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945] font-bold"
                   : ""
               }`}
             >
               <Pentagon className="h-3.5 w-3.5" />
+              <span className="text-xs">Custom Shape</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            <p className="font-semibold">Custom Shape</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Add bump-outs, bay windows, chimney recesses, and other non-rectangular room shapes</p>
+            <p className="font-semibold">Custom Room Shape</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Add bump-outs, bay windows, half-circles, chimney recesses, and other non-rectangular shapes</p>
           </TooltipContent>
         </Tooltip>
       )}
