@@ -73,6 +73,7 @@ export function SiteFooter() {
                 { label: t("home_aud_affiliates_cta"), href: "/affiliate" },
                 { label: t("nav_admin"), href: "/admin" },
                 { label: "Contact Us", href: "/contact" },
+                { label: "📱 Get the App", href: "/app" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-white transition-colors">
