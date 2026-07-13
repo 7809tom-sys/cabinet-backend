@@ -4360,7 +4360,7 @@ export default function DesignTool() {
   const [bumpOutWidth, setBumpOutWidth] = useState(36);
   const [bumpOutDepth, setBumpOutDepth] = useState(24);
   const [bumpOutDir, setBumpOutDir] = useState<"out" | "in">("out");
-  const [bumpOutShape, setBumpOutShape] = useState<"rectangle" | "semicircle">("rectangle");
+  const [bumpOutShape, setBumpOutShape] = useState<"rectangle" | "semicircle" | "triangle">("rectangle");
   const [bumpOutOffset, setBumpOutOffset] = useState<number | null>(null); // null = centered
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
@@ -4650,8 +4650,36 @@ export default function DesignTool() {
             <Eye className="h-3.5 w-3.5" />
           </button>
         )}
-        {/* Mobile: More sheet trigger lives in the bottom bar now */}
-        <div className="ml-auto lg:hidden">
+        {/* Mobile top-bar shortcuts: Styles, Doors, More — visible only on mobile */}
+        <div className="ml-auto flex items-center gap-1 lg:hidden">
+          {/* Styles */}
+          <button
+            onClick={() => setMobilePanel(mobilePanel === "cart" ? null : "cart")}
+            title="Door Styles"
+            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+              mobilePanel === "cart" ? "border-[#d4a75a] bg-[#d4a75a]/10 text-[#d4a75a]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Palette className="h-3.5 w-3.5" />
+          </button>
+          {/* Doors/Windows */}
+          <button
+            onClick={() => setDoorWindowOpen(true)}
+            title="Add Door / Window"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          >
+            <AppWindow className="h-3.5 w-3.5" />
+          </button>
+          {/* More — opens the More sheet */}
+          <button
+            onClick={() => setMoreSheetOpen(true)}
+            title="More options"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div className="lg:hidden">
 
           {/* ── Main "More" sheet ─────────────────────────────────────── */}
           <Sheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen}>
@@ -7218,23 +7246,11 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-                  <div className="grid grid-cols-7 h-14">
+          <div className="grid grid-cols-4 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
               onClick={() => setMobilePanel("catalog")}
-            />
-            <MobileBarButton
-              icon={<Palette className="h-5 w-5" />}
-              label="Styles"
-              active={mobilePanel === "cart"}
-              onClick={() => setMobilePanel(mobilePanel === "cart" ? null : "cart")}
-            />
-            <MobileBarButton
-              icon={<AppWindow className="h-5 w-5" />}
-              label="Doors"
-              active={doorWindowOpen}
-              onClick={() => setDoorWindowOpen(true)}
             />
             <MobileBarButton
               icon={<RotateCw className="h-5 w-5" />}
@@ -7257,11 +7273,6 @@ export default function DesignTool() {
                 setCabinetsLocked((v) => !v);
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
               }}
-            />
-            <MobileBarButton
-              icon={<MoreHorizontal className="h-5 w-5" />}
-              label="More"
-              onClick={() => setMoreSheetOpen(true)}
             />
           </div>
         </div>
@@ -7503,29 +7514,36 @@ export default function DesignTool() {
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Width (inches)</label>
                   <input type="number" min={12} max={240} step={6} value={bumpOutWidth}
-                    onChange={(e) => setBumpOutWidth(Number(e.target.value))}
+                    onChange={(e) => { const w = Number(e.target.value); setBumpOutWidth(w); if (bumpOutShape === "semicircle") setBumpOutDepth(Math.round(w / 2)); }}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Depth (inches)</label>
-                  <input type="number" min={6} max={120} step={6} value={bumpOutDepth}
-                    onChange={(e) => setBumpOutDepth(Number(e.target.value))}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                    Depth (inches){bumpOutShape === "semicircle" && <span className="ml-1 text-[#d4a75a] font-normal normal-case tracking-normal text-[10px]">— auto (radius)</span>}
+                  </label>
+                  <input
+                    type="number" min={6} max={bumpOutShape === "semicircle" ? Math.round(bumpOutWidth / 2) : bumpOutWidth} step={6}
+                    value={bumpOutShape === "semicircle" ? Math.round(bumpOutWidth / 2) : bumpOutDepth}
+                    readOnly={bumpOutShape === "semicircle"}
+                    onChange={(e) => { if (bumpOutShape !== "semicircle") setBumpOutDepth(Math.min(Number(e.target.value), bumpOutWidth)); }}
+                    className={`w-full rounded-lg border border-border bg-background px-3 py-2 text-sm ${bumpOutShape === "semicircle" ? "opacity-50 cursor-not-allowed" : ""}`} />
                 </div>
               </div>
               {/* Shape selector */}
               <div>
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Shape</label>
-                <div className="grid grid-cols-2 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
-                  {(["rectangle", "semicircle"] as const).map((s) => (
-                    <button key={s} onClick={() => setBumpOutShape(s)}
-                      className={`py-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
+                  {(["rectangle", "semicircle", "triangle"] as const).map((s) => (
+                    <button key={s} onClick={() => { setBumpOutShape(s); if (s === "semicircle") setBumpOutDepth(Math.round(bumpOutWidth / 2)); }}
+                      className={`py-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
                         bumpOutShape === s ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                       }`}>
                       {s === "rectangle" ? (
-                        <><svg width="14" height="10" viewBox="0 0 14 10" fill="none"><rect x="1" y="1" width="12" height="8" rx="0.5" stroke="currentColor" strokeWidth="1.5"/><rect x="3" y="1" width="8" height="4" fill="currentColor" opacity="0.3"/></svg> Rectangular</>
+                        <><svg width="13" height="9" viewBox="0 0 14 10" fill="none"><rect x="1" y="1" width="12" height="8" rx="0.5" stroke="currentColor" strokeWidth="1.5"/><rect x="3" y="1" width="8" height="4" fill="currentColor" opacity="0.25"/></svg> Rect</>
+                      ) : s === "semicircle" ? (
+                        <><svg width="13" height="9" viewBox="0 0 14 10" fill="none"><path d="M1 9 Q1 1 7 1 Q13 1 13 9" stroke="currentColor" strokeWidth="1.5" fill="none"/><line x1="1" y1="9" x2="13" y2="9" stroke="currentColor" strokeWidth="1.5"/></svg> Arc</>
                       ) : (
-                        <><svg width="14" height="10" viewBox="0 0 14 10" fill="none"><path d="M1 9 Q1 1 7 1 Q13 1 13 9" stroke="currentColor" strokeWidth="1.5" fill="none"/><line x1="1" y1="9" x2="13" y2="9" stroke="currentColor" strokeWidth="1.5"/></svg> Semi-Circle</>
+                        <><svg width="13" height="9" viewBox="0 0 14 10" fill="none"><polygon points="7,1 13,9 1,9" stroke="currentColor" strokeWidth="1.5" fill="currentColor" opacity="0.25"/></svg> Triangle</>
                       )}
                     </button>
                   ))}
@@ -7565,16 +7583,19 @@ export default function DesignTool() {
                 <button onClick={() => setBumpOutOpen(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
                 <button
                   onClick={async () => {
-                    const { rectToPolygon, addOpenSquare, addHalfCircle } = await import("@/lib/polygonRoom");
+                    const { rectToPolygon, addOpenSquare, addHalfCircle, addTriangle } = await import("@/lib/polygonRoom");
                     const baseGeom = room.vertices && room.customWalls
                       ? { vertices: room.vertices, customWalls: room.customWalls }
                       : rectToPolygon(room.width, room.depth);
                     const wall = baseGeom.customWalls.find((w) => w.label === targetLabel || w.label?.startsWith(targetLabel));
                     if (!wall) { toast.error("Could not find the selected wall"); return; }
                     const offsetArg = bumpOutOffset !== null ? currentOffset : undefined;
+                    const effectiveDepth = bumpOutShape === "semicircle" ? Math.round(bumpOutWidth / 2) : bumpOutDepth;
                     const result = bumpOutShape === "semicircle"
                       ? addHalfCircle(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, bumpOutDir, 12, offsetArg)
-                      : addOpenSquare(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, bumpOutDepth, bumpOutDir, offsetArg);
+                      : bumpOutShape === "triangle"
+                      ? addTriangle(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, effectiveDepth, bumpOutDir, offsetArg)
+                      : addOpenSquare(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, effectiveDepth, bumpOutDir, offsetArg);
                     if (!result) { toast.error("Bump-out is wider than the wall — reduce width"); return; }
                     const bounds = result.vertices.reduce((acc, v) => ({
                       minX: Math.min(acc.minX, v.x), minY: Math.min(acc.minY, v.y),
@@ -7588,7 +7609,8 @@ export default function DesignTool() {
                       depth: Math.round(bounds.maxY - bounds.minY),
                     }));
                     setBumpOutOpen(false);
-                    toast.success(`${bumpOutShape === "semicircle" ? "Semi-circle" : "Rectangular"} bump-${bumpOutDir === "out" ? "out" : "in"} added to ${targetLabel} wall`);
+                    const shapeLabel = bumpOutShape === "semicircle" ? "Semi-circle" : bumpOutShape === "triangle" ? "Triangle" : "Rectangular";
+                    toast.success(`${shapeLabel} bump-${bumpOutDir === "out" ? "out" : "in"} added to ${targetLabel} wall`);
                   }}
                   className="flex-1 rounded-lg bg-[#1a2744] text-white px-4 py-2 text-sm font-semibold hover:bg-[#1a2744]/90 transition-colors"
                 >Apply</button>

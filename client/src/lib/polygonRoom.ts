@@ -581,3 +581,79 @@ export function addHalfCircle(
 
   return { vertices: newVertices, customWalls: updatedWalls };
 }
+
+/**
+ * Add a triangular (angled bay) bump-out or inset to a wall segment.
+ *
+ * Creates a triangle with two angled walls meeting at a single apex point.
+ * - `shapeWidth` (inches): width along the wall
+ * - `shapeDepth` (inches): how far the apex protrudes from the wall
+ * - `direction`: "out" = bump-out, "in" = inset
+ * - `offsetFromStart`: inches from start vertex; undefined = centered
+ *
+ * The original wall is replaced with 4 segments:
+ *   left-stub → left-angled → right-angled → right-stub
+ */
+export function addTriangle(
+  wallId: string,
+  vertices: RoomVertex[],
+  customWalls: CustomWall[],
+  shapeWidth: number,
+  shapeDepth: number,
+  direction: "in" | "out",
+  offsetFromStart?: number,
+): { vertices: RoomVertex[]; customWalls: CustomWall[] } | null {
+  const wallIdx = customWalls.findIndex((w) => w.id === wallId);
+  if (wallIdx === -1) return null;
+  const wall = customWalls[wallIdx];
+  const start = vertices.find((v) => v.id === wall.startVertexId);
+  const end = vertices.find((v) => v.id === wall.endVertexId);
+  if (!start || !end) return null;
+  const wallLen = dist(start, end);
+  if (shapeWidth >= wallLen) return null;
+  // Unit vector along the wall
+  const ux = (end.x - start.x) / wallLen;
+  const uy = (end.y - start.y) / wallLen;
+  // Inward normal
+  const inNx = uy;
+  const inNy = -ux;
+  const sign = direction === "out" ? -1 : 1;
+  const nx = inNx * sign;
+  const ny = inNy * sign;
+  // Offset along the wall
+  const leftOffset = offsetFromStart !== undefined
+    ? Math.max(0, Math.min(offsetFromStart, wallLen - shapeWidth))
+    : (wallLen - shapeWidth) / 2;
+  const rightOffset = leftOffset + shapeWidth;
+  // 3 new vertices: left base, apex (center of width at full depth), right base
+  const vL: RoomVertex = {
+    id: genVertexId(),
+    x: start.x + ux * leftOffset,
+    y: start.y + uy * leftOffset,
+  };
+  const vApex: RoomVertex = {
+    id: genVertexId(),
+    x: start.x + ux * (leftOffset + shapeWidth / 2) + nx * shapeDepth,
+    y: start.y + uy * (leftOffset + shapeWidth / 2) + ny * shapeDepth,
+  };
+  const vR: RoomVertex = {
+    id: genVertexId(),
+    x: start.x + ux * rightOffset,
+    y: start.y + uy * rightOffset,
+  };
+  // Insert new vertices after the start vertex
+  const startIdx = vertices.findIndex((v) => v.id === wall.startVertexId);
+  const newVertices = [...vertices];
+  newVertices.splice(startIdx + 1, 0, vL, vApex, vR);
+  // Replace original wall with 4 new walls
+  const label = wall.label || "";
+  const newWalls: CustomWall[] = [
+    { id: genWallId(), startVertexId: wall.startVertexId, endVertexId: vL.id, label: label ? `${label} (L)` : undefined },
+    { id: genWallId(), startVertexId: vL.id, endVertexId: vApex.id, label: direction === "out" ? "Bay L" : "Recess L" },
+    { id: genWallId(), startVertexId: vApex.id, endVertexId: vR.id, label: direction === "out" ? "Bay R" : "Recess R" },
+    { id: genWallId(), startVertexId: vR.id, endVertexId: wall.endVertexId, label: label ? `${label} (R)` : undefined },
+  ];
+  const updatedWalls = [...customWalls];
+  updatedWalls.splice(wallIdx, 1, ...newWalls);
+  return { vertices: newVertices, customWalls: updatedWalls };
+}
