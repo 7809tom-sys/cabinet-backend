@@ -21,7 +21,7 @@ import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@sha
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
 
-// ─── Supplier-identity scrubbing ───────────────────────────────────────────────
+// --- Supplier-identity scrubbing -----------------------------------------------
 // Cabinet Dealz never exposes the underlying supplier. These helpers strip any
 // supplier-identifying columns from rows before they leave a public procedure,
 // so the door-style-first UI can present purely by style.
@@ -41,7 +41,7 @@ function dayKeyUTC(d: Date = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-// ─── Distributors ─────────────────────────────────────────────────────────────
+// --- Distributors -------------------------------------------------------------
 
 export const distributorsRouter = router({
   list: publicProcedure.query(async () => {
@@ -68,7 +68,7 @@ export const distributorsRouter = router({
   }),
 });
 
-// ─── Door Styles ──────────────────────────────────────────────────────────────
+// --- Door Styles --------------------------------------------------------------
 
 // A style is only shown publicly if it has at least one *orderable* cabinet:
 // a published + available SKU whose cabinet is active, shown in the designer,
@@ -221,7 +221,7 @@ export const doorStylesRouter = router({
       return out.map(scrubDoorStyle);
     }),
 
-  // ── Featured door styles (admin-curated 80/20 merchandising) ────────────────
+  // -- Featured door styles (admin-curated 80/20 merchandising) ----------------
   // Public: the curated set pushed on the storefront, ordered by rank, hard
   // capped at 30 so the affiliate/homeowner sees a focused selection.
   featured: publicProcedure.query(async () => {
@@ -356,7 +356,7 @@ export const doorStylesRouter = router({
       return { ok: true };
     }),
 
-  // ── Door sample-photo corrections (two-way photo tool) ──────────────────────
+  // -- Door sample-photo corrections (two-way photo tool) ----------------------
   // Submit a real photo to correct a door style's on-file sample. Admins apply
   // it to the live sample immediately (logged as approved + verified). Everyone
   // else creates a pending correction for an admin to review. Reuses S3.
@@ -652,11 +652,11 @@ export const doorStylesRouter = router({
       }
     }),
 
-  // ── Family catalog (the door-style-FAMILY-first shopping view) ──────────────
+  // -- Family catalog (the door-style-FAMILY-first shopping view) --------------
 
-  // ── Family catalog (the door-style-FAMILY-first shopping view) ──────────────
+  // -- Family catalog (the door-style-FAMILY-first shopping view) --------------
   // Given one door style, return EVERY cabinet available in that style (base,
-  // wall, tall, vanity, accessory — all together) collapsed to one priced row
+  // wall, tall, vanity, accessory -- all together) collapsed to one priced row
   // per cabinet. This powers the /family/:styleCode page so a shopper picks a
   // family first and then sees all cabinet types in that one look.
   familyCatalog: publicProcedure
@@ -744,7 +744,7 @@ export const doorStylesRouter = router({
     }),
 });
 
-// ─── Cabinets ─────────────────────────────────────────────────────────────────
+// --- Cabinets -----------------------------------------------------------------
 
 export const cabinetsRouter = router({
   list: publicProcedure
@@ -932,10 +932,10 @@ export const cabinetsRouter = router({
       return rows[0] ? scrubCabinet(rows[0]) : null;
     }),
 
-  // ── Admin: Conflict / Needs-Review back office ───────────────────────────
+  // -- Admin: Conflict / Needs-Review back office ---------------------------
   // Lists every product currently held in conflict status, together with the
   // info we DO know: distributor name(s) and door style(s) it is carried under
-  // (resolved from its SKUs). Admin-only — supplier identity is allowed here.
+  // (resolved from its SKUs). Admin-only -- supplier identity is allowed here.
   conflicts: adminProcedure.query(async () => {
     type ConflictItem = {
       id: number;
@@ -1148,7 +1148,7 @@ export const cabinetsRouter = router({
       return { ok: true };
     }),
 
-  // ── Admin: Cabinet spreadsheet export ────────────────────────────────────
+  // -- Admin: Cabinet spreadsheet export ------------------------------------
   // Returns a base64-encoded XLSX workbook containing every cabinet row so
   // the admin can correct descriptions, dimensions, categories, etc. in Excel
   // and re-upload via adminImport.
@@ -1228,7 +1228,7 @@ export const cabinetsRouter = router({
     return { xlsx: buf as string, filename: `cabinet-dealz-cabinets-${date}.xlsx`, count: genericRows.length };
   }),
 
-  // ── Admin: Cabinet spreadsheet import ────────────────────────────────────
+  // -- Admin: Cabinet spreadsheet import ------------------------------------
   // Accepts a base64-encoded XLSX workbook (same format as adminExport),
   // parses every row, and upserts changes to the cabinets table.
   // Only the editable columns are updated; masterCode is the lookup key.
@@ -1261,7 +1261,7 @@ export const cabinetsRouter = router({
         const masterCode = String(row["masterCode"] ?? "").trim();
         if (!masterCode) { skipped++; continue; }
 
-        // Build the patch — only include fields that are present and non-empty.
+        // Build the patch -- only include fields that are present and non-empty.
         const patch: Record<string, unknown> = {};
 
         const desc = String(row["description"] ?? "").trim();
@@ -1317,9 +1317,9 @@ export const cabinetsRouter = router({
             .where(eq(cabinets.masterCode, masterCode));
           const affected = (result as unknown as { rowsAffected?: number })?.rowsAffected ?? 0;
           if (affected > 0) updated++;
-          else { skipped++; errors.push(`Row ${i + 2}: masterCode "${masterCode}" not found — skipped.`); }
+          else { skipped++; errors.push(`Row ${i + 2}: masterCode "${masterCode}" not found -- skipped.`); }
         } catch (err) {
-          errors.push(`Row ${i + 2}: ${masterCode} — ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(`Row ${i + 2}: ${masterCode} -- ${err instanceof Error ? err.message : String(err)}`);
           skipped++;
         }
       }
@@ -1327,7 +1327,7 @@ export const cabinetsRouter = router({
       return { updated, skipped, errors };
     }),
 
-  // ── Admin: Inline storefront edit ──────────────────────────────────────────
+  // -- Admin: Inline storefront edit ------------------------------------------
   // Called from the CabinetDetail page when an admin clicks the pencil button.
   // Only the fields provided are written; omitted fields are left unchanged.
   adminUpdateCabinet: adminProcedure
@@ -1379,7 +1379,7 @@ export const cabinetsRouter = router({
       return { ok: true };
     }),
 
-  // ── Admin: Upload catalog image for a cabinet ────────────────────────────
+  // -- Admin: Upload catalog image for a cabinet ----------------------------
   // Accepts a base64 data URL (from a file picker), uploads to storage, and
   // returns the /manus-storage/ URL so the client can save it via adminUpdateCabinet.
   adminUploadCatalogImage: adminProcedure
@@ -1400,7 +1400,7 @@ export const cabinetsRouter = router({
       return { url };
     }),
 
-  // ── Cabinet Line Export ───────────────────────────────────────────────────
+  // -- Cabinet Line Export ---------------------------------------------------
   // Returns an XLSX workbook with all cabinets available for a given door style,
   // including description, dimensions, pricing, and catalog image URL.
   // The caller can optionally pass a list of cabinetIds to restrict the export.
@@ -1501,7 +1501,7 @@ export const cabinetsRouter = router({
       return { xlsx, filename, count: rows.length };
     }),
 
-  // ── Admin: Bulk Dimensions & Weight editor ────────────────────────────────
+  // -- Admin: Bulk Dimensions & Weight editor --------------------------------
   // Returns all cabinets with their assembled + package dimensions and weight
   // so the admin can review and correct them in a table view.
   adminListDimensions: adminProcedure
@@ -1672,10 +1672,10 @@ export const cabinetsRouter = router({
 
 });
 
-// ─── Pricing ──────────────────────────────────────────────────────────────────
+// --- Pricing ------------------------------------------------------------------
 
 export const pricingRouter = router({
-  // ── Door-style-first pricing ──────────────────────────────────────────────
+  // -- Door-style-first pricing ----------------------------------------------
   // Returns ONE priced row per unique door style for a cabinet. Internally we
   // pick the best (lowest contractor price) available + published SKU per style
   // and surface ONLY style metadata + prices. No distributor name/SKU ever
@@ -1685,7 +1685,7 @@ export const pricingRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
-      // Simplified pricing: sell price = listPrice × distributor.markupPercent
+      // Simplified pricing: sell price = listPrice x distributor.markupPercent
       // (falls back to yourCost if listPrice is absent). No tier stacking.
       const isAdmin = ctx.user?.role === "admin";
       const rows = await db
@@ -1778,7 +1778,7 @@ export const pricingRouter = router({
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }),
 
-  // ── Margins control center (admin) ────────────────────────────────────────
+  // -- Margins control center (admin) ----------------------------------------
   // Single source of truth for the platform-wide selling margins surfaced in
   // the "Pricing & Margins" admin tab. globalMarkupBps is guidance/default for
   // supply lines; the per-tier bps nudge a whole tier up/down. 10000 = no change.
@@ -1816,7 +1816,7 @@ export const pricingRouter = router({
       return await getPricingSettings();
     }),
 
-  // ─── Platform fee system (price ladder + order fee stack) ────────────────
+  // --- Platform fee system (price ladder + order fee stack) ----------------
   // Single source of truth for the Cabinet Dealz fee stack: ladder markups +
   // damage / tech / card fees. All values basis points except techFeeCapCents.
   adminGetFeeSettings: adminProcedure.query(async () => {
@@ -1854,10 +1854,10 @@ export const pricingRouter = router({
       return { success: true } as const;
     }),
 
-  // ─── Per-distributor cost Multiplier tab ─────────────────────────────────────
+  // --- Per-distributor cost Multiplier tab -------------------------------------
   // ONE list-price multiplier per distributor line, applied to EVERY cabinet
-  // that line carries. Our true cost = listPrice × multiplier (stored in
-  // distributor_skus.yourCost), and every sell price is cost × the per-tier
+  // that line carries. Our true cost = listPrice x multiplier (stored in
+  // distributor_skus.yourCost), and every sell price is cost x the per-tier
   // markup. This is the single lever for cost: when a supplier's list changes,
   // the owner just updates the multiplier here and all costs/sell prices follow.
   adminListDistributorMultipliers: adminProcedure.query(async () => {
@@ -1897,7 +1897,7 @@ export const pricingRouter = router({
         distributorId: z.number().int(),
         // Two-part cost multiplier. base = the distributor's core cost fraction of
         // list; freight = the freight/tariff add-on (can change independently, e.g.
-        // a tariff is lowered). Effective = base + freight, and cost = list × effective.
+        // a tariff is lowered). Effective = base + freight, and cost = list x effective.
         baseMultiplier: z.number().min(0).max(1),
         freightMultiplier: z.number().min(0).max(1),
       })
@@ -1923,7 +1923,7 @@ export const pricingRouter = router({
           costMultiplier: String(mult),
         })
         .where(eq(distributors.id, input.distributorId));
-      // 2) Recompute our cost for EVERY SKU on the line: yourCost = listPrice × multiplier.
+      // 2) Recompute our cost for EVERY SKU on the line: yourCost = listPrice x multiplier.
       //    Sell prices are derived at read time from yourCost, so nothing else
       //    needs backfilling. Rows without a listPrice are left untouched.
       const res = await db
@@ -1949,7 +1949,7 @@ export const pricingRouter = router({
       } as const;
     }),
 
-  // ─── Cost Lookup / Verify & Correct (admin / owner) ──────────────────────────
+  // --- Cost Lookup / Verify & Correct (admin / owner) --------------------------
   // Search a cabinet number (masterCode) and see every stored SKU across lines /
   // door styles with the full price ladder, so the owner can compare what's in
   // the system against the real distributor paperwork and correct any field
@@ -2143,7 +2143,7 @@ export const pricingRouter = router({
       return { success: true, verified: input.verified } as const;
     }),
 
-  // ─── Price Audit: cascading dropdowns (no SKU typing required) ────────────────
+  // --- Price Audit: cascading dropdowns (no SKU typing required) ----------------
   // Step 1: distributors that actually have SKUs, with audit progress counts so
   // the owner can pick the original distributor by name. OWNER-ONLY (real names).
   adminAuditDistributors: adminProcedure.query(async () => {
@@ -2374,7 +2374,7 @@ export const pricingRouter = router({
         .limit(input.limit ?? 50);
     }),
 
-  // ── Admin: Full database export (filtered) ──────────────────────────────────
+  // -- Admin: Full database export (filtered) ----------------------------------
   // Returns a multi-sheet XLSX workbook with all product data needed to rebuild
   // the database. Supports filtering by category, distributor, and/or door style.
   fullExport: adminProcedure
@@ -2393,7 +2393,7 @@ export const pricingRouter = router({
       const wb = XLSX.utils.book_new();
       const counts: Record<string, number> = {};
 
-      // ── Build WHERE conditions ──────────────────────────────────────────────
+      // -- Build WHERE conditions ----------------------------------------------
       const cabinetConds: SQL[] = [eq(cabinets.isActive, true)];
       if (input.category) cabinetConds.push(eq(cabinets.category, input.category));
 
@@ -2403,7 +2403,7 @@ export const pricingRouter = router({
       if (input.distributorId) skuConds.push(eq(distributorSkus.distributorId, input.distributorId));
       if (input.styleId) skuConds.push(eq(distributorSkus.styleId, input.styleId));
 
-      // ── Sheet 1: Cabinets ───────────────────────────────────────────────────
+      // -- Sheet 1: Cabinets ---------------------------------------------------
       let cabinetRows: any[];
       if (input.distributorId || input.styleId) {
         cabinetRows = await db
@@ -2481,7 +2481,7 @@ export const pricingRouter = router({
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cabSheet), "Cabinets");
       counts.cabinets = cabinetRows.length;
 
-      // ── Sheet 2: Distributor SKUs (pricing) ─────────────────────────────────
+      // -- Sheet 2: Distributor SKUs (pricing) ---------------------------------
       const skuQuery = db
         .select({
           id: distributorSkus.id,
@@ -2535,7 +2535,7 @@ export const pricingRouter = router({
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(skuSheet), "Distributor SKUs");
       counts.skus = skuRows.length;
 
-      // ── Sheet 3: Door Styles ────────────────────────────────────────────────
+      // -- Sheet 3: Door Styles ------------------------------------------------
       const styleConds: SQL[] = [];
       if (input.distributorId) styleConds.push(eq(doorStyles.distributorId, input.distributorId));
       if (input.styleId) styleConds.push(eq(doorStyles.id, input.styleId));
@@ -2585,7 +2585,7 @@ export const pricingRouter = router({
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(styleSheet), "Door Styles");
       counts.doorStyles = styleRows.length;
 
-      // ── Sheet 4: Distributors ───────────────────────────────────────────────
+      // -- Sheet 4: Distributors -----------------------------------------------
       const distConds: SQL[] = [];
       if (input.distributorId) distConds.push(eq(distributors.id, input.distributorId));
 
@@ -2624,7 +2624,7 @@ export const pricingRouter = router({
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(distSheet), "Distributors");
       counts.distributors = distRows.length;
 
-      // ── Serialize ───────────────────────────────────────────────────────────
+      // -- Serialize -----------------------------------------------------------
       const buf: Buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
       const xlsx = buf.toString("base64");
       const date = new Date().toISOString().slice(0, 10);

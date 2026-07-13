@@ -902,9 +902,9 @@
 - [x] Set up PWA (Progressive Web App): manifest.json, service worker, install prompt button on homepage so users can install the app directly from the website
 - [ ] Investigate and fix price display bug: list price was correct in DB but storefront was showing yourCost instead of listPrice on the front end
 - [ ] Build SmartCatalogUpload page: vendor picker, door style picker, file drop, fuzzy SKU match preview table (green/yellow/red), search for equivalent master, assign new master for unmatched SKUs, commit import
-- [ ] Upgrade importPreview: fuzzy SKU matching using normalizeCode + alias table, return confidence (exact/fuzzy/none) per row
+- [x] Upgrade importPreview: fuzzy SKU matching using normalizeCode + alias table, return confidence (exact/fuzzy/none) per row
 - [ ] Upgrade importCommit: accept per-row masterCodeOverride for manually resolved matches
-- [ ] Upgrade DistributorImport UI: minimal CSV (model + price only), add-new-vendor inline, add-new-style inline, green/yellow/red confidence rows, inline search for unmatched codes, assign-new-master option
-- [ ] Add imageUrl column to master catalog export (catalogExport procedure) so the generic cabinet profile photo is included in the download and can be re-uploaded to attach to all door styles
-- [ ] On importCommit: save every matched distributor SKU as a new codeAlias entry so future imports from any distributor using that format resolve automatically
-- [ ] In import parser: treat NA, N/A, X, x, or blank price cell as "not available" — mark that SKU as isAvailable=false instead of saving a price
+- [x] Upgrade DistributorImport UI: minimal CSV (model + price only), add-new-vendor inline, add-new-style inline, green/yellow/red confidence rows, inline search for unmatched codes, assign-new-master option
+- [x] Add imageUrl column to master catalog export (catalogExport procedure) so the generic cabinet profile photo is included in the download and can be re-uploaded to attach to all door styles
+- [x] On importCommit: save every matched distributor SKU as a new codeAlias entry so future imports from any distributor using that format resolve automatically
+- [x] In import parser: treat NA, N/A, X, x, or blank price cell as "not available" — mark that SKU as isAvailable=false instead of saving a price

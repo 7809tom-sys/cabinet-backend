@@ -21,6 +21,7 @@ interface PreviewRow {
   rowNumber: number;
   masterCode: string;
   action: "create-info" | "update-info" | "price-only" | "error";
+  matchConfidence: "exact" | "normalized" | "alias" | "none";
   description: string | null;
   category: string | null;
   fields: string[]; // which fields will change
@@ -322,6 +323,7 @@ export const distributorImportRouter = router({
           rowNumber: row.rowNumber,
           masterCode: found?.masterCode ?? code,
           action: errors.length ? "error" : action,
+          matchConfidence,
           description: row.cells.description ?? found?.description ?? null,
           category:
             normalizeCategory(row.cells.category) ?? found?.category ?? null,
@@ -520,5 +522,70 @@ export const distributorImportRouter = router({
       }
 
       return { created, updated, priced, skipped, aliasesLearned: newAliases.length };
+    }),
+
+  /**
+   * Inline create a new distributor line from the import UI.
+   * Creates a minimal distributor record; branding can be edited later.
+   */
+  addDistributor: adminProcedure
+    .input(
+      z.object({
+        name: z.string().min(1).max(100),
+        brandName: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Derive a short code from the name
+      const code = input.name
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .slice(0, 6) || "DIST";
+      const initials = input.name
+        .split(/\s+/)
+        .map((w) => w[0]?.toUpperCase() ?? "")
+        .join("")
+        .slice(0, 4) || "D";
+      const res = await db.insert(distributors).values({
+        code,
+        name: input.name.trim(),
+        initials,
+        brandName: input.brandName?.trim() ?? null,
+        brandInitials: initials,
+        isActive: true,
+        whiteLabel: false,
+        displayMode: "branded",
+        fulfillmentMode: "email",
+        costMultiplier: "1.00",
+      });
+      const id = (res as unknown as [{ insertId: number }])[0].insertId;
+      return { id, name: input.name.trim(), code };
+    }),
+
+  /**
+   * Inline create a new door style for a distributor from the import UI.
+   */
+  addDoorStyle: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number(),
+        ourName: z.string().min(1).max(100),
+        styleCode: z.string().min(1).max(40),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const res = await db.insert(doorStyles).values({
+        distributorId: input.distributorId,
+        styleCode: input.styleCode.trim(),
+        ourName: input.ourName.trim(),
+        distributorName: input.ourName.trim(),
+        isFeatured: false,
+      });
+      const id = (res as unknown as [{ insertId: number }])[0].insertId;
+      return { id, ourName: input.ourName.trim(), styleCode: input.styleCode.trim() };
     }),
 });
