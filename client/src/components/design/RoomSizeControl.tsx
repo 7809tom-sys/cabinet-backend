@@ -151,7 +151,11 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 gap-1.5">
             <Maximize className="h-3.5 w-3.5" />
-            <span className="text-xs">{t("dt_room_label_h", { w: fmt(wDisp), d: fmt(dDisp), h: fmt(inchesToFeetInches(roomCeiling(room))) })}</span>
+            {/* Full label on desktop */}
+            <span className="hidden lg:inline text-xs">{t("dt_room_label_h", { w: fmt(wDisp), d: fmt(dDisp), h: fmt(inchesToFeetInches(roomCeiling(room))) })}</span>
+            {/* Compact label on mobile: dimensions + ceiling icon */}
+            <span className="lg:hidden text-xs font-medium">{fmt(wDisp)} × {fmt(dDisp)}</span>
+            <span className="lg:hidden text-xs text-muted-foreground">· {fmt(inchesToFeetInches(roomCeiling(room)))} ceil</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-80 max-h-[80vh] overflow-y-auto" align="start">
@@ -271,7 +275,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
             size="icon"
             onClick={onToggleDraw}
             aria-label={t("dt_rs_draw_room")}
-            className={`w-7 h-7 shrink-0 ${
+            className={`hidden lg:flex w-7 h-7 shrink-0 ${
               drawMode
                 ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]"
                 : ""
@@ -294,7 +298,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
               size="icon"
               onClick={onTogglePolygon}
               aria-label="Custom Shape"
-              className={`w-7 h-7 shrink-0 ${
+              className={`hidden lg:flex w-7 h-7 shrink-0 ${
                 isPolygon
                   ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]"
                   : ""

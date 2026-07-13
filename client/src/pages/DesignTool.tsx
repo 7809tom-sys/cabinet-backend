@@ -4432,8 +4432,8 @@ export default function DesignTool() {
 
         <div className="hidden lg:block h-5 w-px bg-border" />
 
-        {/* Room size editor + mouse-draw mode — desktop only (mobile uses More sheet). */}
-        <div className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
+        {/* Room size editor + mouse-draw mode — visible on all screen sizes. */}
+        <div className={`${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
           <RoomSizeControl
             room={room}
             onChange={applyRoom}
@@ -4464,16 +4464,8 @@ export default function DesignTool() {
           />
         </div>
 
-        {/* Mobile room size indicator — shows current dimensions, tapping opens More sheet */}
-        <button
-          className="lg:hidden flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 rounded-md px-2 py-1 shrink-0"
-          onClick={() => setMoreSheetOpen(true)}
-          title="Room size — tap More to edit"
-        >
-          <span className="font-medium text-foreground">{Math.round(room.width / 12)}' × {Math.round(room.depth / 12)}'</span>
-          <span className="text-muted-foreground/60">·</span>
-          <span>{placed.length} items</span>
-        </button>
+        {/* Mobile item count indicator */}
+        <span className="lg:hidden text-xs text-muted-foreground shrink-0">{placed.length} items</span>
 
         {/* Wall cabinet height selector: 30/36/42 toggle */}
         <div className="hidden lg:flex items-center gap-1.5">
