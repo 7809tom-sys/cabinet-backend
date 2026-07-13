@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check, Heart } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check, Heart, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -528,6 +528,17 @@ export default function Family({ styleCode }: { styleCode: string }) {
                   <span className="text-white/60">{t("fam_color")}</span> {s.color}
                 </p>
               )}
+            </div>
+
+            {/* Build This Look CTA — takes user to designer pre-loaded with this style */}
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href={`/design?style=${s.styleCode}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-gold)] px-5 py-2.5 text-sm font-semibold text-[var(--color-navy)] shadow-md transition-all hover:brightness-110 active:scale-95"
+              >
+                <Pencil className="h-4 w-4" />
+                Build This Look in {familyName}
+              </Link>
             </div>
 
             {/* In-place finish picker: switch the color within this door profile

@@ -329,6 +329,13 @@ export default function DesignTool() {
     return Number.isFinite(n) ? n : null;
   }, [search]);
   const loadedDesignRef = useRef<number | null>(null);
+  // Optional door style pre-selection from ?style=STYLECODE (e.g. from Family page
+  // "Build This Look" button). When present, overrides the draft's styleId so the
+  // designer opens with that color already active.
+  const initialStyleCode = useMemo(() => {
+    return new URLSearchParams(search).get("style") ?? null;
+  }, [search]);
+  const initialStyleAppliedRef = useRef(false);
   // Auto-save draft: flips true once we've attempted to restore a saved draft,
   // so the debounced save effect doesn't overwrite the stored draft with the
   // initial empty state before restore runs.
@@ -4139,6 +4146,23 @@ export default function DesignTool() {
     }
   });
 
+  // Apply ?style=STYLECODE param: once doorStyles are loaded, find the matching
+  // style by styleCode and set it as the active style. This runs before the draft
+  // restore so the URL param always wins over a stale draft color.
+  useEffect(() => {
+    if (!initialStyleCode || initialStyleAppliedRef.current) return;
+    if (!doorStyles || doorStyles.length === 0) return;
+    const match = (doorStyles as Array<{ id: number; styleCode?: string | null }>)
+      .find((d) => d.styleCode?.toLowerCase() === initialStyleCode.toLowerCase());
+    if (match) {
+      setStyleId(match.id);
+      setStyleA(match.id);
+      styleIdRef.current = match.id;
+      toast.success(`Design tool loaded with ${initialStyleCode} style`);
+    }
+    initialStyleAppliedRef.current = true;
+  }, [initialStyleCode, doorStyles]);
+
   // Restore once, after verification, unless we're loading a saved design.
   useEffect(() => {
     if (!verified || draftRestoredRef.current) return;
@@ -4157,7 +4181,8 @@ export default function DesignTool() {
           if (Array.isArray(d.placed)) setPlaced(normalizeLCornerDepths(d.placed));
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);
-          setStyleId(d.styleId ?? null);
+          // When ?style=STYLECODE is in the URL, the URL param wins over the draft color.
+          if (!initialStyleCode) setStyleId(d.styleId ?? null);
           if (typeof d.styleB === "number") setStyleB(d.styleB);
           if (d.activeSlot === "A" || d.activeSlot === "B") setActiveSlot(d.activeSlot);
           if (d.tier) setTier(d.tier);
