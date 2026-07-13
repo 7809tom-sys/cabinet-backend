@@ -479,17 +479,18 @@ function MultiColumnMappingStep({
                   </td>
                   <td className="px-3 py-2">
                     <Select
-                      value={mapping.doorStyleId}
+                      value={mapping.doorStyleId || "__none__"}
                       onValueChange={(v) => {
-                        setColField(col, "doorStyleId", v);
-                        if (v) setColField(col, "enabled", true);
+                        const val = v === "__none__" ? "" : v;
+                        setColField(col, "doorStyleId", val);
+                        if (val) setColField(col, "enabled", true);
                       }}
                     >
                       <SelectTrigger className="h-7 text-xs w-full min-w-[160px]">
                         <SelectValue placeholder="— Not imported —" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">— Not imported —</SelectItem>
+                        <SelectItem value="__none__">— Not imported —</SelectItem>
                         {(allStyles ?? []).map((s) => (
                           <SelectItem key={s.id} value={String(s.id)}>
                             {s.ourName}
@@ -785,12 +786,12 @@ function ColumnMappingStep({
           <Label className="text-xs font-medium">
             Description column <span className="text-muted-foreground">(optional)</span>
           </Label>
-          <Select value={descCol} onValueChange={setDescCol}>
+          <Select value={descCol || "__skip__"} onValueChange={(v) => setDescCol(v === "__skip__" ? "" : v)}>
             <SelectTrigger className="mt-1 h-8 text-sm">
               <SelectValue placeholder="Skip description" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">— Skip —</SelectItem>
+              <SelectItem value="__skip__">— Skip —</SelectItem>
               {headers.map((h) => (
                 <SelectItem key={h} value={h}>{h}</SelectItem>
               ))}
