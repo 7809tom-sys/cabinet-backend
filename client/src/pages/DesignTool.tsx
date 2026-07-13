@@ -2649,8 +2649,14 @@ export default function DesignTool() {
       bridgeHeight?: number | null;
       /** The chosen bridge depth in inches (12 or 24). Defaults to 12 (standard wall depth) when not provided. */
       bridgeDepth?: number | null;
+      /** The chosen bridge width in inches. When provided, overrides fp.w for the cabinet above. */
+      bridgeWidth?: number | null;
       panels: "left" | "right" | "both" | "none";
       endPanelId?: number | null;
+      /** The chosen end panel depth in inches (24-36). When provided, overrides the fridge depth for panel placement. */
+      panelDepth?: number | null;
+      /** Pre-calculated panel height (fridge H + bridge H). When provided, overrides the auto-calc. */
+      panelHeight?: number | null;
       smooth: boolean;
       fridgeWidth?: number;
       fridgeHeight?: number;
@@ -2746,8 +2752,8 @@ export default function DesignTool() {
             : pickByWidth(src, fp.w);
         }
         if (chosen) {
-          // Always place the bridge at the fridge's actual width (fp.w), not the catalog width.
-          const aWidth = fp.w;
+          // Use the user-chosen bridge width when provided; otherwise fall back to fridge width.
+          const aWidth = (opts.bridgeWidth && opts.bridgeWidth > 0) ? opts.bridgeWidth : fp.w;
           const isDeep = opts.above === "deep";
           // Deep refrigerator/corner upper: project 27" and step UP 6" taller
           // than a standard wall cabinet for the staggered built-in look. The
@@ -2765,7 +2771,8 @@ export default function DesignTool() {
           const aHeight = (opts.above === "bridge" && opts.bridgeHeight) ? opts.bridgeHeight : catalogH;
           bridgeHeightPlaced = aHeight;
           // Center the upper over the fridge run, flush to the same wall.
-          const along = horizontal ? fridge.x + fw / 2 - aWidth / 2 : fridge.y + fw / 2 - aWidth / 2;
+          const fridgeCenterAlong = horizontal ? fridge.x + fw / 2 : fridge.y + fw / 2;
+          const along = fridgeCenterAlong - aWidth / 2;
           const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
           // Hang so its TOP finishes at the wall-cabinet top line (flush with a
           // pantry/tall run cap); a taller stepped box hangs lower at the bottom
@@ -2796,8 +2803,8 @@ export default function DesignTool() {
       const panelRow = pickById(surround.endPanels, opts.endPanelId, fd) ?? surround.endPanels?.[0];
       const placePanel = (leftEdge: boolean) => {
         if (!panelRow) return;
-        // pDepth: how far the panel extends into the room — matches the fridge depth.
-        const pDepth = fd;
+        // pDepth: use user-chosen panel depth when provided; otherwise match the fridge depth.
+        const pDepth = (opts.panelDepth && opts.panelDepth > 0) ? opts.panelDepth : fd;
         // Infer dimensions from masterCode when catalog values are null
         // (style-prefixed variants like "ANTIQUE WHITE-S2496" often lack stored dims).
         const code = (panelRow.masterCode ?? "").toUpperCase();
@@ -2810,9 +2817,12 @@ export default function DesignTool() {
         // the full built-in column: 72" fridge + 12" bridge → 84", + 18" → 90", + 24" → 96".
         const rawFridgeH = parseFloat(String(fridge.height ?? "72")) || 72;
         const fridgeH = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeH;
-        const pHeight = opts.above !== "none" && bridgeHeightPlaced > 0
-          ? fridgeH + bridgeHeightPlaced
-          : (parseFloat(String(panelRow.height ?? "")) || inferredHeight);
+        // Use pre-calculated panelHeight from dialog when provided; otherwise auto-calculate.
+        const pHeight = opts.panelHeight && opts.panelHeight > 0
+          ? opts.panelHeight
+          : opts.above !== "none" && bridgeHeightPlaced > 0
+            ? fridgeH + bridgeHeightPlaced
+            : (parseFloat(String(panelRow.height ?? "")) || inferredHeight);
         // Along-wall position: just outside the fridge edge on the chosen side.
         let along: number;
         if (horizontal) {
@@ -7337,7 +7347,6 @@ export default function DesignTool() {
         open={!!fridgeDialog}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
         fridgeWidthInches={fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined}
-        deepAbove={(fridgeSurround as { deepAbove?: DesignCabinet[] } | undefined)?.deepAbove ?? []}
         bridgeAbove={(fridgeSurround as { bridgeAbove?: DesignCabinet[] } | undefined)?.bridgeAbove ?? []}
         endPanels={(fridgeSurround as { endPanels?: DesignCabinet[] } | undefined)?.endPanels ?? []}
         hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
