@@ -4433,7 +4433,7 @@ export default function DesignTool() {
         <div className="hidden lg:block h-5 w-px bg-border" />
 
         {/* Room size editor + mouse-draw mode — visible on all screen sizes. */}
-        <div className={`${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
+        <div className={`shrink-0 ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
           <RoomSizeControl
             room={room}
             onChange={applyRoom}
@@ -4464,8 +4464,7 @@ export default function DesignTool() {
           />
         </div>
 
-        {/* Mobile item count indicator */}
-        <span className="lg:hidden text-xs text-muted-foreground shrink-0">{placed.length} items</span>
+
 
         {/* Wall cabinet height selector: 30/36/42 toggle */}
         <div className="hidden lg:flex items-center gap-1.5">
