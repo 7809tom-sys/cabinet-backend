@@ -8,7 +8,8 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronLeft, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, AlertTriangle } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, AlertTriangle,
+  AppWindow } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -525,7 +526,7 @@ export default function DesignTool() {
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory" | "furniture" | "surfaces">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "closetparts" | "accessory" | "furniture" | "surfaces">("base");
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
   // Text annotations placed on the floor plan.
@@ -722,7 +723,7 @@ export default function DesignTool() {
     trpc.design.placeableCabinets.useQuery(
       {
         placement:
-          paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces"
+          paletteType === "appliance" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces"
             ? "base"
             : paletteType === "corner" || paletteType === "vanity"
             ? "base"
@@ -737,9 +738,9 @@ export default function DesignTool() {
         // come from that distributor (member can still change color within it).
         distributorId: lockedDistributorId ?? undefined,
       },
-      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" }
+      { enabled: paletteType !== "appliance" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" }
     );
-  const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces" ? false : paletteLoadingRaw;
+  const paletteLoading = paletteType === "appliance" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces" ? false : paletteLoadingRaw;
 
   // A dedicated, full base-cabinet list for the active line, used by the
   // Auto-Fill engine (independent of which palette tab/search is active).
@@ -933,7 +934,7 @@ export default function DesignTool() {
   // view). Used to show "N cabinets available in <style>" so a smaller per-finish
   // lineup (e.g. Air Dawn) is obvious instead of looking "empty/broken".
   const availableInStyleCount = useMemo(() => {
-    if (paletteType === "opening" || paletteType === "closetparts" || paletteType === "appliance" || paletteType === "furniture" || paletteType === "surfaces") {
+    if (paletteType === "closetparts" || paletteType === "appliance" || paletteType === "furniture" || paletteType === "surfaces") {
       return null;
     }
     if (paletteType === "corner") {
@@ -4349,6 +4350,12 @@ export default function DesignTool() {
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [bumpOutOpen, setBumpOutOpen] = useState(false);
+  const [doorWindowOpen, setDoorWindowOpen] = useState(false);
+  const [dwCustomWidth, setDwCustomWidth] = useState(36);
+  const [dwCustomHeight, setDwCustomHeight] = useState(80);
+  const [dwCustomSill, setDwCustomSill] = useState(0);
+  const [dwCustomKind, setDwCustomKind] = useState<"door" | "window" | "opening">("door");
+  const [dwTab, setDwTab] = useState<"presets" | "custom">("presets");
   const [bumpOutWall, setBumpOutWall] = useState<"top" | "left" | "right" | "bottom">("top");
   const [bumpOutWidth, setBumpOutWidth] = useState(36);
   const [bumpOutDepth, setBumpOutDepth] = useState(24);
@@ -4567,6 +4574,13 @@ export default function DesignTool() {
             className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted disabled:opacity-40"
           >
             <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+          </button>
+          <button
+            onClick={() => setDoorWindowOpen(true)}
+            title="Add Door / Window"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          >
+            <AppWindow className="h-3.5 w-3.5" />
           </button>
         </div>
         <div className="hidden lg:block h-5 w-px bg-border" />
@@ -5804,12 +5818,12 @@ export default function DesignTool() {
                 cabinets and an entry door. Kitchen mode keeps its tab set. */}
             <div className="grid grid-cols-5 gap-0.5 rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
-                ? (["closetparts", "base", "wall", "tall", "opening", "accessory"] as const)
+                ? (["closetparts", "base", "wall", "tall", "accessory"] as const)
                 : roomType === "bathroom"
-                ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "opening", "accessory"] as const)
+                ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "accessory"] as const)
                 : roomType === "laundry"
-                ? (["appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "opening", "accessory"] as const)
-                : (["base", "corner", "wall", "wallht", "tall", "appliance", "surfaces", "opening", "accessory", "furniture"] as const)
+                ? (["appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "accessory"] as const)
+                : (["base", "corner", "wall", "wallht", "tall", "appliance", "surfaces", "accessory", "furniture"] as const)
               ).map((tab) => (
                 <button
                   key={tab}
@@ -5822,8 +5836,6 @@ export default function DesignTool() {
                     ? (roomType === "bathroom" || roomType === "laundry" ? t("dt_tab_fixtures") : t("dt_tab_appli"))
                     : tab === "surfaces"
                     ? "Surfaces"
-                    : tab === "opening"
-                    ? t("dt_tab_door_win")
                     : tab === "wallht"
                     ? t("dt_tab_wall_by_ht")
                     : tab === "corner"
@@ -5874,7 +5886,6 @@ export default function DesignTool() {
                 clear call-out + a jump to the picker, instead of leaving users
                 staring at an empty list. */}
             {!styleId &&
-              paletteType !== "opening" &&
               paletteType !== "closetparts" &&
               paletteType !== "surfaces" &&
               paletteType !== "accessory" && (
@@ -5961,23 +5972,6 @@ export default function DesignTool() {
                   );
                 });
               })()
-            ) : paletteType === "opening" ? (
-              OPENINGS.map((o) => (
-                <button
-                  key={o.key}
-                  onClick={() => addOpening(o)}
-                  className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
-                >
-                  <div className={`h-9 w-9 rounded border flex items-center justify-center shrink-0 ${o.kind === "door" ? "bg-[#9b6a3c]/30 border-[#9b6a3c]/50" : o.kind === "opening" ? "bg-[#8a8f98]/20 border-dashed border-[#8a8f98]/70" : "bg-[#7fb4d6]/30 border-[#7fb4d6]/60"}`}>
-                    {o.kind === "door" ? <PanelTop className="h-4 w-4 text-[#8a5f33]" /> : o.kind === "opening" ? <DoorOpen className="h-4 w-4 text-[#5b6770]" /> : <Square className="h-4 w-4 text-[#3f7da6]" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-foreground truncate">{o.label}</div>
-                    <div className="text-[10px] text-muted-foreground capitalize">{o.kind} · {o.width}"W × {o.height}"H</div>
-                  </div>
-                  <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                </button>
-              ))
             ) : paletteLoading ? (
               Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)
             ) : (
@@ -6124,7 +6118,7 @@ export default function DesignTool() {
                 );
               })
             )}
-            {paletteType !== "opening" && paletteType !== "surfaces" && paletteType !== "furniture" && !paletteLoading && filteredPalette.length === 0 && (
+            {paletteType !== "surfaces" && paletteType !== "furniture" && !paletteLoading && filteredPalette.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">
                 {paletteSearch
                   ? t("dt_pl_no_match")
@@ -6133,9 +6127,7 @@ export default function DesignTool() {
                   : t("dt_pl_no_category")}
               </p>
             )}
-            {paletteType === "opening" && (
-              <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">{t("dt_pl_click_add_drag")}</p>
-            )}
+
             {paletteType === "accessory" && filteredPalette.length > 0 && (
               <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">{t("dt_pl_panels_note")}</p>
             )}
@@ -7216,7 +7208,7 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-                  <div className="grid grid-cols-6 h-14">
+                  <div className="grid grid-cols-7 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
@@ -7227,6 +7219,12 @@ export default function DesignTool() {
               label="Styles"
               active={mobilePanel === "cart"}
               onClick={() => setMobilePanel(mobilePanel === "cart" ? null : "cart")}
+            />
+            <MobileBarButton
+              icon={<AppWindow className="h-5 w-5" />}
+              label="Doors"
+              active={doorWindowOpen}
+              onClick={() => setDoorWindowOpen(true)}
             />
             <MobileBarButton
               icon={<RotateCw className="h-5 w-5" />}
@@ -7517,6 +7515,135 @@ export default function DesignTool() {
                 >Apply</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ─── Door / Window Dialog ──────────────────────────────────────── */}
+      {doorWindowOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setDoorWindowOpen(false)}>
+          <div className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-md p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-foreground">Add Door / Window</h2>
+              <button onClick={() => setDoorWindowOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+            </div>
+            {/* Tabs: Presets / Custom */}
+            <div className="grid grid-cols-2 gap-1 rounded-lg border border-border p-0.5 bg-muted/30 mb-4">
+              {(["presets", "custom"] as const).map((t) => (
+                <button key={t} onClick={() => setDwTab(t)}
+                  className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                    dwTab === t ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+                  }`}>
+                  {t === "presets" ? "Presets" : "Custom Size"}
+                </button>
+              ))}
+            </div>
+            {dwTab === "presets" ? (
+              <div className="space-y-1.5">
+                {/* Doors group */}
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mb-1">Doors</p>
+                {OPENINGS.filter((o) => o.kind === "door").map((o) => (
+                  <button key={o.key} onClick={() => { addOpening(o); setDoorWindowOpen(false); toast.success(`${o.label} added — drag to position`); }}
+                    className="w-full text-left p-2.5 rounded-lg border border-border hover:border-[#d4a75a]/60 hover:bg-muted/50 transition-colors flex items-center gap-3">
+                    <div className="h-9 w-9 rounded border bg-[#9b6a3c]/20 border-[#9b6a3c]/40 flex items-center justify-center shrink-0">
+                      <PanelTop className="h-4 w-4 text-[#8a5f33]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold text-foreground">{o.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{o.width}"W × {o.height}"H</div>
+                    </div>
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </button>
+                ))}
+                {/* Windows group */}
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mt-3 mb-1">Windows</p>
+                {OPENINGS.filter((o) => o.kind === "window").map((o) => (
+                  <button key={o.key} onClick={() => { addOpening(o); setDoorWindowOpen(false); toast.success(`${o.label} added — drag to position`); }}
+                    className="w-full text-left p-2.5 rounded-lg border border-border hover:border-[#d4a75a]/60 hover:bg-muted/50 transition-colors flex items-center gap-3">
+                    <div className="h-9 w-9 rounded border bg-[#7fb4d6]/20 border-[#7fb4d6]/50 flex items-center justify-center shrink-0">
+                      <Square className="h-4 w-4 text-[#3f7da6]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold text-foreground">{o.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{o.width}"W × {o.height}"H · sill {o.sill}"</div>
+                    </div>
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </button>
+                ))}
+                {/* Openings group */}
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mt-3 mb-1">Cased Openings</p>
+                {OPENINGS.filter((o) => o.kind === "opening").map((o) => (
+                  <button key={o.key} onClick={() => { addOpening(o); setDoorWindowOpen(false); toast.success(`${o.label} added — drag to position`); }}
+                    className="w-full text-left p-2.5 rounded-lg border border-border hover:border-[#d4a75a]/60 hover:bg-muted/50 transition-colors flex items-center gap-3">
+                    <div className="h-9 w-9 rounded border border-dashed bg-[#8a8f98]/10 border-[#8a8f98]/50 flex items-center justify-center shrink-0">
+                      <DoorOpen className="h-4 w-4 text-[#5b6770]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold text-foreground">{o.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{o.width}"W × {o.height}"H{o.sill ? ` · sill ${o.sill}"` : ""}</div>
+                    </div>
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Type</label>
+                  <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
+                    {(["door", "window", "opening"] as const).map((k) => (
+                      <button key={k} onClick={() => { setDwCustomKind(k); if (k === "door") { setDwCustomHeight(80); setDwCustomSill(0); } else if (k === "window") { setDwCustomHeight(36); setDwCustomSill(42); } else { setDwCustomHeight(80); setDwCustomSill(0); } }}
+                        className={`py-1.5 rounded-md text-xs font-semibold capitalize transition-colors ${
+                          dwCustomKind === k ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+                        }`}>
+                        {k === "opening" ? "Cased" : k.charAt(0).toUpperCase() + k.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Width (in)</label>
+                    <input type="number" min={6} max={240} step={1} value={dwCustomWidth}
+                      onChange={(e) => setDwCustomWidth(Number(e.target.value))}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Height (in)</label>
+                    <input type="number" min={6} max={120} step={1} value={dwCustomHeight}
+                      onChange={(e) => setDwCustomHeight(Number(e.target.value))}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                  </div>
+                </div>
+                {(dwCustomKind === "window" || dwCustomKind === "opening") && (
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Sill Height (in from floor)</label>
+                    <input type="number" min={0} max={96} step={1} value={dwCustomSill}
+                      onChange={(e) => setDwCustomSill(Number(e.target.value))}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">After adding, drag the opening to position it on the wall. Select it to fine-tune width, height, sill, and offset.</p>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setDoorWindowOpen(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
+                  <button
+                    onClick={() => {
+                      const customDef: import("@/lib/design").OpeningDef = {
+                        key: `custom-${Date.now()}`,
+                        kind: dwCustomKind,
+                        label: `Custom ${dwCustomKind.charAt(0).toUpperCase() + dwCustomKind.slice(1)} ${dwCustomWidth}"`,
+                        width: dwCustomWidth,
+                        height: dwCustomHeight,
+                        sill: dwCustomSill,
+                      };
+                      addOpening(customDef);
+                      setDoorWindowOpen(false);
+                      toast.success(`Custom ${dwCustomKind} added — drag to position`);
+                    }}
+                    className="flex-1 rounded-lg bg-[#1a2744] text-white px-4 py-2 text-sm font-semibold hover:bg-[#1a2744]/90 transition-colors"
+                  >Add to Wall</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
