@@ -4348,6 +4348,11 @@ export default function DesignTool() {
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [bumpOutOpen, setBumpOutOpen] = useState(false);
+  const [bumpOutWall, setBumpOutWall] = useState<"top" | "left" | "right" | "bottom">("top");
+  const [bumpOutWidth, setBumpOutWidth] = useState(36);
+  const [bumpOutDepth, setBumpOutDepth] = useState(24);
+  const [bumpOutDir, setBumpOutDir] = useState<"out" | "in">("out");
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
 
@@ -4553,13 +4558,18 @@ export default function DesignTool() {
             title={t("dt_sh_autofill_title", { wall: wallLabel[activeWall] })}
             className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
           >
-            <Wand2 className="h-3.5 w-3.5" />
+                        <Wand2 className="h-3.5 w-3.5" />
           </button>
-
+          <button
+            onClick={() => setBumpOutOpen(true)}
+            disabled={layoutLocked}
+            title="Add Bump-Out / Bay Window"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted disabled:opacity-40"
+          >
+            <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+          </button>
         </div>
-
         <div className="hidden lg:block h-5 w-px bg-border" />
-
         {/* Start New / Clear Design — desktop only */}
         <Tooltip delayDuration={300}>
           <TooltipTrigger asChild>
@@ -4701,6 +4711,10 @@ export default function DesignTool() {
                     <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">Add Pony Wall</span>
                     {ponyWalls.length > 0 && <span className="text-xs text-muted-foreground">{ponyWalls.length}</span>}
+                  </button>
+                  <button disabled={layoutLocked} onClick={() => { setMoreSheetOpen(false); setTimeout(() => setBumpOutOpen(true), 120); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 rotate-90" />
+                    <span className="flex-1 text-left">Add Bump-Out / Bay Window</span>
                   </button>
                   <button disabled={layoutLocked} onClick={addManualFiller} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -7202,11 +7216,17 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-5 h-14">
+                  <div className="grid grid-cols-6 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
               onClick={() => setMobilePanel("catalog")}
+            />
+            <MobileBarButton
+              icon={<Palette className="h-5 w-5" />}
+              label="Styles"
+              active={mobilePanel === "cart"}
+              onClick={() => setMobilePanel(mobilePanel === "cart" ? null : "cart")}
             />
             <MobileBarButton
               icon={<RotateCw className="h-5 w-5" />}
@@ -7230,7 +7250,6 @@ export default function DesignTool() {
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
               }}
             />
-
             <MobileBarButton
               icon={<MoreHorizontal className="h-5 w-5" />}
               label="More"
@@ -7413,12 +7432,97 @@ export default function DesignTool() {
             <span style={{ fontSize: 8, color: "#ffaaaa", fontWeight: 600, textAlign: "center", lineHeight: 1.2 }}>Invalid</span>
           )}
         </div>,
-        document.body
+                document.body
+      )}
+      {/* ─── Bump-Out / Bay Window Dialog ─────────────────────────────── */}
+      {bumpOutOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setBumpOutOpen(false)}>
+          <div className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-foreground">Add Bump-Out / Bay Window</h2>
+              <button onClick={() => setBumpOutOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Wall</label>
+                <div className="grid grid-cols-4 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
+                  {(["top", "left", "right", "bottom"] as const).map((w) => (
+                    <button key={w} onClick={() => setBumpOutWall(w)}
+                      className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                        bumpOutWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+                      }`}>
+                      {w === "top" ? "Back" : w === "bottom" ? "Front" : w.charAt(0).toUpperCase() + w.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Direction</label>
+                <div className="grid grid-cols-2 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
+                  {(["out", "in"] as const).map((d) => (
+                    <button key={d} onClick={() => setBumpOutDir(d)}
+                      className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                        bumpOutDir === d ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+                      }`}>
+                      {d === "out" ? "Bump Out (bay)" : "Bump In (recess)"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Width (inches)</label>
+                  <input type="number" min={12} max={240} step={6} value={bumpOutWidth}
+                    onChange={(e) => setBumpOutWidth(Number(e.target.value))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Depth (inches)</label>
+                  <input type="number" min={6} max={120} step={6} value={bumpOutDepth}
+                    onChange={(e) => setBumpOutDepth(Number(e.target.value))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Width must be less than the selected wall length. Bump-out will be centered on the wall.</p>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setBumpOutOpen(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
+                <button
+                  onClick={async () => {
+                    const { rectToPolygon, addOpenSquare } = await import("@/lib/polygonRoom");
+                    const base = room.vertices && room.customWalls
+                      ? { vertices: room.vertices, customWalls: room.customWalls }
+                      : rectToPolygon(room.width, room.depth);
+                    // Find the wall matching the selected side
+                    const wallLabels: Record<string, string> = { top: "Back", right: "Right", bottom: "Front", left: "Left" };
+                    const targetLabel = wallLabels[bumpOutWall];
+                    const wall = base.customWalls.find((w) => w.label === targetLabel || w.label?.startsWith(targetLabel));
+                    if (!wall) { toast.error("Could not find the selected wall"); return; }
+                    const result = addOpenSquare(wall.id, base.vertices, base.customWalls, bumpOutWidth, bumpOutDepth, bumpOutDir);
+                    if (!result) { toast.error("Bump-out is wider than the wall — reduce width"); return; }
+                    const bounds = result.vertices.reduce((acc, v) => ({
+                      minX: Math.min(acc.minX, v.x), minY: Math.min(acc.minY, v.y),
+                      maxX: Math.max(acc.maxX, v.x), maxY: Math.max(acc.maxY, v.y),
+                    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+                    setRoom((prev) => ({
+                      ...prev,
+                      vertices: result.vertices,
+                      customWalls: result.customWalls,
+                      width: Math.round(bounds.maxX - bounds.minX),
+                      depth: Math.round(bounds.maxY - bounds.minY),
+                    }));
+                    setBumpOutOpen(false);
+                    toast.success(`Bump-${bumpOutDir === "out" ? "out" : "in"} added to ${targetLabel} wall`);
+                  }}
+                  className="flex-1 rounded-lg bg-[#1a2744] text-white px-4 py-2 text-sm font-semibold hover:bg-[#1a2744]/90 transition-colors"
+                >Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
-
 // ─── Mobile bottom-bar button ───────────────────────────────────────────────
 function MobileBarButton({
   icon, label, onClick, disabled, danger, badge, active,

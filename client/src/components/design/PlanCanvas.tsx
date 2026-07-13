@@ -617,7 +617,10 @@ export function PlanCanvas({
           left: "50%",
           top: "50%",
           transform: "translate(-50%, -50%)",
-          border: "3px solid #1a2744",
+          border: room.vertices && room.vertices.length >= 3 ? "none" : "3px solid #1a2744",
+          ...(room.vertices && room.vertices.length >= 3 ? {
+            clipPath: `polygon(${room.vertices.map((v) => `${(v.x / room.width) * 100}% ${(v.y / room.depth) * 100}%`).join(", ")})`,
+          } : {}),
           backgroundColor: flooringMaterialId
             ? flooringMaterial(flooringMaterialId).fill
             : "#ffffff",
@@ -684,6 +687,23 @@ export function PlanCanvas({
           })(),
         }}
       >
+        {/* Polygon room outline: when the room has vertices, draw the polygon border as an SVG overlay */}
+        {room.vertices && room.vertices.length >= 3 && (
+          <svg
+            className="pointer-events-none absolute inset-0 z-[6] overflow-visible"
+            width={roomPxW}
+            height={roomPxH}
+            style={{ left: 0, top: 0 }}
+          >
+            <polyline
+              points={[...room.vertices, room.vertices[0]].map((v) => `${(v.x / room.width) * roomPxW},${(v.y / room.depth) * roomPxH}`).join(" ")}
+              fill="none"
+              stroke="#1a2744"
+              strokeWidth={3}
+              strokeLinejoin="miter"
+            />
+          </svg>
+        )}
         {/* Draggable wall bands: click to highlight, drag to resize the room on
             that side. Rendered first so they sit beneath cabinets. */}
         {onSelectWall && !measureMode && !drawMode && (["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
