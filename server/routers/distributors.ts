@@ -3,7 +3,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { distributors, cabinets, distributorSkus, doorStyles } from "../../drizzle/schema";
+import { distributors, cabinets, distributorSkus, doorStyles, codeAliases } from "../../drizzle/schema";
 import {
   parseDistributorCsv,
   validateImport,
@@ -11,8 +11,10 @@ import {
   parseDimension,
   VALID_CATEGORIES,
   IMPORT_TEMPLATE_CSV,
+  NOT_AVAILABLE,
 } from "@shared/distributorImport";
 import { buildCatalogCsv, type CatalogExportRow } from "@shared/catalogExport";
+import { normalizeCode } from "@shared/cabinetCodeMatch";
 
 /** Per-row plan describing what the commit will do (no writes during preview). */
 interface PreviewRow {
@@ -58,12 +60,12 @@ export const distributorImportRouter = router({
         numberOfDrawers: cabinets.numberOfDrawers,
         graphicType: cabinets.graphicType,
         linesWithSku: sql<number>`count(distinct ${distributorSkus.distributorId})`,
+        imageUrl: cabinets.catalogImageUrl,
       })
       .from(cabinets)
       .leftJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
       .groupBy(cabinets.id)
       .orderBy(cabinets.category, cabinets.masterCode);
-
     const csv = buildCatalogCsv(rows as CatalogExportRow[]);
     const date = new Date().toISOString().slice(0, 10);
     return { csv, filename: `cabinet-dealz-master-catalog-${date}.csv`, count: rows.length };
@@ -256,29 +258,36 @@ export const distributorImportRouter = router({
         );
       }
 
-      // Look up which master codes already exist.
-      const codes = parsed.rows
-        .map((r) => (r.cells.masterCode ?? "").trim())
-        .filter(Boolean);
-      const existing = codes.length
-        ? await db
-            .select({
-              id: cabinets.id,
-              masterCode: cabinets.masterCode,
-              description: cabinets.description,
-              category: cabinets.category,
-            })
-            .from(cabinets)
-            .where(inArray(cabinets.masterCode, codes))
-        : [];
-      const byCode = new Map(
-        existing.map((c) => [c.masterCode.toUpperCase(), c])
-      );
+      // Build a full normalized lookup of all master cabinets + aliases for fuzzy matching.
+      const allCabinets = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description, category: cabinets.category })
+        .from(cabinets);
+      const byNorm = new Map<string, typeof allCabinets[number]>();
+      for (const c of allCabinets) {
+        byNorm.set(normalizeCode(c.masterCode), c);
+      }
+      // Also load aliases so distributor SKU variants resolve automatically.
+      const aliases = await db.select({ rawCodeCanon: codeAliases.rawCodeCanon, cabinetId: codeAliases.cabinetId }).from(codeAliases);
+      const aliasByCabinetId = new Map(allCabinets.map((c) => [c.id, c]));
+      const byAlias = new Map<string, typeof allCabinets[number]>();
+      for (const a of aliases) {
+        const cab = aliasByCabinetId.get(a.cabinetId);
+        if (cab) byAlias.set(a.rawCodeCanon, cab);
+      }
+
+      function findCabinet(rawCode: string): { cabinet: typeof allCabinets[number] | undefined; confidence: "exact" | "normalized" | "alias" | "none" } {
+        const norm = normalizeCode(rawCode);
+        const direct = byNorm.get(norm);
+        if (direct) return { cabinet: direct, confidence: normalizeCode(direct.masterCode) === norm ? "exact" : "normalized" };
+        const aliased = byAlias.get(norm);
+        if (aliased) return { cabinet: aliased, confidence: "alias" };
+        return { cabinet: undefined, confidence: "none" };
+      }
 
       const rows: PreviewRow[] = parsed.rows.map((row, i) => {
         const v = rowResults[i];
         const code = (row.cells.masterCode ?? "").trim();
-        const found = byCode.get(code.toUpperCase());
+        const { cabinet: found, confidence: matchConfidence } = findCabinet(code);
         const fields: string[] = [];
         if (row.cells.description) fields.push("description");
         if (normalizeCategory(row.cells.category)) fields.push("category");
@@ -311,7 +320,7 @@ export const distributorImportRouter = router({
 
         return {
           rowNumber: row.rowNumber,
-          masterCode: code,
+          masterCode: found?.masterCode ?? code,
           action: errors.length ? "error" : action,
           description: row.cells.description ?? found?.description ?? null,
           category:
@@ -319,7 +328,10 @@ export const distributorImportRouter = router({
           fields,
           priceTouched,
           errors,
-          warnings: v.warnings,
+          warnings: [
+            ...(v.warnings ?? []),
+            ...(matchConfidence === "alias" ? [`Matched via alias: "${code}" → ${found?.masterCode}`] : []),
+          ],
         };
       });
 
@@ -372,40 +384,49 @@ export const distributorImportRouter = router({
         parsed.columns.includes("listPrice") ||
         parsed.columns.includes("yourCost");
 
+      // Build fuzzy lookup for commit (same as preview).
+      const allCabsCommit = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets);
+      const byNormCommit = new Map<string, typeof allCabsCommit[number]>();
+      for (const c of allCabsCommit) byNormCommit.set(normalizeCode(c.masterCode), c);
+      const aliasesCommit = await db.select({ rawCodeCanon: codeAliases.rawCodeCanon, cabinetId: codeAliases.cabinetId }).from(codeAliases);
+      const aliasByCabIdCommit = new Map(allCabsCommit.map((c) => [c.id, c]));
+      const byAliasCommit = new Map<string, typeof allCabsCommit[number]>();
+      for (const a of aliasesCommit) {
+        const cab = aliasByCabIdCommit.get(a.cabinetId);
+        if (cab) byAliasCommit.set(a.rawCodeCanon, cab);
+      }
+      function resolveCode(rawCode: string): typeof allCabsCommit[number] | undefined {
+        const norm = normalizeCode(rawCode);
+        return byNormCommit.get(norm) ?? byAliasCommit.get(norm);
+      }
+
       let created = 0;
       let updated = 0;
       let priced = 0;
       let skipped = 0;
+      const newAliases: Array<{ rawCodeCanon: string; rawCodeSample: string; cabinetId: number }> = [];
 
       for (let i = 0; i < parsed.rows.length; i++) {
         const row = parsed.rows[i];
         const v = rowResults[i];
-        const code = (row.cells.masterCode ?? "").trim();
-        if (!v.ok || !code) {
-          skipped++;
-          continue;
-        }
+        const rawCode = (row.cells.masterCode ?? "").trim();
+        if (!rawCode) { skipped++; continue; }
 
-        const existing = await db
-          .select({ id: cabinets.id })
-          .from(cabinets)
-          .where(eq(cabinets.masterCode, code))
-          .limit(1);
-
+        // Fuzzy resolve: exact → normalized → alias
+        const resolved = resolveCode(rawCode);
         const category = normalizeCategory(row.cells.category);
         const width = parseDimension(row.cells.width);
         const height = parseDimension(row.cells.height);
         const depth = parseDimension(row.cells.depth);
 
         let cabinetId: number;
-        if (existing.length === 0) {
-          // Create requires description + category.
-          if (!row.cells.description || !category) {
-            skipped++;
-            continue;
-          }
+        if (!resolved) {
+          // Unknown code — only create if description + category provided
+          if (!row.cells.description || !category) { skipped++; continue; }
           const res = await db.insert(cabinets).values({
-            masterCode: code,
+            masterCode: normalizeCode(rawCode),
             description: row.cells.description,
             descriptionSource: "Distributor Import",
             category,
@@ -418,7 +439,13 @@ export const distributorImportRouter = router({
           cabinetId = (res as unknown as [{ insertId: number }])[0].insertId;
           created++;
         } else {
-          cabinetId = existing[0].id;
+          cabinetId = resolved.id;
+          // Save alias so future imports from this distributor resolve automatically
+          const normRaw = normalizeCode(rawCode);
+          if (normRaw !== normalizeCode(resolved.masterCode) && !byAliasCommit.has(normRaw)) {
+            newAliases.push({ rawCodeCanon: normRaw, rawCodeSample: rawCode, cabinetId });
+            byAliasCommit.set(normRaw, resolved); // prevent duplicate inserts in same batch
+          }
           const patch: Record<string, unknown> = {};
           if (row.cells.description) patch.description = row.cells.description;
           if (category) patch.category = category;
@@ -427,61 +454,57 @@ export const distributorImportRouter = router({
           if (height != null) patch.height = String(height);
           if (depth != null) patch.depth = String(depth);
           if (Object.keys(patch).length > 0) {
-            await db
-              .update(cabinets)
-              .set(patch)
-              .where(eq(cabinets.id, cabinetId));
+            await db.update(cabinets).set(patch).where(eq(cabinets.id, cabinetId));
             updated++;
           }
         }
 
-        // Optional pricing upsert (needs a style).
+        // Pricing upsert (needs a style)
         if (hasPricing && input.styleId) {
           const listPrice = parseMoney(row.cells.listPrice);
           const yourCost = parseMoney(row.cells.yourCost);
-          if (
-            (listPrice != null && !Number.isNaN(listPrice)) ||
-            (yourCost != null && !Number.isNaN(yourCost))
-          ) {
+          // NA/X/blank = mark as not available
+          const markUnavailable = listPrice === NOT_AVAILABLE || yourCost === NOT_AVAILABLE;
+          if (markUnavailable) {
+            await db.update(distributorSkus)
+              .set({ isAvailable: false })
+              .where(and(
+                eq(distributorSkus.cabinetId, cabinetId),
+                eq(distributorSkus.distributorId, input.distributorId),
+                eq(distributorSkus.styleId, input.styleId)
+              ));
+            priced++;
+            continue;
+          }
+          const lp = typeof listPrice === "number" && !Number.isNaN(listPrice) ? listPrice : null;
+          const yc = typeof yourCost === "number" && !Number.isNaN(yourCost) ? yourCost : null;
+          if (lp !== null || yc !== null) {
             const sku = await db
               .select({ id: distributorSkus.id })
               .from(distributorSkus)
-              .where(
-                and(
-                  eq(distributorSkus.cabinetId, cabinetId),
-                  eq(distributorSkus.distributorId, input.distributorId),
-                  eq(distributorSkus.styleId, input.styleId)
-                )
-              )
+              .where(and(
+                eq(distributorSkus.cabinetId, cabinetId),
+                eq(distributorSkus.distributorId, input.distributorId),
+                eq(distributorSkus.styleId, input.styleId)
+              ))
               .limit(1);
-            const pricePatch: Record<string, unknown> = {};
-            if (listPrice != null && !Number.isNaN(listPrice))
-              pricePatch.listPrice = String(listPrice);
-            if (yourCost != null && !Number.isNaN(yourCost))
-              pricePatch.yourCost = String(yourCost);
+            const pricePatch: Record<string, unknown> = { isAvailable: true };
+            if (lp !== null) pricePatch.listPrice = String(lp);
+            if (yc !== null) pricePatch.yourCost = String(yc);
             if (sku.length > 0) {
-              await db
-                .update(distributorSkus)
-                .set(pricePatch)
-                .where(eq(distributorSkus.id, sku[0].id));
+              await db.update(distributorSkus).set(pricePatch).where(eq(distributorSkus.id, sku[0].id));
               priced++;
             } else {
               await db.insert(distributorSkus).values({
                 cabinetId,
                 distributorId: input.distributorId,
                 styleId: input.styleId,
-                platformSku: `${code}-S${input.styleId}-D${input.distributorId}`,
-                distributorSku: code,
-                listPrice:
-                  listPrice != null && !Number.isNaN(listPrice)
-                    ? String(listPrice)
-                    : null,
-                yourCost:
-                  yourCost != null && !Number.isNaN(yourCost)
-                    ? String(yourCost)
-                    : null,
+                platformSku: `${normalizeCode(rawCode)}-S${input.styleId}-D${input.distributorId}`,
+                distributorSku: rawCode,
+                listPrice: lp !== null ? String(lp) : null,
+                yourCost: yc !== null ? String(yc) : null,
                 isAvailable: true,
-                isPublished: false, // new prices start unpublished for review
+                isPublished: false,
               });
               priced++;
             }
@@ -489,6 +512,13 @@ export const distributorImportRouter = router({
         }
       }
 
-      return { created, updated, priced, skipped };
+      // Persist newly learned aliases in bulk
+      if (newAliases.length > 0) {
+        for (const a of newAliases) {
+          await db.insert(codeAliases).values(a).onDuplicateKeyUpdate({ set: { rawCodeSample: a.rawCodeSample } });
+        }
+      }
+
+      return { created, updated, priced, skipped, aliasesLearned: newAliases.length };
     }),
 });

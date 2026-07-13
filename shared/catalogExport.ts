@@ -13,6 +13,7 @@ export interface CatalogExportRow {
   numberOfDrawers: number | null;
   graphicType: string | null;
   linesWithSku?: number | null; // how many supply lines carry this item
+  imageUrl?: string | null; // generic cabinet profile photo URL (master-level)
 }
 
 export const CATALOG_EXPORT_HEADERS = [
@@ -27,6 +28,7 @@ export const CATALOG_EXPORT_HEADERS = [
   "Drawers",
   "GraphicType",
   "LinesWithSKU",
+  "ImageUrl",
 ] as const;
 
 export function csvEscape(value: string | number | null | undefined): string {
@@ -62,6 +64,7 @@ export function buildCatalogCsv(rows: CatalogExportRow[]): string {
         r.numberOfDrawers ?? 0,
         r.graphicType ?? "",
         r.linesWithSku ?? 0,
+        r.imageUrl ?? "",
       ]
         .map(csvEscape)
         .join(",")
