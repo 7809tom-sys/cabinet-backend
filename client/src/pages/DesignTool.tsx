@@ -4631,11 +4631,8 @@ export default function DesignTool() {
             <Eye className="h-3.5 w-3.5" />
           </button>
         )}
-        {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
-        <div className="ml-auto flex items-center gap-2 lg:hidden">
-          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setMoreSheetOpen(true)}>
-            <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
-          </Button>
+        {/* Mobile: More sheet trigger lives in the bottom bar now */}
+        <div className="ml-auto lg:hidden">
 
           {/* ── Main "More" sheet ─────────────────────────────────────── */}
           <Sheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen}>
@@ -7274,10 +7271,9 @@ export default function DesignTool() {
             />
 
             <MobileBarButton
-              icon={<ShoppingCart className="h-5 w-5" />}
-              label="Cart"
-              badge={placed.length || undefined}
-              onClick={() => setMobilePanel("cart")}
+              icon={<MoreHorizontal className="h-5 w-5" />}
+              label="More"
+              onClick={() => setMoreSheetOpen(true)}
             />
           </div>
         </div>
