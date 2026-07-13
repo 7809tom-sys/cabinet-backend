@@ -4354,7 +4354,7 @@ export default function DesignTool() {
   const [dwCustomWidth, setDwCustomWidth] = useState(36);
   const [dwCustomHeight, setDwCustomHeight] = useState(80);
   const [dwCustomSill, setDwCustomSill] = useState(0);
-  const [dwCustomKind, setDwCustomKind] = useState<"door" | "window" | "opening">("door");
+  const [dwCustomKind, setDwCustomKind] = useState<"door" | "window" | "opening" | "bow">("door");
   const [dwTab, setDwTab] = useState<"presets" | "custom">("presets");
   const [bumpOutWall, setBumpOutWall] = useState<"top" | "left" | "right" | "bottom">("top");
   const [bumpOutWidth, setBumpOutWidth] = useState(36);
@@ -7513,17 +7513,17 @@ export default function DesignTool() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Width (inches)</label>
-                  <input type="number" min={12} max={240} step={6} value={bumpOutWidth}
-                    onChange={(e) => { const w = Number(e.target.value); setBumpOutWidth(w); if (bumpOutShape === "semicircle") setBumpOutDepth(Math.round(w / 2)); }}
+                  <input type="number" min={12} max={wallLen ? wallLen - 6 : 240} step={6} value={bumpOutWidth}
+                    onChange={(e) => { const w = Number(e.target.value); setBumpOutWidth(w); if (bumpOutShape === "semicircle") setBumpOutDepth(Math.min(24, Math.round(w / 2))); }}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                    Depth (inches){bumpOutShape === "semicircle" && <span className="ml-1 text-[#d4a75a] font-normal normal-case tracking-normal text-[10px]">— auto (radius)</span>}
+                    Depth (inches){bumpOutShape === "semicircle" && <span className="ml-1 text-[#d4a75a] font-normal normal-case tracking-normal text-[10px]">— max 24"</span>}
                   </label>
                   <input
-                    type="number" min={6} max={bumpOutShape === "semicircle" ? Math.round(bumpOutWidth / 2) : bumpOutWidth} step={6}
-                    value={bumpOutShape === "semicircle" ? Math.round(bumpOutWidth / 2) : bumpOutDepth}
+                    type="number" min={6} max={bumpOutShape === "semicircle" ? 24 : bumpOutWidth} step={6}
+                    value={bumpOutShape === "semicircle" ? Math.min(24, Math.round(bumpOutWidth / 2)) : bumpOutDepth}
                     readOnly={bumpOutShape === "semicircle"}
                     onChange={(e) => { if (bumpOutShape !== "semicircle") setBumpOutDepth(Math.min(Number(e.target.value), bumpOutWidth)); }}
                     className={`w-full rounded-lg border border-border bg-background px-3 py-2 text-sm ${bumpOutShape === "semicircle" ? "opacity-50 cursor-not-allowed" : ""}`} />
@@ -7534,7 +7534,7 @@ export default function DesignTool() {
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Shape</label>
                 <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
                   {(["rectangle", "semicircle", "triangle"] as const).map((s) => (
-                    <button key={s} onClick={() => { setBumpOutShape(s); if (s === "semicircle") setBumpOutDepth(Math.round(bumpOutWidth / 2)); }}
+                    <button key={s} onClick={() => { setBumpOutShape(s); if (s === "semicircle") setBumpOutDepth(Math.min(24, Math.round(bumpOutWidth / 2))); }}
                       className={`py-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
                         bumpOutShape === s ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                       }`}>
@@ -7576,7 +7576,7 @@ export default function DesignTool() {
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                {bumpOutShape === "semicircle" ? "Semi-circle depth = half the width (radius)." : ""}
+                {bumpOutShape === "semicircle" ? `Semi-circle depth capped at 24" max (actual: ${Math.min(24, Math.round(bumpOutWidth / 2))}").` : ""}
                 {" "}Width must be less than the selected wall length.
               </p>
               <div className="flex gap-2 pt-1">
@@ -7590,7 +7590,7 @@ export default function DesignTool() {
                     const wall = baseGeom.customWalls.find((w) => w.label === targetLabel || w.label?.startsWith(targetLabel));
                     if (!wall) { toast.error("Could not find the selected wall"); return; }
                     const offsetArg = bumpOutOffset !== null ? currentOffset : undefined;
-                    const effectiveDepth = bumpOutShape === "semicircle" ? Math.round(bumpOutWidth / 2) : bumpOutDepth;
+                    const effectiveDepth = bumpOutShape === "semicircle" ? Math.min(24, Math.round(bumpOutWidth / 2)) : bumpOutDepth;
                     const result = bumpOutShape === "semicircle"
                       ? addHalfCircle(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, bumpOutDir, 12, offsetArg)
                       : bumpOutShape === "triangle"
@@ -7686,18 +7686,33 @@ export default function DesignTool() {
                     <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   </button>
                 ))}
+                {/* Bow windows group */}
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mt-3 mb-1">Bow Windows</p>
+                {OPENINGS.filter((o) => o.kind === "bow").map((o) => (
+                  <button key={o.key} onClick={() => { addOpening(o); setDoorWindowOpen(false); toast.success(`${o.label} added — drag to position`); }}
+                    className="w-full text-left p-2.5 rounded-lg border border-border hover:border-[#d4a75a]/60 hover:bg-muted/50 transition-colors flex items-center gap-3">
+                    <div className="h-9 w-9 rounded border bg-[#7fb4d6]/30 border-[#7fb4d6]/60 flex items-center justify-center shrink-0">
+                      <Square className="h-4 w-4 text-[#3f7da6]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold text-foreground">{o.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{o.width}"W × {o.height}"H · sill {o.sill}" · projects outward</div>
+                    </div>
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  </button>
+                ))}
               </div>
             ) : (
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Type</label>
-                  <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
-                    {(["door", "window", "opening"] as const).map((k) => (
-                      <button key={k} onClick={() => { setDwCustomKind(k); if (k === "door") { setDwCustomHeight(80); setDwCustomSill(0); } else if (k === "window") { setDwCustomHeight(36); setDwCustomSill(42); } else { setDwCustomHeight(80); setDwCustomSill(0); } }}
+                  <div className="grid grid-cols-4 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
+                    {(["door", "window", "opening", "bow"] as const).map((k) => (
+                      <button key={k} onClick={() => { setDwCustomKind(k); if (k === "door") { setDwCustomHeight(80); setDwCustomSill(0); } else if (k === "window") { setDwCustomHeight(36); setDwCustomSill(42); } else if (k === "bow") { setDwCustomHeight(48); setDwCustomSill(36); } else { setDwCustomHeight(80); setDwCustomSill(0); } }}
                         className={`py-1.5 rounded-md text-xs font-semibold capitalize transition-colors ${
                           dwCustomKind === k ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                         }`}>
-                        {k === "opening" ? "Cased" : k.charAt(0).toUpperCase() + k.slice(1)}
+                        {k === "opening" ? "Cased" : k === "bow" ? "Bow" : k.charAt(0).toUpperCase() + k.slice(1)}
                       </button>
                     ))}
                   </div>

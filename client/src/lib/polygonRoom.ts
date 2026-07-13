@@ -428,7 +428,7 @@ export function addOpenSquare(
   if (!start || !end) return null;
 
   const wallLen = dist(start, end);
-  if (shapeWidth >= wallLen) return null; // shape must be narrower than the wall
+  if (shapeWidth > wallLen - 1) return null; // must leave at least 0.5" stub on each side
 
   // Unit vector along the wall (start → end)
   const ux = (end.x - start.x) / wallLen;
@@ -504,7 +504,7 @@ export function addHalfCircle(
   if (!start || !end) return null;
 
   const wallLen = dist(start, end);
-  if (shapeWidth >= wallLen) return null;
+  if (shapeWidth > wallLen - 1) return null; // must leave at least 0.5" stub on each side
 
   const radius = shapeWidth / 2;
 
@@ -610,7 +610,7 @@ export function addTriangle(
   const end = vertices.find((v) => v.id === wall.endVertexId);
   if (!start || !end) return null;
   const wallLen = dist(start, end);
-  if (shapeWidth >= wallLen) return null;
+  if (shapeWidth > wallLen - 1) return null; // must leave at least 0.5" stub on each side
   // Unit vector along the wall
   const ux = (end.x - start.x) / wallLen;
   const uy = (end.y - start.y) / wallLen;

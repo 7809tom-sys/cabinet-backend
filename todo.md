@@ -869,3 +869,9 @@
 ## Bug: Email Gate Not Working in Designer
 - [ ] Diagnose why email verification fails — user enters email but cabinets don't appear
 - [ ] Fix email submission and verification so designer unlocks after entering email
+
+## Inherited follow-up fixes from previous session
+- [x] Replace PlanCanvas wall opening rendering with architectural SVG symbols for doors, windows, and cased openings
+- [x] Add bow window kind and preset to the door/window system
+- [x] Fix semi-circle bump-out width handling so the user can use the full wall width while keeping depth capped at 24 inches
+- [ ] Audit Skyline for any remaining missing cabinet SKUs beyond the drawer bases
