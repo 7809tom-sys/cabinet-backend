@@ -4379,8 +4379,8 @@ export default function DesignTool() {
 
         <div className="hidden lg:block h-5 w-px bg-border" />
 
-        {/* View toggle — always visible, with labels */}
-        <div className="hidden lg:flex items-center rounded-lg border border-border p-0.5 bg-muted/30 shrink-0">
+        {/* View toggle — visible on all screen sizes */}
+        <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30 shrink-0">
           <button
             onClick={() => setViewMode("plan")}
             title={t("dt_sh_birdseye")}
