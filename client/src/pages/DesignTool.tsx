@@ -7253,16 +7253,11 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-6 h-14">
+          <div className="grid grid-cols-5 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
               onClick={() => setMobilePanel("catalog")}
-            />
-            <MobileBarButton
-              icon={viewMode === "elevation" ? <LayoutGrid className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              label={viewMode === "elevation" ? "Plan" : "Front"}
-              onClick={() => setViewMode((m) => (m === "elevation" ? "plan" : "elevation"))}
             />
             <MobileBarButton
               icon={<RotateCw className="h-5 w-5" />}
