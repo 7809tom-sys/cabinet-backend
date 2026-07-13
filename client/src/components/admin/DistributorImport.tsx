@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../server/routers";
 import { trpc } from "@/lib/trpc";
@@ -312,30 +312,33 @@ function MultiColumnMappingStep({
     return "";
   }
 
-  // Pre-fill from saved mappings (or auto-suggest) once loaded
+  // Pre-fill from saved mappings (or auto-suggest) once loaded — must be in useEffect, not render
   const savedRef = useRef(false);
-  if (savedMappings !== undefined && allStyles !== undefined && !savedRef.current && priceColumns.length > 0) {
-    savedRef.current = true;
-    const initial: Record<string, ColMapping> = {};
-    for (const col of priceColumns) {
-      const saved = savedMappings.find((m) => m.columnCode === col);
-      if (saved) {
-        initial[col] = {
-          doorStyleId: String(saved.doorStyleId),
-          priceType: saved.priceType as "list" | "cost",
-          enabled: true,
-        };
-      } else {
-        const suggested = autoMatchStyle(col);
-        initial[col] = {
-          doorStyleId: suggested,
-          priceType: "list",
-          enabled: Boolean(suggested),
-        };
+  useEffect(() => {
+    if (savedMappings !== undefined && allStyles !== undefined && !savedRef.current && priceColumns.length > 0) {
+      savedRef.current = true;
+      const initial: Record<string, ColMapping> = {};
+      for (const col of priceColumns) {
+        const saved = savedMappings.find((m) => m.columnCode === col);
+        if (saved) {
+          initial[col] = {
+            doorStyleId: String(saved.doorStyleId),
+            priceType: saved.priceType as "list" | "cost",
+            enabled: true,
+          };
+        } else {
+          const suggested = autoMatchStyle(col);
+          initial[col] = {
+            doorStyleId: suggested,
+            priceType: "list",
+            enabled: Boolean(suggested),
+          };
+        }
       }
+      setColMappings(initial);
     }
-    setColMappings(initial);
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedMappings, allStyles, priceColumns.join("|")]);
 
   function setColField<K extends keyof ColMapping>(col: string, field: K, value: ColMapping[K]) {
     setColMappings((prev) => ({
