@@ -642,7 +642,33 @@ function MultiColumnMappingStep({
         </div>
       )}
 
-      {/* Commit results with unmatched codes — inline alias resolution */}
+      {/* Commit results — success summary */}
+      {commitResult && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-4 space-y-3">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" />
+            Import complete — {commitResult.results.reduce((s, r) => s + r.priced, 0)} prices saved
+          </p>
+          <div className="space-y-1.5">
+            {commitResult.results.map((r) => {
+              const style = allStyles?.find((s) => s.id === r.doorStyleId);
+              return (
+                <div key={r.columnCode} className="flex items-center gap-3 text-xs">
+                  <code className="font-mono bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded text-emerald-900 dark:text-emerald-200 min-w-[40px] text-center">{r.columnCode}</code>
+                  <span className="text-emerald-700 dark:text-emerald-300 font-medium">{style?.ourName ?? `Style #${r.doorStyleId}`}</span>
+                  <span className="text-emerald-600">{r.priced} prices saved</span>
+                  {r.unmatched > 0 && <span className="text-amber-600">{r.unmatched} unmatched</span>}
+                </div>
+              );
+            })}
+          </div>
+          {commitResult.results.every((r) => r.unmatched === 0) && (
+            <p className="text-xs text-emerald-600">All model numbers matched successfully.</p>
+          )}
+        </div>
+      )}
+
+      {/* Unmatched codes — inline alias resolution */}
       {commitResult && commitResult.results.some((r) => r.unmatched > 0) && (
         <UnmatchedAliasPanel
           unmatchedCodes={Array.from(new Set(commitResult.results.flatMap((r) => r.unmatchedCodes)))}
@@ -905,6 +931,22 @@ function ColumnMappingStep({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Commit result — success summary */}
+      {commitResult && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-4 space-y-2">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" />
+            Import complete
+          </p>
+          <div className="text-xs space-y-1 text-emerald-700 dark:text-emerald-300">
+            <p>{commitResult.matched} model numbers matched &middot; {commitResult.priced} prices saved</p>
+            {commitResult.skipped > 0 && <p>{commitResult.skipped} rows skipped (blank or invalid)</p>}
+            {commitResult.aliasesLearned > 0 && <p>{commitResult.aliasesLearned} new aliases learned</p>}
+            {commitResult.unmatched === 0 && <p className="text-emerald-600">All model numbers matched successfully.</p>}
           </div>
         </div>
       )}
