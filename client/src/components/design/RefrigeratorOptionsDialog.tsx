@@ -253,20 +253,8 @@ export function RefrigeratorOptionsDialog({
     return result;
   }, [bridgeAbove, bridgeWidthChoice]);
 
-  const hasBridgeAbove = BRIDGE_HEIGHT_OPTIONS.some((h) =>
-    BRIDGE_DEPTH_OPTIONS.some((d) => bridgeByDims[h][d] !== null)
-  );
-
-  const depthAvailability = useMemo(() => ({
-    12: bridgeByDims[bridgeHeightChoice][12] !== null,
-    24: bridgeByDims[bridgeHeightChoice][24] !== null,
-  }), [bridgeByDims, bridgeHeightChoice]);
-
-  const heightAvailability = useMemo(() => ({
-    12: bridgeByDims[12][bridgeDepthChoice] !== null,
-    18: bridgeByDims[18][bridgeDepthChoice] !== null,
-    24: bridgeByDims[24][bridgeDepthChoice] !== null,
-  }), [bridgeByDims, bridgeDepthChoice]);
+  // Always allow Add Cabinet — if catalog has no exact match we place a generic one.
+  const hasBridgeAbove = true;
 
   const chosenBridge = above === "bridge" ? bridgeByDims[bridgeHeightChoice][bridgeDepthChoice] : null;
 
@@ -303,14 +291,6 @@ export function RefrigeratorOptionsDialog({
     }
   }, [panels, selectedPanelId, bestPanel]);
 
-  // Auto-switch depth if current depth becomes unavailable
-  useEffect(() => {
-    if (above === "bridge" && !depthAvailability[bridgeDepthChoice]) {
-      const other: BridgeDepth = bridgeDepthChoice === 12 ? 24 : 12;
-      if (depthAvailability[other]) setBridgeDepthChoice(other);
-    }
-  }, [bridgeHeightChoice]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleApply = () => {
     onApply({
       above,
@@ -329,9 +309,8 @@ export function RefrigeratorOptionsDialog({
     });
   };
 
-  const canApply =
-    !(above === "bridge" && !chosenBridge) &&
-    !(panels !== "none" && endPanels.length > 0 && !selectedPanelId);
+  // Always allow apply — missing catalog matches use generic placement.
+  const canApply = true;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -388,19 +367,16 @@ export function RefrigeratorOptionsDialog({
                   <div className="flex gap-2">
                     {BRIDGE_HEIGHT_OPTIONS.map((h) => {
                       const active = bridgeHeightChoice === h;
-                      const disabled = !heightAvailability[h];
                       return (
                         <button
                           key={h}
                           type="button"
-                          disabled={disabled}
                           onClick={() => setBridgeHeightChoice(h)}
                           className={cn(
                             "flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
                             active
                               ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
-                            disabled && "cursor-not-allowed opacity-40 hover:bg-background hover:text-foreground"
+                              : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
                           )}
                           aria-pressed={active}
                         >
@@ -416,22 +392,20 @@ export function RefrigeratorOptionsDialog({
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Depth</span>
                   <div className="flex gap-2">
                     {([
-                      { value: 12 as BridgeDepth, label: '12″ Shallow', disabled: !depthAvailability[12] },
-                      { value: 24 as BridgeDepth, label: '24″ Full Depth', disabled: !depthAvailability[24] },
+                      { value: 12 as BridgeDepth, label: '12″ Shallow' },
+                      { value: 24 as BridgeDepth, label: '24″ Full Depth' },
                     ]).map((o) => {
                       const active = bridgeDepthChoice === o.value;
                       return (
                         <button
                           key={o.value}
                           type="button"
-                          disabled={o.disabled}
                           onClick={() => setBridgeDepthChoice(o.value)}
                           className={cn(
                             "flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
                             active
                               ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
-                            o.disabled && "cursor-not-allowed opacity-40 hover:bg-background hover:text-foreground"
+                              : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
                           )}
                           aria-pressed={active}
                         >
@@ -476,9 +450,9 @@ export function RefrigeratorOptionsDialog({
                 value={panels}
                 onChange={setPanels}
                 options={[
-                  { value: "left", label: "Left", disabled: !endPanels.length },
-                  { value: "right", label: "Right", disabled: !endPanels.length },
-                  { value: "both", label: "Both", disabled: !endPanels.length },
+                  { value: "left", label: "Left" },
+                  { value: "right", label: "Right" },
+                  { value: "both", label: "Both" },
                   { value: "none", label: "None" },
                 ]}
               />
