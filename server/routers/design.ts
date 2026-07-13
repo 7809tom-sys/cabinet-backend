@@ -362,18 +362,31 @@ export const designRouter = router({
           sql`CAST(${cabinets.depth} AS DECIMAL) = 24`,
           sql`LOWER(${cabinets.description}) LIKE '%wall%'`
         ));
-      // Bridge wall cabinets: short (≤ 24" tall) wall cabinets, 12" deep.
-      // Supports user-selectable heights of 12", 18", and 24".
-      // Actual DB codes: W3612, W3618, W3624, SU-W3612, etc. — description contains "Bridge" or "wall".
-      const bridgeRows = await db
+      // Bridge wall cabinets: short (≤ 24" tall) wall cabinets, 12" or 24" deep.
+      // Supports user-selectable heights of 12", 18", and 24" and depths of 12" (shallow) or 24" (full).
+      // Actual DB codes: W3612, W3618, W3624, W361824, W302424, etc. — description contains "Bridge" or "wall".
+      const bridgeRowsStyle = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(
           gate,
           sql`(LOWER(${cabinets.description}) LIKE '%bridge%' OR (CAST(${cabinets.height} AS DECIMAL) <= 24 AND LOWER(${cabinets.description}) LIKE '%wall%'))`,
-          sql`CAST(${cabinets.depth} AS DECIMAL) <= 12`
+          sql`CAST(${cabinets.depth} AS DECIMAL) <= 24`
         ));
+      // Fallback: if no bridge cabinets found for this style, use any published SKU from same distributor.
+      let bridgeRows = bridgeRowsStyle;
+      if (bridgeRows.length === 0 && distGate !== gate) {
+        bridgeRows = await db
+          .select(cols)
+          .from(cabinets)
+          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+          .where(and(
+            distGate,
+            sql`(LOWER(${cabinets.description}) LIKE '%bridge%' OR (CAST(${cabinets.height} AS DECIMAL) <= 24 AND LOWER(${cabinets.description}) LIKE '%wall%'))`,
+            sql`CAST(${cabinets.depth} AS DECIMAL) <= 24`
+          ));
+      }
       // End panels: REPV*, TDEP*, and S2496/S3696 shelf boards (used as refrigerator side panels).
       // These are standard across all US Cabinet Depot lines, so if the style-gated query
       // returns nothing we fall back to any published SKU from the same distributor.
