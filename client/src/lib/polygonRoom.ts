@@ -396,3 +396,182 @@ export function positionAlongWall(
   const t = Math.max(0, Math.min(1, ((px - start.x) * dx + (py - start.y) * dy) / lenSq));
   return t * Math.sqrt(lenSq);
 }
+
+// ─── Shape Presets (Bump-Out / Inset) ──────────────────────────────────────────
+
+/**
+ * Add an open-square (bay/bump-out) shape to a wall segment.
+ *
+ * The shape is a rectangular protrusion or recess centered on the wall.
+ * - `shapeWidth` (inches): how wide the shape is along the wall (default = wall length / 2)
+ * - `shapeDepth` (inches): how deep the protrusion/recess extends from the wall
+ * - `direction`: "out" = bump-out (extends outward), "in" = inset (recesses inward)
+ *
+ * The original wall is replaced with 5 segments:
+ *   left-stub → left-corner → back → right-corner → right-stub
+ */
+export function addOpenSquare(
+  wallId: string,
+  vertices: RoomVertex[],
+  customWalls: CustomWall[],
+  shapeWidth: number,
+  shapeDepth: number,
+  direction: "in" | "out",
+): { vertices: RoomVertex[]; customWalls: CustomWall[] } | null {
+  const wallIdx = customWalls.findIndex((w) => w.id === wallId);
+  if (wallIdx === -1) return null;
+
+  const wall = customWalls[wallIdx];
+  const start = vertices.find((v) => v.id === wall.startVertexId);
+  const end = vertices.find((v) => v.id === wall.endVertexId);
+  if (!start || !end) return null;
+
+  const wallLen = dist(start, end);
+  if (shapeWidth >= wallLen) return null; // shape must be narrower than the wall
+
+  // Unit vector along the wall (start → end)
+  const ux = (end.x - start.x) / wallLen;
+  const uy = (end.y - start.y) / wallLen;
+
+  // Inward normal (for CW polygon, inward is 90° CW from wall direction)
+  const inNx = uy;
+  const inNy = -ux;
+
+  // Sign: "out" = outward (opposite of inward normal), "in" = inward
+  const sign = direction === "out" ? -1 : 1;
+  const nx = inNx * sign;
+  const ny = inNy * sign;
+
+  // Center offset along the wall
+  const leftOffset = (wallLen - shapeWidth) / 2;
+  const rightOffset = leftOffset + shapeWidth;
+
+  // 4 new vertices
+  const vL1: RoomVertex = { id: genVertexId(), x: start.x + ux * leftOffset, y: start.y + uy * leftOffset };
+  const vL2: RoomVertex = { id: genVertexId(), x: vL1.x + nx * shapeDepth, y: vL1.y + ny * shapeDepth };
+  const vR2: RoomVertex = { id: genVertexId(), x: start.x + ux * rightOffset + nx * shapeDepth, y: start.y + uy * rightOffset + ny * shapeDepth };
+  const vR1: RoomVertex = { id: genVertexId(), x: start.x + ux * rightOffset, y: start.y + uy * rightOffset };
+
+  // Insert new vertices after the start vertex
+  const startIdx = vertices.findIndex((v) => v.id === wall.startVertexId);
+  const newVertices = [...vertices];
+  newVertices.splice(startIdx + 1, 0, vL1, vL2, vR2, vR1);
+
+  // Replace original wall with 5 new walls
+  const label = wall.label || "";
+  const newWalls: CustomWall[] = [
+    { id: genWallId(), startVertexId: wall.startVertexId, endVertexId: vL1.id, label: label ? `${label} (L)` : undefined },
+    { id: genWallId(), startVertexId: vL1.id, endVertexId: vL2.id, label: direction === "out" ? "Bay L" : "Recess L" },
+    { id: genWallId(), startVertexId: vL2.id, endVertexId: vR2.id, label: direction === "out" ? "Bay Back" : "Recess Back" },
+    { id: genWallId(), startVertexId: vR2.id, endVertexId: vR1.id, label: direction === "out" ? "Bay R" : "Recess R" },
+    { id: genWallId(), startVertexId: vR1.id, endVertexId: wall.endVertexId, label: label ? `${label} (R)` : undefined },
+  ];
+
+  const updatedWalls = [...customWalls];
+  updatedWalls.splice(wallIdx, 1, ...newWalls);
+
+  return { vertices: newVertices, customWalls: updatedWalls };
+}
+
+/**
+ * Add a half-circle (semicircular) bump-out or inset to a wall segment.
+ *
+ * The arc is approximated with `segments` straight-line segments (default 8).
+ * - `shapeWidth` (inches): diameter of the semicircle along the wall
+ * - `direction`: "out" = bump-out, "in" = inset
+ *
+ * The original wall is replaced with (segments + 2) segments:
+ *   left-stub → arc segments → right-stub
+ */
+export function addHalfCircle(
+  wallId: string,
+  vertices: RoomVertex[],
+  customWalls: CustomWall[],
+  shapeWidth: number,
+  direction: "in" | "out",
+  segments = 8,
+): { vertices: RoomVertex[]; customWalls: CustomWall[] } | null {
+  const wallIdx = customWalls.findIndex((w) => w.id === wallId);
+  if (wallIdx === -1) return null;
+
+  const wall = customWalls[wallIdx];
+  const start = vertices.find((v) => v.id === wall.startVertexId);
+  const end = vertices.find((v) => v.id === wall.endVertexId);
+  if (!start || !end) return null;
+
+  const wallLen = dist(start, end);
+  if (shapeWidth >= wallLen) return null;
+
+  const radius = shapeWidth / 2;
+
+  // Unit vector along the wall
+  const ux = (end.x - start.x) / wallLen;
+  const uy = (end.y - start.y) / wallLen;
+
+  // Inward normal
+  const inNx = uy;
+  const inNy = -ux;
+
+  // Sign: "out" = outward, "in" = inward
+  const sign = direction === "out" ? -1 : 1;
+  const nx = inNx * sign;
+  const ny = inNy * sign;
+
+  // Center of the semicircle on the wall
+  const leftOffset = (wallLen - shapeWidth) / 2;
+  const cx = start.x + ux * (leftOffset + radius);
+  const cy = start.y + uy * (leftOffset + radius);
+
+  // Left stub endpoint
+  const vL: RoomVertex = { id: genVertexId(), x: start.x + ux * leftOffset, y: start.y + uy * leftOffset };
+  // Right stub endpoint
+  const vR: RoomVertex = { id: genVertexId(), x: start.x + ux * (leftOffset + shapeWidth), y: start.y + uy * (leftOffset + shapeWidth) };
+
+  // Generate arc vertices (semicircle from left to right, bulging outward)
+  // The arc goes from angle π (left side) to 0 (right side) in local space,
+  // but we need to map to world space using the wall's coordinate system.
+  const arcVertices: RoomVertex[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments; // 0 → 1
+    const angle = Math.PI * (1 - t); // π → 0 (left to right)
+    // In local wall space: x along wall, y perpendicular (outward)
+    const localX = Math.cos(angle) * radius; // -radius → +radius
+    const localY = -Math.sin(angle) * radius; // 0 → -radius → 0 (arc peak at center)
+
+    // Transform to world space
+    const wx = cx + ux * localX + nx * (-localY);
+    const wy = cy + uy * localX + ny * (-localY);
+    arcVertices.push({ id: genVertexId(), x: wx, y: wy });
+  }
+
+  // Insert new vertices: vL, arc[0..segments], vR
+  const startIdx = vertices.findIndex((v) => v.id === wall.startVertexId);
+  const newVertices = [...vertices];
+  newVertices.splice(startIdx + 1, 0, vL, ...arcVertices, vR);
+
+  // Build walls: left-stub, arc segments, right-stub
+  const label = wall.label || "";
+  const newWalls: CustomWall[] = [];
+
+  // Left stub
+  newWalls.push({ id: genWallId(), startVertexId: wall.startVertexId, endVertexId: vL.id, label: label ? `${label} (L)` : undefined });
+
+  // Arc segments
+  const allArcIds = [vL.id, ...arcVertices.map((v) => v.id), vR.id];
+  for (let i = 0; i < allArcIds.length - 1; i++) {
+    newWalls.push({
+      id: genWallId(),
+      startVertexId: allArcIds[i],
+      endVertexId: allArcIds[i + 1],
+      label: i === Math.floor((allArcIds.length - 1) / 2) ? (direction === "out" ? "Arc" : "Arc (in)") : undefined,
+    });
+  }
+
+  // Right stub
+  newWalls.push({ id: genWallId(), startVertexId: vR.id, endVertexId: wall.endVertexId, label: label ? `${label} (R)` : undefined });
+
+  const updatedWalls = [...customWalls];
+  updatedWalls.splice(wallIdx, 1, ...newWalls);
+
+  return { vertices: newVertices, customWalls: updatedWalls };
+}
