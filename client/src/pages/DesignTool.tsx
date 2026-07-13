@@ -4612,6 +4612,10 @@ export default function DesignTool() {
                 setCabinetsLocked(false);
                 setConsultMessages([]);
                 setConsultOpen(false);
+                // Reset room to a completely fresh blank footprint — no bump-outs, no polygon shape
+                setRoom(DEFAULT_ROOM);
+                setRoomType("kitchen");
+                setActiveWall("top");
                 clearDraft();
                 toast.success(t("dt_sh_started_new"));
               }}
@@ -4915,6 +4919,10 @@ export default function DesignTool() {
                       setCabinetsLocked(false);
                       setConsultMessages([]);
                       setConsultOpen(false);
+                      // Reset room to a completely fresh blank footprint — no bump-outs, no polygon shape
+                      setRoom(DEFAULT_ROOM);
+                      setRoomType("kitchen");
+                      setActiveWall("top");
                       clearDraft();
                       toast.success(t("dt_sh_started_new"));
                       setMoreSheetOpen(false);
