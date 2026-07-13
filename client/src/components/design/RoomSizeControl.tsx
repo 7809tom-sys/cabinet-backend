@@ -149,9 +149,10 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
     <div className="flex items-center gap-1.5">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
+          {/* Mobile: icon-only button; Desktop: full label button */}
           <Button variant="outline" size="sm" className="h-8 gap-1.5">
             <Maximize className="h-3.5 w-3.5" />
-            <span className="text-xs">{t("dt_room_label_h", { w: fmt(wDisp), d: fmt(dDisp), h: fmt(inchesToFeetInches(roomCeiling(room))) })}</span>
+            <span className="hidden lg:inline text-xs">{t("dt_room_label_h", { w: fmt(wDisp), d: fmt(dDisp), h: fmt(inchesToFeetInches(roomCeiling(room))) })}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-80 max-h-[80vh] overflow-y-auto" align="start">
