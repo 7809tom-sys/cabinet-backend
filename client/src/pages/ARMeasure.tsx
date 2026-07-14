@@ -2,13 +2,16 @@
  * AR Tape Measure
  *
  * Two modes:
- *  1. WebXR hit-test (Android Chrome + ARCore) — live AR ruler overlay
+ *  1. WebXR hit-test (Android Chrome + ARCore) — live AR ruler overlay with
+ *     a rendered reticle ring, placed-point markers, and a distance line.
  *  2. Photo reference measurement (all browsers) — upload/capture photo with a
- *     known reference object (credit card, dollar bill, etc.) and tap two points
- *     to measure real-world distance.
+ *     known reference object and tap two points to measure real-world distance.
  */
 import { useEffect, useRef, useState, useCallback } from "react";
-import { ArrowLeft, Camera, Ruler, RefreshCw, Info, CheckCircle, AlertTriangle } from "lucide-react";
+import {
+  ArrowLeft, Camera, Ruler, RefreshCw, Info, CheckCircle,
+  AlertTriangle, Trash2, Copy,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { toast } from "sonner";
@@ -19,6 +22,7 @@ type Mode = "detecting" | "webxr" | "photo";
 type PhotoStep = "capture" | "ref-point-1" | "ref-point-2" | "meas-point-1" | "meas-point-2" | "result";
 
 interface Point { x: number; y: number }
+interface Vec3 { x: number; y: number; z: number }
 
 // Known reference object sizes in mm
 const REFERENCE_OBJECTS = [
@@ -31,19 +35,94 @@ const REFERENCE_OBJECTS = [
   { label: "Standard Brick (length)", mm: 194 },
 ];
 
+// ─── WebGL helpers ────────────────────────────────────────────────────────────
+
+function createShader(gl: WebGLRenderingContext, type: number, src: string): WebGLShader {
+  const s = gl.createShader(type)!;
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  return s;
+}
+
+function createProgram(gl: WebGLRenderingContext, vert: string, frag: string): WebGLProgram {
+  const p = gl.createProgram()!;
+  gl.attachShader(p, createShader(gl, gl.VERTEX_SHADER, vert));
+  gl.attachShader(p, createShader(gl, gl.FRAGMENT_SHADER, frag));
+  gl.linkProgram(p);
+  return p;
+}
+
+// Build a flat ring (annulus) in the XZ plane centred at origin.
+function buildRingGeometry(outerR: number, innerR: number, segments: number): Float32Array {
+  const verts: number[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    verts.push(outerR * cos, 0, outerR * sin);
+    verts.push(innerR * cos, 0, innerR * sin);
+  }
+  return new Float32Array(verts);
+}
+
+// Build a small sphere-ish dot (flat circle) for placed points.
+function buildDotGeometry(r: number, segments: number): Float32Array {
+  const verts: number[] = [0, 0, 0];
+  for (let i = 0; i <= segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    verts.push(r * Math.cos(a), 0, r * Math.sin(a));
+  }
+  return new Float32Array(verts);
+}
+
+// Build a line (two points) for the distance line.
+function buildLineGeometry(a: Vec3, b: Vec3): Float32Array {
+  return new Float32Array([a.x, a.y, a.z, b.x, b.y, b.z]);
+}
+
+// Simple perspective projection matrix (column-major, like WebGL expects).
+function perspectiveMatrix(fovY: number, aspect: number, near: number, far: number): Float32Array {
+  const f = 1.0 / Math.tan(fovY / 2);
+  const nf = 1 / (near - far);
+  return new Float32Array([
+    f / aspect, 0, 0, 0,
+    0, f, 0, 0,
+    0, 0, (far + near) * nf, -1,
+    0, 0, 2 * far * near * nf, 0,
+  ]);
+}
+
 // ─── WebXR AR Mode ────────────────────────────────────────────────────────────
 
-function WebXRMeasure({ onExit }: { onExit: () => void }) {
+interface Measurement { label: string; value: string; meters: number }
+
+export function WebXRMeasure({ onExit }: { onExit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"starting" | "ready" | "measuring" | "error">("starting");
-  const [measurements, setMeasurements] = useState<{ label: string; value: string }[]>([]);
+  const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [pointCount, setPointCount] = useState(0);
+
+  // WebXR refs
   const sessionRef = useRef<XRSession | null>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const hitTestSourceRef = useRef<XRHitTestSource | null>(null);
-  const pointsRef = useRef<XRRigidTransform[]>([]);
   const rafRef = useRef<number>(0);
-  const reticleRef = useRef<Float32Array | null>(null);
+
+  // Reticle state (world position from hit-test)
+  const reticleMatRef = useRef<Float32Array | null>(null);
+  const reticleVisibleRef = useRef(false);
+
+  // Placed points (world positions)
+  const placedPointsRef = useRef<Vec3[]>([]);
+
+  // WebGL program refs
+  const progRef = useRef<WebGLProgram | null>(null);
+  const ringBufRef = useRef<WebGLBuffer | null>(null);
+  const dotBufRef = useRef<WebGLBuffer | null>(null);
+  const lineBufRef = useRef<WebGLBuffer | null>(null);
+  const ringCountRef = useRef(0);
+  const dotCountRef = useRef(0);
 
   const stopSession = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -61,24 +140,57 @@ function WebXRMeasure({ onExit }: { onExit: () => void }) {
         const supported = await nav.xr.isSessionSupported("immersive-ar");
         if (!supported || cancelled) { setStatus("error"); return; }
 
+        const overlayEl = overlayRef.current;
         const session = await nav.xr.requestSession("immersive-ar", {
           requiredFeatures: ["hit-test"],
           optionalFeatures: ["dom-overlay"],
-          domOverlay: canvasRef.current?.parentElement
-            ? { root: canvasRef.current.parentElement }
-            : undefined,
+          ...(overlayEl ? { domOverlay: { root: overlayEl } } : {}),
         } as XRSessionInit);
 
         if (cancelled) { session.end(); return; }
         sessionRef.current = session;
 
         const canvas = canvasRef.current!;
-        const gl = canvas.getContext("webgl", { xrCompatible: true }) as WebGLRenderingContext;
+        const gl = canvas.getContext("webgl", { xrCompatible: true, alpha: true }) as WebGLRenderingContext;
         glRef.current = gl;
+        await (gl as any).makeXRCompatible?.();
 
-        await gl.makeXRCompatible?.();
         const baseLayer = new XRWebGLLayer(session, gl);
         await session.updateRenderState({ baseLayer });
+
+        // ── Build WebGL program ──
+        const vert = `
+          attribute vec3 aPos;
+          uniform mat4 uMVP;
+          void main() { gl_Position = uMVP * vec4(aPos, 1.0); gl_PointSize = 8.0; }
+        `;
+        const frag = `
+          precision mediump float;
+          uniform vec4 uColor;
+          void main() { gl_FragColor = uColor; }
+        `;
+        const prog = createProgram(gl, vert, frag);
+        progRef.current = prog;
+
+        // Ring geometry (reticle)
+        const ringVerts = buildRingGeometry(0.08, 0.065, 48);
+        ringCountRef.current = ringVerts.length / 3;
+        const ringBuf = gl.createBuffer()!;
+        gl.bindBuffer(gl.ARRAY_BUFFER, ringBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, ringVerts, gl.STATIC_DRAW);
+        ringBufRef.current = ringBuf;
+
+        // Dot geometry (placed points)
+        const dotVerts = buildDotGeometry(0.025, 32);
+        dotCountRef.current = dotVerts.length / 3;
+        const dotBuf = gl.createBuffer()!;
+        gl.bindBuffer(gl.ARRAY_BUFFER, dotBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, dotVerts, gl.STATIC_DRAW);
+        dotBufRef.current = dotBuf;
+
+        // Line buffer (dynamic, updated each frame)
+        const lineBuf = gl.createBuffer()!;
+        lineBufRef.current = lineBuf;
 
         const refSpace = await session.requestReferenceSpace("local");
         const viewerSpace = await session.requestReferenceSpace("viewer");
@@ -87,6 +199,7 @@ function WebXRMeasure({ onExit }: { onExit: () => void }) {
 
         setStatus("ready");
 
+        // ── Render loop ──
         const onFrame = (_time: number, frame: XRFrame) => {
           if (!sessionRef.current) return;
           rafRef.current = session.requestAnimationFrame(onFrame);
@@ -99,14 +212,90 @@ function WebXRMeasure({ onExit }: { onExit: () => void }) {
             const hits = frame.getHitTestResults(ht);
             if (hits.length > 0) {
               const hitPose = hits[0].getPose(refSpace);
-              if (hitPose) reticleRef.current = hitPose.transform.matrix as unknown as Float32Array;
+              if (hitPose) {
+                reticleMatRef.current = hitPose.transform.matrix as unknown as Float32Array;
+                reticleVisibleRef.current = true;
+              }
+            } else {
+              reticleVisibleRef.current = false;
             }
           }
 
-          // Minimal WebGL clear so the AR camera passthrough is visible
+          // Draw
           gl.bindFramebuffer(gl.FRAMEBUFFER, baseLayer.framebuffer);
           gl.clearColor(0, 0, 0, 0);
           gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          gl.enable(gl.DEPTH_TEST);
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+          const view = pose.views[0];
+          const proj = view.projectionMatrix;
+          const viewMat = view.transform.inverse.matrix;
+
+          gl.useProgram(prog);
+          const uMVP = gl.getUniformLocation(prog, "uMVP");
+          const uColor = gl.getUniformLocation(prog, "uColor");
+          const aPos = gl.getAttribLocation(prog, "aPos");
+
+          // Helper: multiply 4x4 matrices (column-major)
+          function mul(a: Float32Array | number[], b: Float32Array | number[]): Float32Array {
+            const out = new Float32Array(16);
+            for (let i = 0; i < 4; i++) {
+              for (let j = 0; j < 4; j++) {
+                let sum = 0;
+                for (let k = 0; k < 4; k++) sum += a[i + k * 4] * b[k + j * 4];
+                out[i + j * 4] = sum;
+              }
+            }
+            return out;
+          }
+
+          // Helper: translate a mat4 by (tx, ty, tz)
+          function translateMat(m: Float32Array | number[], tx: number, ty: number, tz: number): Float32Array {
+            const out = new Float32Array(m);
+            out[12] = m[0]*tx + m[4]*ty + m[8]*tz + m[12];
+            out[13] = m[1]*tx + m[5]*ty + m[9]*tz + m[13];
+            out[14] = m[2]*tx + m[6]*ty + m[10]*tz + m[14];
+            out[15] = m[3]*tx + m[7]*ty + m[11]*tz + m[15];
+            return out;
+          }
+
+          function drawBuffer(buf: WebGLBuffer, count: number, mode: number, modelMat: Float32Array, color: [number, number, number, number]) {
+            const mv = mul(viewMat, modelMat);
+            const mvp = mul(proj, mv);
+            gl.uniformMatrix4fv(uMVP, false, mvp);
+            gl.uniform4f(uColor, ...color);
+            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+            gl.enableVertexAttribArray(aPos);
+            gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+            gl.drawArrays(mode, 0, count);
+          }
+
+          // Draw reticle ring at hit-test position
+          if (reticleVisibleRef.current && reticleMatRef.current) {
+            const model = new Float32Array(reticleMatRef.current);
+            drawBuffer(ringBufRef.current!, ringCountRef.current * 2, gl.TRIANGLE_STRIP, model, [0.83, 0.65, 0.35, 0.9]);
+          }
+
+          // Draw placed point dots
+          for (const pt of placedPointsRef.current) {
+            const identity = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+            const model = translateMat(identity, pt.x, pt.y, pt.z);
+            drawBuffer(dotBufRef.current!, dotCountRef.current, gl.TRIANGLE_FAN, model, [0.83, 0.65, 0.35, 1.0]);
+          }
+
+          // Draw line between last two placed points
+          const pts = placedPointsRef.current;
+          if (pts.length >= 2) {
+            const a = pts[pts.length - 2];
+            const b = pts[pts.length - 1];
+            const lineVerts = buildLineGeometry(a, b);
+            gl.bindBuffer(gl.ARRAY_BUFFER, lineBufRef.current!);
+            gl.bufferData(gl.ARRAY_BUFFER, lineVerts, gl.DYNAMIC_DRAW);
+            const identity = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+            drawBuffer(lineBufRef.current!, 2, gl.LINES, identity, [1, 1, 1, 0.9]);
+          }
         };
 
         rafRef.current = session.requestAnimationFrame(onFrame);
@@ -131,24 +320,23 @@ function WebXRMeasure({ onExit }: { onExit: () => void }) {
 
   function handleTap() {
     if (status !== "ready" && status !== "measuring") return;
-    if (!reticleRef.current) { toast.info("Point your camera at a flat surface first"); return; }
+    if (!reticleVisibleRef.current || !reticleMatRef.current) {
+      toast.info("Point your camera at a flat surface first");
+      return;
+    }
 
-    const matrix = reticleRef.current;
-    const transform = new XRRigidTransform(
-      { x: matrix[12], y: matrix[13], z: matrix[14], w: 1 },
-      { x: 0, y: 0, z: 0, w: 1 }
-    );
-    pointsRef.current.push(transform);
-    const count = pointsRef.current.length;
+    const mat = reticleMatRef.current;
+    const pt: Vec3 = { x: mat[12], y: mat[13], z: mat[14] };
+    placedPointsRef.current = [...placedPointsRef.current, pt];
+    const count = placedPointsRef.current.length;
     setPointCount(count);
 
     if (count % 2 === 0) {
-      // Calculate distance between last two points
-      const a = pointsRef.current[count - 2];
-      const b = pointsRef.current[count - 1];
-      const dx = b.position.x - a.position.x;
-      const dy = b.position.y - a.position.y;
-      const dz = b.position.z - a.position.z;
+      const a = placedPointsRef.current[count - 2];
+      const b = placedPointsRef.current[count - 1];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dz = b.z - a.z;
       const meters = Math.sqrt(dx * dx + dy * dy + dz * dz);
       const inches = meters * 39.3701;
       const feet = Math.floor(inches / 12);
@@ -157,19 +345,33 @@ function WebXRMeasure({ onExit }: { onExit: () => void }) {
       const value = feet > 0
         ? `${feet}′ ${remIn}″  (${(meters * 100).toFixed(1)} cm)`
         : `${inches.toFixed(1)}″  (${(meters * 100).toFixed(1)} cm)`;
-      setMeasurements((prev) => [...prev, { label, value }]);
+      setMeasurements((prev) => [...prev, { label, value, meters }]);
       setStatus("ready");
-      toast.success(`${value}`);
+      toast.success(value, { duration: 3000 });
     } else {
       setStatus("measuring");
     }
   }
 
   function clearAll() {
-    pointsRef.current = [];
+    placedPointsRef.current = [];
     setPointCount(0);
     setMeasurements([]);
     setStatus("ready");
+  }
+
+  function undoLast() {
+    const pts = [...placedPointsRef.current];
+    if (pts.length === 0) return;
+    pts.pop();
+    placedPointsRef.current = pts;
+    setPointCount(pts.length);
+    if (pts.length % 2 === 0) setStatus("ready");
+    else setStatus("measuring");
+    if (pts.length % 2 !== 0) {
+      // Removed second point of a pair — remove last measurement too
+      setMeasurements((prev) => prev.slice(0, -1));
+    }
   }
 
   if (status === "error") {
@@ -180,7 +382,7 @@ function WebXRMeasure({ onExit }: { onExit: () => void }) {
         <p className="text-[#8a9bb8] max-w-sm">
           WebXR AR requires Android Chrome with ARCore installed. Your device or browser doesn't support it.
         </p>
-        <Button onClick={onExit} variant="outline" className="border-white/30 text-white">
+        <Button onClick={onExit} className="bg-[#d4a75a] text-[#1a2744] hover:bg-[#e0b86a] font-bold">
           Use Photo Measurement Instead
         </Button>
       </div>
@@ -188,52 +390,80 @@ function WebXRMeasure({ onExit }: { onExit: () => void }) {
   }
 
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden" onClick={handleTap}>
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+    <div className="relative w-full h-screen bg-black overflow-hidden">
+      {/* WebGL canvas — AR camera passthrough renders here */}
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" onClick={handleTap} />
 
-      {/* Overlay UI */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* DOM overlay — buttons and labels on top of AR */}
+      <div ref={overlayRef} className="absolute inset-0 pointer-events-none">
+
         {/* Top bar */}
         <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-safe-top pt-4 pointer-events-auto">
           <button
             onClick={(e) => { e.stopPropagation(); stopSession(); onExit(); }}
-            className="flex items-center gap-1.5 bg-black/50 backdrop-blur rounded-full px-3 py-2 text-white text-sm"
+            className="flex items-center gap-1.5 bg-black/50 backdrop-blur rounded-full px-3 py-2 text-white text-sm font-medium"
           >
             <ArrowLeft className="h-4 w-4" /> Exit AR
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); clearAll(); }}
-            className="bg-black/50 backdrop-blur rounded-full p-2 text-white"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Reticle crosshair */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative w-12 h-12">
-            <div className="absolute inset-0 border-2 border-white/80 rounded-full" />
-            <div className="absolute top-1/2 left-0 right-0 h-px bg-white/80 -translate-y-1/2" />
-            <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/80 -translate-x-1/2" />
+          <div className="flex gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); undoLast(); }}
+              className="bg-black/50 backdrop-blur rounded-full px-3 py-2 text-white text-sm font-medium"
+            >
+              Undo
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); clearAll(); }}
+              className="bg-black/50 backdrop-blur rounded-full p-2 text-white"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
-        {/* Status */}
-        <div className="absolute bottom-32 left-0 right-0 flex justify-center">
-          <div className="bg-black/60 backdrop-blur rounded-2xl px-5 py-3 text-white text-center max-w-xs">
+        {/* Crosshair (visual guide — actual reticle rendered in WebGL) */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="relative w-8 h-8 opacity-50">
+            <div className="absolute top-1/2 left-0 right-0 h-px bg-white -translate-y-1/2" />
+            <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white -translate-x-1/2" />
+          </div>
+        </div>
+
+        {/* Status pill */}
+        <div className="absolute bottom-40 left-0 right-0 flex justify-center pointer-events-none">
+          <div className="bg-black/70 backdrop-blur rounded-2xl px-5 py-3 text-white text-center max-w-xs">
             {status === "starting" && <p className="text-sm">Initializing AR…</p>}
-            {status === "ready" && <p className="text-sm">Tap to place <strong>Point {pointCount + 1}</strong></p>}
-            {status === "measuring" && <p className="text-sm">Tap to place <strong>Point 2</strong> to complete measurement</p>}
+            {status === "ready" && (
+              <p className="text-sm">
+                {pointCount % 2 === 0
+                  ? <>Tap to place <strong>Point 1</strong></>
+                  : <>Tap to place <strong>Point 1</strong></>}
+              </p>
+            )}
+            {status === "measuring" && (
+              <p className="text-sm">Tap to place <strong>Point 2</strong> and measure</p>
+            )}
           </div>
         </div>
 
         {/* Measurements list */}
         {measurements.length > 0 && (
-          <div className="absolute bottom-4 left-4 right-4 space-y-1 pointer-events-auto">
-            {measurements.slice(-3).map((m, i) => (
-              <div key={i} className="bg-black/70 backdrop-blur rounded-xl px-4 py-2 flex justify-between text-white text-sm">
-                <span className="text-white/60">{m.label}</span>
-                <span className="font-bold">{m.value}</span>
+          <div className="absolute bottom-4 left-4 right-4 space-y-1.5 pointer-events-auto">
+            {measurements.slice(-4).map((m, i) => (
+              <div
+                key={i}
+                className="bg-black/75 backdrop-blur rounded-xl px-4 py-2.5 flex justify-between items-center text-white"
+              >
+                <span className="text-white/50 text-xs">{m.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm">{m.value}</span>
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(m.value); toast.success("Copied!"); }}
+                    className="text-white/40 hover:text-white/80 transition-colors"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -249,14 +479,19 @@ function PhotoMeasure() {
   const [step, setStep] = useState<PhotoStep>("capture");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [refObjIdx, setRefObjIdx] = useState(0);
+  const [customRefMm, setCustomRefMm] = useState<string>("");
   const [refPoints, setRefPoints] = useState<[Point, Point] | null>(null);
   const [measPoints, setMeasPoints] = useState<[Point, Point] | null>(null);
   const [result, setResult] = useState<{ inches: number; cm: number; feet: string } | null>(null);
+  const [history, setHistory] = useState<{ feet: string; cm: string; ref: string }[]>([]);
   const imgRef = useRef<HTMLImageElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Tap handler on the image
+  const refMm = customRefMm && Number(customRefMm) > 0
+    ? Number(customRefMm)
+    : REFERENCE_OBJECTS[refObjIdx].mm;
+
   function handleImageTap(e: React.MouseEvent<HTMLImageElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width;
@@ -292,11 +527,12 @@ function PhotoMeasure() {
       Math.pow((refPoints[1].x - refPoints[0].x) * w, 2) +
       Math.pow((refPoints[1].y - refPoints[0].y) * h, 2)
     );
+    if (refPx < 4) { toast.error("Reference points too close together — try again"); return; }
+
     const measPx = Math.sqrt(
       Math.pow((mp[1].x - mp[0].x) * w, 2) +
       Math.pow((mp[1].y - mp[0].y) * h, 2)
     );
-    const refMm = REFERENCE_OBJECTS[refObjIdx].mm;
     const measMm = (measPx / refPx) * refMm;
     const cm = measMm / 10;
     const inches = measMm / 25.4;
@@ -304,12 +540,22 @@ function PhotoMeasure() {
     const remIn = (inches % 12).toFixed(1);
     const feetStr = feet > 0 ? `${feet}′ ${remIn}″` : `${inches.toFixed(1)}″`;
     setResult({ inches, cm, feet: feetStr });
+    setHistory((prev) => [
+      { feet: feetStr, cm: cm.toFixed(1), ref: REFERENCE_OBJECTS[refObjIdx].label },
+      ...prev.slice(0, 4),
+    ]);
   }
 
   function reset() {
     setStep("capture");
     setImageUrl(null);
     setRefPoints(null);
+    setMeasPoints(null);
+    setResult(null);
+  }
+
+  function measureAgain() {
+    setStep("meas-point-1");
     setMeasPoints(null);
     setResult(null);
   }
@@ -339,54 +585,81 @@ function PhotoMeasure() {
         const x = p.x * canvas!.width;
         const y = p.y * canvas!.height;
         ctx!.beginPath();
-        ctx!.arc(x, y, 8, 0, Math.PI * 2);
+        ctx!.arc(x, y, 9, 0, Math.PI * 2);
         ctx!.fillStyle = color;
         ctx!.fill();
         ctx!.strokeStyle = "white";
-        ctx!.lineWidth = 2;
+        ctx!.lineWidth = 2.5;
         ctx!.stroke();
+        // Label background
+        const tw = ctx!.measureText(label).width + 8;
+        ctx!.fillStyle = "rgba(0,0,0,0.65)";
+        ctx!.beginPath();
+        ctx!.roundRect?.(x + 14, y - 9, tw, 18, 4);
+        ctx!.fill();
         ctx!.fillStyle = "white";
-        ctx!.font = "bold 11px sans-serif";
-        ctx!.fillText(label, x + 12, y + 4);
+        ctx!.font = "bold 11px system-ui, sans-serif";
+        ctx!.fillText(label, x + 18, y + 4);
       }
 
-      function line(a: Point, b: Point, color: string) {
+      function line(a: Point, b: Point, color: string, dashed = true) {
         ctx!.beginPath();
         ctx!.moveTo(a.x * canvas!.width, a.y * canvas!.height);
         ctx!.lineTo(b.x * canvas!.width, b.y * canvas!.height);
         ctx!.strokeStyle = color;
         ctx!.lineWidth = 2;
-        ctx!.setLineDash([6, 3]);
+        if (dashed) ctx!.setLineDash([7, 4]);
+        else ctx!.setLineDash([]);
         ctx!.stroke();
         ctx!.setLineDash([]);
       }
 
       if (refPoints) {
         dot(refPoints[0], "#d4a75a", "R1");
-        if (step !== "ref-point-2") dot(refPoints[1], "#d4a75a", "R2");
-        if (step !== "ref-point-2") line(refPoints[0], refPoints[1], "#d4a75a");
+        if (step !== "ref-point-2") {
+          dot(refPoints[1], "#d4a75a", "R2");
+          line(refPoints[0], refPoints[1], "#d4a75a");
+        }
       }
       if (measPoints) {
         dot(measPoints[0], "#4ade80", "M1");
-        if (step === "result") dot(measPoints[1], "#4ade80", "M2");
-        if (step === "result") line(measPoints[0], measPoints[1], "#4ade80");
+        if (step === "result") {
+          dot(measPoints[1], "#4ade80", "M2");
+          line(measPoints[0], measPoints[1], "#4ade80", false);
+          // Midpoint label
+          const mx = ((measPoints[0].x + measPoints[1].x) / 2) * canvas!.width;
+          const my = ((measPoints[0].y + measPoints[1].y) / 2) * canvas!.height;
+          if (result) {
+            const lbl = result.feet;
+            const tw = ctx!.measureText(lbl).width + 16;
+            ctx!.fillStyle = "rgba(26,39,68,0.9)";
+            ctx!.beginPath();
+            ctx!.roundRect?.(mx - tw / 2, my - 13, tw, 26, 6);
+            ctx!.fill();
+            ctx!.fillStyle = "white";
+            ctx!.font = "bold 13px system-ui, sans-serif";
+            ctx!.textAlign = "center";
+            ctx!.fillText(lbl, mx, my + 5);
+            ctx!.textAlign = "left";
+          }
+        }
       }
     };
 
     draw();
-  }, [step, refPoints, measPoints, imageUrl]);
+  }, [step, refPoints, measPoints, imageUrl, result]);
 
   const stepInstructions: Record<PhotoStep, string> = {
     capture: "Take a photo or upload one that includes a known reference object",
     "ref-point-1": `Tap the LEFT edge of your reference object (${REFERENCE_OBJECTS[refObjIdx].label})`,
-    "ref-point-2": `Tap the RIGHT edge of your reference object`,
+    "ref-point-2": "Tap the RIGHT (or opposite) edge of your reference object",
     "meas-point-1": "Tap the START of what you want to measure",
     "meas-point-2": "Tap the END of what you want to measure",
     result: "Measurement complete!",
   };
 
   return (
-    <div className="min-h-screen bg-[#0f1929] text-white">
+    <div className="min-h-screen bg-[#0f1929] text-white pb-8">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#0f1929]/95 backdrop-blur border-b border-white/10 px-4 py-3 flex items-center gap-3">
         <Button asChild variant="ghost" size="sm" className="text-white hover:bg-white/10 -ml-1">
@@ -394,7 +667,7 @@ function PhotoMeasure() {
         </Button>
         <div className="flex-1">
           <h1 className="text-sm font-bold">Photo Measurement</h1>
-          <p className="text-[10px] text-[#8a9bb8]">iPhone / Safari</p>
+          <p className="text-[10px] text-[#8a9bb8]">Works on all devices</p>
         </div>
         {step !== "capture" && (
           <Button onClick={reset} variant="ghost" size="sm" className="text-white hover:bg-white/10">
@@ -416,14 +689,14 @@ function PhotoMeasure() {
             <label className="block text-xs font-semibold text-[#8a9bb8] mb-2 uppercase tracking-wider">
               Reference Object
             </label>
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 gap-1.5 mb-3">
               {REFERENCE_OBJECTS.map((obj, i) => (
                 <button
                   key={obj.label}
-                  onClick={() => setRefObjIdx(i)}
+                  onClick={() => { setRefObjIdx(i); setCustomRefMm(""); }}
                   className={[
-                    "flex items-center justify-between rounded-lg border px-4 py-2.5 text-sm text-left transition-colors",
-                    refObjIdx === i
+                    "flex items-center justify-between rounded-lg border px-4 py-2 text-sm text-left transition-colors",
+                    refObjIdx === i && !customRefMm
                       ? "border-[#d4a75a] bg-[#d4a75a]/10 text-white"
                       : "border-[#2a3a5c] text-[#8a9bb8] hover:border-[#d4a75a]/50",
                   ].join(" ")}
@@ -432,6 +705,16 @@ function PhotoMeasure() {
                   <span className="font-mono text-xs">{obj.mm} mm</span>
                 </button>
               ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-[#8a9bb8] shrink-0">Custom (mm):</label>
+              <input
+                type="number"
+                value={customRefMm}
+                onChange={(e) => setCustomRefMm(e.target.value)}
+                placeholder="e.g. 300"
+                className="flex-1 bg-[#1a2744] border border-[#2a3a5c] rounded-lg px-3 py-1.5 text-sm text-white placeholder-[#4a5a7a] focus:outline-none focus:border-[#d4a75a]"
+              />
             </div>
           </div>
         )}
@@ -472,7 +755,7 @@ function PhotoMeasure() {
 
         {/* Image with tap overlay */}
         {imageUrl && step !== "capture" && (
-          <div className="relative rounded-xl overflow-hidden border border-[#2a3a5c]">
+          <div className="relative rounded-xl overflow-hidden border border-[#2a3a5c] cursor-crosshair">
             <img
               ref={imgRef}
               src={imageUrl}
@@ -487,7 +770,7 @@ function PhotoMeasure() {
             />
             {step !== "result" && (
               <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur rounded-lg px-3 py-2 text-xs text-white text-center">
-                Tap on the image above
+                👆 Tap on the image above
               </div>
             )}
           </div>
@@ -503,22 +786,46 @@ function PhotoMeasure() {
               <div className="text-sm text-[#8a9bb8] mt-1">{result.inches.toFixed(2)} inches</div>
             </div>
             <div className="text-xs text-[#6a7a9a]">
-              Based on {REFERENCE_OBJECTS[refObjIdx].label} ({REFERENCE_OBJECTS[refObjIdx].mm} mm)
+              Based on {customRefMm ? `custom ${customRefMm} mm` : `${REFERENCE_OBJECTS[refObjIdx].label} (${REFERENCE_OBJECTS[refObjIdx].mm} mm)`}
             </div>
             <div className="flex gap-3">
-              <Button onClick={reset} variant="outline" className="flex-1 border-[#2a3a5c] text-white hover:bg-white/10">
-                New Measurement
+              <Button
+                onClick={() => { navigator.clipboard?.writeText(`${result.feet} (${result.cm.toFixed(1)} cm)`); toast.success("Copied!"); }}
+                variant="outline"
+                className="flex-1 border-[#2a3a5c] text-white hover:bg-white/10 gap-1.5"
+              >
+                <Copy className="h-4 w-4" /> Copy
               </Button>
               <Button
-                onClick={() => {
-                  setStep("meas-point-1");
-                  setMeasPoints(null);
-                  setResult(null);
-                }}
+                onClick={measureAgain}
                 className="flex-1 bg-[#d4a75a] text-[#1a2744] hover:bg-[#e0b86a] font-bold"
               >
                 Measure Again
               </Button>
+            </div>
+            <Button onClick={reset} variant="ghost" className="w-full text-[#8a9bb8] hover:text-white">
+              New Photo
+            </Button>
+          </div>
+        )}
+
+        {/* Measurement history */}
+        {history.length > 0 && step === "capture" && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-[#8a9bb8] uppercase tracking-wider">Recent Measurements</label>
+              <button onClick={() => setHistory([])} className="text-xs text-[#4a5a7a] hover:text-white">Clear</button>
+            </div>
+            <div className="space-y-1.5">
+              {history.map((h, i) => (
+                <div key={i} className="bg-[#1a2744] border border-[#2a3a5c] rounded-lg px-4 py-2.5 flex justify-between items-center">
+                  <div>
+                    <span className="font-bold text-white">{h.feet}</span>
+                    <span className="text-[#8a9bb8] text-xs ml-2">{h.cm} cm</span>
+                  </div>
+                  <span className="text-[#4a5a7a] text-xs">{h.ref}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -532,6 +839,7 @@ function PhotoMeasure() {
               <li>• Take the photo straight-on, not at an angle</li>
               <li>• Make sure both the reference object and measurement target are clearly visible</li>
               <li>• Good lighting helps — avoid shadows across the reference object</li>
+              <li>• For walls: place a tape measure or known object at the same depth as the wall</li>
             </ul>
           </div>
         )}

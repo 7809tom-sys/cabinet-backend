@@ -962,3 +962,9 @@
 - [x] Add backend: importAllColumns — accepts array of {columnCode, doorStyleId, priceType} + fileBase64, imports all in one transaction
 - [x] Build multi-column mapping UI: table of all price columns, auto-suggest door style from saved mappings, confirm and import all
 - [x] Remember mappings per distributor so next upload auto-fills the style assignments
+
+## Camera Tape Measure (/measure)
+- [x] Build MeasureTool page: camera/photo capture, reference calibration (tap 2 known points + enter length), multi-point measurement with real-world distance labels
+- [x] Wire /measure route in App.tsx
+- [x] Link /measure from MobileApp page (replace placeholder href)
+- [x] Add measurement history list (last 5 measurements, clearable)
