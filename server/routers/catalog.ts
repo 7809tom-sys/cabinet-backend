@@ -2190,7 +2190,10 @@ export const pricingRouter = router({
           message: "Effective multiplier (base + freight) must be between 0.01 and 1.00.",
         });
       }
-      // 1) Persist the line's base/freight split and the computed effective multiplier.
+      // Only persist the multiplier on the distributor record.
+      // yourCost values on existing SKUs are NOT touched here — they come directly
+      // from the uploaded spreadsheet. Use adminRecalcDistributorCosts to explicitly
+      // recompute all costs from listPrice × multiplier when needed.
       await db
         .update(distributors)
         .set({
@@ -2199,9 +2202,31 @@ export const pricingRouter = router({
           costMultiplier: String(mult),
         })
         .where(eq(distributors.id, input.distributorId));
-      // 2) Recompute our cost for EVERY SKU on the line: yourCost = listPrice x multiplier.
-      //    Sell prices are derived at read time from yourCost, so nothing else
-      //    needs backfilling. Rows without a listPrice are left untouched.
+      return {
+        success: true,
+        baseMultiplier: base,
+        freightMultiplier: freight,
+        multiplier: mult,
+        skusRecomputed: 0,
+      } as const;
+    }),
+
+  // Explicitly recompute yourCost = listPrice × costMultiplier for every SKU on
+  // a distributor line. Only call this when the admin intentionally wants to
+  // override uploaded cost values with the multiplier-derived value.
+  adminRecalcDistributorCosts: adminProcedure
+    .input(z.object({ distributorId: z.number().int() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      const [dist] = await db
+        .select({ costMultiplier: distributors.costMultiplier })
+        .from(distributors)
+        .where(eq(distributors.id, input.distributorId))
+        .limit(1);
+      if (!dist) throw new TRPCError({ code: "NOT_FOUND", message: "Distributor not found" });
+      const mult = Number(dist.costMultiplier);
+      if (!mult || mult <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Distributor has no valid costMultiplier set" });
       const res = await db
         .update(distributorSkus)
         .set({ yourCost: sql`ROUND(${distributorSkus.listPrice} * ${mult}, 2)` })
@@ -2216,13 +2241,7 @@ export const pricingRouter = router({
           ?.rowsAffected ??
         (res as unknown as { affectedRows?: number })?.affectedRows ??
         0;
-      return {
-        success: true,
-        baseMultiplier: base,
-        freightMultiplier: freight,
-        multiplier: mult,
-        skusRecomputed: updated,
-      } as const;
+      return { success: true, skusRecomputed: updated } as const;
     }),
 
   // --- Cost Lookup / Verify & Correct (admin / owner) --------------------------

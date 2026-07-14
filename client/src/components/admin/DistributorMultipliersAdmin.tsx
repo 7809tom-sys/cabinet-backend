@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Save, Calculator } from "lucide-react";
+import { Save, Calculator, RefreshCw } from "lucide-react";
 
 // Per-tier markups are fixed at read time; we mirror the current homeowner
 // markup here only for the live preview column so the owner can see the
@@ -81,17 +81,22 @@ export default function DistributorMultipliersAdmin() {
   const setMultiplier = trpc.pricing.adminSetDistributorMultiplier.useMutation({
     onSuccess: (res) => {
       toast.success(
-        `Saved — effective ${res.multiplier.toFixed(
-          4
-        )} · ${res.skusRecomputed.toLocaleString()} cabinet${
-          res.skusRecomputed === 1 ? "" : "s"
-        } re-costed`
+        `Saved — effective multiplier ${res.multiplier.toFixed(4)}. Existing SKU costs were NOT changed. Use "Recalc Costs" to apply this multiplier to all SKUs.`
       );
       utils.pricing.adminListDistributorMultipliers.invalidate();
-      // Prices everywhere derive from yourCost, so refresh anything cached.
       utils.pricing.adminGetMargins.invalidate();
     },
     onError: (e) => toast.error(e.message || "Failed to save multiplier"),
+  });
+
+  const recalcCosts = trpc.pricing.adminRecalcDistributorCosts.useMutation({
+    onSuccess: (res) => {
+      toast.success(
+        `Re-costed ${res.skusRecomputed.toLocaleString()} SKUs from list × multiplier.`
+      );
+      utils.pricing.adminListDistributorMultipliers.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Failed to recalculate costs"),
   });
 
   if (isLoading) {
@@ -119,18 +124,16 @@ export default function DistributorMultipliersAdmin() {
             <Calculator className="h-5 w-5" /> Distributor Multipliers
           </CardTitle>
           <CardDescription>
-            One multiplier per supply line, applied to <strong>every</strong>{" "}
-            cabinet that line carries. It has two parts that add together:{" "}
+            One multiplier per supply line. It has two parts that add together:{" "}
             <strong>Base</strong> (the core cost fraction of the distributor's
             list) plus <strong>Freight / Tariff</strong> (a separate add-on that
-            can change on its own — e.g. when a distributor lowers their tariff
-            fee). Our cost ={" "}
-            <strong>
-              the distributor's list price × (Base + Freight)
-            </strong>
-            . Example: 0.23 base + 0.07 freight = 0.30, so we pay 30% of their
-            list. Saving here re-costs every SKU on the line, and all sell
-            prices (cost × the per-tier markup) update automatically.
+            can change independently). Our cost ={" "}
+            <strong>list price × (Base + Freight)</strong>. Example: 0.23 + 0.07
+            = 0.30 → we pay 30% of list.{" "}
+            <strong>Save only stores the multiplier</strong> — existing SKU costs
+            uploaded from a spreadsheet are preserved as-is. Click{" "}
+            <strong>Recalc Costs</strong> only when you want to override all SKU
+            costs with list × multiplier.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -151,7 +154,7 @@ export default function DistributorMultipliersAdmin() {
                     <TableHead className="text-right">Effective</TableHead>
                     <TableHead className="text-right">Est. cost</TableHead>
                     <TableHead className="text-right">Homeowner sell</TableHead>
-                    <TableHead className="w-[90px]"></TableHead>
+                    <TableHead className="w-[160px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -232,30 +235,55 @@ export default function DistributorMultipliersAdmin() {
                           {estSell != null ? `$${estSell.toFixed(2)}` : "—"}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="sm"
-                            variant={dirty ? "default" : "outline"}
-                            disabled={
-                              setMultiplier.isPending || !effValid || !dirty
-                            }
-                            className="gap-1"
-                            onClick={() => {
-                              if (!effValid) {
-                                toast.error(
-                                  "Effective (Base + Freight) must be between 0.01 and 1.00"
-                                );
-                                return;
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant={dirty ? "default" : "outline"}
+                              disabled={
+                                setMultiplier.isPending || !effValid || !dirty
                               }
-                              setMultiplier.mutate({
-                                distributorId: r.id,
-                                baseMultiplier: base ?? 0,
-                                freightMultiplier: freight ?? 0,
-                              });
-                            }}
-                          >
-                            <Save className="h-3.5 w-3.5" />
-                            Save
-                          </Button>
+                              className="gap-1"
+                              onClick={() => {
+                                if (!effValid) {
+                                  toast.error(
+                                    "Effective (Base + Freight) must be between 0.01 and 1.00"
+                                  );
+                                  return;
+                                }
+                                setMultiplier.mutate({
+                                  distributorId: r.id,
+                                  baseMultiplier: base ?? 0,
+                                  freightMultiplier: freight ?? 0,
+                                });
+                              }}
+                            >
+                              <Save className="h-3.5 w-3.5" />
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={
+                                recalcCosts.isPending ||
+                                !r.costMultiplier ||
+                                Number(r.costMultiplier) <= 0
+                              }
+                              className="gap-1 text-amber-600 border-amber-300 hover:bg-amber-50"
+                              title="Override all SKU costs with list × multiplier"
+                              onClick={() => {
+                                if (
+                                  !confirm(
+                                    `This will overwrite all ${r.skuCount.toLocaleString()} SKU costs for "${r.name || r.code}" with list × ${r.costMultiplier}. Uploaded cost values will be lost. Continue?`
+                                  )
+                                )
+                                  return;
+                                recalcCosts.mutate({ distributorId: r.id });
+                              }}
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              Recalc
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
