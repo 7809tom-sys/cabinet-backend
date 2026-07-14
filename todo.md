@@ -968,3 +968,9 @@
 - [x] Wire /measure route in App.tsx
 - [x] Link /measure from MobileApp page (replace placeholder href)
 - [x] Add measurement history list (last 5 measurements, clearable)
+
+## Cart Pricing — Every SKU Must Show a Price
+- [x] Replace all "incl." / $0 / blank price displays in trim rows (toe kick, light rail, batten, crown, valance) with real price or ⚠ Price needed badge
+- [x] Ensure trim cart lines always include listPrice as a fallback in trimSkusForStyles
+- [x] Cabinet cart lines: if unitPrice is 0 or null, show ⚠ Price needed badge instead of $0.00
+- [x] Cart total must exclude $0 lines and show a warning if any line has no price

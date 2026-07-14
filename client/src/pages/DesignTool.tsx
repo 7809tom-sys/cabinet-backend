@@ -6699,7 +6699,11 @@ export default function DesignTool() {
                       <div className="flex items-center gap-1 shrink-0">
                         <div className="text-right">
                           <div className="font-semibold leading-none">
-                            {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A") : "—"}
+                            {styleId
+                            ? lineTotal != null
+                              ? `$${lineTotal.toFixed(2)}`
+                              : <span className="text-red-600 flex items-center gap-0.5 text-[10px] font-semibold"><span>⚠</span><span>Price needed</span></span>
+                            : "—"}
                           </div>
                           {styleId && g.qty > 1 && g.unitPrice != null && (
                             <div className="text-[9px] text-muted-foreground mt-0.5">${g.unitPrice.toFixed(2)} ea</div>
@@ -6857,7 +6861,7 @@ export default function DesignTool() {
                   const pcs = effectiveTrimPieces.toeKick;
                   const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
-                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
+                  <div className={`flex items-center justify-between gap-2 p-2 rounded-lg text-xs ${ext == null ? "bg-red-500/10 border border-red-500/30" : "bg-muted/30"}`}>
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_toe_kick")}</div>
                       <div className="text-[10px] text-muted-foreground">
@@ -6867,7 +6871,9 @@ export default function DesignTool() {
                       </div>
                       <TrimQtyStepper kind="toeKick" value={pcs} auto={toeKickOrder.pieces} override={trimQtyOverride.toeKick} setOverride={setTrimQtyOverride} />
                     </div>
-                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
+                    {ext != null
+                      ? <span className="font-semibold shrink-0">${ext.toFixed(2)}</span>
+                      : <span className="font-semibold shrink-0 text-red-600 flex items-center gap-1"><span>⚠</span><span>Price needed</span></span>}
                   </div>
                   );
                 })()}
@@ -6876,7 +6882,7 @@ export default function DesignTool() {
                   const pcs = effectiveTrimPieces.batten;
                   const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
-                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
+                  <div className={`flex items-center justify-between gap-2 p-2 rounded-lg text-xs ${ext == null ? "bg-red-500/10 border border-red-500/30" : "bg-muted/30"}`}>
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_batten_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
@@ -6886,7 +6892,9 @@ export default function DesignTool() {
                       </div>
                       <TrimQtyStepper kind="batten" value={pcs} auto={battenOrder.pieces} override={trimQtyOverride.batten} setOverride={setTrimQtyOverride} />
                     </div>
-                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
+                    {ext != null
+                      ? <span className="font-semibold shrink-0">${ext.toFixed(2)}</span>
+                      : <span className="font-semibold shrink-0 text-red-600 flex items-center gap-1"><span>⚠</span><span>Price needed</span></span>}
                   </div>
                   );
                 })()}
@@ -6895,7 +6903,7 @@ export default function DesignTool() {
                   const pcs = effectiveTrimPieces.lightRail;
                   const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
-                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
+                  <div className={`flex items-center justify-between gap-2 p-2 rounded-lg text-xs ${ext == null ? "bg-red-500/10 border border-red-500/30" : "bg-muted/30"}`}>
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_sh_light_rail_btn")}</div>
                       <div className="text-[10px] text-muted-foreground">
@@ -6905,7 +6913,9 @@ export default function DesignTool() {
                       </div>
                       <TrimQtyStepper kind="lightRail" value={pcs} auto={lightRailOrder.pieces} override={trimQtyOverride.lightRail} setOverride={setTrimQtyOverride} />
                     </div>
-                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
+                    {ext != null
+                      ? <span className="font-semibold shrink-0">${ext.toFixed(2)}</span>
+                      : <span className="font-semibold shrink-0 text-red-600 flex items-center gap-1"><span>⚠</span><span>Price needed</span></span>}
                   </div>
                   );
                 })()}
@@ -6923,7 +6933,9 @@ export default function DesignTool() {
                       </div>
                       <TrimQtyStepper kind="valance" value={pcs} auto={valanceOrder.length} override={trimQtyOverride.valance} setOverride={setTrimQtyOverride} />
                     </div>
-                    <span className="font-semibold shrink-0">{hasPricing ? `$${totalPrice.toFixed(2)}` : t("dt_bs_incl")}</span>
+                    {hasPricing
+                      ? <span className="font-semibold shrink-0">${totalPrice.toFixed(2)}</span>
+                      : <span className="font-semibold shrink-0 text-red-600 flex items-center gap-1"><span>⚠</span><span>Price needed</span></span>}
                   </div>
                   );
                 })()}
@@ -7118,6 +7130,29 @@ export default function DesignTool() {
                     )}
                   </div>
                   <span className="font-serif text-2xl font-bold text-foreground">${total.toFixed(2)}</span>
+                </div>
+              );
+            })()}
+            {/* Unpriced items warning — shown when any cabinet or trim line has no price */}
+            {styleId && (() => {
+              const unpricedCabCount = panelGroups.filter((g) => g.unitPrice == null).length;
+              const trimMissing: string[] = [];
+              if (toeKick && effectiveTrimPieces.toeKick > 0) { const p = trimPriceByCode.get("TK-8"); if (!p || p.unitPrice <= 0) trimMissing.push("Toe Kick"); }
+              if (batten && effectiveTrimPieces.batten > 0) { const p = trimPriceByCode.get("BAM"); if (!p || p.unitPrice <= 0) trimMissing.push("Batten Molding"); }
+              if (lightRail && effectiveTrimPieces.lightRail > 0) { const p = trimPriceByCode.get("LRM-8"); if (!p || p.unitPrice <= 0) trimMissing.push("Light Rail"); }
+              if (valance && valanceOrder.length > 0) { const p = trimPriceByCode.get("VA-48"); if (!p || p.unitPrice <= 0) trimMissing.push("Valance"); }
+              if (unpricedCabCount === 0 && trimMissing.length === 0) return null;
+              return (
+                <div className="mb-3 rounded-md border border-red-400/60 bg-red-50 dark:bg-red-950/20 px-3 py-2.5 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-red-700 dark:text-red-400">Pricing incomplete — total is understated</p>
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5 leading-snug">
+                      {unpricedCabCount > 0 && <span>{unpricedCabCount} cabinet line{unpricedCabCount > 1 ? "s have" : " has"} no price for this style. </span>}
+                      {trimMissing.length > 0 && <span>{trimMissing.join(", ")} {trimMissing.length > 1 ? "have" : "has"} no price — add pricing in the admin panel. </span>}
+                      The total shown does not include these items.
+                    </p>
+                  </div>
                 </div>
               );
             })()}
