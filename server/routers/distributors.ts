@@ -1163,7 +1163,86 @@ export const distributorImportRouter = router({
         }
       }
 
-      return { results, totalRows: rows.length, dryRun: input.dryRun };
+            return { results, totalRows: rows.length, dryRun: input.dryRun };
+    }),
+
+  /**
+   * Preview import: returns every row from the spreadsheet with match status.
+   * Nothing is written to the database. Used to show the review table before commit.
+   */
+  previewAllColumns: adminProcedure
+    .input(z.object({
+      distributorId: z.number().int().positive(),
+      fileBase64: z.string().min(1),
+      filename: z.string(),
+      skuColumn: z.string().default("SKU"),
+      // Only need one representative price column to show list price in the table
+      priceColumn: z.string(),
+      priceType: z.enum(["list", "cost"]).default("list"),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      const buf = Buffer.from(input.fileBase64, "base64");
+      const wb = XLSX.read(buf, { type: "buffer" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: null });
+      if (rows.length === 0) return { rows: [], totalRows: 0, costMultiplier: null };
+      // Load distributor costMultiplier
+      const [distRow] = await db.select({ costMultiplier: distributors.costMultiplier }).from(distributors).where(eq(distributors.id, input.distributorId)).limit(1);
+      const costMult = distRow ? parseFloat(String(distRow.costMultiplier)) : null;
+      // Build cabinet lookup
+      const allCabinets = await db.select({ id: cabinets.id, masterCode: cabinets.masterCode }).from(cabinets);
+      const byNorm = new Map<string, typeof allCabinets[number]>();
+      for (const c of allCabinets) byNorm.set(normalizeCode(c.masterCode), c);
+      const aliases = await db.select({ rawCodeCanon: codeAliases.rawCodeCanon, cabinetId: codeAliases.cabinetId }).from(codeAliases);
+      const aliasByCabId = new Map(allCabinets.map((c) => [c.id, c]));
+      const byAlias = new Map<string, typeof allCabinets[number]>();
+      for (const a of aliases) {
+        const cab = aliasByCabId.get(a.cabinetId);
+        if (cab) byAlias.set(a.rawCodeCanon, cab);
+      }
+      function resolveCab(rawCode: string) {
+        const norm = normalizeCode(rawCode);
+        return byNorm.get(norm) ?? byAlias.get(norm);
+      }
+      const NOT_AVAIL_RE = /^(na|n\/a|x|-)$/i;
+      const previewRows: Array<{
+        rawCode: string;
+        masterCode: string | null;
+        masterCabinetId: number | null;
+        listPrice: number | null;
+        yourCost: number | null;
+        matched: boolean;
+        notAvailable: boolean;
+      }> = [];
+      const seen = new Set<string>();
+      for (const row of rows) {
+        const rawSku = String(row[input.skuColumn] ?? "").trim();
+        if (!rawSku || seen.has(rawSku)) continue;
+        seen.add(rawSku);
+        const rawPrice = row[input.priceColumn];
+        const priceStr = rawPrice != null ? String(rawPrice).trim() : "";
+        const isNA = NOT_AVAIL_RE.test(priceStr);
+        const parsedPrice = isNA || priceStr === "" ? null : parseFloat(priceStr.replace(/[^0-9.-]/g, ""));
+        const listPrice = input.priceType === "list" ? parsedPrice : null;
+        const yourCost = input.priceType === "cost"
+          ? parsedPrice
+          : (listPrice !== null && costMult !== null && !isNaN(costMult))
+            ? Math.round(listPrice * costMult * 100) / 100
+            : null;
+        const cabinet = resolveCab(rawSku);
+        previewRows.push({
+          rawCode: rawSku,
+          masterCode: cabinet?.masterCode ?? null,
+          masterCabinetId: cabinet?.id ?? null,
+          listPrice,
+          yourCost,
+          matched: Boolean(cabinet),
+          notAvailable: isNA,
+        });
+      }
+      return { rows: previewRows, totalRows: previewRows.length, costMultiplier: costMult };
     }),
 
   /**

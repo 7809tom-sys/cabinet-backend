@@ -559,6 +559,27 @@ function MultiColumnMappingStep({
       priceType: colMappings[col].priceType,
     }));
 
+  // Full row-by-row preview
+  const [showReview, setShowReview] = useState(false);
+  const [manualMatches, setManualMatches] = useState<Record<string, string>>({});
+  const previewMut = trpc.distributorAdmin.previewAllColumns.useMutation();
+  const previewData = previewMut.data;
+  const firstListCol = activeMappings.find((m) => m.priceType === "list")?.columnCode ?? activeMappings[0]?.columnCode ?? "";
+
+  function handleReview() {
+    if (!canImport || !firstListCol) return;
+    setShowReview(true);
+    setManualMatches({});
+    previewMut.mutate({
+      distributorId,
+      fileBase64,
+      filename,
+      skuColumn: skuCol,
+      priceColumn: firstListCol,
+      priceType: activeMappings.find((m) => m.columnCode === firstListCol)?.priceType ?? "list",
+    });
+  }
+
   const importAllMut = trpc.distributorAdmin.importAllColumns.useMutation({
     onSuccess: (r) => {
       if (r.dryRun) return;
@@ -573,34 +594,8 @@ function MultiColumnMappingStep({
     onError: (e) => toast.error(e.message),
   });
 
-  const dryRunResult = importAllMut.data?.dryRun ? importAllMut.data : null;
   const commitResult = importAllMut.data && !importAllMut.data.dryRun ? importAllMut.data : null;
-
   const canImport = activeMappings.length > 0 && Boolean(skuCol);
-
-  // Auto dry-run whenever the active mappings change (debounced via useEffect)
-  // so unmatched codes appear before the user clicks Import.
-  const prevMappingKey = useRef("");
-  useEffect(() => {
-    if (!canImport) return;
-    const key = JSON.stringify(activeMappings) + skuCol;
-    if (key === prevMappingKey.current) return;
-    prevMappingKey.current = key;
-    importAllMut.mutate({
-      distributorId,
-      fileBase64,
-      filename,
-      skuColumn: skuCol,
-      mappings: activeMappings,
-      dryRun: true,
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeMappings.map(m => `${m.columnCode}:${m.doorStyleId}`).join(","), skuCol, canImport]);
-
-  // Collect all unmatched codes from the latest dry run
-  const preImportUnmatched = dryRunResult
-    ? Array.from(new Set(dryRunResult.results.flatMap((r) => r.unmatchedCodes)))
-    : [];
 
   // Sample prices for the first data row (for preview column)
   const firstRow = activeSheet?.previewRows?.[0] ?? {};
@@ -742,23 +737,80 @@ function MultiColumnMappingStep({
         Mappings are saved automatically and pre-filled next time you upload this distributor's sheet.
       </p>
 
-      {/* Dry-run results */}
-      {dryRunResult && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 space-y-2">
-          <p className="text-xs font-semibold text-blue-800 dark:text-blue-300">Preview results:</p>
-          <div className="space-y-1">
-            {dryRunResult.results.map((r) => {
-              const style = allStyles?.find((s) => s.id === r.doorStyleId);
-              return (
-                <div key={r.columnCode} className="flex items-center gap-3 text-xs">
-                  <code className="font-mono bg-muted px-1 rounded">{r.columnCode}</code>
-                  <span className="text-muted-foreground">{style?.ourName ?? `Style #${r.doorStyleId}`}</span>
-                  <span className="text-emerald-600 font-medium">{r.matched} match</span>
-                  {r.unmatched > 0 && <span className="text-amber-600">{r.unmatched} unmatched</span>}
-                </div>
-              );
-            })}
+      {/* Row-by-row review table */}
+      {showReview && (
+        <div className="rounded-md border overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 bg-muted/60 border-b">
+            <span className="text-sm font-semibold">
+              {previewData
+                ? `${previewData.rows.filter((r) => r.matched || manualMatches[r.rawCode]?.trim()).length} / ${previewData.rows.length} rows matched`
+                : "Loading…"}
+            </span>
+            {previewData && previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length > 0 && (
+              <span className="text-xs text-amber-600 font-medium">
+                {previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length} unmatched — type master code to fix
+              </span>
+            )}
           </div>
+          {previewMut.isPending ? (
+            <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-sm">
+              <Spinner className="h-4 w-4" /> Checking all rows…
+            </div>
+          ) : previewData ? (
+            <div className="max-h-[400px] overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted/80 text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Sheet Code</th>
+                    <th className="px-3 py-2 text-left font-medium">Master Cabinet</th>
+                    <th className="px-3 py-2 text-right font-medium">List Price</th>
+                    <th className="px-3 py-2 text-right font-medium">Your Cost</th>
+                    <th className="px-3 py-2 text-left font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.rows.map((row) => {
+                    const isMatched = row.matched || Boolean(manualMatches[row.rawCode]?.trim());
+                    return (
+                      <tr key={row.rawCode} className={`border-t ${isMatched ? "" : "bg-red-50 dark:bg-red-950/20"}`}>
+                        <td className="px-3 py-1.5 font-mono">{row.rawCode}</td>
+                        <td className="px-3 py-1.5">
+                          {row.matched ? (
+                            <span className="text-emerald-700 dark:text-emerald-400 font-medium">{row.masterCode}</span>
+                          ) : (
+                            <input
+                              type="text"
+                              className="h-6 px-1.5 rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-xs font-mono w-32 outline-none focus:border-amber-500"
+                              placeholder="type master code"
+                              value={manualMatches[row.rawCode] ?? ""}
+                              onChange={(e) => setManualMatches((prev) => ({ ...prev, [row.rawCode]: e.target.value }))}
+                            />
+                          )}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-mono">
+                          {row.listPrice != null ? `$${row.listPrice.toFixed(2)}` : row.notAvailable ? <span className="text-muted-foreground">N/A</span> : "—"}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-mono">
+                          {row.yourCost != null ? `$${row.yourCost.toFixed(2)}` : "—"}
+                        </td>
+                        <td className="px-3 py-1.5">
+                          {isMatched ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Match
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-red-500 font-medium">
+                              <AlertTriangle className="h-3.5 w-3.5" /> No match
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -797,40 +849,50 @@ function MultiColumnMappingStep({
       )}
 
       {/* Action buttons */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <Button
-          disabled={!canImport || importAllMut.isPending}
+          disabled={!canImport || previewMut.isPending}
           variant="outline"
-          onClick={() =>
-            importAllMut.mutate({
-              distributorId,
-              fileBase64,
-              filename,
-              skuColumn: skuCol,
-              mappings: activeMappings,
-              dryRun: true,
-            })
-          }
+          onClick={handleReview}
         >
-          {importAllMut.isPending && importAllMut.variables?.dryRun ? (
+          {previewMut.isPending ? (
             <Spinner className="mr-1.5 h-4 w-4" />
-          ) : null}
-          Preview
+          ) : (
+            <Table2 className="mr-1.5 h-4 w-4" />
+          )}
+          Review All Rows
         </Button>
 
-        {dryRunResult && (
-          <div className="flex items-center gap-2 text-sm">
+        {previewData && !previewMut.isPending && (
+          <span className="text-sm">
             <span className="text-emerald-600 font-medium">
-              {dryRunResult.results.reduce((s, r) => s + r.matched, 0)} will match
+              {previewData.rows.filter((r) => r.matched).length} matched
             </span>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-          </div>
+            {previewData.rows.filter((r) => !r.matched).length > 0 && (
+              <span className="text-amber-600 ml-2">
+                · {previewData.rows.filter((r) => !r.matched).length} unmatched
+              </span>
+            )}
+          </span>
         )}
 
         <Button
           disabled={!canImport || importAllMut.isPending}
           className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          onClick={() =>
+          onClick={async () => {
+            // First save any manual matches as aliases
+            const toAlias = Object.entries(manualMatches)
+              .filter(([, master]) => master.trim())
+              .map(([rawCode, masterCode]) => ({ rawCode, masterCode: masterCode.trim() }));
+            if (toAlias.length > 0) {
+              try {
+                // Fire-and-forget alias save before import
+                await new Promise<void>((resolve) => {
+                  const utils = trpc.useUtils();
+                  void utils.client.distributorAdmin.saveSkuAliases.mutate({ aliases: toAlias, distributorId }).then(() => resolve()).catch(() => resolve());
+                });
+              } catch { /* ignore */ }
+            }
             importAllMut.mutate({
               distributorId,
               fileBase64,
@@ -838,15 +900,15 @@ function MultiColumnMappingStep({
               skuColumn: skuCol,
               mappings: activeMappings,
               dryRun: false,
-            })
-          }
+            });
+          }}
         >
-          {importAllMut.isPending && !importAllMut.variables?.dryRun ? (
+          {importAllMut.isPending ? (
             <Spinner className="mr-1.5 h-4 w-4" />
           ) : (
             <CheckCircle2 className="mr-1.5 h-4 w-4" />
           )}
-          Import {activeMappings.length} style{activeMappings.length !== 1 ? "s" : ""}
+          Publish All Matched
         </Button>
       </div>
     </div>
