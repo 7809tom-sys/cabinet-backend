@@ -822,10 +822,79 @@ export const doorStylesRouter = router({
         doorSampleVerified: false,
         isBuilderGrade: false,
       });
-      return { ok: true, id: (result as { insertId: number }).insertId };
+            return { ok: true, id: (result as { insertId: number }).insertId };
+    }),
+
+  /** Admin: list all distributor SKUs for a door style with cabinet info. */
+  adminListSkusForStyle: adminProcedure
+    .input(z.object({ styleId: z.number().int() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const rows = await db
+        .select({
+          id: distributorSkus.id,
+          platformSku: distributorSkus.platformSku,
+          distributorSku: distributorSkus.distributorSku,
+          listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          cabinetId: distributorSkus.cabinetId,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+        })
+        .from(distributorSkus)
+        .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(eq(distributorSkus.styleId, input.styleId))
+        .orderBy(asc(cabinets.category), asc(cabinets.masterCode));
+      return rows;
+    }),
+
+  /** Admin: delete a single distributor SKU row. */
+  adminDeleteSku: adminProcedure
+    .input(z.object({ skuId: z.number().int() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(distributorSkus).where(eq(distributorSkus.id, input.skuId));
+      return { ok: true };
+    }),
+
+  /** Admin: toggle isPublished for a single SKU. */
+  adminToggleSkuPublished: adminProcedure
+    .input(z.object({ skuId: z.number().int(), isPublished: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db
+        .update(distributorSkus)
+        .set({ isPublished: input.isPublished })
+        .where(eq(distributorSkus.id, input.skuId));
+      return { ok: true };
+    }),
+
+  /** Admin: bulk toggle isPublished for ALL SKUs of a door style. */
+  adminToggleAllSkusPublished: adminProcedure
+    .input(z.object({ styleId: z.number().int(), isPublished: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db
+        .update(distributorSkus)
+        .set({ isPublished: input.isPublished })
+        .where(eq(distributorSkus.styleId, input.styleId));
+      return { ok: true };
     }),
 });
-
 // --- Cabinets -----------------------------------------------------------------
 
 export const cabinetsRouter = router({

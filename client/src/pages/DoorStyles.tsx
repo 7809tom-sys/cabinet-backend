@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import {
   Palette, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Maximize2,
   Pencil, Star, StarOff, Save, X, Upload as UploadIcon,
+  Trash2, Eye, EyeOff, LayoutList, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -259,6 +260,152 @@ function AdminEditPanel({ style, onSaved }: { style: DoorStyle; onSaved: () => v
   );
 }
 
+// ─── Admin SKU quick-view panel ──────────────────────────────────────────────
+function AdminSkuPanel({ styleId }: { styleId: number }) {
+  const utils = trpc.useUtils();
+  const [open, setOpen] = useState(false);
+  const { data: skus, isLoading } = trpc.doorStyles.adminListSkusForStyle.useQuery(
+    { styleId },
+    { enabled: open }
+  );
+
+  const toggleMut = trpc.doorStyles.adminToggleSkuPublished.useMutation({
+    onSuccess: () => utils.doorStyles.adminListSkusForStyle.invalidate({ styleId }),
+    onError: (e) => toast.error(e.message),
+  });
+  const toggleAllMut = trpc.doorStyles.adminToggleAllSkusPublished.useMutation({
+    onSuccess: () => utils.doorStyles.adminListSkusForStyle.invalidate({ styleId }),
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteMut = trpc.doorStyles.adminDeleteSku.useMutation({
+    onSuccess: () => utils.doorStyles.adminListSkusForStyle.invalidate({ styleId }),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const fmt = (v: string | null | undefined) =>
+    v == null ? "—" : `$${Number(v).toFixed(2)}`;
+
+  const published = skus?.filter((s) => s.isPublished).length ?? 0;
+  const total = skus?.length ?? 0;
+
+  return (
+    <div className="border-t border-border mt-2 pt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors py-1"
+      >
+        <span className="flex items-center gap-1.5">
+          <LayoutList className="h-3.5 w-3.5" />
+          Cabinet SKUs
+          {skus && (
+            <span className="ml-1 text-[10px] font-normal normal-case text-muted-foreground">
+              ({published}/{total} active)
+            </span>
+          )}
+        </span>
+        {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2">
+          {/* Bulk actions */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline" size="sm"
+              className="text-xs h-7 gap-1"
+              disabled={toggleAllMut.isPending}
+              onClick={() => toggleAllMut.mutate({ styleId, isPublished: true })}
+            >
+              <Eye className="h-3 w-3" /> Activate all
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              className="text-xs h-7 gap-1"
+              disabled={toggleAllMut.isPending}
+              onClick={() => toggleAllMut.mutate({ styleId, isPublished: false })}
+            >
+              <EyeOff className="h-3 w-3" /> Deactivate all
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <div className="text-xs text-muted-foreground py-2">Loading SKUs…</div>
+          ) : !skus?.length ? (
+            <div className="text-xs text-muted-foreground py-2">No SKUs found for this style.</div>
+          ) : (
+            <div className="max-h-64 overflow-y-auto rounded-md border border-border">
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 bg-muted/80 backdrop-blur-sm">
+                  <tr>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">SKU</th>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Description</th>
+                    <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">List</th>
+                    <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">Cost</th>
+                    <th className="text-right px-2 py-1.5 font-medium text-muted-foreground">Sell</th>
+                    <th className="text-center px-2 py-1.5 font-medium text-muted-foreground">Active</th>
+                    <th className="px-2 py-1.5"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {skus.map((sku) => (
+                    <tr
+                      key={sku.id}
+                      className={`border-t border-border/50 ${
+                        sku.isPublished ? "" : "opacity-50"
+                      }`}
+                    >
+                      <td className="px-2 py-1 font-mono">{sku.masterCode ?? sku.platformSku}</td>
+                      <td className="px-2 py-1 text-muted-foreground max-w-[120px] truncate">
+                        {sku.description ?? `${sku.width ?? "?"}×${sku.height ?? "?"}×${sku.depth ?? "?"}`}
+                      </td>
+                      <td className="px-2 py-1 text-right tabular-nums">{fmt(sku.listPrice)}</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{fmt(sku.yourCost)}</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{fmt(sku.homeownerPrice)}</td>
+                      <td className="px-2 py-1 text-center">
+                        <button
+                          type="button"
+                          disabled={toggleMut.isPending}
+                          onClick={() =>
+                            toggleMut.mutate({ skuId: sku.id, isPublished: !sku.isPublished })
+                          }
+                          className="inline-flex items-center justify-center"
+                          title={sku.isPublished ? "Deactivate" : "Activate"}
+                        >
+                          {sku.isPublished ? (
+                            <Eye className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-2 py-1">
+                        <button
+                          type="button"
+                          disabled={deleteMut.isPending}
+                          onClick={() => {
+                            if (confirm(`Delete SKU ${sku.masterCode ?? sku.platformSku}? This cannot be undone.`)) {
+                              deleteMut.mutate({ skuId: sku.id });
+                            }
+                          }}
+                          className="inline-flex items-center justify-center text-destructive hover:text-destructive/80"
+                          title="Delete SKU"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Style card ───────────────────────────────────────────────────────────────
 function StyleCard({ style, isAdmin }: { style: DoorStyle; isAdmin: boolean }) {
   const { t } = useLanguage();
@@ -457,6 +604,8 @@ function StyleCard({ style, isAdmin }: { style: DoorStyle; isAdmin: boolean }) {
             }}
           />
         )}
+        {/* Admin SKU quick-view panel */}
+        {isAdmin && <AdminSkuPanel styleId={localStyle.id} />}
       </DialogContent>
     </Dialog>
   );
