@@ -732,7 +732,7 @@
 - [x] Build My Catalog tab: pick which door styles to feature on storefront, reorder them, rename them (white-label), upload per-style room scene photo
 - [x] Add affiliateStyleBranding table fields: customName (white-label name), roomSceneUrl, markupBps, featured (boolean), sortOrder
 - [x] Apply markup to storefront prices: storefront catalog uses affiliate's per-style or default markup to compute customer-facing price
-- [ ] Affiliate-branded invoices: customer invoice shows affiliate logo, store name, white-labeled cabinet names (not Cabinet Dealz or distributor names)
+- [x] Affiliate-branded invoices: customer invoice shows affiliate logo, store name, white-labeled cabinet names (not Cabinet Dealz or distributor names)
 - [ ] White-label names appear on order confirmation emails sent to customers
 - [x] Affiliate Analytics tab: storefront page views, unique visitors, orders, conversion rate, commission over time (weekly/monthly chart), top door styles viewed
 - [x] Marketing Hub: QR code generator, business card PDF, phone strip PDF, digital business card link, sales guides, YouTube resources
@@ -794,7 +794,7 @@
 - [x] Identify cabinets with no approved distributor SKUs and no placementType (166 records)
 - [x] Identify Accessory items with no subCategory and no approved SKUs (2 records)
 - [x] Mark all 175 ambiguous cabinets as conflictStatus='conflict' with descriptive reasons
-- [ ] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)
+- [x] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)
 
 ## Affiliate Resources Hub Tab
 - [x] Add "Resources" tab to AffiliateDashboardLayout sidebar nav

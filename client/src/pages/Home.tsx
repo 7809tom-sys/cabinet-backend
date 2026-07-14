@@ -3,7 +3,7 @@ import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
+import { AdminEditField } from "@/components/admin/AdminEditField";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -35,9 +35,11 @@ function JulyBanner() {
       </div>
       <div className="container relative flex items-center justify-center gap-3 text-center">
         <span className="text-lg">🇺🇸</span>
-        <p className="text-sm md:text-base font-semibold tracking-wide">
-          Happy 4th of July! Celebrate Independence Day with trade pricing on everything for your next project.
-        </p>
+        <AdminEditField pageKey="home" field="july_banner_text" defaultValue="Happy 4th of July! Celebrate Independence Day with trade pricing on everything for your next project.">
+          {(val) => (
+            <p className="text-sm md:text-base font-semibold tracking-wide">{val}</p>
+          )}
+        </AdminEditField>
         <span className="text-lg">🎆</span>
       </div>
     </div>
@@ -73,13 +75,21 @@ function Hero() {
             </div>
 
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              Your One-Stop Shop for
-              <br />
-              <span className="text-[var(--color-gold)]">Kitchen & Bath.</span>
+              <AdminEditField pageKey="home" field="hero_headline" defaultValue="Your One-Stop Shop for|Kitchen & Bath.">
+                {(val) => {
+                  const [line1, line2] = val.includes("|") ? val.split("|") : [val, ""];
+                  return <>
+                    {line1}
+                    {line2 && <><br /><span className="text-[var(--color-gold)]">{line2}</span></>}
+                  </>;
+                }}
+              </AdminEditField>
             </h1>
 
             <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
-              Cabinets, countertops, tile, flooring, sinks, faucets, showers, and toilets — all at trade pricing. Design kitchens in 2D, browse thousands of products, and submit orders in one membership.
+              <AdminEditField pageKey="home" field="hero_subheadline" defaultValue="Cabinets, countertops, tile, flooring, sinks, faucets, showers, and toilets — all at trade pricing. Design kitchens in 2D, browse thousands of products, and submit orders in one membership." multiline>
+                {(val) => <>{val}</>}
+              </AdminEditField>
             </p>
 
             {/* CTAs */}
@@ -320,11 +330,19 @@ function ProductShowcase() {
               <div className={`absolute inset-0 bg-gradient-to-t ${cat.accent} via-transparent to-transparent`} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6">
-                <h3 className="font-serif text-2xl font-bold text-white mb-1">{cat.title}</h3>
-                <p className="text-sm text-white/80 mb-3 line-clamp-2">{cat.description}</p>
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
-                  {cat.cta} <ArrowRight className="h-4 w-4" />
-                </span>
+                <AdminEditField pageKey="home" field={`cat_title_${cat.href.replace(/\//g, '')}`} defaultValue={cat.title}>
+                  {(val) => <h3 className="font-serif text-2xl font-bold text-white mb-1">{val}</h3>}
+                </AdminEditField>
+                <AdminEditField pageKey="home" field={`cat_desc_${cat.href.replace(/\//g, '')}`} defaultValue={cat.description} multiline>
+                  {(val) => <p className="text-sm text-white/80 mb-3 line-clamp-2">{val}</p>}
+                </AdminEditField>
+                <AdminEditField pageKey="home" field={`cat_cta_${cat.href.replace(/\//g, '')}`} defaultValue={cat.cta}>
+                  {(val) => (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
+                      {val} <ArrowRight className="h-4 w-4" />
+                    </span>
+                  )}
+                </AdminEditField>
               </div>
             </Link>
           ))}
