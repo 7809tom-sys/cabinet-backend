@@ -562,6 +562,7 @@ function MultiColumnMappingStep({
   // Full row-by-row preview
   const [showReview, setShowReview] = useState(false);
   const [manualMatches, setManualMatches] = useState<Record<string, string>>({});
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   const previewMut = trpc.distributorAdmin.previewAllColumns.useMutation();
   const previewData = previewMut.data;
   const firstListCol = activeMappings.find((m) => m.priceType === "list")?.columnCode ?? activeMappings[0]?.columnCode ?? "";
@@ -583,13 +584,7 @@ function MultiColumnMappingStep({
   const importAllMut = trpc.distributorAdmin.importAllColumns.useMutation({
     onSuccess: (r) => {
       if (r.dryRun) return;
-      const total = r.results.reduce((s, x) => s + x.priced, 0);
-      const totalUnmatched = r.results.reduce((s, x) => s + x.unmatched, 0);
-      toast.success(
-        `Imported ${total} prices across ${r.results.length} styles.` +
-        (totalUnmatched > 0 ? ` ${totalUnmatched} unmatched SKUs — see details below.` : "")
-      );
-      if (totalUnmatched === 0) onDone();
+      setShowSummaryModal(true);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -815,38 +810,86 @@ function MultiColumnMappingStep({
       )}
 
       {/* Commit results — success summary */}
-      {commitResult && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-4 space-y-3">
-          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            Import complete — {commitResult.results.reduce((s, r) => s + r.priced, 0)} prices saved
-          </p>
-          <div className="space-y-1.5">
-            {commitResult.results.map((r) => {
-              const style = allStyles?.find((s) => s.id === r.doorStyleId);
-              return (
-                <div key={r.columnCode} className="flex items-center gap-3 text-xs">
-                  <code className="font-mono bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded text-emerald-900 dark:text-emerald-200 min-w-[40px] text-center">{r.columnCode}</code>
-                  <span className="text-emerald-700 dark:text-emerald-300 font-medium">{style?.ourName ?? `Style #${r.doorStyleId}`}</span>
-                  <span className="text-emerald-600">{r.priced} prices saved</span>
-                  {r.unmatched > 0 && <span className="text-amber-600">{r.unmatched} unmatched</span>}
+      {/* Publish Summary Modal */}
+      <Dialog open={showSummaryModal} onOpenChange={(v) => { if (!v) { setShowSummaryModal(false); if (commitResult && commitResult.results.every((r) => r.unmatched === 0)) onDone(); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              Publish Complete
+            </DialogTitle>
+          </DialogHeader>
+          {commitResult && (() => {
+            const totalPriced = commitResult.results.reduce((s, r) => s + r.priced, 0);
+            const totalUnmatched = commitResult.results.reduce((s, r) => s + r.unmatched, 0);
+            const totalStyles = commitResult.results.length;
+            return (
+              <div className="space-y-4">
+                {/* Top summary */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 p-3 text-center">
+                    <div className="text-2xl font-bold text-emerald-700">{totalPriced}</div>
+                    <div className="text-xs text-emerald-600 mt-0.5">SKUs Updated</div>
+                  </div>
+                  <div className="rounded-md bg-muted/60 border p-3 text-center">
+                    <div className="text-2xl font-bold">{totalStyles}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Styles Processed</div>
+                  </div>
+                  <div className={`rounded-md border p-3 text-center ${totalUnmatched > 0 ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200" : "bg-muted/60"}` }>
+                    <div className={`text-2xl font-bold ${totalUnmatched > 0 ? "text-amber-600" : "text-muted-foreground"}`}>{totalUnmatched}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">Unmatched</div>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-          {commitResult.results.every((r) => r.unmatched === 0) && (
-            <p className="text-xs text-emerald-600">All model numbers matched successfully.</p>
-          )}
-        </div>
-      )}
 
-      {/* Unmatched codes — inline alias resolution */}
-      {commitResult && commitResult.results.some((r) => r.unmatched > 0) && (
-        <UnmatchedAliasPanel
-          unmatchedCodes={Array.from(new Set(commitResult.results.flatMap((r) => r.unmatchedCodes)))}
-          distributorId={distributorId}
-        />
-      )}
+                {/* Per-style breakdown */}
+                <div className="rounded-md border overflow-hidden">
+                  <div className="px-3 py-1.5 bg-muted/60 border-b text-xs font-semibold text-muted-foreground">Breakdown by Style</div>
+                  <div className="max-h-[240px] overflow-y-auto divide-y">
+                    {commitResult.results.map((r) => {
+                      const style = allStyles?.find((s) => s.id === r.doorStyleId);
+                      const hasIssue = r.unmatched > 0;
+                      return (
+                        <div key={r.columnCode} className={`flex items-center gap-3 px-3 py-2 text-xs ${hasIssue ? "bg-amber-50/60 dark:bg-amber-950/10" : ""}` }>
+                          <code className="font-mono bg-muted px-1.5 py-0.5 rounded min-w-[36px] text-center shrink-0">{r.columnCode}</code>
+                          <span className="flex-1 truncate font-medium">{style?.ourName ?? `Style #${r.doorStyleId}`}</span>
+                          <span className="text-emerald-600 font-semibold shrink-0">{r.priced} saved</span>
+                          {r.unmatched > 0 && (
+                            <span className="text-amber-600 shrink-0">{r.unmatched} failed</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Unmatched codes list */}
+                {totalUnmatched > 0 && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {totalUnmatched} code{totalUnmatched !== 1 ? "s" : ""} not found — assign master codes below to fix on next import:
+                    </p>
+                    <UnmatchedAliasPanel
+                      unmatchedCodes={Array.from(new Set(commitResult.results.flatMap((r) => r.unmatchedCodes)))}
+                      distributorId={distributorId}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setShowSummaryModal(false);
+                if (commitResult && commitResult.results.every((r) => r.unmatched === 0)) onDone();
+              }}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2 items-center">
