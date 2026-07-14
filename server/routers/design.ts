@@ -382,6 +382,9 @@ export const designRouter = router({
               ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
               AND CAST(SUBSTR(${cabinets.masterCode}, LENGTH(${cabinets.masterCode})-3, 2) AS DECIMAL) <= 24
             )
+            OR (
+              ${cabinets.masterCode} REGEXP '^W[0-9]{6}$'
+            )
           )`,
           sql`(
             CAST(${cabinets.depth} AS DECIMAL) <= 24
@@ -406,6 +409,9 @@ export const designRouter = router({
               OR (
                 ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
                 AND CAST(SUBSTR(${cabinets.masterCode}, LENGTH(${cabinets.masterCode})-3, 2) AS DECIMAL) <= 24
+              )
+              OR (
+                ${cabinets.masterCode} REGEXP '^W[0-9]{6}$'
               )
             )`,
             sql`(

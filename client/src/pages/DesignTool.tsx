@@ -3852,19 +3852,21 @@ export default function DesignTool() {
     // catalog populates immediately — otherwise picking a style into a
     // non-active slot would leave styleId null and the cabinet list empty
     // ("base cabinets gone" regression).
+    // Also always update styleId when the user explicitly changes the style for
+    // the currently-active slot, even if activeSlot differs (e.g. user had
+    // Color 2 active but taps Change Style on Color 1 card).
     const noStyleYet = styleId == null;
     if (slot === "A") {
       setStyleA(newStyleId);
-      if (activeSlot === "A" || noStyleYet) {
-        if (noStyleYet) setActiveSlot("A");
-        setStyleId(newStyleId);
-      }
+      // Always update the catalog when Color 1 changes — it is the primary style
+      // and the catalog should always reflect the most recently changed style.
+      setActiveSlot("A");
+      setStyleId(newStyleId);
     } else {
       setStyleB(newStyleId);
-      if (activeSlot === "B" || noStyleYet) {
-        if (noStyleYet) setActiveSlot("B");
-        setStyleId(newStyleId);
-      }
+      // Always update the catalog when Color 2 changes — same as Color 1.
+      setActiveSlot("B");
+      setStyleId(newStyleId);
     }
     // Auto-open the catalog panel after picking a door style so the user
     // immediately sees the filtered cabinets available in that style.
