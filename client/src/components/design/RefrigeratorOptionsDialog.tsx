@@ -223,11 +223,16 @@ export function RefrigeratorOptionsDialog({
   // ── Smooth panel ───────────────────────────────────────────────────────────
   const [smooth, setSmooth] = useState(false);
 
-  // ── SKU dimension parser: W[WW][HH][DD] e.g. W301212=30W×12H×12D ───────────────
+  // ── SKU dimension parser ──────────────────────────────────────────
+  // W[WW][HH][DD]: e.g. W301212=30W×12H×12D, W362424=36W×24H×24D
+  // WR[WW][HH]: e.g. WR3315=33W×15H×24D (wall refrigerator, depth always 24)
   const parseSkuDims = (code: string) => {
-    const m = code.replace(/^[^W]*W/, "W").match(/^W(\d{2})(\d{2})(\d{2})$/);
-    if (!m) return null;
-    return { w: parseInt(m[1], 10), h: parseInt(m[2], 10), d: parseInt(m[3], 10) };
+    const c = code.replace(/^[^W]*W/, "W");
+    const m6 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
+    if (m6) return { w: parseInt(m6[1], 10), h: parseInt(m6[2], 10), d: parseInt(m6[3], 10) };
+    const mR = c.match(/^WR(\d{2})(\d{2})$/);
+    if (mR) return { w: parseInt(mR[1], 10), h: parseInt(mR[2], 10), d: 24 };
+    return null;
   };
 
   // ── Derived: best-match bridge cabinet ────────────────────────────────────

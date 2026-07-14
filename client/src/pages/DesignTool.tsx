@@ -2729,17 +2729,28 @@ export default function DesignTool() {
         if (opts.above === "bridge" && opts.bridgeHeight) {
           const targetH = opts.bridgeHeight;
           const targetD = opts.bridgeDepth ?? 12;
+          // Parse dimensions from SKU masterCode when stored columns are null.
+          // Supports W[WW][HH][DD] (e.g. W362424) and WR[WW][HH] (depth always 24).
+          const parseCabDims = (code: string) => {
+            const c = code.replace(/^[^W]*W/, "W");
+            const m6 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
+            if (m6) return { w: parseInt(m6[1], 10), h: parseInt(m6[2], 10), d: parseInt(m6[3], 10) };
+            const mR = c.match(/^WR(\d{2})(\d{2})$/);
+            if (mR) return { w: parseInt(mR[1], 10), h: parseInt(mR[2], 10), d: 24 };
+            return null;
+          };
           const heightFiltered = src.filter((c) => {
-            const h = parseFloat(String(c.height ?? "0"));
-            const d = parseFloat(String(c.depth ?? "0"));
-            // Match on height; also try to match depth when the catalog has depth data.
+            const sku = parseCabDims(c.masterCode);
+            const h = parseFloat(String(c.height ?? "")) || (sku ? sku.h : 0);
+            const d = parseFloat(String(c.depth ?? "")) || (sku ? sku.d : 0);
             const heightOk = Math.abs(h - targetH) < 1.5;
             const depthOk = d === 0 || Math.abs(d - targetD) < 1.5;
             return heightOk && depthOk;
           });
           // Fall back to height-only match if no depth-matched candidates exist.
           const fallback = src.filter((c) => {
-            const h = parseFloat(String(c.height ?? "0"));
+            const sku = parseCabDims(c.masterCode);
+            const h = parseFloat(String(c.height ?? "")) || (sku ? sku.h : 0);
             return Math.abs(h - targetH) < 1.5;
           });
           chosen = pickByWidth(
@@ -2800,9 +2811,28 @@ export default function DesignTool() {
 
       // 2) Refrigerator END PANELS: tall/deep panels flush to the fridge L/R edge.
       // Use the user-selected panel id if provided, otherwise fall back to best-width match.
-      const panelRow = pickById(surround.endPanels, opts.endPanelId, fd) ?? surround.endPanels?.[0];
+      // If the catalog has no matching panel, create a synthetic placeholder so the panel
+      // always appears in the drawing with the correct dimensions.
+      const rawFridgeHForPanel = parseFloat(String(fridge.height ?? "72")) || 72;
+      const fridgeHForPanel = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeHForPanel;
+      const syntheticPanelHeight = opts.panelHeight && opts.panelHeight > 0
+        ? opts.panelHeight
+        : fridgeHForPanel + (bridgeHeightPlaced > 0 ? bridgeHeightPlaced : 0);
+      const panelRow: DesignCabinet = pickById(surround.endPanels, opts.endPanelId, fd) ?? surround.endPanels?.[0] ?? {
+        id: 0,
+        masterCode: `PANEL-${syntheticPanelHeight}`,
+        description: `Refrigerator End Panel ${syntheticPanelHeight}"H`,
+        category: "Panel",
+        subCategory: null,
+        width: "0.75",
+        height: String(syntheticPanelHeight),
+        depth: "0.75",
+        numberOfDoors: null,
+        numberOfDrawers: null,
+        isCornerCabinet: false,
+        catalogImageUrl: null,
+      };
       const placePanel = (leftEdge: boolean) => {
-        if (!panelRow) return;
         // pDepth: use user-chosen panel depth when provided; otherwise match the fridge depth.
         const pDepth = (opts.panelDepth && opts.panelDepth > 0) ? opts.panelDepth : fd;
         // Infer dimensions from masterCode when catalog values are null
