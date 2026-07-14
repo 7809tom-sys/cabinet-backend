@@ -8,13 +8,15 @@
  *     known reference object and tap two points to measure real-world distance.
  */
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useSearch } from "wouter";
 import {
   ArrowLeft, Camera, Ruler, RefreshCw, Info, CheckCircle,
-  AlertTriangle, Trash2, Copy,
+  AlertTriangle, Trash2, Copy, Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,11 +98,27 @@ function perspectiveMatrix(fovY: number, aspect: number, near: number, far: numb
 
 interface Measurement { label: string; value: string; meters: number }
 
-export function WebXRMeasure({ onExit }: { onExit: () => void }) {
+export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; sessionToken?: string | null }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"starting" | "ready" | "measuring" | "error">("starting");
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const saveMeasurements = trpc.measureSessions.saveMeasurements.useMutation({
+    onSuccess: () => toast.success("Measurements sent to the Design Tool!"),
+    onError: (e) => toast.error(`Failed to send: ${e.message}`),
+  });
+  function sendToDesigner() {
+    if (!sessionToken || measurements.length === 0) return;
+    saveMeasurements.mutate({
+      token: sessionToken,
+      walls: measurements.map((m, i) => ({
+        label: m.label || `Wall ${i + 1}`,
+        inches: m.meters * 39.3701,
+        feet: m.meters * 3.28084,
+        meters: m.meters,
+      })),
+    });
+  }
   const [pointCount, setPointCount] = useState(0);
 
   // WebXR refs
@@ -466,6 +484,16 @@ export function WebXRMeasure({ onExit }: { onExit: () => void }) {
                 </div>
               </div>
             ))}
+            {sessionToken && measurements.length > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); sendToDesigner(); }}
+                disabled={saveMeasurements.isPending}
+                className="w-full bg-[#d4a75a] text-[#1a2744] font-bold rounded-xl px-4 py-3 flex items-center justify-center gap-2 text-sm disabled:opacity-60"
+              >
+                <Send className="h-4 w-4" />
+                {saveMeasurements.isPending ? "Sending…" : "Send to Designer"}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -475,7 +503,7 @@ export function WebXRMeasure({ onExit }: { onExit: () => void }) {
 
 // ─── Photo Reference Mode ─────────────────────────────────────────────────────
 
-function PhotoMeasure() {
+function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
   const [step, setStep] = useState<PhotoStep>("capture");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [refObjIdx, setRefObjIdx] = useState(0);
@@ -484,6 +512,23 @@ function PhotoMeasure() {
   const [measPoints, setMeasPoints] = useState<[Point, Point] | null>(null);
   const [result, setResult] = useState<{ inches: number; cm: number; feet: string } | null>(null);
   const [history, setHistory] = useState<{ feet: string; cm: string; ref: string }[]>([]);
+  const [allResults, setAllResults] = useState<{ inches: number; cm: number; feet: string }[]>([]);
+  const saveMeasurements = trpc.measureSessions.saveMeasurements.useMutation({
+    onSuccess: () => toast.success("Measurements sent to the Design Tool!"),
+    onError: (e) => toast.error(`Failed to send: ${e.message}`),
+  });
+  function sendToDesigner() {
+    if (!sessionToken || allResults.length === 0) return;
+    saveMeasurements.mutate({
+      token: sessionToken,
+      walls: allResults.map((r, i) => ({
+        label: `Wall ${i + 1}`,
+        inches: r.inches,
+        feet: r.inches / 12,
+        meters: r.inches * 0.0254,
+      })),
+    });
+  }
   const imgRef = useRef<HTMLImageElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -540,6 +585,7 @@ function PhotoMeasure() {
     const remIn = (inches % 12).toFixed(1);
     const feetStr = feet > 0 ? `${feet}′ ${remIn}″` : `${inches.toFixed(1)}″`;
     setResult({ inches, cm, feet: feetStr });
+    setAllResults((prev) => [...prev, { inches, cm, feet: feetStr }]);
     setHistory((prev) => [
       { feet: feetStr, cm: cm.toFixed(1), ref: REFERENCE_OBJECTS[refObjIdx].label },
       ...prev.slice(0, 4),
@@ -803,6 +849,16 @@ function PhotoMeasure() {
                 Measure Again
               </Button>
             </div>
+            {sessionToken && allResults.length > 0 && (
+              <Button
+                onClick={sendToDesigner}
+                disabled={saveMeasurements.isPending}
+                className="w-full bg-[#d4a75a] text-[#1a2744] hover:bg-[#e0b86a] font-bold gap-2"
+              >
+                <Send className="h-4 w-4" />
+                {saveMeasurements.isPending ? "Sending…" : `Send ${allResults.length} Measurement${allResults.length > 1 ? "s" : ""} to Designer`}
+              </Button>
+            )}
             <Button onClick={reset} variant="ghost" className="w-full text-[#8a9bb8] hover:text-white">
               New Photo
             </Button>
@@ -852,6 +908,8 @@ function PhotoMeasure() {
 
 export default function ARMeasure() {
   const [mode, setMode] = useState<Mode>("detecting");
+  const search = useSearch();
+  const sessionToken = new URLSearchParams(search).get("session") ?? null;
 
   useEffect(() => {
     async function detect() {
@@ -881,8 +939,8 @@ export default function ARMeasure() {
   }
 
   if (mode === "webxr") {
-    return <WebXRMeasure onExit={() => setMode("photo")} />;
+    return <WebXRMeasure onExit={() => setMode("photo")} sessionToken={sessionToken} />;
   }
 
-  return <PhotoMeasure />;
+  return <PhotoMeasure sessionToken={sessionToken} />;
 }

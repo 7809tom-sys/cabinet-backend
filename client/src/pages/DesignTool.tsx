@@ -9,7 +9,7 @@ import {
   ChevronUp, ChevronDown, ChevronLeft, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, AlertTriangle,
-  AppWindow } from "lucide-react";
+  AppWindow, Smartphone } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -32,6 +32,10 @@ import {
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
+import { makeQrDataUrl } from "@/lib/qr";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -414,6 +418,48 @@ export default function DesignTool() {
   const [islandFace, setIslandFace] = useState<"front" | "back">("front");
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
+  // AR Tape Measure session sync
+  const [measureSessionToken, setMeasureSessionToken] = useState<string | null>(null);
+  const [measureSessionOpen, setMeasureSessionOpen] = useState(false);
+  const [measureQrUrl, setMeasureQrUrl] = useState<string | null>(null);
+  const createMeasureSession = trpc.measureSessions.createSession.useMutation({
+    onSuccess: async (data) => {
+      setMeasureSessionToken(data.token);
+      setMeasureSessionOpen(true);
+      const url = `${window.location.origin}/measure?session=${data.token}`;
+      try {
+        const qr = await makeQrDataUrl(url, { size: 200 });
+        setMeasureQrUrl(qr);
+      } catch { setMeasureQrUrl(null); }
+    },
+  });
+  const consumeMeasureSession = trpc.measureSessions.consumeSession.useMutation();
+  // Poll for measurements when session is open
+  const { data: measurePollData } = trpc.measureSessions.pollSession.useQuery(
+    { token: measureSessionToken! },
+    {
+      enabled: !!measureSessionToken && measureSessionOpen,
+      refetchInterval: 3000,
+    },
+  );
+  const measurePollDataRef = useRef(measurePollData);
+  measurePollDataRef.current = measurePollData;
+  useEffect(() => {
+    if (measurePollData?.status === "completed" && measurePollData.walls && measureSessionToken) {
+      const walls = measurePollData.walls;
+      // Find the two longest walls to set room width and depth
+      const sorted = [...walls].sort((a, b) => b.inches - a.inches);
+      const widthIn = Math.round(sorted[0]?.inches ?? 144);
+      const depthIn = Math.round(sorted[1]?.inches ?? 120);
+      setRoom((prev) => ({ ...prev, width: widthIn, depth: depthIn }));
+      consumeMeasureSession.mutate({ token: measureSessionToken });
+      setMeasureSessionToken(null);
+      setMeasureSessionOpen(false);
+      setMeasureQrUrl(null);
+      toast.success(`Room set to ${Math.round(widthIn/12)}' × ${Math.round(depthIn/12)}' from your phone measurements!`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measurePollData]);
   const [autoDimensions, setAutoDimensions] = useState(false);
   // Island zone: an optional rectangular guide (inches) marking where island
   // cabinets go. Null when disabled.
@@ -4527,6 +4573,21 @@ export default function DesignTool() {
 
 
 
+        {/* AR Tape Measure: open a session so the phone can send room dimensions */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => createMeasureSession.mutate()}
+              disabled={createMeasureSession.isPending}
+              className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Measure Room with Phone"
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Measure Room with Phone</TooltipContent>
+        </Tooltip>
+
         {/* Wall cabinet height selector: 30/36/42 toggle */}
         <div className="hidden lg:flex items-center gap-1.5">
           <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
@@ -7488,6 +7549,45 @@ export default function DesignTool() {
         countertopName={countertopMaterial(countertopMaterialId).name}
         hardwareName={hardwareStyleId !== "none" ? (HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label || undefined) : undefined}
       />
+
+      {/* AR Tape Measure session dialog */}
+      <Dialog open={measureSessionOpen} onOpenChange={(open) => {
+        setMeasureSessionOpen(open);
+        if (!open) {
+          setMeasureSessionToken(null);
+          setMeasureQrUrl(null);
+        }
+      }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Measure Room with Your Phone</DialogTitle>
+            <DialogDescription>
+              Open this link on your phone, measure each wall, then tap "Send to Designer".
+            </DialogDescription>
+          </DialogHeader>
+          {measureQrUrl && (
+            <div className="flex justify-center">
+              <img src={measureQrUrl} className="w-48 h-48" alt="QR code to open AR measure on phone" />
+            </div>
+          )}
+          {measureSessionToken && (
+            <div className="text-sm text-center break-all text-muted-foreground">
+              <span className="font-medium text-foreground">Direct link:</span>{" "}
+              <a
+                href={`${window.location.origin}/measure?session=${measureSessionToken}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 underline"
+              >
+                {`${window.location.origin}/measure?session=${measureSessionToken}`}
+              </a>
+            </div>
+          )}
+          <div className="text-center text-sm text-muted-foreground animate-pulse">
+            Waiting for measurements from your phone…
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Live drag ghost portal — follows cursor and turns red on invalid placement */}
       {dragGhost && createPortal(

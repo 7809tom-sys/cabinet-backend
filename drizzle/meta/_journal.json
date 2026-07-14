@@ -484,6 +484,13 @@
       "when": 1784059738450,
       "tag": "0068_boring_carnage",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "5",
+      "when": 1784064514434,
+      "tag": "0069_yielding_paladin",
+      "breakpoints": true
     }
   ]
 }

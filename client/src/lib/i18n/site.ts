@@ -24,6 +24,7 @@ export const SITE_STRINGS = {
     nav_photo_to_cart: "Photo to Cart",
     nav_fixture_photo: "Fixture Photo Match",
     nav_price_shop: "Price Shop",
+    nav_ar_measure: "AR Tape Measure",
     nav_pro_network: "Pro Network",
     nav_become_vendor: "Become a Vendor",
     // --- Top nav: portals ---

@@ -1559,3 +1559,21 @@ export const importPendingSkus = mysqlTable("import_pending_skus", {
 }));
 export type ImportPendingSku = typeof importPendingSkus.$inferSelect;
 export type InsertImportPendingSku = typeof importPendingSkus.$inferInsert;
+
+// ─── AR Measure Sessions ──────────────────────────────────────────────────────
+// Temporary sessions that bridge the AR Tape Measure (phone) with the Design
+// Tool (desktop). The designer creates a session and shows a QR code; the phone
+// saves measurements to the session; the designer polls and auto-fills the room.
+export const measureSessions = mysqlTable("measure_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  token: varchar("token", { length: 64 }).notNull().unique(), // random UUID shown in QR
+  userId: int("userId"), // null = anonymous (guest)
+  // JSON array of wall measurements: [{ label: string, meters: number, feet: number, inches: number }]
+  measurements: text("measurements"),
+  status: mysqlEnum("status", ["pending", "completed", "consumed"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+  expiresAt: timestamp("expiresAt").notNull(), // 30 min TTL
+});
+export type MeasureSession = typeof measureSessions.$inferSelect;
+export type InsertMeasureSession = typeof measureSessions.$inferInsert;

@@ -41,6 +41,7 @@ import { fixturePhotoRouter } from "./routers/fixturePhoto";
 import { priceShopRouter } from "./routers/priceShop";
 import { qboRouter } from "./routers/qbo";
 import { pageContentRouter } from "./routers/pageContent";
+import { measureSessionsRouter } from "./routers/measureSessions";
 
 export const appRouter = router({
   system: systemRouter,
@@ -92,6 +93,7 @@ export const appRouter = router({
   priceShop: priceShopRouter,
   qbo: qboRouter,
   pageContent: pageContentRouter,
+  measureSessions: measureSessionsRouter,
 });
 
 export type AppRouter = typeof appRouter;
