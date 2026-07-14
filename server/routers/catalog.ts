@@ -1701,6 +1701,127 @@ export const cabinetsRouter = router({
       return { cabinets: result, styles: allStyles };
     }),
 
+
+  // -- Parse XLSX columns (for column mapping UI) ----------------------------
+  // Returns sheet names and column headers for a given XLSX/CSV file so the
+  // admin can map arbitrary spreadsheet columns to known cabinet fields.
+  parseXlsxColumns: adminProcedure
+    .input(
+      z.object({
+        fileBase64: z.string().min(1),
+        filename: z.string().default("upload.xlsx"),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const isCsv = input.filename.toLowerCase().endsWith(".csv");
+      let wb: XLSX.WorkBook;
+      try {
+        if (isCsv) {
+          const text = Buffer.from(input.fileBase64, "base64").toString("utf-8");
+          wb = XLSX.read(text, { type: "string" });
+        } else {
+          wb = XLSX.read(input.fileBase64, { type: "base64" });
+        }
+      } catch {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Could not parse the file. Make sure it is a valid .xlsx or .csv file." });
+      }
+      const sheets: Array<{ name: string; headers: string[]; previewRows: Array<Record<string, string>> }> = [];
+      for (const name of wb.SheetNames) {
+        const ws = wb.Sheets[name];
+        if (!ws) continue;
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: false });
+        if (rows.length === 0) { sheets.push({ name, headers: [], previewRows: [] }); continue; }
+        const headers = Object.keys(rows[0]);
+        const previewRows = rows.slice(0, 3).map((r) =>
+          Object.fromEntries(headers.map((h) => [h, String(r[h] ?? "")]))
+        );
+        sheets.push({ name, headers, previewRows });
+      }
+      return { sheets };
+    }),
+
+  // -- Import cabinets with explicit column mapping --------------------------
+  // Like adminImport but accepts an arbitrary spreadsheet with a user-chosen
+  // column mapping instead of requiring exact column names.
+  adminImportWithMapping: adminProcedure
+    .input(
+      z.object({
+        fileBase64: z.string().min(1),
+        filename: z.string().default("upload.xlsx"),
+        sheetName: z.string().optional(),
+        mapping: z.record(
+          z.string(),
+          z.enum(["masterCode", "description", "category", "subCategory",
+                  "width", "height", "depth", "isActive", "placementType",
+                  "numberOfDoors", "numberOfDrawers", "hingeSide", "graphicType"])
+        ),
+        dryRun: z.boolean().default(false),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const isCsv = input.filename.toLowerCase().endsWith(".csv");
+      let wb: XLSX.WorkBook;
+      try {
+        if (isCsv) {
+          const text = Buffer.from(input.fileBase64, "base64").toString("utf-8");
+          wb = XLSX.read(text, { type: "string" });
+        } else {
+          wb = XLSX.read(input.fileBase64, { type: "base64" });
+        }
+      } catch {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Could not parse the file." });
+      }
+      const sheetName = input.sheetName ?? wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      if (!ws) throw new TRPCError({ code: "BAD_REQUEST", message: `Sheet "${sheetName}" not found.` });
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: false });
+      const fieldToCol: Partial<Record<string, string>> = {};
+      for (const [col, field] of Object.entries(input.mapping)) fieldToCol[field] = col;
+      if (!fieldToCol["masterCode"]) throw new TRPCError({ code: "BAD_REQUEST", message: "masterCode column mapping is required." });
+      let updated = 0, skipped = 0;
+      const errors: string[] = [];
+      const preview: Array<{ masterCode: string; changes: Record<string, unknown> }> = [];
+      for (let i = 0; i < rawRows.length; i++) {
+        const row = rawRows[i];
+        const masterCode = String(row[fieldToCol["masterCode"]!] ?? "").trim();
+        if (!masterCode) { skipped++; continue; }
+        const patch: Record<string, unknown> = {};
+        for (const [field, col] of Object.entries(fieldToCol)) {
+          if (field === "masterCode" || !col) continue;
+          const raw = String(row[col] ?? "").trim();
+          if (!raw) continue;
+          if (field === "width" || field === "height" || field === "depth") {
+            const n = parseFloat(raw); if (!isNaN(n)) patch[field] = String(n);
+          } else if (field === "numberOfDoors" || field === "numberOfDrawers") {
+            const n = parseInt(raw, 10); if (!isNaN(n)) patch[field] = n;
+          } else if (field === "isActive") {
+            const up = raw.toUpperCase();
+            if (up === "TRUE" || up === "1" || up === "YES") patch[field] = true;
+            else if (up === "FALSE" || up === "0" || up === "NO") patch[field] = false;
+          } else {
+            patch[field] = raw;
+          }
+        }
+        if (Object.keys(patch).length === 0) { skipped++; continue; }
+        if (input.dryRun) { preview.push({ masterCode, changes: patch }); continue; }
+        try {
+          const existing = await db.select({ id: cabinets.id }).from(cabinets)
+            .where(eq(cabinets.masterCode, masterCode)).limit(1);
+          if (existing.length === 0) {
+            skipped++; errors.push(`Row ${i + 2}: masterCode "${masterCode}" not found — skipped.`); continue;
+          }
+          await db.update(cabinets).set(patch).where(eq(cabinets.masterCode, masterCode));
+          updated++;
+        } catch (err) {
+          errors.push(`Row ${i + 2}: ${masterCode} — ${err instanceof Error ? err.message : String(err)}`);
+          skipped++;
+        }
+      }
+      return { updated, skipped, errors, preview };
+    }),
+
 });
 
 // --- Pricing ------------------------------------------------------------------

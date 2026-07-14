@@ -367,6 +367,8 @@ export const distributorImportRouter = router({
         distributorId: z.number(),
         styleId: z.number().optional(),
         csv: z.string().min(1),
+        // Optional per-row master code overrides: key = row index (0-based string), value = masterCode to use
+        masterCodeOverrides: z.record(z.string(), z.string()).optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -417,8 +419,12 @@ export const distributorImportRouter = router({
         const rawCode = (row.cells.masterCode ?? "").trim();
         if (!rawCode) { skipped++; continue; }
 
-        // Fuzzy resolve: exact → normalized → alias
-        const resolved = resolveCode(rawCode);
+        // Apply per-row masterCode override if provided by the admin
+        const overrideCode = input.masterCodeOverrides?.[String(i)];
+        const effectiveCode = overrideCode ?? rawCode;
+
+        // Fuzzy resolve: exact → normalized → alias (using effective code)
+        const resolved = resolveCode(effectiveCode);
         const category = normalizeCategory(row.cells.category);
         const width = parseDimension(row.cells.width);
         const height = parseDimension(row.cells.height);

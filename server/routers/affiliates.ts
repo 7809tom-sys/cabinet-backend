@@ -105,7 +105,18 @@ export const affiliatesRouter = router({
         .limit(1);
       const a = rows[0];
       if (!a || !a.storefrontEnabled || a.status === "inactive") return null;
-      return toPublicStorefront(a);
+      const base = toPublicStorefront(a);
+      // Auto-resolve scheduled banner: if a schedule is active today, it overrides the manual promoBanner
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const schedules = await db
+        .select()
+        .from(affiliateBannerSchedules)
+        .where(eq(affiliateBannerSchedules.affiliateId, a.id));
+      const activeSched = schedules.find((s) => s.startDate <= today && s.endDate >= today);
+      if (activeSched) {
+        return { ...base, promoBannerText: activeSched.message, promoBannerActive: true };
+      }
+      return base;
     }),
 
   // ─── Public: resolve a referral code (for attribution / validation) ────────

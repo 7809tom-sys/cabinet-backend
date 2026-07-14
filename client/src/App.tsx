@@ -8,6 +8,7 @@ import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
 import { setReferralCode } from "@/hooks/useReferral";
+import { AdminEditModeBar } from "@/components/admin/AdminEditModeBar";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
@@ -444,6 +445,7 @@ export default function App() {
           </AppLayout>
         </Route>
       </Switch>
+      <AdminEditModeBar />
       <ChatWidget />
       <Toaster />
     </ThemeProvider>

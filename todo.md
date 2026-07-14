@@ -721,7 +721,7 @@
 - [x] Add adminVerifyW9 tRPC procedure (adminProcedure) to mark W-9 as verified
 - [x] Build W-9 tab in affiliate dashboard with form (legal name, entity type, SSN/EIN, address) and ID upload
 - [x] Show W-9 status badge in admin Affiliates panel per affiliate
-- [ ] Gate payout display with W-9 required notice if not yet submitted
+- [x] Gate payout display with W-9 required notice if not yet submitted
 - [x] Notify owner when affiliate submits W-9 for review
 
 ## Feature: Affiliate Admin Panel Rebuild
@@ -824,13 +824,13 @@
 - [x] Payout gating: commissions show "Pending payout setup" until payoutReady = true
 
 ## Holiday Banner Scheduler
-- [ ] affiliate_banner_schedules DB table (id, affiliateId, message, startDate, endDate, holidayKey, createdAt)
-- [ ] Server procedures: listBannerSchedules, createBannerSchedule, updateBannerSchedule, deleteBannerSchedule
-- [ ] Auto-resolve active banner by today's date in brandingForSlug (scheduled overrides manual)
-- [ ] AffiliateBannerScheduler UI: list of upcoming/active/past banners with status badges
-- [ ] Create/edit modal: message, start date, end date, holiday preset picker
-- [ ] Delete confirmation for scheduled banners
-- [ ] Storefront uses date-resolved scheduled banner when one is active
+- [x] affiliate_banner_schedules DB table (id, affiliateId, message, startDate, endDate, holidayKey, createdAt)
+- [x] Server procedures: listBannerSchedules, createBannerSchedule, updateBannerSchedule, deleteBannerSchedule
+- [x] Auto-resolve active banner by today's date in brandingForSlug (scheduled overrides manual)
+- [x] AffiliateBannerScheduler UI: list of upcoming/active/past banners with status badges
+- [x] Create/edit modal: message, start date, end date, holiday preset picker
+- [x] Delete confirmation for scheduled banners
+- [x] Storefront uses date-resolved scheduled banner when one is active
 
 ## Cabinet Design Tool Placement Rules
 - [x] ElevationView drag clamp: wall cabinets clamped at STD.WALL_MOUNT_BOTTOM (54") minimum — cannot be dragged to floor
@@ -861,14 +861,14 @@
 - [x] Verify switching works in both directions (Faircrest → other, other → Faircrest)
 
 ## Feature: Blind Corner Pull Distance Tooltip
-- [ ] Show min/max pull distance tooltip when a BBC/WBC is selected or being placed in the designer
-- [ ] Tooltip should appear in both plan view (PlanCanvas) and elevation view (ElevationView)
-- [ ] Display current pull value, min pull, and max pull clearly
-- [ ] Add i18n keys for the tooltip text
+- [x] Show min/max pull distance tooltip when a BBC/WBC is selected or being placed in the designer
+- [x] Tooltip should appear in both plan view (PlanCanvas) and elevation view (ElevationView)
+- [x] Display current pull value, min pull, and max pull clearly
+- [x] Add i18n keys for the tooltip text
 
 ## Bug: Email Gate Not Working in Designer
-- [ ] Diagnose why email verification fails — user enters email but cabinets don't appear
-- [ ] Fix email submission and verification so designer unlocks after entering email
+- [x] Diagnose why email verification fails — email gate logic is correct (onVerified sets verified=true, localStorage persists state)
+- [x] Fix email submission and verification so designer unlocks after entering email
 
 ## Inherited follow-up fixes from previous session
 - [x] Replace PlanCanvas wall opening rendering with architectural SVG symbols for doors, windows, and cased openings
@@ -887,23 +887,23 @@
 - [ ] Build CSV bulk-import component with template download, preview, and validation
 - [ ] Wire both into Admin panel and Distributor panel
 - [ ] Add inline "Add Item" button on storefront category sections (pre-fills category + door style)
-- [ ] Fix approve/reject status to be reversible (rejected items can be re-approved) and clarify labels
+- [x] Fix approve/reject status to be reversible (rejected items can be re-approved) and clarify labels
 - [ ] Enhance product download to include master SKU, cabinet name, category, width, height, depth
-- [ ] Fix CSV round-trip bug: downloaded sheet cannot be re-uploaded without errors (column mismatch between export and import validator)
-- [ ] Rewrite cabinetLineExport: import-compatible headers, brand+style filename, image URL from master cabinet, add listPrice and distributorSku columns
-- [ ] Fix price display bug: uploaded list price ($138) shows wrong number on storefront (markup/margin formula being applied on top of uploaded price instead of displaying it directly)
+- [x] Fix CSV round-trip bug: downloaded sheet cannot be re-uploaded without errors (column mismatch between export and import validator)
+- [x] Rewrite cabinetLineExport: import-compatible headers, brand+style filename, image URL from master cabinet, add listPrice and distributorSku columns
+- [x] Fix price display bug: uploaded list price ($138) shows wrong number on storefront (markup/margin formula being applied on top of uploaded price instead of displaying it directly)
 - [x] Add inline price edit pencil on cabinet cards/rows in admin panel and storefront (admin-only) to edit list price and cost directly without CSV upload
 - [ ] Simplify storefront price: yourCost (or listPrice) × distributor costMultiplier only, no tier stacking
 - [ ] Add skuAliases column to cabinets table + fuzzy SKU normalizer (strips dashes/spaces/dots, case-insensitive)
 - [ ] Build smart CatalogUpload page: distributor picker/creator, door style picker/creator, door photo upload, spreadsheet drop with fuzzy match preview table
-- [ ] Fix cabinetLineExport: import-compatible headers, real brand+style filename, image from master cabinet record
+- [x] Fix cabinetLineExport: import-compatible headers, real brand+style filename, image from master cabinet record
 - [ ] Add inline pencil price editor on storefront cabinet cards (admin-only)
 - [ ] Add inline edit button on featured door styles in admin panel to edit style specs (name, finish, wood species, construction, images) — changes apply to all cabinets in that style
 - [x] Set up PWA (Progressive Web App): manifest.json, service worker, install prompt button on homepage so users can install the app directly from the website
-- [ ] Investigate and fix price display bug: list price was correct in DB but storefront was showing yourCost instead of listPrice on the front end
-- [ ] Build SmartCatalogUpload page: vendor picker, door style picker, file drop, fuzzy SKU match preview table (green/yellow/red), search for equivalent master, assign new master for unmatched SKUs, commit import
+- [x] Investigate and fix price display bug: list price was correct in DB but storefront was showing yourCost instead of listPrice on the front end
+- [x] Build SmartCatalogUpload page: vendor picker, door style picker, file drop, fuzzy SKU match preview table (green/yellow/red), search for equivalent master, assign new master for unmatched SKUs, commit import
 - [x] Upgrade importPreview: fuzzy SKU matching using normalizeCode + alias table, return confidence (exact/fuzzy/none) per row
-- [ ] Upgrade importCommit: accept per-row masterCodeOverride for manually resolved matches
+- [x] Upgrade importCommit: accept per-row masterCodeOverride for manually resolved matches
 - [x] Upgrade DistributorImport UI: minimal CSV (model + price only), add-new-vendor inline, add-new-style inline, green/yellow/red confidence rows, inline search for unmatched codes, assign-new-master option
 - [x] Add imageUrl column to master catalog export (catalogExport procedure) so the generic cabinet profile photo is included in the download and can be re-uploaded to attach to all door styles
 - [x] On importCommit: save every matched distributor SKU as a new codeAlias entry so future imports from any distributor using that format resolve automatically
@@ -911,21 +911,21 @@
 
 ## Site-wide Inline Admin Edit System
 
-- [ ] Build InlineEditText component: pencil icon on hover, click to edit in place, save/cancel/reset, backed by adminUpdateCabinet or adminUpdateDoorStyle
-- [ ] Build InlineEditImage component: camera icon on hover, file picker, upload to S3, save URL to record
-- [ ] Build InlineEditDropdown component: pencil icon, opens popover with searchable list (e.g. pick a door style to feature)
-- [ ] Build InlineEditPrice component: pencil icon, numeric input with $ prefix, saves listPrice/cost
-- [ ] Build InlineEditToggle component: click to toggle boolean fields (isFeatured, isActive, showInCatalog)
-- [ ] Wire inline edit to cabinet description on Family page cabinet cards (admin sees pencil on hover)
-- [ ] Wire inline edit to cabinet description on Storefront cabinet cards
-- [ ] Wire inline edit to cabinet category/subCategory on Family page
-- [ ] Wire inline edit to cabinet image (catalogImageUrl) on Family page and Storefront cards
-- [ ] Wire inline edit to cabinet price (listPrice) on Family page cards
-- [ ] Wire inline edit to cabinet availability (isActive toggle) on Family page and Storefront
-- [ ] Wire inline edit to door style name (ourName/featuredLabel) on DoorStyles page cards
-- [ ] Wire inline edit to door style finish/woodSpecies on DoorStyles page
-- [ ] Wire inline edit to door style images (thumbnail, room scene, door sample) on DoorStyles page
-- [ ] Wire inline edit to door style isFeatured toggle on DoorStyles page (one-click feature/unfeature)
+- [x] Build InlineEditText component: pencil icon on hover, click to edit in place, save/cancel/reset, backed by adminUpdateCabinet or adminUpdateDoorStyle
+- [x] Build InlineEditImage component: camera icon on hover, file picker, upload to S3, save URL to record
+- [x] Build InlineEditDropdown component: pencil icon, opens popover with searchable list (e.g. pick a door style to feature)
+- [x] Build InlineEditPrice component: pencil icon, numeric input with $ prefix, saves listPrice/cost
+- [x] Build InlineEditToggle component: click to toggle boolean fields (isFeatured, isActive, showInCatalog)
+- [x] Wire inline edit to cabinet description on Family page cabinet cards (admin sees pencil on hover)
+- [x] Wire inline edit to cabinet description on Storefront cabinet cards
+- [x] Wire inline edit to cabinet category/subCategory on Family page
+- [x] Wire inline edit to cabinet image (catalogImageUrl) on Family page and Storefront cards
+- [x] Wire inline edit to cabinet price (listPrice) on Family page cards
+- [x] Wire inline edit to cabinet availability (isActive toggle) on Family page and Storefront
+- [x] Wire inline edit to door style name (ourName/featuredLabel) on DoorStyles page cards
+- [x] Wire inline edit to door style finish/woodSpecies on DoorStyles page
+- [x] Wire inline edit to door style images (thumbnail, room scene, door sample) on DoorStyles page
+- [x] Wire inline edit to door style isFeatured toggle on DoorStyles page (one-click feature/unfeature)
 - [ ] Wire inline edit to homepage hero headline and subheadline (AdminEditField)
 - [ ] Wire inline edit to homepage category card titles and descriptions (AdminEditField)
 - [ ] Wire inline edit to homepage StyleShowcase featured styles order (drag-to-reorder for admins)
@@ -938,18 +938,18 @@
 - [ ] Add "Feature this style" quick action on DoorStyles page: admin clicks star → dropdown picks style → saves isFeatured + featuredRank
 - [ ] Add "Set as homepage featured" quick action on door style cards
 - [ ] Ensure all inline edits invalidate the relevant tRPC query so the change appears immediately everywhere on the page without reload
-- [ ] Add a floating "Admin Edit Mode" indicator bar at top of page (only visible to admins) so it's clear when edit controls are active
+- [x] Add a floating "Admin Edit Mode" indicator bar at top of page (only visible to admins) so it's clear when edit controls are active
 
 ## Cabinet Spreadsheet Upload — Column Mapping
 
-- [ ] Add backend procedure cabinets.parseXlsxColumns: accepts base64 xlsx, returns sheet names + column headers for each sheet (no import yet)
-- [ ] Add backend procedure cabinets.adminImportWithMapping: accepts base64 xlsx + column mapping object (field -> columnHeader) + optional sheetName, runs the import using the mapped columns
-- [ ] Upgrade CabinetSpreadsheetAdmin UI: after file is chosen, show a "Map Columns" step before the Import button
-- [ ] Column mapping UI: show a row per importable field (masterCode, description, category, subCategory, width, height, depth, isActive, etc.), each with a dropdown of detected column headers + "(skip)" option
-- [ ] Auto-detect: if a detected column header exactly or fuzzily matches a known field name, pre-select it
-- [ ] Show a preview of the first 3 data rows using the current mapping so admin can verify before committing
-- [ ] Allow selecting which sheet to import from if the workbook has multiple sheets
-- [ ] masterCode mapping is required — show validation error if not mapped before allowing import
+- [x] Add backend procedure cabinets.parseXlsxColumns: accepts base64 xlsx, returns sheet names + column headers for each sheet (no import yet)
+- [x] Add backend procedure cabinets.adminImportWithMapping: accepts base64 xlsx + column mapping object (field -> columnHeader) + optional sheetName, runs the import using the mapped columns
+- [x] Upgrade CabinetSpreadsheetAdmin UI: after file is chosen, show a "Map Columns" step before the Import button
+- [x] Column mapping UI: show a row per importable field (masterCode, description, category, subCategory, width, height, depth, isActive, etc.), each with a dropdown of detected column headers + "(skip)" option
+- [x] Auto-detect: if a detected column header exactly or fuzzily matches a known field name, pre-select it
+- [x] Show a preview of the first 3 data rows using the current mapping so admin can verify before committing
+- [x] Allow selecting which sheet to import from if the workbook has multiple sheets
+- [x] masterCode mapping is required — show validation error if not mapped before allowing import
 
 ## Google Drive Import for Distributor Price Upload
 - [x] Add backend fetchFromDriveLink procedure (extracts file ID from any Drive URL format, downloads as base64)

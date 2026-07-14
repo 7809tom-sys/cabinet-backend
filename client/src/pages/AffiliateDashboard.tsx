@@ -1271,8 +1271,9 @@ function money(cents: number) {
 
 function EarningsPanel() {
   const { data, isLoading } = trpc.affiliates.myEarnings.useQuery();
+  const { data: w9Data, isLoading: w9Loading } = trpc.affiliates.getW9Status.useQuery();
 
-  if (isLoading) {
+  if (isLoading || w9Loading) {
     return (
       <div className="flex justify-center py-12">
         <Spinner className="h-6 w-6 text-primary" />
@@ -1284,6 +1285,28 @@ function EarningsPanel() {
     return (
       <div className="rounded-xl border border-dashed border-border p-10 text-center text-muted-foreground">
         No affiliate account is linked to you yet.
+      </div>
+    );
+  }
+
+  // W-9 gate: show a notice if W-9 has not been submitted yet
+  if (w9Data && w9Data.w9Status !== "submitted" && w9Data.w9Status !== "verified") {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-8 text-center space-y-4">
+        <div className="flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 mx-auto">
+          <DollarSign className="h-6 w-6 text-amber-600" />
+        </div>
+        <h3 className="font-semibold text-lg text-amber-900">W-9 Required for Payouts</h3>
+        <p className="text-sm text-amber-700 max-w-md mx-auto">
+          To view your earnings and receive payouts, you must first submit your W-9 tax information.
+          This is required by the IRS for all 1099 contractors earning $600 or more.
+        </p>
+        <Button
+          className="bg-amber-600 hover:bg-amber-700 text-white"
+          onClick={() => window.location.href = "/affiliate?section=w9"}
+        >
+          Complete W-9 Form
+        </Button>
       </div>
     );
   }

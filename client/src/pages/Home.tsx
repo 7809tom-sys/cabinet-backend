@@ -147,6 +147,113 @@ function Hero() {
   );
 }
 
+// ─── Featured Door Styles (from DB) ─────────────────────────────────────────
+
+function FeaturedStyles() {
+  const { t } = useLanguage();
+  const { data: featured, isLoading } = trpc.doorStyles.featured.useQuery();
+  const { data: allStyles } = trpc.doorStyles.list.useQuery();
+
+  // Use featured if available, otherwise fall back to first 3 styles with room scenes
+  const styles = useMemo(() => {
+    if (featured && featured.length > 0) {
+      return featured.slice(0, 3);
+    }
+    if (allStyles) {
+      return allStyles
+        .filter((s) => s.roomSceneImageUrl || s.thumbnailImageUrl || s.doorSampleImageUrl)
+        .slice(0, 3);
+    }
+    return [];
+  }, [featured, allStyles]);
+
+  if (isLoading) {
+    return (
+      <section className="py-16 md:py-20">
+        <div className="container">
+          <div className="grid md:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-80 rounded-2xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (styles.length === 0) return null;
+
+  return (
+    <section className="py-16 md:py-20 bg-muted/20">
+      <div className="container">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+            Featured Styles
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+          </div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
+            Trending Door Styles
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Handpicked by our design team — start your kitchen design with one of these popular styles.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {styles.map((style) => {
+            const image = style.roomSceneImageUrl || style.thumbnailImageUrl || style.doorSampleImageUrl;
+            const name = style.featuredLabel || style.ourName || style.styleCode;
+            const blurb = [style.doorStyle, style.woodSpecies].filter(Boolean).join(" · ") || "Premium cabinet style";
+            return (
+              <div key={style.id} className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 bg-card border border-border">
+                {image ? (
+                  <div className="relative overflow-hidden">
+                    <img
+                      src={image}
+                      alt={name}
+                      className="h-56 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                    <div className="absolute bottom-3 left-4 right-4">
+                      <h3 className="font-serif text-xl font-bold text-white leading-tight">{name}</h3>
+                      <p className="text-xs text-white/80 mt-0.5">{blurb}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-56 bg-muted flex items-center justify-center">
+                    <h3 className="font-serif text-xl font-bold text-foreground">{name}</h3>
+                  </div>
+                )}
+                <div className="p-4 flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Button asChild size="sm" className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-1.5">
+                      <Link href={`/design?style=${encodeURIComponent(style.styleCode)}`}>
+                        <Palette className="h-3.5 w-3.5" /> Design with this
+                      </Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline" className="flex-1 gap-1.5">
+                      <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
+                        View Collection <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-10 text-center">
+          <Button asChild size="lg" variant="outline" className="gap-2 bg-card">
+            <Link href="/styles">Browse All Door Styles <ArrowRight className="h-4 w-4" /></Link>
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── Product Category Showcase ───────────────────────────────────────────────
 
 function ProductShowcase() {
@@ -629,6 +736,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <JulyBanner />
       <Hero />
+      <FeaturedStyles />
       <ProductShowcase />
       <AffiliatePromo />
       <Footer />

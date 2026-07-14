@@ -1140,6 +1140,8 @@ export default function DistributorImport() {
   );
 
   const [preview, setPreview] = useState<PreviewData | null>(null);
+  // Per-row master code overrides for unmatched rows (key = row index as string)
+  const [masterCodeOverrides, setMasterCodeOverrides] = useState<Record<string, string>>({});
 
   // ── XLSX/CSV column-mapping flow ─────────────────────────────────────────
   const [xlsxFile, setXlsxFile] = useState<{ base64: string; name: string } | null>(null);
@@ -1568,6 +1570,7 @@ export default function DistributorImport() {
                         distributorId: Number(distributorId),
                         styleId: styleId ? Number(styleId) : undefined,
                         csv,
+                        masterCodeOverrides: Object.keys(masterCodeOverrides).length > 0 ? masterCodeOverrides : undefined,
                       })
                     }
                   >
@@ -1661,7 +1664,25 @@ export default function DistributorImport() {
                   {preview.rows.map((r: PreviewRow) => (
                     <tr key={r.rowNumber} className={`border-t ${rowBg(r)}`}>
                       <td className="px-3 py-2 text-muted-foreground">{r.rowNumber}</td>
-                      <td className="px-3 py-2 font-mono">{r.masterCode || "—"}</td>
+                      <td className="px-3 py-2 font-mono">
+                        {(r as PreviewRow & { matchConfidence?: string }).matchConfidence === "none" ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-muted-foreground">{r.masterCode || "—"}</span>
+                            <input
+                              type="text"
+                              placeholder="Override master code..."
+                              value={masterCodeOverrides[String(preview!.rows.indexOf(r))] ?? ""}
+                              onChange={(e) => setMasterCodeOverrides((prev) => ({
+                                ...prev,
+                                [String(preview!.rows.indexOf(r))]: e.target.value,
+                              }))}
+                              className="w-36 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs font-mono outline-none focus:ring-1 focus:ring-amber-400"
+                            />
+                          </div>
+                        ) : (
+                          <span>{r.masterCode || "—"}</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2">
                         <MatchBadge row={r} />
                       </td>
