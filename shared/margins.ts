@@ -72,13 +72,15 @@ export function applyTierMarkup(
 // which equals the distributor's listPrice × their costMultiplier (the single
 // cost lever on the admin Multiplier tab). Fallbacks only apply when a SKU is
 // missing yourCost, so a row still resolves a base:
-//   yourCost → wholesalePrice → adjustedListPrice → listPrice
+//   yourCost → wholesalePrice → listPrice
+// NOTE: adjustedListPrice (listPrice × 0.89) is intentionally excluded — we
+// always use the raw published listPrice as the final fallback.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface CostBaseRow {
   yourCost?: number | string | null;
   wholesalePrice?: number | string | null;
-  adjustedListPrice?: number | string | null;
+  adjustedListPrice?: number | string | null; // kept for backward compat; NOT used in cost resolution
   listPrice?: number | string | null;
 }
 
@@ -96,8 +98,8 @@ export function resolveCostBase(row: CostBaseRow): number | null {
   return (
     toNum(row.yourCost) ??
     toNum(row.wholesalePrice) ??
-    toNum(row.adjustedListPrice) ??
     toNum(row.listPrice)
+    // adjustedListPrice intentionally excluded — always use raw listPrice
   );
 }
 

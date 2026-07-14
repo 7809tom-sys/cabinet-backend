@@ -993,3 +993,7 @@
 - [ ] Wire backend: adminUpdateDoorStyleDistributor procedure (update distributorId on a door style)
 - [ ] Wire backend: adminUpdateDistributorSeriesName procedure (update seriesName on a distributor)
 - [ ] Wire backend: adminCreateDoorStyle procedure (create a new door style row)
+
+## Import List Price Fix
+- [ ] Fix import: store raw spreadsheet list price in listPrice column without adjustment override
+- [ ] Fix display: show listPrice (not adjustedListPrice) as the primary price everywhere in cart/BOM

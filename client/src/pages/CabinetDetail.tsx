@@ -74,7 +74,7 @@ interface StyleRow {
   isBuilderGrade: boolean | null;
   skuImageUrl?: string | null;
   listPrice: string | null;
-  adjustedListPrice: string | null;
+  adjustedListPrice?: string | null; // legacy; not displayed — use listPrice
   wholesalePrice: string | null;
   contractorPrice: string | null;
   homeownerPrice: string | null;
