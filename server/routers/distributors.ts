@@ -996,6 +996,9 @@ export const distributorImportRouter = router({
 
       if (rows.length === 0) return { results: [], totalRows: 0 };
 
+      // Load distributor for costMultiplier
+      const [distRow] = await db.select({ costMultiplier: distributors.costMultiplier }).from(distributors).where(eq(distributors.id, input.distributorId)).limit(1);
+      const costMult = distRow ? parseFloat(String(distRow.costMultiplier)) : null;
       // Build cabinet lookup (same fuzzy logic as importCommit)
       const allCabinets = await db
         .select({ id: cabinets.id, masterCode: cabinets.masterCode })
@@ -1061,7 +1064,12 @@ export const distributorImportRouter = router({
           }
 
           const listPrice = mapping.priceType === "list" ? parsedPrice : null;
-          const yourCost = mapping.priceType === "cost" ? parsedPrice : null;
+          // Auto-calculate yourCost from listPrice × distributor costMultiplier when uploading list prices
+          const yourCost = mapping.priceType === "cost"
+            ? parsedPrice
+            : (listPrice !== null && costMult !== null && !isNaN(costMult))
+              ? Math.round(listPrice * costMult * 100) / 100
+              : null;
           const platformSku = `${input.distributorId}-${mapping.doorStyleId}-${cabinet.masterCode}`;
 
           upserts.push({
@@ -1115,15 +1123,21 @@ export const distributorImportRouter = router({
           }
           for (const [rawCode, prices] of Array.from(pendingMap)) {
             try {
+              const pricesStr = JSON.stringify(prices);
               await db.insert(importPendingSkus).values({
                 distributorId: input.distributorId,
                 rawCode,
-                pricesJson: JSON.stringify(prices),
+                pricesJson: pricesStr,
                 status: "pending",
               }).onDuplicateKeyUpdate({
-                set: { pricesJson: JSON.stringify(prices), status: "pending" },
+                set: {
+                  pricesJson: sql`VALUES(pricesJson)`,
+                  status: "pending",
+                },
               });
-            } catch { /* ignore */ }
+            } catch (e) {
+              console.error("[importAllColumns] failed to save pending SKU", rawCode, e);
+            }
           }
         }
         results.push({ columnCode: mapping.columnCode, doorStyleId: mapping.doorStyleId, priceType: mapping.priceType, matched, unmatched, priced, unmatchedCodes });
