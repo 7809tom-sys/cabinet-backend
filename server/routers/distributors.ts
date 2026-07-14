@@ -4,7 +4,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { distributors, cabinets, distributorSkus, doorStyles, codeAliases } from "../../drizzle/schema";
+import { distributors, cabinets, distributorSkus, doorStyles, codeAliases, importPendingSkus } from "../../drizzle/schema";
 import {
   parseDistributorCsv,
   validateImport,
@@ -1091,6 +1091,41 @@ export const distributorImportRouter = router({
           }
         }
 
+        // Save unmatched codes to import_pending_skus staging table
+        if (!input.dryRun && unmatchedCodes.length > 0) {
+          // Build a pricesJson for each unmatched code from all rows
+          const unmatchedSet = new Set(unmatchedCodes);
+          const pendingMap = new Map<string, Record<string, { listPrice: number | null; yourCost: number | null; styleId: number }>>();
+          for (const row of rows) {
+            const rawSku = String(row[input.skuColumn] ?? "").trim();
+            if (!rawSku || !unmatchedSet.has(rawSku)) continue;
+            if (!pendingMap.has(rawSku)) pendingMap.set(rawSku, {});
+            const entry = pendingMap.get(rawSku)!;
+            const rawPrice = row[mapping.columnCode];
+            if (rawPrice == null || String(rawPrice).trim() === "") continue;
+            const priceStr = String(rawPrice).trim();
+            const NOT_AVAIL_RE2 = /^(na|n\/a|x|-)$/i;
+            const isNA = NOT_AVAIL_RE2.test(priceStr);
+            const parsed = isNA ? null : parseFloat(priceStr.replace(/[^0-9.-]/g, ""));
+            entry[mapping.columnCode] = {
+              listPrice: mapping.priceType === "list" && !isNA ? parsed : null,
+              yourCost: mapping.priceType === "cost" && !isNA ? parsed : null,
+              styleId: mapping.doorStyleId,
+            };
+          }
+          for (const [rawCode, prices] of Array.from(pendingMap)) {
+            try {
+              await db.insert(importPendingSkus).values({
+                distributorId: input.distributorId,
+                rawCode,
+                pricesJson: JSON.stringify(prices),
+                status: "pending",
+              }).onDuplicateKeyUpdate({
+                set: { pricesJson: JSON.stringify(prices), status: "pending" },
+              });
+            } catch { /* ignore */ }
+          }
+        }
         results.push({ columnCode: mapping.columnCode, doorStyleId: mapping.doorStyleId, priceType: mapping.priceType, matched, unmatched, priced, unmatchedCodes });
       }
 
@@ -1194,5 +1229,135 @@ export const distributorImportRouter = router({
         .where(sql`(UPPER(${cabinets.masterCode}) LIKE UPPER(${term}) OR ${cabinets.description} LIKE ${term})`)
         .limit(20);
       return rows;
+    }),
+
+  /**
+   * List pending (unmatched) import SKUs for admin assignment.
+   */
+  listPendingSkus: adminProcedure
+    .input(z.object({
+      distributorId: z.number().int().positive().optional(),
+      status: z.enum(["pending", "resolved", "ignored"]).default("pending"),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const conditions = [eq(importPendingSkus.status, input.status)];
+      if (input.distributorId) conditions.push(eq(importPendingSkus.distributorId, input.distributorId));
+      const rows = await db
+        .select({
+          id: importPendingSkus.id,
+          distributorId: importPendingSkus.distributorId,
+          rawCode: importPendingSkus.rawCode,
+          pricesJson: importPendingSkus.pricesJson,
+          status: importPendingSkus.status,
+          resolvedCabinetId: importPendingSkus.resolvedCabinetId,
+          createdAt: importPendingSkus.createdAt,
+          distributorName: distributors.name,
+        })
+        .from(importPendingSkus)
+        .leftJoin(distributors, eq(distributors.id, importPendingSkus.distributorId))
+        .where(and(...conditions))
+        .orderBy(importPendingSkus.createdAt);
+      return rows;
+    }),
+
+  /**
+   * Assign a pending unmatched code to a master cabinet.
+   * Accepts either a masterCode or an existing alias code.
+   * Creates the alias and inserts all pending SKU rows.
+   */
+  resolvePendingSku: adminProcedure
+    .input(z.object({
+      pendingId: z.number().int().positive(),
+      /** The master code or alias the admin typed */
+      masterCodeOrAlias: z.string().min(1).max(128),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Load the pending record
+      const [pending] = await db
+        .select()
+        .from(importPendingSkus)
+        .where(eq(importPendingSkus.id, input.pendingId))
+        .limit(1);
+      if (!pending) throw new TRPCError({ code: "NOT_FOUND", message: "Pending record not found" });
+
+      // Resolve the typed code to a cabinet (direct or alias)
+      const searchTerm = input.masterCodeOrAlias.trim().toUpperCase();
+      const allCabs = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description })
+        .from(cabinets);
+      const byNorm = new Map(allCabs.map((c) => [normalizeCode(c.masterCode), c]));
+      const aliases = await db.select({ rawCodeCanon: codeAliases.rawCodeCanon, cabinetId: codeAliases.cabinetId }).from(codeAliases);
+      const byCabId = new Map(allCabs.map((c) => [c.id, c]));
+      const byAlias = new Map<string, typeof allCabs[number]>();
+      for (const a of aliases) {
+        const cab = byCabId.get(a.cabinetId);
+        if (cab) byAlias.set(a.rawCodeCanon, cab);
+      }
+      const norm = normalizeCode(input.masterCodeOrAlias);
+      const cabinet = byNorm.get(norm) ?? byAlias.get(norm);
+      if (!cabinet) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `No cabinet found for "${input.masterCodeOrAlias}". Check the master code or alias.` });
+      }
+
+      // Create alias: rawCode → cabinet
+      const rawCodeCanon = normalizeCode(pending.rawCode);
+      try {
+        await db.insert(codeAliases).values({
+          rawCodeCanon,
+          rawCodeSample: pending.rawCode,
+          cabinetId: cabinet.id,
+        }).onDuplicateKeyUpdate({ set: { cabinetId: cabinet.id, rawCodeSample: pending.rawCode } });
+      } catch { /* ignore */ }
+
+      // Import the pending SKU rows
+      const prices = JSON.parse(pending.pricesJson) as Record<string, { listPrice: number | null; yourCost: number | null; styleId: number }>;
+      let inserted = 0;
+      for (const [, priceData] of Object.entries(prices)) {
+        const platformSku = `${pending.distributorId}-${priceData.styleId}-${cabinet.masterCode}`;
+        try {
+          await db.insert(distributorSkus).values({
+            distributorId: pending.distributorId,
+            cabinetId: cabinet.id,
+            styleId: priceData.styleId,
+            platformSku,
+            distributorSku: pending.rawCode,
+            listPrice: priceData.listPrice !== null ? String(priceData.listPrice) : null,
+            yourCost: priceData.yourCost !== null ? String(priceData.yourCost) : null,
+            isAvailable: true,
+          }).onDuplicateKeyUpdate({
+            set: {
+              listPrice: sql`VALUES(list_price)`,
+              yourCost: sql`VALUES(your_cost)`,
+            },
+          });
+          inserted++;
+        } catch { /* ignore duplicate */ }
+      }
+
+      // Mark as resolved
+      await db.update(importPendingSkus)
+        .set({ status: "resolved", resolvedCabinetId: cabinet.id, resolvedAt: new Date() })
+        .where(eq(importPendingSkus.id, pending.id));
+
+      return { resolved: true, cabinetId: cabinet.id, masterCode: cabinet.masterCode, skusInserted: inserted };
+    }),
+
+  /**
+   * Ignore a pending unmatched code (mark as ignored so it doesn't clutter the list).
+   */
+  ignorePendingSku: adminProcedure
+    .input(z.object({ pendingId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.update(importPendingSkus)
+        .set({ status: "ignored" })
+        .where(eq(importPendingSkus.id, input.pendingId));
+      return { ignored: true };
     }),
 });

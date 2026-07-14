@@ -1540,3 +1540,22 @@ export const distributorColumnMappings = mysqlTable("distributor_column_mappings
 }));
 export type DistributorColumnMapping = typeof distributorColumnMappings.$inferSelect;
 export type InsertDistributorColumnMapping = typeof distributorColumnMappings.$inferInsert;
+
+// ─── Import Pending SKUs ──────────────────────────────────────────────────────
+// Stores unmatched cabinet codes from distributor imports so admins can
+// assign them to a master cabinet (creating an alias) and then import the rows.
+export const importPendingSkus = mysqlTable("import_pending_skus", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  rawCode: varchar("rawCode", { length: 128 }).notNull(), // e.g. "3DB12"
+  // JSON: { [styleCode]: { listPrice: number, yourCost: number, styleId: number } }
+  pricesJson: text("pricesJson").notNull(),
+  status: mysqlEnum("status", ["pending", "resolved", "ignored"]).default("pending").notNull(),
+  resolvedCabinetId: int("resolvedCabinetId"), // set when admin assigns to master
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  uniqDistCode: unique("uniq_dist_code").on(t.distributorId, t.rawCode),
+}));
+export type ImportPendingSku = typeof importPendingSkus.$inferSelect;
+export type InsertImportPendingSku = typeof importPendingSkus.$inferInsert;

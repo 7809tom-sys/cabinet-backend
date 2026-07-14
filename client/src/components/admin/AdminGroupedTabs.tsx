@@ -39,7 +39,7 @@ import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
 import ShippingAdmin from "@/components/admin/ShippingAdmin";
 import MarginsAdmin from "@/components/admin/MarginsAdmin";
 import DistributorMultipliersAdmin from "@/components/admin/DistributorMultipliersAdmin";
-import ConflictsAdmin from "@/components/admin/ConflictsAdmin";
+import ConflictsAdmin, { PendingSkusTab } from "@/components/admin/ConflictsAdmin";
 import PayoutsAdmin from "@/components/admin/PayoutsAdmin";
 import CostLookupAdmin from "@/components/admin/CostLookupAdmin";
 import PaymentsAdmin from "@/components/admin/PaymentsAdmin";
@@ -459,7 +459,13 @@ export default function AdminGroupedTabs() {
         <TabsContent value="door-corrections" className="mt-6"><AdminTabHelp tab="door-corrections" /><DoorCorrectionsAdmin /></TabsContent>
         <TabsContent value="images" className="mt-6"><AdminTabHelp tab="images" /><SkuImageManager /></TabsContent>
         <TabsContent value="pelican-catalog" className="mt-6"><PelicanCatalogAdmin /></TabsContent>
-        <TabsContent value="conflicts" className="mt-6"><AdminTabHelp tab="conflicts" /><ConflictsAdmin /></TabsContent>
+        <TabsContent value="conflicts" className="mt-6">
+          <AdminTabHelp tab="conflicts" />
+          <div className="space-y-8">
+            <PendingSkusTab />
+            <ConflictsAdmin />
+          </div>
+        </TabsContent>
         <TabsContent value="dimensions" className="mt-6"><AdminTabHelp tab="dimensions" /><BulkDimensionsAdmin /></TabsContent>
 
         {/* Pricing */}

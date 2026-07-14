@@ -34,7 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Pencil } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Pencil, Link2, X } from "lucide-react";
 
 function fmtDim(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return "—";
@@ -277,6 +277,97 @@ function EditConflictDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Pending Import SKUs Section ─────────────────────────────────────────────
+function PendingSkusSection() {
+  const { data: pending, isLoading, refetch } = trpc.distributorAdmin.listPendingSkus.useQuery({ status: "pending" });
+  const resolve = trpc.distributorAdmin.resolvePendingSku.useMutation({
+    onSuccess: (result: { masterCode: string; skusInserted: number }) => {
+      toast.success(`Assigned to ${result.masterCode} — ${result.skusInserted} SKU rows imported`);
+      refetch();
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  });
+  const ignore = trpc.distributorAdmin.ignorePendingSku.useMutation({
+    onSuccess: () => { toast.success("Ignored"); refetch(); },
+  });
+  const [inputs, setInputs] = useState<Record<number, string>>({});
+
+  if (isLoading) return <div className="flex items-center gap-2 text-muted-foreground"><Spinner className="h-4 w-4" /> Loading pending codes…</div>;
+  if (!pending || pending.length === 0) return (
+    <div className="text-sm text-muted-foreground py-4">No unmatched import codes — all codes resolved.</div>
+  );
+  type PendingItem = typeof pending[number];
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        These cabinet codes were not found in the master catalog during import. Type the master code or alias they should map to, then click Assign.
+      </p>
+      {pending.map((item: PendingItem) => (
+        <Card key={item.id} className="border-amber-200 dark:border-amber-800">
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono font-semibold text-sm">{item.rawCode}</span>
+                  <Badge variant="outline" className="text-xs">{item.distributorName ?? `Dist #${item.distributorId}`}</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground mb-2">
+                  {Object.keys(JSON.parse(item.pricesJson)).length} style(s) pending · imported {new Date(item.createdAt).toLocaleDateString()}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Master code or alias (e.g. DB12-3)"
+                    value={inputs[item.id] ?? ""}
+                    onChange={(e) => setInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                    className="h-8 text-sm max-w-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && inputs[item.id]?.trim()) {
+                        resolve.mutate({ pendingId: item.id, masterCodeOrAlias: inputs[item.id].trim() });
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    className="gap-1.5 h-8"
+                    disabled={!inputs[item.id]?.trim() || resolve.isPending}
+                    onClick={() => resolve.mutate({ pendingId: item.id, masterCodeOrAlias: inputs[item.id].trim() })}
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Assign
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1.5 h-8 text-muted-foreground"
+                    onClick={() => ignore.mutate({ pendingId: item.id })}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Ignore
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+export function PendingSkusTab() {
+  const { data: pending } = trpc.distributorAdmin.listPendingSkus.useQuery({ status: "pending" });
+  const count = pending?.length ?? 0;
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold">Unmatched Import Codes</h2>
+        {count > 0 && <Badge variant="destructive">{count}</Badge>}
+      </div>
+      <PendingSkusSection />
+    </div>
   );
 }
 
