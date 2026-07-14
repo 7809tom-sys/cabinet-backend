@@ -997,3 +997,33 @@
 ## Import List Price Fix
 - [ ] Fix import: store raw spreadsheet list price in listPrice column without adjustment override
 - [ ] Fix display: show listPrice (not adjustedListPrice) as the primary price everywhere in cart/BOM
+
+## AR Tape Measure → Design Tool Sync
+- [x] Create measure_sessions DB table (token, userId, status, measurements JSON, expiresAt, completedAt)
+- [x] Apply Drizzle migration 0069 for measure_sessions table
+- [x] Build measureSessionsRouter: createSession, pollSession, consumeSession, saveMeasurements, cleanupExpired procedures
+- [x] Register measureSessionsRouter in server/routers.ts
+- [x] Add "Measure Room" toolbar button (Smartphone icon) to DesignTool.tsx next to RoomSizeControl
+- [x] Add measure session Dialog modal to DesignTool.tsx (QR code + direct link + polling indicator)
+- [x] Poll for measurements every 3s; auto-apply room dimensions when phone sends measurements
+- [x] Add Send to Designer button to WebXRMeasure component (appears when ?session= param present + measurements taken)
+- [x] Add Send to Designer button to PhotoMeasure component (appears when ?session= param present + measurements taken)
+- [x] TypeScript: 0 errors
+
+## AR Tape Measure — Window & Door Tagging
+- [ ] Extend WallMeasurement type to include segmentType: "wall" | "window" | "door" and optional label
+- [ ] Update saveMeasurements zod schema to accept segmentType per segment
+- [ ] ARMeasure.tsx PhotoMeasure: after each measurement result, show tag buttons (Wall / Window / Door) so user can label the segment before measuring the next one
+- [ ] ARMeasure.tsx WebXRMeasure: after each pair of points produces a measurement, show tag overlay buttons (Wall / Window / Door)
+- [ ] "Send to Designer" sends all segments with their segmentType tags
+- [ ] DesignTool.tsx: when consuming measurements, detect window/door segments and place WallOpenings on the appropriate room walls
+- [ ] Map opening inch-position along the wall correctly (cumulative offset from wall start)
+- [ ] TypeScript: 0 errors
+- [ ] Save checkpoint
+
+## AR Tape Measure — Electrical Segment Type
+- [x] Add "electrical" to segmentType enum in measureSessions.ts
+- [x] Add Electrical tag button (⚡) to ARMeasure.tsx tag grid (both WebXR and Photo modes)
+- [x] DesignTool.tsx: place electrical annotations as opening markers on the room wall
+- [x] TypeScript: 0 errors
+- [ ] Save checkpoint

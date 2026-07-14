@@ -103,6 +103,10 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
   const overlayRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"starting" | "ready" | "measuring" | "error">("starting");
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  // Per-measurement segment type (parallel array to measurements)
+  const [segmentTypes, setSegmentTypes] = useState<Array<"wall" | "window" | "door" | "plumbing" | "electrical">>([]); 
+  // Which measurement index is currently being tagged (null = tag panel hidden)
+  const [taggingIdx, setTaggingIdx] = useState<number | null>(null);
   const saveMeasurements = trpc.measureSessions.saveMeasurements.useMutation({
     onSuccess: () => toast.success("Measurements sent to the Design Tool!"),
     onError: (e) => toast.error(`Failed to send: ${e.message}`),
@@ -112,10 +116,11 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
     saveMeasurements.mutate({
       token: sessionToken,
       walls: measurements.map((m, i) => ({
-        label: m.label || `Wall ${i + 1}`,
+        label: m.label || `Segment ${i + 1}`,
         inches: m.meters * 39.3701,
         feet: m.meters * 3.28084,
         meters: m.meters,
+        segmentType: segmentTypes[i] ?? "wall",
       })),
     });
   }
@@ -363,7 +368,10 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
       const value = feet > 0
         ? `${feet}′ ${remIn}″  (${(meters * 100).toFixed(1)} cm)`
         : `${inches.toFixed(1)}″  (${(meters * 100).toFixed(1)} cm)`;
+      const newIdx = Math.floor(count / 2) - 1;
       setMeasurements((prev) => [...prev, { label, value, meters }]);
+      setSegmentTypes((prev) => [...prev, "wall"]); // default; user can change via tag panel
+      setTaggingIdx(newIdx); // show tag panel for this measurement
       setStatus("ready");
       toast.success(value, { duration: 3000 });
     } else {
@@ -375,6 +383,8 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
     placedPointsRef.current = [];
     setPointCount(0);
     setMeasurements([]);
+    setSegmentTypes([]);
+    setTaggingIdx(null);
     setStatus("ready");
   }
 
@@ -389,6 +399,8 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
     if (pts.length % 2 !== 0) {
       // Removed second point of a pair — remove last measurement too
       setMeasurements((prev) => prev.slice(0, -1));
+      setSegmentTypes((prev) => prev.slice(0, -1));
+      setTaggingIdx(null);
     }
   }
 
@@ -464,26 +476,78 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
           </div>
         </div>
 
-        {/* Measurements list */}
-        {measurements.length > 0 && (
-          <div className="absolute bottom-4 left-4 right-4 space-y-1.5 pointer-events-auto">
-            {measurements.slice(-4).map((m, i) => (
-              <div
-                key={i}
-                className="bg-black/75 backdrop-blur rounded-xl px-4 py-2.5 flex justify-between items-center text-white"
-              >
-                <span className="text-white/50 text-xs">{m.label}</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm">{m.value}</span>
-                  <button
-                    onClick={() => { navigator.clipboard?.writeText(m.value); toast.success("Copied!"); }}
-                    className="text-white/40 hover:text-white/80 transition-colors"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+        {/* Segment tag panel — appears after each measurement, dismissed by tapping a tag */}
+        {taggingIdx !== null && measurements[taggingIdx] && (
+          <div className="absolute bottom-4 left-4 right-4 pointer-events-auto">
+            <div className="bg-black/85 backdrop-blur rounded-2xl p-4 space-y-3">
+              <div className="text-center">
+                <p className="text-white font-bold text-base">{measurements[taggingIdx].value}</p>
+                <p className="text-white/50 text-xs mt-0.5">What did you just measure?</p>
               </div>
-            ))}
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { type: "wall" as const,        emoji: "🧱", label: "Wall" },
+                  { type: "window" as const,      emoji: "🪟", label: "Window" },
+                  { type: "door" as const,        emoji: "🚪", label: "Door" },
+                  { type: "plumbing" as const,    emoji: "🚰", label: "Plumbing" },
+                  { type: "electrical" as const,  emoji: "⚡", label: "Electrical" },
+                ] as const).map(({ type, emoji, label }) => {
+                  const active = segmentTypes[taggingIdx] === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSegmentTypes((prev) => {
+                          const updated = [...prev];
+                          updated[taggingIdx] = type;
+                          return updated;
+                        });
+                        setTaggingIdx(null); // dismiss panel, ready for next measurement
+                      }}
+                      className={[
+                        "flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-colors",
+                        active
+                          ? "border-[#d4a75a] bg-[#d4a75a]/20 text-white"
+                          : "border-white/20 text-white/80 hover:border-[#d4a75a]/60",
+                      ].join(" ")}
+                    >
+                      <span>{emoji}</span> {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Measurements list — shown when tag panel is not active */}
+        {measurements.length > 0 && taggingIdx === null && (
+          <div className="absolute bottom-4 left-4 right-4 space-y-1.5 pointer-events-auto">
+            {measurements.slice(-4).map((m, absIdx) => {
+              const realIdx = measurements.length - Math.min(4, measurements.length) + absIdx;
+              const segIcon = ({ wall: "🧱", window: "🪟", door: "🚪", plumbing: "🚰", electrical: "⚡" } as Record<string, string>)[segmentTypes[realIdx] ?? "wall"] ?? "🧱";
+              return (
+                <div
+                  key={realIdx}
+                  className="bg-black/75 backdrop-blur rounded-xl px-4 py-2.5 flex justify-between items-center text-white"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{segIcon}</span>
+                    <span className="text-white/50 text-xs">{m.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm">{m.value}</span>
+                    <button
+                      onClick={() => { navigator.clipboard?.writeText(m.value); toast.success("Copied!"); }}
+                      className="text-white/40 hover:text-white/80 transition-colors"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
             {sessionToken && measurements.length > 0 && (
               <button
                 onClick={(e) => { e.stopPropagation(); sendToDesigner(); }}
@@ -491,7 +555,7 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
                 className="w-full bg-[#d4a75a] text-[#1a2744] font-bold rounded-xl px-4 py-3 flex items-center justify-center gap-2 text-sm disabled:opacity-60"
               >
                 <Send className="h-4 w-4" />
-                {saveMeasurements.isPending ? "Sending…" : "Send to Designer"}
+                {saveMeasurements.isPending ? "Sending…" : `Send ${measurements.length} Segment${measurements.length > 1 ? "s" : ""} to Designer`}
               </button>
             )}
           </div>
@@ -512,7 +576,7 @@ function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
   const [measPoints, setMeasPoints] = useState<[Point, Point] | null>(null);
   const [result, setResult] = useState<{ inches: number; cm: number; feet: string } | null>(null);
   const [history, setHistory] = useState<{ feet: string; cm: string; ref: string }[]>([]);
-  const [allResults, setAllResults] = useState<{ inches: number; cm: number; feet: string }[]>([]);
+  const [allResults, setAllResults] = useState<{ inches: number; cm: number; feet: string; segmentType: "wall" | "window" | "door" | "plumbing" | "electrical" }[]>([]);
   const saveMeasurements = trpc.measureSessions.saveMeasurements.useMutation({
     onSuccess: () => toast.success("Measurements sent to the Design Tool!"),
     onError: (e) => toast.error(`Failed to send: ${e.message}`),
@@ -522,10 +586,11 @@ function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
     saveMeasurements.mutate({
       token: sessionToken,
       walls: allResults.map((r, i) => ({
-        label: `Wall ${i + 1}`,
+        label: `Segment ${i + 1}`,
         inches: r.inches,
         feet: r.inches / 12,
         meters: r.inches * 0.0254,
+        segmentType: r.segmentType as "wall" | "window" | "door" | "plumbing" | "electrical",
       })),
     });
   }
@@ -585,7 +650,7 @@ function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
     const remIn = (inches % 12).toFixed(1);
     const feetStr = feet > 0 ? `${feet}′ ${remIn}″` : `${inches.toFixed(1)}″`;
     setResult({ inches, cm, feet: feetStr });
-    setAllResults((prev) => [...prev, { inches, cm, feet: feetStr }]);
+    setAllResults((prev) => [...prev, { inches, cm, feet: feetStr, segmentType: "wall" as const }]);
     setHistory((prev) => [
       { feet: feetStr, cm: cm.toFixed(1), ref: REFERENCE_OBJECTS[refObjIdx].label },
       ...prev.slice(0, 4),
@@ -834,6 +899,43 @@ function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
             <div className="text-xs text-[#6a7a9a]">
               Based on {customRefMm ? `custom ${customRefMm} mm` : `${REFERENCE_OBJECTS[refObjIdx].label} (${REFERENCE_OBJECTS[refObjIdx].mm} mm)`}
             </div>
+
+            {/* Segment type tag — what is this measurement? */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-[#8a9bb8] uppercase tracking-wider">What did you just measure?</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { type: "wall" as const,        emoji: "🧱", label: "Wall" },
+                  { type: "window" as const,      emoji: "🪟", label: "Window" },
+                  { type: "door" as const,        emoji: "🚪", label: "Door" },
+                  { type: "plumbing" as const,    emoji: "🚰", label: "Plumbing" },
+                  { type: "electrical" as const,  emoji: "⚡", label: "Electrical" },
+                ] as const).map(({ type, emoji, label }) => {
+                  const current = allResults[allResults.length - 1]?.segmentType ?? "wall";
+                  const active = current === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setAllResults((prev) => {
+                        if (prev.length === 0) return prev;
+                        const updated = [...prev];
+                        updated[updated.length - 1] = { ...updated[updated.length - 1], segmentType: type };
+                        return updated;
+                      })}
+                      className={[
+                        "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors",
+                        active
+                          ? "border-[#d4a75a] bg-[#d4a75a]/15 text-white"
+                          : "border-[#2a3a5c] text-[#8a9bb8] hover:border-[#d4a75a]/50 hover:text-white",
+                      ].join(" ")}
+                    >
+                      <span>{emoji}</span> {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="flex gap-3">
               <Button
                 onClick={() => { navigator.clipboard?.writeText(`${result.feet} (${result.cm.toFixed(1)} cm)`); toast.success("Copied!"); }}

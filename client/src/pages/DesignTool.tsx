@@ -446,17 +446,76 @@ export default function DesignTool() {
   measurePollDataRef.current = measurePollData;
   useEffect(() => {
     if (measurePollData?.status === "completed" && measurePollData.walls && measureSessionToken) {
-      const walls = measurePollData.walls;
-      // Find the two longest walls to set room width and depth
-      const sorted = [...walls].sort((a, b) => b.inches - a.inches);
-      const widthIn = Math.round(sorted[0]?.inches ?? 144);
-      const depthIn = Math.round(sorted[1]?.inches ?? 120);
+      const segments = measurePollData.walls as Array<{
+        label: string; inches: number; feet: number; meters: number;
+        segmentType?: "wall" | "window" | "door" | "plumbing" | "electrical";
+      }>;
+
+      // Determine room dimensions from the two longest pure-wall segments
+      const wallSegs = segments.filter((s) => !s.segmentType || s.segmentType === "wall");
+      const sizeSource = wallSegs.length >= 2 ? wallSegs : [...segments];
+      const sizeSorted = [...sizeSource].sort((a, b) => b.inches - a.inches);
+      const widthIn = Math.round(sizeSorted[0]?.inches ?? 144);
+      const depthIn = Math.round(sizeSorted[1]?.inches ?? 120);
       setRoom((prev) => ({ ...prev, width: widthIn, depth: depthIn }));
+
+      // Build WallOpenings from window / door / plumbing / electrical segments.
+      // Walk in order, accumulate offset along the bottom wall.
+      const newOpenings: WallOpening[] = [];
+      let offsetAlongBottom = 0;
+      for (const seg of segments) {
+        const type = seg.segmentType ?? "wall";
+        const inches = Math.round(seg.inches);
+        const clampedOffset = Math.min(offsetAlongBottom, Math.max(0, widthIn - Math.max(4, inches)));
+        if (type === "window") {
+          newOpenings.push({
+            uid: makeUid(), kind: "window",
+            label: `🪟 Window (${seg.label})`,
+            side: "bottom" as WallSide,
+            offset: clampedOffset, width: inches, height: 36, sill: 42,
+          });
+        } else if (type === "door") {
+          newOpenings.push({
+            uid: makeUid(), kind: "door",
+            label: `🚪 Door (${seg.label})`,
+            side: "bottom" as WallSide,
+            offset: clampedOffset, width: inches, height: 80, sill: 0,
+          });
+        } else if (type === "plumbing") {
+          newOpenings.push({
+            uid: makeUid(), kind: "opening",
+            label: `🚰 Plumbing (${seg.label})`,
+            side: "bottom" as WallSide,
+            offset: clampedOffset, width: Math.max(6, inches), height: 4, sill: 0,
+          });
+        } else if (type === "electrical") {
+          newOpenings.push({
+            uid: makeUid(), kind: "opening",
+            label: `⚡ Electrical (${seg.label})`,
+            side: "bottom" as WallSide,
+            offset: clampedOffset, width: Math.max(4, inches), height: 4, sill: 48,
+          });
+        }
+        offsetAlongBottom += inches;
+      }
+
+      if (newOpenings.length > 0) setOpenings((prev) => [...prev, ...newOpenings]);
+
       consumeMeasureSession.mutate({ token: measureSessionToken });
       setMeasureSessionToken(null);
       setMeasureSessionOpen(false);
       setMeasureQrUrl(null);
-      toast.success(`Room set to ${Math.round(widthIn/12)}' × ${Math.round(depthIn/12)}' from your phone measurements!`);
+
+      const windowCount = newOpenings.filter((o) => o.label.startsWith("🪟")).length;
+      const doorCount = newOpenings.filter((o) => o.label.startsWith("🚪")).length;
+      const plumbingCount = newOpenings.filter((o) => o.label.startsWith("🚰")).length;
+      const electricalCount = newOpenings.filter((o) => o.label.startsWith("⚡")).length;
+      const parts = [`Room ${Math.round(widthIn/12)}' × ${Math.round(depthIn/12)}'`];
+      if (windowCount) parts.push(`${windowCount} window${windowCount > 1 ? "s" : ""}`);
+      if (doorCount) parts.push(`${doorCount} door${doorCount > 1 ? "s" : ""}`);
+      if (plumbingCount) parts.push(`${plumbingCount} plumbing`);
+      if (electricalCount) parts.push(`${electricalCount} electrical`);
+      toast.success(parts.join(" • ") + " placed from phone!");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [measurePollData]);
