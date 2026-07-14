@@ -76,7 +76,7 @@ export interface RefrigeratorOptionsDialogProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const FRIDGE_WIDTHS = [24, 27, 30, 33, 36, 42];
+const FRIDGE_WIDTHS = [30, 33, 36];
 const FRIDGE_HEIGHTS = [66, 70, 72, 78, 84];
 const FRIDGE_DEPTHS = [24, 27, 30, 33, 36];
 
@@ -87,7 +87,7 @@ const BRIDGE_DEPTH_OPTIONS = [12, 24] as const;
 type BridgeDepth = typeof BRIDGE_DEPTH_OPTIONS[number];
 
 // Standard bridge widths — same as fridge widths
-const BRIDGE_WIDTH_OPTIONS = [24, 27, 30, 33, 36, 42];
+const BRIDGE_WIDTH_OPTIONS = [30, 33, 36];
 
 // End panel depth options (inches)
 const PANEL_DEPTH_OPTIONS = [24, 26, 28, 30, 32, 34, 36];
@@ -205,7 +205,8 @@ export function RefrigeratorOptionsDialog({
   const { t } = useLanguage();
 
   // ── Fridge size ────────────────────────────────────────────────────────────
-  const [fridgeW, setFridgeW] = useState<number>(fridgeWidthInches ?? 36);
+  const clampFridgeW = (w: number) => FRIDGE_WIDTHS.includes(w) ? w : FRIDGE_WIDTHS.reduce((a, b) => Math.abs(b - w) < Math.abs(a - w) ? b : a, FRIDGE_WIDTHS[0]);
+  const [fridgeW, setFridgeW] = useState<number>(clampFridgeW(fridgeWidthInches ?? 36));
   const [fridgeH, setFridgeH] = useState<number>(70);
   const [fridgeD, setFridgeD] = useState<number>(30);
 
@@ -213,7 +214,7 @@ export function RefrigeratorOptionsDialog({
   const [above, setAbove] = useState<FridgeAbove>("none");
   const [bridgeHeightChoice, setBridgeHeightChoice] = useState<BridgeHeight>(12);
   const [bridgeDepthChoice, setBridgeDepthChoice] = useState<BridgeDepth>(12);
-  const [bridgeWidthChoice, setBridgeWidthChoice] = useState<number>(fridgeWidthInches ?? 36);
+  const [bridgeWidthChoice, setBridgeWidthChoice] = useState<number>(clampFridgeW(fridgeWidthInches ?? 36));
 
   // ── End panels ─────────────────────────────────────────────────────────────
   const [panels, setPanels] = useState<FridgePanels>("none");
@@ -289,7 +290,7 @@ export function RefrigeratorOptionsDialog({
   // ── Reset on open ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (open) {
-      const w = fridgeWidthInches ?? 36;
+      const w = clampFridgeW(fridgeWidthInches ?? 36);
       setFridgeW(w);
       setFridgeH(70);
       setFridgeD(30);
