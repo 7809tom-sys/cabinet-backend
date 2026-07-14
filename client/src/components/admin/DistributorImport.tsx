@@ -49,6 +49,7 @@ import {
   RotateCcw,
   Table2,
   Link2,
+  X,
 } from "lucide-react";
 
 const ACTION_LABEL: Record<string, string> = {
@@ -333,8 +334,8 @@ function UnmatchedAliasPanel({
   );
 }
 
-// ─── Style Combobox (searchable) ────────────────────────────────────────────────
-/** Searchable combobox for picking a door style by typing its name. */
+// ─── Style Combobox (inline text input with dropdown) ────────────────────────
+/** Inline text input that filters door styles as you type. Click or type to search, click a result to select. */
 function StyleCombobox({
   styles,
   value,
@@ -345,64 +346,87 @@ function StyleCombobox({
   onChange: (val: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [inputVal, setInputVal] = useState("");
   const selected = styles.find((s) => String(s.id) === value);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const filtered = search.trim()
+  // When a selection is made, show its name in the input
+  const displayText = open ? inputVal : (selected?.ourName ?? "");
+
+  const filtered = inputVal.trim()
     ? styles.filter((s) =>
-        s.ourName.toLowerCase().includes(search.toLowerCase()) ||
-        (s.styleCode ?? "").toLowerCase().includes(search.toLowerCase())
+        s.ourName.toLowerCase().includes(inputVal.toLowerCase()) ||
+        (s.styleCode ?? "").toLowerCase().includes(inputVal.toLowerCase())
       )
     : styles;
 
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setInputVal("");
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex items-center justify-between h-7 text-xs w-full min-w-[160px] rounded-md border border-input bg-background px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
-        >
-          <span className={selected ? "" : "text-muted-foreground"}>
-            {selected ? selected.ourName : "— Not imported —"}
-          </span>
-          <ChevronsUpDown className="h-3 w-3 text-muted-foreground ml-1 shrink-0" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-0" align="start">
-        <Command>
-          <CommandInput
-            placeholder="Type style name..."
-            value={search}
-            onValueChange={setSearch}
-            className="h-8 text-xs"
-          />
-          <CommandList className="max-h-[200px]">
-            <CommandEmpty className="py-2 text-xs text-center text-muted-foreground">No styles found.</CommandEmpty>
-            <CommandGroup>
-              <CommandItem
-                value="__none__"
-                onSelect={() => { onChange(""); setOpen(false); setSearch(""); }}
-                className="text-xs text-muted-foreground"
-              >
-                — Not imported —
-              </CommandItem>
-              {filtered.map((s) => (
-                <CommandItem
-                  key={s.id}
-                  value={s.ourName}
-                  onSelect={() => { onChange(String(s.id)); setOpen(false); setSearch(""); }}
-                  className="text-xs"
-                >
-                  <Check className={`mr-1.5 h-3 w-3 ${String(s.id) === value ? "opacity-100" : "opacity-0"}`} />
-                  {s.ourName}
-                  {s.styleCode && <span className="ml-1 text-muted-foreground">({s.styleCode})</span>}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <div ref={containerRef} className="relative w-full min-w-[180px]">
+      <div className="flex items-center h-7 rounded-md border border-input bg-background px-2 gap-1">
+        <input
+          type="text"
+          className="flex-1 text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+          placeholder={selected ? selected.ourName : "— Not imported —"}
+          value={displayText}
+          onFocus={() => { setOpen(true); setInputVal(""); }}
+          onChange={(e) => { setInputVal(e.target.value); setOpen(true); }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") { setOpen(false); setInputVal(""); }
+            if (e.key === "Backspace" && !inputVal && value) { onChange(""); }
+          }}
+        />
+        {value && (
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => { onChange(""); setInputVal(""); }}
+            tabIndex={-1}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
+        <ChevronsUpDown className="h-3 w-3 text-muted-foreground shrink-0" />
+      </div>
+      {open && (
+        <div className="absolute z-50 top-full left-0 mt-1 w-full min-w-[200px] rounded-md border border-border bg-popover shadow-md max-h-[220px] overflow-y-auto">
+          <div
+            className="px-3 py-1.5 text-xs text-muted-foreground cursor-pointer hover:bg-accent"
+            onMouseDown={(e) => { e.preventDefault(); onChange(""); setOpen(false); setInputVal(""); }}
+          >
+            — Not imported —
+          </div>
+          {filtered.length === 0 && (
+            <div className="px-3 py-2 text-xs text-muted-foreground">No styles found.</div>
+          )}
+          {filtered.map((s) => (
+            <div
+              key={s.id}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-accent ${
+                String(s.id) === value ? "bg-accent/60 font-medium" : ""
+              }`}
+              onMouseDown={(e) => { e.preventDefault(); onChange(String(s.id)); setOpen(false); setInputVal(""); }}
+            >
+              <Check className={`h-3 w-3 shrink-0 ${String(s.id) === value ? "opacity-100" : "opacity-0"}`} />
+              <span>{s.ourName}</span>
+              {s.styleCode && <span className="ml-auto text-muted-foreground">{s.styleCode}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -974,3 +974,7 @@
 - [x] Ensure trim cart lines always include listPrice as a fallback in trimSkusForStyles
 - [x] Cabinet cart lines: if unitPrice is 0 or null, show ⚠ Price needed badge instead of $0.00
 - [x] Cart total must exclude $0 lines and show a warning if any line has no price
+
+## Skyline Distributor & Import UI Fix
+- [x] Create Skyline distributor in DB and add all 32 door styles (id=90001)
+- [x] Replace StyleCombobox popover with inline editable text input that filters as you type
