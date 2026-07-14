@@ -37,6 +37,7 @@ interface AdminStyle {
   featuredRank: number;
   distributorId: number;
   distributorName: string | null;
+  seriesName: string | null;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -186,6 +187,11 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [doorSampleImageUrl, setDoorSampleImageUrl] = useState(style.doorSampleImageUrl ?? "");
   const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
   const [thumbnailImageUrl, setThumbnailImageUrl] = useState(style.thumbnailImageUrl ?? "");
+  const [selectedDistributorId, setSelectedDistributorId] = useState(String(style.distributorId));
+  const [editingSeriesName, setEditingSeriesName] = useState(false);
+  const [seriesNameDraft, setSeriesNameDraft] = useState(style.seriesName ?? "");
+
+  const { data: distributorList } = trpc.distributors.list.useQuery();
 
   // Reset state when dialog opens for a different style
   const resetToStyle = (s: AdminStyle) => {
@@ -199,7 +205,20 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setDoorSampleImageUrl(s.doorSampleImageUrl ?? "");
     setRoomSceneImageUrl(s.roomSceneImageUrl ?? "");
     setThumbnailImageUrl(s.thumbnailImageUrl ?? "");
+    setSelectedDistributorId(String(s.distributorId));
+    setSeriesNameDraft(s.seriesName ?? "");
+    setEditingSeriesName(false);
   };
+
+  const updateDistributor = trpc.doorStyles.adminUpdateDoorStyleDistributor.useMutation({
+    onSuccess: () => { toast.success("Distributor updated"); onSaved(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const updateSeriesName = trpc.doorStyles.adminUpdateDistributorSeriesName.useMutation({
+    onSuccess: () => { toast.success("Series name updated"); setEditingSeriesName(false); onSaved(); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const update = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
     onSuccess: () => {
@@ -214,6 +233,11 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     if (!ourName.trim()) {
       toast.error("Internal name is required");
       return;
+    }
+    // Reassign distributor if changed
+    const newDistId = Number(selectedDistributorId);
+    if (newDistId && newDistId !== style.distributorId) {
+      updateDistributor.mutate({ id: style.id, distributorId: newDistId });
     }
     update.mutate({
       id: style.id,
@@ -298,6 +322,60 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
             <p className="text-xs text-muted-foreground">
               Legacy field. Use Alias Name above instead.
             </p>
+          </div>
+
+          {/* Distributor assignment */}
+          <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-3 space-y-3">
+            <Label className="text-sm font-medium text-blue-900">Distributor / Series</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-dist" className="text-xs text-muted-foreground">Assign to Distributor</Label>
+              <Select value={selectedDistributorId} onValueChange={setSelectedDistributorId}>
+                <SelectTrigger id="ed-dist" className="h-9">
+                  <SelectValue placeholder="Select distributor…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(distributorList ?? []).map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.name}{d.seriesName ? ` (${d.seriesName})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Changing this reassigns the style to a different supply line.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Series Name (for this distributor)</Label>
+              {editingSeriesName ? (
+                <div className="flex gap-2">
+                  <Input
+                    value={seriesNameDraft}
+                    onChange={(e) => setSeriesNameDraft(e.target.value)}
+                    placeholder="e.g. Ashford"
+                    className="h-9"
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    className="h-9 bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={updateSeriesName.isPending}
+                    onClick={() => updateSeriesName.mutate({ distributorId: Number(selectedDistributorId), seriesName: seriesNameDraft.trim() || null })}
+                  >
+                    {updateSeriesName.isPending ? "Saving…" : "Save"}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9" onClick={() => { setEditingSeriesName(false); setSeriesNameDraft(style.seriesName ?? ""); }}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{style.seriesName || <span className="text-muted-foreground italic">None set</span>}</span>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingSeriesName(true)}>
+                    <Pencil className="h-3 w-3 mr-1" /> Edit
+                  </Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">This is the series name shown after the style name, e.g. "Lumina White (Ashford)".</p>
+            </div>
           </div>
 
           {/* Internal name */}
@@ -404,6 +482,109 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── Add New Style form ───────────────────────────────────────────────────────
+
+function AddNewStyleForm({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [distributorId, setDistributorId] = useState("");
+  const [styleCode, setStyleCode] = useState("");
+  const [ourName, setOurName] = useState("");
+  const [distributorName, setDistributorName] = useState("");
+  const [doorStyle, setDoorStyle] = useState("");
+  const [color, setColor] = useState("");
+
+  const { data: distributorList } = trpc.distributors.list.useQuery();
+
+  const create = trpc.doorStyles.adminCreateDoorStyle.useMutation({
+    onSuccess: () => {
+      toast.success("Door style created");
+      setOpen(false);
+      setDistributorId(""); setStyleCode(""); setOurName(""); setDistributorName(""); setDoorStyle(""); setColor("");
+      onCreated();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (!open) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 border-dashed"
+        onClick={() => setOpen(true)}
+      >
+        <span className="mr-1.5 text-lg leading-none">+</span> Add New Door Style
+      </Button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="font-semibold text-sm text-blue-900">Add New Door Style</h4>
+        <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5 col-span-2">
+          <Label className="text-xs">Distributor *</Label>
+          <Select value={distributorId} onValueChange={setDistributorId}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Select distributor…" />
+            </SelectTrigger>
+            <SelectContent>
+              {(distributorList ?? []).map((d) => (
+                <SelectItem key={d.id} value={String(d.id)}>
+                  {d.name}{d.seriesName ? ` (${d.seriesName})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Style Code * <span className="text-muted-foreground font-normal">(e.g. SW, AG)</span></Label>
+          <Input value={styleCode} onChange={(e) => setStyleCode(e.target.value.toUpperCase())} placeholder="SW" className="h-9 font-mono" maxLength={32} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Our Name * <span className="text-muted-foreground font-normal">(white-label)</span></Label>
+          <Input value={ourName} onChange={(e) => setOurName(e.target.value)} placeholder="e.g. Blanc Core" className="h-9" maxLength={128} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Distributor Name <span className="text-muted-foreground font-normal">(their name)</span></Label>
+          <Input value={distributorName} onChange={(e) => setDistributorName(e.target.value)} placeholder="e.g. Shaker White" className="h-9" maxLength={128} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Door Style Type</Label>
+          <Input value={doorStyle} onChange={(e) => setDoorStyle(e.target.value)} placeholder="e.g. Shaker" className="h-9" maxLength={64} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Color</Label>
+          <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. White" className="h-9" maxLength={64} />
+        </div>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <Button
+          size="sm"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+          disabled={create.isPending || !distributorId || !styleCode.trim() || !ourName.trim()}
+          onClick={() => create.mutate({
+            distributorId: Number(distributorId),
+            styleCode: styleCode.trim(),
+            ourName: ourName.trim(),
+            distributorName: distributorName.trim() || undefined,
+            doorStyle: doorStyle.trim() || null,
+            color: color.trim() || null,
+          })}
+        >
+          {create.isPending ? "Creating…" : "Create Style"}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+      </div>
+    </div>
   );
 }
 
@@ -538,6 +719,7 @@ export default function FeaturedStylesAdmin() {
           <Badge variant={atCap ? "destructive" : "secondary"} className="text-sm">
             {featured.length} / {MAX_FEATURED} featured
           </Badge>
+          <AddNewStyleForm onCreated={invalidateAll} />
         </div>
       </div>
 

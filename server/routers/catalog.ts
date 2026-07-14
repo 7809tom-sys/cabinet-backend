@@ -771,6 +771,59 @@ export const doorStylesRouter = router({
       const { url } = await storagePut(`door-style-images/${Date.now()}_${safe}`, buf, input.contentType);
       return { url };
     }),
+
+  // Admin: reassign a door style to a different distributor.
+  adminUpdateDoorStyleDistributor: adminProcedure
+    .input(z.object({ id: z.number(), distributorId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.update(doorStyles).set({ distributorId: input.distributorId }).where(eq(doorStyles.id, input.id));
+      return { ok: true };
+    }),
+
+  // Admin: update the series name for a distributor.
+  adminUpdateDistributorSeriesName: adminProcedure
+    .input(z.object({ distributorId: z.number(), seriesName: z.string().max(128).nullable() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.update(distributors).set({ seriesName: input.seriesName?.trim() || null }).where(eq(distributors.id, input.distributorId));
+      return { ok: true };
+    }),
+
+  // Admin: create a new door style entry for a distributor.
+  adminCreateDoorStyle: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number(),
+        styleCode: z.string().min(1).max(32),
+        ourName: z.string().min(1).max(128),
+        distributorName: z.string().max(128).optional(),
+        doorStyle: z.string().max(64).nullable().optional(),
+        color: z.string().max(64).nullable().optional(),
+        finish: z.string().max(128).nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [result] = await db.insert(doorStyles).values({
+        distributorId: input.distributorId,
+        styleCode: input.styleCode.trim().toUpperCase(),
+        ourName: input.ourName.trim(),
+        distributorName: input.distributorName?.trim() || input.ourName.trim(),
+        doorStyle: input.doorStyle?.trim() || null,
+        color: input.color?.trim() || null,
+        finish: input.finish?.trim() || null,
+        isActive: true,
+        isFeatured: false,
+        featuredRank: 0,
+        doorSampleVerified: false,
+        isBuilderGrade: false,
+      });
+      return { ok: true, id: (result as { insertId: number }).insertId };
+    }),
 });
 
 // --- Cabinets -----------------------------------------------------------------

@@ -985,3 +985,11 @@
 - [x] Merge duplicate Skyline: moved 32 styles from id=90001 to id=3, deleted 90001
 - [x] Updated styleDisplayName utility to append (seriesName) — all public displays now show "Lumina White (Ashford)" format
 - [x] doorStyles.list query now joins distributors to return seriesName + displayMode
+
+## Featured Styles Admin — Distributor Assignment & New Style Creation
+- [ ] Add distributor assignment dropdown to each style row in Featured Styles admin (change which distributor a style belongs to)
+- [ ] Add series name editor inline on each style row (edit the distributor's seriesName without leaving the page)
+- [ ] Add "Add New Style" form at the top of Featured Styles admin (create a new door style entry: name, code, distributor, series)
+- [ ] Wire backend: adminUpdateDoorStyleDistributor procedure (update distributorId on a door style)
+- [ ] Wire backend: adminUpdateDistributorSeriesName procedure (update seriesName on a distributor)
+- [ ] Wire backend: adminCreateDoorStyle procedure (create a new door style row)
