@@ -1027,3 +1027,11 @@
 - [x] DesignTool.tsx: place electrical annotations as opening markers on the room wall
 - [x] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## AR Tape Measure — Plumbing/Electrical Note Input
+- [x] Add optional note field to WallMeasurement zod schema (max 120 chars)
+- [x] ARMeasure.tsx: after tapping Plumbing or Electrical, show a text input for notes (e.g. "sink", "110v outlet") with a Done/Skip button
+- [x] Pass note through sendToDesigner in both WebXR and Photo modes
+- [x] DesignTool.tsx: append note to the opening label (e.g. "🚰 Plumbing — sink")
+- [x] TypeScript: 0 errors
+- [ ] Save checkpoint

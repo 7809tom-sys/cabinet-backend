@@ -449,6 +449,7 @@ export default function DesignTool() {
       const segments = measurePollData.walls as Array<{
         label: string; inches: number; feet: number; meters: number;
         segmentType?: "wall" | "window" | "door" | "plumbing" | "electrical";
+        note?: string;
       }>;
 
       // Determine room dimensions from the two longest pure-wall segments
@@ -482,16 +483,18 @@ export default function DesignTool() {
             offset: clampedOffset, width: inches, height: 80, sill: 0,
           });
         } else if (type === "plumbing") {
+          const noteStr = seg.note ? ` — ${seg.note}` : "";
           newOpenings.push({
             uid: makeUid(), kind: "opening",
-            label: `🚰 Plumbing (${seg.label})`,
+            label: `🚰 Plumbing${noteStr} (${seg.label})`,
             side: "bottom" as WallSide,
             offset: clampedOffset, width: Math.max(6, inches), height: 4, sill: 0,
           });
         } else if (type === "electrical") {
+          const noteStr = seg.note ? ` — ${seg.note}` : "";
           newOpenings.push({
             uid: makeUid(), kind: "opening",
-            label: `⚡ Electrical (${seg.label})`,
+            label: `⚡ Electrical${noteStr} (${seg.label})`,
             side: "bottom" as WallSide,
             offset: clampedOffset, width: Math.max(4, inches), height: 4, sill: 48,
           });

@@ -21,6 +21,7 @@ const WallMeasurement = z.object({
   feet: z.number().positive(),   // decimal feet
   meters: z.number().positive(),
   segmentType: z.enum(["wall", "window", "door", "plumbing", "electrical"]).default("wall"),
+  note: z.string().max(120).optional(),
 });
 
 export const measureSessionsRouter = router({

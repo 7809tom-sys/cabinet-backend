@@ -105,8 +105,13 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   // Per-measurement segment type (parallel array to measurements)
   const [segmentTypes, setSegmentTypes] = useState<Array<"wall" | "window" | "door" | "plumbing" | "electrical">>([]); 
+  // Per-measurement optional note (parallel array)
+  const [segmentNotes, setSegmentNotes] = useState<string[]>([]);
   // Which measurement index is currently being tagged (null = tag panel hidden)
   const [taggingIdx, setTaggingIdx] = useState<number | null>(null);
+  // Note input step: shown after plumbing/electrical is tapped
+  const [noteInputIdx, setNoteInputIdx] = useState<number | null>(null);
+  const [noteInputValue, setNoteInputValue] = useState("");
   const saveMeasurements = trpc.measureSessions.saveMeasurements.useMutation({
     onSuccess: () => toast.success("Measurements sent to the Design Tool!"),
     onError: (e) => toast.error(`Failed to send: ${e.message}`),
@@ -121,6 +126,7 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
         feet: m.meters * 3.28084,
         meters: m.meters,
         segmentType: segmentTypes[i] ?? "wall",
+        ...(segmentNotes[i] ? { note: segmentNotes[i] } : {}),
       })),
     });
   }
@@ -384,7 +390,10 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
     setPointCount(0);
     setMeasurements([]);
     setSegmentTypes([]);
+    setSegmentNotes([]);
     setTaggingIdx(null);
+    setNoteInputIdx(null);
+    setNoteInputValue("");
     setStatus("ready");
   }
 
@@ -400,7 +409,10 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
       // Removed second point of a pair — remove last measurement too
       setMeasurements((prev) => prev.slice(0, -1));
       setSegmentTypes((prev) => prev.slice(0, -1));
+      setSegmentNotes((prev) => prev.slice(0, -1));
       setTaggingIdx(null);
+      setNoteInputIdx(null);
+      setNoteInputValue("");
     }
   }
 
@@ -476,8 +488,68 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
           </div>
         </div>
 
+        {/* Note input panel — shown after plumbing/electrical is tapped */}
+        {noteInputIdx !== null && (
+          <div className="absolute bottom-4 left-4 right-4 pointer-events-auto">
+            <div className="bg-black/90 backdrop-blur rounded-2xl p-4 space-y-3">
+              <p className="text-white font-bold text-sm text-center">
+                {segmentTypes[noteInputIdx] === "plumbing" ? "🚰 Plumbing" : "⚡ Electrical"} — Add a note
+              </p>
+              <input
+                autoFocus
+                type="text"
+                maxLength={120}
+                value={noteInputValue}
+                onChange={(e) => setNoteInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (noteInputValue.trim()) {
+                      setSegmentNotes((prev) => {
+                        const updated = [...prev];
+                        updated[noteInputIdx] = noteInputValue.trim();
+                        return updated;
+                      });
+                    }
+                    setNoteInputIdx(null);
+                    setNoteInputValue("");
+                  }
+                }}
+                placeholder={segmentTypes[noteInputIdx] === "plumbing" ? "e.g. sink, dishwasher, ice maker" : "e.g. 110v outlet, GFCI, 240v range"}
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 text-sm focus:outline-none focus:border-[#d4a75a]"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (noteInputValue.trim()) {
+                      setSegmentNotes((prev) => {
+                        const updated = [...prev];
+                        updated[noteInputIdx] = noteInputValue.trim();
+                        return updated;
+                      });
+                    }
+                    setNoteInputIdx(null);
+                    setNoteInputValue("");
+                  }}
+                  className="flex-1 bg-[#d4a75a] text-[#1a2744] font-bold rounded-xl py-2.5 text-sm"
+                >
+                  Done
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setNoteInputIdx(null); setNoteInputValue(""); }}
+                  className="px-4 border border-white/20 text-white/60 rounded-xl py-2.5 text-sm"
+                >
+                  Skip
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Segment tag panel — appears after each measurement, dismissed by tapping a tag */}
-        {taggingIdx !== null && measurements[taggingIdx] && (
+        {taggingIdx !== null && noteInputIdx === null && measurements[taggingIdx] && (
           <div className="absolute bottom-4 left-4 right-4 pointer-events-auto">
             <div className="bg-black/85 backdrop-blur rounded-2xl p-4 space-y-3">
               <div className="text-center">
@@ -498,12 +570,18 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
                       key={type}
                       onClick={(e) => {
                         e.stopPropagation();
+                        const idx = taggingIdx;
                         setSegmentTypes((prev) => {
                           const updated = [...prev];
-                          updated[taggingIdx] = type;
+                          updated[idx] = type;
                           return updated;
                         });
-                        setTaggingIdx(null); // dismiss panel, ready for next measurement
+                        setTaggingIdx(null);
+                        // For plumbing/electrical, open the note input
+                        if (type === "plumbing" || type === "electrical") {
+                          setNoteInputIdx(idx);
+                          setNoteInputValue("");
+                        }
                       }}
                       className={[
                         "flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-colors",
@@ -534,7 +612,12 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-base">{segIcon}</span>
-                    <span className="text-white/50 text-xs">{m.label}</span>
+                    <div>
+                      <span className="text-white/50 text-xs">{m.label}</span>
+                      {segmentNotes[realIdx] && (
+                        <p className="text-[#d4a75a] text-xs mt-0.5">{segmentNotes[realIdx]}</p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm">{m.value}</span>
@@ -576,7 +659,10 @@ function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
   const [measPoints, setMeasPoints] = useState<[Point, Point] | null>(null);
   const [result, setResult] = useState<{ inches: number; cm: number; feet: string } | null>(null);
   const [history, setHistory] = useState<{ feet: string; cm: string; ref: string }[]>([]);
-  const [allResults, setAllResults] = useState<{ inches: number; cm: number; feet: string; segmentType: "wall" | "window" | "door" | "plumbing" | "electrical" }[]>([]);
+  const [allResults, setAllResults] = useState<{ inches: number; cm: number; feet: string; segmentType: "wall" | "window" | "door" | "plumbing" | "electrical"; note?: string }[]>([]);
+  // Note input state for photo mode
+  const [photoNoteInputOpen, setPhotoNoteInputOpen] = useState(false);
+  const [photoNoteValue, setPhotoNoteValue] = useState("");
   const saveMeasurements = trpc.measureSessions.saveMeasurements.useMutation({
     onSuccess: () => toast.success("Measurements sent to the Design Tool!"),
     onError: (e) => toast.error(`Failed to send: ${e.message}`),
@@ -591,6 +677,7 @@ function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
         feet: r.inches / 12,
         meters: r.inches * 0.0254,
         segmentType: r.segmentType as "wall" | "window" | "door" | "plumbing" | "electrical",
+        ...(r.note ? { note: r.note } : {}),
       })),
     });
   }
@@ -916,12 +1003,19 @@ function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
                   return (
                     <button
                       key={type}
-                      onClick={() => setAllResults((prev) => {
-                        if (prev.length === 0) return prev;
-                        const updated = [...prev];
-                        updated[updated.length - 1] = { ...updated[updated.length - 1], segmentType: type };
-                        return updated;
-                      })}
+                      onClick={() => {
+                        setAllResults((prev) => {
+                          if (prev.length === 0) return prev;
+                          const updated = [...prev];
+                          updated[updated.length - 1] = { ...updated[updated.length - 1], segmentType: type };
+                          return updated;
+                        });
+                        // Open note input for plumbing/electrical
+                        if (type === "plumbing" || type === "electrical") {
+                          setPhotoNoteInputOpen(true);
+                          setPhotoNoteValue("");
+                        }
+                      }}
                       className={[
                         "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors",
                         active
@@ -935,6 +1029,64 @@ function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
                 })}
               </div>
             </div>
+
+            {/* Note input — shown after plumbing/electrical is tapped */}
+            {photoNoteInputOpen && (
+              <div className="bg-[#131f35] border border-[#d4a75a]/30 rounded-xl p-4 space-y-3">
+                <p className="text-xs font-semibold text-[#d4a75a] uppercase tracking-wider">
+                  {allResults[allResults.length - 1]?.segmentType === "plumbing" ? "🚰 Plumbing note" : "⚡ Electrical note"}
+                </p>
+                <input
+                  autoFocus
+                  type="text"
+                  maxLength={120}
+                  value={photoNoteValue}
+                  onChange={(e) => setPhotoNoteValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (photoNoteValue.trim()) {
+                        setAllResults((prev) => {
+                          if (prev.length === 0) return prev;
+                          const updated = [...prev];
+                          updated[updated.length - 1] = { ...updated[updated.length - 1], note: photoNoteValue.trim() };
+                          return updated;
+                        });
+                      }
+                      setPhotoNoteInputOpen(false);
+                      setPhotoNoteValue("");
+                    }
+                  }}
+                  placeholder={allResults[allResults.length - 1]?.segmentType === "plumbing" ? "e.g. sink, dishwasher, ice maker" : "e.g. 110v outlet, GFCI, 240v range"}
+                  className="w-full bg-white/5 border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-white placeholder-[#4a5a7a] text-sm focus:outline-none focus:border-[#d4a75a]"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (photoNoteValue.trim()) {
+                        setAllResults((prev) => {
+                          if (prev.length === 0) return prev;
+                          const updated = [...prev];
+                          updated[updated.length - 1] = { ...updated[updated.length - 1], note: photoNoteValue.trim() };
+                          return updated;
+                        });
+                      }
+                      setPhotoNoteInputOpen(false);
+                      setPhotoNoteValue("");
+                    }}
+                    className="flex-1 bg-[#d4a75a] text-[#1a2744] font-bold rounded-lg py-2 text-sm"
+                  >
+                    Done
+                  </button>
+                  <button
+                    onClick={() => { setPhotoNoteInputOpen(false); setPhotoNoteValue(""); }}
+                    className="px-4 border border-[#2a3a5c] text-[#8a9bb8] rounded-lg py-2 text-sm"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button
