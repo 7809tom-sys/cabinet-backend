@@ -279,6 +279,23 @@ export function RefrigeratorOptionsDialog({
 
   const chosenBridge = above === "bridge" ? bridgeByDims[bridgeHeightChoice][bridgeDepthChoice] : null;
 
+  // ── Nearest available combination when current selection has no match ─────
+  const nearestAvailable = useMemo(() => {
+    if (chosenBridge) return null; // already matched
+    // Score all H×D combos by closeness to current selection
+    let best: { h: BridgeHeight; d: BridgeDepth; cab: SurroundCabinet } | null = null;
+    let bestScore = Infinity;
+    for (const h of BRIDGE_HEIGHT_OPTIONS) {
+      for (const d of BRIDGE_DEPTH_OPTIONS) {
+        const cab = bridgeByDims[h][d];
+        if (!cab) continue;
+        const score = Math.abs(h - bridgeHeightChoice) + Math.abs(d - bridgeDepthChoice) * 0.5;
+        if (score < bestScore) { bestScore = score; best = { h, d, cab }; }
+      }
+    }
+    return best;
+  }, [chosenBridge, bridgeByDims, bridgeHeightChoice, bridgeDepthChoice]);
+
   // Auto-calculated panel height
   const panelHeight = above === "bridge" && panels !== "none"
     ? calcPanelHeight(bridgeHeightChoice)
@@ -444,9 +461,32 @@ export function RefrigeratorOptionsDialog({
                     <span className="font-medium text-foreground">{chosenBridge.masterCode}</span>
                     {" "}— {bridgeHeightChoice}″ H × {bridgeDepthChoice}″ D × {bridgeWidthChoice}″ W
                   </p>
+                ) : nearestAvailable ? (
+                  <div className="rounded-md border border-amber-400/40 bg-amber-50/10 px-3 py-2 space-y-1.5">
+                    <p className="text-[11px] text-amber-600 font-medium">
+                      No {bridgeHeightChoice}″ × {bridgeDepthChoice}″ cabinet in this style’s catalog.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Closest available:{" "}
+                      <span className="font-semibold text-foreground">
+                        {nearestAvailable.h}″ H × {nearestAvailable.d}″ D
+                      </span>
+                      {" — "}{nearestAvailable.cab.masterCode}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBridgeHeightChoice(nearestAvailable.h);
+                        setBridgeDepthChoice(nearestAvailable.d);
+                      }}
+                      className="inline-flex items-center gap-1 rounded border border-amber-500/60 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-500/20 transition-colors dark:text-amber-400 dark:border-amber-400/50 dark:hover:bg-amber-400/10"
+                    >
+                      Switch to {nearestAvailable.h}″ × {nearestAvailable.d}″
+                    </button>
+                  </div>
                 ) : (
                   <p className="text-[11px] text-amber-600">
-                    No {bridgeHeightChoice}″ × {bridgeDepthChoice}″ cabinet available for this style. Try a different combination.
+                    No over-fridge cabinets found for this style. A generic placeholder will be placed.
                   </p>
                 )}
               </div>
