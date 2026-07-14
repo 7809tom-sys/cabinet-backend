@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq, inArray, desc, sql } from "drizzle-orm";
+import { and, eq, inArray, desc, asc, sql, or, like } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { distributorProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -675,5 +675,44 @@ export const distributorPortalRouter = router({
           )
         );
       return { success: true };
+    }),
+
+  /**
+   * Search the master cabinet catalog by master code or description.
+   * Used by vendors/distributors to look up a cabinet before adding a SKU.
+   */
+  searchMasterCatalog: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        search: z.string().min(1).max(64),
+        limit: z.number().int().min(1).max(50).default(20),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const like = `%${input.search.trim()}%`;
+      const rows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+        })
+        .from(cabinets)
+        .where(
+          or(
+            sql`${cabinets.masterCode} LIKE ${like}`,
+            sql`${cabinets.description} LIKE ${like}`
+          )
+        )
+        .orderBy(asc(cabinets.masterCode))
+        .limit(input.limit);
+      return rows;
     }),
 });

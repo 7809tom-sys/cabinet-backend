@@ -24,6 +24,7 @@ import {
   ArrowRight, Check, Lock, RefreshCw, Sparkles, Search, Truck, ChevronRight,
   Minus, Plus, ShoppingCart, Info,
 } from "lucide-react";
+import { InlineEditPrice } from "@/components/admin/InlineEditPrice";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 
@@ -590,6 +591,7 @@ function promoSavePct(basePrice: number, promo: ActivePromo): number | null {
 // ─── Catalog card (with glass-door upsell on solid wall cabinets) ──────────────
 type CatalogItem = {
   id: number;
+  skuId?: number | null;
   masterCode: string;
   description: string | null;
   category: string | null;
@@ -616,6 +618,10 @@ function CatalogCard({
   const [glass, setGlass] = useState(false);
   const [qty, setQtyState] = useState(1);
   const { addItem } = useCart();
+  const utils = trpc.useUtils();
+  const updatePriceMut = trpc.distributorPortal.updatePrice.useMutation({
+    onSuccess: () => utils.storefront.familyCatalog.invalidate(),
+  });
 
   // Only solid WALL cabinets are eligible to offer a glass-door swap. The query
   // returns null for anything else (oven/tall/base, or no buyable GD twin), so
@@ -687,7 +693,20 @@ function CatalogCard({
                   )}
                 </>
               ) : (
-                <span className="font-serif text-lg font-bold">{money(price)}</span>
+                <InlineEditPrice
+                  value={price ?? 0}
+                  label="homeowner price"
+                  onSave={async (v) => {
+                    if (item.skuId) {
+                      await updatePriceMut.mutateAsync({
+                        skuId: item.skuId,
+                        homeownerPrice: v.toFixed(2),
+                      });
+                    }
+                  }}
+                >
+                  <span className="font-serif text-lg font-bold">{money(price)}</span>
+                </InlineEditPrice>
               )}
             </div>
           );

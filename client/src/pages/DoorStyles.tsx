@@ -262,10 +262,22 @@ function AdminEditPanel({ style, onSaved }: { style: DoorStyle; onSaved: () => v
 // ─── Style card ───────────────────────────────────────────────────────────────
 function StyleCard({ style, isAdmin }: { style: DoorStyle; isAdmin: boolean }) {
   const { t } = useLanguage();
+  const utils = trpc.useUtils();
   const [showDoor, setShowDoor] = useState(false);
   const [sceneFailed, setSceneFailed] = useState(false);
   const [doorFailed, setDoorFailed] = useState(false);
   const [localStyle, setLocalStyle] = useState(style);
+  const isFeatCard = Boolean(localStyle.featuredRank && localStyle.featuredRank > 0);
+  const featureCardMut = trpc.doorStyles.setFeatured.useMutation({
+    onSuccess: () => {
+      // Optimistically flip the local featured state; list invalidation will sync
+      setLocalStyle((prev) => ({ ...prev, featuredRank: isFeatCard ? null : 9999 }));
+      utils.doorStyles.list.invalidate();
+      utils.doorStyles.featured.invalidate();
+      toast.success(isFeatCard ? "Removed from featured" : "Added to featured");
+    },
+    onError: (e) => toast.error(e.message),
+  });
   const roomScene = localStyle.roomSceneImageUrl;
   const doorSample = localStyle.doorSampleImageUrl;
   const heroSrc = showDoor
@@ -314,11 +326,26 @@ function StyleCard({ style, isAdmin }: { style: DoorStyle; isAdmin: boolean }) {
             <span className="absolute bottom-2 left-2 text-[10px] font-medium text-white/90 bg-black/50 px-1.5 py-0.5 rounded-full">
               {showDoor ? "Door" : "Room"}
             </span>
-            {/* Admin star indicator */}
-            {isAdmin && localStyle.featuredRank && localStyle.featuredRank > 0 && (
-              <span className="absolute top-2 right-2 z-10">
-                <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 drop-shadow" />
-              </span>
+            {/* Admin quick-feature button — one-click star/unstar */}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  featureCardMut.mutate({ id: localStyle.id, featured: !isFeatCard });
+                }}
+                disabled={featureCardMut.isPending}
+                title={isFeatCard ? "Remove from featured" : "Feature this style"}
+                className={`absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full shadow-md transition-colors ${
+                  isFeatCard
+                    ? "bg-amber-400/90 hover:bg-amber-500/90"
+                    : "bg-black/40 hover:bg-black/60"
+                }`}
+              >
+                <Star className={`h-3.5 w-3.5 ${
+                  isFeatCard ? "text-white fill-white" : "text-amber-300"
+                }`} />
+              </button>
             )}
           </div>
 

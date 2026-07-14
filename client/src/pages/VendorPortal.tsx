@@ -415,6 +415,7 @@ function CatalogPage() {
   const [editingPrice, setEditingPrice] = useState<{ skuId: number; field: string; value: string } | null>(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
+  const [showAddCabinet, setShowAddCabinet] = useState(false);
   const catalogInput = useMemo(
     () => ({
       ...(adminDistId ? { distributorId: adminDistId } : {}),
@@ -500,6 +501,10 @@ function CatalogPage() {
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Spreadsheet Upload
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowAddCabinet(!showAddCabinet)}>
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Add Cabinet
+          </Button>
           <Button size="sm" onClick={() => setShowNewProduct(!showNewProduct)}>
             <PlusCircle className="h-4 w-4 mr-2" />
             New Product
@@ -508,6 +513,15 @@ function CatalogPage() {
       </div>
 
       {showCsvUpload && <CsvUploadSection />}
+
+      {showAddCabinet && (
+        <Card>
+          <CardHeader><CardTitle>Add Cabinet to My Line</CardTitle></CardHeader>
+          <CardContent>
+            <AddCabinetForm onClose={() => setShowAddCabinet(false)} />
+          </CardContent>
+        </Card>
+      )}
 
       {showNewProduct && (
         <Card>
@@ -864,6 +878,170 @@ function CsvUploadSection() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ─── Add Cabinet (Vendor) ───────────────────────────────────────────────────
+/**
+ * Vendor/distributor form to add a single cabinet SKU to their line.
+ * Searches the master catalog by master code or description, then lets the
+ * vendor pick a door style and enter their pricing.
+ */
+function AddCabinetForm({ onClose }: { onClose: () => void }) {
+  const utils = trpc.useUtils();
+  const adminDistId = useAdminDistributorId();
+  const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+  const [search, setSearch] = useState("");
+  const [selectedCabinet, setSelectedCabinet] = useState<{ id: number; masterCode: string; description: string; category: string | null; width: string | null; height: string | null; depth: string | null } | null>(null);
+  const [styleId, setStyleId] = useState("");
+  const [distributorSku, setDistributorSku] = useState("");
+  const [listPrice, setListPrice] = useState("");
+  const [wholesalePrice, setWholesalePrice] = useState("");
+  const [contractorPrice, setContractorPrice] = useState("");
+  const [homeownerPrice, setHomeownerPrice] = useState("");
+  const [supplierCabinetName, setSupplierCabinetName] = useState("");
+
+  const searchQuery = trpc.distributorPortal.searchMasterCatalog.useQuery(
+    { search, ...(adminDistId ? { distributorId: adminDistId } : {}) },
+    { enabled: search.trim().length >= 2 }
+  );
+
+  const submit = trpc.distributorPortal.submitNewProduct.useMutation({
+    onSuccess: () => {
+      utils.distributorPortal.catalog.invalidate();
+      utils.distributorPortal.myLine.invalidate();
+      toast.success("Cabinet SKU submitted for approval");
+      onClose();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const styles = myLine.data?.styles ?? [];
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedCabinet) { toast.error("Select a cabinet from the master catalog"); return; }
+    if (!styleId) { toast.error("Select a door style"); return; }
+    if (!distributorSku.trim()) { toast.error("Enter your SKU"); return; }
+    submit.mutate({
+      ...(adminDistId ? { distributorId: adminDistId } : {}),
+      cabinetId: selectedCabinet.id,
+      styleId: Number(styleId),
+      distributorSku: distributorSku.trim(),
+      listPrice: listPrice || undefined,
+      wholesalePrice: wholesalePrice || undefined,
+      contractorPrice: contractorPrice || undefined,
+      homeownerPrice: homeownerPrice || undefined,
+      supplierCabinetName: supplierCabinetName.trim() || undefined,
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Step 1: Find cabinet */}
+      <div className="space-y-2">
+        <Label>Search Master Catalog <span className="text-destructive">*</span></Label>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            placeholder="Type master code or description (e.g. B24, Base Cabinet)"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setSelectedCabinet(null); }}
+          />
+        </div>
+        {search.trim().length >= 2 && (
+          <div className="rounded-md border bg-popover shadow-sm max-h-48 overflow-y-auto">
+            {searchQuery.isLoading && (
+              <div className="p-3 text-sm text-muted-foreground">Searching…</div>
+            )}
+            {!searchQuery.isLoading && (searchQuery.data ?? []).length === 0 && (
+              <div className="p-3 text-sm text-muted-foreground">No cabinets found</div>
+            )}
+            {(searchQuery.data ?? []).map((cab) => (
+              <button
+                key={cab.id}
+                type="button"
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between gap-2 ${
+                  selectedCabinet?.id === cab.id ? "bg-accent font-medium" : ""
+                }`}
+                onClick={() => { setSelectedCabinet(cab as typeof selectedCabinet); setSearch(cab.masterCode); }}
+              >
+                <span className="font-mono font-medium">{cab.masterCode}</span>
+                <span className="text-muted-foreground truncate">{cab.description}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{cab.category}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {selectedCabinet && (
+          <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 px-3 py-2 text-sm">
+            <span className="font-medium text-emerald-700 dark:text-emerald-400">Selected: </span>
+            <span className="font-mono">{selectedCabinet.masterCode}</span> — {selectedCabinet.description}
+            {selectedCabinet.width && <span className="ml-2 text-muted-foreground">{selectedCabinet.width}"W × {selectedCabinet.height}"H × {selectedCabinet.depth}"D</span>}
+          </div>
+        )}
+      </div>
+
+      {/* Step 2: Door style + SKU */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label>Door Style <span className="text-destructive">*</span></Label>
+          <Select value={styleId} onValueChange={setStyleId}>
+            <SelectTrigger><SelectValue placeholder="Select style" /></SelectTrigger>
+            <SelectContent>
+              {styles.map((s) => (
+                <SelectItem key={s.id} value={String(s.id)}>{s.ourName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label>Your SKU <span className="text-destructive">*</span></Label>
+          <Input
+            placeholder="e.g. 3DB24"
+            value={distributorSku}
+            onChange={(e) => setDistributorSku(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label>Supplier Cabinet Name</Label>
+          <Input
+            placeholder="Optional display name"
+            value={supplierCabinetName}
+            onChange={(e) => setSupplierCabinetName(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Step 3: Pricing */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label>List Price ($)</Label>
+          <Input type="number" step="0.01" placeholder="0.00" value={listPrice} onChange={(e) => setListPrice(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Wholesale Price ($)</Label>
+          <Input type="number" step="0.01" placeholder="0.00" value={wholesalePrice} onChange={(e) => setWholesalePrice(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Contractor Price ($)</Label>
+          <Input type="number" step="0.01" placeholder="0.00" value={contractorPrice} onChange={(e) => setContractorPrice(e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Homeowner Price ($)</Label>
+          <Input type="number" step="0.01" placeholder="0.00" value={homeownerPrice} onChange={(e) => setHomeownerPrice(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={submit.isPending || !selectedCabinet || !styleId || !distributorSku.trim()}>
+          {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+          Submit for Approval
+        </Button>
+        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+      </div>
+    </form>
   );
 }
 

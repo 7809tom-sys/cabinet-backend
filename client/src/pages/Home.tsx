@@ -488,33 +488,40 @@ function StyleShowcase() {
 // ─── Become an Affiliate ──────────────────────────────────────────────────────
 
 function AffiliatePromo() {
+  const { t } = useLanguage();
   const advantages = [
     {
+      key: "storefront",
       icon: Star,
       title: "Your Own Branded Storefront",
       description: "Get a custom-branded storefront powered by the full Cabinet Dealz catalog. Your name, your brand, our backend.",
     },
     {
+      key: "earn",
       icon: Sparkles,
       title: "Earn on Every Order",
       description: "Every kitchen or bath project that comes through your storefront earns you a commission. No inventory, no risk.",
     },
     {
+      key: "products",
       icon: Grid3X3,
       title: "Thousands of Products",
       description: "Cabinets, countertops, tile, flooring, sinks, faucets, showers, toilets — your customers get access to everything.",
     },
     {
+      key: "pricing",
       icon: Users,
       title: "Trade Pricing Built In",
       description: "Your customers see competitive trade pricing automatically. You don't negotiate — the platform handles it.",
     },
     {
+      key: "design",
       icon: Palette,
       title: "2D Design Tool Included",
       description: "Your customers can design their kitchen right on your storefront with the built-in 2D planner. No extra software.",
     },
     {
+      key: "fulfillment",
       icon: FileSpreadsheet,
       title: "We Handle Fulfillment",
       description: "Orders ship direct from the supply network. You focus on sales and relationships — we handle the logistics.",
@@ -532,10 +539,14 @@ function AffiliatePromo() {
             Affiliate Program
           </div>
           <h2 className="font-serif text-3xl md:text-5xl font-bold text-foreground mb-4">
-            Become a Cabinet Dealz Affiliate
+            <AdminEditField pageKey="home" field="affiliate_promo_title" defaultValue="Become a Cabinet Dealz Affiliate">
+              {(val) => <>{val}</>}
+            </AdminEditField>
           </h2>
           <p className="text-muted-foreground text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
-            Launch your own branded kitchen & bath storefront — backed by the full Cabinet Dealz product catalog, trade pricing, and fulfillment network. Zero inventory. Zero risk. Maximum earning potential.
+            <AdminEditField pageKey="home" field="affiliate_promo_sub" defaultValue="Launch your own branded kitchen & bath storefront — backed by the full Cabinet Dealz product catalog, trade pricing, and fulfillment network. Zero inventory. Zero risk. Maximum earning potential." multiline>
+              {(val) => <>{val}</>}
+            </AdminEditField>
           </p>
         </div>
 
@@ -545,8 +556,16 @@ function AffiliatePromo() {
               <div className="inline-flex p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 mb-4">
                 <adv.icon className="h-5 w-5" />
               </div>
-              <h3 className="font-serif text-lg font-bold text-foreground mb-2">{adv.title}</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">{adv.description}</p>
+              <h3 className="font-serif text-lg font-bold text-foreground mb-2">
+                <AdminEditField pageKey="home" field={`affiliate_adv_title_${adv.key}`} defaultValue={adv.title}>
+                  {(val) => <>{val}</>}
+                </AdminEditField>
+              </h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                <AdminEditField pageKey="home" field={`affiliate_adv_desc_${adv.key}`} defaultValue={adv.description} multiline>
+                  {(val) => <>{val}</>}
+                </AdminEditField>
+              </p>
             </div>
           ))}
         </div>
@@ -585,10 +604,14 @@ function PlatformFeatures() {
               {t("home_feat_eyebrow")}
             </div>
             <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-4">
-              {t("home_feat_title")}
+              <AdminEditField pageKey="home" field="platform_feat_title" defaultValue={t("home_feat_title")}>
+                {(val) => <>{val}</>}
+              </AdminEditField>
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-8">
-              {t("home_feat_sub")}
+              <AdminEditField pageKey="home" field="platform_feat_sub" defaultValue={t("home_feat_sub")} multiline>
+                {(val) => <>{val}</>}
+              </AdminEditField>
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -757,6 +780,7 @@ export default function Home() {
       <FeaturedStyles />
       <ProductShowcase />
       <AffiliatePromo />
+      <PlatformFeatures />
       <Footer />
     </div>
   );

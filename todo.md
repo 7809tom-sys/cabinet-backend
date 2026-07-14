@@ -882,8 +882,8 @@
 - [x] Add catalog_import tRPC endpoint that parses CSV rows and upserts products (adminImport + importCommit)
 - [x] Build admin CSV Import page: template download, file upload, preview table, validation errors, import button (CabinetSpreadsheetAdmin + DistributorImport)
 - [x] Wire /admin/catalog-import route in App.tsx (wired via AdminGroupedTabs)
-- [ ] Add single-item "Add Cabinet" form to admin panel (master SKU lookup, supplier SKU, door style, list price, cost)
-- [ ] Add single-item "Add Cabinet" form to vendor/distributor panel
+- [x] Add single-item "Add Cabinet" form to admin panel (master SKU lookup, supplier SKU, door style, list price, cost)
+- [x] Add single-item "Add Cabinet" form to vendor/distributor panel
 - [x] Build CSV bulk-import component with template download, preview, and validation (DistributorImport)
 - [x] Wire both into Admin panel and Distributor panel
 - [ ] Add inline "Add Item" button on storefront category sections (pre-fills category + door style)
@@ -893,11 +893,11 @@
 - [x] Rewrite cabinetLineExport: import-compatible headers, brand+style filename, image URL from master cabinet, add listPrice and distributorSku columns
 - [x] Fix price display bug: uploaded list price ($138) shows wrong number on storefront (markup/margin formula being applied on top of uploaded price instead of displaying it directly)
 - [x] Add inline price edit pencil on cabinet cards/rows in admin panel and storefront (admin-only) to edit list price and cost directly without CSV upload
-- [ ] Simplify storefront price: yourCost (or listPrice) × distributor costMultiplier only, no tier stacking
-- [ ] Add skuAliases column to cabinets table + fuzzy SKU normalizer (strips dashes/spaces/dots, case-insensitive)
+- [x] Simplify storefront price: yourCost (or listPrice) × distributor costMultiplier only, no tier stacking
+- [x] Add skuAliases column to cabinets table + fuzzy SKU normalizer (strips dashes/spaces/dots, case-insensitive) [done via code_aliases table + shared/codeMatch.ts]
 - [ ] Build smart CatalogUpload page: distributor picker/creator, door style picker/creator, door photo upload, spreadsheet drop with fuzzy match preview table
 - [x] Fix cabinetLineExport: import-compatible headers, real brand+style filename, image from master cabinet record
-- [ ] Add inline pencil price editor on storefront cabinet cards (admin-only)
+- [x] Add inline pencil price editor on storefront cabinet cards (admin-only)
 - [ ] Add inline edit button on featured door styles in admin panel to edit style specs (name, finish, wood species, construction, images) — changes apply to all cabinets in that style
 - [x] Set up PWA (Progressive Web App): manifest.json, service worker, install prompt button on homepage so users can install the app directly from the website
 - [x] Investigate and fix price display bug: list price was correct in DB but storefront was showing yourCost instead of listPrice on the front end
@@ -929,14 +929,14 @@
 - [x] Wire inline edit to homepage hero headline and subheadline (AdminEditField)
 - [x] Wire inline edit to homepage category card titles and descriptions (AdminEditField)
 - [ ] Wire inline edit to homepage StyleShowcase featured styles order (drag-to-reorder for admins)
-- [ ] Wire inline edit to homepage AffiliatePromo section headings and advantage card text
-- [ ] Wire inline edit to homepage PlatformFeatures section headings and feature card text
+- [x] Wire inline edit to homepage AffiliatePromo section headings and advantage card text
+- [x] Wire inline edit to homepage PlatformFeatures section headings and feature card text
 - [x] Wire inline edit to homepage JulyBanner text (seasonal banner)
 - [ ] Wire inline edit to SiteFooter links and text
 - [ ] Wire inline edit to TopNav links and labels
 - [ ] Wire inline edit to static pages (Terms, Privacy, Shipping, Return policies) via AdminEditField
-- [ ] Add "Feature this style" quick action on DoorStyles page: admin clicks star → dropdown picks style → saves isFeatured + featuredRank
-- [ ] Add "Set as homepage featured" quick action on door style cards
+- [x] Add "Feature this style" quick action on DoorStyles page: admin clicks star → dropdown picks style → saves isFeatured + featuredRank
+- [x] Add "Set as homepage featured" quick action on door style cards
 - [ ] Ensure all inline edits invalidate the relevant tRPC query so the change appears immediately everywhere on the page without reload
 - [x] Add a floating "Admin Edit Mode" indicator bar at top of page (only visible to admins) so it's clear when edit controls are active
 

@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
-import { getDb, notInConflict, getPricingSettings } from "../db";
-import { sellPriceForTier } from "@shared/margins";
+import { getDb, notInConflict } from "../db";
 import {
   cabinets,
   distributors,
@@ -345,6 +344,7 @@ export const storefrontRouter = router({
 
       const baseSelect = {
         id: cabinets.id,
+        skuId: distributorSkus.id,
         masterCode: cabinets.masterCode,
         description: cabinets.description,
         category: cabinets.category,
@@ -377,19 +377,13 @@ export const storefrontRouter = router({
         const grouped = allRows.filter(
           (r) => accessoryGroupFor(r) === input.subCategory
         );
-        const psAcc = await getPricingSettings();
         const pricedAcc = grouped
           .slice(input.offset, input.offset + input.limit)
           .map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
             ...r,
-            // Retail = cost base × homeowner markup (matches the admin tab). We
-            // strip the raw cost columns from the client payload.
-            homeownerPrice:
-              sellPriceForTier(
-                { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
-                psAcc,
-                "homeowner"
-              )?.toFixed(2) ?? r.homeownerPrice,
+            // Show homeownerPrice directly (set by vendor or admin inline edit).
+            // Fall back to listPrice then yourCost. No tier-markup stacking.
+            homeownerPrice: r.homeownerPrice ?? r.listPrice ?? yourCost ?? null,
           }));
         return {
           items: pricedAcc,
@@ -412,19 +406,11 @@ export const storefrontRouter = router({
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(...conditions));
 
-      // Apply the platform homeowner tier markup so the displayed retail price
-      // reflects the admin's Pricing & Margins setting (0% => unchanged).
-      const ps = await getPricingSettings();
       const priced = rows.map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
         ...r,
-        // Retail = cost base × homeowner markup (matches the admin tab). The raw
-        // cost columns are stripped from the client payload.
-        homeownerPrice:
-          sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
-            ps,
-            "homeowner"
-          )?.toFixed(2) ?? r.homeownerPrice,
+        // Show homeownerPrice directly (set by vendor or admin inline edit).
+        // Fall back to listPrice then yourCost. No tier-markup stacking.
+        homeownerPrice: r.homeownerPrice ?? r.listPrice ?? yourCost ?? null,
       }));
 
       return {
@@ -541,16 +527,10 @@ export const storefrontRouter = router({
         ]);
       }
 
-      // Retail = cost base × homeowner markup; strip raw cost columns.
-      const psRec = await getPricingSettings();
       const items = rows.map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
         ...r,
-        homeownerPrice:
-          sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
-            psRec,
-            "homeowner"
-          )?.toFixed(2) ?? r.homeownerPrice,
+        // Show homeownerPrice directly; fall back to listPrice then yourCost.
+        homeownerPrice: r.homeownerPrice ?? r.listPrice ?? yourCost ?? null,
       }));
 
       return { intent: input.intent, items };
@@ -611,17 +591,11 @@ export const storefrontRouter = router({
 
       const g = rows[0];
       if (!g) return null;
-      // Retail = cost base × homeowner markup; strip raw cost columns.
-      const psG = await getPricingSettings();
-      const { wholesalePrice, adjustedListPrice, yourCost, ...rest } = g;
+      const { wholesalePrice: _wp, adjustedListPrice: _alp, yourCost: _yc, ...rest } = g;
       return {
         ...rest,
-        homeownerPrice:
-          sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: rest.listPrice },
-            psG,
-            "homeowner"
-          )?.toFixed(2) ?? rest.homeownerPrice,
+        // Show homeownerPrice directly; fall back to listPrice then yourCost.
+        homeownerPrice: g.homeownerPrice ?? g.listPrice ?? g.yourCost ?? null,
       };
     }),
 
