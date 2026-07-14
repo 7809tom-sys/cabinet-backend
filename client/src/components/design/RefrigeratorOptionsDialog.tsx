@@ -407,8 +407,8 @@ export function RefrigeratorOptionsDialog({
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Depth</span>
                   <div className="flex gap-2">
                     {([
-                      { value: 12 as BridgeDepth, label: '12″ Shallow' },
-                      { value: 24 as BridgeDepth, label: '24″ Full Depth' },
+                      { value: 12 as BridgeDepth, label: '12″ Deep' },
+                      { value: 24 as BridgeDepth, label: '24″ Deep' },
                     ]).map((o) => {
                       const active = bridgeDepthChoice === o.value;
                       return (
