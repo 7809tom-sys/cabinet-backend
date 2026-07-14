@@ -778,6 +778,14 @@ export default function FeaturedStylesAdmin() {
                   <p className="text-xs text-muted-foreground truncate">
                     {[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
                   </p>
+                  {(s.distributorName || s.seriesName) && (
+                    <p className="text-xs truncate mt-0.5">
+                      <span className="text-blue-600 font-medium">{s.seriesName || s.distributorName}</span>
+                      {s.seriesName && s.distributorName && (
+                        <span className="text-muted-foreground"> · {s.distributorName}</span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {/* Quick-edit button */}
@@ -901,6 +909,14 @@ export default function FeaturedStylesAdmin() {
                   <p className="text-xs text-muted-foreground truncate">
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
                   </p>
+                  {(s.distributorName || s.seriesName) && (
+                    <p className="text-xs truncate mt-0.5">
+                      <span className="text-blue-600 font-medium">{s.seriesName || s.distributorName}</span>
+                      {s.seriesName && s.distributorName && (
+                        <span className="text-muted-foreground"> · {s.distributorName}</span>
+                      )}
+                    </p>
+                  )}
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button
