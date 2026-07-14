@@ -1822,6 +1822,69 @@ export const cabinetsRouter = router({
       return { updated, skipped, errors, preview };
     }),
 
+  // -- Admin: Create a new cabinet (single-item form) -------------------------
+  adminCreateCabinet: adminProcedure
+    .input(
+      z.object({
+        masterCode: z.string().min(1).max(64),
+        description: z.string().min(1),
+        category: z.string().min(1),
+        subCategory: z.string().optional(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        depth: z.number().optional(),
+        placementType: z.string().optional(),
+        numberOfDoors: z.number().int().optional(),
+        numberOfDrawers: z.number().int().optional(),
+        hingeSide: z.string().optional(),
+        isCornerCabinet: z.boolean().optional(),
+        graphicType: z.string().optional(),
+        isActive: z.boolean().default(true),
+        distributorSku: z.object({
+          distributorId: z.number().int(),
+          styleId: z.number().int(),
+          distributorSku: z.string().min(1),
+          listPrice: z.number().optional(),
+          yourCost: z.number().optional(),
+        }).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const existing = await db.select({ id: cabinets.id }).from(cabinets).where(eq(cabinets.masterCode, input.masterCode)).limit(1);
+      if (existing.length > 0) throw new TRPCError({ code: "CONFLICT", message: `A cabinet with masterCode "${input.masterCode}" already exists.` });
+      const patch: Record<string, unknown> = {
+        masterCode: input.masterCode,
+        description: input.description,
+        category: input.category,
+        subCategory: input.subCategory ?? null,
+        isActive: input.isActive,
+      };
+      if (input.width !== undefined) patch.width = String(input.width);
+      if (input.height !== undefined) patch.height = String(input.height);
+      if (input.depth !== undefined) patch.depth = String(input.depth);
+      if (input.placementType) patch.placementType = input.placementType;
+      if (input.numberOfDoors !== undefined) patch.numberOfDoors = input.numberOfDoors;
+      if (input.numberOfDrawers !== undefined) patch.numberOfDrawers = input.numberOfDrawers;
+      if (input.hingeSide) patch.hingeSide = input.hingeSide;
+      if (input.isCornerCabinet !== undefined) patch.isCornerCabinet = input.isCornerCabinet;
+      if (input.graphicType) patch.graphicType = input.graphicType;
+      const [result] = await db.insert(cabinets).values(patch as typeof cabinets.$inferInsert);
+      const cabinetId = (result as { insertId: number }).insertId;
+      let skuId: number | undefined;
+      if (input.distributorSku) {
+        const { distributorId, styleId, distributorSku: dSku, listPrice, yourCost } = input.distributorSku;
+        const platformSku = `${input.masterCode}-DS${styleId}-D${distributorId}`;
+        const skuPatch: Record<string, unknown> = { cabinetId, distributorId, styleId, platformSku, distributorSku: dSku, isAvailable: true, isPublished: true, status: "approved" };
+        if (listPrice !== undefined) skuPatch.listPrice = String(listPrice);
+        if (yourCost !== undefined) skuPatch.yourCost = String(yourCost);
+        const [skuResult] = await db.insert(distributorSkus).values(skuPatch as typeof distributorSkus.$inferInsert);
+        skuId = (skuResult as { insertId: number }).insertId;
+      }
+      return { cabinetId, skuId, masterCode: input.masterCode };
+    }),
+
 });
 
 // --- Pricing ------------------------------------------------------------------

@@ -31,6 +31,7 @@ import {
   ArrowRight,
   RotateCcw,
 } from "lucide-react";
+import AddCabinetDialog from "@/components/admin/AddCabinetDialog";
 
 const CABINET_FIELDS = [
   { key: "masterCode", label: "Master Code (required)", required: true },
@@ -202,6 +203,10 @@ export default function CabinetSpreadsheetAdmin() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-muted-foreground">Cabinet Catalog Management</h3>
+        <AddCabinetDialog onCreated={() => utils.cabinets.adminExport.invalidate()} />
+      </div>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -286,7 +286,6 @@ export default function CabinetDetail({ masterCode }: Props) {
   const { data: cabinet, isLoading: cabinetLoading } = trpc.cabinets.byCode.useQuery({
     masterCode,
   });
-
   const seoName = cabinet?.description
     ? translateSpec(cabinet.description, lang)
     : masterCode;
@@ -324,6 +323,21 @@ export default function CabinetDetail({ masterCode }: Props) {
   );
 
   const styleRows = (styles ?? []) as StyleRow[];
+
+  // ── Product view tracking ─────────────────────────────────────────────────
+  const trackViewMut = trpc.analytics.trackView.useMutation();
+  useEffect(() => {
+    const distId = styleRows.find((s) => s.distributorId != null)?.distributorId;
+    if (cabinet?.id && distId != null) {
+      trackViewMut.mutate({
+        distributorId: distId,
+        cabinetId: cabinet.id,
+        pageSlug: `/catalog/${masterCode}`,
+        referrer: typeof document !== "undefined" ? document.referrer || undefined : undefined,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cabinet?.id, styleRows.length]);
 
   // Auto-select: the family passed in ?style= if it's available for this
   // cabinet, otherwise the explicit user choice, otherwise the first style.

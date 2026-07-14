@@ -249,24 +249,24 @@
 - [x] Added visible "Collection" filter dropdown in catalog panel for easy switching
 
 ## Feature: Homepage featured products from real database
-- [ ] Featured products on homepage should pull from actual door styles/surfaces in the design tool database
-- [ ] Add "Design with this" CTA button that opens designer pre-loaded with the featured style
-- [ ] Admin can mark which styles/surfaces to feature (configurable, top 2-3 items)
-- [ ] Ensure featured items show high-quality product images
-- [ ] Improve admin image upload flow for updating product photos in one place
+- [x] Featured products on homepage should pull from actual door styles/surfaces in the design tool database
+- [x] Add "Design with this" CTA button that opens designer pre-loaded with the featured style
+- [x] Admin can mark which styles/surfaces to feature (configurable, top 2-3 items)
+- [x] Ensure featured items show high-quality product images
+- [x] Improve admin image upload flow for updating product photos in one place
 
 ## Feature: Vendor Portal (full authority over their product line)
-- [ ] Vendor login via same auth system (role=distributor) with vendor dashboard redirect
-- [ ] Vendor dashboard layout with sidebar navigation at /vendor
-- [ ] Vendor can manage existing door styles (edit photos/samples, descriptions) — instant updates
-- [ ] Vendor can manage existing cabinet SKUs (update prices, photos, availability) — instant updates
-- [ ] Vendor can deactivate/remove existing products — instant
-- [ ] Vendor can upload NEW products — goes to "pending approval" queue for admin
-- [ ] Admin approval workflow for new vendor-submitted products
-- [ ] Vendor can upload product images (room scenes, door samples, cabinet photos)
-- [ ] Vendor can view their order history (orders containing their products)
-- [ ] Vendor can toggle which of their products appear in the design tool (max 8 picks)
-- [ ] All vendor actions scoped to their distributor ID only
+- [x] Vendor login via same auth system (role=distributor) with vendor dashboard redirect
+- [x] Vendor dashboard layout with sidebar navigation at /vendor
+- [x] Vendor can manage existing door styles (edit photos/samples, descriptions) — instant updates
+- [x] Vendor can manage existing cabinet SKUs (update prices, photos, availability) — instant updates
+- [x] Vendor can deactivate/remove existing products — instant
+- [x] Vendor can upload NEW products — goes to "pending approval" queue for admin
+- [x] Admin approval workflow for new vendor-submitted products
+- [x] Vendor can upload product images (room scenes, door samples, cabinet photos)
+- [x] Vendor can view their order history (orders containing their products)
+- [x] Vendor can toggle which of their products appear in the design tool (max 8 picks)
+- [x] All vendor actions scoped to their distributor ID only
 
 ## Fix: Backsplash rendering rules
 - [x] Backsplash should start at the corner of the wall (not just behind cabinets)
@@ -334,14 +334,14 @@
 - [x] Add promotions DB schema (promo table: distributorId, skuId or lineFilter, discountType, discountValue, startDate, endDate, active)
 - [x] Add promotions management UI in vendor portal (create/edit/delete promos)
 - [x] Display promotions on storefront (sale badge, strikethrough original price, show promo price)
-- [ ] Add gallery/image management: vendors can upload product gallery photos and replace existing images
-- [ ] Vendor portal image upload for individual SKU gallery (multiple photos per product)
+- [x] Add gallery/image management: vendors can upload product gallery photos and replace existing images
+- [x] Vendor portal image upload for individual SKU gallery (multiple photos per product)
 
 ## Admin Analytics tab
 - [x] Add Analytics tab to admin panel with embedded Umami dashboard
-- [ ] Add product view event tracking (fire events when users view product pages)
-- [ ] Show per-vendor product view breakdown in admin analytics
-- [ ] Show vendor-facing analytics in vendor portal (their own product views/stats)
+- [x] Add product view event tracking (fire events when users view product pages)
+- [x] Show per-vendor product view breakdown in admin analytics
+- [x] Show vendor-facing analytics in vendor portal (their own product views/stats)
 
 ## StoneCreek brand (sinks + faucets)
 - [x] Create StoneCreek series names for 24 faucet models with proper descriptions
@@ -877,15 +877,15 @@
 - [ ] Audit Skyline for any remaining missing cabinet SKUs beyond the drawer bases
 
 ## CSV Catalog Import Feature
-- [ ] Read existing schema and routers to understand current cabinet/product data model
-- [ ] Create master_sku reference table (B12 → width/height/depth/category/name) in schema
-- [ ] Add catalog_import tRPC endpoint that parses CSV rows and upserts products
-- [ ] Build admin CSV Import page: template download, file upload, preview table, validation errors, import button
-- [ ] Wire /admin/catalog-import route in App.tsx
+- [x] Read existing schema and routers to understand current cabinet/product data model
+- [x] Create master_sku reference table (B12 → width/height/depth/category/name) in schema (cabinets table serves this role)
+- [x] Add catalog_import tRPC endpoint that parses CSV rows and upserts products (adminImport + importCommit)
+- [x] Build admin CSV Import page: template download, file upload, preview table, validation errors, import button (CabinetSpreadsheetAdmin + DistributorImport)
+- [x] Wire /admin/catalog-import route in App.tsx (wired via AdminGroupedTabs)
 - [ ] Add single-item "Add Cabinet" form to admin panel (master SKU lookup, supplier SKU, door style, list price, cost)
 - [ ] Add single-item "Add Cabinet" form to vendor/distributor panel
-- [ ] Build CSV bulk-import component with template download, preview, and validation
-- [ ] Wire both into Admin panel and Distributor panel
+- [x] Build CSV bulk-import component with template download, preview, and validation (DistributorImport)
+- [x] Wire both into Admin panel and Distributor panel
 - [ ] Add inline "Add Item" button on storefront category sections (pre-fills category + door style)
 - [x] Fix approve/reject status to be reversible (rejected items can be re-approved) and clarify labels
 - [ ] Enhance product download to include master SKU, cabinet name, category, width, height, depth
@@ -926,12 +926,12 @@
 - [x] Wire inline edit to door style finish/woodSpecies on DoorStyles page
 - [x] Wire inline edit to door style images (thumbnail, room scene, door sample) on DoorStyles page
 - [x] Wire inline edit to door style isFeatured toggle on DoorStyles page (one-click feature/unfeature)
-- [ ] Wire inline edit to homepage hero headline and subheadline (AdminEditField)
-- [ ] Wire inline edit to homepage category card titles and descriptions (AdminEditField)
+- [x] Wire inline edit to homepage hero headline and subheadline (AdminEditField)
+- [x] Wire inline edit to homepage category card titles and descriptions (AdminEditField)
 - [ ] Wire inline edit to homepage StyleShowcase featured styles order (drag-to-reorder for admins)
 - [ ] Wire inline edit to homepage AffiliatePromo section headings and advantage card text
 - [ ] Wire inline edit to homepage PlatformFeatures section headings and feature card text
-- [ ] Wire inline edit to homepage JulyBanner text (seasonal banner)
+- [x] Wire inline edit to homepage JulyBanner text (seasonal banner)
 - [ ] Wire inline edit to SiteFooter links and text
 - [ ] Wire inline edit to TopNav links and labels
 - [ ] Wire inline edit to static pages (Terms, Privacy, Shipping, Return policies) via AdminEditField
