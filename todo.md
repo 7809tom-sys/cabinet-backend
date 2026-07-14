@@ -978,3 +978,10 @@
 ## Skyline Distributor & Import UI Fix
 - [x] Create Skyline distributor in DB and add all 32 door styles (id=90001)
 - [x] Replace StyleCombobox popover with inline editable text input that filters as you type
+
+## Series Names & Distributor Merge
+- [x] seriesName column already existed in distributors table
+- [x] Set series names: US Cabinet Depot=Madison, Clark & Son=Ashford, Skyline(SK)=Preston, Pelican=Stone Creek
+- [x] Merge duplicate Skyline: moved 32 styles from id=90001 to id=3, deleted 90001
+- [x] Updated styleDisplayName utility to append (seriesName) — all public displays now show "Lumina White (Ashford)" format
+- [x] doorStyles.list query now joins distributors to return seriesName + displayMode

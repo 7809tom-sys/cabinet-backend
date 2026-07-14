@@ -133,19 +133,27 @@ export const doorStylesRouter = router({
         isBuilderGrade: doorStyles.isBuilderGrade,
         isActive: doorStyles.isActive,
         createdAt: doorStyles.createdAt,
+        // Series name fields from distributors table (for "ourName (seriesName)" display)
+        seriesName: distributors.seriesName,
+        displayMode: distributors.displayMode,
       };
       const available = await availableStyleIds(db);
       const rows = input?.distributorId
         ? await db
             .select(projection)
             .from(doorStyles)
+            .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
             .where(
               and(
                 eq(doorStyles.distributorId, input.distributorId),
                 eq(doorStyles.isActive, true)
               )
             )
-        : await db.select(projection).from(doorStyles).where(eq(doorStyles.isActive, true));
+        : await db
+            .select(projection)
+            .from(doorStyles)
+            .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
+            .where(eq(doorStyles.isActive, true));
       // Hide active-but-empty styles from every public surface (storefront +
       // Design Tool picker). Admin back-office queries do not use this router.
       return filterStylesByAvailability(rows, available);
