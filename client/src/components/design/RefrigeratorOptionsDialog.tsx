@@ -76,7 +76,7 @@ export interface RefrigeratorOptionsDialogProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const FRIDGE_WIDTHS = [30, 33, 36];
+const FRIDGE_WIDTHS = [24, 27, 30, 33, 36, 42];
 const FRIDGE_HEIGHTS = [66, 70, 72, 78, 84];
 const FRIDGE_DEPTHS = [24, 27, 30, 33, 36];
 
@@ -87,7 +87,7 @@ const BRIDGE_DEPTH_OPTIONS = [12, 24] as const;
 type BridgeDepth = typeof BRIDGE_DEPTH_OPTIONS[number];
 
 // Standard bridge widths — same as fridge widths
-const BRIDGE_WIDTH_OPTIONS = [30, 33, 36];
+const BRIDGE_WIDTH_OPTIONS = [24, 27, 30, 33, 36, 42];
 
 // End panel depth options (inches)
 const PANEL_DEPTH_OPTIONS = [24, 26, 28, 30, 32, 34, 36];
@@ -205,7 +205,7 @@ export function RefrigeratorOptionsDialog({
   const { t } = useLanguage();
 
   // ── Fridge size ────────────────────────────────────────────────────────────
-  const clampFridgeW = (w: number) => FRIDGE_WIDTHS.includes(w) ? w : FRIDGE_WIDTHS.reduce((a, b) => Math.abs(b - w) < Math.abs(a - w) ? b : a, FRIDGE_WIDTHS[0]);
+  const clampFridgeW = (w: number) => FRIDGE_WIDTHS.includes(w) ? w : FRIDGE_WIDTHS.reduce((a, b) => Math.abs(b - w) < Math.abs(a - w) ? b : a, 36);
   const [fridgeW, setFridgeW] = useState<number>(clampFridgeW(fridgeWidthInches ?? 36));
   const [fridgeH, setFridgeH] = useState<number>(70);
   const [fridgeD, setFridgeD] = useState<number>(30);
@@ -354,8 +354,8 @@ export function RefrigeratorOptionsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t("dt_fridge_title")}</DialogTitle>
-          <DialogDescription>{t("dt_fridge_desc")}</DialogDescription>
+          <DialogTitle>Refrigerator Options</DialogTitle>
+          <DialogDescription>Choose what to build around this refrigerator. Everything is optional.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-1">
@@ -578,12 +578,19 @@ export function RefrigeratorOptionsDialog({
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" className="bg-background" onClick={onSkip}>
-            {t("dt_fridge_skip")}
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2">
+          <Button
+            variant="ghost"
+            className="text-muted-foreground hover:text-foreground sm:mr-auto"
+            onClick={onSkip}
+          >
+            Just the refrigerator
+          </Button>
+          <Button variant="outline" className="bg-background" onClick={() => onOpenChange(false)}>
+            Cancel
           </Button>
           <Button onClick={handleApply} disabled={!canApply}>
-            {t("dt_fridge_apply")}
+            Add to plan
           </Button>
         </DialogFooter>
       </DialogContent>

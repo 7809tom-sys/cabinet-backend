@@ -1035,3 +1035,13 @@
 - [x] DesignTool.tsx: append note to the opening label (e.g. "🚰 Plumbing — sink")
 - [x] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## Refrigerator Options Dialog
+- [x] Audit existing fridge placement code in DesignTool.tsx and design.ts
+- [x] Build RefrigeratorOptionsDialog: fridge size (width 24/27/30/33/36/42, height 66/70/72/78/84, depth 24/27/30/33/36)
+- [x] Over-fridge cabinet section: Add/No Cabinet toggle, width, height (12/18/24), depth (12"/24"), availability validation
+- [x] Fridge end panels: Left / Right / Both / None selector
+- [x] "Add to plan" places fridge + over-fridge cabinet + end panels on the active wall
+- [x] Replace/extend existing fridge placement flow in DesignTool.tsx
+- [x] TypeScript: 0 errors
+- [ ] Save checkpoint
