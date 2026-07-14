@@ -223,6 +223,13 @@ export function RefrigeratorOptionsDialog({
   // ── Smooth panel ───────────────────────────────────────────────────────────
   const [smooth, setSmooth] = useState(false);
 
+  // ── SKU dimension parser: W[WW][HH][DD] e.g. W301212=30W×12H×12D ───────────────
+  const parseSkuDims = (code: string) => {
+    const m = code.replace(/^[^W]*W/, "W").match(/^W(\d{2})(\d{2})(\d{2})$/);
+    if (!m) return null;
+    return { w: parseInt(m[1], 10), h: parseInt(m[2], 10), d: parseInt(m[3], 10) };
+  };
+
   // ── Derived: best-match bridge cabinet ────────────────────────────────────
   const bridgeByDims = useMemo(() => {
     const result: Record<BridgeHeight, Record<BridgeDepth, SurroundCabinet | null>> = {
@@ -233,9 +240,13 @@ export function RefrigeratorOptionsDialog({
     for (const targetH of BRIDGE_HEIGHT_OPTIONS) {
       for (const targetD of BRIDGE_DEPTH_OPTIONS) {
         const candidates = bridgeAbove.filter((c) => {
-          const w = parseFloat(String(c.width ?? "0"));
-          const h = parseFloat(String(c.height ?? "0"));
-          const d = parseFloat(String(c.depth ?? "0"));
+          const sku = parseSkuDims(c.masterCode);
+          const storedW = parseFloat(String(c.width ?? ""));
+          const storedH = parseFloat(String(c.height ?? ""));
+          const storedD = parseFloat(String(c.depth ?? ""));
+          const w = storedW || (sku ? sku.w : 0);
+          const h = storedH || (sku ? sku.h : 0);
+          const d = storedD || (sku ? sku.d : 0);
           return (
             w <= bridgeWidthChoice + 0.5 &&
             Math.abs(h - targetH) < 1.5 &&
@@ -243,11 +254,15 @@ export function RefrigeratorOptionsDialog({
           );
         });
         if (!candidates.length) continue;
-        result[targetH][targetD] = [...candidates].sort(
-          (a, b) =>
-            Math.abs(parseFloat(String(a.width ?? "0")) - bridgeWidthChoice) -
-            Math.abs(parseFloat(String(b.width ?? "0")) - bridgeWidthChoice)
-        )[0];
+        result[targetH][targetD] = [...candidates].sort((a, b) => {
+          const sa = parseSkuDims(a.masterCode);
+          const sb = parseSkuDims(b.masterCode);
+          const storedWA = parseFloat(String(a.width ?? ""));
+          const storedWB = parseFloat(String(b.width ?? ""));
+          const wa = storedWA || (sa ? sa.w : 0);
+          const wb = storedWB || (sb ? sb.w : 0);
+          return Math.abs(wa - bridgeWidthChoice) - Math.abs(wb - bridgeWidthChoice);
+        })[0];
       }
     }
     return result;

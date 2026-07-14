@@ -364,15 +364,29 @@ export const designRouter = router({
         ));
       // Bridge wall cabinets: short (≤ 24" tall) wall cabinets, 12" or 24" deep.
       // Supports user-selectable heights of 12", 18", and 24" and depths of 12" (shallow) or 24" (full).
-      // Actual DB codes: W3612, W3618, W3624, W361824, W302424, etc. — description contains "Bridge" or "wall".
+      // SKU pattern: W[WW][HH][DD] e.g. W301212 = 30"W × 12"H × 12"D, W361224 = 36"W × 12"H × 24"D.
+      // Match by stored height/depth columns OR by parsing the SKU masterCode pattern.
       const bridgeRowsStyle = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(
           gate,
-          sql`(LOWER(${cabinets.description}) LIKE '%bridge%' OR (CAST(${cabinets.height} AS DECIMAL) <= 24 AND LOWER(${cabinets.description}) LIKE '%wall%'))`,
-          sql`CAST(${cabinets.depth} AS DECIMAL) <= 24`
+          sql`(
+            LOWER(${cabinets.description}) LIKE '%bridge%'
+            OR (
+              CAST(${cabinets.height} AS DECIMAL) <= 24
+              AND LOWER(${cabinets.description}) LIKE '%wall%'
+            )
+            OR (
+              ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
+              AND CAST(SUBSTR(${cabinets.masterCode}, LENGTH(${cabinets.masterCode})-3, 2) AS DECIMAL) <= 24
+            )
+          )`,
+          sql`(
+            CAST(${cabinets.depth} AS DECIMAL) <= 24
+            OR ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
+          )`
         ));
       // Fallback: if no bridge cabinets found for this style, use any published SKU from same distributor.
       let bridgeRows = bridgeRowsStyle;
@@ -383,8 +397,21 @@ export const designRouter = router({
           .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
           .where(and(
             distGate,
-            sql`(LOWER(${cabinets.description}) LIKE '%bridge%' OR (CAST(${cabinets.height} AS DECIMAL) <= 24 AND LOWER(${cabinets.description}) LIKE '%wall%'))`,
-            sql`CAST(${cabinets.depth} AS DECIMAL) <= 24`
+            sql`(
+              LOWER(${cabinets.description}) LIKE '%bridge%'
+              OR (
+                CAST(${cabinets.height} AS DECIMAL) <= 24
+                AND LOWER(${cabinets.description}) LIKE '%wall%'
+              )
+              OR (
+                ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
+                AND CAST(SUBSTR(${cabinets.masterCode}, LENGTH(${cabinets.masterCode})-3, 2) AS DECIMAL) <= 24
+              )
+            )`,
+            sql`(
+              CAST(${cabinets.depth} AS DECIMAL) <= 24
+              OR ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
+            )`
           ));
       }
       // End panels: REPV*, TDEP*, and S2496/S3696 shelf boards (used as refrigerator side panels).
