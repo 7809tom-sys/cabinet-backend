@@ -1003,6 +1003,37 @@ export default function FeaturedStylesAdmin() {
   );
 }
 
+// ── Small image pair: door sample + room scene thumbnails ───────────────────
+
+function StyleImagePreviews({ style }: { style: Pick<AdminStyle, "doorSampleImageUrl" | "roomSceneImageUrl"> }) {
+  return (
+    <div className="flex gap-1.5 shrink-0">
+      {/* Door sample */}
+      <div className="relative">
+        <div className="h-16 w-16 rounded border border-border bg-muted/40 overflow-hidden flex items-center justify-center">
+          {style.doorSampleImageUrl ? (
+            <img src={style.doorSampleImageUrl} alt="Door sample" className="h-full w-full object-cover" />
+          ) : (
+            <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
+          )}
+        </div>
+        <span className="absolute -bottom-4 left-0 right-0 text-center text-[9px] text-muted-foreground leading-tight">Door</span>
+      </div>
+      {/* Room scene */}
+      <div className="relative">
+        <div className="h-16 w-24 rounded border border-border bg-muted/40 overflow-hidden flex items-center justify-center">
+          {style.roomSceneImageUrl ? (
+            <img src={style.roomSceneImageUrl} alt="Room scene" className="h-full w-full object-cover" />
+          ) : (
+            <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
+          )}
+        </div>
+        <span className="absolute -bottom-4 left-0 right-0 text-center text-[9px] text-muted-foreground leading-tight">Room scene</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Merge Style Dialog ────────────────────────────────────────────────────────
 
 function MergeStyleDialog({
@@ -1037,7 +1068,7 @@ function MergeStyleDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitMerge className="h-5 w-5 text-purple-600" />
@@ -1046,13 +1077,19 @@ function MergeStyleDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          {/* Duplicate card */}
           <div className="rounded-lg border bg-muted/40 p-3 text-sm">
-            <p className="font-medium text-muted-foreground mb-1">Duplicate (will be deactivated)</p>
-            <p className="font-semibold">{duplicate.ourName}</p>
-            {duplicate.supplyLineName && (
-              <p className="text-xs text-orange-600">{duplicate.supplyLineName}</p>
-            )}
-            <p className="text-xs text-muted-foreground">{[duplicate.doorStyle, duplicate.color].filter(Boolean).join(" · ")}</p>
+            <p className="font-medium text-muted-foreground mb-2">Duplicate (will be deactivated)</p>
+            <div className="flex gap-3">
+              <StyleImagePreviews style={duplicate} />
+              <div className="min-w-0">
+                <p className="font-semibold">{duplicate.ourName}</p>
+                {duplicate.supplyLineName && (
+                  <p className="text-xs text-orange-600">{duplicate.supplyLineName}</p>
+                )}
+                <p className="text-xs text-muted-foreground">{[duplicate.doorStyle, duplicate.color].filter(Boolean).join(" · ")}</p>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -1075,14 +1112,47 @@ function MergeStyleDialog({
             </Select>
           </div>
 
+          {/* Primary card — shown once a primary is selected */}
           {primary && (
             <div className="rounded-lg border bg-green-50 border-green-200 p-3 text-sm">
-              <p className="font-medium text-green-700 mb-1">Primary (will receive all SKUs)</p>
-              <p className="font-semibold">{primary.ourName}</p>
-              {primary.supplyLineName && (
-                <p className="text-xs text-orange-600">{primary.supplyLineName}</p>
-              )}
-              <p className="text-xs text-muted-foreground">{[primary.doorStyle, primary.color].filter(Boolean).join(" · ")}</p>
+              <p className="font-medium text-green-700 mb-2">Primary (will receive all SKUs)</p>
+              <div className="flex gap-3">
+                <StyleImagePreviews style={primary} />
+                <div className="min-w-0">
+                  <p className="font-semibold">{primary.ourName}</p>
+                  {primary.supplyLineName && (
+                    <p className="text-xs text-orange-600">{primary.supplyLineName}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">{[primary.doorStyle, primary.color].filter(Boolean).join(" · ")}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* After-merge preview — what the primary will look like */}
+          {primary && copyImages && (duplicate.roomSceneImageUrl || (!primary.doorSampleImageUrl && duplicate.doorSampleImageUrl)) && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50/60 p-3 text-sm">
+              <p className="font-medium text-purple-700 mb-2">After merge — primary will have these photos</p>
+              <div className="flex gap-3">
+                <StyleImagePreviews
+                  style={{
+                    ...primary,
+                    roomSceneImageUrl: duplicate.roomSceneImageUrl || primary.roomSceneImageUrl,
+                    doorSampleImageUrl: primary.doorSampleImageUrl || duplicate.doorSampleImageUrl,
+                  }}
+                />
+                <div className="min-w-0 text-xs text-muted-foreground space-y-0.5">
+                  {duplicate.roomSceneImageUrl && (
+                    <p className="text-purple-700">✓ Room scene copied from duplicate</p>
+                  )}
+                  {!primary.doorSampleImageUrl && duplicate.doorSampleImageUrl && (
+                    <p className="text-purple-700">✓ Door sample copied from duplicate</p>
+                  )}
+                  {primary.doorSampleImageUrl && (
+                    <p>— Door sample kept from primary</p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
