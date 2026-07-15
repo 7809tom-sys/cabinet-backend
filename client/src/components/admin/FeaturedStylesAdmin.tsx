@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
-  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon,
+  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, GitMerge,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,8 @@ interface AdminStyle {
   distributorId: number;
   distributorName: string | null;
   seriesName: string | null;
+  supplyLineName?: string | null;
+  supplyLineNeutralName?: string | null;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -594,6 +596,7 @@ export default function FeaturedStylesAdmin() {
   const [search, setSearch] = useState("");
   const [distributorFilter, setDistributorFilter] = useState<string>("all");
   const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
+  const [mergingStyle, setMergingStyle] = useState<AdminStyle | null>(null);
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.doorStyles.listForAdmin.useQuery();
 
@@ -640,6 +643,15 @@ export default function FeaturedStylesAdmin() {
     onSuccess: () => {
       utils.doorStyles.listForAdmin.invalidate();
       utils.doorStyles.featured.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const mergeStyles = trpc.doorStyles.mergeStyles.useMutation({
+    onSuccess: (res) => {
+      toast.success(`Merged "${res.duplicateName}" into "${res.primaryName}" — ${res.skusMoved} SKUs moved.`);
+      setMergingStyle(null);
+      invalidateAll();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -774,18 +786,13 @@ export default function FeaturedStylesAdmin() {
                         )}
                       </>
                     )}
+                    {s.supplyLineName && (
+                      <span className="text-orange-500 font-semibold text-xs shrink-0">· {s.supplyLineName}</span>
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
+                    {[s.distributorName || s.seriesName, s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
                   </p>
-                  {(s.distributorName || s.seriesName) && (
-                    <p className="text-xs truncate mt-0.5">
-                      <span className="text-blue-600 font-medium">{s.seriesName || s.distributorName}</span>
-                      {s.seriesName && s.distributorName && (
-                        <span className="text-muted-foreground"> · {s.distributorName}</span>
-                      )}
-                    </p>
-                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {/* Quick-edit button */}
@@ -800,6 +807,16 @@ export default function FeaturedStylesAdmin() {
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <DoorPhotoCorrectButton styleId={s.id} styleName={s.ourName} compact />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                    onClick={() => setMergingStyle(s)}
+                    aria-label="Merge with another style"
+                    title="Mark as same style (merge)"
+                  >
+                    <GitMerge className="h-4 w-4" />
+                  </Button>
                   <Button
                     size="icon"
                     variant="ghost"
@@ -905,18 +922,15 @@ export default function FeaturedStylesAdmin() {
                   className="min-w-0 flex-1 text-left"
                   title="Edit this door style"
                 >
-                  <p className="font-medium text-sm truncate">{s.ourName}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
+                  <p className="font-medium text-sm truncate flex items-center gap-1.5">
+                    <span className="truncate">{s.ourName}</span>
+                    {s.supplyLineName && (
+                      <span className="text-orange-500 font-semibold text-xs shrink-0">· {s.supplyLineName}</span>
+                    )}
                   </p>
-                  {(s.distributorName || s.seriesName) && (
-                    <p className="text-xs truncate mt-0.5">
-                      <span className="text-blue-600 font-medium">{s.seriesName || s.distributorName}</span>
-                      {s.seriesName && s.distributorName && (
-                        <span className="text-muted-foreground"> · {s.distributorName}</span>
-                      )}
-                    </p>
-                  )}
+                  <p className="text-xs text-muted-foreground truncate">
+                    {[s.distributorName || s.seriesName, s.doorStyle, s.color].filter(Boolean).join(" · ")}
+                  </p>
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button
@@ -928,6 +942,16 @@ export default function FeaturedStylesAdmin() {
                     title="Edit style"
                   >
                     <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                    onClick={() => setMergingStyle(s)}
+                    aria-label="Merge with another style"
+                    title="Mark as same style (merge)"
+                  >
+                    <GitMerge className="h-4 w-4" />
                   </Button>
                   <Button
                     size="icon"
@@ -961,6 +985,137 @@ export default function FeaturedStylesAdmin() {
           onSaved={invalidateAll}
         />
       )}
+
+      {/* Merge dialog */}
+      {mergingStyle && (
+        <MergeStyleDialog
+          duplicate={mergingStyle}
+          allStyles={styles}
+          open={!!mergingStyle}
+          onClose={() => setMergingStyle(null)}
+          onMerge={(primaryId, copyImages) =>
+            mergeStyles.mutate({ primaryId, duplicateId: mergingStyle.id, copyMissingImages: copyImages })
+          }
+          isPending={mergeStyles.isPending}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Merge Style Dialog ────────────────────────────────────────────────────────
+
+function MergeStyleDialog({
+  duplicate,
+  allStyles,
+  open,
+  onClose,
+  onMerge,
+  isPending,
+}: {
+  duplicate: AdminStyle;
+  allStyles: AdminStyle[];
+  open: boolean;
+  onClose: () => void;
+  onMerge: (primaryId: number, copyImages: boolean) => void;
+  isPending: boolean;
+}) {
+  const [primaryId, setPrimaryId] = useState<string>("");
+  const [copyImages, setCopyImages] = useState(true);
+
+  const candidates = useMemo(
+    () => allStyles.filter((s) => s.id !== duplicate.id).sort((a, b) => a.ourName.localeCompare(b.ourName)),
+    [allStyles, duplicate.id],
+  );
+
+  const primary = candidates.find((s) => s.id === Number(primaryId));
+
+  function handleMerge() {
+    if (!primaryId) return;
+    onMerge(Number(primaryId), copyImages);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <GitMerge className="h-5 w-5 text-purple-600" />
+            Mark as Same Style
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+            <p className="font-medium text-muted-foreground mb-1">Duplicate (will be deactivated)</p>
+            <p className="font-semibold">{duplicate.ourName}</p>
+            {duplicate.supplyLineName && (
+              <p className="text-xs text-orange-600">{duplicate.supplyLineName}</p>
+            )}
+            <p className="text-xs text-muted-foreground">{[duplicate.doorStyle, duplicate.color].filter(Boolean).join(" · ")}</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Primary style (keep this one)</Label>
+            <Select value={primaryId} onValueChange={setPrimaryId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select the style to keep..." />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {candidates.map((s) => (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    <span className="font-medium">{s.ourName}</span>
+                    {s.supplyLineName && (
+                      <span className="text-orange-500 text-xs ml-1">· {s.supplyLineName}</span>
+                    )}
+                    {s.color && <span className="text-muted-foreground text-xs ml-1">· {s.color}</span>}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {primary && (
+            <div className="rounded-lg border bg-green-50 border-green-200 p-3 text-sm">
+              <p className="font-medium text-green-700 mb-1">Primary (will receive all SKUs)</p>
+              <p className="font-semibold">{primary.ourName}</p>
+              {primary.supplyLineName && (
+                <p className="text-xs text-orange-600">{primary.supplyLineName}</p>
+              )}
+              <p className="text-xs text-muted-foreground">{[primary.doorStyle, primary.color].filter(Boolean).join(" · ")}</p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="copyImages"
+              checked={copyImages}
+              onChange={(e) => setCopyImages(e.target.checked)}
+              className="h-4 w-4 rounded border-border"
+            />
+            <Label htmlFor="copyImages" className="text-sm font-normal cursor-pointer">
+              Copy missing photos from duplicate to primary
+            </Label>
+          </div>
+
+          <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded p-2">
+            <strong>What happens:</strong> All SKUs from <em>{duplicate.ourName}</em> will be moved to the primary style. The duplicate will be deactivated and hidden from the public catalog. This cannot be undone automatically.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>Cancel</Button>
+          <Button
+            onClick={handleMerge}
+            disabled={!primaryId || isPending}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <GitMerge className="h-4 w-4 mr-2" />}
+            Merge Styles
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

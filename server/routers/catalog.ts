@@ -249,11 +249,35 @@ export const doorStylesRouter = router({
     const db = await getDb();
     if (!db) return [];
     const rows = await db
-      .select()
+      .select({
+        // All door_styles columns
+        id: doorStyles.id,
+        distributorId: doorStyles.distributorId,
+        styleCode: doorStyles.styleCode,
+        ourName: doorStyles.ourName,
+        distributorName: doorStyles.distributorName,
+        featuredLabel: doorStyles.featuredLabel,
+        aliasName: doorStyles.aliasName,
+        doorStyle: doorStyles.doorStyle,
+        color: doorStyles.color,
+        finish: doorStyles.finish,
+        woodSpecies: doorStyles.woodSpecies,
+        isFeatured: doorStyles.isFeatured,
+        featuredRank: doorStyles.featuredRank,
+        isActive: doorStyles.isActive,
+        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+        roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+        doorSampleVerified: doorStyles.doorSampleVerified,
+        // Joined distributor info for admin display
+        seriesName: distributors.seriesName,
+        supplyLineName: sql<string>`coalesce(${distributors.brandName}, ${distributors.name})`,
+        supplyLineNeutralName: distributors.name,
+      })
       .from(doorStyles)
+      .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
       .where(eq(doorStyles.isActive, true))
       .orderBy(asc(doorStyles.ourName));
-    return rows; // admin sees full rows (incl. distributorName) intentionally
+    return rows; // admin sees full rows (incl. distributorName + joined supply line name)
   }),
 
   // Admin: toggle a style's featured state. Enforces the MAX 30 cap on enable.
@@ -893,6 +917,64 @@ export const doorStylesRouter = router({
         .set({ isPublished: input.isPublished })
         .where(eq(distributorSkus.styleId, input.styleId));
       return { ok: true };
+    }),
+
+  /** Admin: merge two door styles that are the same physical door.
+   * All SKUs from the duplicate are re-pointed to the primary.
+   * The duplicate style is deactivated so it no longer appears in the catalog.
+   */
+  mergeStyles: adminProcedure
+    .input(
+      z.object({
+        primaryId: z.number().int().positive(),
+        duplicateId: z.number().int().positive(),
+        copyMissingImages: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ input }) => {
+      if (input.primaryId === input.duplicateId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Primary and duplicate must be different styles." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [primaryRows, duplicateRows] = await Promise.all([
+        db.select().from(doorStyles).where(eq(doorStyles.id, input.primaryId)).limit(1),
+        db.select().from(doorStyles).where(eq(doorStyles.id, input.duplicateId)).limit(1),
+      ]);
+      if (!primaryRows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Primary style not found." });
+      if (!duplicateRows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Duplicate style not found." });
+      const p = primaryRows[0];
+      const d = duplicateRows[0];
+      // 1. Re-point all distributor SKUs from duplicate → primary
+      const skuResult = await db
+        .update(distributorSkus)
+        .set({ styleId: input.primaryId })
+        .where(eq(distributorSkus.styleId, input.duplicateId));
+      // 2. Copy missing images from duplicate to primary if requested
+      const imagePatch: Record<string, string> = {};
+      if (input.copyMissingImages) {
+        if (!p.doorSampleImageUrl && d.doorSampleImageUrl) {
+          imagePatch.doorSampleImageUrl = d.doorSampleImageUrl;
+        }
+        if (!p.roomSceneImageUrl && d.roomSceneImageUrl) {
+          imagePatch.roomSceneImageUrl = d.roomSceneImageUrl;
+        }
+      }
+      if (Object.keys(imagePatch).length > 0) {
+        await db.update(doorStyles).set(imagePatch).where(eq(doorStyles.id, input.primaryId));
+      }
+      // 3. Deactivate the duplicate style
+      await db
+        .update(doorStyles)
+        .set({ isActive: false })
+        .where(eq(doorStyles.id, input.duplicateId));
+      return {
+        ok: true,
+        skusMoved: (skuResult as { affectedRows?: number }).affectedRows ?? 0,
+        primaryName: p.ourName,
+        duplicateName: d.ourName,
+        imagesCopied: Object.keys(imagePatch),
+      };
     }),
 });
 // --- Cabinets -----------------------------------------------------------------
@@ -3057,6 +3139,73 @@ export const pricingRouter = router({
       const suffix = parts.length > 0 ? parts.join("-") : "full";
       const filename = `cabinet-dealz-export-${suffix}-${date}.xlsx`;
       return { xlsx, filename, counts };
+    }),
+
+  // Admin: merge two door styles that are actually the same physical style.
+  // All SKUs, room scenes, and affiliate branding rows from the duplicate are
+  // re-pointed to the primary. The duplicate style is then deactivated so it
+  // no longer appears in the public catalog or design tool.
+  mergeStyles: adminProcedure
+    .input(
+      z.object({
+        primaryId: z.number().int().positive(),
+        duplicateId: z.number().int().positive(),
+        // When true, copy the duplicate's doorSampleImageUrl / roomSceneImageUrl
+        // onto the primary if the primary is currently missing those images.
+        copyMissingImages: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ input }) => {
+      if (input.primaryId === input.duplicateId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Primary and duplicate must be different styles." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      // Verify both styles exist
+      const [primary, duplicate] = await Promise.all([
+        db.select().from(doorStyles).where(eq(doorStyles.id, input.primaryId)).limit(1),
+        db.select().from(doorStyles).where(eq(doorStyles.id, input.duplicateId)).limit(1),
+      ]);
+      if (!primary[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Primary style not found." });
+      if (!duplicate[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Duplicate style not found." });
+
+      const p = primary[0];
+      const d = duplicate[0];
+
+      // 1. Re-point all distributor SKUs from duplicate → primary
+      const skuResult = await db
+        .update(distributorSkus)
+        .set({ styleId: input.primaryId })
+        .where(eq(distributorSkus.styleId, input.duplicateId));
+
+      // 2. Copy missing images from duplicate to primary if requested
+      const imagePatch: Record<string, string> = {};
+      if (input.copyMissingImages) {
+        if (!p.doorSampleImageUrl && d.doorSampleImageUrl) {
+          imagePatch.doorSampleImageUrl = d.doorSampleImageUrl;
+        }
+        if (!p.roomSceneImageUrl && d.roomSceneImageUrl) {
+          imagePatch.roomSceneImageUrl = d.roomSceneImageUrl;
+        }
+      }
+      if (Object.keys(imagePatch).length > 0) {
+        await db.update(doorStyles).set(imagePatch).where(eq(doorStyles.id, input.primaryId));
+      }
+
+      // 3. Deactivate the duplicate style
+      await db
+        .update(doorStyles)
+        .set({ isActive: false })
+        .where(eq(doorStyles.id, input.duplicateId));
+
+      return {
+        ok: true,
+        skusMoved: (skuResult as { affectedRows?: number }).affectedRows ?? 0,
+        primaryName: p.ourName,
+        duplicateName: d.ourName,
+        imagesCopied: Object.keys(imagePatch),
+      };
     }),
 
 });

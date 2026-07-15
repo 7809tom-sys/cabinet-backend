@@ -1126,3 +1126,8 @@
 - [ ] Add category search/filter dropdown to ConflictsAdmin (filter by cabinet category: Base, Wall, Tall, Accessory, etc.)
 - [ ] Add text search input to ConflictsAdmin (search by raw SKU code)
 - [ ] Add "Add New" button to ConflictsAdmin to manually create a new conflict/pending SKU entry
+
+## Feature: Merge Duplicate Door Styles (from Featured Door Styles page)
+- [ ] Server: mergeStyles procedure — re-point all SKUs + room scenes from duplicate style(s) to primary, deactivate duplicates
+- [ ] FeaturedStylesAdmin: add "Merge" button on each style card that opens a MergeStyleDialog
+- [ ] MergeStyleDialog: searchable picker to select the duplicate, preview both side-by-side, confirm merge
