@@ -254,11 +254,21 @@ export const distributorImportRouter = router({
       const hasPricing =
         parsed.columns.includes("listPrice") ||
         parsed.columns.includes("yourCost");
-      if (hasPricing && !input.styleId) {
+      const hasStyleCodeCol = parsed.columns.includes("styleCode");
+      // Multi-style mode: styleCode column routes each row to its own style.
+      // Single-style mode: a styleId must be provided when pricing columns are present.
+      if (hasPricing && !input.styleId && !hasStyleCodeCol) {
         fatalErrors.push(
           "Pricing columns detected — choose which door style these prices apply to."
         );
       }
+
+      // Pre-load all door styles for this distributor for multi-style routing
+      const allStyles = await db
+        .select({ id: doorStyles.id, styleCode: doorStyles.styleCode })
+        .from(doorStyles)
+        .where(eq(doorStyles.distributorId, input.distributorId));
+      const styleByCode = new Map(allStyles.map((s) => [s.styleCode.toUpperCase(), s.id]));
 
       // Build a full normalized lookup of all master cabinets + aliases for fuzzy matching.
       const allCabinets = await db
@@ -297,7 +307,11 @@ export const distributorImportRouter = router({
         if (parseDimension(row.cells.width)) fields.push("width");
         if (parseDimension(row.cells.height)) fields.push("height");
         if (parseDimension(row.cells.depth)) fields.push("depth");
-        const priceTouched = hasPricing && Boolean(input.styleId) && Boolean(found);
+        const rowStyleCode = (row.cells.styleCode ?? "").trim().toUpperCase();
+        const resolvedStyleId = hasStyleCodeCol
+          ? (styleByCode.get(rowStyleCode) ?? null)
+          : (input.styleId ?? null);
+        const priceTouched = hasPricing && Boolean(resolvedStyleId) && Boolean(found);
 
         let action: PreviewRow["action"];
         if (!v.ok) action = "error";
@@ -388,6 +402,14 @@ export const distributorImportRouter = router({
       const hasPricing =
         parsed.columns.includes("listPrice") ||
         parsed.columns.includes("yourCost");
+      const hasStyleCodeColCommit = parsed.columns.includes("styleCode");
+
+      // Pre-load all door styles for this distributor for multi-style routing
+      const allStylesCommit = await db
+        .select({ id: doorStyles.id, styleCode: doorStyles.styleCode })
+        .from(doorStyles)
+        .where(eq(doorStyles.distributorId, input.distributorId));
+      const styleByCodeCommit = new Map(allStylesCommit.map((s) => [s.styleCode.toUpperCase(), s.id]));
 
       // Build fuzzy lookup for commit (same as preview).
       const allCabsCommit = await db
@@ -468,8 +490,13 @@ export const distributorImportRouter = router({
           }
         }
 
-        // Pricing upsert (needs a style)
-        if (hasPricing && input.styleId) {
+        // Pricing upsert — resolve styleId either from the row's styleCode column or the single input.styleId
+        const rowStyleCodeCommit = (row.cells.styleCode ?? "").trim().toUpperCase();
+        const effectiveStyleId = hasStyleCodeColCommit
+          ? (styleByCodeCommit.get(rowStyleCodeCommit) ?? null)
+          : (input.styleId ?? null);
+
+        if (hasPricing && effectiveStyleId) {
           const listPrice = parseMoney(row.cells.listPrice);
           const yourCost = parseMoney(row.cells.yourCost);
           // NA/X/blank = mark as not available
@@ -480,7 +507,7 @@ export const distributorImportRouter = router({
               .where(and(
                 eq(distributorSkus.cabinetId, cabinetId),
                 eq(distributorSkus.distributorId, input.distributorId),
-                eq(distributorSkus.styleId, input.styleId)
+                eq(distributorSkus.styleId, effectiveStyleId)
               ));
             priced++;
             continue;
@@ -494,7 +521,7 @@ export const distributorImportRouter = router({
               .where(and(
                 eq(distributorSkus.cabinetId, cabinetId),
                 eq(distributorSkus.distributorId, input.distributorId),
-                eq(distributorSkus.styleId, input.styleId)
+                eq(distributorSkus.styleId, effectiveStyleId)
               ))
               .limit(1);
             const pricePatch: Record<string, unknown> = { isAvailable: true };
@@ -507,8 +534,8 @@ export const distributorImportRouter = router({
               await db.insert(distributorSkus).values({
                 cabinetId,
                 distributorId: input.distributorId,
-                styleId: input.styleId,
-                platformSku: `${normalizeCode(rawCode)}-S${input.styleId}-D${input.distributorId}`,
+                styleId: effectiveStyleId,
+                platformSku: `${normalizeCode(rawCode)}-S${effectiveStyleId}-D${input.distributorId}`,
                 distributorSku: rawCode,
                 listPrice: lp !== null ? String(lp) : null,
                 yourCost: yc !== null ? String(yc) : null,
