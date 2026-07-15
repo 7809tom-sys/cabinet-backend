@@ -1,8 +1,14 @@
 import { useMemo, useState, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
-  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, GitMerge,
+  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, GitMerge, List, Save, Eye, EyeOff,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -600,6 +606,7 @@ export default function FeaturedStylesAdmin() {
   const [distributorFilter, setDistributorFilter] = useState<string>("all");
   const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
   const [mergingStyle, setMergingStyle] = useState<AdminStyle | null>(null);
+  const [viewingStyle, setViewingStyle] = useState<AdminStyle | null>(null);
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.doorStyles.listForAdmin.useQuery();
 
@@ -806,6 +813,17 @@ export default function FeaturedStylesAdmin() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  {/* View line items button */}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    onClick={() => setViewingStyle(s)}
+                    aria-label="View & edit line items"
+                    title="View & edit line items"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
                   {/* Quick-edit button */}
                   <Button
                     size="icon"
@@ -1018,6 +1036,16 @@ export default function FeaturedStylesAdmin() {
           isPending={mergeStyles.isPending}
         />
       )}
+
+      {/* Line items dialog */}
+      {viewingStyle && (
+        <StyleSkuListDialog
+          style={viewingStyle}
+          open={!!viewingStyle}
+          onClose={() => setViewingStyle(null)}
+          onSaved={invalidateAll}
+        />
+      )}
     </div>
   );
 }
@@ -1205,6 +1233,295 @@ function MergeStyleDialog({
             Merge Styles
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── StyleSkuListDialog: view & edit all line items for a door style ──────────
+
+const SKU_PRICE_FIELDS = [
+  { key: "yourCost", label: "Your Cost" },
+  { key: "listPrice", label: "List Price" },
+  { key: "wholesalePrice", label: "Wholesale" },
+  { key: "contractorPrice", label: "Contractor" },
+  { key: "homeownerPrice", label: "Homeowner" },
+] as const;
+type SkuPriceKey = (typeof SKU_PRICE_FIELDS)[number]["key"];
+
+type SkuRow = {
+  id: number;
+  platformSku: string;
+  distributorSku: string;
+  listPrice: string | null;
+  yourCost: string | null;
+  wholesalePrice: string | null;
+  contractorPrice: string | null;
+  homeownerPrice: string | null;
+  isAvailable: boolean;
+  isPublished: boolean;
+  cabinetId: number | null;
+  masterCode: string | null;
+  description: string | null;
+  category: string | null;
+  subCategory: string | null;
+  width: number | null;
+  height: number | null;
+  depth: number | null;
+};
+
+function dollarVal(v: string | null): string {
+  if (v === null || v === undefined) return "";
+  const n = Number(v);
+  return Number.isFinite(n) ? String(n) : "";
+}
+
+function SkuEditRow({ sku, onSaved }: { sku: SkuRow; onSaved: () => void }) {
+  const initial: Record<SkuPriceKey, string> = {
+    yourCost: dollarVal(sku.yourCost),
+    listPrice: dollarVal(sku.listPrice),
+    wholesalePrice: dollarVal(sku.wholesalePrice),
+    contractorPrice: dollarVal(sku.contractorPrice),
+    homeownerPrice: dollarVal(sku.homeownerPrice),
+  };
+  const [draft, setDraft] = useState<Record<SkuPriceKey, string>>(initial);
+  const dirty = SKU_PRICE_FIELDS.some((f) => draft[f.key] !== initial[f.key]);
+
+  const updateCost = trpc.pricing.adminUpdateSkuCost.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.changed > 0 ? `Saved ${res.changed} change${res.changed === 1 ? "" : "s"}` : "No changes");
+      onSaved();
+    },
+    onError: (e: { message: string }) => toast.error(e.message || "Save failed"),
+  });
+
+  const toggleAvail = trpc.doorStyles.adminUpdateSkuAvailability.useMutation({
+    onSuccess: () => onSaved(),
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const togglePublished = trpc.doorStyles.adminToggleSkuPublished.useMutation({
+    onSuccess: () => onSaved(),
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const handleSave = () => {
+    const payload: Record<string, number | null | number> = { skuId: sku.id };
+    for (const f of SKU_PRICE_FIELDS) {
+      if (draft[f.key] === initial[f.key]) continue;
+      const trimmed = draft[f.key].trim();
+      payload[f.key] = trimmed === "" ? null : Number(trimmed);
+    }
+    updateCost.mutate(payload as Parameters<typeof updateCost.mutate>[0]);
+  };
+
+  const dims = [sku.width, sku.height, sku.depth].filter(Boolean).join("W × ").replace(/W × (\d+) × (\d+)/, "W × $1H × $2D");
+
+  return (
+    <TableRow className={dirty ? "bg-amber-50/40" : undefined}>
+      {/* Cabinet info */}
+      <TableCell className="align-top min-w-[160px]">
+        <div className="font-mono text-xs font-semibold">{sku.masterCode ?? "—"}</div>
+        <div className="text-xs text-muted-foreground leading-snug mt-0.5 line-clamp-2">{sku.description ?? ""}</div>
+        {sku.category && <Badge variant="outline" className="text-[10px] mt-1">{sku.category}{sku.subCategory ? ` / ${sku.subCategory}` : ""}</Badge>}
+        {dims && <div className="text-[10px] text-muted-foreground mt-0.5">{dims}</div>}
+      </TableCell>
+      {/* SKU codes */}
+      <TableCell className="align-top min-w-[120px]">
+        <div className="font-mono text-xs">{sku.platformSku}</div>
+        <div className="font-mono text-[10px] text-muted-foreground">{sku.distributorSku}</div>
+      </TableCell>
+      {/* Price fields */}
+      {SKU_PRICE_FIELDS.map((f) => (
+        <TableCell key={f.key} className="align-top p-1.5 min-w-[80px]">
+          <Input
+            inputMode="decimal"
+            value={draft[f.key]}
+            placeholder="—"
+            className={`h-7 text-xs px-2 ${draft[f.key] !== initial[f.key] ? "border-amber-500" : ""}`}
+            onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+          />
+        </TableCell>
+      ))}
+      {/* Availability & Published toggles */}
+      <TableCell className="align-top min-w-[90px]">
+        <div className="flex flex-col gap-1.5">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Switch
+              checked={sku.isAvailable}
+              onCheckedChange={(v) => toggleAvail.mutate({ skuId: sku.id, isAvailable: v })}
+              className="scale-75"
+            />
+            <span className={`text-[10px] ${sku.isAvailable ? "text-emerald-600" : "text-muted-foreground"}`}>
+              {sku.isAvailable ? "Available" : "Unavailable"}
+            </span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Switch
+              checked={sku.isPublished}
+              onCheckedChange={(v) => togglePublished.mutate({ skuId: sku.id, isPublished: v })}
+              className="scale-75"
+            />
+            <span className={`text-[10px] ${sku.isPublished ? "text-emerald-600" : "text-muted-foreground"}`}>
+              {sku.isPublished ? "Published" : "Unpublished"}
+            </span>
+          </label>
+        </div>
+      </TableCell>
+      {/* Save */}
+      <TableCell className="align-top">
+        <Button size="sm" className="h-7 text-xs" disabled={!dirty || updateCost.isPending} onClick={handleSave}>
+          {updateCost.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+          Save
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function StyleSkuListDialog({
+  style,
+  open,
+  onClose,
+  onSaved,
+}: {
+  style: AdminStyle;
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [skuSearch, setSkuSearch] = useState("");
+
+  const { data: skus, isLoading, refetch } = trpc.doorStyles.adminListSkusForStyle.useQuery(
+    { styleId: style.id },
+    { enabled: open },
+  );
+
+  const toggleAll = trpc.doorStyles.adminToggleAllSkusPublished.useMutation({
+    onSuccess: () => { refetch(); onSaved(); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const rows = useMemo(() => {
+    if (!skus) return [];
+    const q = skuSearch.trim().toLowerCase();
+    return (skus as SkuRow[])
+      .filter((r) => categoryFilter === "all" || r.category === categoryFilter)
+      .filter((r) =>
+        q
+          ? `${r.masterCode ?? ""} ${r.description ?? ""} ${r.platformSku} ${r.distributorSku}`.toLowerCase().includes(q)
+          : true,
+      );
+  }, [skus, categoryFilter, skuSearch]);
+
+  const categories = useMemo(() => {
+    if (!skus) return [];
+    return Array.from(new Set((skus as SkuRow[]).map((r) => r.category ?? ""))).filter(Boolean).sort();
+  }, [skus]);
+
+  const activeCount = useMemo(() => (skus as SkuRow[] | undefined)?.filter((r) => r.isAvailable && r.isPublished).length ?? 0, [skus]);
+  const inactiveCount = useMemo(() => (skus as SkuRow[] | undefined)?.filter((r) => !r.isAvailable || !r.isPublished).length ?? 0, [skus]);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-[95vw] w-[1200px] max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <List className="h-4 w-4 text-blue-600" />
+            Line Items — {style.featuredLabel || style.ourName}
+            <span className="text-sm font-normal text-muted-foreground ml-1">
+              {style.totalSkuCount ?? (skus?.length ?? 0)} total
+              {" · "}
+              <span className="text-emerald-600">{activeCount} active</span>
+              {inactiveCount > 0 && <><span className="text-muted-foreground"> · </span><span className="text-amber-600">{inactiveCount} inactive</span></>}
+            </span>
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Toolbar */}
+        <div className="px-6 py-2 border-b shrink-0 flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search SKU, code, description…"
+              value={skuSearch}
+              onChange={(e) => setSkuSearch(e.target.value)}
+              className="pl-8 h-8 text-xs"
+            />
+          </div>
+          {categories.length > 1 && (
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-8 text-xs w-[160px]">
+                <SelectValue placeholder="All categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="flex items-center gap-2 ml-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs gap-1"
+              onClick={() => toggleAll.mutate({ styleId: style.id, isPublished: true })}
+              disabled={toggleAll.isPending}
+            >
+              <Eye className="h-3.5 w-3.5" /> Publish all
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs gap-1"
+              onClick={() => toggleAll.mutate({ styleId: style.id, isPublished: false })}
+              disabled={toggleAll.isPending}
+            >
+              <EyeOff className="h-3.5 w-3.5" /> Unpublish all
+            </Button>
+          </div>
+        </div>
+
+        {/* Table */}
+        <ScrollArea className="flex-1 overflow-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <List className="h-8 w-8 mb-2 opacity-30" />
+              <p className="text-sm">No line items found</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="text-xs">
+                  <TableHead className="min-w-[160px]">Cabinet</TableHead>
+                  <TableHead className="min-w-[120px]">SKU</TableHead>
+                  {SKU_PRICE_FIELDS.map((f) => (
+                    <TableHead key={f.key} className="min-w-[80px]">{f.label}</TableHead>
+                  ))}
+                  <TableHead className="min-w-[90px]">Status</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((sku) => (
+                  <SkuEditRow key={sku.id} sku={sku} onSaved={() => { refetch(); onSaved(); }} />
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </ScrollArea>
+
+        <div className="px-6 py-3 border-t shrink-0 flex justify-between items-center">
+          <p className="text-xs text-muted-foreground">{rows.length} row{rows.length !== 1 ? "s" : ""} shown</p>
+          <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
