@@ -768,4 +768,47 @@ export const distributorPortalRouter = router({
         .limit(input.limit);
       return rows;
     }),
+
+  /**
+   * Export all door styles with their current prices as CSV data.
+   * Returns rows: one per SKU across all styles for this line.
+   */
+  exportStylesCsv: distributorProcedure
+    .input(z.object({ distributorId: z.number().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+
+      // Fetch all SKUs for this line with style + cabinet info
+      const rows = await db
+        .select({
+          styleName: doorStyles.ourName,
+          styleCode: doorStyles.styleCode,
+          doorStyle: doorStyles.doorStyle,
+          isStyleActive: doorStyles.isActive,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          distributorSku: distributorSkus.distributorSku,
+          listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(eq(distributorSkus.distributorId, lineId))
+        .orderBy(doorStyles.ourName, cabinets.category, cabinets.masterCode);
+
+      return rows;
+    }),
 });

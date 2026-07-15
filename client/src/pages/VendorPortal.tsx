@@ -1382,13 +1382,85 @@ function DoorStylesPage() {
 
   const styles = myLine.data?.styles ?? [];
 
+  // CSV export
+  const exportQuery = trpc.distributorPortal.exportStylesCsv.useQuery(
+    adminDistId ? { distributorId: adminDistId } : undefined,
+    { enabled: false } // only fetch on demand
+  );
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExportCsv() {
+    setExporting(true);
+    try {
+      const rows = await exportQuery.refetch();
+      const data = rows.data ?? [];
+      if (data.length === 0) {
+        toast.info("No price data to export yet.");
+        return;
+      }
+      const headers = [
+        "Style Name", "Style Code", "Door Style Type",
+        "Master Code", "Distributor SKU", "Description", "Category", "Sub-Category",
+        "Width", "Height", "Depth",
+        "List Price", "Your Cost", "Wholesale Price", "Contractor Price", "Homeowner Price",
+        "Available", "Published", "Style Active",
+      ];
+      const escape = (v: unknown) => {
+        const s = v == null ? "" : String(v);
+        return s.includes(",") || s.includes('"') || s.includes("\n")
+          ? `"${s.replace(/"/g, '""')}"`
+          : s;
+      };
+      const csvLines = [
+        headers.join(","),
+        ...data.map((r) =>
+          [
+            r.styleName, r.styleCode, r.doorStyle,
+            r.masterCode, r.distributorSku ?? "", r.description, r.category, r.subCategory ?? "",
+            r.width ?? "", r.height ?? "", r.depth ?? "",
+            r.listPrice ?? "", r.yourCost ?? "", r.wholesalePrice ?? "", r.contractorPrice ?? "", r.homeownerPrice ?? "",
+            r.isAvailable ? "Yes" : "No", r.isPublished ? "Yes" : "No", r.isStyleActive ? "Yes" : "No",
+          ].map(escape).join(",")
+        ),
+      ];
+      const blob = new Blob([csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const lineName = myLine.data?.line?.name ?? "line";
+      a.download = `${lineName.replace(/\s+/g, "_")}_door_styles_prices.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${data.length} rows`);
+    } catch (e: unknown) {
+      toast.error((e as Error)?.message ?? "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">Door Styles</h2>
-        <p className="text-muted-foreground text-sm mt-1">
-          Manage images for your door styles. Upload room scenes, door samples, and thumbnails.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold">Door Styles</h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Manage images for your door styles. Upload room scenes, door samples, and thumbnails.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 shrink-0"
+          onClick={handleExportCsv}
+          disabled={exporting}
+        >
+          {exporting ? (
+            <><span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />Exporting…</>
+          ) : (
+            <><Download className="h-4 w-4" />Export CSV</>
+          )}
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
