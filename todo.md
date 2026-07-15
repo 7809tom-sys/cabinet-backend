@@ -1097,3 +1097,18 @@
 - [ ] Design Tool cabinet picker: grey out / hide cabinets with no price for selected style
 - [ ] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## Import: Conflict status for unmatched SKUs
+- [x] Row-per-style mode: collect all unique unmatched SKUs (no cap) and save to importPendingSkus staging table
+- [x] Show pre-publish conflict warning banner listing all unmatched model numbers before "Publish All Matched"
+- [x] Fix post-publish summary modal: show "All styles (row-routed)" instead of "Style #0" for row-per-style imports
+- [x] Make unmatched codes section in summary modal more prominent (red border, clearer message)
+
+## Fix: Clark & Sons 13 styles wrong distributorId
+- [x] Move 13 Clark & Sons styles from distributorId 3 to distributorId 2
+
+## Fix: Alias name not showing publicly (series name appended)
+- [x] styleDisplayName: when aliasName is set, do not append seriesName suffix
+
+## Feature: CSV export button in vendor portal door styles
+- [x] Add Export CSV button to vendor portal door styles tab

@@ -1080,6 +1080,8 @@ export const distributorImportRouter = router({
         for (const m of input.mappings) {
           accumulators.set(m.columnCode, { matched: 0, unmatched: 0, priced: 0, unmatchedCodes: [], upserts: [] });
         }
+        // Track ALL unique unmatched SKUs across all rows (no cap) for conflict staging
+        const allUnmatchedRowPerStyle = new Map<string, Record<string, { listPrice: number | null; yourCost: number | null; styleId: number }>>();
 
         for (const row of rows) {
           const rawSku = String(row[input.skuColumn] ?? "").trim();
@@ -1097,6 +1099,9 @@ export const distributorImportRouter = router({
             if (norm !== normalizeCode(cabinet.masterCode)) {
               newAliases.push({ cabinetId: cabinet.id, rawCodeSample: rawSku, rawCodeCanon: norm, distributorId: input.distributorId });
             }
+          } else {
+            // Cabinet not found — mark as conflict for staging after the loop
+            if (!allUnmatchedRowPerStyle.has(rawSku)) allUnmatchedRowPerStyle.set(rawSku, {});
           }
 
           for (const mapping of input.mappings) {
@@ -1111,7 +1116,14 @@ export const distributorImportRouter = router({
 
             if (!cabinet) {
               acc.unmatched++;
-              if (acc.unmatchedCodes.length < 50) acc.unmatchedCodes.push(rawSku);
+              if (acc.unmatchedCodes.length < 500) acc.unmatchedCodes.push(rawSku);
+              // Accumulate price data for conflict staging
+              const entry = allUnmatchedRowPerStyle.get(rawSku)!;
+              entry[mapping.columnCode] = {
+                listPrice: mapping.priceType === "list" && !isNotAvailable ? parsedPrice : null,
+                yourCost: mapping.priceType === "cost" && !isNotAvailable ? parsedPrice : null,
+                styleId: resolvedStyleId ?? 0,
+              };
               continue;
             }
             acc.matched++;
@@ -1139,6 +1151,26 @@ export const distributorImportRouter = router({
         }
 
         // Commit upserts per mapping
+        // Save ALL unmatched row-per-style SKUs to importPendingSkus staging table
+        if (!input.dryRun && allUnmatchedRowPerStyle.size > 0) {
+          for (const [rawCode, prices] of Array.from(allUnmatchedRowPerStyle)) {
+            try {
+              await db.insert(importPendingSkus).values({
+                distributorId: input.distributorId,
+                rawCode,
+                pricesJson: JSON.stringify(prices),
+                status: "pending",
+              }).onDuplicateKeyUpdate({
+                set: {
+                  pricesJson: sql`VALUES(pricesJson)`,
+                  status: "pending",
+                },
+              });
+            } catch (e) {
+              console.error("[importAllColumns row-per-style] failed to save pending SKU", rawCode, e);
+            }
+          }
+        }
         for (const mapping of input.mappings) {
           const acc = accumulators.get(mapping.columnCode)!;
           if (!input.dryRun && acc.upserts.length > 0) {
@@ -1163,6 +1195,7 @@ export const distributorImportRouter = router({
             unmatchedCodes: acc.unmatchedCodes,
           });
         }
+
       } else {
         // ── Column-per-style mode (original) ───────────────────────────────────
         for (const mapping of input.mappings) {

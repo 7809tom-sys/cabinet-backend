@@ -762,6 +762,28 @@ function MultiColumnMappingStep({
         }
       </p>
 
+      {/* Pre-publish conflict warning — shown when preview has unmatched rows */}
+      {previewData && previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length > 0 && (
+        <div className="rounded-md border border-orange-300 bg-orange-50 dark:bg-orange-950/20 p-3 space-y-2">
+          <p className="text-sm font-semibold text-orange-800 dark:text-orange-300 flex items-center gap-1.5">
+            <AlertTriangle className="h-4 w-4" />
+            {previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length} model numbers not recognized — will be skipped
+          </p>
+          <p className="text-xs text-orange-700 dark:text-orange-400">
+            These SKUs don’t match any cabinet in the master catalog. They will be saved as conflicts for review so you can assign them later.
+          </p>
+          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+            {previewData.rows
+              .filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim())
+              .map((r) => (
+                <code key={r.rawCode} className="text-[11px] font-mono bg-orange-100 dark:bg-orange-900/30 border border-orange-200 px-1.5 py-0.5 rounded text-orange-800 dark:text-orange-300">
+                  {r.rawCode}
+                </code>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Row-by-row review table */}
       {showReview && (
         <div className="rounded-md border overflow-hidden">
@@ -881,7 +903,12 @@ function MultiColumnMappingStep({
                       return (
                         <div key={r.columnCode} className={`flex items-center gap-3 px-3 py-2 text-xs ${hasIssue ? "bg-amber-50/60 dark:bg-amber-950/10" : ""}` }>
                           <code className="font-mono bg-muted px-1.5 py-0.5 rounded min-w-[36px] text-center shrink-0">{r.columnCode}</code>
-                          <span className="flex-1 truncate font-medium">{style?.ourName ?? `Style #${r.doorStyleId}`}</span>
+                          <span className="flex-1 truncate font-medium">
+                            {r.doorStyleId === 0
+                              ? <span className="text-muted-foreground italic">All styles (row-routed)</span>
+                              : style?.ourName ?? `Style #${r.doorStyleId}`
+                            }
+                          </span>
                           <span className="text-emerald-600 font-semibold shrink-0">{r.priced} saved</span>
                           {r.unmatched > 0 && (
                             <span className="text-amber-600 shrink-0">{r.unmatched} failed</span>
@@ -894,10 +921,13 @@ function MultiColumnMappingStep({
 
                 {/* Unmatched codes list */}
                 {totalUnmatched > 0 && (
-                  <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
-                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      {totalUnmatched} code{totalUnmatched !== 1 ? "s" : ""} not found — assign master codes below to fix on next import:
+                  <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 p-3 space-y-2">
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-300 flex items-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4" />
+                      {totalUnmatched} model number{totalUnmatched !== 1 ? "s" : ""} were not imported — not found in master catalog
+                    </p>
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      These SKUs have been saved as conflicts. Assign each one a master cabinet code below so they import correctly next time.
                     </p>
                     <UnmatchedAliasPanel
                       unmatchedCodes={Array.from(new Set(commitResult.results.flatMap((r) => r.unmatchedCodes)))}
