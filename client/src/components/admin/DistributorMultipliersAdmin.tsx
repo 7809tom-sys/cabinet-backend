@@ -74,7 +74,7 @@ export default function DistributorMultipliersAdmin() {
   }, [data]);
 
   const homeownerMult = useMemo(() => {
-    const bps = marginsQ.data?.settings.homeownerMarkupBps ?? 16500;
+    const bps = marginsQ.data?.settings.homeownerMarkupBps ?? 0;
     return bps / 10000;
   }, [marginsQ.data]);
 

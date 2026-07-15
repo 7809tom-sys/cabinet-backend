@@ -1080,3 +1080,12 @@
 - [x] Success toast: "Multiplier saved and applied — N SKU prices updated."
 - [x] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## Pricing: Use Only Admin Panel Rules (No Hardcoded Fallbacks)
+- [x] Audit all DEFAULT_PRICING_SETTINGS and hardcoded markup BPS constants in shared/, server/, client/
+- [x] server/db.ts DEFAULT_PRICING_SETTINGS: all 4 tier markup BPS set to 0
+- [x] shared/pricing.ts DEFAULT_PRICING_SETTINGS: all 7 fee/markup BPS set to 0
+- [x] DistributorMultipliersAdmin.tsx: homeownerMarkupBps fallback changed from 16500 to 0
+- [x] resolveTierPrice already returns null when no tier price exists — no hardcoded numbers
+- [x] TypeScript: 0 errors
+- [ ] Save checkpoint
