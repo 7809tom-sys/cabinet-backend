@@ -1050,3 +1050,9 @@
 - [x] Cap end panel width at 0.75" (hard-coded face thickness) in applyFridgeSurround — catalog depth field stores wall-projection depth, not face thickness
 - [x] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## Fridge End Panel Thickness Selector
+- [x] Add panelThickness (0.75 / 1.5 / 3) to FridgeSurroundChoice type and dialog UI
+- [x] Pass panelThickness through applyFridgeSurround and use it as pThick
+- [x] TypeScript: 0 errors
+- [ ] Save checkpoint

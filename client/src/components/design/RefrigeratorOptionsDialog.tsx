@@ -47,6 +47,8 @@ export interface FridgeSurroundChoice {
    */
   panelHeight: number | null;
   smooth: boolean;
+  /** Chosen panel face thickness in inches (0.75, 1.5, or 3). */
+  panelThickness: number;
   /** Chosen fridge width in inches (e.g. 30, 33, 36). */
   fridgeWidth: number;
   /** Chosen fridge height in inches (e.g. 66, 70, 72, 78, 84). */
@@ -221,6 +223,9 @@ export function RefrigeratorOptionsDialog({
   const [panelDepth, setPanelDepth] = useState<number>(24);
   const [selectedPanelId, setSelectedPanelId] = useState<string>("");
 
+  // ── Panel thickness ────────────────────────────────────────────────────────
+  const [panelThickness, setPanelThickness] = useState<number>(0.75);
+
   // ── Smooth panel ───────────────────────────────────────────────────────────
   const [smooth, setSmooth] = useState(false);
 
@@ -317,6 +322,7 @@ export function RefrigeratorOptionsDialog({
       setAbove("none");
       setPanels("none");
       setPanelDepth(24);
+      setPanelThickness(0.75);
       setSelectedPanelId(bestPanel ? String(bestPanel.id) : "");
       setSmooth(false);
     }
@@ -341,6 +347,7 @@ export function RefrigeratorOptionsDialog({
       panelDepth: panels !== "none" ? panelDepth : null,
       panelHeight,
       smooth,
+      panelThickness,
       fridgeWidth: fridgeW,
       fridgeHeight: fridgeH,
       fridgeDepth: fridgeD,
@@ -528,6 +535,32 @@ export function RefrigeratorOptionsDialog({
                   options={PANEL_DEPTH_OPTIONS}
                   onChange={setPanelDepth}
                 />
+
+                {/* Panel Thickness */}
+                <div className="space-y-1.5">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Panel Thickness</span>
+                    <span className="text-[10px] text-muted-foreground">(face width in plan view)</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {([0.75, 1.5, 3] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setPanelThickness(t)}
+                        className={cn(
+                          "flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
+                          panelThickness === t
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                        )}
+                        aria-pressed={panelThickness === t}
+                      >
+                        {t === 0.75 ? '¾"' : `${t}"`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Panel style selector */}
                 {endPanels.length > 0 && (
