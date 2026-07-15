@@ -1045,3 +1045,8 @@
 - [x] Replace/extend existing fridge placement flow in DesignTool.tsx
 - [x] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## Fridge End Panel Width Fix
+- [x] Cap end panel width at 0.75" (hard-coded face thickness) in applyFridgeSurround — catalog depth field stores wall-projection depth, not face thickness
+- [x] TypeScript: 0 errors
+- [ ] Save checkpoint

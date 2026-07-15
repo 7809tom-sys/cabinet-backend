@@ -2949,8 +2949,10 @@ export default function DesignTool() {
         const inferredHeight = code.includes("S2496") || code.includes("REPV") || code.includes("TDEP") ? 96
           : code.includes("S3696") ? 96 : 96;
         const inferredDepth = (code.includes("REPV") || code.includes("S2496") || code.includes("S3696")) ? 0.75 : 0.75;
-        // pThick: the panel's face thickness (3/4" for S2496/REPV flat stock).
-        const pThick = parseFloat(String(panelRow.depth ?? "")) || inferredDepth;
+        // pThick: the panel's face thickness is always 3/4" flat stock.
+        // The catalog's depth field stores the panel's wall-projection depth (24-36"),
+        // NOT the face thickness, so we hard-code 0.75" here.
+        const pThick = 0.75;
         // Panel height = fridge height + bridge height (if any), so the panel covers
         // the full built-in column: 72" fridge + 12" bridge → 84", + 18" → 90", + 24" → 96".
         const rawFridgeH = parseFloat(String(fridge.height ?? "72")) || 72;
