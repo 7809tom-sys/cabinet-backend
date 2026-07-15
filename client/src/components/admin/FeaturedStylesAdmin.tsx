@@ -1095,7 +1095,8 @@ function MergeStyleDialog({
               className="h-4 w-4 rounded border-border"
             />
             <Label htmlFor="copyImages" className="text-sm font-normal cursor-pointer">
-              Copy missing photos from duplicate to primary
+              Copy photos from duplicate to primary
+              <span className="block text-xs text-muted-foreground mt-0.5">Room scene always copied · Door sample only if primary is missing one</span>
             </Label>
           </div>
 

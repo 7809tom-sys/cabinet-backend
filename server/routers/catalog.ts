@@ -950,13 +950,15 @@ export const doorStylesRouter = router({
         .update(distributorSkus)
         .set({ styleId: input.primaryId })
         .where(eq(distributorSkus.styleId, input.duplicateId));
-      // 2. Copy missing images from duplicate to primary if requested
+      // 2. Copy images from duplicate to primary if requested
       const imagePatch: Record<string, string> = {};
       if (input.copyMissingImages) {
+        // Door sample: only copy if primary is missing one
         if (!p.doorSampleImageUrl && d.doorSampleImageUrl) {
           imagePatch.doorSampleImageUrl = d.doorSampleImageUrl;
         }
-        if (!p.roomSceneImageUrl && d.roomSceneImageUrl) {
+        // Room scene: always keep the duplicate's room scene (overwrite primary)
+        if (d.roomSceneImageUrl) {
           imagePatch.roomSceneImageUrl = d.roomSceneImageUrl;
         }
       }
