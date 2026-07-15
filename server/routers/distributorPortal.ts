@@ -77,17 +77,20 @@ export const distributorPortalRouter = router({
         .where(eq(distributorSkus.distributorId, lineId));
 
       // Door styles carried by this line.
+      // Note: we intentionally do NOT filter by isActive here so that the vendor
+      // portal shows ALL styles (including disabled ones) and can toggle them.
       const styles = await db
         .select({
           id: doorStyles.id,
           ourName: doorStyles.ourName,
           doorStyle: doorStyles.doorStyle,
+          isActive: doorStyles.isActive,
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
           roomSceneImageUrl: doorStyles.roomSceneImageUrl,
           thumbnailImageUrl: doorStyles.thumbnailImageUrl,
         })
         .from(doorStyles)
-        .where(and(eq(doorStyles.distributorId, lineId), eq(doorStyles.isActive, true)))
+        .where(eq(doorStyles.distributorId, lineId))
         .orderBy(doorStyles.ourName);
 
       return {
@@ -577,6 +580,56 @@ export const distributorPortalRouter = router({
         .where(eq(doorStyles.id, input.styleId));
 
       return { styleId: input.styleId, imageType: input.imageType, imageUrl: url };
+    }),
+
+  // ─── Door Style Active / Delete ───────────────────────────────────────────
+
+  setDoorStyleActive: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        styleId: z.number(),
+        isActive: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const style = await db
+        .select({ id: doorStyles.id })
+        .from(doorStyles)
+        .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
+        .limit(1);
+      if (!style[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That style does not belong to your line." });
+      await db
+        .update(doorStyles)
+        .set({ isActive: input.isActive })
+        .where(eq(doorStyles.id, input.styleId));
+      return { styleId: input.styleId, isActive: input.isActive };
+    }),
+
+  deleteDoorStyleLine: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        styleId: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const style = await db
+        .select({ id: doorStyles.id, ourName: doorStyles.ourName })
+        .from(doorStyles)
+        .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
+        .limit(1);
+      if (!style[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That style does not belong to your line." });
+      await db
+        .delete(doorStyles)
+        .where(eq(doorStyles.id, input.styleId));
+      return { deleted: true, styleId: input.styleId };
     }),
 
   // ─── AI Service Requests ─────────────────────────────────────────────────────

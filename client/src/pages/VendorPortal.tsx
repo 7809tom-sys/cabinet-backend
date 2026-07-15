@@ -4,6 +4,7 @@ import {
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
   PlusCircle, ArrowLeft, FileSpreadsheet, Download, BarChart3,
   Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard,
+  Trash2, PowerOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +16,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -1337,6 +1343,22 @@ function DoorStylesPage() {
     onError: (err) => toast.error(err.message),
   });
 
+  const setActive = trpc.distributorPortal.setDoorStyleActive.useMutation({
+    onSuccess: (data) => {
+      utils.distributorPortal.myLine.invalidate();
+      toast.success(data.isActive ? "Style enabled — visible to customers" : "Style disabled — hidden from customers");
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const deleteStyle = trpc.distributorPortal.deleteDoorStyleLine.useMutation({
+    onSuccess: () => {
+      utils.distributorPortal.myLine.invalidate();
+      toast.success("Door style line permanently deleted");
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<{ styleId: number; imageType: "doorSample" | "roomScene" | "thumbnail" } | null>(null);
 
@@ -1371,11 +1393,57 @@ function DoorStylesPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {styles.map((style) => (
-          <Card key={style.id}>
+          <Card key={style.id} className={!style.isActive ? "opacity-60 border-dashed" : ""}>
             <CardContent className="p-4 space-y-3">
-              <div>
-                <h3 className="font-medium">{style.ourName}</h3>
-                <p className="text-xs text-muted-foreground">{style.doorStyle}</p>
+              {/* Header row: name + controls */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium truncate">{style.ourName}</h3>
+                    {!style.isActive && (
+                      <span className="shrink-0 text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-semibold">DISABLED</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{style.doorStyle}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {/* Active toggle */}
+                  <div className="flex flex-col items-center gap-0.5">
+                    <Switch
+                      checked={!!style.isActive}
+                      onCheckedChange={(v) => setActive.mutate({ ...(adminDistId ? { distributorId: adminDistId } : {}), styleId: style.id, isActive: v })}
+                      disabled={setActive.isPending}
+                      aria-label={style.isActive ? "Disable style" : "Enable style"}
+                    />
+                    <span className="text-[9px] text-muted-foreground">{style.isActive ? "Active" : "Off"}</span>
+                  </div>
+                  {/* Delete button */}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" title="Delete this style line">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete "{style.ourName}"?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This permanently removes the entire door style line and all its data. This cannot be undone.
+                          If you want to hide it temporarily, use the toggle instead.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => deleteStyle.mutate({ ...(adminDistId ? { distributorId: adminDistId } : {}), styleId: style.id })}
+                        >
+                          Delete permanently
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
 
               {/* Image previews */}

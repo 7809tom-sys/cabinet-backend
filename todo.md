@@ -1056,3 +1056,12 @@
 - [x] Pass panelThickness through applyFridgeSurround and use it as pThick
 - [x] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## Vendor Door Styles — Disable/Delete Controls
+- [x] Audit vendor Door Styles admin page and door style schema
+- [x] isActive column already exists on door_styles table — no migration needed
+- [x] Add tRPC procedures: setDoorStyleActive, deleteDoorStyleLine
+- [x] Update vendor Door Styles UI: toggle switch (Active/Disabled) + Delete button per style line with confirmation
+- [x] Customer-facing queries already filter by isActive=true — no changes needed
+- [x] TypeScript: 0 errors
+- [ ] Save checkpoint
