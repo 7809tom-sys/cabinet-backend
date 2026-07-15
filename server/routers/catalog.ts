@@ -978,6 +978,26 @@ export const doorStylesRouter = router({
         imagesCopied: Object.keys(imagePatch),
       };
     }),
+
+  /** Admin: set isAvailable + isPublished flags on a single SKU. */
+  adminUpdateSkuAvailability: adminProcedure
+    .input(
+      z.object({
+        skuId: z.number().int(),
+        isAvailable: z.boolean().optional(),
+        isPublished: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const patch: Record<string, boolean> = {};
+      if (input.isAvailable !== undefined) patch.isAvailable = input.isAvailable;
+      if (input.isPublished !== undefined) patch.isPublished = input.isPublished;
+      if (Object.keys(patch).length === 0) return { ok: true };
+      await db.update(distributorSkus).set(patch).where(eq(distributorSkus.id, input.skuId));
+      return { ok: true };
+    }),
 });
 // --- Cabinets -----------------------------------------------------------------
 
@@ -1172,6 +1192,24 @@ export const cabinetsRouter = router({
   // info we DO know: distributor name(s) and door style(s) it is carried under
   // (resolved from its SKUs). Admin-only -- supplier identity is allowed here.
   conflicts: adminProcedure.query(async () => {
+    type ConflictSkuRow = {
+      skuId: number;
+      cabinetId: number;
+      styleId: number | null;
+      distributorId: number | null;
+      distributorName: string | null;
+      styleName: string | null;
+      styleCode: string | null;
+      distributorSku: string;
+      platformSku: string;
+      listPrice: string | null;
+      yourCost: string | null;
+      wholesalePrice: string | null;
+      contractorPrice: string | null;
+      homeownerPrice: string | null;
+      isAvailable: boolean;
+      isPublished: boolean;
+    };
     type ConflictItem = {
       id: number;
       masterCode: string;
@@ -1187,6 +1225,7 @@ export const cabinetsRouter = router({
       distributorNames: string[];
       doorStyleNames: string[];
       styleIds: number[];
+      skus: ConflictSkuRow[];
     };
     const db = await getDb();
     if (!db) return [] as ConflictItem[];
@@ -1201,14 +1240,22 @@ export const cabinetsRouter = router({
     // carried under, so the admin can identify it against the catalog book.
     const skuRows = await db
       .select({
+        skuId: distributorSkus.id,
         cabinetId: distributorSkus.cabinetId,
         styleId: distributorSkus.styleId,
+        distributorId: distributorSkus.distributorId,
         distributorName: distributors.name,
         styleName: doorStyles.ourName,
         styleCode: doorStyles.styleCode,
         distributorSku: distributorSkus.distributorSku,
         platformSku: distributorSkus.platformSku,
         listPrice: distributorSkus.listPrice,
+        yourCost: distributorSkus.yourCost,
+        wholesalePrice: distributorSkus.wholesalePrice,
+        contractorPrice: distributorSkus.contractorPrice,
+        homeownerPrice: distributorSkus.homeownerPrice,
+        isAvailable: distributorSkus.isAvailable,
+        isPublished: distributorSkus.isPublished,
       })
       .from(distributorSkus)
       .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
@@ -1250,6 +1297,7 @@ export const cabinetsRouter = router({
         distributorNames,
         doorStyleNames,
         styleIds,
+        skus: skus as ConflictSkuRow[],
       };
     });
     return result;

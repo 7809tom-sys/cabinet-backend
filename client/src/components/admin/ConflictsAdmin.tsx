@@ -33,8 +33,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Pencil, Link2, X, Plus, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Pencil, Link2, X, Plus, Search, DollarSign } from "lucide-react";
 
 function fmtDim(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return "—";
@@ -42,6 +44,32 @@ function fmtDim(v: string | number | null | undefined): string {
   if (Number.isNaN(n)) return String(v);
   return `${n % 1 === 0 ? n.toFixed(0) : n}"`;
 }
+
+function fmtMoney(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return "—";
+  return `$${n.toFixed(2)}`;
+}
+
+type ConflictSkuRow = {
+  skuId: number;
+  cabinetId: number;
+  styleId: number | null;
+  distributorId: number | null;
+  distributorName: string | null;
+  styleName: string | null;
+  styleCode: string | null;
+  distributorSku: string;
+  platformSku: string;
+  listPrice: string | null;
+  yourCost: string | null;
+  wholesalePrice: string | null;
+  contractorPrice: string | null;
+  homeownerPrice: string | null;
+  isAvailable: boolean;
+  isPublished: boolean;
+};
 
 type ConflictItem = {
   id: number;
@@ -57,6 +85,7 @@ type ConflictItem = {
   distributorNames: string[];
   doorStyleNames: string[];
   styleIds: number[];
+  skus?: ConflictSkuRow[];
 };
 
 type EditForm = {
@@ -81,8 +110,111 @@ type NewForm = {
   conflictReason: string;
 };
 
+// Per-SKU price edits keyed by skuId
+type SkuPriceEdits = Record<number, {
+  listPrice: string;
+  yourCost: string;
+  wholesalePrice: string;
+  contractorPrice: string;
+  homeownerPrice: string;
+}>;
+
 const CUSTOM_CATEGORY = "__custom__";
 const ALL_CATEGORIES = "__all__";
+
+// ─── SKU Pricing Row ──────────────────────────────────────────────────────────
+function SkuPricingRow({
+  sku,
+  edits,
+  onChange,
+  onToggleAvailable,
+  onTogglePublished,
+  isSaving,
+}: {
+  sku: ConflictSkuRow;
+  edits: SkuPriceEdits[number] | undefined;
+  onChange: (skuId: number, field: keyof SkuPriceEdits[number], value: string) => void;
+  onToggleAvailable: (skuId: number, val: boolean) => void;
+  onTogglePublished: (skuId: number, val: boolean) => void;
+  isSaving: boolean;
+}) {
+  const e = edits ?? {
+    listPrice: sku.listPrice ?? "",
+    yourCost: sku.yourCost ?? "",
+    wholesalePrice: sku.wholesalePrice ?? "",
+    contractorPrice: sku.contractorPrice ?? "",
+    homeownerPrice: sku.homeownerPrice ?? "",
+  };
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+      {/* SKU identity row */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+        <span className="font-medium text-foreground">
+          Platform SKU: <span className="font-mono">{sku.platformSku}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Dist SKU: <span className="font-mono">{sku.distributorSku || "—"}</span>
+        </span>
+        {sku.distributorName && (
+          <Badge variant="outline" className="text-xs">{sku.distributorName}</Badge>
+        )}
+        {sku.styleName && (
+          <Badge variant="secondary" className="text-xs">
+            {sku.styleName}{sku.styleCode ? ` (${sku.styleCode})` : ""}
+          </Badge>
+        )}
+        <div className="ml-auto flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <Switch
+              checked={sku.isAvailable}
+              onCheckedChange={(v) => onToggleAvailable(sku.skuId, v)}
+              disabled={isSaving}
+              className="scale-75"
+            />
+            Available
+          </label>
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <Switch
+              checked={sku.isPublished}
+              onCheckedChange={(v) => onTogglePublished(sku.skuId, v)}
+              disabled={isSaving}
+              className="scale-75"
+            />
+            Published
+          </label>
+        </div>
+      </div>
+
+      {/* Price fields */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {(
+          [
+            { key: "listPrice", label: "List Price" },
+            { key: "yourCost", label: "Your Cost" },
+            { key: "wholesalePrice", label: "Wholesale" },
+            { key: "contractorPrice", label: "Contractor" },
+            { key: "homeownerPrice", label: "Homeowner" },
+          ] as const
+        ).map(({ key, label }) => (
+          <div key={key} className="grid gap-1">
+            <Label className="text-[10px] text-muted-foreground">{label}</Label>
+            <div className="relative">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">$</span>
+              <Input
+                className="pl-5 h-7 text-xs"
+                inputMode="decimal"
+                placeholder="—"
+                value={e[key]}
+                onChange={(ev) => onChange(sku.skuId, key, ev.target.value)}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Edit Dialog ─────────────────────────────────────────────────────────────
 function EditConflictDialog({
@@ -113,6 +245,13 @@ function EditConflictDialog({
   const categoryIsKnown = form.category === "" || knownCats.includes(form.category);
   const showCustomCat = customCat || (!categoryIsKnown && form.category !== "");
 
+  // Per-SKU price edits
+  const [skuPriceEdits, setSkuPriceEdits] = useState<SkuPriceEdits>({});
+  // Local availability state (mirrors server until saved)
+  const [skuAvailability, setSkuAvailability] = useState<Record<number, { isAvailable: boolean; isPublished: boolean }>>({});
+
+  const skus = cabinet.skus ?? [];
+
   const update = trpc.cabinets.updateConflictCabinet.useMutation({
     onSuccess: (_d, vars) => {
       utils.cabinets.conflicts.invalidate();
@@ -126,7 +265,47 @@ function EditConflictDialog({
     onError: (e) => toast.error(e.message),
   });
 
+  const updateSkuCost = trpc.pricing.adminUpdateSkuCost.useMutation({
+    onError: (e: { message: string }) => toast.error(`Price save failed: ${e.message}`),
+  });
+
+  const updateSkuAvailability = trpc.doorStyles.adminUpdateSkuAvailability.useMutation({
+    onError: (e: { message: string }) => toast.error(`Availability save failed: ${e.message}`),
+  });
+
   const set = (k: keyof EditForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  function handlePriceChange(skuId: number, field: keyof SkuPriceEdits[number], value: string) {
+    setSkuPriceEdits((prev) => {
+      const sku = skus.find((s) => s.skuId === skuId);
+      const existing = prev[skuId] ?? {
+        listPrice: sku?.listPrice ?? "",
+        yourCost: sku?.yourCost ?? "",
+        wholesalePrice: sku?.wholesalePrice ?? "",
+        contractorPrice: sku?.contractorPrice ?? "",
+        homeownerPrice: sku?.homeownerPrice ?? "",
+      };
+      return { ...prev, [skuId]: { ...existing, [field]: value } };
+    });
+  }
+
+  function handleToggleAvailable(skuId: number, val: boolean) {
+    setSkuAvailability((prev) => {
+      const sku = skus.find((s) => s.skuId === skuId);
+      const existing = prev[skuId] ?? { isAvailable: sku?.isAvailable ?? true, isPublished: sku?.isPublished ?? true };
+      return { ...prev, [skuId]: { ...existing, isAvailable: val } };
+    });
+    updateSkuAvailability.mutate({ skuId, isAvailable: val });
+  }
+
+  function handleTogglePublished(skuId: number, val: boolean) {
+    setSkuAvailability((prev) => {
+      const sku = skus.find((s) => s.skuId === skuId);
+      const existing = prev[skuId] ?? { isAvailable: sku?.isAvailable ?? true, isPublished: sku?.isPublished ?? true };
+      return { ...prev, [skuId]: { ...existing, isPublished: val } };
+    });
+    updateSkuAvailability.mutate({ skuId, isPublished: val });
+  }
 
   const payload = (clearAfter: boolean) => ({
     id: cabinet.id,
@@ -142,11 +321,33 @@ function EditConflictDialog({
     clearAfter,
   });
 
+  async function handleSave(clearAfter: boolean) {
+    // Save any edited SKU prices first
+    const pricePromises = Object.entries(skuPriceEdits).map(([skuIdStr, edits]) => {
+      const skuId = Number(skuIdStr);
+      const parsePrice = (v: string) => {
+        const n = parseFloat(v);
+        return Number.isFinite(n) ? n : null;
+      };
+      return updateSkuCost.mutateAsync({
+        skuId,
+        listPrice: edits.listPrice !== "" ? parsePrice(edits.listPrice) : undefined,
+        yourCost: edits.yourCost !== "" ? parsePrice(edits.yourCost) : undefined,
+        wholesalePrice: edits.wholesalePrice !== "" ? parsePrice(edits.wholesalePrice) : undefined,
+        contractorPrice: edits.contractorPrice !== "" ? parsePrice(edits.contractorPrice) : undefined,
+        homeownerPrice: edits.homeownerPrice !== "" ? parsePrice(edits.homeownerPrice) : undefined,
+      });
+    });
+    await Promise.all(pricePromises);
+    update.mutate(payload(clearAfter));
+  }
+
   const invalid = form.description.trim() === "" || form.category.trim() === "";
+  const isSaving = update.isPending || updateSkuCost.isPending || updateSkuAvailability.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-mono">Edit {cabinet.masterCode}</DialogTitle>
           <DialogDescription>
@@ -155,6 +356,7 @@ function EditConflictDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 py-1">
+          {/* ── Cabinet info fields ── */}
           <div className="grid gap-1.5">
             <Label htmlFor="ec-desc">Description</Label>
             <Input id="ec-desc" value={form.description} onChange={(e) => set("description", e.target.value)} />
@@ -264,21 +466,58 @@ function EditConflictDialog({
               placeholder="Why is this held / what was fixed?"
             />
           </div>
+
+          {/* ── SKU Pricing Section ── */}
+          {skus.length > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-semibold">
+                    Captured Pricing &amp; SKU Data
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">({skus.length} SKU{skus.length !== 1 ? "s" : ""})</span>
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Edit prices directly here. Changes are saved when you click Save or Save &amp; Clear.
+                </p>
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {skus.map((sku) => {
+                    const avail = skuAvailability[sku.skuId];
+                    const mergedSku = avail ? { ...sku, ...avail } : sku;
+                    return (
+                      <SkuPricingRow
+                        key={sku.skuId}
+                        sku={mergedSku}
+                        edits={skuPriceEdits[sku.skuId]}
+                        onChange={handlePriceChange}
+                        onToggleAvailable={handleToggleAvailable}
+                        onTogglePublished={handleTogglePublished}
+                        isSaving={isSaving}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={update.isPending}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
           <Button
             variant="outline"
-            onClick={() => update.mutate(payload(false))}
-            disabled={update.isPending || invalid}
+            onClick={() => handleSave(false)}
+            disabled={isSaving || invalid}
           >
+            {isSaving ? <Spinner className="h-4 w-4 mr-1" /> : null}
             Save changes
           </Button>
           <Button
-            onClick={() => update.mutate(payload(true))}
-            disabled={update.isPending || invalid}
+            onClick={() => handleSave(true)}
+            disabled={isSaving || invalid}
             className="gap-1.5"
           >
             <CheckCircle2 className="h-4 w-4" />
@@ -410,15 +649,15 @@ function AddNewConflictDialog({
           <div className="grid grid-cols-3 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="nc-w">Width (in)</Label>
-              <Input id="nc-w" inputMode="decimal" value={form.width} onChange={(e) => set("width", e.target.value)} placeholder="—" />
+              <Input id="nc-w" inputMode="decimal" value={form.width} onChange={(e) => set("width", e.target.value)} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="nc-h">Height (in)</Label>
-              <Input id="nc-h" inputMode="decimal" value={form.height} onChange={(e) => set("height", e.target.value)} placeholder="—" />
+              <Input id="nc-h" inputMode="decimal" value={form.height} onChange={(e) => set("height", e.target.value)} />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="nc-d">Depth (in)</Label>
-              <Input id="nc-d" inputMode="decimal" value={form.depth} onChange={(e) => set("depth", e.target.value)} placeholder="—" />
+              <Input id="nc-d" inputMode="decimal" value={form.depth} onChange={(e) => set("depth", e.target.value)} />
             </div>
           </div>
           <div className="grid gap-1.5">
@@ -428,29 +667,16 @@ function AddNewConflictDialog({
               rows={2}
               value={form.conflictReason}
               onChange={(e) => set("conflictReason", e.target.value)}
-              placeholder="Why is this being added for review?"
+              placeholder="Why is this held / what needs review?"
             />
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={create.isPending}>
             Cancel
           </Button>
-          <Button
-            onClick={() => create.mutate({
-              masterCode: form.masterCode.trim(),
-              description: form.description.trim(),
-              category: form.category.trim(),
-              subCategory: form.subCategory.trim() || null,
-              width: form.width.trim() || null,
-              height: form.height.trim() || null,
-              depth: form.depth.trim() || null,
-              conflictReason: form.conflictReason.trim() || null,
-            })}
-            disabled={create.isPending || invalid}
-            className="gap-1.5"
-          >
-            {create.isPending ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          <Button onClick={() => create.mutate(form)} disabled={create.isPending || invalid}>
+            {create.isPending ? <Spinner className="h-4 w-4 mr-1" /> : null}
             Add to conflicts
           </Button>
         </DialogFooter>
@@ -459,39 +685,51 @@ function AddNewConflictDialog({
   );
 }
 
-// ─── Pending Import SKUs Section ─────────────────────────────────────────────
+// ─── Pending SKUs Section ─────────────────────────────────────────────────────
+type PendingItem = {
+  id: number;
+  rawCode: string;
+  distributorId: number;
+  distributorName: string | null;
+  pricesJson: string;
+  createdAt: Date;
+};
+
 function PendingSkusSection() {
-  const { data: pending, isLoading, refetch } = trpc.distributorAdmin.listPendingSkus.useQuery({ status: "pending" });
-  const resolve = trpc.distributorAdmin.resolvePendingSku.useMutation({
-    onSuccess: (result: { masterCode: string; skusInserted: number }) => {
-      toast.success(`Assigned to ${result.masterCode} — ${result.skusInserted} SKU rows imported`);
-      refetch();
-    },
-    onError: (err: { message: string }) => toast.error(err.message),
-  });
-  const ignore = trpc.distributorAdmin.ignorePendingSku.useMutation({
-    onSuccess: () => { toast.success("Ignored"); refetch(); },
-  });
+  const utils = trpc.useUtils();
+  const { data: pending } = trpc.distributorAdmin.listPendingSkus.useQuery({ status: "pending" });
   const [inputs, setInputs] = useState<Record<number, string>>({});
   const [search, setSearch] = useState("");
 
-  if (isLoading) return <div className="flex items-center gap-2 text-muted-foreground"><Spinner className="h-4 w-4" /> Loading pending codes…</div>;
-  if (!pending || pending.length === 0) return (
-    <div className="text-sm text-muted-foreground py-4">No unmatched import codes — all codes resolved.</div>
-  );
-  type PendingItem = typeof pending[number];
+  const resolve = trpc.distributorAdmin.resolvePendingSku.useMutation({
+    onSuccess: (_, vars) => {
+      utils.distributorAdmin.listPendingSkus.invalidate();
+      setInputs((prev) => { const n = { ...prev }; delete n[vars.pendingId]; return n; });
+      toast.success("SKU assigned successfully.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
-  const filtered = search.trim()
-    ? pending.filter((item: PendingItem) =>
-        item.rawCode.toLowerCase().includes(search.toLowerCase()) ||
-        (item.distributorName ?? "").toLowerCase().includes(search.toLowerCase())
-      )
-    : pending;
+  const ignore = trpc.distributorAdmin.ignorePendingSku.useMutation({
+    onSuccess: () => utils.distributorAdmin.listPendingSkus.invalidate(),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const filtered = useMemo(() => {
+    if (!pending) return [];
+    if (!search.trim()) return pending as PendingItem[];
+    const q = search.toLowerCase();
+    return (pending as PendingItem[]).filter(
+      (item) =>
+        item.rawCode.toLowerCase().includes(q) ||
+        (item.distributorName ?? "").toLowerCase().includes(q),
+    );
+  }, [pending, search]);
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search by code or distributor…"
@@ -501,7 +739,7 @@ function PendingSkusSection() {
           />
         </div>
         {search && (
-          <span className="text-sm text-muted-foreground">{filtered.length} of {pending.length}</span>
+          <span className="text-sm text-muted-foreground">{filtered.length} of {pending?.length ?? 0}</span>
         )}
       </div>
       <p className="text-sm text-muted-foreground">
@@ -730,6 +968,17 @@ export default function ConflictsAdmin() {
                     {c.doorStyleNames.length ? c.doorStyleNames.join(", ") : "—"}
                   </span>
                 </div>
+                {/* Quick price preview from first SKU */}
+                {c.skus && c.skus.length > 0 && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1.5">
+                    <span><span className="font-medium text-foreground">List:</span> {fmtMoney(c.skus[0].listPrice)}</span>
+                    <span><span className="font-medium text-foreground">Cost:</span> {fmtMoney(c.skus[0].yourCost)}</span>
+                    <span><span className="font-medium text-foreground">Wholesale:</span> {fmtMoney(c.skus[0].wholesalePrice)}</span>
+                    <span><span className="font-medium text-foreground">Contractor:</span> {fmtMoney(c.skus[0].contractorPrice)}</span>
+                    <span><span className="font-medium text-foreground">Homeowner:</span> {fmtMoney(c.skus[0].homeownerPrice)}</span>
+                    {c.skuCount > 1 && <span className="text-muted-foreground italic">+{c.skuCount - 1} more SKU{c.skuCount > 2 ? "s" : ""}</span>}
+                  </div>
+                )}
                 {c.conflictReason && (
                   <p className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
                     {c.conflictReason}
