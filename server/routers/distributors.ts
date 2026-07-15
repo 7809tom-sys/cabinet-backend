@@ -63,9 +63,18 @@ export const distributorImportRouter = router({
         graphicType: cabinets.graphicType,
         linesWithSku: sql<number>`count(distinct ${distributorSkus.distributorId})`,
         imageUrl: cabinets.catalogImageUrl,
+        // Aggregate all door styles that carry this cabinet.
+        // group_concat is MySQL/TiDB syntax; pipe-separated for readability.
+        styleAliases: sql<string>`group_concat(distinct ${doorStyles.aliasName} order by ${doorStyles.aliasName} separator '|')`,
+        styleNames: sql<string>`group_concat(distinct ${doorStyles.ourName} order by ${doorStyles.ourName} separator '|')`,
+        styleCodes: sql<string>`group_concat(distinct ${doorStyles.styleCode} order by ${doorStyles.styleCode} separator '|')`,
       })
       .from(cabinets)
       .leftJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+      .leftJoin(doorStyles, and(
+        eq(doorStyles.id, distributorSkus.styleId),
+        eq(doorStyles.isActive, true)
+      ))
       .groupBy(cabinets.id)
       .orderBy(cabinets.category, cabinets.masterCode);
     const csv = buildCatalogCsv(rows as CatalogExportRow[]);

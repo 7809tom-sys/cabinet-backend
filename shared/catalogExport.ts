@@ -14,6 +14,11 @@ export interface CatalogExportRow {
   graphicType: string | null;
   linesWithSku?: number | null; // how many supply lines carry this item
   imageUrl?: string | null; // generic cabinet profile photo URL (master-level)
+  // Door style columns — one cabinet may appear in multiple styles.
+  // Values are pipe-separated ("|") when multiple styles carry this cabinet.
+  styleAliases?: string | null; // alias (white-label public) names
+  styleNames?: string | null;   // internal ourName values
+  styleCodes?: string | null;   // style codes
 }
 
 export const CATALOG_EXPORT_HEADERS = [
@@ -29,6 +34,9 @@ export const CATALOG_EXPORT_HEADERS = [
   "GraphicType",
   "LinesWithSKU",
   "ImageUrl",
+  "StyleAliases",
+  "StyleNames",
+  "StyleCodes",
 ] as const;
 
 export function csvEscape(value: string | number | null | undefined): string {
@@ -65,6 +73,9 @@ export function buildCatalogCsv(rows: CatalogExportRow[]): string {
         r.graphicType ?? "",
         r.linesWithSku ?? 0,
         r.imageUrl ?? "",
+        r.styleAliases ?? "",
+        r.styleNames ?? "",
+        r.styleCodes ?? "",
       ]
         .map(csvEscape)
         .join(",")
