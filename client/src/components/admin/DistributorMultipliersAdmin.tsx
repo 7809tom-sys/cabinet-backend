@@ -78,25 +78,32 @@ export default function DistributorMultipliersAdmin() {
     return bps / 10000;
   }, [marginsQ.data]);
 
+  const [pendingRecalcId, setPendingRecalcId] = useState<number | null>(null);
+
   const setMultiplier = trpc.pricing.adminSetDistributorMultiplier.useMutation({
-    onSuccess: (res) => {
-      toast.success(
-        `Saved — effective multiplier ${res.multiplier.toFixed(4)}. Existing SKU costs were NOT changed. Use "Recalc Costs" to apply this multiplier to all SKUs.`
-      );
+    onSuccess: (res, vars) => {
+      // Automatically apply the new multiplier to all SKU prices right away.
+      setPendingRecalcId(vars.distributorId);
+      recalcCosts.mutate({ distributorId: vars.distributorId });
       utils.pricing.adminListDistributorMultipliers.invalidate();
       utils.pricing.adminGetMargins.invalidate();
+      void res;
     },
     onError: (e) => toast.error(e.message || "Failed to save multiplier"),
   });
 
   const recalcCosts = trpc.pricing.adminRecalcDistributorCosts.useMutation({
     onSuccess: (res) => {
+      setPendingRecalcId(null);
       toast.success(
-        `Re-costed ${res.skusRecomputed.toLocaleString()} SKUs from list × multiplier.`
+        `Multiplier saved and applied — ${res.skusRecomputed.toLocaleString()} SKU prices updated.`
       );
       utils.pricing.adminListDistributorMultipliers.invalidate();
     },
-    onError: (e) => toast.error(e.message || "Failed to recalculate costs"),
+    onError: (e) => {
+      setPendingRecalcId(null);
+      toast.error(e.message || "Failed to recalculate costs");
+    },
   });
 
   if (isLoading) {
@@ -130,10 +137,10 @@ export default function DistributorMultipliersAdmin() {
             can change independently). Our cost ={" "}
             <strong>list price × (Base + Freight)</strong>. Example: 0.23 + 0.07
             = 0.30 → we pay 30% of list.{" "}
-            <strong>Save only stores the multiplier</strong> — existing SKU costs
-            uploaded from a spreadsheet are preserved as-is. Click{" "}
-            <strong>Recalc Costs</strong> only when you want to override all SKU
-            costs with list × multiplier.
+            <strong>Save applies the multiplier immediately</strong> — it stores
+            the multiplier and automatically recomputes all SKU prices
+            (wholesale, contractor, homeowner) as list × multiplier × tier markup.
+            Use <strong>Recalc</strong> only to re-apply after a pricing upload.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -240,7 +247,7 @@ export default function DistributorMultipliersAdmin() {
                               size="sm"
                               variant={dirty ? "default" : "outline"}
                               disabled={
-                                setMultiplier.isPending || !effValid || !dirty
+                                setMultiplier.isPending || recalcCosts.isPending || !effValid || !dirty
                               }
                               className="gap-1"
                               onClick={() => {
@@ -257,8 +264,12 @@ export default function DistributorMultipliersAdmin() {
                                 });
                               }}
                             >
-                              <Save className="h-3.5 w-3.5" />
-                              Save
+                              {(setMultiplier.isPending || (recalcCosts.isPending && pendingRecalcId === r.id)) ? (
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Save className="h-3.5 w-3.5" />
+                              )}
+                              {(setMultiplier.isPending || (recalcCosts.isPending && pendingRecalcId === r.id)) ? "Applying..." : "Save"}
                             </Button>
                             <Button
                               size="sm"

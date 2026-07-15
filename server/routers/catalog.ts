@@ -2296,9 +2296,25 @@ export const pricingRouter = router({
       if (!dist) throw new TRPCError({ code: "NOT_FOUND", message: "Distributor not found" });
       const mult = Number(dist.costMultiplier);
       if (!mult || mult <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Distributor has no valid costMultiplier set" });
+
+      // Fetch the platform tier markup settings so we can compute sell prices.
+      const pricingS = await getPricingSettings();
+      const wholesaleMult = 1 + (pricingS.wholesaleMarkupBps ?? 0) / 10000;
+      const contractorMult = 1 + (pricingS.contractorMarkupBps ?? 0) / 10000;
+      const homeownerMult = 1 + (pricingS.homeownerMarkupBps ?? 0) / 10000;
+
+      // yourCost = listPrice × costMultiplier (what we pay the distributor)
+      // wholesalePrice = yourCost × wholesaleMult
+      // contractorPrice = yourCost × contractorMult
+      // homeownerPrice = yourCost × homeownerMult
       const res = await db
         .update(distributorSkus)
-        .set({ yourCost: sql`ROUND(${distributorSkus.listPrice} * ${mult}, 2)` })
+        .set({
+          yourCost: sql`ROUND(${distributorSkus.listPrice} * ${mult}, 2)`,
+          wholesalePrice: sql`ROUND(${distributorSkus.listPrice} * ${mult} * ${wholesaleMult}, 2)`,
+          contractorPrice: sql`ROUND(${distributorSkus.listPrice} * ${mult} * ${contractorMult}, 2)`,
+          homeownerPrice: sql`ROUND(${distributorSkus.listPrice} * ${mult} * ${homeownerMult}, 2)`,
+        })
         .where(
           and(
             eq(distributorSkus.distributorId, input.distributorId),

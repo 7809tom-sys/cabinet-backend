@@ -1071,3 +1071,12 @@
 - [ ] Fix any missing filters in catalog.ts, DoorStyles.tsx, Shop by Style, Design Tool picker
 - [ ] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## Bug Fix: Multiplier Save Button Not Updating Prices
+- [x] Traced: adminRecalcDistributorCosts only wrote yourCost, not wholesalePrice/contractorPrice/homeownerPrice
+- [x] Fixed adminRecalcDistributorCosts to also compute and write all 3 tier price columns using platform markup BPS
+- [x] Save button now auto-runs recalc immediately after saving multiplier (no separate Recalc click needed)
+- [x] Save button shows spinning "Applying..." state while recalc runs
+- [x] Success toast: "Multiplier saved and applied — N SKU prices updated."
+- [x] TypeScript: 0 errors
+- [ ] Save checkpoint
