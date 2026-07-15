@@ -1418,31 +1418,16 @@ function DoorStylesPage() {
                     <span className="text-[9px] text-muted-foreground">{style.isActive ? "Active" : "Off"}</span>
                   </div>
                   {/* Delete button */}
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" title="Delete this style line">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete "{style.ourName}"?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This permanently removes the entire door style line and all its data. This cannot be undone.
-                          If you want to hide it temporarily, use the toggle instead.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={() => deleteStyle.mutate({ ...(adminDistId ? { distributorId: adminDistId } : {}), styleId: style.id })}
-                        >
-                          Delete permanently
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                    title="Delete this style line"
+                    disabled={deleteStyle.isPending}
+                    onClick={() => deleteStyle.mutate({ ...(adminDistId ? { distributorId: adminDistId } : {}), styleId: style.id })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
 

@@ -1065,3 +1065,9 @@
 - [x] Customer-facing queries already filter by isActive=true — no changes needed
 - [x] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## Bug: Inactive Door Styles Still Showing on Storefront
+- [ ] Audit all customer-facing queries for door styles and verify isActive=true filter
+- [ ] Fix any missing filters in catalog.ts, DoorStyles.tsx, Shop by Style, Design Tool picker
+- [ ] TypeScript: 0 errors
+- [ ] Save checkpoint
