@@ -469,10 +469,15 @@ function MultiColumnMappingStep({
     autoDetect(["model", "sku", "item", "code", "part", "number"])
   );
 
+  // Detect row-per-style mode: a "Door Style" / "Style Code" column routes each row to a style
+  const STYLE_COL_NAMES = new Set(["door style", "style", "style code", "stylecode", "finish"]);
+  const detectedStyleCol = headers.find((h) => STYLE_COL_NAMES.has(h.toLowerCase())) ?? null;
+
   // Columns to skip (non-price columns)
   const SKIP_COLS = new Set(["description", "assemble", "assembled", "taxable", "hinge", "notes", "note"]);
+  // In row-per-style mode, also exclude the style column from price columns
   const priceColumns = headers.filter(
-    (h) => h !== skuCol && !SKIP_COLS.has(h.toLowerCase())
+    (h) => h !== skuCol && !SKIP_COLS.has(h.toLowerCase()) && h !== detectedStyleCol
   );
 
   // Load all door styles for this distributor
@@ -551,13 +556,22 @@ function MultiColumnMappingStep({
     }));
   }
 
-  const activeMappings = priceColumns
-    .filter((col) => colMappings[col]?.enabled && colMappings[col]?.doorStyleId)
-    .map((col) => ({
-      columnCode: col,
-      doorStyleId: Number(colMappings[col].doorStyleId),
-      priceType: colMappings[col].priceType,
-    }));
+  // In row-per-style mode, all price columns are enabled by default (no per-column style mapping needed)
+  const activeMappings = detectedStyleCol
+    ? priceColumns
+        .filter((col) => colMappings[col]?.enabled !== false) // default enabled in row-per-style mode
+        .map((col) => ({
+          columnCode: col,
+          doorStyleId: 0, // resolved per-row from styleColumn
+          priceType: (colMappings[col]?.priceType ?? "list") as "list" | "cost",
+        }))
+    : priceColumns
+        .filter((col) => colMappings[col]?.enabled && colMappings[col]?.doorStyleId)
+        .map((col) => ({
+          columnCode: col,
+          doorStyleId: Number(colMappings[col].doorStyleId),
+          priceType: colMappings[col].priceType,
+        }));
 
   // Full row-by-row preview
   const [showReview, setShowReview] = useState(false);
@@ -645,6 +659,17 @@ function MultiColumnMappingStep({
         </span>
       </div>
 
+      {/* Row-per-style mode banner */}
+      {detectedStyleCol && (
+        <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800 flex items-start gap-2">
+          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
+          <span>
+            <strong>Multi-style mode detected</strong> — the <code className="font-mono text-xs bg-emerald-100 px-1 rounded">{detectedStyleCol}</code> column
+            routes each row to the correct door style automatically. Just set the price type for each price column below.
+          </span>
+        </div>
+      )}
+
       {/* Multi-column mapping table */}
       <div className="rounded-md border overflow-hidden">
         <table className="w-full text-sm">
@@ -653,7 +678,7 @@ function MultiColumnMappingStep({
               <th className="px-3 py-2 text-left font-medium w-8">
                 <input
                   type="checkbox"
-                  checked={priceColumns.every((c) => colMappings[c]?.enabled)}
+                  checked={priceColumns.every((c) => colMappings[c]?.enabled !== false)}
                   onChange={(e) => {
                     setColMappings((prev) => {
                       const next = { ...prev };
@@ -668,20 +693,21 @@ function MultiColumnMappingStep({
               </th>
               <th className="px-3 py-2 text-left font-medium">Column</th>
               <th className="px-3 py-2 text-left font-medium">Sample price</th>
-              <th className="px-3 py-2 text-left font-medium">Door style</th>
+              {!detectedStyleCol && <th className="px-3 py-2 text-left font-medium">Door style</th>}
               <th className="px-3 py-2 text-left font-medium">Price type</th>
             </tr>
           </thead>
           <tbody>
             {priceColumns.map((col) => {
-              const mapping = colMappings[col] ?? { doorStyleId: "", priceType: "list" as const, enabled: false };
+              const mapping = colMappings[col] ?? { doorStyleId: "", priceType: "list" as const, enabled: detectedStyleCol ? true : false };
               const sampleVal = firstRow[col];
+              const isEnabled = mapping.enabled !== false;
               return (
-                <tr key={col} className={`border-t transition-colors ${mapping.enabled ? "bg-background" : "bg-muted/20 opacity-60"}`}>
+                <tr key={col} className={`border-t transition-colors ${isEnabled ? "bg-background" : "bg-muted/20 opacity-60"}`}>
                   <td className="px-3 py-2">
                     <input
                       type="checkbox"
-                      checked={mapping.enabled}
+                      checked={isEnabled}
                       onChange={(e) => setColField(col, "enabled", e.target.checked)}
                       className="cursor-pointer"
                     />
@@ -695,21 +721,23 @@ function MultiColumnMappingStep({
                   <td className="px-3 py-2 text-muted-foreground font-mono text-xs">
                     {sampleVal != null ? String(sampleVal) : "—"}
                   </td>
-                  <td className="px-3 py-2">
-                    <StyleCombobox
-                      styles={allStyles ?? []}
-                      value={mapping.doorStyleId}
-                      onChange={(val) => {
-                        setColField(col, "doorStyleId", val);
-                        if (val) setColField(col, "enabled", true);
-                      }}
-                    />
-                  </td>
+                  {!detectedStyleCol && (
+                    <td className="px-3 py-2">
+                      <StyleCombobox
+                        styles={allStyles ?? []}
+                        value={mapping.doorStyleId}
+                        onChange={(val) => {
+                          setColField(col, "doorStyleId", val);
+                          if (val) setColField(col, "enabled", true);
+                        }}
+                      />
+                    </td>
+                  )}
                   <td className="px-3 py-2">
                     <Select
-                      value={mapping.priceType}
+                      value={mapping.priceType ?? "list"}
                       onValueChange={(v) => setColField(col, "priceType", v as "list" | "cost")}
-                      disabled={!mapping.enabled}
+                      disabled={!isEnabled}
                     >
                       <SelectTrigger className="h-7 text-xs w-28">
                         <SelectValue />
@@ -728,8 +756,10 @@ function MultiColumnMappingStep({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {activeMappings.length} of {priceColumns.length} columns selected for import.
-        Mappings are saved automatically and pre-filled next time you upload this distributor's sheet.
+        {detectedStyleCol
+          ? `${activeMappings.length} of ${priceColumns.length} price columns selected. Rows are routed by the "${detectedStyleCol}" column.`
+          : `${activeMappings.length} of ${priceColumns.length} columns selected for import. Mappings are saved automatically and pre-filled next time you upload this distributor's sheet.`
+        }
       </p>
 
       {/* Row-by-row review table */}
@@ -942,6 +972,7 @@ function MultiColumnMappingStep({
               filename,
               skuColumn: skuCol,
               mappings: activeMappings,
+              ...(detectedStyleCol ? { styleColumn: detectedStyleCol } : {}),
               dryRun: false,
             });
           }}

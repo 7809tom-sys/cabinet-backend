@@ -1004,9 +1004,12 @@ export const distributorImportRouter = router({
       skuColumn: z.string().default("SKU"),
       mappings: z.array(z.object({
         columnCode: z.string().min(1),
-        doorStyleId: z.number().int().positive(),
+        doorStyleId: z.number().int().nonnegative(), // 0 means "use styleColumn to resolve per-row"
         priceType: z.enum(["list", "cost"]).default("list"),
       })).min(1),
+      /** When present, each row's value in this column is used as the style code to route prices.
+       *  This is the "row-per-style" mode (e.g. Clark & Sons format). */
+      styleColumn: z.string().optional(),
       dryRun: z.boolean().default(false),
     }))
     .mutation(async ({ input }) => {
@@ -1057,117 +1060,218 @@ export const distributorImportRouter = router({
 
       const newAliases: Array<{ cabinetId: number; rawCodeSample: string; rawCodeCanon: string; distributorId: number }> = [];
 
-      for (const mapping of input.mappings) {
-        let matched = 0, unmatched = 0, priced = 0;
-        const unmatchedCodes: string[] = [];
-        const upserts: Array<typeof distributorSkus.$inferInsert> = [];
+      const NOT_AVAIL_RE = /^(na|n\/a|x|-)$/i;
+
+      if (input.styleColumn) {
+        // ── Row-per-style mode ──────────────────────────────────────────────────
+        // Each row has a style-code cell (e.g. "ASP") that routes it to a style.
+        // All mappings share the same rows; doorStyleId is ignored (0) — style is
+        // resolved from the row's styleColumn value instead.
+
+        // Pre-load all door styles for this distributor
+        const allStylesForDist = await db
+          .select({ id: doorStyles.id, styleCode: doorStyles.styleCode })
+          .from(doorStyles)
+          .where(eq(doorStyles.distributorId, input.distributorId));
+        const styleByCode = new Map(allStylesForDist.map((s) => [s.styleCode.toUpperCase(), s.id]));
+
+        // Per-mapping accumulators
+        const accumulators = new Map<string, { matched: number; unmatched: number; priced: number; unmatchedCodes: string[]; upserts: Array<typeof distributorSkus.$inferInsert> }>();
+        for (const m of input.mappings) {
+          accumulators.set(m.columnCode, { matched: 0, unmatched: 0, priced: 0, unmatchedCodes: [], upserts: [] });
+        }
 
         for (const row of rows) {
           const rawSku = String(row[input.skuColumn] ?? "").trim();
           if (!rawSku) continue;
 
-          const rawPrice = row[mapping.columnCode];
-          if (rawPrice == null || String(rawPrice).trim() === "") continue;
-
-          const priceStr = String(rawPrice).trim();
-          // Treat NA/X/blank as not available
-          const NOT_AVAIL_RE = /^(na|n\/a|x|-)$/i;
-          const isNotAvailable = NOT_AVAIL_RE.test(priceStr);
-          const parsedPrice = isNotAvailable ? null : parseFloat(priceStr.replace(/[^0-9.-]/g, ""));
-          if (!isNotAvailable && (parsedPrice == null || isNaN(parsedPrice))) continue;
+          const rawStyleCode = String(row[input.styleColumn] ?? "").trim().toUpperCase();
+          const resolvedStyleId = styleByCode.get(rawStyleCode) ?? null;
+          if (!resolvedStyleId) continue; // style code not registered — skip row
 
           const cabinet = resolveCabinet(rawSku);
-          if (!cabinet) {
-            unmatched++;
-            if (unmatchedCodes.length < 50) unmatchedCodes.push(rawSku);
-            continue;
-          }
-          matched++;
 
           // Learn alias
-          const norm = normalizeCode(rawSku);
-          if (norm !== normalizeCode(cabinet.masterCode)) {
-            newAliases.push({ cabinetId: cabinet.id, rawCodeSample: rawSku, rawCodeCanon: norm, distributorId: input.distributorId });
-          }
-
-          const listPrice = mapping.priceType === "list" ? parsedPrice : null;
-          // Auto-calculate yourCost from listPrice × distributor costMultiplier when uploading list prices
-          const yourCost = mapping.priceType === "cost"
-            ? parsedPrice
-            : (listPrice !== null && costMult !== null && !isNaN(costMult))
-              ? Math.round(listPrice * costMult * 100) / 100
-              : null;
-          const platformSku = `${input.distributorId}-${mapping.doorStyleId}-${cabinet.masterCode}`;
-
-          upserts.push({
-            distributorId: input.distributorId,
-            cabinetId: cabinet.id,
-            styleId: mapping.doorStyleId,
-            platformSku,
-            distributorSku: rawSku,
-            listPrice: listPrice !== null ? String(listPrice) : null,
-            yourCost: yourCost !== null ? String(yourCost) : null,
-            isAvailable: !isNotAvailable,
-          });
-          priced++;
-        }
-
-        if (!input.dryRun && upserts.length > 0) {
-          // Batch upsert in chunks of 200
-          for (let i = 0; i < upserts.length; i += 200) {
-            const chunk = upserts.slice(i, i + 200);
-            await db.insert(distributorSkus).values(chunk).onDuplicateKeyUpdate({
-              set: {
-                listPrice: sql`VALUES(list_price)`,
-                yourCost: sql`VALUES(your_cost)`,
-                isAvailable: sql`VALUES(is_available)`,
-              },
-            });
-          }
-        }
-
-        // Save unmatched codes to import_pending_skus staging table
-        if (!input.dryRun && unmatchedCodes.length > 0) {
-          // Build a pricesJson for each unmatched code from all rows
-          const unmatchedSet = new Set(unmatchedCodes);
-          const pendingMap = new Map<string, Record<string, { listPrice: number | null; yourCost: number | null; styleId: number }>>();
-          for (const row of rows) {
-            const rawSku = String(row[input.skuColumn] ?? "").trim();
-            if (!rawSku || !unmatchedSet.has(rawSku)) continue;
-            if (!pendingMap.has(rawSku)) pendingMap.set(rawSku, {});
-            const entry = pendingMap.get(rawSku)!;
-            const rawPrice = row[mapping.columnCode];
-            if (rawPrice == null || String(rawPrice).trim() === "") continue;
-            const priceStr = String(rawPrice).trim();
-            const NOT_AVAIL_RE2 = /^(na|n\/a|x|-)$/i;
-            const isNA = NOT_AVAIL_RE2.test(priceStr);
-            const parsed = isNA ? null : parseFloat(priceStr.replace(/[^0-9.-]/g, ""));
-            entry[mapping.columnCode] = {
-              listPrice: mapping.priceType === "list" && !isNA ? parsed : null,
-              yourCost: mapping.priceType === "cost" && !isNA ? parsed : null,
-              styleId: mapping.doorStyleId,
-            };
-          }
-          for (const [rawCode, prices] of Array.from(pendingMap)) {
-            try {
-              const pricesStr = JSON.stringify(prices);
-              await db.insert(importPendingSkus).values({
-                distributorId: input.distributorId,
-                rawCode,
-                pricesJson: pricesStr,
-                status: "pending",
-              }).onDuplicateKeyUpdate({
-                set: {
-                  pricesJson: sql`VALUES(pricesJson)`,
-                  status: "pending",
-                },
-              });
-            } catch (e) {
-              console.error("[importAllColumns] failed to save pending SKU", rawCode, e);
+          if (cabinet) {
+            const norm = normalizeCode(rawSku);
+            if (norm !== normalizeCode(cabinet.masterCode)) {
+              newAliases.push({ cabinetId: cabinet.id, rawCodeSample: rawSku, rawCodeCanon: norm, distributorId: input.distributorId });
             }
           }
+
+          for (const mapping of input.mappings) {
+            const acc = accumulators.get(mapping.columnCode)!;
+            const rawPrice = row[mapping.columnCode];
+            if (rawPrice == null || String(rawPrice).trim() === "") continue;
+
+            const priceStr = String(rawPrice).trim();
+            const isNotAvailable = NOT_AVAIL_RE.test(priceStr);
+            const parsedPrice = isNotAvailable ? null : parseFloat(priceStr.replace(/[^0-9.-]/g, ""));
+            if (!isNotAvailable && (parsedPrice == null || isNaN(parsedPrice))) continue;
+
+            if (!cabinet) {
+              acc.unmatched++;
+              if (acc.unmatchedCodes.length < 50) acc.unmatchedCodes.push(rawSku);
+              continue;
+            }
+            acc.matched++;
+
+            const listPrice = mapping.priceType === "list" ? parsedPrice : null;
+            const yourCost = mapping.priceType === "cost"
+              ? parsedPrice
+              : (listPrice !== null && costMult !== null && !isNaN(costMult))
+                ? Math.round(listPrice * costMult * 100) / 100
+                : null;
+            const platformSku = `${input.distributorId}-${resolvedStyleId}-${cabinet.masterCode}`;
+
+            acc.upserts.push({
+              distributorId: input.distributorId,
+              cabinetId: cabinet.id,
+              styleId: resolvedStyleId,
+              platformSku,
+              distributorSku: rawSku,
+              listPrice: listPrice !== null ? String(listPrice) : null,
+              yourCost: yourCost !== null ? String(yourCost) : null,
+              isAvailable: !isNotAvailable,
+            });
+            acc.priced++;
+          }
         }
-        results.push({ columnCode: mapping.columnCode, doorStyleId: mapping.doorStyleId, priceType: mapping.priceType, matched, unmatched, priced, unmatchedCodes });
+
+        // Commit upserts per mapping
+        for (const mapping of input.mappings) {
+          const acc = accumulators.get(mapping.columnCode)!;
+          if (!input.dryRun && acc.upserts.length > 0) {
+            for (let i = 0; i < acc.upserts.length; i += 200) {
+              const chunk = acc.upserts.slice(i, i + 200);
+              await db.insert(distributorSkus).values(chunk).onDuplicateKeyUpdate({
+                set: {
+                  listPrice: sql`VALUES(list_price)`,
+                  yourCost: sql`VALUES(your_cost)`,
+                  isAvailable: sql`VALUES(is_available)`,
+                },
+              });
+            }
+          }
+          results.push({
+            columnCode: mapping.columnCode,
+            doorStyleId: 0, // row-per-style: no single style per column
+            priceType: mapping.priceType,
+            matched: acc.matched,
+            unmatched: acc.unmatched,
+            priced: acc.priced,
+            unmatchedCodes: acc.unmatchedCodes,
+          });
+        }
+      } else {
+        // ── Column-per-style mode (original) ───────────────────────────────────
+        for (const mapping of input.mappings) {
+          let matched = 0, unmatched = 0, priced = 0;
+          const unmatchedCodes: string[] = [];
+          const upserts: Array<typeof distributorSkus.$inferInsert> = [];
+
+          for (const row of rows) {
+            const rawSku = String(row[input.skuColumn] ?? "").trim();
+            if (!rawSku) continue;
+
+            const rawPrice = row[mapping.columnCode];
+            if (rawPrice == null || String(rawPrice).trim() === "") continue;
+
+            const priceStr = String(rawPrice).trim();
+            const isNotAvailable = NOT_AVAIL_RE.test(priceStr);
+            const parsedPrice = isNotAvailable ? null : parseFloat(priceStr.replace(/[^0-9.-]/g, ""));
+            if (!isNotAvailable && (parsedPrice == null || isNaN(parsedPrice))) continue;
+
+            const cabinet = resolveCabinet(rawSku);
+            if (!cabinet) {
+              unmatched++;
+              if (unmatchedCodes.length < 50) unmatchedCodes.push(rawSku);
+              continue;
+            }
+            matched++;
+
+            // Learn alias
+            const norm = normalizeCode(rawSku);
+            if (norm !== normalizeCode(cabinet.masterCode)) {
+              newAliases.push({ cabinetId: cabinet.id, rawCodeSample: rawSku, rawCodeCanon: norm, distributorId: input.distributorId });
+            }
+
+            const listPrice = mapping.priceType === "list" ? parsedPrice : null;
+            const yourCost = mapping.priceType === "cost"
+              ? parsedPrice
+              : (listPrice !== null && costMult !== null && !isNaN(costMult))
+                ? Math.round(listPrice * costMult * 100) / 100
+                : null;
+            const platformSku = `${input.distributorId}-${mapping.doorStyleId}-${cabinet.masterCode}`;
+
+            upserts.push({
+              distributorId: input.distributorId,
+              cabinetId: cabinet.id,
+              styleId: mapping.doorStyleId,
+              platformSku,
+              distributorSku: rawSku,
+              listPrice: listPrice !== null ? String(listPrice) : null,
+              yourCost: yourCost !== null ? String(yourCost) : null,
+              isAvailable: !isNotAvailable,
+            });
+            priced++;
+          }
+
+          if (!input.dryRun && upserts.length > 0) {
+            // Batch upsert in chunks of 200
+            for (let i = 0; i < upserts.length; i += 200) {
+              const chunk = upserts.slice(i, i + 200);
+              await db.insert(distributorSkus).values(chunk).onDuplicateKeyUpdate({
+                set: {
+                  listPrice: sql`VALUES(list_price)`,
+                  yourCost: sql`VALUES(your_cost)`,
+                  isAvailable: sql`VALUES(is_available)`,
+                },
+              });
+            }
+          }
+
+          // Save unmatched codes to import_pending_skus staging table
+          if (!input.dryRun && unmatchedCodes.length > 0) {
+            const unmatchedSet = new Set(unmatchedCodes);
+            const pendingMap = new Map<string, Record<string, { listPrice: number | null; yourCost: number | null; styleId: number }>>();
+            for (const row of rows) {
+              const rawSku = String(row[input.skuColumn] ?? "").trim();
+              if (!rawSku || !unmatchedSet.has(rawSku)) continue;
+              if (!pendingMap.has(rawSku)) pendingMap.set(rawSku, {});
+              const entry = pendingMap.get(rawSku)!;
+              const rawPrice = row[mapping.columnCode];
+              if (rawPrice == null || String(rawPrice).trim() === "") continue;
+              const priceStr = String(rawPrice).trim();
+              const isNA = NOT_AVAIL_RE.test(priceStr);
+              const parsed = isNA ? null : parseFloat(priceStr.replace(/[^0-9.-]/g, ""));
+              entry[mapping.columnCode] = {
+                listPrice: mapping.priceType === "list" && !isNA ? parsed : null,
+                yourCost: mapping.priceType === "cost" && !isNA ? parsed : null,
+                styleId: mapping.doorStyleId,
+              };
+            }
+            for (const [rawCode, prices] of Array.from(pendingMap)) {
+              try {
+                const pricesStr = JSON.stringify(prices);
+                await db.insert(importPendingSkus).values({
+                  distributorId: input.distributorId,
+                  rawCode,
+                  pricesJson: pricesStr,
+                  status: "pending",
+                }).onDuplicateKeyUpdate({
+                  set: {
+                    pricesJson: sql`VALUES(pricesJson)`,
+                    status: "pending",
+                  },
+                });
+              } catch (e) {
+                console.error("[importAllColumns] failed to save pending SKU", rawCode, e);
+              }
+            }
+          }
+          results.push({ columnCode: mapping.columnCode, doorStyleId: mapping.doorStyleId, priceType: mapping.priceType, matched, unmatched, priced, unmatchedCodes });
+        }
       }
 
       // Save/update column mappings for next time
