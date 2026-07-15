@@ -6828,7 +6828,7 @@ export default function DesignTool() {
                             {styleId
                             ? lineTotal != null
                               ? `$${lineTotal.toFixed(2)}`
-                              : <span className="text-muted-foreground text-[10px] italic">Not offered</span>
+                              : <span className="text-red-600 flex items-center gap-0.5 text-[10px] font-semibold"><span>⚠</span><span>Price needed</span></span>
                             : "—"}
                           </div>
                           {styleId && g.qty > 1 && g.unitPrice != null && (
@@ -7269,14 +7269,14 @@ export default function DesignTool() {
               if (valance && valanceOrder.length > 0) { const p = trimPriceByCode.get("VA-48"); if (!p || p.unitPrice <= 0) trimMissing.push("Valance"); }
               if (unpricedCabCount === 0 && trimMissing.length === 0) return null;
               return (
-                <div className="mb-3 rounded-md border border-amber-400/60 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                <div className="mb-3 rounded-md border border-red-400/60 bg-red-50 dark:bg-red-950/20 px-3 py-2.5 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Some items are not offered in this style</p>
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5 leading-snug">
-                      {unpricedCabCount > 0 && <span>{unpricedCabCount} cabinet line{unpricedCabCount > 1 ? "s are" : " is"} not available in this door style — remove or swap to a compatible style. </span>}
-                      {trimMissing.length > 0 && <span>{trimMissing.join(", ")} {trimMissing.length > 1 ? "are" : "is"} not offered in this style. </span>}
-                      These items are excluded from the total.
+                    <p className="text-xs font-semibold text-red-700 dark:text-red-400">Pricing incomplete — total is understated</p>
+                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5 leading-snug">
+                      {unpricedCabCount > 0 && <span>{unpricedCabCount} cabinet line{unpricedCabCount > 1 ? "s have" : " has"} no price for this style. </span>}
+                      {trimMissing.length > 0 && <span>{trimMissing.join(", ")} {trimMissing.length > 1 ? "have" : "has"} no price — add pricing in the admin panel. </span>}
+                      The total shown does not include these items.
                     </p>
                   </div>
                 </div>

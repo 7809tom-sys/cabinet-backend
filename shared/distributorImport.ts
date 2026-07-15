@@ -33,12 +33,6 @@ const HEADER_ALIASES: Record<string, ImportColumnKey> = {
   "item code": "masterCode",
   "sku": "masterCode",
   "model": "masterCode",
-  "alias": "masterCode",
-  "allias": "masterCode",   // common typo in distributor sheets
-  "aliases": "masterCode",
-  "part no": "masterCode",
-  "part number": "masterCode",
-  "part#": "masterCode",
   // description / info
   "description": "description",
   "desc": "description",
@@ -61,20 +55,12 @@ const HEADER_ALIASES: Record<string, ImportColumnKey> = {
   // pricing
   "listprice": "listPrice",
   "list price": "listPrice",
-  "list": "listPrice",          // Clark & Sons: "List"
   "msrp": "listPrice",
   "price": "listPrice",
-  "retail": "listPrice",
-  "retail price": "listPrice",
   "yourcost": "yourCost",
   "your cost": "yourCost",
   "cost": "yourCost",
   "dealer cost": "yourCost",
-  "my cost": "yourCost",        // Clark & Sons: "My Cost"
-  "mycost": "yourCost",
-  "net": "yourCost",
-  "net price": "yourCost",
-  "net cost": "yourCost",
   // style
   "stylecode": "styleCode",
   "style code": "styleCode",

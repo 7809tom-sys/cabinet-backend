@@ -54,17 +54,14 @@ export interface PlatformPricingSettings {
   cardFeeBps: number;
 }
 
-// All fee/markup defaults are 0 — every rate must be configured in the admin
-// panel. No hardcoded fallback values so old illustrative numbers can never
-// silently override the admin-configured rates.
 export const DEFAULT_PRICING_SETTINGS: PlatformPricingSettings = {
-  wholesaleMarkupBps: 0,
-  affiliateMarkupBps: 0,
-  retailMarkupBps: 0,
-  damageFeeBps: 0,
-  techFeeBps: 0,
-  techFeeCapCents: 0,
-  cardFeeBps: 0,
+  wholesaleMarkupBps: 1500, // 15% (illustrative; admin-editable)
+  affiliateMarkupBps: 500, //  5%
+  retailMarkupBps: 2500, // 25% (illustrative; admin-editable)
+  damageFeeBps: 100, //  1%
+  techFeeBps: 1000, // 10%
+  techFeeCapCents: 10000, // $100.00
+  cardFeeBps: 400, //  4%
 };
 
 /**

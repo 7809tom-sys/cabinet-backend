@@ -249,44 +249,11 @@ export const doorStylesRouter = router({
     const db = await getDb();
     if (!db) return [];
     const rows = await db
-      .select({
-        // All door_styles columns
-        id: doorStyles.id,
-        distributorId: doorStyles.distributorId,
-        styleCode: doorStyles.styleCode,
-        ourName: doorStyles.ourName,
-        distributorName: doorStyles.distributorName,
-        featuredLabel: doorStyles.featuredLabel,
-        aliasName: doorStyles.aliasName,
-        doorStyle: doorStyles.doorStyle,
-        color: doorStyles.color,
-        finish: doorStyles.finish,
-        woodSpecies: doorStyles.woodSpecies,
-        isFeatured: doorStyles.isFeatured,
-        featuredRank: doorStyles.featuredRank,
-        isActive: doorStyles.isActive,
-        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
-        roomSceneImageUrl: doorStyles.roomSceneImageUrl,
-        doorSampleVerified: doorStyles.doorSampleVerified,
-        // Joined distributor info for admin display
-        seriesName: distributors.seriesName,
-        supplyLineName: sql<string>`coalesce(${distributors.brandName}, ${distributors.name})`,
-        supplyLineNeutralName: distributors.name,
-        // SKU counts per style
-        activeSkuCount: sql<number>`(select count(*) from distributor_skus ds where ds.styleId = ${doorStyles.id} and ds.isAvailable = true and ds.isPublished = true)`,
-        inactiveSkuCount: sql<number>`(select count(*) from distributor_skus ds where ds.styleId = ${doorStyles.id} and (ds.isAvailable = false or ds.isPublished = false))`,
-        totalSkuCount: sql<number>`(select count(*) from distributor_skus ds where ds.styleId = ${doorStyles.id})`,
-      })
+      .select()
       .from(doorStyles)
-      .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
       .where(eq(doorStyles.isActive, true))
       .orderBy(asc(doorStyles.ourName));
-    return rows.map((r) => ({
-      ...r,
-      activeSkuCount: Number(r.activeSkuCount),
-      inactiveSkuCount: Number(r.inactiveSkuCount),
-      totalSkuCount: Number(r.totalSkuCount),
-    })); // admin sees full rows (incl. distributorName + joined supply line name)
+    return rows; // admin sees full rows (incl. distributorName) intentionally
   }),
 
   // Admin: toggle a style's featured state. Enforces the MAX 30 cap on enable.
@@ -884,11 +851,18 @@ export const doorStylesRouter = router({
           width: cabinets.width,
           height: cabinets.height,
           depth: cabinets.depth,
+          conflictStatus: cabinets.conflictStatus,
+          conflictReason: cabinets.conflictReason,
         })
         .from(distributorSkus)
         .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .where(eq(distributorSkus.styleId, input.styleId))
-        .orderBy(asc(cabinets.category), asc(cabinets.masterCode));
+        .orderBy(
+          // Conflict items bubble to the top so admin sees them first
+          sql`case when ${cabinets.conflictStatus} = 'conflict' then 0 else 1 end`,
+          asc(cabinets.category),
+          asc(cabinets.masterCode)
+        );
       return rows;
     }),
 
@@ -925,86 +899,6 @@ export const doorStylesRouter = router({
         .update(distributorSkus)
         .set({ isPublished: input.isPublished })
         .where(eq(distributorSkus.styleId, input.styleId));
-      return { ok: true };
-    }),
-
-  /** Admin: merge two door styles that are the same physical door.
-   * All SKUs from the duplicate are re-pointed to the primary.
-   * The duplicate style is deactivated so it no longer appears in the catalog.
-   */
-  mergeStyles: adminProcedure
-    .input(
-      z.object({
-        primaryId: z.number().int().positive(),
-        duplicateId: z.number().int().positive(),
-        copyMissingImages: z.boolean().default(true),
-      })
-    )
-    .mutation(async ({ input }) => {
-      if (input.primaryId === input.duplicateId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Primary and duplicate must be different styles." });
-      }
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const [primaryRows, duplicateRows] = await Promise.all([
-        db.select().from(doorStyles).where(eq(doorStyles.id, input.primaryId)).limit(1),
-        db.select().from(doorStyles).where(eq(doorStyles.id, input.duplicateId)).limit(1),
-      ]);
-      if (!primaryRows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Primary style not found." });
-      if (!duplicateRows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Duplicate style not found." });
-      const p = primaryRows[0];
-      const d = duplicateRows[0];
-      // 1. Re-point all distributor SKUs from duplicate → primary
-      const skuResult = await db
-        .update(distributorSkus)
-        .set({ styleId: input.primaryId })
-        .where(eq(distributorSkus.styleId, input.duplicateId));
-      // 2. Copy images from duplicate to primary if requested
-      const imagePatch: Record<string, string> = {};
-      if (input.copyMissingImages) {
-        // Door sample: only copy if primary is missing one
-        if (!p.doorSampleImageUrl && d.doorSampleImageUrl) {
-          imagePatch.doorSampleImageUrl = d.doorSampleImageUrl;
-        }
-        // Room scene: always keep the duplicate's room scene (overwrite primary)
-        if (d.roomSceneImageUrl) {
-          imagePatch.roomSceneImageUrl = d.roomSceneImageUrl;
-        }
-      }
-      if (Object.keys(imagePatch).length > 0) {
-        await db.update(doorStyles).set(imagePatch).where(eq(doorStyles.id, input.primaryId));
-      }
-      // 3. Deactivate the duplicate style
-      await db
-        .update(doorStyles)
-        .set({ isActive: false })
-        .where(eq(doorStyles.id, input.duplicateId));
-      return {
-        ok: true,
-        skusMoved: (skuResult as { affectedRows?: number }).affectedRows ?? 0,
-        primaryName: p.ourName,
-        duplicateName: d.ourName,
-        imagesCopied: Object.keys(imagePatch),
-      };
-    }),
-
-  /** Admin: set isAvailable + isPublished flags on a single SKU. */
-  adminUpdateSkuAvailability: adminProcedure
-    .input(
-      z.object({
-        skuId: z.number().int(),
-        isAvailable: z.boolean().optional(),
-        isPublished: z.boolean().optional(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const patch: Record<string, boolean> = {};
-      if (input.isAvailable !== undefined) patch.isAvailable = input.isAvailable;
-      if (input.isPublished !== undefined) patch.isPublished = input.isPublished;
-      if (Object.keys(patch).length === 0) return { ok: true };
-      await db.update(distributorSkus).set(patch).where(eq(distributorSkus.id, input.skuId));
       return { ok: true };
     }),
 });
@@ -1201,24 +1095,6 @@ export const cabinetsRouter = router({
   // info we DO know: distributor name(s) and door style(s) it is carried under
   // (resolved from its SKUs). Admin-only -- supplier identity is allowed here.
   conflicts: adminProcedure.query(async () => {
-    type ConflictSkuRow = {
-      skuId: number;
-      cabinetId: number;
-      styleId: number | null;
-      distributorId: number | null;
-      distributorName: string | null;
-      styleName: string | null;
-      styleCode: string | null;
-      distributorSku: string;
-      platformSku: string;
-      listPrice: string | null;
-      yourCost: string | null;
-      wholesalePrice: string | null;
-      contractorPrice: string | null;
-      homeownerPrice: string | null;
-      isAvailable: boolean;
-      isPublished: boolean;
-    };
     type ConflictItem = {
       id: number;
       masterCode: string;
@@ -1234,7 +1110,6 @@ export const cabinetsRouter = router({
       distributorNames: string[];
       doorStyleNames: string[];
       styleIds: number[];
-      skus: ConflictSkuRow[];
     };
     const db = await getDb();
     if (!db) return [] as ConflictItem[];
@@ -1249,22 +1124,14 @@ export const cabinetsRouter = router({
     // carried under, so the admin can identify it against the catalog book.
     const skuRows = await db
       .select({
-        skuId: distributorSkus.id,
         cabinetId: distributorSkus.cabinetId,
         styleId: distributorSkus.styleId,
-        distributorId: distributorSkus.distributorId,
         distributorName: distributors.name,
         styleName: doorStyles.ourName,
         styleCode: doorStyles.styleCode,
         distributorSku: distributorSkus.distributorSku,
         platformSku: distributorSkus.platformSku,
         listPrice: distributorSkus.listPrice,
-        yourCost: distributorSkus.yourCost,
-        wholesalePrice: distributorSkus.wholesalePrice,
-        contractorPrice: distributorSkus.contractorPrice,
-        homeownerPrice: distributorSkus.homeownerPrice,
-        isAvailable: distributorSkus.isAvailable,
-        isPublished: distributorSkus.isPublished,
       })
       .from(distributorSkus)
       .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
@@ -1306,7 +1173,6 @@ export const cabinetsRouter = router({
         distributorNames,
         doorStyleNames,
         styleIds,
-        skus: skus as ConflictSkuRow[],
       };
     });
     return result;
@@ -1437,48 +1303,6 @@ export const cabinetsRouter = router({
         .update(cabinets)
         .set({ conflictStatus: "none", conflictReason: null, conflictedAt: null })
         .where(eq(cabinets.id, input.id));
-      return { ok: true };
-    }),
-
-  // Admin: manually create a new cabinet in conflict status for review.
-  createConflict: adminProcedure
-    .input(
-      z.object({
-        masterCode: z.string().min(1).max(64),
-        description: z.string().min(1),
-        category: z.string().min(1),
-        subCategory: z.string().nullable().optional(),
-        width: z.string().nullable().optional(),
-        height: z.string().nullable().optional(),
-        depth: z.string().nullable().optional(),
-        conflictReason: z.string().nullable().optional(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      // Check for duplicate masterCode
-      const existing = await db
-        .select({ id: cabinets.id })
-        .from(cabinets)
-        .where(eq(cabinets.masterCode, input.masterCode.trim().toUpperCase()))
-        .limit(1);
-      if (existing.length > 0) {
-        throw new TRPCError({ code: "CONFLICT", message: `Master code ${input.masterCode} already exists.` });
-      }
-      await db.insert(cabinets).values({
-        masterCode: input.masterCode.trim().toUpperCase(),
-        description: input.description.trim(),
-        category: input.category.trim(),
-        subCategory: input.subCategory?.trim() || null,
-        width: input.width?.trim() || null,
-        height: input.height?.trim() || null,
-        depth: input.depth?.trim() || null,
-        conflictReason: input.conflictReason?.trim() || "Manually added for review",
-        conflictStatus: "conflict",
-        conflictedAt: new Date(),
-        isActive: true,
-      });
       return { ok: true };
     }),
 
@@ -2479,25 +2303,9 @@ export const pricingRouter = router({
       if (!dist) throw new TRPCError({ code: "NOT_FOUND", message: "Distributor not found" });
       const mult = Number(dist.costMultiplier);
       if (!mult || mult <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Distributor has no valid costMultiplier set" });
-
-      // Fetch the platform tier markup settings so we can compute sell prices.
-      const pricingS = await getPricingSettings();
-      const wholesaleMult = 1 + (pricingS.wholesaleMarkupBps ?? 0) / 10000;
-      const contractorMult = 1 + (pricingS.contractorMarkupBps ?? 0) / 10000;
-      const homeownerMult = 1 + (pricingS.homeownerMarkupBps ?? 0) / 10000;
-
-      // yourCost = listPrice × costMultiplier (what we pay the distributor)
-      // wholesalePrice = yourCost × wholesaleMult
-      // contractorPrice = yourCost × contractorMult
-      // homeownerPrice = yourCost × homeownerMult
       const res = await db
         .update(distributorSkus)
-        .set({
-          yourCost: sql`ROUND(${distributorSkus.listPrice} * ${mult}, 2)`,
-          wholesalePrice: sql`ROUND(${distributorSkus.listPrice} * ${mult} * ${wholesaleMult}, 2)`,
-          contractorPrice: sql`ROUND(${distributorSkus.listPrice} * ${mult} * ${contractorMult}, 2)`,
-          homeownerPrice: sql`ROUND(${distributorSkus.listPrice} * ${mult} * ${homeownerMult}, 2)`,
-        })
+        .set({ yourCost: sql`ROUND(${distributorSkus.listPrice} * ${mult}, 2)` })
         .where(
           and(
             eq(distributorSkus.distributorId, input.distributorId),
@@ -2685,6 +2493,19 @@ export const pricingRouter = router({
       await db.update(distributorSkus).set(set).where(eq(distributorSkus.id, input.skuId));
       if (auditRows.length > 0) await db.insert(costChangeLog).values(auditRows);
       return { success: true, changed: auditRows.length } as const;
+    }),
+
+  /** Admin: toggle isAvailable on a single SKU. */
+  adminUpdateSkuAvailability: adminProcedure
+    .input(z.object({ skuId: z.number().int(), isAvailable: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db
+        .update(distributorSkus)
+        .set({ isAvailable: input.isAvailable })
+        .where(eq(distributorSkus.id, input.skuId));
+      return { ok: true };
     }),
 
   // Mark a cabinet's prices as audited (or clear the audit). Set true once the
@@ -3198,73 +3019,6 @@ export const pricingRouter = router({
       const suffix = parts.length > 0 ? parts.join("-") : "full";
       const filename = `cabinet-dealz-export-${suffix}-${date}.xlsx`;
       return { xlsx, filename, counts };
-    }),
-
-  // Admin: merge two door styles that are actually the same physical style.
-  // All SKUs, room scenes, and affiliate branding rows from the duplicate are
-  // re-pointed to the primary. The duplicate style is then deactivated so it
-  // no longer appears in the public catalog or design tool.
-  mergeStyles: adminProcedure
-    .input(
-      z.object({
-        primaryId: z.number().int().positive(),
-        duplicateId: z.number().int().positive(),
-        // When true, copy the duplicate's doorSampleImageUrl / roomSceneImageUrl
-        // onto the primary if the primary is currently missing those images.
-        copyMissingImages: z.boolean().default(true),
-      })
-    )
-    .mutation(async ({ input }) => {
-      if (input.primaryId === input.duplicateId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Primary and duplicate must be different styles." });
-      }
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-
-      // Verify both styles exist
-      const [primary, duplicate] = await Promise.all([
-        db.select().from(doorStyles).where(eq(doorStyles.id, input.primaryId)).limit(1),
-        db.select().from(doorStyles).where(eq(doorStyles.id, input.duplicateId)).limit(1),
-      ]);
-      if (!primary[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Primary style not found." });
-      if (!duplicate[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Duplicate style not found." });
-
-      const p = primary[0];
-      const d = duplicate[0];
-
-      // 1. Re-point all distributor SKUs from duplicate → primary
-      const skuResult = await db
-        .update(distributorSkus)
-        .set({ styleId: input.primaryId })
-        .where(eq(distributorSkus.styleId, input.duplicateId));
-
-      // 2. Copy missing images from duplicate to primary if requested
-      const imagePatch: Record<string, string> = {};
-      if (input.copyMissingImages) {
-        if (!p.doorSampleImageUrl && d.doorSampleImageUrl) {
-          imagePatch.doorSampleImageUrl = d.doorSampleImageUrl;
-        }
-        if (!p.roomSceneImageUrl && d.roomSceneImageUrl) {
-          imagePatch.roomSceneImageUrl = d.roomSceneImageUrl;
-        }
-      }
-      if (Object.keys(imagePatch).length > 0) {
-        await db.update(doorStyles).set(imagePatch).where(eq(doorStyles.id, input.primaryId));
-      }
-
-      // 3. Deactivate the duplicate style
-      await db
-        .update(doorStyles)
-        .set({ isActive: false })
-        .where(eq(doorStyles.id, input.duplicateId));
-
-      return {
-        ok: true,
-        skusMoved: (skuResult as { affectedRows?: number }).affectedRows ?? 0,
-        primaryName: p.ourName,
-        duplicateName: d.ourName,
-        imagesCopied: Object.keys(imagePatch),
-      };
     }),
 
 });

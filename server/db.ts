@@ -198,14 +198,11 @@ export async function setPasswordHash(userId: number, passwordHash: string): Pro
 // ─── Pricing & Margins ────────────────────────────────────────────────────────
 import { pricingSettings, type PricingSettings } from "../drizzle/schema";
 
-// All markup defaults are 0 — pricing rules must be set in the admin panel.
-// No hardcoded fallback values are used so stale defaults cannot silently
-// override the admin-configured rates.
 const DEFAULT_PRICING_SETTINGS = {
-  globalMarkupBps: 0,
-  homeownerMarkupBps: 0,
-  contractorMarkupBps: 0,
-  wholesaleMarkupBps: 0,
+  globalMarkupBps: 10000,
+  homeownerMarkupBps: 10000,
+  contractorMarkupBps: 10000,
+  wholesaleMarkupBps: 10000,
 };
 
 // Read the single pricing-settings row, seeding defaults if the table is empty.

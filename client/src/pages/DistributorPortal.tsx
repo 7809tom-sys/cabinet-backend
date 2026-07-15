@@ -284,10 +284,7 @@ export default function DistributorPortal() {
                         <p className="truncate text-sm text-muted-foreground">{item.description}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {item.styleName} · {item.category}
-                          {item.subCategory ? ` / ${item.subCategory}` : ""}
-                          {" · "}<span className="font-medium text-foreground">Cost {money(item.yourCost ?? null)}</span>
-                          {item.listPrice ? <> · List {money(item.listPrice)}</> : null}
-                          {item.contractorPrice ? <> · Contractor {money(item.contractorPrice)}</> : null}
+                          {item.subCategory ? ` / ${item.subCategory}` : ""} · Contractor {money(item.contractorPrice)}
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">

@@ -520,9 +520,13 @@ function FamilyCabinetCard({
                 </div>
               </>
             ) : (
-              <span className="text-xs text-muted-foreground italic">
-                {lang === "es" ? "No disponible en este estilo" : "Not offered in this style"}
-              </span>
+              <Link
+                href={`/catalog/${item.masterCode}?style=${styleId}`}
+                className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+              >
+                {lang === "es" ? "Ver precio" : "View pricing"}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
             )}
           </div>
 

@@ -178,9 +178,7 @@ function PriceCard({
           )}
           <div className="flex items-baseline gap-2 flex-wrap">
             <div className="text-3xl font-bold text-foreground">
-              {price == null
-                ? <span className="text-lg text-muted-foreground italic font-normal">Not offered in this style</span>
-                : `$${price.toFixed(2)}`}
+              {price == null ? "—" : `$${price.toFixed(2)}`}
             </div>
             {promoActive && originalPrice != null && (
               <div className="text-base text-muted-foreground line-through">

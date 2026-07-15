@@ -149,7 +149,6 @@ export const distributorPortalRouter = router({
           styleName: doorStyles.ourName,
           platformSku: distributorSkus.platformSku,
           listPrice: distributorSkus.listPrice,
-          yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
@@ -245,7 +244,6 @@ export const distributorPortalRouter = router({
       z.object({
         distributorId: z.number().optional(),
         skuId: z.number(),
-        yourCost: z.string().max(16).optional(),
         listPrice: z.string().max(16).optional(),
         wholesalePrice: z.string().max(16).optional(),
         contractorPrice: z.string().max(16).optional(),
@@ -266,7 +264,6 @@ export const distributorPortalRouter = router({
       if (!owned[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That product is not in your line." });
 
       const updates: Record<string, string | null> = {};
-      if (input.yourCost !== undefined) updates.yourCost = input.yourCost || null;
       if (input.listPrice !== undefined) updates.listPrice = input.listPrice || null;
       if (input.wholesalePrice !== undefined) updates.wholesalePrice = input.wholesalePrice || null;
       if (input.contractorPrice !== undefined) updates.contractorPrice = input.contractorPrice || null;
@@ -769,49 +766,6 @@ export const distributorPortalRouter = router({
         )
         .orderBy(asc(cabinets.masterCode))
         .limit(input.limit);
-      return rows;
-    }),
-
-  /**
-   * Export all door styles with their current prices as CSV data.
-   * Returns rows: one per SKU across all styles for this line.
-   */
-  exportStylesCsv: distributorProcedure
-    .input(z.object({ distributorId: z.number().optional() }).optional())
-    .query(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
-
-      // Fetch all SKUs for this line with style + cabinet info
-      const rows = await db
-        .select({
-          styleName: doorStyles.ourName,
-          styleCode: doorStyles.styleCode,
-          doorStyle: doorStyles.doorStyle,
-          isStyleActive: doorStyles.isActive,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          subCategory: cabinets.subCategory,
-          width: cabinets.width,
-          height: cabinets.height,
-          depth: cabinets.depth,
-          distributorSku: distributorSkus.distributorSku,
-          listPrice: distributorSkus.listPrice,
-          yourCost: distributorSkus.yourCost,
-          wholesalePrice: distributorSkus.wholesalePrice,
-          contractorPrice: distributorSkus.contractorPrice,
-          homeownerPrice: distributorSkus.homeownerPrice,
-          isAvailable: distributorSkus.isAvailable,
-          isPublished: distributorSkus.isPublished,
-        })
-        .from(distributorSkus)
-        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
-        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
-        .where(eq(distributorSkus.distributorId, lineId))
-        .orderBy(doorStyles.ourName, cabinets.category, cabinets.masterCode);
-
       return rows;
     }),
 });

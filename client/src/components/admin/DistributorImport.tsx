@@ -469,15 +469,10 @@ function MultiColumnMappingStep({
     autoDetect(["model", "sku", "item", "code", "part", "number"])
   );
 
-  // Detect row-per-style mode: a "Door Style" / "Style Code" column routes each row to a style
-  const STYLE_COL_NAMES = new Set(["door style", "style", "style code", "stylecode", "finish"]);
-  const detectedStyleCol = headers.find((h) => STYLE_COL_NAMES.has(h.toLowerCase())) ?? null;
-
   // Columns to skip (non-price columns)
   const SKIP_COLS = new Set(["description", "assemble", "assembled", "taxable", "hinge", "notes", "note"]);
-  // In row-per-style mode, also exclude the style column from price columns
   const priceColumns = headers.filter(
-    (h) => h !== skuCol && !SKIP_COLS.has(h.toLowerCase()) && h !== detectedStyleCol
+    (h) => h !== skuCol && !SKIP_COLS.has(h.toLowerCase())
   );
 
   // Load all door styles for this distributor
@@ -556,22 +551,13 @@ function MultiColumnMappingStep({
     }));
   }
 
-  // In row-per-style mode, all price columns are enabled by default (no per-column style mapping needed)
-  const activeMappings = detectedStyleCol
-    ? priceColumns
-        .filter((col) => colMappings[col]?.enabled !== false) // default enabled in row-per-style mode
-        .map((col) => ({
-          columnCode: col,
-          doorStyleId: 0, // resolved per-row from styleColumn
-          priceType: (colMappings[col]?.priceType ?? "list") as "list" | "cost",
-        }))
-    : priceColumns
-        .filter((col) => colMappings[col]?.enabled && colMappings[col]?.doorStyleId)
-        .map((col) => ({
-          columnCode: col,
-          doorStyleId: Number(colMappings[col].doorStyleId),
-          priceType: colMappings[col].priceType,
-        }));
+  const activeMappings = priceColumns
+    .filter((col) => colMappings[col]?.enabled && colMappings[col]?.doorStyleId)
+    .map((col) => ({
+      columnCode: col,
+      doorStyleId: Number(colMappings[col].doorStyleId),
+      priceType: colMappings[col].priceType,
+    }));
 
   // Full row-by-row preview
   const [showReview, setShowReview] = useState(false);
@@ -659,17 +645,6 @@ function MultiColumnMappingStep({
         </span>
       </div>
 
-      {/* Row-per-style mode banner */}
-      {detectedStyleCol && (
-        <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800 flex items-start gap-2">
-          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
-          <span>
-            <strong>Multi-style mode detected</strong> — the <code className="font-mono text-xs bg-emerald-100 px-1 rounded">{detectedStyleCol}</code> column
-            routes each row to the correct door style automatically. Just set the price type for each price column below.
-          </span>
-        </div>
-      )}
-
       {/* Multi-column mapping table */}
       <div className="rounded-md border overflow-hidden">
         <table className="w-full text-sm">
@@ -678,7 +653,7 @@ function MultiColumnMappingStep({
               <th className="px-3 py-2 text-left font-medium w-8">
                 <input
                   type="checkbox"
-                  checked={priceColumns.every((c) => colMappings[c]?.enabled !== false)}
+                  checked={priceColumns.every((c) => colMappings[c]?.enabled)}
                   onChange={(e) => {
                     setColMappings((prev) => {
                       const next = { ...prev };
@@ -693,21 +668,20 @@ function MultiColumnMappingStep({
               </th>
               <th className="px-3 py-2 text-left font-medium">Column</th>
               <th className="px-3 py-2 text-left font-medium">Sample price</th>
-              {!detectedStyleCol && <th className="px-3 py-2 text-left font-medium">Door style</th>}
+              <th className="px-3 py-2 text-left font-medium">Door style</th>
               <th className="px-3 py-2 text-left font-medium">Price type</th>
             </tr>
           </thead>
           <tbody>
             {priceColumns.map((col) => {
-              const mapping = colMappings[col] ?? { doorStyleId: "", priceType: "list" as const, enabled: detectedStyleCol ? true : false };
+              const mapping = colMappings[col] ?? { doorStyleId: "", priceType: "list" as const, enabled: false };
               const sampleVal = firstRow[col];
-              const isEnabled = mapping.enabled !== false;
               return (
-                <tr key={col} className={`border-t transition-colors ${isEnabled ? "bg-background" : "bg-muted/20 opacity-60"}`}>
+                <tr key={col} className={`border-t transition-colors ${mapping.enabled ? "bg-background" : "bg-muted/20 opacity-60"}`}>
                   <td className="px-3 py-2">
                     <input
                       type="checkbox"
-                      checked={isEnabled}
+                      checked={mapping.enabled}
                       onChange={(e) => setColField(col, "enabled", e.target.checked)}
                       className="cursor-pointer"
                     />
@@ -721,23 +695,21 @@ function MultiColumnMappingStep({
                   <td className="px-3 py-2 text-muted-foreground font-mono text-xs">
                     {sampleVal != null ? String(sampleVal) : "—"}
                   </td>
-                  {!detectedStyleCol && (
-                    <td className="px-3 py-2">
-                      <StyleCombobox
-                        styles={allStyles ?? []}
-                        value={mapping.doorStyleId}
-                        onChange={(val) => {
-                          setColField(col, "doorStyleId", val);
-                          if (val) setColField(col, "enabled", true);
-                        }}
-                      />
-                    </td>
-                  )}
+                  <td className="px-3 py-2">
+                    <StyleCombobox
+                      styles={allStyles ?? []}
+                      value={mapping.doorStyleId}
+                      onChange={(val) => {
+                        setColField(col, "doorStyleId", val);
+                        if (val) setColField(col, "enabled", true);
+                      }}
+                    />
+                  </td>
                   <td className="px-3 py-2">
                     <Select
-                      value={mapping.priceType ?? "list"}
+                      value={mapping.priceType}
                       onValueChange={(v) => setColField(col, "priceType", v as "list" | "cost")}
-                      disabled={!isEnabled}
+                      disabled={!mapping.enabled}
                     >
                       <SelectTrigger className="h-7 text-xs w-28">
                         <SelectValue />
@@ -756,64 +728,9 @@ function MultiColumnMappingStep({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {detectedStyleCol
-          ? `${activeMappings.length} of ${priceColumns.length} price columns selected. Rows are routed by the "${detectedStyleCol}" column.`
-          : `${activeMappings.length} of ${priceColumns.length} columns selected for import. Mappings are saved automatically and pre-filled next time you upload this distributor's sheet.`
-        }
+        {activeMappings.length} of {priceColumns.length} columns selected for import.
+        Mappings are saved automatically and pre-filled next time you upload this distributor's sheet.
       </p>
-
-      {/* Pre-publish conflict warning — shown when preview has unmatched rows */}
-      {previewData && (() => {
-        const unmatchedRows = previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim());
-        if (unmatchedRows.length === 0) return null;
-        const handleExportConflicts = () => {
-          const header = "SKU / Model Number,Style Code,List Price,Your Cost";
-          const lines = unmatchedRows.map((r) => {
-            const sku = `"${r.rawCode.replace(/"/g, '""')}"`;
-            const style = ""; // styleCode not available in multi-column preview
-            const list = r.listPrice != null ? r.listPrice.toFixed(2) : "";
-            const cost = r.yourCost != null ? r.yourCost.toFixed(2) : "";
-            return `${sku},${style},${list},${cost}`;
-          });
-          const csv = [header, ...lines].join("\n");
-          const blob = new Blob([csv], { type: "text/csv" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `unmatched_skus_${filename?.replace(/\.[^.]+$/, "") ?? "import"}.csv`;
-          a.click();
-          URL.revokeObjectURL(url);
-        };
-        return (
-          <div className="rounded-md border border-orange-300 bg-orange-50 dark:bg-orange-950/20 p-3 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-orange-800 dark:text-orange-300 flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4" />
-                {unmatchedRows.length} model number{unmatchedRows.length !== 1 ? "s" : ""} not recognized — will be skipped
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-100 dark:text-orange-300 dark:border-orange-700 dark:hover:bg-orange-900/30 shrink-0"
-                onClick={handleExportConflicts}
-              >
-                <Download className="h-3.5 w-3.5 mr-1" />
-                Download CSV
-              </Button>
-            </div>
-            <p className="text-xs text-orange-700 dark:text-orange-400">
-              These SKUs don't match any cabinet in the master catalog. They will be saved as conflicts for review so you can assign them later.
-            </p>
-            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-              {unmatchedRows.map((r) => (
-                <code key={r.rawCode} className="text-[11px] font-mono bg-orange-100 dark:bg-orange-900/30 border border-orange-200 px-1.5 py-0.5 rounded text-orange-800 dark:text-orange-300">
-                  {r.rawCode}
-                </code>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Row-by-row review table */}
       {showReview && (
@@ -934,12 +851,7 @@ function MultiColumnMappingStep({
                       return (
                         <div key={r.columnCode} className={`flex items-center gap-3 px-3 py-2 text-xs ${hasIssue ? "bg-amber-50/60 dark:bg-amber-950/10" : ""}` }>
                           <code className="font-mono bg-muted px-1.5 py-0.5 rounded min-w-[36px] text-center shrink-0">{r.columnCode}</code>
-                          <span className="flex-1 truncate font-medium">
-                            {r.doorStyleId === 0
-                              ? <span className="text-muted-foreground italic">All styles (row-routed)</span>
-                              : style?.ourName ?? `Style #${r.doorStyleId}`
-                            }
-                          </span>
+                          <span className="flex-1 truncate font-medium">{style?.ourName ?? `Style #${r.doorStyleId}`}</span>
                           <span className="text-emerald-600 font-semibold shrink-0">{r.priced} saved</span>
                           {r.unmatched > 0 && (
                             <span className="text-amber-600 shrink-0">{r.unmatched} failed</span>
@@ -952,13 +864,10 @@ function MultiColumnMappingStep({
 
                 {/* Unmatched codes list */}
                 {totalUnmatched > 0 && (
-                  <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 p-3 space-y-2">
-                    <p className="text-sm font-semibold text-red-700 dark:text-red-300 flex items-center gap-1.5">
-                      <AlertTriangle className="h-4 w-4" />
-                      {totalUnmatched} model number{totalUnmatched !== 1 ? "s" : ""} were not imported — not found in master catalog
-                    </p>
-                    <p className="text-xs text-red-600 dark:text-red-400">
-                      These SKUs have been saved as conflicts. Assign each one a master cabinet code below so they import correctly next time.
+                  <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {totalUnmatched} code{totalUnmatched !== 1 ? "s" : ""} not found — assign master codes below to fix on next import:
                     </p>
                     <UnmatchedAliasPanel
                       unmatchedCodes={Array.from(new Set(commitResult.results.flatMap((r) => r.unmatchedCodes)))}
@@ -1033,7 +942,6 @@ function MultiColumnMappingStep({
               filename,
               skuColumn: skuCol,
               mappings: activeMappings,
-              ...(detectedStyleCol ? { styleColumn: detectedStyleCol } : {}),
               dryRun: false,
             });
           }}

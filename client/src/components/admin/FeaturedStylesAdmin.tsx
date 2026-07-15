@@ -1,14 +1,9 @@
 import { useMemo, useState, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
-  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, GitMerge, List, Save, Eye, EyeOff,
+  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon,
+  List, Save, Eye, EyeOff,
 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,6 +16,11 @@ import {
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import DoorPhotoCorrectButton from "./DoorPhotoCorrectButton";
 
@@ -44,11 +44,6 @@ interface AdminStyle {
   distributorId: number;
   distributorName: string | null;
   seriesName: string | null;
-  supplyLineName?: string | null;
-  supplyLineNeutralName?: string | null;
-  activeSkuCount?: number;
-  inactiveSkuCount?: number;
-  totalSkuCount?: number;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -605,7 +600,6 @@ export default function FeaturedStylesAdmin() {
   const [search, setSearch] = useState("");
   const [distributorFilter, setDistributorFilter] = useState<string>("all");
   const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
-  const [mergingStyle, setMergingStyle] = useState<AdminStyle | null>(null);
   const [viewingStyle, setViewingStyle] = useState<AdminStyle | null>(null);
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.doorStyles.listForAdmin.useQuery();
@@ -653,15 +647,6 @@ export default function FeaturedStylesAdmin() {
     onSuccess: () => {
       utils.doorStyles.listForAdmin.invalidate();
       utils.doorStyles.featured.invalidate();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const mergeStyles = trpc.doorStyles.mergeStyles.useMutation({
-    onSuccess: (res) => {
-      toast.success(`Merged "${res.duplicateName}" into "${res.primaryName}" — ${res.skusMoved} SKUs moved.`);
-      setMergingStyle(null);
-      invalidateAll();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -796,24 +781,21 @@ export default function FeaturedStylesAdmin() {
                         )}
                       </>
                     )}
-                    {s.supplyLineName && (
-                      <span className="text-orange-500 font-semibold text-xs shrink-0">· {s.supplyLineName}</span>
-                    )}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {[s.distributorName || s.seriesName, s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
+                    {[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
                   </p>
-                  <p className="text-xs mt-0.5">
-                    <span className="text-emerald-600 font-medium">{s.totalSkuCount ?? 0} total</span>
-                    <span className="text-muted-foreground"> · </span>
-                    <span className="text-emerald-600">{s.activeSkuCount ?? 0} active</span>
-                    {(s.inactiveSkuCount ?? 0) > 0 && (
-                      <><span className="text-muted-foreground"> · </span><span className="text-amber-600">{s.inactiveSkuCount} inactive</span></>
-                    )}
-                  </p>
+                  {(s.distributorName || s.seriesName) && (
+                    <p className="text-xs truncate mt-0.5">
+                      <span className="text-blue-600 font-medium">{s.seriesName || s.distributorName}</span>
+                      {s.seriesName && s.distributorName && (
+                        <span className="text-muted-foreground"> · {s.distributorName}</span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  {/* View line items button */}
+                  {/* List items button */}
                   <Button
                     size="icon"
                     variant="ghost"
@@ -836,16 +818,6 @@ export default function FeaturedStylesAdmin() {
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <DoorPhotoCorrectButton styleId={s.id} styleName={s.ourName} compact />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                    onClick={() => setMergingStyle(s)}
-                    aria-label="Merge with another style"
-                    title="Mark as same style (merge)"
-                  >
-                    <GitMerge className="h-4 w-4" />
-                  </Button>
                   <Button
                     size="icon"
                     variant="ghost"
@@ -951,23 +923,18 @@ export default function FeaturedStylesAdmin() {
                   className="min-w-0 flex-1 text-left"
                   title="Edit this door style"
                 >
-                  <p className="font-medium text-sm truncate flex items-center gap-1.5">
-                    <span className="truncate">{s.ourName}</span>
-                    {s.supplyLineName && (
-                      <span className="text-orange-500 font-semibold text-xs shrink-0">· {s.supplyLineName}</span>
-                    )}
-                  </p>
+                  <p className="font-medium text-sm truncate">{s.ourName}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {[s.distributorName || s.seriesName, s.doorStyle, s.color].filter(Boolean).join(" · ")}
+                    {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
                   </p>
-                  <p className="text-xs mt-0.5">
-                    <span className="text-emerald-600 font-medium">{s.totalSkuCount ?? 0} total</span>
-                    <span className="text-muted-foreground"> · </span>
-                    <span className="text-emerald-600">{s.activeSkuCount ?? 0} active</span>
-                    {(s.inactiveSkuCount ?? 0) > 0 && (
-                      <><span className="text-muted-foreground"> · </span><span className="text-amber-600">{s.inactiveSkuCount} inactive</span></>
-                    )}
-                  </p>
+                  {(s.distributorName || s.seriesName) && (
+                    <p className="text-xs truncate mt-0.5">
+                      <span className="text-blue-600 font-medium">{s.seriesName || s.distributorName}</span>
+                      {s.seriesName && s.distributorName && (
+                        <span className="text-muted-foreground"> · {s.distributorName}</span>
+                      )}
+                    </p>
+                  )}
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button
@@ -979,16 +946,6 @@ export default function FeaturedStylesAdmin() {
                     title="Edit style"
                   >
                     <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                    onClick={() => setMergingStyle(s)}
-                    aria-label="Merge with another style"
-                    title="Mark as same style (merge)"
-                  >
-                    <GitMerge className="h-4 w-4" />
                   </Button>
                   <Button
                     size="icon"
@@ -1022,21 +979,6 @@ export default function FeaturedStylesAdmin() {
           onSaved={invalidateAll}
         />
       )}
-
-      {/* Merge dialog */}
-      {mergingStyle && (
-        <MergeStyleDialog
-          duplicate={mergingStyle}
-          allStyles={styles}
-          open={!!mergingStyle}
-          onClose={() => setMergingStyle(null)}
-          onMerge={(primaryId, copyImages) =>
-            mergeStyles.mutate({ primaryId, duplicateId: mergingStyle.id, copyMissingImages: copyImages })
-          }
-          isPending={mergeStyles.isPending}
-        />
-      )}
-
       {/* Line items dialog */}
       {viewingStyle && (
         <StyleSkuListDialog
@@ -1050,196 +992,7 @@ export default function FeaturedStylesAdmin() {
   );
 }
 
-// ── Small image pair: door sample + room scene thumbnails ───────────────────
-
-function StyleImagePreviews({ style }: { style: Pick<AdminStyle, "doorSampleImageUrl" | "roomSceneImageUrl"> }) {
-  return (
-    <div className="flex gap-1.5 shrink-0">
-      {/* Door sample */}
-      <div className="relative">
-        <div className="h-16 w-16 rounded border border-border bg-muted/40 overflow-hidden flex items-center justify-center">
-          {style.doorSampleImageUrl ? (
-            <img src={style.doorSampleImageUrl} alt="Door sample" className="h-full w-full object-cover" />
-          ) : (
-            <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
-          )}
-        </div>
-        <span className="absolute -bottom-4 left-0 right-0 text-center text-[9px] text-muted-foreground leading-tight">Door</span>
-      </div>
-      {/* Room scene */}
-      <div className="relative">
-        <div className="h-16 w-24 rounded border border-border bg-muted/40 overflow-hidden flex items-center justify-center">
-          {style.roomSceneImageUrl ? (
-            <img src={style.roomSceneImageUrl} alt="Room scene" className="h-full w-full object-cover" />
-          ) : (
-            <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
-          )}
-        </div>
-        <span className="absolute -bottom-4 left-0 right-0 text-center text-[9px] text-muted-foreground leading-tight">Room scene</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Merge Style Dialog ────────────────────────────────────────────────────────
-
-function MergeStyleDialog({
-  duplicate,
-  allStyles,
-  open,
-  onClose,
-  onMerge,
-  isPending,
-}: {
-  duplicate: AdminStyle;
-  allStyles: AdminStyle[];
-  open: boolean;
-  onClose: () => void;
-  onMerge: (primaryId: number, copyImages: boolean) => void;
-  isPending: boolean;
-}) {
-  const [primaryId, setPrimaryId] = useState<string>("");
-  const [copyImages, setCopyImages] = useState(true);
-
-  const candidates = useMemo(
-    () => allStyles.filter((s) => s.id !== duplicate.id).sort((a, b) => a.ourName.localeCompare(b.ourName)),
-    [allStyles, duplicate.id],
-  );
-
-  const primary = candidates.find((s) => s.id === Number(primaryId));
-
-  function handleMerge() {
-    if (!primaryId) return;
-    onMerge(Number(primaryId), copyImages);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <GitMerge className="h-5 w-5 text-purple-600" />
-            Mark as Same Style
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          {/* Duplicate card */}
-          <div className="rounded-lg border bg-muted/40 p-3 text-sm">
-            <p className="font-medium text-muted-foreground mb-2">Duplicate (will be deactivated)</p>
-            <div className="flex gap-3">
-              <StyleImagePreviews style={duplicate} />
-              <div className="min-w-0">
-                <p className="font-semibold">{duplicate.ourName}</p>
-                {duplicate.supplyLineName && (
-                  <p className="text-xs text-orange-600">{duplicate.supplyLineName}</p>
-                )}
-                <p className="text-xs text-muted-foreground">{[duplicate.doorStyle, duplicate.color].filter(Boolean).join(" · ")}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Primary style (keep this one)</Label>
-            <Select value={primaryId} onValueChange={setPrimaryId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select the style to keep..." />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                {candidates.map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
-                    <span className="font-medium">{s.ourName}</span>
-                    {s.supplyLineName && (
-                      <span className="text-orange-500 text-xs ml-1">· {s.supplyLineName}</span>
-                    )}
-                    {s.color && <span className="text-muted-foreground text-xs ml-1">· {s.color}</span>}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Primary card — shown once a primary is selected */}
-          {primary && (
-            <div className="rounded-lg border bg-green-50 border-green-200 p-3 text-sm">
-              <p className="font-medium text-green-700 mb-2">Primary (will receive all SKUs)</p>
-              <div className="flex gap-3">
-                <StyleImagePreviews style={primary} />
-                <div className="min-w-0">
-                  <p className="font-semibold">{primary.ourName}</p>
-                  {primary.supplyLineName && (
-                    <p className="text-xs text-orange-600">{primary.supplyLineName}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground">{[primary.doorStyle, primary.color].filter(Boolean).join(" · ")}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* After-merge preview — what the primary will look like */}
-          {primary && copyImages && (duplicate.roomSceneImageUrl || (!primary.doorSampleImageUrl && duplicate.doorSampleImageUrl)) && (
-            <div className="rounded-lg border border-purple-200 bg-purple-50/60 p-3 text-sm">
-              <p className="font-medium text-purple-700 mb-2">After merge — primary will have these photos</p>
-              <div className="flex gap-3">
-                <StyleImagePreviews
-                  style={{
-                    ...primary,
-                    roomSceneImageUrl: duplicate.roomSceneImageUrl || primary.roomSceneImageUrl,
-                    doorSampleImageUrl: primary.doorSampleImageUrl || duplicate.doorSampleImageUrl,
-                  }}
-                />
-                <div className="min-w-0 text-xs text-muted-foreground space-y-0.5">
-                  {duplicate.roomSceneImageUrl && (
-                    <p className="text-purple-700">✓ Room scene copied from duplicate</p>
-                  )}
-                  {!primary.doorSampleImageUrl && duplicate.doorSampleImageUrl && (
-                    <p className="text-purple-700">✓ Door sample copied from duplicate</p>
-                  )}
-                  {primary.doorSampleImageUrl && (
-                    <p>— Door sample kept from primary</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="copyImages"
-              checked={copyImages}
-              onChange={(e) => setCopyImages(e.target.checked)}
-              className="h-4 w-4 rounded border-border"
-            />
-            <Label htmlFor="copyImages" className="text-sm font-normal cursor-pointer">
-              Copy photos from duplicate to primary
-              <span className="block text-xs text-muted-foreground mt-0.5">Room scene always copied · Door sample only if primary is missing one</span>
-            </Label>
-          </div>
-
-          <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded p-2">
-            <strong>What happens:</strong> All SKUs from <em>{duplicate.ourName}</em> will be moved to the primary style. The duplicate will be deactivated and hidden from the public catalog. This cannot be undone automatically.
-          </p>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isPending}>Cancel</Button>
-          <Button
-            onClick={handleMerge}
-            disabled={!primaryId || isPending}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <GitMerge className="h-4 w-4 mr-2" />}
-            Merge Styles
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── StyleSkuListDialog: view & edit all line items for a door style ──────────
-
+// ── Price fields config ──────────────────────────────────────────────────────
 const SKU_PRICE_FIELDS = [
   { key: "yourCost", label: "Your Cost" },
   { key: "listPrice", label: "List Price" },
@@ -1249,10 +1002,10 @@ const SKU_PRICE_FIELDS = [
 ] as const;
 type SkuPriceKey = (typeof SKU_PRICE_FIELDS)[number]["key"];
 
-type SkuRow = {
+interface SkuRow {
   id: number;
-  platformSku: string;
-  distributorSku: string;
+  platformSku: string | null;
+  distributorSku: string | null;
   listPrice: string | null;
   yourCost: string | null;
   wholesalePrice: string | null;
@@ -1268,9 +1021,11 @@ type SkuRow = {
   width: number | null;
   height: number | null;
   depth: number | null;
-};
+  conflictStatus: string | null;
+  conflictReason: string | null;
+}
 
-function dollarVal(v: string | null): string {
+function dollarVal(v: string | null | undefined): string {
   if (v === null || v === undefined) return "";
   const n = Number(v);
   return Number.isFinite(n) ? String(n) : "";
@@ -1294,19 +1049,17 @@ function SkuEditRow({ sku, onSaved }: { sku: SkuRow; onSaved: () => void }) {
     },
     onError: (e: { message: string }) => toast.error(e.message || "Save failed"),
   });
-
-  const toggleAvail = trpc.doorStyles.adminUpdateSkuAvailability.useMutation({
+  const toggleAvail = trpc.pricing.adminUpdateSkuAvailability.useMutation({
     onSuccess: () => onSaved(),
     onError: (e: { message: string }) => toast.error(e.message),
   });
-
   const togglePublished = trpc.doorStyles.adminToggleSkuPublished.useMutation({
     onSuccess: () => onSaved(),
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
   const handleSave = () => {
-    const payload: Record<string, number | null | number> = { skuId: sku.id };
+    const payload: Record<string, number | null> = { skuId: sku.id };
     for (const f of SKU_PRICE_FIELDS) {
       if (draft[f.key] === initial[f.key]) continue;
       const trimmed = draft[f.key].trim();
@@ -1315,16 +1068,27 @@ function SkuEditRow({ sku, onSaved }: { sku: SkuRow; onSaved: () => void }) {
     updateCost.mutate(payload as Parameters<typeof updateCost.mutate>[0]);
   };
 
-  const dims = [sku.width, sku.height, sku.depth].filter(Boolean).join("W × ").replace(/W × (\d+) × (\d+)/, "W × $1H × $2D");
+  const isConflict = sku.conflictStatus === "conflict";
 
   return (
-    <TableRow className={dirty ? "bg-amber-50/40" : undefined}>
+    <TableRow className={isConflict ? "bg-red-50/60" : dirty ? "bg-amber-50/40" : undefined}>
       {/* Cabinet info */}
       <TableCell className="align-top min-w-[160px]">
-        <div className="font-mono text-xs font-semibold">{sku.masterCode ?? "—"}</div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-xs font-semibold">{sku.masterCode ?? "—"}</span>
+          {isConflict && (
+            <Badge variant="destructive" className="text-[9px] px-1 py-0">Conflict</Badge>
+          )}
+        </div>
         <div className="text-xs text-muted-foreground leading-snug mt-0.5 line-clamp-2">{sku.description ?? ""}</div>
-        {sku.category && <Badge variant="outline" className="text-[10px] mt-1">{sku.category}{sku.subCategory ? ` / ${sku.subCategory}` : ""}</Badge>}
-        {dims && <div className="text-[10px] text-muted-foreground mt-0.5">{dims}</div>}
+        {sku.category && (
+          <Badge variant="outline" className="text-[10px] mt-1">
+            {sku.category}{sku.subCategory ? ` / ${sku.subCategory}` : ""}
+          </Badge>
+        )}
+        {isConflict && sku.conflictReason && (
+          <p className="text-[10px] text-red-600 mt-0.5 leading-tight">{sku.conflictReason}</p>
+        )}
       </TableCell>
       {/* SKU codes */}
       <TableCell className="align-top min-w-[120px]">
@@ -1353,7 +1117,7 @@ function SkuEditRow({ sku, onSaved }: { sku: SkuRow; onSaved: () => void }) {
               className="scale-75"
             />
             <span className={`text-[10px] ${sku.isAvailable ? "text-emerald-600" : "text-muted-foreground"}`}>
-              {sku.isAvailable ? "Available" : "Unavailable"}
+              {sku.isAvailable ? "Avail" : "N/A"}
             </span>
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer">
@@ -1363,14 +1127,19 @@ function SkuEditRow({ sku, onSaved }: { sku: SkuRow; onSaved: () => void }) {
               className="scale-75"
             />
             <span className={`text-[10px] ${sku.isPublished ? "text-emerald-600" : "text-muted-foreground"}`}>
-              {sku.isPublished ? "Published" : "Unpublished"}
+              {sku.isPublished ? "Pub" : "Hidden"}
             </span>
           </label>
         </div>
       </TableCell>
       {/* Save */}
       <TableCell className="align-top">
-        <Button size="sm" className="h-7 text-xs" disabled={!dirty || updateCost.isPending} onClick={handleSave}>
+        <Button
+          size="sm"
+          className="h-7 text-xs"
+          disabled={!dirty || updateCost.isPending}
+          onClick={handleSave}
+        >
           {updateCost.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
           Save
         </Button>
@@ -1390,101 +1159,112 @@ function StyleSkuListDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [skuSearch, setSkuSearch] = useState("");
-
-  const { data: skus, isLoading, refetch } = trpc.doorStyles.adminListSkusForStyle.useQuery(
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const { data, isLoading, refetch } = trpc.doorStyles.adminListSkusForStyle.useQuery(
     { styleId: style.id },
-    { enabled: open },
+    { enabled: open }
   );
-
   const toggleAll = trpc.doorStyles.adminToggleAllSkusPublished.useMutation({
     onSuccess: () => { refetch(); onSaved(); },
     onError: (e: { message: string }) => toast.error(e.message),
   });
 
   const rows = useMemo(() => {
-    if (!skus) return [];
-    const q = skuSearch.trim().toLowerCase();
-    return (skus as SkuRow[])
+    const all = (data ?? []) as SkuRow[];
+    const q = search.trim().toLowerCase();
+    const filtered = all
       .filter((r) => categoryFilter === "all" || r.category === categoryFilter)
       .filter((r) =>
         q
-          ? `${r.masterCode ?? ""} ${r.description ?? ""} ${r.platformSku} ${r.distributorSku}`.toLowerCase().includes(q)
-          : true,
+          ? `${r.masterCode ?? ""} ${r.description ?? ""} ${r.platformSku ?? ""} ${r.distributorSku ?? ""}`
+              .toLowerCase()
+              .includes(q)
+          : true
       );
-  }, [skus, categoryFilter, skuSearch]);
+    return filtered;
+  }, [data, search, categoryFilter]);
 
   const categories = useMemo(() => {
-    if (!skus) return [];
-    return Array.from(new Set((skus as SkuRow[]).map((r) => r.category ?? ""))).filter(Boolean).sort();
-  }, [skus]);
+    const cats = new Set<string>();
+    for (const r of (data ?? []) as SkuRow[]) {
+      if (r.category) cats.add(r.category);
+    }
+    return Array.from(cats).sort();
+  }, [data]);
 
-  const activeCount = useMemo(() => (skus as SkuRow[] | undefined)?.filter((r) => r.isAvailable && r.isPublished).length ?? 0, [skus]);
-  const inactiveCount = useMemo(() => (skus as SkuRow[] | undefined)?.filter((r) => !r.isAvailable || !r.isPublished).length ?? 0, [skus]);
+  const conflictCount = useMemo(
+    () => ((data ?? []) as SkuRow[]).filter((r) => r.conflictStatus === "conflict").length,
+    [data]
+  );
+  const activeCount = useMemo(
+    () => ((data ?? []) as SkuRow[]).filter((r) => r.isAvailable && r.isPublished).length,
+    [data]
+  );
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[95vw] w-[1200px] max-h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-6xl w-full h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <List className="h-4 w-4 text-blue-600" />
-            Line Items — {style.featuredLabel || style.ourName}
-            <span className="text-sm font-normal text-muted-foreground ml-1">
-              {style.totalSkuCount ?? (skus?.length ?? 0)} total
-              {" · "}
-              <span className="text-emerald-600">{activeCount} active</span>
-              {inactiveCount > 0 && <><span className="text-muted-foreground"> · </span><span className="text-amber-600">{inactiveCount} inactive</span></>}
-            </span>
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
+            <List className="h-4 w-4" />
+            Line Items — {style.ourName}
+            {style.aliasName && (
+              <span className="text-muted-foreground font-normal text-sm">({style.aliasName})</span>
+            )}
+            <div className="flex items-center gap-1.5 ml-auto">
+              {conflictCount > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {conflictCount} conflict{conflictCount !== 1 ? "s" : ""}
+                </Badge>
+              )}
+              <Badge variant="secondary" className="text-xs">
+                {activeCount} active / {(data ?? []).length} total
+              </Badge>
+            </div>
           </DialogTitle>
         </DialogHeader>
-
         {/* Toolbar */}
-        <div className="px-6 py-2 border-b shrink-0 flex items-center gap-3 flex-wrap">
+        <div className="px-4 py-2 border-b shrink-0 flex flex-wrap gap-2 items-center">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Search SKU, code, description…"
-              value={skuSearch}
-              onChange={(e) => setSkuSearch(e.target.value)}
+              placeholder="Search code, description, SKU…"
               className="pl-8 h-8 text-xs"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          {categories.length > 1 && (
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-8 text-xs w-[160px]">
-                <SelectValue placeholder="All categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <div className="flex items-center gap-2 ml-auto">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs gap-1"
-              onClick={() => toggleAll.mutate({ styleId: style.id, isPublished: true })}
-              disabled={toggleAll.isPending}
-            >
-              <Eye className="h-3.5 w-3.5" /> Publish all
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs gap-1"
-              onClick={() => toggleAll.mutate({ styleId: style.id, isPublished: false })}
-              disabled={toggleAll.isPending}
-            >
-              <EyeOff className="h-3.5 w-3.5" /> Unpublish all
-            </Button>
-          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs gap-1"
+            onClick={() => toggleAll.mutate({ styleId: style.id, isPublished: true })}
+            disabled={toggleAll.isPending}
+          >
+            <Eye className="h-3.5 w-3.5" /> Publish all
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs gap-1"
+            onClick={() => toggleAll.mutate({ styleId: style.id, isPublished: false })}
+            disabled={toggleAll.isPending}
+          >
+            <EyeOff className="h-3.5 w-3.5" /> Unpublish all
+          </Button>
         </div>
-
         {/* Table */}
         <ScrollArea className="flex-1 overflow-auto">
           {isLoading ? (
@@ -1511,15 +1291,21 @@ function StyleSkuListDialog({
               </TableHeader>
               <TableBody>
                 {rows.map((sku) => (
-                  <SkuEditRow key={sku.id} sku={sku} onSaved={() => { refetch(); onSaved(); }} />
+                  <SkuEditRow key={sku.id} sku={sku as SkuRow} onSaved={() => { refetch(); onSaved(); }} />
                 ))}
               </TableBody>
             </Table>
           )}
         </ScrollArea>
-
         <div className="px-6 py-3 border-t shrink-0 flex justify-between items-center">
-          <p className="text-xs text-muted-foreground">{rows.length} row{rows.length !== 1 ? "s" : ""} shown</p>
+          <p className="text-xs text-muted-foreground">
+            {rows.length} row{rows.length !== 1 ? "s" : ""} shown
+            {conflictCount > 0 && (
+              <span className="text-red-600 ml-2">
+                · {conflictCount} conflict item{conflictCount !== 1 ? "s" : ""} shown at top
+              </span>
+            )}
+          </p>
           <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
         </div>
       </DialogContent>
