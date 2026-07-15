@@ -272,12 +272,21 @@ export const doorStylesRouter = router({
         seriesName: distributors.seriesName,
         supplyLineName: sql<string>`coalesce(${distributors.brandName}, ${distributors.name})`,
         supplyLineNeutralName: distributors.name,
+        // SKU counts per style
+        activeSkuCount: sql<number>`(select count(*) from distributor_skus ds where ds.styleId = ${doorStyles.id} and ds.isAvailable = true and ds.isPublished = true)`,
+        inactiveSkuCount: sql<number>`(select count(*) from distributor_skus ds where ds.styleId = ${doorStyles.id} and (ds.isAvailable = false or ds.isPublished = false))`,
+        totalSkuCount: sql<number>`(select count(*) from distributor_skus ds where ds.styleId = ${doorStyles.id})`,
       })
       .from(doorStyles)
       .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
       .where(eq(doorStyles.isActive, true))
       .orderBy(asc(doorStyles.ourName));
-    return rows; // admin sees full rows (incl. distributorName + joined supply line name)
+    return rows.map((r) => ({
+      ...r,
+      activeSkuCount: Number(r.activeSkuCount),
+      inactiveSkuCount: Number(r.inactiveSkuCount),
+      totalSkuCount: Number(r.totalSkuCount),
+    })); // admin sees full rows (incl. distributorName + joined supply line name)
   }),
 
   // Admin: toggle a style's featured state. Enforces the MAX 30 cap on enable.

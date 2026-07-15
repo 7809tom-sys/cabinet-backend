@@ -40,6 +40,9 @@ interface AdminStyle {
   seriesName: string | null;
   supplyLineName?: string | null;
   supplyLineNeutralName?: string | null;
+  activeSkuCount?: number;
+  inactiveSkuCount?: number;
+  totalSkuCount?: number;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -793,6 +796,14 @@ export default function FeaturedStylesAdmin() {
                   <p className="text-xs text-muted-foreground truncate">
                     {[s.distributorName || s.seriesName, s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
                   </p>
+                  <p className="text-xs mt-0.5">
+                    <span className="text-emerald-600 font-medium">{s.totalSkuCount ?? 0} total</span>
+                    <span className="text-muted-foreground"> · </span>
+                    <span className="text-emerald-600">{s.activeSkuCount ?? 0} active</span>
+                    {(s.inactiveSkuCount ?? 0) > 0 && (
+                      <><span className="text-muted-foreground"> · </span><span className="text-amber-600">{s.inactiveSkuCount} inactive</span></>
+                    )}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {/* Quick-edit button */}
@@ -930,6 +941,14 @@ export default function FeaturedStylesAdmin() {
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {[s.distributorName || s.seriesName, s.doorStyle, s.color].filter(Boolean).join(" · ")}
+                  </p>
+                  <p className="text-xs mt-0.5">
+                    <span className="text-emerald-600 font-medium">{s.totalSkuCount ?? 0} total</span>
+                    <span className="text-muted-foreground"> · </span>
+                    <span className="text-emerald-600">{s.activeSkuCount ?? 0} active</span>
+                    {(s.inactiveSkuCount ?? 0) > 0 && (
+                      <><span className="text-muted-foreground"> · </span><span className="text-amber-600">{s.inactiveSkuCount} inactive</span></>
+                    )}
                   </p>
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
