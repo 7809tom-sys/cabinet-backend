@@ -1299,6 +1299,48 @@ export const cabinetsRouter = router({
       return { ok: true };
     }),
 
+  // Admin: manually create a new cabinet in conflict status for review.
+  createConflict: adminProcedure
+    .input(
+      z.object({
+        masterCode: z.string().min(1).max(64),
+        description: z.string().min(1),
+        category: z.string().min(1),
+        subCategory: z.string().nullable().optional(),
+        width: z.string().nullable().optional(),
+        height: z.string().nullable().optional(),
+        depth: z.string().nullable().optional(),
+        conflictReason: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      // Check for duplicate masterCode
+      const existing = await db
+        .select({ id: cabinets.id })
+        .from(cabinets)
+        .where(eq(cabinets.masterCode, input.masterCode.trim().toUpperCase()))
+        .limit(1);
+      if (existing.length > 0) {
+        throw new TRPCError({ code: "CONFLICT", message: `Master code ${input.masterCode} already exists.` });
+      }
+      await db.insert(cabinets).values({
+        masterCode: input.masterCode.trim().toUpperCase(),
+        description: input.description.trim(),
+        category: input.category.trim(),
+        subCategory: input.subCategory?.trim() || null,
+        width: input.width?.trim() || null,
+        height: input.height?.trim() || null,
+        depth: input.depth?.trim() || null,
+        conflictReason: input.conflictReason?.trim() || "Manually added for review",
+        conflictStatus: "conflict",
+        conflictedAt: new Date(),
+        isActive: true,
+      });
+      return { ok: true };
+    }),
+
   // -- Admin: Cabinet spreadsheet export ------------------------------------
   // Returns a base64-encoded XLSX workbook containing every cabinet row so
   // the admin can correct descriptions, dimensions, categories, etc. in Excel

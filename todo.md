@@ -1121,3 +1121,8 @@
 - [x] Click any photo to see where it is used and re-assign it to a missing slot
 - [x] Upload new photo directly from the library and assign it to a location
 - [x] Add Media Library link to admin panel navigation
+
+## Feature: Conflicts page improvements
+- [ ] Add category search/filter dropdown to ConflictsAdmin (filter by cabinet category: Base, Wall, Tall, Accessory, etc.)
+- [ ] Add text search input to ConflictsAdmin (search by raw SKU code)
+- [ ] Add "Add New" button to ConflictsAdmin to manually create a new conflict/pending SKU entry

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Pencil, Link2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Pencil, Link2, X, Plus, Search } from "lucide-react";
 
 function fmtDim(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return "—";
@@ -67,11 +67,24 @@ type EditForm = {
   height: string;
   depth: string;
   conflictReason: string;
-  styleId: string; // "" = leave unchanged
+  styleId: string;
+};
+
+type NewForm = {
+  masterCode: string;
+  description: string;
+  category: string;
+  subCategory: string;
+  width: string;
+  height: string;
+  depth: string;
+  conflictReason: string;
 };
 
 const CUSTOM_CATEGORY = "__custom__";
+const ALL_CATEGORIES = "__all__";
 
+// ─── Edit Dialog ─────────────────────────────────────────────────────────────
 function EditConflictDialog({
   cabinet,
   open,
@@ -95,8 +108,6 @@ function EditConflictDialog({
     conflictReason: cabinet.conflictReason ?? "",
     styleId: currentStyleId,
   });
-  // When the current category isn't in the known list, treat it as a custom
-  // free-text entry so the dropdown still works.
   const knownCats = categoryOptions ?? [];
   const [customCat, setCustomCat] = useState(false);
   const categoryIsKnown = form.category === "" || knownCats.includes(form.category);
@@ -126,7 +137,6 @@ function EditConflictDialog({
     height: form.height.trim() === "" ? null : form.height.trim(),
     depth: form.depth.trim() === "" ? null : form.depth.trim(),
     conflictReason: form.conflictReason.trim() === "" ? null : form.conflictReason.trim(),
-    // Only send styleId when the admin actually picked a (different) one.
     styleId:
       form.styleId !== "" && form.styleId !== currentStyleId ? Number(form.styleId) : undefined,
     clearAfter,
@@ -280,6 +290,175 @@ function EditConflictDialog({
   );
 }
 
+// ─── Add New Dialog ───────────────────────────────────────────────────────────
+function AddNewConflictDialog({
+  open,
+  onOpenChange,
+  categoryOptions,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  categoryOptions: string[];
+}) {
+  const utils = trpc.useUtils();
+  const empty: NewForm = {
+    masterCode: "",
+    description: "",
+    category: "",
+    subCategory: "",
+    width: "",
+    height: "",
+    depth: "",
+    conflictReason: "",
+  };
+  const [form, setForm] = useState<NewForm>(empty);
+  const [customCat, setCustomCat] = useState(false);
+
+  const create = trpc.cabinets.createConflict.useMutation({
+    onSuccess: () => {
+      utils.cabinets.conflicts.invalidate();
+      utils.cabinets.allCategories.invalidate();
+      onOpenChange(false);
+      setForm(empty);
+      toast.success("New cabinet added to conflicts for review.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const set = (k: keyof NewForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const invalid =
+    form.masterCode.trim() === "" ||
+    form.description.trim() === "" ||
+    form.category.trim() === "";
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setForm(empty); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add New Cabinet (Conflict Review)</DialogTitle>
+          <DialogDescription>
+            Manually add a cabinet to the conflict queue. It will be hidden from the public until
+            you review and clear it.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 py-1">
+          <div className="grid gap-1.5">
+            <Label htmlFor="nc-code">Master Code <span className="text-destructive">*</span></Label>
+            <Input
+              id="nc-code"
+              value={form.masterCode}
+              onChange={(e) => set("masterCode", e.target.value.toUpperCase())}
+              placeholder="e.g. B-24, WF-3, TF-18"
+              className="font-mono"
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="nc-desc">Description <span className="text-destructive">*</span></Label>
+            <Input
+              id="nc-desc"
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              placeholder="e.g. Base Cabinet 24W"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="nc-cat">Category <span className="text-destructive">*</span></Label>
+              {customCat ? (
+                <div className="flex gap-1.5">
+                  <Input
+                    id="nc-cat"
+                    value={form.category}
+                    onChange={(e) => set("category", e.target.value)}
+                    placeholder="New category name"
+                    autoFocus
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setCustomCat(false); set("category", ""); }}
+                  >
+                    List
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={categoryOptions.includes(form.category) ? form.category : ""}
+                  onValueChange={(v) => {
+                    if (v === CUSTOM_CATEGORY) { setCustomCat(true); set("category", ""); }
+                    else set("category", v);
+                  }}
+                >
+                  <SelectTrigger id="nc-cat">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoryOptions.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                    <SelectItem value={CUSTOM_CATEGORY}>+ New category…</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="nc-sub">Sub-category</Label>
+              <Input id="nc-sub" value={form.subCategory} onChange={(e) => set("subCategory", e.target.value)} placeholder="—" />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="nc-w">Width (in)</Label>
+              <Input id="nc-w" inputMode="decimal" value={form.width} onChange={(e) => set("width", e.target.value)} placeholder="—" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="nc-h">Height (in)</Label>
+              <Input id="nc-h" inputMode="decimal" value={form.height} onChange={(e) => set("height", e.target.value)} placeholder="—" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="nc-d">Depth (in)</Label>
+              <Input id="nc-d" inputMode="decimal" value={form.depth} onChange={(e) => set("depth", e.target.value)} placeholder="—" />
+            </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="nc-reason">Review note</Label>
+            <Textarea
+              id="nc-reason"
+              rows={2}
+              value={form.conflictReason}
+              onChange={(e) => set("conflictReason", e.target.value)}
+              placeholder="Why is this being added for review?"
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={create.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => create.mutate({
+              masterCode: form.masterCode.trim(),
+              description: form.description.trim(),
+              category: form.category.trim(),
+              subCategory: form.subCategory.trim() || null,
+              width: form.width.trim() || null,
+              height: form.height.trim() || null,
+              depth: form.depth.trim() || null,
+              conflictReason: form.conflictReason.trim() || null,
+            })}
+            disabled={create.isPending || invalid}
+            className="gap-1.5"
+          >
+            {create.isPending ? <Spinner className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            Add to conflicts
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Pending Import SKUs Section ─────────────────────────────────────────────
 function PendingSkusSection() {
   const { data: pending, isLoading, refetch } = trpc.distributorAdmin.listPendingSkus.useQuery({ status: "pending" });
@@ -294,18 +473,41 @@ function PendingSkusSection() {
     onSuccess: () => { toast.success("Ignored"); refetch(); },
   });
   const [inputs, setInputs] = useState<Record<number, string>>({});
+  const [search, setSearch] = useState("");
 
   if (isLoading) return <div className="flex items-center gap-2 text-muted-foreground"><Spinner className="h-4 w-4" /> Loading pending codes…</div>;
   if (!pending || pending.length === 0) return (
     <div className="text-sm text-muted-foreground py-4">No unmatched import codes — all codes resolved.</div>
   );
   type PendingItem = typeof pending[number];
+
+  const filtered = search.trim()
+    ? pending.filter((item: PendingItem) =>
+        item.rawCode.toLowerCase().includes(search.toLowerCase()) ||
+        (item.distributorName ?? "").toLowerCase().includes(search.toLowerCase())
+      )
+    : pending;
+
   return (
     <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search by code or distributor…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 h-9"
+          />
+        </div>
+        {search && (
+          <span className="text-sm text-muted-foreground">{filtered.length} of {pending.length}</span>
+        )}
+      </div>
       <p className="text-sm text-muted-foreground">
         These cabinet codes were not found in the master catalog during import. Type the master code or alias they should map to, then click Assign.
       </p>
-      {pending.map((item: PendingItem) => (
+      {filtered.map((item: PendingItem) => (
         <Card key={item.id} className="border-amber-200 dark:border-amber-800">
           <CardContent className="pt-4 pb-3">
             <div className="flex items-start gap-3">
@@ -374,7 +576,12 @@ export function PendingSkusTab() {
 export default function ConflictsAdmin() {
   const utils = trpc.useUtils();
   const { data, isLoading, error, refetch } = trpc.cabinets.conflicts.useQuery();
+  const { data: categoryOptions } = trpc.cabinets.allCategories.useQuery();
   const [editing, setEditing] = useState<ConflictItem | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
+
   const clear = trpc.cabinets.clearConflict.useMutation({
     onSuccess: () => {
       utils.cabinets.conflicts.invalidate();
@@ -382,6 +589,32 @@ export default function ConflictsAdmin() {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  const items = (data ?? []) as ConflictItem[];
+
+  // Derive unique categories from the conflict items for the filter dropdown
+  const conflictCategories = useMemo(
+    () => Array.from(new Set(items.map((c) => c.category).filter(Boolean))).sort(),
+    [items]
+  );
+
+  const filtered = useMemo(() => {
+    let result = items;
+    if (categoryFilter !== ALL_CATEGORIES) {
+      result = result.filter((c) => c.category === categoryFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.masterCode.toLowerCase().includes(q) ||
+          c.description.toLowerCase().includes(q) ||
+          c.distributorNames.some((d) => d.toLowerCase().includes(q)) ||
+          c.doorStyleNames.some((s) => s.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [items, search, categoryFilter]);
 
   if (isLoading) {
     return (
@@ -402,8 +635,6 @@ export default function ConflictsAdmin() {
     );
   }
 
-  const items = (data ?? []) as ConflictItem[];
-
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
@@ -418,18 +649,60 @@ export default function ConflictsAdmin() {
         </div>
       </div>
 
+      {/* Search + Filter + Add New toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search by code, description, distributor…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 h-9"
+          />
+        </div>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[180px] h-9">
+            <SelectValue placeholder="All categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_CATEGORIES}>All categories</SelectItem>
+            {conflictCategories.map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(search || categoryFilter !== ALL_CATEGORIES) && (
+          <span className="text-sm text-muted-foreground">
+            {filtered.length} of {items.length}
+          </span>
+        )}
+        <div className="ml-auto">
+          <Button size="sm" className="gap-1.5 h-9" onClick={() => setAddingNew(true)}>
+            <Plus className="h-4 w-4" />
+            Add New
+          </Button>
+        </div>
+      </div>
+
       {items.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           No products in conflict. Everything is live.
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          No conflicts match your search.
+        </div>
       ) : (
         <div className="grid gap-3">
-          {items.map((c) => (
+          {filtered.map((c) => (
             <Card key={c.id}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="text-base font-mono">{c.masterCode}</CardTitle>
-                  <Badge variant="destructive">Conflict</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">{c.category}</Badge>
+                    <Badge variant="destructive">Conflict</Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
@@ -513,6 +786,12 @@ export default function ConflictsAdmin() {
           onOpenChange={(v) => !v && setEditing(null)}
         />
       )}
+
+      <AddNewConflictDialog
+        open={addingNew}
+        onOpenChange={setAddingNew}
+        categoryOptions={categoryOptions ?? []}
+      />
     </div>
   );
 }
