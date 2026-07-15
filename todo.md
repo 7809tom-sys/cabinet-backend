@@ -1089,3 +1089,11 @@
 - [x] resolveTierPrice already returns null when no tier price exists — no hardcoded numbers
 - [x] TypeScript: 0 errors
 - [ ] Save checkpoint
+
+## Pricing: No Price = Not Offered (Hide Unpriced Items)
+- [ ] Catalog list: filter out cabinets where resolveTierPrice returns null for the viewer's tier
+- [ ] Cabinet detail page: show "Not available" / redirect if no price for viewer's tier
+- [ ] Design Tool BOM: hide line items with unitPrice = 0 or null from the order summary
+- [ ] Design Tool cabinet picker: grey out / hide cabinets with no price for selected style
+- [ ] TypeScript: 0 errors
+- [ ] Save checkpoint
