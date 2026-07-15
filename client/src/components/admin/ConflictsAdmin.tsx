@@ -190,8 +190,8 @@ function SkuPricingRow({
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         {(
           [
-            { key: "listPrice", label: "List Price" },
             { key: "yourCost", label: "Your Cost" },
+            { key: "listPrice", label: "List Price" },
             { key: "wholesalePrice", label: "Wholesale" },
             { key: "contractorPrice", label: "Contractor" },
             { key: "homeownerPrice", label: "Homeowner" },
@@ -819,6 +819,8 @@ export default function ConflictsAdmin() {
   const [addingNew, setAddingNew] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
+  const [styleFilter, setStyleFilter] = useState<number | null>(null);
+  const { data: styleOptions } = trpc.cabinets.doorStyleOptions.useQuery();
 
   const clear = trpc.cabinets.clearConflict.useMutation({
     onSuccess: () => {
@@ -841,6 +843,9 @@ export default function ConflictsAdmin() {
     if (categoryFilter !== ALL_CATEGORIES) {
       result = result.filter((c) => c.category === categoryFilter);
     }
+    if (styleFilter !== null) {
+      result = result.filter((c) => c.styleIds.includes(styleFilter));
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -852,7 +857,7 @@ export default function ConflictsAdmin() {
       );
     }
     return result;
-  }, [items, search, categoryFilter]);
+  }, [items, search, categoryFilter, styleFilter]);
 
   if (isLoading) {
     return (
@@ -899,7 +904,7 @@ export default function ConflictsAdmin() {
           />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[180px] h-9">
+          <SelectTrigger className="w-[160px] h-9">
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>
@@ -909,7 +914,21 @@ export default function ConflictsAdmin() {
             ))}
           </SelectContent>
         </Select>
-        {(search || categoryFilter !== ALL_CATEGORIES) && (
+        <Select
+          value={styleFilter !== null ? String(styleFilter) : "__all_styles__"}
+          onValueChange={(v) => setStyleFilter(v === "__all_styles__" ? null : Number(v))}
+        >
+          <SelectTrigger className="w-[200px] h-9">
+            <SelectValue placeholder="All door styles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all_styles__">All door styles</SelectItem>
+            {(styleOptions ?? []).map((s: { id: number; label: string }) => (
+              <SelectItem key={s.id} value={String(s.id)}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(search || categoryFilter !== ALL_CATEGORIES || styleFilter !== null) && (
           <span className="text-sm text-muted-foreground">
             {filtered.length} of {items.length}
           </span>
@@ -963,16 +982,24 @@ export default function ConflictsAdmin() {
                     <span className="font-medium text-foreground">Distributor:</span>{" "}
                     {c.distributorNames.length ? c.distributorNames.join(", ") : "—"}
                   </span>
-                  <span>
+                  <span className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-medium text-foreground">Door style:</span>{" "}
-                    {c.doorStyleNames.length ? c.doorStyleNames.join(", ") : "—"}
+                    {c.doorStyleNames.length
+                      ? c.doorStyleNames.map((name, i) => (
+                          <Badge
+                            key={i}
+                            className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-100"
+                            variant="outline"
+                          >{name}</Badge>
+                        ))
+                      : "—"}
                   </span>
                 </div>
                 {/* Quick price preview from first SKU */}
                 {c.skus && c.skus.length > 0 && (
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1.5">
+                    <span><span className="font-medium text-foreground">Your Cost:</span> {fmtMoney(c.skus[0].yourCost)}</span>
                     <span><span className="font-medium text-foreground">List:</span> {fmtMoney(c.skus[0].listPrice)}</span>
-                    <span><span className="font-medium text-foreground">Cost:</span> {fmtMoney(c.skus[0].yourCost)}</span>
                     <span><span className="font-medium text-foreground">Wholesale:</span> {fmtMoney(c.skus[0].wholesalePrice)}</span>
                     <span><span className="font-medium text-foreground">Contractor:</span> {fmtMoney(c.skus[0].contractorPrice)}</span>
                     <span><span className="font-medium text-foreground">Homeowner:</span> {fmtMoney(c.skus[0].homeownerPrice)}</span>

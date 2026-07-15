@@ -243,12 +243,12 @@ export default function AddCabinetDialog({ onCreated }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>List Price ($)</Label>
-                  <Input type="number" step="0.01" placeholder="0.00" value={listPrice} onChange={(e) => setListPrice(e.target.value)} />
-                </div>
-                <div className="space-y-1">
                   <Label>Your Cost ($)</Label>
                   <Input type="number" step="0.01" placeholder="0.00" value={yourCost} onChange={(e) => setYourCost(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>List Price ($)</Label>
+                  <Input type="number" step="0.01" placeholder="0.00" value={listPrice} onChange={(e) => setListPrice(e.target.value)} />
                 </div>
               </div>
             </div>

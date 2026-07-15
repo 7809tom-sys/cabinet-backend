@@ -149,6 +149,7 @@ export const distributorPortalRouter = router({
           styleName: doorStyles.ourName,
           platformSku: distributorSkus.platformSku,
           listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
@@ -244,6 +245,7 @@ export const distributorPortalRouter = router({
       z.object({
         distributorId: z.number().optional(),
         skuId: z.number(),
+        yourCost: z.string().max(16).optional(),
         listPrice: z.string().max(16).optional(),
         wholesalePrice: z.string().max(16).optional(),
         contractorPrice: z.string().max(16).optional(),
@@ -264,6 +266,7 @@ export const distributorPortalRouter = router({
       if (!owned[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That product is not in your line." });
 
       const updates: Record<string, string | null> = {};
+      if (input.yourCost !== undefined) updates.yourCost = input.yourCost || null;
       if (input.listPrice !== undefined) updates.listPrice = input.listPrice || null;
       if (input.wholesalePrice !== undefined) updates.wholesalePrice = input.wholesalePrice || null;
       if (input.contractorPrice !== undefined) updates.contractorPrice = input.contractorPrice || null;
