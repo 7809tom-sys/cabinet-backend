@@ -866,6 +866,61 @@ export const doorStylesRouter = router({
       return rows;
     }),
 
+  /** Admin: count duplicate SKU rows system-wide (same cabinetId+styleId+distributorId, keep highest id). */
+  adminCountDuplicateSkus: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    // Find groups with more than one row
+    const groups = await db
+      .select({
+        cabinetId: distributorSkus.cabinetId,
+        styleId: distributorSkus.styleId,
+        distributorId: distributorSkus.distributorId,
+        cnt: sql<number>`count(*)`,
+        maxId: sql<number>`max(${distributorSkus.id})`,
+      })
+      .from(distributorSkus)
+      .groupBy(distributorSkus.cabinetId, distributorSkus.styleId, distributorSkus.distributorId)
+      .having(sql`count(*) > 1`);
+    // Total rows that would be deleted = sum of (cnt - 1) for each group
+    const toDelete = groups.reduce((acc, g) => acc + (Number(g.cnt) - 1), 0);
+    return { duplicateGroups: groups.length, rowsToDelete: toDelete };
+  }),
+
+  /** Admin: delete duplicate SKU rows system-wide, keeping the latest upload (highest id) per cabinetId+styleId+distributorId. */
+  adminDeduplicateAllSkus: adminProcedure.mutation(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    // Find all groups with duplicates and collect the ids to delete
+    const groups = await db
+      .select({
+        cabinetId: distributorSkus.cabinetId,
+        styleId: distributorSkus.styleId,
+        distributorId: distributorSkus.distributorId,
+        maxId: sql<number>`max(${distributorSkus.id})`,
+      })
+      .from(distributorSkus)
+      .groupBy(distributorSkus.cabinetId, distributorSkus.styleId, distributorSkus.distributorId)
+      .having(sql`count(*) > 1`);
+    if (groups.length === 0) return { deleted: 0 };
+    // For each duplicate group, delete all rows except the one with the highest id
+    let deleted = 0;
+    for (const g of groups) {
+      const result = await db
+        .delete(distributorSkus)
+        .where(
+          and(
+            eq(distributorSkus.cabinetId, g.cabinetId),
+            eq(distributorSkus.styleId, g.styleId),
+            eq(distributorSkus.distributorId, g.distributorId),
+            sql`${distributorSkus.id} != ${g.maxId}`
+          )
+        );
+      deleted += (result as unknown as { rowsAffected?: number }).rowsAffected ?? 0;
+    }
+    return { deleted };
+  }),
+
   /** Admin: delete a single distributor SKU row. */
   adminDeleteSku: adminProcedure
     .input(z.object({ skuId: z.number().int() }))

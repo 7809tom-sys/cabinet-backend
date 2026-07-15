@@ -23,7 +23,20 @@ import {
   Hammer,
   Layers,
   Search,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Tab content components
 import { CrmBoard } from "@/components/crm/CrmBoard";
@@ -462,6 +475,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="conflicts" className="mt-6">
           <AdminTabHelp tab="conflicts" />
           <div className="space-y-8">
+            <DeduplicateSkusTool />
             <PendingSkusTab />
             <ConflictsAdmin />
           </div>
@@ -488,6 +502,84 @@ export default function AdminGroupedTabs() {
         <TabsContent value="analytics" className="mt-6"><AnalyticsAdmin /></TabsContent>
         <TabsContent value="export" className="mt-6"><FullDatabaseExport /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ─── Deduplicate SKUs Tool ────────────────────────────────────────────────────
+function DeduplicateSkusTool() {
+  const [done, setDone] = useState<{ deleted: number } | null>(null);
+
+  const { data: countData, isLoading: counting, refetch: recount } =
+    trpc.doorStyles.adminCountDuplicateSkus.useQuery(undefined, { refetchOnWindowFocus: false });
+
+  const dedup = trpc.doorStyles.adminDeduplicateAllSkus.useMutation({
+    onSuccess: (res) => {
+      setDone(res);
+      recount();
+      toast.success(`Removed ${res.deleted} duplicate SKU row${res.deleted !== 1 ? "s" : ""}`);
+    },
+    onError: (e) => toast.error(e.message || "Dedup failed"),
+  });
+
+  const rowsToDelete = countData?.rowsToDelete ?? 0;
+  const groups = countData?.duplicateGroups ?? 0;
+
+  if (rowsToDelete === 0 && !counting && !done) return null;
+
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex items-start gap-2 flex-1">
+        <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-semibold text-amber-800 text-sm">
+            {counting
+              ? "Scanning for duplicate SKU rows…"
+              : done
+              ? `Deduplication complete — ${done.deleted} duplicate row${done.deleted !== 1 ? "s" : ""} removed`
+              : `${rowsToDelete} duplicate SKU row${rowsToDelete !== 1 ? "s" : ""} found across ${groups} cabinet/style group${groups !== 1 ? "s" : ""}`}
+          </p>
+          <p className="text-xs text-amber-700 mt-0.5">
+            {done
+              ? "The catalog is now clean. Each cabinet/style/distributor combination has exactly one row."
+              : "The same cabinet is linked to more than one SKU row for the same style and distributor. This causes duplicates in the Line Items view. Deduplication keeps the latest upload and removes the older copies."}
+          </p>
+        </div>
+      </div>
+      {!done && rowsToDelete > 0 && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-amber-400 text-amber-800 hover:bg-amber-100 gap-1.5"
+              disabled={dedup.isPending}
+            >
+              <Trash2 className="h-4 w-4" />
+              {dedup.isPending ? "Removing…" : `Remove ${rowsToDelete} duplicate${rowsToDelete !== 1 ? "s" : ""}`}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove {rowsToDelete} duplicate SKU rows?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete {rowsToDelete} duplicate SKU row{rowsToDelete !== 1 ? "s" : ""} across{" "}
+                {groups} cabinet/style group{groups !== 1 ? "s" : ""}. The latest upload for each group will be kept.
+                This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={() => dedup.mutate()}
+              >
+                Yes, remove duplicates
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
