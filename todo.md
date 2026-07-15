@@ -1112,3 +1112,12 @@
 
 ## Feature: CSV export button in vendor portal door styles
 - [x] Add Export CSV button to vendor portal door styles tab
+
+## Feature: Admin Media Library
+- [x] Audit all photo storage locations in DB (room_scenes, door_styles, products, site_settings, etc.)
+- [x] Server procedure: list all stored images with source table, row ID, field name, URL, and usage context
+- [x] Admin Media Library page: grid view of all photos with source label and usage context
+- [x] Search/filter by source type (room scenes, door styles, products, etc.)
+- [x] Click any photo to see where it is used and re-assign it to a missing slot
+- [x] Upload new photo directly from the library and assign it to a location
+- [x] Add Media Library link to admin panel navigation

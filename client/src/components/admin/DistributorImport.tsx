@@ -763,26 +763,57 @@ function MultiColumnMappingStep({
       </p>
 
       {/* Pre-publish conflict warning — shown when preview has unmatched rows */}
-      {previewData && previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length > 0 && (
-        <div className="rounded-md border border-orange-300 bg-orange-50 dark:bg-orange-950/20 p-3 space-y-2">
-          <p className="text-sm font-semibold text-orange-800 dark:text-orange-300 flex items-center gap-1.5">
-            <AlertTriangle className="h-4 w-4" />
-            {previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length} model numbers not recognized — will be skipped
-          </p>
-          <p className="text-xs text-orange-700 dark:text-orange-400">
-            These SKUs don’t match any cabinet in the master catalog. They will be saved as conflicts for review so you can assign them later.
-          </p>
-          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-            {previewData.rows
-              .filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim())
-              .map((r) => (
+      {previewData && (() => {
+        const unmatchedRows = previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim());
+        if (unmatchedRows.length === 0) return null;
+        const handleExportConflicts = () => {
+          const header = "SKU / Model Number,Style Code,List Price,Your Cost";
+          const lines = unmatchedRows.map((r) => {
+            const sku = `"${r.rawCode.replace(/"/g, '""')}"`;
+            const style = ""; // styleCode not available in multi-column preview
+            const list = r.listPrice != null ? r.listPrice.toFixed(2) : "";
+            const cost = r.yourCost != null ? r.yourCost.toFixed(2) : "";
+            return `${sku},${style},${list},${cost}`;
+          });
+          const csv = [header, ...lines].join("\n");
+          const blob = new Blob([csv], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `unmatched_skus_${filename?.replace(/\.[^.]+$/, "") ?? "import"}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+        return (
+          <div className="rounded-md border border-orange-300 bg-orange-50 dark:bg-orange-950/20 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-orange-800 dark:text-orange-300 flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4" />
+                {unmatchedRows.length} model number{unmatchedRows.length !== 1 ? "s" : ""} not recognized — will be skipped
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs border-orange-300 text-orange-700 hover:bg-orange-100 dark:text-orange-300 dark:border-orange-700 dark:hover:bg-orange-900/30 shrink-0"
+                onClick={handleExportConflicts}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                Download CSV
+              </Button>
+            </div>
+            <p className="text-xs text-orange-700 dark:text-orange-400">
+              These SKUs don't match any cabinet in the master catalog. They will be saved as conflicts for review so you can assign them later.
+            </p>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+              {unmatchedRows.map((r) => (
                 <code key={r.rawCode} className="text-[11px] font-mono bg-orange-100 dark:bg-orange-900/30 border border-orange-200 px-1.5 py-0.5 rounded text-orange-800 dark:text-orange-300">
                   {r.rawCode}
                 </code>
               ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Row-by-row review table */}
       {showReview && (
