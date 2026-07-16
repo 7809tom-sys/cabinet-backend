@@ -175,6 +175,88 @@ function ImageField({
 
 // ── Quick-edit dialog ─────────────────────────────────────────────────────────
 
+// ── Pricing Summary (used inside EditDialog) ─────────────────────────────────
+function StylePricingSummary({ styleId }: { styleId: number }) {
+  const { data, isLoading } = trpc.doorStyles.adminListSkusForStyle.useQuery(
+    { styleId },
+    { refetchOnWindowFocus: false }
+  );
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading pricing data…
+        </div>
+      </div>
+    );
+  }
+
+  const rows = (data ?? []) as Array<{
+    yourCost: string | null;
+    listPrice: string | null;
+    wholesalePrice: string | null;
+    contractorPrice: string | null;
+    homeownerPrice: string | null;
+    isAvailable: boolean;
+    isPublished: boolean;
+    conflictStatus: string | null;
+  }>;
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
+        <p className="text-xs text-muted-foreground">No SKU pricing data uploaded for this style yet.</p>
+      </div>
+    );
+  }
+
+  const avg = (key: keyof typeof rows[0]) => {
+    const vals = rows.map((r) => Number(r[key])).filter((v) => Number.isFinite(v) && v > 0);
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  };
+  const fmt = (v: number | null) => v == null ? "—" : `$${v.toFixed(2)}`;
+
+  const activeCount = rows.filter((r) => r.isAvailable && r.isPublished).length;
+  const conflictCount = rows.filter((r) => r.conflictStatus === "conflict").length;
+
+  const stats = [
+    { label: "Your Cost", value: fmt(avg("yourCost")), highlight: true },
+    { label: "List Price", value: fmt(avg("listPrice")), highlight: false },
+    { label: "Wholesale", value: fmt(avg("wholesalePrice")), highlight: false },
+    { label: "Contractor", value: fmt(avg("contractorPrice")), highlight: false },
+    { label: "Homeowner", value: fmt(avg("homeownerPrice")), highlight: false },
+  ];
+
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium text-emerald-900">Pricing Summary</Label>
+        <div className="flex items-center gap-2">
+          {conflictCount > 0 && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+              {conflictCount} conflict{conflictCount !== 1 ? "s" : ""}
+            </Badge>
+          )}
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            {activeCount} / {rows.length} active
+          </Badge>
+        </div>
+      </div>
+      <p className="text-[11px] text-emerald-700">Average prices across {rows.length} SKU{rows.length !== 1 ? "s" : ""}. Use the List button to edit individual rows.</p>
+      <div className="grid grid-cols-5 gap-2">
+        {stats.map((s) => (
+          <div key={s.label} className={`rounded px-2 py-1.5 text-center ${s.highlight ? "bg-emerald-100 border border-emerald-300" : "bg-white/70 border border-border"}` }>
+            <div className="text-[10px] text-muted-foreground leading-tight">{s.label}</div>
+            <div className={`text-xs font-semibold mt-0.5 ${s.highlight ? "text-emerald-800" : ""}`}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface EditDialogProps {
   style: AdminStyle;
   open: boolean;
@@ -441,6 +523,9 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
               />
             </div>
           </div>
+
+          {/* Pricing Summary */}
+          <StylePricingSummary styleId={style.id} />
 
           {/* Images — upload from device or paste a URL; changes save site-wide */}
           <div className="space-y-4">
