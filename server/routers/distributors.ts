@@ -1342,6 +1342,28 @@ export const distributorImportRouter = router({
     }),
 
   /**
+   * List all cabinets in a given category for the alias picker.
+   * Returns id, masterCode, description, subCategory sorted by masterCode.
+   */
+  listCabinetsByCategory: adminProcedure
+    .input(z.object({ category: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const rows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          subCategory: cabinets.subCategory,
+        })
+        .from(cabinets)
+        .where(and(eq(cabinets.category, input.category), eq(cabinets.isActive, true)))
+        .orderBy(cabinets.masterCode);
+      return rows;
+    }),
+
+  /**
    * List pending (unmatched) import SKUs for admin assignment.
    */
   listPendingSkus: adminProcedure

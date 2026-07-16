@@ -747,7 +747,80 @@ function EditConflictDialog({
   );
 }
 
-// ─── Pending Import SKUs Section ─────────────────────────────────────────────
+// ─── Pending Import SKUs Section ────────────────────────────────────────────────────────────────────────────────
+const CABINET_CATEGORIES_PENDING = ["Base", "Wall", "Tall", "ADA", "Vanity", "Accessory"];
+
+function PendingCabinetPicker({ onSelect }: { onSelect: (masterCode: string) => void }) {
+  const [category, setCategory] = useState("Base");
+  const [search, setSearch] = useState("");
+  const { data: cabinets, isLoading } = trpc.distributorAdmin.listCabinetsByCategory.useQuery(
+    { category },
+    { refetchOnWindowFocus: false }
+  );
+  const filtered = (cabinets ?? []).filter((c) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return (
+      c.masterCode.toLowerCase().includes(q) ||
+      (c.description ?? "").toLowerCase().includes(q) ||
+      (c.subCategory ?? "").toLowerCase().includes(q)
+    );
+  });
+  return (
+    <div className="border border-border rounded-md bg-background overflow-hidden mt-2">
+      <div className="flex flex-wrap gap-0.5 p-1.5 border-b border-border bg-muted/40">
+        {CABINET_CATEGORIES_PENDING.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => { setCategory(cat); setSearch(""); }}
+            className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+              category === cat
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-accent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+      <div className="px-2 py-1.5 border-b border-border">
+        <input
+          type="text"
+          className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground font-mono"
+          placeholder={`Filter ${category} cabinets…`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      <div className="max-h-48 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+            <Spinner className="h-3 w-3" /> Loading…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">No cabinets found.</div>
+        ) : (
+          filtered.map((cab) => (
+            <button
+              key={cab.id}
+              type="button"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left transition-colors"
+              onClick={() => onSelect(cab.masterCode)}
+            >
+              <span className="font-mono font-semibold shrink-0 min-w-[80px]">{cab.masterCode}</span>
+              <span className="text-muted-foreground truncate flex-1">{cab.description}</span>
+              {cab.subCategory && (
+                <span className="shrink-0 text-[10px] bg-muted px-1.5 py-0.5 rounded">{cab.subCategory}</span>
+              )}
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PendingSkusSection() {
   const { data: pending, isLoading, refetch } = trpc.distributorAdmin.listPendingSkus.useQuery({ status: "pending" });
   const resolve = trpc.distributorAdmin.resolvePendingSku.useMutation({
@@ -760,7 +833,8 @@ function PendingSkusSection() {
   const ignore = trpc.distributorAdmin.ignorePendingSku.useMutation({
     onSuccess: () => { toast.success("Ignored"); refetch(); },
   });
-  const [inputs, setInputs] = useState<Record<number, string>>({});
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [selectedCodes, setSelectedCodes] = useState<Record<number, string>>({});
 
   if (isLoading) return <div className="flex items-center gap-2 text-muted-foreground"><Spinner className="h-4 w-4" /> Loading pending codes…</div>;
   if (!pending || pending.length === 0) return (
@@ -770,51 +844,69 @@ function PendingSkusSection() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        These cabinet codes were not found in the master catalog during import. Type the master code or alias they should map to, then click Assign.
+        These cabinet codes were not found in the master catalog during import. Pick the matching cabinet from the list, then click Assign.
       </p>
       {pending.map((item: PendingItem) => (
         <Card key={item.id} className="border-amber-200 dark:border-amber-800">
           <CardContent className="pt-4 pb-3">
-            <div className="flex items-start gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-mono font-semibold text-sm">{item.rawCode}</span>
-                  <Badge variant="outline" className="text-xs">{item.distributorName ?? `Dist #${item.distributorId}`}</Badge>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-mono font-semibold text-sm">{item.rawCode}</span>
+                <Badge variant="outline" className="text-xs">{item.distributorName ?? `Dist #${item.distributorId}`}</Badge>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {Object.keys(JSON.parse(item.pricesJson)).length} style(s) · {new Date(item.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              {selectedCodes[item.id] ? (
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span className="text-sm font-mono font-semibold text-emerald-700 dark:text-emerald-400">{selectedCodes[item.id]}</span>
+                  <button
+                    type="button"
+                    className="text-xs underline text-muted-foreground ml-1"
+                    onClick={() => { setSelectedCodes((p) => ({ ...p, [item.id]: "" })); setActiveId(item.id); }}
+                  >
+                    Change
+                  </button>
                 </div>
-                <div className="text-xs text-muted-foreground mb-2">
-                  {Object.keys(JSON.parse(item.pricesJson)).length} style(s) pending · imported {new Date(item.createdAt).toLocaleDateString()}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Master code or alias (e.g. DB12-3)"
-                    value={inputs[item.id] ?? ""}
-                    onChange={(e) => setInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                    className="h-8 text-sm max-w-xs"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && inputs[item.id]?.trim()) {
-                        resolve.mutate({ pendingId: item.id, masterCodeOrAlias: inputs[item.id].trim() });
-                      }
+              ) : null}
+              {activeId === item.id ? (
+                <div className="mb-2">
+                  <PendingCabinetPicker
+                    onSelect={(masterCode) => {
+                      setSelectedCodes((p) => ({ ...p, [item.id]: masterCode }));
+                      setActiveId(null);
                     }}
                   />
-                  <Button
-                    size="sm"
-                    className="gap-1.5 h-8"
-                    disabled={!inputs[item.id]?.trim() || resolve.isPending}
-                    onClick={() => resolve.mutate({ pendingId: item.id, masterCodeOrAlias: inputs[item.id].trim() })}
-                  >
-                    <Link2 className="h-3.5 w-3.5" />
-                    Assign
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="gap-1.5 h-8 text-muted-foreground"
-                    onClick={() => ignore.mutate({ pendingId: item.id })}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Ignore
-                  </Button>
                 </div>
+              ) : !selectedCodes[item.id] ? (
+                <button
+                  type="button"
+                  className="text-xs underline text-amber-700 dark:text-amber-300 mb-2"
+                  onClick={() => setActiveId(item.id)}
+                >
+                  Pick cabinet →
+                </button>
+              ) : null}
+              <div className="flex gap-2 mt-1">
+                <Button
+                  size="sm"
+                  className="gap-1.5 h-8"
+                  disabled={!selectedCodes[item.id]?.trim() || resolve.isPending}
+                  onClick={() => resolve.mutate({ pendingId: item.id, masterCodeOrAlias: selectedCodes[item.id].trim() })}
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  Assign
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1.5 h-8 text-muted-foreground"
+                  onClick={() => ignore.mutate({ pendingId: item.id })}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Ignore
+                </Button>
               </div>
             </div>
           </CardContent>

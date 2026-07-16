@@ -238,11 +238,98 @@ function AddDoorStyleDialog({
   );
 }
 
+// ─── Cabinet Category Picker ─────────────────────────────────────────────────
+/**
+ * Per-code alias picker: shows category tabs, then a scrollable list of all
+ * cabinets in that category. Click a cabinet to assign it.
+ */
+const CABINET_CATEGORIES = ["Base", "Wall", "Tall", "ADA", "Vanity", "Accessory"];
+
+function CabinetCategoryPicker({
+  onSelect,
+}: {
+  onSelect: (masterCode: string, description: string) => void;
+}) {
+  const [category, setCategory] = useState("Base");
+  const [search, setSearch] = useState("");
+  const { data: cabinets, isLoading } = trpc.distributorAdmin.listCabinetsByCategory.useQuery(
+    { category },
+    { refetchOnWindowFocus: false }
+  );
+  const filtered = cabinets
+    ? cabinets.filter((c) => {
+        if (!search.trim()) return true;
+        const q = search.trim().toLowerCase();
+        return (
+          c.masterCode.toLowerCase().includes(q) ||
+          (c.description ?? "").toLowerCase().includes(q) ||
+          (c.subCategory ?? "").toLowerCase().includes(q)
+        );
+      })
+    : [];
+  return (
+    <div className="border border-border rounded-md bg-background overflow-hidden">
+      {/* Category tabs */}
+      <div className="flex flex-wrap gap-0.5 p-1.5 border-b border-border bg-muted/40">
+        {CABINET_CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => { setCategory(cat); setSearch(""); }}
+            className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
+              category === cat
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-accent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+      {/* Search within category */}
+      <div className="px-2 py-1.5 border-b border-border">
+        <input
+          type="text"
+          className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground font-mono"
+          placeholder={`Filter ${category} cabinets…`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      {/* Cabinet list */}
+      <div className="max-h-48 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+            <Spinner className="h-3 w-3" /> Loading…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">No cabinets found.</div>
+        ) : (
+          filtered.map((cab) => (
+            <button
+              key={cab.id}
+              type="button"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left transition-colors"
+              onClick={() => onSelect(cab.masterCode, cab.description ?? "")}
+            >
+              <span className="font-mono font-semibold shrink-0 min-w-[80px]">{cab.masterCode}</span>
+              <span className="text-muted-foreground truncate flex-1">{cab.description}</span>
+              {cab.subCategory && (
+                <span className="shrink-0 text-[10px] bg-muted px-1.5 py-0.5 rounded">{cab.subCategory}</span>
+              )}
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Unmatched SKU Alias Resolution Panel ────────────────────────────────────
 /**
- * After an import, shows all unmatched distributor SKU codes with an input
- * next to each one. Admin types the correct cabinet master code and clicks
- * "Save aliases" to create the mapping so the next import resolves them.
+ * After an import, shows all unmatched distributor SKU codes.
+ * For each code, the admin picks a category then clicks the matching cabinet
+ * from the list. Clicking "Save aliases" persists all mappings.
  */
 function UnmatchedAliasPanel({
   unmatchedCodes,
@@ -255,6 +342,8 @@ function UnmatchedAliasPanel({
     () => Object.fromEntries(unmatchedCodes.map((c) => [c, ""]))
   );
   const [savedSet, setSavedSet] = useState<Set<string>>(new Set());
+  const [activeCode, setActiveCode] = useState<string | null>(null);
+
   const saveAliasesMut = trpc.distributorAdmin.saveSkuAliases.useMutation({
     onSuccess: (r) => {
       setSavedSet((prev) => {
@@ -268,6 +357,7 @@ function UnmatchedAliasPanel({
         toast.error(`Cabinet codes not found: ${r.notFound.join(", ")}`);
       } else {
         toast.success(`${r.saved} alias${r.saved !== 1 ? "es" : ""} saved — re-import to apply.`);
+        setActiveCode(null);
       }
     },
     onError: (e) => toast.error(e.message),
@@ -290,29 +380,41 @@ function UnmatchedAliasPanel({
     <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
       <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
         <AlertTriangle className="h-3.5 w-3.5" />
-        {pendingCodes.length} model number{pendingCodes.length !== 1 ? "s" : ""} not found — type the correct cabinet code next to each one:
+        {pendingCodes.length} model number{pendingCodes.length !== 1 ? "s" : ""} not found — pick the matching cabinet for each one:
       </p>
       <div className="space-y-2">
         {pendingCodes.map((code) => (
-          <div key={code} className="flex items-center gap-2">
-            <code className="text-xs font-mono bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded text-amber-900 dark:text-amber-200 min-w-[120px] shrink-0">
-              {code}
-            </code>
-            <span className="text-amber-600 text-xs shrink-0">=</span>
-            <Input
-              className="h-7 text-xs font-mono flex-1 max-w-[200px]"
-              placeholder="e.g. B24, DB-24-3"
-              value={aliases[code] ?? ""}
-              onChange={(e) => setAliases((prev) => ({ ...prev, [code]: e.target.value }))}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && filledCount > 0) {
-                  const toSave = pendingCodes
-                    .filter((c) => aliases[c]?.trim())
-                    .map((c) => ({ rawCode: c, masterCode: aliases[c].trim() }));
-                  if (toSave.length > 0) saveAliasesMut.mutate({ aliases: toSave, distributorId });
-                }
-              }}
-            />
+          <div key={code} className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <code className="text-xs font-mono bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded text-amber-900 dark:text-amber-200 min-w-[120px] shrink-0">
+                {code}
+              </code>
+              {aliases[code]?.trim() ? (
+                <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1 flex-1">
+                  <CheckCircle2 className="h-3 w-3 shrink-0" />
+                  <span className="font-mono font-semibold">{aliases[code]}</span>
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">not assigned yet</span>
+              )}
+              <button
+                type="button"
+                className="text-xs underline text-amber-700 dark:text-amber-300 shrink-0"
+                onClick={() => setActiveCode(activeCode === code ? null : code)}
+              >
+                {activeCode === code ? "Close" : aliases[code]?.trim() ? "Change" : "Pick cabinet"}
+              </button>
+            </div>
+            {activeCode === code && (
+              <div className="ml-4">
+                <CabinetCategoryPicker
+                  onSelect={(masterCode) => {
+                    setAliases((prev) => ({ ...prev, [code]: masterCode }));
+                    setActiveCode(null);
+                  }}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>
