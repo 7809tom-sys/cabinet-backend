@@ -610,6 +610,7 @@ function AddNewStyleForm({ onCreated }: { onCreated: () => void }) {
 export default function FeaturedStylesAdmin() {
   const [search, setSearch] = useState("");
   const [distributorFilter, setDistributorFilter] = useState<string>("all");
+  const [featuredSortByDist, setFeaturedSortByDist] = useState(false);
   const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
   const [viewingStyle, setViewingStyle] = useState<AdminStyle | null>(null);
   const utils = trpc.useUtils();
@@ -617,13 +618,16 @@ export default function FeaturedStylesAdmin() {
 
   const styles = useMemo(() => (data ?? []) as unknown as AdminStyle[], [data]);
 
-  const featured = useMemo(
-    () =>
-      styles
-        .filter((s) => s.isFeatured)
-        .sort((a, b) => a.featuredRank - b.featuredRank || a.ourName.localeCompare(b.ourName)),
-    [styles],
-  );
+  const featured = useMemo(() => {
+    const base = styles.filter((s) => s.isFeatured);
+    if (featuredSortByDist) {
+      return [...base].sort((a, b) =>
+        (a.distributorName ?? "").localeCompare(b.distributorName ?? "") ||
+        a.ourName.localeCompare(b.ourName)
+      );
+    }
+    return base.sort((a, b) => a.featuredRank - b.featuredRank || a.ourName.localeCompare(b.ourName));
+  }, [styles, featuredSortByDist]);
 
   // Distinct distributors present in the catalog, for the filter dropdown.
   const distributorOptions = useMemo(() => {
@@ -743,9 +747,23 @@ export default function FeaturedStylesAdmin() {
 
       {/* Featured list */}
       <div>
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-          Featured now ({featured.length})
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Featured now ({featured.length})
+          </h3>
+          <button
+            type="button"
+            onClick={() => setFeaturedSortByDist((v) => !v)}
+            className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+              featuredSortByDist
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground border-border hover:border-primary hover:text-primary"
+            }`}
+            title={featuredSortByDist ? "Currently sorted by distributor — click to restore rank order" : "Sort featured list by distributor"}
+          >
+            Sort by distributor
+          </button>
+        </div>
         {featured.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
             No featured styles yet. Add some from the list below.
@@ -771,7 +789,7 @@ export default function FeaturedStylesAdmin() {
                   <div className="h-12 w-12 rounded bg-muted shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
-                  {/* Public label (if set) vs internal name */}
+                  {/* Public label (if set) vs internal name + alias */}
                   <p className="font-medium text-sm truncate flex items-center gap-1.5">
                     {s.featuredLabel ? (
                       <>
@@ -781,6 +799,9 @@ export default function FeaturedStylesAdmin() {
                     ) : (
                       <>
                         {s.ourName}
+                        {s.aliasName && (
+                          <span className="text-muted-foreground font-normal text-xs">({s.aliasName})</span>
+                        )}
                         {s.doorSampleVerified ? (
                           <span title="Sample photo verified" className="inline-flex items-center text-emerald-600">
                             <CheckCircle2 className="h-4 w-4" />
