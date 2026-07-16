@@ -1577,3 +1577,19 @@ export const measureSessions = mysqlTable("measure_sessions", {
 });
 export type MeasureSession = typeof measureSessions.$inferSelect;
 export type InsertMeasureSession = typeof measureSessions.$inferInsert;
+
+// ─── Media Library ────────────────────────────────────────────────────────────
+// Central repository for all uploaded images. Every image field in the admin
+// should reference a record here rather than uploading directly to S3 each time.
+export const mediaLibrary = mysqlTable("media_library", {
+  id: int("id").autoincrement().primaryKey(),
+  fileKey: varchar("fileKey", { length: 512 }).notNull().unique(),
+  url: varchar("url", { length: 1024 }).notNull(),
+  filename: varchar("filename", { length: 256 }),
+  mimeType: varchar("mimeType", { length: 64 }),
+  sizeBytes: int("sizeBytes"),
+  uploadedBy: int("uploadedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type MediaLibraryItem = typeof mediaLibrary.$inferSelect;
+export type InsertMediaLibraryItem = typeof mediaLibrary.$inferInsert;

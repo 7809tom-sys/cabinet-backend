@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, like, inArray, isNotNull, sql, desc, asc, type SQL } from "drizzle-orm";
+import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
@@ -2238,6 +2238,51 @@ export const cabinetsRouter = router({
         skuId = (skuResult as { insertId: number }).insertId;
       }
       return { cabinetId, skuId, masterCode: input.masterCode };
+    }),
+
+  // -- Admin: Description Cleanup -------------------------------------------
+  // Returns cabinets whose description contains a known brand/style name.
+  adminListFlaggedDescriptions: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const BRAND_NAMES = [
+      "Castleberry", "Aspen", "Skyline", "Spring Forest", "Floral",
+      "Lumina", "Milestone", "Clark & Son", "Clark and Son",
+      "US Cabinet Depot", "Cabinet Depot", "Forevermark", "Fabuwood",
+      "Wolf Classic", "Kraftmaid", "Merillat", "Waypoint", "Diamond",
+      "Aristokraft", "Medallion",
+    ];
+    const rows = await db
+      .select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description })
+      .from(cabinets)
+      .where(or(...BRAND_NAMES.map((b) => like(cabinets.description, `%${b}%`))));
+    return rows.map((row) => {
+      let suggested = row.description ?? "";
+      for (const brand of BRAND_NAMES) {
+        const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const re = new RegExp(`\\b${escaped}\\s*`, "gi");
+        suggested = suggested.replace(re, "").trim();
+      }
+      suggested = suggested.replace(/\s{2,}/g, " ").trim();
+      const matchedBrands = BRAND_NAMES.filter((b) =>
+        (row.description ?? "").toLowerCase().includes(b.toLowerCase())
+      );
+      return { id: row.id, masterCode: row.masterCode, original: row.description ?? "", suggested, matchedBrands };
+    });
+  }),
+
+  // -- Admin: Save cleaned descriptions (bulk) --------------------------------
+  adminSaveCleanedDescriptions: adminProcedure
+    .input(z.array(z.object({ id: z.number().int(), description: z.string().min(1) })))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      let updated = 0;
+      for (const item of input) {
+        await db.update(cabinets).set({ description: item.description }).where(eq(cabinets.id, item.id));
+        updated++;
+      }
+      return { updated };
     }),
 
 });

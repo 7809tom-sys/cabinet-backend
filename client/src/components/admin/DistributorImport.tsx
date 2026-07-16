@@ -249,9 +249,23 @@ function CabinetCategoryPicker({
   onSelect: (masterCode: string, description: string) => void;
 }) {
   const { data: categoryList } = trpc.cabinets.allCategories.useQuery();
+  const utils = trpc.useUtils();
   const [category, setCategory] = useState("");
   const resolvedCategory = category || (categoryList?.[0] ?? "");
   const [search, setSearch] = useState("");
+  const [showNew, setShowNew] = useState(false);
+  const [newCode, setNewCode] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const createMut = trpc.cabinets.adminCreateCabinet.useMutation({
+    onSuccess: (r) => {
+      utils.distributorAdmin.listCabinetsByCategory.invalidate({ category: resolvedCategory });
+      onSelect(r.masterCode, newDesc);
+      setShowNew(false);
+      setNewCode("");
+      setNewDesc("");
+    },
+    onError: (e) => { const { toast } = require("sonner"); toast.error(e.message); },
+  });
   const { data: cabinets, isLoading } = trpc.distributorAdmin.listCabinetsByCategory.useQuery(
     { category: resolvedCategory },
     { enabled: resolvedCategory !== "", refetchOnWindowFocus: false }

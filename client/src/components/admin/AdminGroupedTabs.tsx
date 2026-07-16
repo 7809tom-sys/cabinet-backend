@@ -53,6 +53,7 @@ import ShippingAdmin from "@/components/admin/ShippingAdmin";
 import MarginsAdmin from "@/components/admin/MarginsAdmin";
 import DistributorMultipliersAdmin from "@/components/admin/DistributorMultipliersAdmin";
 import ConflictsAdmin, { PendingSkusTab } from "@/components/admin/ConflictsAdmin";
+import DescriptionCleanupAdmin from "@/components/admin/DescriptionCleanupAdmin";
 import PayoutsAdmin from "@/components/admin/PayoutsAdmin";
 import CostLookupAdmin from "@/components/admin/CostLookupAdmin";
 import PaymentsAdmin from "@/components/admin/PaymentsAdmin";
@@ -124,6 +125,7 @@ const GROUPS = [
       { value: "images", label: "Product Images" },
       { value: "pelican-catalog", label: "Pelican Catalog" },
       { value: "conflicts", label: "Conflicts" },
+      { value: "desc-cleanup", label: "Description Cleanup" },
       { value: "dimensions", label: "Dimensions & Weight" },
     ],
   },
@@ -479,6 +481,13 @@ export default function AdminGroupedTabs() {
             <PendingSkusTab />
             <ConflictsAdmin />
           </div>
+        </TabsContent>
+        <TabsContent value="desc-cleanup" className="mt-6">
+          <div className="space-y-2 mb-4">
+            <h2 className="text-lg font-semibold">Description Cleanup</h2>
+            <p className="text-sm text-muted-foreground">Review and clean cabinet descriptions that contain brand or supplier names. Check items to approve the suggested clean version (or edit it), then save.</p>
+          </div>
+          <DescriptionCleanupAdmin />
         </TabsContent>
         <TabsContent value="dimensions" className="mt-6"><AdminTabHelp tab="dimensions" /><BulkDimensionsAdmin /></TabsContent>
 
