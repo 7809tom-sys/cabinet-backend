@@ -517,33 +517,36 @@ function CategoryView({
       {/* Search + filters (only meaningful once a style is selected) */}
       {styleId != null && (
         <>
-          {/* Search bar */}
-          <div className="relative mb-4 max-w-lg">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by SKU code or description (e.g. B30, sink base, drawer)"
-              className="pl-9 pr-9"
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
-            {search && (
-              <button
-                onClick={() => onSearchChange("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          {/* Sticky search + category bar */}
+          <div className="sticky top-16 z-20 bg-background/95 backdrop-blur-sm border-b border-border -mx-4 px-4 pt-3 pb-3 mb-4 shadow-sm">
+            {/* Search bar */}
+            <div className="relative mb-3 max-w-lg">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by SKU code or description (e.g. B30, sink base, drawer)"
+                className="pl-9 pr-9"
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+              />
+              {search && (
+                <button
+                  onClick={() => onSearchChange("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
 
-          {/* Category filter pills */}
-          <CategoryFilterBar
-            activeCategory={activeCategory}
-            activeSubCategory={activeSubCategory}
-            onCategoryChange={setActiveCategory}
-            onSubCategoryChange={setActiveSubCategory}
-            styleId={styleId}
-          />
+            {/* Category filter pills */}
+            <CategoryFilterBar
+              activeCategory={activeCategory}
+              activeSubCategory={activeSubCategory}
+              onCategoryChange={setActiveCategory}
+              onSubCategoryChange={setActiveSubCategory}
+              styleId={styleId}
+            />
+          </div>
 
           {/* Active filter summary */}
           {activeFilterCount > 0 && (
