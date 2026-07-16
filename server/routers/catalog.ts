@@ -1361,6 +1361,93 @@ export const cabinetsRouter = router({
       return { ok: true };
     }),
 
+  // -- Admin: Promote conflict item to a brand-new master cabinet -----------
+  // Fills in all required fields on the conflict cabinet and clears the
+  // conflict status in one step. The cabinet gets a new master code.
+  adminPromoteToNewMaster: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        masterCode: z.string().min(1),
+        description: z.string().min(1),
+        category: z.string().min(1),
+        subCategory: z.string().optional().nullable(),
+        width: z.string().optional().nullable(),
+        height: z.string().optional().nullable(),
+        depth: z.string().optional().nullable(),
+        weight: z.string().optional().nullable(),
+        pkgLength: z.string().optional().nullable(),
+        pkgWidth: z.string().optional().nullable(),
+        pkgHeight: z.string().optional().nullable(),
+        pkgWeight: z.string().optional().nullable(),
+        catalogImageUrl: z.string().optional().nullable(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      // Ensure the new master code is not already taken by a different cabinet
+      const existing = await db
+        .select({ id: cabinets.id })
+        .from(cabinets)
+        .where(eq(cabinets.masterCode, input.masterCode))
+        .limit(1);
+      if (existing.length > 0 && existing[0].id !== input.id) {
+        throw new TRPCError({ code: "CONFLICT", message: `Master code "${input.masterCode}" is already in use by another cabinet.` });
+      }
+      await db.update(cabinets).set({
+        masterCode: input.masterCode,
+        description: input.description,
+        category: input.category,
+        subCategory: input.subCategory ?? null,
+        width: input.width ?? null,
+        height: input.height ?? null,
+        depth: input.depth ?? null,
+        weight: input.weight ?? null,
+        pkgLength: input.pkgLength ?? null,
+        pkgWidth: input.pkgWidth ?? null,
+        pkgHeight: input.pkgHeight ?? null,
+        pkgWeight: input.pkgWeight ?? null,
+        catalogImageUrl: input.catalogImageUrl ?? null,
+        conflictStatus: "none",
+        conflictReason: null,
+        conflictedAt: null,
+      }).where(eq(cabinets.id, input.id));
+      return { ok: true, masterCode: input.masterCode };
+    }),
+
+  // -- Admin: Map conflict item to an existing master cabinet ---------------
+  // Re-points all SKUs from the conflict cabinet to an existing master, then
+  // deactivates the conflict cabinet record so it no longer appears anywhere.
+  adminMapConflictToExisting: adminProcedure
+    .input(z.object({ conflictId: z.number(), targetMasterCode: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const target = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(eq(cabinets.masterCode, input.targetMasterCode))
+        .limit(1);
+      if (!target[0]) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Cabinet "${input.targetMasterCode}" not found in master catalog.` });
+      }
+      if (target[0].id === input.conflictId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot map a cabinet to itself." });
+      }
+      // Move all SKUs from the conflict cabinet to the target
+      await db
+        .update(distributorSkus)
+        .set({ cabinetId: target[0].id })
+        .where(eq(distributorSkus.cabinetId, input.conflictId));
+      // Deactivate the conflict cabinet (it is now a duplicate)
+      await db
+        .update(cabinets)
+        .set({ isActive: false, conflictStatus: "none", conflictReason: null, conflictedAt: null })
+        .where(eq(cabinets.id, input.conflictId));
+      return { ok: true, targetMasterCode: target[0].masterCode };
+    }),
+
   // -- Admin: Cabinet spreadsheet export ------------------------------------
   // Returns a base64-encoded XLSX workbook containing every cabinet row so
   // the admin can correct descriptions, dimensions, categories, etc. in Excel

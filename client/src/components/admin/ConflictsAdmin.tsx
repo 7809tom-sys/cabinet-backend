@@ -33,14 +33,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Pencil, Link2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Pencil,
+  Link2,
+  X,
+  PlusCircle,
+  ArrowRightCircle,
+  Package,
+  DollarSign,
+} from "lucide-react";
 
 function fmtDim(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return "—";
   const n = Number(v);
   if (Number.isNaN(n)) return String(v);
   return `${n % 1 === 0 ? n.toFixed(0) : n}"`;
+}
+
+function fmtPrice(v: string | number | null | undefined): string {
+  if (v === null || v === undefined) return "—";
+  const n = Number(v);
+  if (Number.isNaN(n)) return String(v);
+  return `$${n.toFixed(2)}`;
 }
 
 type ConflictItem = {
@@ -52,11 +71,33 @@ type ConflictItem = {
   width: string | null;
   height: string | null;
   depth: string | null;
+  weight: string | null;
+  pkgLength: string | null;
+  pkgWidth: string | null;
+  pkgHeight: string | null;
+  pkgWeight: string | null;
+  catalogImageUrl: string | null;
   conflictReason: string | null;
   skuCount: number;
   distributorNames: string[];
   doorStyleNames: string[];
   styleIds: number[];
+  skus?: Array<{
+    id: number;
+    distributorSku: string | null;
+    platformSku: string | null;
+    yourCost: string | null;
+    listPrice: string | null;
+    wholesalePrice: string | null;
+    contractorPrice: string | null;
+    homeownerPrice: string | null;
+    isAvailable: boolean;
+    isPublished: boolean;
+    styleName: string | null;
+    distributorName: string | null;
+    conflictStatus: string | null;
+    conflictReason: string | null;
+  }>;
 };
 
 type EditForm = {
@@ -67,7 +108,23 @@ type EditForm = {
   height: string;
   depth: string;
   conflictReason: string;
-  styleId: string; // "" = leave unchanged
+  styleId: string;
+};
+
+type NewMasterForm = {
+  masterCode: string;
+  description: string;
+  category: string;
+  subCategory: string;
+  width: string;
+  height: string;
+  depth: string;
+  weight: string;
+  pkgLength: string;
+  pkgWidth: string;
+  pkgHeight: string;
+  pkgWeight: string;
+  catalogImageUrl: string;
 };
 
 const CUSTOM_CATEGORY = "__custom__";
@@ -85,6 +142,11 @@ function EditConflictDialog({
   const { data: categoryOptions } = trpc.cabinets.allCategories.useQuery();
   const { data: styleOptions } = trpc.cabinets.doorStyleOptions.useQuery();
   const currentStyleId = cabinet.styleIds.length === 1 ? String(cabinet.styleIds[0]) : "";
+
+  // ── Tab state ──────────────────────────────────────────────────────────────
+  const [tab, setTab] = useState<"edit" | "new-master" | "map-existing">("edit");
+
+  // ── Edit & Keep in Review form ─────────────────────────────────────────────
   const [form, setForm] = useState<EditForm>({
     description: cabinet.description ?? "",
     category: cabinet.category ?? "",
@@ -95,8 +157,6 @@ function EditConflictDialog({
     conflictReason: cabinet.conflictReason ?? "",
     styleId: currentStyleId,
   });
-  // When the current category isn't in the known list, treat it as a custom
-  // free-text entry so the dropdown still works.
   const knownCats = categoryOptions ?? [];
   const [customCat, setCustomCat] = useState(false);
   const categoryIsKnown = form.category === "" || knownCats.includes(form.category);
@@ -115,9 +175,8 @@ function EditConflictDialog({
     onError: (e) => toast.error(e.message),
   });
 
-  const set = (k: keyof EditForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
-
-  const payload = (clearAfter: boolean) => ({
+  const setF = (k: keyof EditForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const editPayload = (clearAfter: boolean) => ({
     id: cabinet.id,
     description: form.description.trim(),
     category: form.category.trim(),
@@ -126,155 +185,388 @@ function EditConflictDialog({
     height: form.height.trim() === "" ? null : form.height.trim(),
     depth: form.depth.trim() === "" ? null : form.depth.trim(),
     conflictReason: form.conflictReason.trim() === "" ? null : form.conflictReason.trim(),
-    // Only send styleId when the admin actually picked a (different) one.
     styleId:
       form.styleId !== "" && form.styleId !== currentStyleId ? Number(form.styleId) : undefined,
     clearAfter,
   });
+  const editInvalid = form.description.trim() === "" || form.category.trim() === "";
 
-  const invalid = form.description.trim() === "" || form.category.trim() === "";
+  // ── Assign as New Master form ──────────────────────────────────────────────
+  const [nm, setNm] = useState<NewMasterForm>({
+    masterCode: cabinet.masterCode ?? "",
+    description: cabinet.description ?? "",
+    category: cabinet.category ?? "",
+    subCategory: cabinet.subCategory ?? "",
+    width: cabinet.width ?? "",
+    height: cabinet.height ?? "",
+    depth: cabinet.depth ?? "",
+    weight: cabinet.weight ?? "",
+    pkgLength: cabinet.pkgLength ?? "",
+    pkgWidth: cabinet.pkgWidth ?? "",
+    pkgHeight: cabinet.pkgHeight ?? "",
+    pkgWeight: cabinet.pkgWeight ?? "",
+    catalogImageUrl: cabinet.catalogImageUrl ?? "",
+  });
+  const setNmF = (k: keyof NewMasterForm, v: string) => setNm((f) => ({ ...f, [k]: v }));
+  const promote = trpc.cabinets.adminPromoteToNewMaster.useMutation({
+    onSuccess: (d: { ok: boolean; masterCode: string }) => {
+      utils.cabinets.conflicts.invalidate();
+      onOpenChange(false);
+      toast.success(`Assigned as new master "${d.masterCode}" — conflict cleared.`);
+    },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const nmInvalid =
+    nm.masterCode.trim() === "" ||
+    nm.description.trim() === "" ||
+    nm.category.trim() === "";
+
+  // ── Map to Existing Master form ────────────────────────────────────────────
+  const [targetCode, setTargetCode] = useState("");
+  const mapMutation = trpc.cabinets.adminMapConflictToExisting.useMutation({
+    onSuccess: (d) => {
+      utils.cabinets.conflicts.invalidate();
+      onOpenChange(false);
+      toast.success(`All SKUs moved to "${d.targetMasterCode}" — conflict cabinet deactivated.`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const isPending = update.isPending || promote.isPending || mapMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-mono">Edit {cabinet.masterCode}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="font-mono">{cabinet.masterCode}</span>
+            <Badge variant="destructive" className="text-xs">Conflict</Badge>
+          </DialogTitle>
           <DialogDescription>
-            Fix the product data that caused this conflict, then save. You can save and clear the
-            conflict in one step once it looks right.
+            Choose how to resolve this conflict. You can edit the product data, assign it as a brand-new master cabinet, or map its SKUs to an existing master.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-3 py-1">
-          <div className="grid gap-1.5">
-            <Label htmlFor="ec-desc">Description</Label>
-            <Input id="ec-desc" value={form.description} onChange={(e) => set("description", e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+
+        {/* SKU pricing summary */}
+        {cabinet.skus && cabinet.skus.length > 0 && (
+          <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <DollarSign className="h-4 w-4 text-green-600" />
+              Captured Pricing ({cabinet.skus.length} SKU{cabinet.skus.length !== 1 ? "s" : ""})
+            </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="ec-cat">Category</Label>
-              {showCustomCat ? (
-                <div className="flex gap-1.5">
-                  <Input
-                    id="ec-cat"
-                    value={form.category}
-                    onChange={(e) => set("category", e.target.value)}
-                    placeholder="New category name"
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setCustomCat(false);
-                      if (!knownCats.includes(form.category)) set("category", knownCats[0] ?? "");
+              {cabinet.skus.map((sku) => (
+                <div key={sku.id} className="grid grid-cols-6 gap-2 text-xs items-center">
+                  <span className="font-mono text-muted-foreground col-span-2 truncate">
+                    {sku.platformSku || sku.distributorSku || `SKU #${sku.id}`}
+                  </span>
+                  <span className="text-green-700 font-semibold">Cost: {fmtPrice(sku.yourCost)}</span>
+                  <span className="text-muted-foreground">List: {fmtPrice(sku.listPrice)}</span>
+                  <span className="text-muted-foreground">Whsl: {fmtPrice(sku.wholesalePrice)}</span>
+                  <span className="text-muted-foreground">HO: {fmtPrice(sku.homeownerPrice)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="edit" className="flex-1 gap-1.5">
+              <Pencil className="h-3.5 w-3.5" />
+              Edit & Review
+            </TabsTrigger>
+            <TabsTrigger value="new-master" className="flex-1 gap-1.5">
+              <PlusCircle className="h-3.5 w-3.5" />
+              Assign New Master
+            </TabsTrigger>
+            <TabsTrigger value="map-existing" className="flex-1 gap-1.5">
+              <ArrowRightCircle className="h-3.5 w-3.5" />
+              Map to Existing
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ── Tab 1: Edit & Keep in Review ────────────────────────────── */}
+          <TabsContent value="edit" className="space-y-3 pt-2">
+            <p className="text-xs text-muted-foreground">
+              Fix the product data. Save & clear to put it live, or just save to keep it in review.
+            </p>
+            <div className="grid gap-1.5">
+              <Label>Description</Label>
+              <Input value={form.description} onChange={(e) => setF("description", e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Category</Label>
+                {showCustomCat ? (
+                  <div className="flex gap-1.5">
+                    <Input
+                      value={form.category}
+                      onChange={(e) => setF("category", e.target.value)}
+                      placeholder="New category name"
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCustomCat(false);
+                        if (!knownCats.includes(form.category)) setF("category", knownCats[0] ?? "");
+                      }}
+                    >
+                      List
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    value={knownCats.includes(form.category) ? form.category : ""}
+                    onValueChange={(v) => {
+                      if (v === CUSTOM_CATEGORY) { setCustomCat(true); setF("category", ""); }
+                      else setF("category", v);
                     }}
                   >
-                    List
-                  </Button>
-                </div>
-              ) : (
-                <Select
-                  value={knownCats.includes(form.category) ? form.category : ""}
-                  onValueChange={(v) => {
-                    if (v === CUSTOM_CATEGORY) {
-                      setCustomCat(true);
-                      set("category", "");
-                    } else {
-                      set("category", v);
-                    }
-                  }}
-                >
-                  <SelectTrigger id="ec-cat">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {knownCats.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value={CUSTOM_CATEGORY}>+ New category…</SelectItem>
-                  </SelectContent>
-                </Select>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      {knownCats.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                      <SelectItem value={CUSTOM_CATEGORY}>+ New category…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Sub-category</Label>
+                <Input value={form.subCategory} onChange={(e) => setF("subCategory", e.target.value)} placeholder="—" />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Door style</Label>
+              <Select value={form.styleId} onValueChange={(v) => setF("styleId", v)}>
+                <SelectTrigger><SelectValue placeholder="Select the correct door style" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {(styleOptions ?? []).map((opt) => (
+                    <SelectItem key={opt.id} value={String(opt.id)}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {cabinet.styleIds.length > 1 && (
+                <p className="text-xs text-amber-700">
+                  This item is under {cabinet.styleIds.length} door styles. Picking one re-points all SKUs.
+                </p>
               )}
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="ec-sub">Sub-category</Label>
-              <Input id="ec-sub" value={form.subCategory} onChange={(e) => set("subCategory", e.target.value)} placeholder="—" />
+            <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Width (in)</Label>
+                <Input inputMode="decimal" value={form.width} onChange={(e) => setF("width", e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Height (in)</Label>
+                <Input inputMode="decimal" value={form.height} onChange={(e) => setF("height", e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Depth (in)</Label>
+                <Input inputMode="decimal" value={form.depth} onChange={(e) => setF("depth", e.target.value)} />
+              </div>
             </div>
-          </div>
+            <div className="grid gap-1.5">
+              <Label>Review note</Label>
+              <Textarea
+                rows={2}
+                value={form.conflictReason}
+                onChange={(e) => setF("conflictReason", e.target.value)}
+                placeholder="Why is this held / what was fixed?"
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-2 pt-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
+              <Button variant="outline" onClick={() => update.mutate(editPayload(false))} disabled={isPending || editInvalid}>
+                Save changes
+              </Button>
+              <Button onClick={() => update.mutate(editPayload(true))} disabled={isPending || editInvalid} className="gap-1.5">
+                <CheckCircle2 className="h-4 w-4" />
+                Save &amp; clear
+              </Button>
+            </DialogFooter>
+          </TabsContent>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="ec-style">Door style</Label>
-            <Select value={form.styleId} onValueChange={(v) => set("styleId", v)}>
-              <SelectTrigger id="ec-style">
-                <SelectValue placeholder="Select the correct door style" />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                {(styleOptions ?? []).map((opt) => (
-                  <SelectItem key={opt.id} value={String(opt.id)}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {cabinet.styleIds.length > 1 ? (
-              <p className="text-xs text-amber-700">
-                This item is carried under {cabinet.styleIds.length} door styles. Picking one will
-                re-point all of its SKUs to that single style.
-              </p>
-            ) : form.styleId !== currentStyleId && form.styleId !== "" ? (
+          {/* ── Tab 2: Assign as Brand-New Master ───────────────────────── */}
+          <TabsContent value="new-master" className="space-y-3 pt-2">
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+              <strong>Assign as New Master</strong> — this cabinet code was not found in the catalog. Fill in all required fields to create a new master record and clear the conflict in one step.
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Master Code <span className="text-destructive">*</span></Label>
+                <Input
+                  value={nm.masterCode}
+                  onChange={(e) => setNmF("masterCode", e.target.value.toUpperCase())}
+                  placeholder="e.g. WR2412"
+                  className="font-mono"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Category <span className="text-destructive">*</span></Label>
+                <Select value={nm.category} onValueChange={(v) => setNmF("category", v)}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    {knownCats.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Description <span className="text-destructive">*</span></Label>
+              <Input value={nm.description} onChange={(e) => setNmF("description", e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Sub-category</Label>
+                <Input value={nm.subCategory} onChange={(e) => setNmF("subCategory", e.target.value)} placeholder="—" />
+              </div>
+            </div>
+            <Separator />
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Package className="h-4 w-4" /> Dimensions
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Width (in)</Label>
+                <Input inputMode="decimal" value={nm.width} onChange={(e) => setNmF("width", e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Height (in)</Label>
+                <Input inputMode="decimal" value={nm.height} onChange={(e) => setNmF("height", e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Depth (in)</Label>
+                <Input inputMode="decimal" value={nm.depth} onChange={(e) => setNmF("depth", e.target.value)} />
+              </div>
+            </div>
+            <Separator />
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Package className="h-4 w-4" /> Shipping / Packaging
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Item weight (lbs)</Label>
+                <Input inputMode="decimal" value={nm.weight} onChange={(e) => setNmF("weight", e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Pkg weight (lbs)</Label>
+                <Input inputMode="decimal" value={nm.pkgWeight} onChange={(e) => setNmF("pkgWeight", e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Pkg length (in)</Label>
+                <Input inputMode="decimal" value={nm.pkgLength} onChange={(e) => setNmF("pkgLength", e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Pkg width (in)</Label>
+                <Input inputMode="decimal" value={nm.pkgWidth} onChange={(e) => setNmF("pkgWidth", e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Pkg height (in)</Label>
+                <Input inputMode="decimal" value={nm.pkgHeight} onChange={(e) => setNmF("pkgHeight", e.target.value)} />
+              </div>
+            </div>
+            <Separator />
+            <div className="grid gap-1.5">
+              <Label>Catalog image URL</Label>
+              <Input
+                value={nm.catalogImageUrl}
+                onChange={(e) => setNmF("catalogImageUrl", e.target.value)}
+                placeholder="https://…"
+              />
+              {nm.catalogImageUrl && (
+                <img
+                  src={nm.catalogImageUrl}
+                  alt="preview"
+                  className="h-20 w-20 object-contain rounded border"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+            </div>
+            <DialogFooter className="gap-2 sm:gap-2 pt-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
+              <Button
+                onClick={() =>
+                  promote.mutate({
+                    id: cabinet.id,
+                    masterCode: nm.masterCode.trim(),
+                    description: nm.description.trim(),
+                    category: nm.category.trim(),
+                    subCategory: nm.subCategory.trim() || null,
+                    width: nm.width.trim() || null,
+                    height: nm.height.trim() || null,
+                    depth: nm.depth.trim() || null,
+                    weight: nm.weight.trim() || null,
+                    pkgLength: nm.pkgLength.trim() || null,
+                    pkgWidth: nm.pkgWidth.trim() || null,
+                    pkgHeight: nm.pkgHeight.trim() || null,
+                    pkgWeight: nm.pkgWeight.trim() || null,
+                    catalogImageUrl: nm.catalogImageUrl.trim() || null,
+                  })
+                }
+                disabled={isPending || nmInvalid}
+                className="gap-1.5"
+              >
+                <PlusCircle className="h-4 w-4" />
+                Create master &amp; clear conflict
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+
+          {/* ── Tab 3: Map to Existing Master ───────────────────────────── */}
+          <TabsContent value="map-existing" className="space-y-3 pt-2">
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <strong>Map to Existing Master</strong> — all {cabinet.skuCount} SKU{cabinet.skuCount !== 1 ? "s" : ""} will be moved to the target cabinet, and this conflict record will be deactivated. Use this when the import code is an alias or variant of an existing master.
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Target master code</Label>
+              <Input
+                value={targetCode}
+                onChange={(e) => setTargetCode(e.target.value.toUpperCase())}
+                placeholder="e.g. W3012"
+                className="font-mono"
+              />
               <p className="text-xs text-muted-foreground">
-                Saving will move this product to the selected door style.
+                Type the exact master code of the cabinet to merge into. The conflict cabinet will be deactivated.
               </p>
-            ) : null}
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="ec-w">Width (in)</Label>
-              <Input id="ec-w" inputMode="decimal" value={form.width} onChange={(e) => set("width", e.target.value)} />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="ec-h">Height (in)</Label>
-              <Input id="ec-h" inputMode="decimal" value={form.height} onChange={(e) => set("height", e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="ec-d">Depth (in)</Label>
-              <Input id="ec-d" inputMode="decimal" value={form.depth} onChange={(e) => set("depth", e.target.value)} />
-            </div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="ec-reason">Review note</Label>
-            <Textarea
-              id="ec-reason"
-              rows={2}
-              value={form.conflictReason}
-              onChange={(e) => set("conflictReason", e.target.value)}
-              placeholder="Why is this held / what was fixed?"
-            />
-          </div>
-        </div>
-        <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={update.isPending}>
-            Cancel
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => update.mutate(payload(false))}
-            disabled={update.isPending || invalid}
-          >
-            Save changes
-          </Button>
-          <Button
-            onClick={() => update.mutate(payload(true))}
-            disabled={update.isPending || invalid}
-            className="gap-1.5"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            Save &amp; clear
-          </Button>
-        </DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-2 pt-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    disabled={isPending || targetCode.trim() === ""}
+                    className="gap-1.5"
+                  >
+                    <ArrowRightCircle className="h-4 w-4" />
+                    Map &amp; deactivate conflict
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Map {cabinet.masterCode} → {targetCode}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      All {cabinet.skuCount} SKU{cabinet.skuCount !== 1 ? "s" : ""} from <strong>{cabinet.masterCode}</strong> will be moved to <strong>{targetCode}</strong>. The conflict cabinet will be deactivated and will no longer appear anywhere. This cannot be undone easily.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => mapMutation.mutate({ conflictId: cabinet.id, targetMasterCode: targetCode.trim() })}
+                      disabled={isPending}
+                    >
+                      Confirm mapping
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DialogFooter>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
@@ -375,6 +667,9 @@ export default function ConflictsAdmin() {
   const utils = trpc.useUtils();
   const { data, isLoading, error, refetch } = trpc.cabinets.conflicts.useQuery();
   const [editing, setEditing] = useState<ConflictItem | null>(null);
+  const [styleFilter, setStyleFilter] = useState<string>("all");
+  const { data: styleOptions } = trpc.cabinets.doorStyleOptions.useQuery();
+
   const clear = trpc.cabinets.clearConflict.useMutation({
     onSuccess: () => {
       utils.cabinets.conflicts.invalidate();
@@ -395,14 +690,16 @@ export default function ConflictsAdmin() {
     return (
       <div className="text-center py-12 space-y-3">
         <p className="text-destructive">Couldn't load conflicts: {error.message}</p>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          Retry
-        </Button>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
       </div>
     );
   }
 
-  const items = (data ?? []) as ConflictItem[];
+  const allItems = ((data ?? []) as unknown) as ConflictItem[];
+  const items =
+    styleFilter === "all"
+      ? allItems
+      : allItems.filter((c) => c.styleIds.includes(Number(styleFilter)));
 
   return (
     <div className="space-y-4">
@@ -418,9 +715,38 @@ export default function ConflictsAdmin() {
         </div>
       </div>
 
+      {/* Door style filter */}
+      {allItems.length > 0 && (
+        <div className="flex items-center gap-3">
+          <Label className="text-sm shrink-0">Filter by door style:</Label>
+          <Select value={styleFilter} onValueChange={setStyleFilter}>
+            <SelectTrigger className="w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="all">All styles ({allItems.length})</SelectItem>
+              {(styleOptions ?? []).map((opt) => {
+                const count = allItems.filter((c) => c.styleIds.includes(opt.id)).length;
+                if (count === 0) return null;
+                return (
+                  <SelectItem key={opt.id} value={String(opt.id)}>
+                    {opt.label} ({count})
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          {styleFilter !== "all" && (
+            <Button variant="ghost" size="sm" onClick={() => setStyleFilter("all")}>
+              <X className="h-3.5 w-3.5 mr-1" /> Clear
+            </Button>
+          )}
+        </div>
+      )}
+
       {items.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          No products in conflict. Everything is live.
+          {allItems.length === 0 ? "No products in conflict. Everything is live." : "No conflicts for the selected door style."}
         </div>
       ) : (
         <div className="grid gap-3">
@@ -452,9 +778,15 @@ export default function ConflictsAdmin() {
                     <span className="font-medium text-foreground">Distributor:</span>{" "}
                     {c.distributorNames.length ? c.distributorNames.join(", ") : "—"}
                   </span>
-                  <span>
+                  <span className="flex items-center gap-1.5">
                     <span className="font-medium text-foreground">Door style:</span>{" "}
-                    {c.doorStyleNames.length ? c.doorStyleNames.join(", ") : "—"}
+                    {c.doorStyleNames.length
+                      ? c.doorStyleNames.map((n) => (
+                          <Badge key={n} variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            {n}
+                          </Badge>
+                        ))
+                      : "—"}
                   </span>
                 </div>
                 {c.conflictReason && (
@@ -470,7 +802,7 @@ export default function ConflictsAdmin() {
                     onClick={() => setEditing(c)}
                   >
                     <Pencil className="h-4 w-4" />
-                    Edit
+                    Edit &amp; Resolve
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

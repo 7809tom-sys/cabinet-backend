@@ -49,8 +49,20 @@ export const distributorImportRouter = router({
     const db = await getDb();
     if (!db) return { csv: "", filename: "master-catalog.csv", count: 0 };
 
+    // Build a map of cabinetId → pipe-separated alias codes
+    const aliasRows = await db
+      .select({ cabinetId: codeAliases.cabinetId, rawCodeSample: codeAliases.rawCodeSample })
+      .from(codeAliases);
+    const aliasMap = new Map<number, string[]>();
+    for (const a of aliasRows) {
+      const arr = aliasMap.get(a.cabinetId) ?? [];
+      arr.push(a.rawCodeSample);
+      aliasMap.set(a.cabinetId, arr);
+    }
+
     const rows = await db
       .select({
+        id: cabinets.id,
         masterCode: cabinets.masterCode,
         description: cabinets.description,
         category: cabinets.category,
@@ -68,7 +80,12 @@ export const distributorImportRouter = router({
       .leftJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
       .groupBy(cabinets.id)
       .orderBy(cabinets.category, cabinets.masterCode);
-    const csv = buildCatalogCsv(rows as CatalogExportRow[]);
+
+    const exportRows = rows.map((r) => ({
+      ...r,
+      aliases: (aliasMap.get(r.id) ?? []).join("|") || null,
+    }));
+    const csv = buildCatalogCsv(exportRows as CatalogExportRow[]);
     const date = new Date().toISOString().slice(0, 10);
     return { csv, filename: `cabinet-dealz-master-catalog-${date}.csv`, count: rows.length };
   }),
