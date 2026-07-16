@@ -748,16 +748,18 @@ function EditConflictDialog({
 }
 
 // ─── Pending Import SKUs Section ────────────────────────────────────────────────────────────────────────────────
-const CABINET_CATEGORIES_PENDING = ["Base", "Wall", "Tall", "ADA", "Vanity", "Accessory"];
-
 function PendingCabinetPicker({ onSelect }: { onSelect: (masterCode: string) => void }) {
-  const [category, setCategory] = useState("Base");
+  const { data: categoryList } = trpc.cabinets.allCategories.useQuery();
+  const [category, setCategory] = useState("");
+  // Auto-select first category once loaded
+  const resolvedCategory = category || (categoryList?.[0] ?? "");
   const [search, setSearch] = useState("");
   const { data: cabinets, isLoading } = trpc.distributorAdmin.listCabinetsByCategory.useQuery(
-    { category },
-    { refetchOnWindowFocus: false }
+    { category: resolvedCategory },
+    { enabled: resolvedCategory !== "", refetchOnWindowFocus: false }
   );
-  const filtered = (cabinets ?? []).filter((c) => {
+  type CabRow = { id: number; masterCode: string; description: string | null; subCategory: string | null };
+  const filtered = (cabinets ?? [] as CabRow[]).filter((c: CabRow) => {
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
     return (
@@ -769,13 +771,13 @@ function PendingCabinetPicker({ onSelect }: { onSelect: (masterCode: string) => 
   return (
     <div className="border border-border rounded-md bg-background overflow-hidden mt-2">
       <div className="flex flex-wrap gap-0.5 p-1.5 border-b border-border bg-muted/40">
-        {CABINET_CATEGORIES_PENDING.map((cat) => (
+        {(categoryList ?? []).map((cat) => (
           <button
             key={cat}
             type="button"
             onClick={() => { setCategory(cat); setSearch(""); }}
             className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
-              category === cat
+              resolvedCategory === cat
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent text-muted-foreground hover:text-foreground"
             }`}
@@ -788,7 +790,7 @@ function PendingCabinetPicker({ onSelect }: { onSelect: (masterCode: string) => 
         <input
           type="text"
           className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground font-mono"
-          placeholder={`Filter ${category} cabinets…`}
+          placeholder={`Filter ${resolvedCategory} cabinets…`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

@@ -243,18 +243,18 @@ function AddDoorStyleDialog({
  * Per-code alias picker: shows category tabs, then a scrollable list of all
  * cabinets in that category. Click a cabinet to assign it.
  */
-const CABINET_CATEGORIES = ["Base", "Wall", "Tall", "ADA", "Vanity", "Accessory"];
-
 function CabinetCategoryPicker({
   onSelect,
 }: {
   onSelect: (masterCode: string, description: string) => void;
 }) {
-  const [category, setCategory] = useState("Base");
+  const { data: categoryList } = trpc.cabinets.allCategories.useQuery();
+  const [category, setCategory] = useState("");
+  const resolvedCategory = category || (categoryList?.[0] ?? "");
   const [search, setSearch] = useState("");
   const { data: cabinets, isLoading } = trpc.distributorAdmin.listCabinetsByCategory.useQuery(
-    { category },
-    { refetchOnWindowFocus: false }
+    { category: resolvedCategory },
+    { enabled: resolvedCategory !== "", refetchOnWindowFocus: false }
   );
   const filtered = cabinets
     ? cabinets.filter((c) => {
@@ -271,13 +271,13 @@ function CabinetCategoryPicker({
     <div className="border border-border rounded-md bg-background overflow-hidden">
       {/* Category tabs */}
       <div className="flex flex-wrap gap-0.5 p-1.5 border-b border-border bg-muted/40">
-        {CABINET_CATEGORIES.map((cat) => (
+        {(categoryList ?? []).map((cat) => (
           <button
             key={cat}
             type="button"
             onClick={() => { setCategory(cat); setSearch(""); }}
             className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
-              category === cat
+              resolvedCategory === cat
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent text-muted-foreground hover:text-foreground"
             }`}
@@ -291,7 +291,7 @@ function CabinetCategoryPicker({
         <input
           type="text"
           className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground font-mono"
-          placeholder={`Filter ${category} cabinets…`}
+          placeholder={`Filter ${resolvedCategory} cabinets…`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
