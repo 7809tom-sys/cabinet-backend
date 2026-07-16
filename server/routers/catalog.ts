@@ -1148,6 +1148,69 @@ export const cabinetsRouter = router({
       return rows[0] ? scrubCabinet(rows[0]) : null;
     }),
 
+  // -- Admin: Missing Image dashboard ----------------------------------------
+  // Lists every active cabinet that has no catalogImageUrl, so the admin can
+  // assign one from the media library or upload a new one. Does NOT require
+  // conflictStatus = 'image_missing'; it surfaces any cabinet missing an image
+  // regardless of status, giving the admin a full picture.
+  adminListMissingImages: adminProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(0).default(0),
+        pageSize: z.number().int().min(1).max(200).default(50),
+        search: z.string().optional(),
+      }).optional()
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { items: [], total: 0 };
+      const p = input ?? { page: 0, pageSize: 50 };
+      const conds = [eq(cabinets.isActive, true), sql`(${cabinets.catalogImageUrl} IS NULL OR ${cabinets.catalogImageUrl} = '')` as SQL];
+      if (p.search?.trim()) {
+        const q = `%${p.search.trim()}%`;
+        conds.push(sql`(${cabinets.masterCode} LIKE ${q} OR ${cabinets.description} LIKE ${q})` as SQL);
+      }
+      const where = and(...conds);
+      const [countRow] = await db.select({ n: sql<number>`count(*)` }).from(cabinets).where(where);
+      const total = Number(countRow?.n ?? 0);
+      const items = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          conflictStatus: cabinets.conflictStatus,
+          catalogImageUrl: cabinets.catalogImageUrl,
+        })
+        .from(cabinets)
+        .where(where)
+        .orderBy(asc(cabinets.category), asc(cabinets.masterCode))
+        .limit(p.pageSize)
+        .offset(p.page * p.pageSize);
+      return { items, total };
+    }),
+
+  // -- Admin: Fix a cabinet's catalog image ------------------------------------
+  // Assigns a new image URL to a cabinet. If the cabinet's conflictStatus is
+  // 'image_missing', it is automatically cleared back to 'none'.
+  adminFixCabinetImage: adminProcedure
+    .input(z.object({ id: z.number().int(), imageUrl: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [cab] = await db.select({ conflictStatus: cabinets.conflictStatus }).from(cabinets).where(eq(cabinets.id, input.id)).limit(1);
+      if (!cab) throw new TRPCError({ code: "NOT_FOUND", message: "Cabinet not found." });
+      const patch: Record<string, unknown> = { catalogImageUrl: input.imageUrl };
+      if (cab.conflictStatus === "image_missing") {
+        patch.conflictStatus = "none";
+        patch.conflictReason = null;
+        patch.conflictedAt = null;
+      }
+      await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
+      return { ok: true, conflictCleared: cab.conflictStatus === "image_missing" };
+    }),
+
   // -- Admin: Conflict / Needs-Review back office ---------------------------
   // Lists every product currently held in conflict status, together with the
   // info we DO know: distributor name(s) and door style(s) it is carried under

@@ -182,7 +182,7 @@ export const cabinets = mysqlTable("cabinets", {
   // admin back office only and hidden from the public catalog, storefront and
   // the Design Tool palette until an admin reviews and clears it. Used for
   // products whose identity/spec we are unsure about (e.g. skin/panel SKUs).
-  conflictStatus: varchar("conflictStatus", { length: 16 }).default("none").notNull(), // none | conflict
+  conflictStatus: varchar("conflictStatus", { length: 16 }).default("none").notNull(), // none | conflict | image_missing
   conflictReason: text("conflictReason"),
   conflictedAt: timestamp("conflictedAt"),
   // Price Audit: set true once the owner has checked this item's prices against

@@ -73,6 +73,7 @@ import ApiStatusAdmin from "@/components/admin/ApiStatusAdmin";
 import QuickBooksAdmin from "@/components/admin/QuickBooksAdmin";
 import IncomingOrdersAdmin from "@/components/admin/IncomingOrdersAdmin";
 import { BulkDimensionsAdmin } from "@/components/admin/BulkDimensionsAdmin";
+import { MissingImagesAdmin } from "@/components/admin/MissingImagesAdmin";
 import { DesignerCoverageAdmin } from "@/components/admin/DesignerCoverageAdmin";
 import { AdminTabHelp } from "@/components/admin/AdminTabHelp";
 import ApprovedVendorsAdmin from "@/components/admin/ApprovedVendorsAdmin";
@@ -125,6 +126,7 @@ const GROUPS = [
       { value: "images", label: "Product Images" },
       { value: "pelican-catalog", label: "Pelican Catalog" },
       { value: "conflicts", label: "Conflicts" },
+      { value: "missing-images", label: "Missing Images" },
       { value: "desc-cleanup", label: "Description Cleanup" },
       { value: "dimensions", label: "Dimensions & Weight" },
     ],
@@ -499,6 +501,13 @@ export default function AdminGroupedTabs() {
           <DescriptionCleanupAdmin />
         </TabsContent>
         <TabsContent value="dimensions" className="mt-6"><AdminTabHelp tab="dimensions" /><BulkDimensionsAdmin /></TabsContent>
+        <TabsContent value="missing-images" className="mt-6">
+          <div className="space-y-2 mb-4">
+            <h2 className="text-lg font-semibold">Missing Catalog Images</h2>
+            <p className="text-sm text-muted-foreground">Cabinets that have no catalog image. Use Fix Image to assign one from the media library or upload a new file.</p>
+          </div>
+          <MissingImagesAdmin />
+        </TabsContent>
 
         {/* Pricing */}
         <TabsContent value="multipliers" className="mt-6"><DistributorMultipliersAdmin /></TabsContent>
