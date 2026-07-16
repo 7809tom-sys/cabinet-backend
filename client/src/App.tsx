@@ -105,7 +105,11 @@ export default function App() {
       <ThemeProvider defaultTheme="light">
       <Switch>
         {/* Home has its own footer, no AppLayout wrapper needed */}
-        <Route path="/" component={Home} />
+        <Route path="/">
+          <Suspense fallback={<PageLoader />}>
+            <Home />
+          </Suspense>
+        </Route>
 
         {/* Branded affiliate storefront — its own header/footer, no AppLayout */}
         <Route path="/store/:slug">
