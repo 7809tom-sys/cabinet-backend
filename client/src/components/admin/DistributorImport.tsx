@@ -335,6 +335,65 @@ function CabinetCategoryPicker({
           ))
         )}
       </div>
+      {/* ── New cabinet button + inline form ── */}
+      {resolvedCategory && (
+        <div className="border-t border-border">
+          {!showNew ? (
+            <button
+              type="button"
+              className="w-full flex items-center gap-1.5 px-3 py-2 text-xs text-primary hover:bg-accent transition-colors font-medium"
+              onClick={() => setShowNew(true)}
+            >
+              <Plus className="h-3.5 w-3.5" /> New {resolvedCategory} cabinet
+            </button>
+          ) : (
+            <div className="p-3 space-y-2 bg-muted/30">
+              <p className="text-xs font-semibold text-foreground">New {resolvedCategory} cabinet</p>
+              <input
+                type="text"
+                className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background outline-none focus:ring-1 focus:ring-primary font-mono uppercase"
+                placeholder="Master code (e.g. B24)"
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value.toUpperCase())}
+                autoFocus
+              />
+              <input
+                type="text"
+                className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background outline-none focus:ring-1 focus:ring-primary"
+                placeholder='Description (e.g. 24" Base Cabinet)'
+                value={newDesc}
+                onChange={(e) => setNewDesc(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={!newCode.trim() || !newDesc.trim() || createMut.isPending}
+                  className="flex-1 text-xs bg-primary text-primary-foreground rounded px-2 py-1.5 font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
+                  onClick={() =>
+                    createMut.mutate({
+                      masterCode: newCode.trim(),
+                      description: newDesc.trim(),
+                      category: resolvedCategory,
+                    })
+                  }
+                >
+                  {createMut.isPending ? "Creating…" : "Create & Assign"}
+                </button>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded hover:bg-accent transition-colors"
+                  onClick={() => { setShowNew(false); setNewCode(""); setNewDesc(""); }}
+                >
+                  Cancel
+                </button>
+              </div>
+              {createMut.isError && (
+                <p className="text-xs text-destructive">{createMut.error?.message}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
