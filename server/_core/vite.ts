@@ -58,10 +58,19 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Hashed assets (JS/CSS/images with content hash in filename) can be cached
+  // for 1 year — the hash changes when content changes so cache busting is automatic.
+  app.use("/assets", express.static(path.join(distPath, "assets"), {
+    maxAge: "1y",
+    immutable: true,
+  }));
+  // Everything else (index.html, robots.txt, favicon) should not be cached
+  // so users always get the latest app shell.
+  app.use(express.static(distPath, { maxAge: 0 }));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

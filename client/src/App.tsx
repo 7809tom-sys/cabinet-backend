@@ -3,8 +3,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TopNav } from "@/components/TopNav";
 import { SiteFooter } from "@/components/SiteFooter";
-import ChatWidget from "@/components/ChatWidget";
-import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
 import { setReferralCode } from "@/hooks/useReferral";
@@ -12,6 +10,10 @@ import { AdminEditModeBar } from "@/components/admin/AdminEditModeBar";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
+
+// Lazy-loaded shell components (not needed on first paint)
+const ChatWidget = lazy(() => import("@/components/ChatWidget"));
+const Home = lazy(() => import("@/pages/Home"));
 
 // Lazy-loaded pages
 const Catalog = lazy(() => import("@/pages/Catalog"));
@@ -446,7 +448,9 @@ export default function App() {
         </Route>
       </Switch>
       <AdminEditModeBar />
-      <ChatWidget />
+      <Suspense fallback={null}>
+        <ChatWidget />
+      </Suspense>
       <Toaster />
     </ThemeProvider>
   );

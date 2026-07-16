@@ -167,6 +167,36 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // React core — cached across all pages
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
+            return "vendor-react";
+          }
+          // tRPC + tanstack-query — cached across all pages
+          if (
+            id.includes("node_modules/@trpc/") ||
+            id.includes("node_modules/@tanstack/react-query") ||
+            id.includes("node_modules/superjson")
+          ) {
+            return "vendor-trpc";
+          }
+          // Radix UI primitives — cached across all pages
+          if (id.includes("node_modules/@radix-ui/")) {
+            return "vendor-radix";
+          }
+          // Lucide icons
+          if (id.includes("node_modules/lucide-react")) {
+            return "vendor-lucide";
+          }
+          // Wouter router
+          if (id.includes("node_modules/wouter")) {
+            return "vendor-router";
+          }
+        },
+      },
+    },
   },
   server: {
     host: true,
