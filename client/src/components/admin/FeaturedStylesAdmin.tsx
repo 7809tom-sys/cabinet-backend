@@ -175,86 +175,11 @@ function ImageField({
 
 // ── Quick-edit dialog ─────────────────────────────────────────────────────────
 
-// ── Pricing Summary (used inside EditDialog) ─────────────────────────────────
+// ── Inline Editable Pricing Table (used inside EditDialog) ───────────────────
+// Delegates to StylePricingInlineTable which is defined after SkuEditRow/SKU_PRICE_FIELDS
+// to avoid referencing consts before their declaration.
 function StylePricingSummary({ styleId }: { styleId: number }) {
-  const { data, isLoading } = trpc.doorStyles.adminListSkusForStyle.useQuery(
-    { styleId },
-    { refetchOnWindowFocus: false }
-  );
-
-  if (isLoading) {
-    return (
-      <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading pricing data…
-        </div>
-      </div>
-    );
-  }
-
-  const rows = (data ?? []) as Array<{
-    yourCost: string | null;
-    listPrice: string | null;
-    wholesalePrice: string | null;
-    contractorPrice: string | null;
-    homeownerPrice: string | null;
-    isAvailable: boolean;
-    isPublished: boolean;
-    conflictStatus: string | null;
-  }>;
-
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
-        <p className="text-xs text-muted-foreground">No SKU pricing data uploaded for this style yet.</p>
-      </div>
-    );
-  }
-
-  const avg = (key: keyof typeof rows[0]) => {
-    const vals = rows.map((r) => Number(r[key])).filter((v) => Number.isFinite(v) && v > 0);
-    if (!vals.length) return null;
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  };
-  const fmt = (v: number | null) => v == null ? "—" : `$${v.toFixed(2)}`;
-
-  const activeCount = rows.filter((r) => r.isAvailable && r.isPublished).length;
-  const conflictCount = rows.filter((r) => r.conflictStatus === "conflict").length;
-
-  const stats = [
-    { label: "Your Cost", value: fmt(avg("yourCost")), highlight: true },
-    { label: "List Price", value: fmt(avg("listPrice")), highlight: false },
-    { label: "Wholesale", value: fmt(avg("wholesalePrice")), highlight: false },
-    { label: "Contractor", value: fmt(avg("contractorPrice")), highlight: false },
-    { label: "Homeowner", value: fmt(avg("homeownerPrice")), highlight: false },
-  ];
-
-  return (
-    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium text-emerald-900">Pricing Summary</Label>
-        <div className="flex items-center gap-2">
-          {conflictCount > 0 && (
-            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-              {conflictCount} conflict{conflictCount !== 1 ? "s" : ""}
-            </Badge>
-          )}
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-            {activeCount} / {rows.length} active
-          </Badge>
-        </div>
-      </div>
-      <p className="text-[11px] text-emerald-700">Average prices across {rows.length} SKU{rows.length !== 1 ? "s" : ""}. Use the List button to edit individual rows.</p>
-      <div className="grid grid-cols-5 gap-2">
-        {stats.map((s) => (
-          <div key={s.label} className={`rounded px-2 py-1.5 text-center ${s.highlight ? "bg-emerald-100 border border-emerald-300" : "bg-white/70 border border-border"}` }>
-            <div className="text-[10px] text-muted-foreground leading-tight">{s.label}</div>
-            <div className={`text-xs font-semibold mt-0.5 ${s.highlight ? "text-emerald-800" : ""}`}>{s.value}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <StylePricingInlineTable styleId={styleId} />;
 }
 
 interface EditDialogProps {
@@ -1230,6 +1155,98 @@ function SkuEditRow({ sku, onSaved }: { sku: SkuRow; onSaved: () => void }) {
         </Button>
       </TableCell>
     </TableRow>
+  );
+}
+
+// ── StylePricingInlineTable — full inline editable SKU table for EditDialog ──
+// Defined here (after SKU_PRICE_FIELDS and SkuEditRow) to avoid forward-reference errors.
+function StylePricingInlineTable({ styleId }: { styleId: number }) {
+  const [search, setSearch] = useState("");
+  const { data, isLoading, refetch } = trpc.doorStyles.adminListSkusForStyle.useQuery(
+    { styleId },
+    { refetchOnWindowFocus: false }
+  );
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading pricing data…
+        </div>
+      </div>
+    );
+  }
+
+  const rows = (data ?? []) as SkuRow[];
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
+        <p className="text-xs text-muted-foreground">No SKU pricing data uploaded for this style yet.</p>
+      </div>
+    );
+  }
+
+  const activeCount = rows.filter((r) => r.isAvailable && r.isPublished).length;
+  const conflictCount = rows.filter((r) => r.conflictStatus === "conflict").length;
+  const q = search.trim().toLowerCase();
+  const filtered = rows.filter((r) =>
+    q
+      ? `${r.masterCode ?? ""} ${r.description ?? ""} ${r.platformSku ?? ""} ${r.distributorSku ?? ""}`
+          .toLowerCase()
+          .includes(q)
+      : true
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">SKU Pricing</Label>
+        <div className="flex items-center gap-2">
+          {conflictCount > 0 && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+              {conflictCount} conflict{conflictCount !== 1 ? "s" : ""}
+            </Badge>
+          )}
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            {activeCount} / {rows.length} active
+          </Badge>
+        </div>
+      </div>
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          placeholder="Search code, SKU…"
+          className="pl-8 h-8 text-xs"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      <div className="max-h-72 overflow-y-auto rounded border">
+        <Table>
+          <TableHeader className="bg-muted/50 sticky top-0">
+            <TableRow>
+              <TableHead className="text-xs py-1.5">Code / Description</TableHead>
+              <TableHead className="text-xs py-1.5">SKU</TableHead>
+              {SKU_PRICE_FIELDS.map((f) => (
+                <TableHead key={f.key} className="text-xs py-1.5 text-right whitespace-nowrap">{f.label}</TableHead>
+              ))}
+              <TableHead className="text-xs py-1.5 text-center">Avail</TableHead>
+              <TableHead className="text-xs py-1.5 text-center">Live</TableHead>
+              <TableHead className="text-xs py-1.5" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((sku) => (
+              <SkuEditRow key={sku.id} sku={sku} onSaved={refetch} />
+            ))}
+          </TableBody>
+        </Table>
+        {filtered.length === 0 && (
+          <div className="py-6 text-center text-xs text-muted-foreground">No matching SKUs</div>
+        )}
+      </div>
+    </div>
   );
 }
 

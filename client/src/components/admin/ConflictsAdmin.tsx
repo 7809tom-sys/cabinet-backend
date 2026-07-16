@@ -82,6 +82,7 @@ type ConflictItem = {
   distributorNames: string[];
   doorStyleNames: string[];
   styleIds: number[];
+  aliases?: string[];
   skus?: Array<{
     id: number;
     distributorSku: string | null;
@@ -107,6 +108,12 @@ type EditForm = {
   width: string;
   height: string;
   depth: string;
+  weight: string;
+  pkgLength: string;
+  pkgWidth: string;
+  pkgHeight: string;
+  pkgWeight: string;
+  catalogImageUrl: string;
   conflictReason: string;
   styleId: string;
 };
@@ -154,6 +161,12 @@ function EditConflictDialog({
     width: cabinet.width ?? "",
     height: cabinet.height ?? "",
     depth: cabinet.depth ?? "",
+    weight: cabinet.weight ?? "",
+    pkgLength: cabinet.pkgLength ?? "",
+    pkgWidth: cabinet.pkgWidth ?? "",
+    pkgHeight: cabinet.pkgHeight ?? "",
+    pkgWeight: cabinet.pkgWeight ?? "",
+    catalogImageUrl: cabinet.catalogImageUrl ?? "",
     conflictReason: cabinet.conflictReason ?? "",
     styleId: currentStyleId,
   });
@@ -184,6 +197,12 @@ function EditConflictDialog({
     width: form.width.trim() === "" ? null : form.width.trim(),
     height: form.height.trim() === "" ? null : form.height.trim(),
     depth: form.depth.trim() === "" ? null : form.depth.trim(),
+    weight: form.weight.trim() === "" ? null : form.weight.trim(),
+    pkgLength: form.pkgLength.trim() === "" ? null : form.pkgLength.trim(),
+    pkgWidth: form.pkgWidth.trim() === "" ? null : form.pkgWidth.trim(),
+    pkgHeight: form.pkgHeight.trim() === "" ? null : form.pkgHeight.trim(),
+    pkgWeight: form.pkgWeight.trim() === "" ? null : form.pkgWeight.trim(),
+    catalogImageUrl: form.catalogImageUrl.trim() === "" ? null : form.catalogImageUrl.trim(),
     conflictReason: form.conflictReason.trim() === "" ? null : form.conflictReason.trim(),
     styleId:
       form.styleId !== "" && form.styleId !== currentStyleId ? Number(form.styleId) : undefined,
@@ -376,6 +395,83 @@ function EditConflictDialog({
                 <Input inputMode="decimal" value={form.depth} onChange={(e) => setF("depth", e.target.value)} />
               </div>
             </div>
+            {/* Aliases */}
+            {cabinet.aliases && cabinet.aliases.length > 0 && (
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-muted-foreground">Known aliases (distributor codes)</Label>
+                <div className="flex flex-wrap gap-1">
+                  {cabinet.aliases.map((a) => (
+                    <span key={a} className="rounded bg-muted px-2 py-0.5 font-mono text-xs">{a}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Weight & Shipping */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Item weight (lbs)</Label>
+                <Input inputMode="decimal" value={form.weight} onChange={(e) => setF("weight", e.target.value)} placeholder="—" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Pkg weight (lbs)</Label>
+                <Input inputMode="decimal" value={form.pkgWeight} onChange={(e) => setF("pkgWeight", e.target.value)} placeholder="—" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Pkg length (in)</Label>
+                <Input inputMode="decimal" value={form.pkgLength} onChange={(e) => setF("pkgLength", e.target.value)} placeholder="—" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Pkg width (in)</Label>
+                <Input inputMode="decimal" value={form.pkgWidth} onChange={(e) => setF("pkgWidth", e.target.value)} placeholder="—" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Pkg height (in)</Label>
+                <Input inputMode="decimal" value={form.pkgHeight} onChange={(e) => setF("pkgHeight", e.target.value)} placeholder="—" />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Catalog image URL</Label>
+              <Input value={form.catalogImageUrl} onChange={(e) => setF("catalogImageUrl", e.target.value)} placeholder="https://…" />
+              {form.catalogImageUrl && (
+                <img src={form.catalogImageUrl} alt="preview" className="mt-1 h-20 w-20 rounded border object-contain" />
+              )}
+            </div>
+            {/* SKU Pricing Rows */}
+            {cabinet.skus && cabinet.skus.length > 0 && (
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-muted-foreground">Captured SKU pricing</Label>
+                <div className="overflow-x-auto rounded border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-2 py-1 text-left font-medium">SKU</th>
+                        <th className="px-2 py-1 text-left font-medium">Style</th>
+                        <th className="px-2 py-1 text-right font-medium">Cost</th>
+                        <th className="px-2 py-1 text-right font-medium">List</th>
+                        <th className="px-2 py-1 text-right font-medium">Wholesale</th>
+                        <th className="px-2 py-1 text-right font-medium">Contractor</th>
+                        <th className="px-2 py-1 text-right font-medium">Homeowner</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {cabinet.skus.map((s) => (
+                        <tr key={s.id} className="hover:bg-muted/30">
+                          <td className="px-2 py-1 font-mono">{s.platformSku ?? s.distributorSku ?? "—"}</td>
+                          <td className="px-2 py-1">{s.styleName ?? "—"}</td>
+                          <td className="px-2 py-1 text-right font-semibold text-green-700">{fmtPrice(s.yourCost)}</td>
+                          <td className="px-2 py-1 text-right">{fmtPrice(s.listPrice)}</td>
+                          <td className="px-2 py-1 text-right">{fmtPrice(s.wholesalePrice)}</td>
+                          <td className="px-2 py-1 text-right">{fmtPrice(s.contractorPrice)}</td>
+                          <td className="px-2 py-1 text-right">{fmtPrice(s.homeownerPrice)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             <div className="grid gap-1.5">
               <Label>Review note</Label>
               <Textarea

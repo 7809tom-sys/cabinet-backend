@@ -12,6 +12,7 @@ import {
   distributorSkus,
   costChangeLog,
   doorStyleCorrections,
+  codeAliases,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
@@ -1161,12 +1162,33 @@ export const cabinetsRouter = router({
       width: string | null;
       height: string | null;
       depth: string | null;
+      weight: string | null;
+      pkgLength: string | null;
+      pkgWidth: string | null;
+      pkgHeight: string | null;
+      pkgWeight: string | null;
+      catalogImageUrl: string | null;
       conflictReason: string | null;
       conflictedAt: Date | null;
       skuCount: number;
       distributorNames: string[];
       doorStyleNames: string[];
       styleIds: number[];
+      aliases: string[];
+      skus: Array<{
+        id: number;
+        distributorSku: string | null;
+        platformSku: string | null;
+        yourCost: string | null;
+        listPrice: string | null;
+        wholesalePrice: string | null;
+        contractorPrice: string | null;
+        homeownerPrice: string | null;
+        isAvailable: boolean;
+        isPublished: boolean;
+        styleName: string | null;
+        distributorName: string | null;
+      }>;
     };
     const db = await getDb();
     if (!db) return [] as ConflictItem[];
@@ -1182,6 +1204,7 @@ export const cabinetsRouter = router({
     const skuRows = await db
       .select({
         cabinetId: distributorSkus.cabinetId,
+        id: distributorSkus.id,
         styleId: distributorSkus.styleId,
         distributorName: distributors.name,
         styleName: doorStyles.ourName,
@@ -1189,6 +1212,12 @@ export const cabinetsRouter = router({
         distributorSku: distributorSkus.distributorSku,
         platformSku: distributorSkus.platformSku,
         listPrice: distributorSkus.listPrice,
+        yourCost: distributorSkus.yourCost,
+        wholesalePrice: distributorSkus.wholesalePrice,
+        contractorPrice: distributorSkus.contractorPrice,
+        homeownerPrice: distributorSkus.homeownerPrice,
+        isAvailable: distributorSkus.isAvailable,
+        isPublished: distributorSkus.isPublished,
       })
       .from(distributorSkus)
       .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
@@ -1199,6 +1228,18 @@ export const cabinetsRouter = router({
       const arr = byCab.get(r.cabinetId) ?? [];
       arr.push(r);
       byCab.set(r.cabinetId, arr);
+    }
+    // Fetch aliases for all conflict cabinets
+    const aliasRows = await db
+      .select({ cabinetId: codeAliases.cabinetId, rawCodeSample: codeAliases.rawCodeSample })
+      .from(codeAliases)
+      .where(inArray(codeAliases.cabinetId, ids));
+    const aliasesByCab = new Map<number, string[]>();
+    for (const a of aliasRows) {
+      if (a.cabinetId == null) continue;
+      const arr = aliasesByCab.get(a.cabinetId) ?? [];
+      arr.push(a.rawCodeSample);
+      aliasesByCab.set(a.cabinetId, arr);
     }
     const result: ConflictItem[] = items.map((c) => {
       const skus = byCab.get(c.id) ?? [];
@@ -1224,12 +1265,33 @@ export const cabinetsRouter = router({
         width: c.width,
         height: c.height,
         depth: c.depth,
+        weight: c.weight ?? null,
+        pkgLength: c.pkgLength ?? null,
+        pkgWidth: c.pkgWidth ?? null,
+        pkgHeight: c.pkgHeight ?? null,
+        pkgWeight: c.pkgWeight ?? null,
+        catalogImageUrl: c.catalogImageUrl ?? null,
         conflictReason: c.conflictReason,
         conflictedAt: c.conflictedAt,
         skuCount: skus.length,
         distributorNames,
         doorStyleNames,
         styleIds,
+        aliases: aliasesByCab.get(c.id) ?? [],
+        skus: skus.map((s) => ({
+          id: s.id,
+          distributorSku: s.distributorSku,
+          platformSku: s.platformSku,
+          yourCost: s.yourCost,
+          listPrice: s.listPrice,
+          wholesalePrice: s.wholesalePrice,
+          contractorPrice: s.contractorPrice,
+          homeownerPrice: s.homeownerPrice,
+          isAvailable: s.isAvailable ?? false,
+          isPublished: s.isPublished ?? false,
+          styleName: s.styleName ? `${s.styleName}${s.styleCode ? ` (${s.styleCode})` : ""}` : null,
+          distributorName: s.distributorName,
+        })),
       };
     });
     return result;
@@ -1300,6 +1362,12 @@ export const cabinetsRouter = router({
         width: z.string().nullable().optional(),
         height: z.string().nullable().optional(),
         depth: z.string().nullable().optional(),
+        weight: z.string().nullable().optional(),
+        pkgLength: z.string().nullable().optional(),
+        pkgWidth: z.string().nullable().optional(),
+        pkgHeight: z.string().nullable().optional(),
+        pkgWeight: z.string().nullable().optional(),
+        catalogImageUrl: z.string().nullable().optional(),
         conflictReason: z.string().nullable().optional(),
         // Re-assign this product to the correct door style. When provided, ALL of
         // the item's distributor SKUs are re-pointed to this styleId so the
@@ -1318,6 +1386,12 @@ export const cabinetsRouter = router({
       if (input.width !== undefined) patch.width = input.width;
       if (input.height !== undefined) patch.height = input.height;
       if (input.depth !== undefined) patch.depth = input.depth;
+      if (input.weight !== undefined) patch.weight = input.weight;
+      if (input.pkgLength !== undefined) patch.pkgLength = input.pkgLength;
+      if (input.pkgWidth !== undefined) patch.pkgWidth = input.pkgWidth;
+      if (input.pkgHeight !== undefined) patch.pkgHeight = input.pkgHeight;
+      if (input.pkgWeight !== undefined) patch.pkgWeight = input.pkgWeight;
+      if (input.catalogImageUrl !== undefined) patch.catalogImageUrl = input.catalogImageUrl;
       if (input.conflictReason !== undefined) patch.conflictReason = input.conflictReason;
       if (input.clearAfter) {
         patch.conflictStatus = "none";
