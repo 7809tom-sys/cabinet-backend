@@ -4503,6 +4503,9 @@ export default function DesignTool() {
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [bumpOutOpen, setBumpOutOpen] = useState(false);
+  const [roundCornerOpen, setRoundCornerOpen] = useState(false);
+  const [roundCornerDepth, setRoundCornerDepth] = useState(24);
+  const [roundCornerVertex, setRoundCornerVertex] = useState<string | null>(null);
   const [doorWindowOpen, setDoorWindowOpen] = useState(false);
   const [dwCustomWidth, setDwCustomWidth] = useState(36);
   const [dwCustomHeight, setDwCustomHeight] = useState(80);
@@ -4746,6 +4749,14 @@ export default function DesignTool() {
             <ChevronRight className="h-3.5 w-3.5 rotate-90" />
           </button>
           <button
+            onClick={() => { setRoundCornerVertex(null); setRoundCornerOpen(true); }}
+            disabled={layoutLocked}
+            title="Round a Corner (quarter-circle arc)"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted disabled:opacity-40"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 12 L2 4 Q2 2 4 2 L12 2" strokeLinecap="round"/></svg>
+          </button>
+          <button
             onClick={() => setDoorWindowOpen(true)}
             title="Add Door / Window"
             className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
@@ -4927,6 +4938,10 @@ export default function DesignTool() {
                     <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">Add Pony Wall</span>
                     {ponyWalls.length > 0 && <span className="text-xs text-muted-foreground">{ponyWalls.length}</span>}
+                  </button>
+                  <button disabled={layoutLocked} onClick={() => { setMoreSheetOpen(false); setTimeout(() => { setRoundCornerVertex(null); setRoundCornerOpen(true); }, 120); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                    <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground shrink-0"><path d="M2 12 L2 4 Q2 2 4 2 L12 2" strokeLinecap="round"/></svg>
+                    <span className="flex-1 text-left">Round a Corner</span>
                   </button>
                   <button disabled={layoutLocked} onClick={() => { setMoreSheetOpen(false); setTimeout(() => setBumpOutOpen(true), 120); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 rotate-90" />
@@ -7859,6 +7874,103 @@ export default function DesignTool() {
             </div>
           </div>
         </div>
+        );
+      })()}
+      {/* ─── Round Corner Dialog ─────────────────────────────────────── */}
+      {roundCornerOpen && (() => {
+        const baseGeom = room.vertices && room.customWalls
+          ? { vertices: room.vertices, customWalls: room.customWalls }
+          : null;
+        // Collect corner vertices (shared by exactly 2 walls)
+        const cornerVertices = baseGeom
+          ? baseGeom.vertices.filter((v) => {
+              const count = baseGeom.customWalls.filter(
+                (w) => w.startVertexId === v.id || w.endVertexId === v.id
+              ).length;
+              return count === 2;
+            })
+          : [];
+        const selectedV = roundCornerVertex
+          ? cornerVertices.find((v) => v.id === roundCornerVertex)
+          : null;
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setRoundCornerOpen(false)}>
+            <div className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-md p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-bold text-foreground">Round a Corner</h2>
+                <button onClick={() => setRoundCornerOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Select Corner</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {cornerVertices.length === 0 && (
+                      <p className="col-span-2 text-sm text-muted-foreground">No corners found. Add a polygon room first.</p>
+                    )}
+                    {cornerVertices.map((v, idx) => (
+                      <button key={v.id} onClick={() => setRoundCornerVertex(v.id)}
+                        className={`py-2 px-3 rounded-lg border text-xs font-semibold transition-colors ${
+                          roundCornerVertex === v.id ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`}>
+                        Corner {idx + 1}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                    Arc Depth (inches) <span className="text-[#d4a75a] font-normal normal-case tracking-normal text-[10px]">— setback = depth ÷ 2 on each wall</span>
+                  </label>
+                  <div className="grid grid-cols-4 gap-2 mb-2">
+                    {[12, 18, 24, 36].map((d) => (
+                      <button key={d} onClick={() => setRoundCornerDepth(d)}
+                        className={`py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                          roundCornerDepth === d ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a]" : "border-border text-muted-foreground hover:text-foreground"
+                        }`}>
+                        {d}"
+                      </button>
+                    ))}
+                  </div>
+                  <input type="number" min={6} max={120} step={6} value={roundCornerDepth}
+                    onChange={(e) => setRoundCornerDepth(Number(e.target.value))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  A {roundCornerDepth}" arc will set back {Math.round(roundCornerDepth / 2)}" from the corner on each wall, creating a smooth quarter-circle curve.
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setRoundCornerOpen(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
+                  <button
+                    disabled={!roundCornerVertex}
+                    onClick={async () => {
+                      if (!roundCornerVertex) { toast.error("Please select a corner first"); return; }
+                      const { addCornerArc, rectToPolygon } = await import("@/lib/polygonRoom");
+                      const baseGeom = room.vertices && room.customWalls
+                        ? { vertices: room.vertices, customWalls: room.customWalls }
+                        : rectToPolygon(room.width, room.depth);
+                      const result = addCornerArc(roundCornerVertex, baseGeom.vertices, baseGeom.customWalls, roundCornerDepth);
+                      if (!result) { toast.error("Not enough space on the adjacent walls for this arc depth — try a smaller depth"); return; }
+                      const bounds = result.vertices.reduce((acc, v) => ({
+                        minX: Math.min(acc.minX, v.x), minY: Math.min(acc.minY, v.y),
+                        maxX: Math.max(acc.maxX, v.x), maxY: Math.max(acc.maxY, v.y),
+                      }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+                      setRoom((prev) => ({
+                        ...prev,
+                        vertices: result.vertices,
+                        customWalls: result.customWalls,
+                        width: Math.round(bounds.maxX - bounds.minX),
+                        depth: Math.round(bounds.maxY - bounds.minY),
+                      }));
+                      setRoundCornerOpen(false);
+                      setRoundCornerVertex(null);
+                      toast.success(`Corner rounded with a ${roundCornerDepth}" arc (${Math.round(roundCornerDepth / 2)}" setback on each wall)`);
+                    }}
+                    className="flex-1 rounded-lg bg-[#1a2744] text-white px-4 py-2 text-sm font-semibold hover:bg-[#1a2744]/90 transition-colors disabled:opacity-50"
+                  >Apply Arc</button>
+                </div>
+              </div>
+            </div>
+          </div>
         );
       })()}
       {/* ─── Door / Window Dialog ──────────────────────────────────────── */}

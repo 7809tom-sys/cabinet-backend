@@ -660,3 +660,145 @@ export function addTriangle(
   updatedWalls.splice(wallIdx, 1, ...newWalls);
   return { vertices: newVertices, customWalls: updatedWalls };
 }
+
+/**
+ * Round a 90° room corner by replacing the corner vertex with a smooth quarter-circle arc.
+ *
+ * The user specifies a `depth` (inches) which is the **diameter** of the arc:
+ *   - setback on each wall = depth / 2  (the "radius")
+ *   - The arc sweeps 90° from one wall to the adjacent wall
+ *   - The arc peak projects (radius * (1 - cos45°)) ≈ 0.293 * radius from the corner
+ *
+ * @param vertexId   - ID of the corner vertex to round
+ * @param vertices   - current room vertices
+ * @param customWalls - current room walls
+ * @param depth      - diameter of the arc in inches (setback = depth / 2)
+ * @param segments   - number of straight-line segments approximating the arc (default 8)
+ */
+export function addCornerArc(
+  vertexId: string,
+  vertices: RoomVertex[],
+  customWalls: CustomWall[],
+  depth: number,
+  segments = 8,
+): { vertices: RoomVertex[]; customWalls: CustomWall[] } | null {
+  const radius = depth / 2;
+
+  // Find the two walls that share this vertex
+  const wallsAtVertex = customWalls.filter(
+    (w) => w.startVertexId === vertexId || w.endVertexId === vertexId,
+  );
+  if (wallsAtVertex.length < 2) return null; // need exactly 2 walls at a corner
+
+  // Pick the two walls (use first two if more than 2, e.g. polygon with extra segments)
+  const wallA = wallsAtVertex[0];
+  const wallB = wallsAtVertex[1];
+
+  const corner = vertices.find((v) => v.id === vertexId);
+  if (!corner) return null;
+
+  // For wallA: find the OTHER vertex (not the corner)
+  const otherA_id = wallA.startVertexId === vertexId ? wallA.endVertexId : wallA.startVertexId;
+  const otherB_id = wallB.startVertexId === vertexId ? wallB.endVertexId : wallB.startVertexId;
+  const otherA = vertices.find((v) => v.id === otherA_id);
+  const otherB = vertices.find((v) => v.id === otherB_id);
+  if (!otherA || !otherB) return null;
+
+  // Unit vectors from corner toward each adjacent wall's other vertex
+  const lenA = dist(corner, otherA);
+  const lenB = dist(corner, otherB);
+  if (lenA < radius + 1 || lenB < radius + 1) return null; // not enough room
+
+  const uAx = (otherA.x - corner.x) / lenA;
+  const uAy = (otherA.y - corner.y) / lenA;
+  const uBx = (otherB.x - corner.x) / lenB;
+  const uBy = (otherB.y - corner.y) / lenB;
+
+  // The two tangent points on each wall, setback = radius from corner
+  const tA: RoomVertex = { id: genVertexId(), x: corner.x + uAx * radius, y: corner.y + uAy * radius };
+  const tB: RoomVertex = { id: genVertexId(), x: corner.x + uBx * radius, y: corner.y + uBy * radius };
+
+  // Arc center: offset from corner along the bisector of the two wall directions
+  // The bisector unit vector points inward (into the room)
+  const bisX = uAx + uBx;
+  const bisY = uAy + uBy;
+  const bisLen = Math.sqrt(bisX * bisX + bisY * bisY);
+  if (bisLen < 0.001) return null; // degenerate (180° angle)
+  const bisUx = bisX / bisLen;
+  const bisUy = bisY / bisLen;
+
+  // Distance from corner to arc center along bisector = radius / sin(halfAngle)
+  // For a 90° corner: halfAngle = 45°, sin(45°) = √2/2, so dist = radius * √2
+  const arcCenterDist = radius / Math.sin(Math.acos(Math.max(-1, Math.min(1, (uAx * uBx + uAy * uBy) / 1))) / 2);
+  const arcCx = corner.x + bisUx * arcCenterDist;
+  const arcCy = corner.y + bisUy * arcCenterDist;
+
+  // Generate arc vertices from tA to tB (quarter circle)
+  // Angle from arc center to tA and tB
+  const angleA = Math.atan2(tA.y - arcCy, tA.x - arcCx);
+  const angleB = Math.atan2(tB.y - arcCy, tB.x - arcCx);
+
+  // Determine sweep direction: go the short way (< π)
+  let startAngle = angleA;
+  let endAngle = angleB;
+  let diff = endAngle - startAngle;
+  // Normalize to [-π, π]
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+
+  const arcVertices: RoomVertex[] = [];
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments;
+    const angle = startAngle + diff * t;
+    arcVertices.push({
+      id: genVertexId(),
+      x: arcCx + Math.cos(angle) * radius,
+      y: arcCy + Math.sin(angle) * radius,
+    });
+  }
+
+  // Build new vertex list: replace corner with tA, arcVertices..., tB
+  const cornerIdx = vertices.findIndex((v) => v.id === vertexId);
+  const newVertices = [...vertices];
+  newVertices.splice(cornerIdx, 1, tA, ...arcVertices, tB);
+
+  // Build new wall list:
+  // - wallA: replace endpoint that was corner with tA
+  // - wallB: replace endpoint that was corner with tB
+  // - Add arc walls between tA → arc[0] → ... → tB
+  const updatedWalls = customWalls.map((w) => {
+    if (w.id === wallA.id) {
+      return {
+        ...w,
+        startVertexId: w.startVertexId === vertexId ? tA.id : w.startVertexId,
+        endVertexId: w.endVertexId === vertexId ? tA.id : w.endVertexId,
+      };
+    }
+    if (w.id === wallB.id) {
+      return {
+        ...w,
+        startVertexId: w.startVertexId === vertexId ? tB.id : w.startVertexId,
+        endVertexId: w.endVertexId === vertexId ? tB.id : w.endVertexId,
+      };
+    }
+    return w;
+  });
+
+  // Insert arc walls between tA and tB
+  const allArcIds = [tA.id, ...arcVertices.map((v) => v.id), tB.id];
+  const arcWalls: CustomWall[] = [];
+  for (let i = 0; i < allArcIds.length - 1; i++) {
+    arcWalls.push({
+      id: genWallId(),
+      startVertexId: allArcIds[i],
+      endVertexId: allArcIds[i + 1],
+      label: i === Math.floor((allArcIds.length - 1) / 2) ? "Arc" : undefined,
+    });
+  }
+
+  // Insert arc walls after wallA in the wall list
+  const wallAIdx = updatedWalls.findIndex((w) => w.id === wallA.id);
+  updatedWalls.splice(wallAIdx + 1, 0, ...arcWalls);
+
+  return { vertices: newVertices, customWalls: updatedWalls };
+}
