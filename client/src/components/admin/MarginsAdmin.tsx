@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Percent, Save, TrendingUp } from "lucide-react";
+import { Percent, Save, TrendingUp, RefreshCw } from "lucide-react";
 
 // UI edits whole percents; DB stores basis points where 10000 = no change (0%).
 // A displayed "+15%" => bps 11500. "0%" => 10000.
@@ -50,10 +50,17 @@ export default function MarginsAdmin() {
 
   const saveMargins = trpc.pricing.adminUpdateMargins.useMutation({
     onSuccess: () => {
-      toast.success("Margins saved");
+      toast.success("Margins saved — all SKU tier prices recalculated");
       utils.pricing.adminGetMargins.invalidate();
     },
     onError: (e) => toast.error(e.message || "Failed to save margins"),
+  });
+
+  const recalcAll = trpc.pricing.adminRecalcAllTierPrices.useMutation({
+    onSuccess: (res) => {
+      toast.success(`Tier prices recalculated for ${res.skusRecomputed} SKUs`);
+    },
+    onError: (e) => toast.error(e.message || "Recalculation failed"),
   });
 
   const setDistMarkup = trpc.pricing.adminSetDistributorMarkup.useMutation({
@@ -167,21 +174,36 @@ export default function MarginsAdmin() {
             </div>
           )}
 
-          <Button
-            onClick={() =>
-              saveMargins.mutate({
-                globalMarkupBps: pctToBps(form.globalPct),
-                homeownerMarkupBps: pctToBps(form.homeownerPct),
-                contractorMarkupBps: pctToBps(form.contractorPct),
-                wholesaleMarkupBps: pctToBps(form.wholesalePct),
-              })
-            }
-            disabled={saveMargins.isPending}
-            className="gap-2"
-          >
-            <Save className="h-4 w-4" />
-            {saveMargins.isPending ? "Saving…" : "Save margins"}
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              onClick={() =>
+                saveMargins.mutate({
+                  globalMarkupBps: pctToBps(form.globalPct),
+                  homeownerMarkupBps: pctToBps(form.homeownerPct),
+                  contractorMarkupBps: pctToBps(form.contractorPct),
+                  wholesaleMarkupBps: pctToBps(form.wholesalePct),
+                })
+              }
+              disabled={saveMargins.isPending || recalcAll.isPending}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" />
+              {saveMargins.isPending ? "Saving & recalculating…" : "Save margins"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => recalcAll.mutate({})}
+              disabled={recalcAll.isPending || saveMargins.isPending}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${recalcAll.isPending ? "animate-spin" : ""}`} />
+              {recalcAll.isPending ? "Recalculating…" : "Recalc all tier prices"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            <strong>Save margins</strong> automatically recalculates all SKU tier prices.
+            Use <strong>Recalc all tier prices</strong> if prices appear stale after a bulk import.
+          </p>
         </CardContent>
       </Card>
 

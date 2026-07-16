@@ -218,6 +218,12 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   wholesalePrice: decimal("wholesalePrice", { precision: 10, scale: 2 }),
   contractorPrice: decimal("contractorPrice", { precision: 10, scale: 2 }),
   homeownerPrice: decimal("homeownerPrice", { precision: 10, scale: 2 }),
+  // Manual tier-price overrides. When set, these supersede the system-calculated
+  // wholesalePrice / contractorPrice / homeownerPrice values. The server always
+  // serves COALESCE(override, calculated). Set to NULL to revert to auto-calc.
+  wholesalePriceOverride: decimal("wholesalePriceOverride", { precision: 10, scale: 2 }),
+  contractorPriceOverride: decimal("contractorPriceOverride", { precision: 10, scale: 2 }),
+  homeownerPriceOverride: decimal("homeownerPriceOverride", { precision: 10, scale: 2 }),
   isAvailable: boolean("isAvailable").default(true).notNull(),
   isPublished: boolean("isPublished").default(true).notNull(), // distributor visibility toggle
   // SKU-level image (per cabinet + door style). Falls back to door-style image, then drawing.

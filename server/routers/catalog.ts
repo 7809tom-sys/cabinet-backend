@@ -2415,6 +2415,54 @@ export const cabinetsRouter = router({
 
 // --- Pricing ------------------------------------------------------------------
 
+/**
+ * Recompute wholesalePrice, contractorPrice, homeownerPrice for every SKU
+ * (or just one distributor's SKUs) using the current tier BPS settings.
+ *
+ * Formula: ROUND(yourCost * bps / 10000, 2)
+ * Falls back to listPrice when yourCost is NULL.
+ * Respects manual overrides: if a *PriceOverride column is set, the stored
+ * tier price is still updated (the override takes precedence at read time).
+ *
+ * Returns the number of SKU rows updated.
+ */
+async function recalcAllTierPrices(
+  s: { wholesaleMarkupBps: number; contractorMarkupBps: number; homeownerMarkupBps: number },
+  distributorId?: number,
+): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const wBps = s.wholesaleMarkupBps / 10000;
+  const cBps = s.contractorMarkupBps / 10000;
+  const hBps = s.homeownerMarkupBps / 10000;
+
+  // costBase = COALESCE(yourCost, listPrice) — mirrors resolveCostBase() in shared/margins.ts
+  const costBase = sql`COALESCE(${distributorSkus.yourCost}, ${distributorSkus.listPrice})`;
+
+  const whereClause = distributorId
+    ? and(
+        sql`${costBase} IS NOT NULL`,
+        eq(distributorSkus.distributorId, distributorId),
+      )
+    : sql`${costBase} IS NOT NULL`;
+
+  const res = await db
+    .update(distributorSkus)
+    .set({
+      wholesalePrice: sql`ROUND(${costBase} * ${wBps}, 2)`,
+      contractorPrice: sql`ROUND(${costBase} * ${cBps}, 2)`,
+      homeownerPrice: sql`ROUND(${costBase} * ${hBps}, 2)`,
+    })
+    .where(whereClause);
+
+  return (
+    (res as unknown as { rowsAffected?: number })?.rowsAffected ??
+    (res as unknown as { affectedRows?: number })?.affectedRows ??
+    0
+  );
+}
+
 export const pricingRouter = router({
   // -- Door-style-first pricing ----------------------------------------------
   // Returns ONE priced row per unique door style for a cabinet. Internally we
@@ -2554,7 +2602,21 @@ export const pricingRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await updatePricingSettings(input, ctx.user?.openId);
-      return await getPricingSettings();
+      // After saving new BPS values, immediately recompute all stored tier prices
+      // so every SKU row reflects the new multipliers right away.
+      const updated = await getPricingSettings();
+      await recalcAllTierPrices(updated);
+      return updated;
+    }),
+
+  // Manually trigger a full tier-price recalculation for all SKUs (or a single
+  // distributor). Useful after bulk imports or multiplier changes.
+  adminRecalcAllTierPrices: adminProcedure
+    .input(z.object({ distributorId: z.number().int().optional() }))
+    .mutation(async ({ input }) => {
+      const s = await getPricingSettings();
+      const count = await recalcAllTierPrices(s, input.distributorId);
+      return { success: true, skusRecomputed: count };
     }),
 
   // --- Platform fee system (price ladder + order fee stack) ----------------
@@ -2706,6 +2768,11 @@ export const pricingRouter = router({
           ?.rowsAffected ??
         (res as unknown as { affectedRows?: number })?.affectedRows ??
         0;
+      // After updating yourCost, immediately recalculate tier sell prices for
+      // this distributor so the stored wholesalePrice/contractorPrice/homeownerPrice
+      // values reflect the new cost base.
+      const s = await getPricingSettings();
+      await recalcAllTierPrices(s, input.distributorId);
       return { success: true, skusRecomputed: updated } as const;
     }),
 
