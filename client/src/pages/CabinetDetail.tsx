@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link, useSearch } from "wouter";
 import {
-  ChevronLeft, Package, Palette, DollarSign,
+  ChevronLeft, ChevronRight, Package, Palette, DollarSign,
   ShoppingCart, Info, Check, Lock,
   Pencil, X, Upload,
 } from "lucide-react";
@@ -720,7 +720,6 @@ export default function CabinetDetail({ masterCode }: Props) {
                 { label: "Width", value: cabinet.width ? `${cabinet.width}"` : null },
                 { label: "Height", value: cabinet.height ? `${cabinet.height}"` : null },
                 { label: "Depth", value: cabinet.depth ? `${cabinet.depth}"` : null },
-                { label: "Weight", value: cabinet.weight ? `${cabinet.weight} lbs` : null },
                 { label: "Doors", value: resolveDoorDrawerCounts(cabinet).doors ? String(resolveDoorDrawerCounts(cabinet).doors) : null },
                 { label: "Drawers", value: resolveDoorDrawerCounts(cabinet).drawers ? String(resolveDoorDrawerCounts(cabinet).drawers) : null },
               ]
@@ -732,33 +731,15 @@ export default function CabinetDetail({ masterCode }: Props) {
                   </div>
                 ))}
             </dl>
-            {/* Packaging / shipping dimensions */}
-            {(cabinet.pkgLength || cabinet.pkgWidth || cabinet.pkgHeight || cabinet.pkgWeight) && (
-              <div className="border-t border-border pt-3 mb-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Packaging</p>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                  {[
-                    { label: "Box Dimensions",
-                      value: (cabinet.pkgLength && cabinet.pkgWidth && cabinet.pkgHeight)
-                        ? `${cabinet.pkgLength}" × ${cabinet.pkgWidth}" × ${cabinet.pkgHeight}"`
-                        : null },
-                    { label: "Shipping Weight", value: cabinet.pkgWeight ? `${cabinet.pkgWeight} lbs` : null },
-                  ]
-                    .filter((item) => item.value)
-                    .map((item) => (
-                      <div key={item.label}>
-                        <dt className="text-muted-foreground">{item.label}</dt>
-                        <dd className="font-medium text-foreground">{item.value}</dd>
-                      </div>
-                    ))}
-                </dl>
-              </div>
-            )}
-            {/* Construction specs from manufacturer */}
+            {/* Construction specs — collapsible */}
             {selectedRow && (
               <>
-                <div className="border-t border-border pt-4">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Construction</p>
+                <details className="border-t border-border pt-3 group">
+                  <summary className="cursor-pointer text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1 select-none list-none hover:text-foreground transition-colors">
+                    <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+                    Construction Details
+                  </summary>
+                  <div className="mt-3">
                   <ol className="space-y-2 text-sm">
                     {[
                       { label: "Door & Drawer Front", value: selectedRow.overlayType
@@ -794,7 +775,8 @@ export default function CabinetDetail({ masterCode }: Props) {
                       </li>
                     ))}
                   </ol>
-                </div>
+                  </div>
+                </details>
               </>
             )}
           </div>
