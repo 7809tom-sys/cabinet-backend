@@ -1211,6 +1211,51 @@ export const cabinetsRouter = router({
       return { ok: true, conflictCleared: cab.conflictStatus === "image_missing" };
     }),
 
+  // -- Admin: Bulk-assign the same image to multiple cabinets ----------------
+  // Assigns a single imageUrl to every cabinet in the ids array. Cabinets whose
+  // conflictStatus is 'image_missing' are automatically cleared back to 'none'.
+  adminBulkFixCabinetImages: adminProcedure
+    .input(
+      z.object({
+        ids: z.array(z.number().int()).min(1).max(500),
+        imageUrl: z.string().min(1),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Single UPDATE for all ids — set image and clear image_missing flags in one pass
+      const CHUNK = 200;
+      let updated = 0;
+      let conflictsCleared = 0;
+      for (let i = 0; i < input.ids.length; i += CHUNK) {
+        const chunk = input.ids.slice(i, i + CHUNK);
+        // Fetch current conflict statuses for this chunk so we can count clears
+        const rows = await db
+          .select({ id: cabinets.id, conflictStatus: cabinets.conflictStatus })
+          .from(cabinets)
+          .where(inArray(cabinets.id, chunk));
+        const imageMissingIds = rows
+          .filter((r) => r.conflictStatus === "image_missing")
+          .map((r) => r.id);
+        // Update all in chunk: set image
+        await db
+          .update(cabinets)
+          .set({ catalogImageUrl: input.imageUrl })
+          .where(inArray(cabinets.id, chunk));
+        updated += chunk.length;
+        // Clear image_missing flags for the subset that had them
+        if (imageMissingIds.length > 0) {
+          await db
+            .update(cabinets)
+            .set({ conflictStatus: "none", conflictReason: null, conflictedAt: null })
+            .where(inArray(cabinets.id, imageMissingIds));
+          conflictsCleared += imageMissingIds.length;
+        }
+      }
+      return { ok: true, updated, conflictsCleared };
+    }),
+
   // -- Admin: Conflict / Needs-Review back office ---------------------------
   // Lists every product currently held in conflict status, together with the
   // info we DO know: distributor name(s) and door style(s) it is carried under
