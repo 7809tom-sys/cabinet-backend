@@ -933,6 +933,9 @@ export const pricingSettings = mysqlTable("pricing_settings", {
   wholesaleMarkupBps: int("wholesaleMarkupBps").default(10000).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   updatedByOpenId: varchar("updatedByOpenId", { length: 64 }),
+  // Timestamp of the last time all SKU tier prices were bulk-recalculated.
+  // Updated by recalcAllTierPrices() on every successful run.
+  tierPricesRecalcAt: timestamp("tierPricesRecalcAt"),
 });
 
 export type PricingSettings = typeof pricingSettings.$inferSelect;

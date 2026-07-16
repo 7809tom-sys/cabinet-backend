@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Percent, Save, TrendingUp, RefreshCw } from "lucide-react";
+import { Percent, Save, TrendingUp, RefreshCw, Clock } from "lucide-react";
 
 // UI edits whole percents; DB stores basis points where 10000 = no change (0%).
 // A displayed "+15%" => bps 11500. "0%" => 10000.
@@ -59,6 +59,7 @@ export default function MarginsAdmin() {
   const recalcAll = trpc.pricing.adminRecalcAllTierPrices.useMutation({
     onSuccess: (res) => {
       toast.success(`Tier prices recalculated for ${res.skusRecomputed} SKUs`);
+      utils.pricing.adminGetMargins.invalidate();
     },
     onError: (e) => toast.error(e.message || "Recalculation failed"),
   });
@@ -200,6 +201,23 @@ export default function MarginsAdmin() {
               {recalcAll.isPending ? "Recalculating…" : "Recalc all tier prices"}
             </Button>
           </div>
+          {data?.settings?.tierPricesRecalcAt ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span>
+                <strong>Last recalculated:</strong>{" "}
+                {new Date(data.settings.tierPricesRecalcAt).toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </span>
+            </p>
+          ) : (
+            <p className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span>Tier prices have not been recalculated yet — click <strong>Recalc all tier prices</strong> to sync.</span>
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             <strong>Save margins</strong> automatically recalculates all SKU tier prices.
             Use <strong>Recalc all tier prices</strong> if prices appear stale after a bulk import.

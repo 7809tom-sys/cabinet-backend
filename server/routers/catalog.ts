@@ -13,6 +13,7 @@ import {
   costChangeLog,
   doorStyleCorrections,
   codeAliases,
+  pricingSettings,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
@@ -2456,11 +2457,24 @@ async function recalcAllTierPrices(
     })
     .where(whereClause);
 
-  return (
+  const count =
     (res as unknown as { rowsAffected?: number })?.rowsAffected ??
     (res as unknown as { affectedRows?: number })?.affectedRows ??
-    0
-  );
+    0;
+
+  // Only stamp the global recalc timestamp when we updated ALL distributors
+  // (not a per-distributor subset), so the timestamp reflects a full catalog pass.
+  if (!distributorId) {
+    const settingsRows = await db.select({ id: pricingSettings.id }).from(pricingSettings).limit(1);
+    if (settingsRows.length > 0) {
+      await db
+        .update(pricingSettings)
+        .set({ tierPricesRecalcAt: new Date() })
+        .where(eq(pricingSettings.id, settingsRows[0].id));
+    }
+  }
+
+  return count;
 }
 
 export const pricingRouter = router({
@@ -2606,7 +2620,8 @@ export const pricingRouter = router({
       // so every SKU row reflects the new multipliers right away.
       const updated = await getPricingSettings();
       await recalcAllTierPrices(updated);
-      return updated;
+      // Re-fetch so the returned settings include the fresh tierPricesRecalcAt stamp.
+      return await getPricingSettings();
     }),
 
   // Manually trigger a full tier-price recalculation for all SKUs (or a single
@@ -2616,7 +2631,9 @@ export const pricingRouter = router({
     .mutation(async ({ input }) => {
       const s = await getPricingSettings();
       const count = await recalcAllTierPrices(s, input.distributorId);
-      return { success: true, skusRecomputed: count };
+      // Re-fetch to get the updated tierPricesRecalcAt timestamp.
+      const fresh = await getPricingSettings();
+      return { success: true, skusRecomputed: count, tierPricesRecalcAt: fresh.tierPricesRecalcAt };
     }),
 
   // --- Platform fee system (price ladder + order fee stack) ----------------
