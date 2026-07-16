@@ -801,7 +801,7 @@ function PendingCabinetPicker({ onSelect }: { onSelect: (masterCode: string) => 
         ) : filtered.length === 0 ? (
           <div className="px-3 py-2 text-xs text-muted-foreground">No cabinets found.</div>
         ) : (
-          filtered.map((cab) => (
+          filtered.map((cab: { id: number; masterCode: string; description: string | null; subCategory: string | null }) => (
             <button
               key={cab.id}
               type="button"
