@@ -1906,7 +1906,7 @@ export const cabinetsRouter = router({
       const conditions = [];
       if (input.missingOnly) {
         conditions.push(
-          sql`(${cabinets.weight} IS NULL OR ${cabinets.weight} = 0 OR ${cabinets.pkgLength} IS NULL OR ${cabinets.pkgWidth} IS NULL OR ${cabinets.pkgHeight} IS NULL OR ${cabinets.pkgWeight} IS NULL)`
+          sql`(${cabinets.width} IS NULL OR ${cabinets.height} IS NULL OR ${cabinets.depth} IS NULL OR ${cabinets.weight} IS NULL OR ${cabinets.weight} = 0 OR ${cabinets.pkgLength} IS NULL OR ${cabinets.pkgWidth} IS NULL OR ${cabinets.pkgHeight} IS NULL OR ${cabinets.pkgWeight} IS NULL)`
         );
       }
       if (input.search) {
