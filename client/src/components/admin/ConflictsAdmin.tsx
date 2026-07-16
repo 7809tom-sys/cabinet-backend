@@ -223,6 +223,13 @@ function EditConflictDialog({
 
   // ── Map to Existing Master form ────────────────────────────────────────────
   const [targetCode, setTargetCode] = useState("");
+  const [pickerCategory, setPickerCategory] = useState("");
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [selectedMaster, setSelectedMaster] = useState<{ id: number; masterCode: string; description: string | null; category: string | null; width: string | null; height: string | null; depth: string | null } | null>(null);
+  const pickerQuery = trpc.cabinets.list.useQuery(
+    { category: pickerCategory || undefined, search: pickerSearch || undefined, limit: 50 },
+    { enabled: pickerCategory !== "" || pickerSearch.trim().length >= 2 }
+  );
   const mapMutation = trpc.cabinets.adminMapConflictToExisting.useMutation({
     onSuccess: (d) => {
       utils.cabinets.conflicts.invalidate();
@@ -521,18 +528,90 @@ function EditConflictDialog({
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
               <strong>Map to Existing Master</strong> — all {cabinet.skuCount} SKU{cabinet.skuCount !== 1 ? "s" : ""} will be moved to the target cabinet, and this conflict record will be deactivated. Use this when the import code is an alias or variant of an existing master.
             </div>
+
+            {/* Category filter */}
             <div className="grid gap-1.5">
-              <Label>Target master code</Label>
-              <Input
-                value={targetCode}
-                onChange={(e) => setTargetCode(e.target.value.toUpperCase())}
-                placeholder="e.g. W3012"
-                className="font-mono"
-              />
-              <p className="text-xs text-muted-foreground">
-                Type the exact master code of the cabinet to merge into. The conflict cabinet will be deactivated.
-              </p>
+              <Label>Filter by category</Label>
+              <Select value={pickerCategory} onValueChange={(v) => { setPickerCategory(v === "__all__" ? "" : v); setSelectedMaster(null); setTargetCode(""); }}>
+                <SelectTrigger><SelectValue placeholder="All categories" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All categories</SelectItem>
+                  {knownCats.map((cat) => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* Search box */}
+            <div className="grid gap-1.5">
+              <Label>Search by code or description</Label>
+              <Input
+                placeholder="e.g. W30, Base Cabinet, WR2412…"
+                value={pickerSearch}
+                onChange={(e) => { setPickerSearch(e.target.value); setSelectedMaster(null); setTargetCode(""); }}
+              />
+            </div>
+
+            {/* Results list */}
+            {(pickerCategory !== "" || pickerSearch.trim().length >= 2) && (
+              <div className="rounded-md border bg-popover shadow-sm max-h-52 overflow-y-auto">
+                {pickerQuery.isLoading && (
+                  <div className="p-3 text-sm text-muted-foreground flex items-center gap-2"><Spinner className="h-3 w-3" /> Searching…</div>
+                )}
+                {!pickerQuery.isLoading && (pickerQuery.data?.items ?? []).length === 0 && (
+                  <div className="p-3 text-sm text-muted-foreground">No cabinets found — try a different category or search term.</div>
+                )}
+                {(pickerQuery.data?.items ?? []).map((cab) => (
+                  <button
+                    key={cab.id}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-3 ${
+                      selectedMaster?.id === cab.id ? "bg-accent" : ""
+                    }`}
+                    onClick={() => { setSelectedMaster(cab as typeof selectedMaster); setTargetCode(cab.masterCode); }}
+                  >
+                    <span className="font-mono font-semibold shrink-0 w-24 truncate">{cab.masterCode}</span>
+                    <span className="text-muted-foreground flex-1 truncate">{cab.description}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {[cab.width && `${cab.width}"W`, cab.height && `${cab.height}"H`, cab.depth && `${cab.depth}"D`].filter(Boolean).join(" × ")}
+                    </span>
+                    <Badge variant="outline" className="text-xs shrink-0">{cab.category}</Badge>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Selected cabinet summary */}
+            {selectedMaster && (
+              <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 px-3 py-2 text-sm space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-emerald-700 dark:text-emerald-400">Selected target:</span>
+                  <span className="font-mono font-semibold">{selectedMaster.masterCode}</span>
+                  <Badge variant="outline" className="text-xs">{selectedMaster.category}</Badge>
+                </div>
+                <div className="text-muted-foreground">{selectedMaster.description}</div>
+                {selectedMaster.width && (
+                  <div className="text-xs text-muted-foreground">
+                    {selectedMaster.width}"W × {selectedMaster.height}"H × {selectedMaster.depth}"D
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Manual override */}
+            {!selectedMaster && (
+              <div className="grid gap-1.5">
+                <Label className="text-xs text-muted-foreground">Or type master code directly</Label>
+                <Input
+                  value={targetCode}
+                  onChange={(e) => setTargetCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. W3012"
+                  className="font-mono"
+                />
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              All {cabinet.skuCount} SKU{cabinet.skuCount !== 1 ? "s" : ""} from <strong>{cabinet.masterCode}</strong> will move to the selected master. The conflict cabinet will be deactivated.
+            </p>
             <DialogFooter className="gap-2 sm:gap-2 pt-2">
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>Cancel</Button>
               <AlertDialog>

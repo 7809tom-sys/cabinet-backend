@@ -989,9 +989,11 @@ export const cabinetsRouter = router({
         const canon = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
         // SQL-side canonicalization of masterCode: remove dashes and spaces.
         const canonCol = sql`UPPER(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''))`;
+        // Also search alias raw_code_sample so distributor codes like BEP3 find their master.
         const orParts = [
           sql`${cabinets.masterCode} LIKE ${`%${raw}%`}`,
           sql`${cabinets.description} LIKE ${`%${raw}%`}`,
+          sql`EXISTS (SELECT 1 FROM code_aliases ca WHERE ca.cabinet_id = ${cabinets.id} AND (ca.raw_code_sample LIKE ${`%${raw}%`} OR UPPER(REPLACE(REPLACE(ca.raw_code_sample, '-', ''), ' ', '')) LIKE ${`%${canon}%`}))`,
         ];
         if (canon) {
           orParts.push(sql`${canonCol} LIKE ${`%${canon}%`}`);
