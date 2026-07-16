@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-// (useMemo used for featured door-style families)
 import { Link, useSearch, useLocation } from "wouter";
-import { Search, Filter, ChevronRight, ChevronLeft, Package } from "lucide-react";
+import { Search, Filter, ChevronRight, ChevronLeft, Package, X, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +14,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 
-// Door-style tiles for the catalog landing — the shop is organized by door style,
-// not Base/Wall/Tall categories. Each links into the full Door Styles experience.
+// Door-style tiles for the catalog landing
 interface DoorStyleTile {
   label: string;
   blurb: string;
@@ -29,11 +27,6 @@ const DOOR_STYLE_TILES: DoorStyleTile[] = [
   { label: "Contemporary Slab", blurb: "Flat, handle-light fronts for a sleek modern kitchen.", image: KITCHEN_SCENES["slab-natural"] },
   { label: "Espresso", blurb: "Rich, deep tones for a bold, sophisticated space.", image: KITCHEN_SCENES["shaker-espresso"] },
 ];
-
-// ─── Category presentation config ──────────────────────────────────────────────
-// Maps DB category values to a room-scene image + short description. Categories
-// not listed here still appear (using a neutral fallback), so the catalog stays
-// in sync with the database even if new categories are added.
 
 const HERO_IMAGE = "/manus-storage/cat-hero-kitchen_bfa47868.jpg";
 
@@ -81,11 +74,7 @@ function tileFor(category: string): CategoryTile {
   for (const key of Object.keys(CATEGORY_TILES)) {
     if (CATEGORY_TILES[key].match(lc)) return CATEGORY_TILES[key];
   }
-  return {
-    match: () => false,
-    image: HERO_IMAGE,
-    blurb: "Browse cabinets in this category.",
-  };
+  return { match: () => false, image: HERO_IMAGE, blurb: "Browse cabinets in this category." };
 }
 
 // ─── Cabinet card ─────────────────────────────────────────────────────────────
@@ -109,16 +98,12 @@ function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: num
   return (
     <Link href={href}>
       <div className="cabinet-card group rounded-xl border border-border bg-card hover:border-primary/30 cursor-pointer overflow-hidden transition-colors">
-        {/* Every item shows its accurate, to-scale drawing so the picture always
-            matches the real item type (drawer base draws drawers, sink base shows
-            the sink cutout, glass walls show glass, corners show the L-shape). */}
         <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3">
           <CabinetImage
             cabinet={cabinet}
             className="h-full w-auto max-w-full transition-transform duration-300 group-hover:scale-[1.04]"
           />
         </div>
-
         <div className="p-4">
           <div className="flex items-start justify-between gap-2 mb-1">
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
@@ -128,11 +113,9 @@ function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: num
               {cabinetTypeLabel(cabinet)}
             </Badge>
           </div>
-
           <p className="text-sm font-medium text-foreground mt-2 leading-snug line-clamp-2">
             {translateSpec(cabinet.description, lang)}
           </p>
-
           {(cabinet.width || cabinet.height || cabinet.depth) && (
             <p className="text-xs text-muted-foreground mt-2">
               {[
@@ -144,7 +127,6 @@ function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: num
                 .join(" · ")}
             </p>
           )}
-
           <div className="mt-3 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{t("cat_view_pricing")}</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -155,18 +137,12 @@ function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: num
   );
 }
 
-// ─── Category landing (tiles) ───────────────────────────────────────────────────
+// ─── Category landing (tiles) ──────────────────────────────────────────────────
 
-function CategoryLanding({
-  onSearch,
-}: {
-  onSearch: (term: string) => void;
-}) {
+function CategoryLanding({ onSearch }: { onSearch: (term: string) => void }) {
   const { t } = useLanguage();
   const [term, setTerm] = useState("");
 
-  // Pull real door styles so the "Shop by Door Style" tiles each link into that
-  // family's full catalog (/family/:styleCode), not a generic list page.
   const { data: styles } = trpc.doorStyles.list.useQuery();
   const featuredStyles = useMemo(() => {
     type FeaturedStyle = {
@@ -181,8 +157,6 @@ function CategoryLanding({
       roomSceneImageUrl: string | null;
     };
     const map = new Map<string, FeaturedStyle>();
-    // Only feature styles that have a REAL verified room-scene photo, so every
-    // tile shows the style's own name-matched scene (never a guessed bucket).
     for (const s of (styles ?? []) as FeaturedStyle[]) {
       if (!s.roomSceneImageUrl) continue;
       const key = (s.ourName || s.styleCode || String(s.id)).toLowerCase();
@@ -226,7 +200,7 @@ function CategoryLanding({
         </div>
       </div>
 
-      {/* Shop by Door Style — the catalog is organized by door style, not Base/Wall/Tall categories */}
+      {/* Shop by Door Style */}
       <div className="mt-10 flex flex-wrap items-end justify-between gap-3 mb-1">
         <h2 className="font-serif text-2xl font-bold text-foreground">
           {t("cat_shop_by_style")}
@@ -245,14 +219,10 @@ function CategoryLanding({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {(featuredStyles.length > 0
           ? featuredStyles.map((s) => ({
-              // White-label display name: aliasName → ourName → styleCode (no distributor names).
               label: styleDisplayName(s) || s.styleCode,
               href: `/family/${encodeURIComponent(s.styleCode)}`,
-              // Real, verified per-style scene from the DB (guaranteed present by
-              // the filter above) — matches the style's name, never a guess.
               image: s.roomSceneImageUrl as string,
-              blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") ||
-                t("cat_blurb_fallback"),
+              blurb: [s.doorStyle, s.woodSpecies].filter(Boolean).join(" · ") || t("cat_blurb_fallback"),
             }))
           : DOOR_STYLE_TILES.map((t) => ({
               label: t.label,
@@ -286,10 +256,124 @@ function CategoryLanding({
   );
 }
 
-// ─── Category drill-in (cabinets grid) ──────────────────────────────────────────
+// ─── Category filter pills ─────────────────────────────────────────────────────
+
+const CATEGORY_ORDER = ["base", "wall", "tall", "ada", "vanity", "accessory"];
+const CATEGORY_LABELS: Record<string, string> = {
+  base: "Base",
+  wall: "Wall",
+  tall: "Tall / Pantry",
+  ada: "ADA",
+  vanity: "Vanity",
+  accessory: "Accessories",
+};
+
+function CategoryFilterBar({
+  activeCategory,
+  activeSubCategory,
+  onCategoryChange,
+  onSubCategoryChange,
+  styleId,
+}: {
+  activeCategory: string | null;
+  activeSubCategory: string | null;
+  onCategoryChange: (cat: string | null) => void;
+  onSubCategoryChange: (sub: string | null) => void;
+  styleId: number | null;
+}) {
+  const { data: allCategories } = trpc.cabinets.categories.useQuery();
+  const { data: subCategories } = trpc.cabinets.subCategories.useQuery(
+    { category: activeCategory! },
+    { enabled: !!activeCategory }
+  );
+
+  const sortedCategories = useMemo(() => {
+    if (!allCategories) return [];
+    return [...allCategories].sort((a, b) => {
+      const ia = CATEGORY_ORDER.indexOf((a || "").toLowerCase());
+      const ib = CATEGORY_ORDER.indexOf((b || "").toLowerCase());
+      if (ia === -1 && ib === -1) return (a || "").localeCompare(b || "");
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+  }, [allCategories]);
+
+  return (
+    <div className="mb-5 space-y-3">
+      {/* Category pills */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mr-1 flex items-center gap-1">
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Type
+        </span>
+        <button
+          onClick={() => { onCategoryChange(null); onSubCategoryChange(null); }}
+          className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+            activeCategory === null
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-muted/50"
+          }`}
+        >
+          All
+        </button>
+        {sortedCategories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => {
+              onCategoryChange(activeCategory === cat ? null : cat);
+              onSubCategoryChange(null);
+            }}
+            className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+              activeCategory === cat
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-muted/50"
+            }`}
+          >
+            {CATEGORY_LABELS[(cat || "").toLowerCase()] || cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Sub-category pills (only when a category is selected and subs exist) */}
+      {activeCategory && subCategories && subCategories.length > 0 && (
+        <div className="flex flex-wrap gap-2 items-center pl-1">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mr-1">
+            Sub-type
+          </span>
+          <button
+            onClick={() => onSubCategoryChange(null)}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              activeSubCategory === null
+                ? "bg-secondary text-secondary-foreground border-secondary"
+                : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-muted/50"
+            }`}
+          >
+            All
+          </button>
+          {subCategories.map((sub) => (
+            <button
+              key={sub}
+              onClick={() => onSubCategoryChange(activeSubCategory === sub ? null : sub)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                activeSubCategory === sub
+                  ? "bg-secondary text-secondary-foreground border-secondary"
+                  : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-muted/50"
+              }`}
+            >
+              {sub}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Category drill-in (cabinets grid) ────────────────────────────────────────
 
 function CategoryView({
-  category,
+  category: initialCategoryProp,
   search,
   onBack,
   onSearchChange,
@@ -302,9 +386,9 @@ function CategoryView({
   const { t } = useLanguage();
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [offset, setOffset] = useState(0);
-  // Cabinet availability is per door style: the shopper must pick a style
-  // before any cabinets are shown, so the catalog matches the Design Tool.
-  // A ?style=<id> URL param preselects it (deep-linking from a style page).
+  const [activeCategory, setActiveCategory] = useState<string | null>(initialCategoryProp);
+  const [activeSubCategory, setActiveSubCategory] = useState<string | null>(null);
+
   const initialStyle = (() => {
     if (typeof window === "undefined") return null;
     const v = new URLSearchParams(window.location.search).get("style");
@@ -321,22 +405,28 @@ function CategoryView({
       .map((s) => ({ id: s.id, label: styleDisplayName(s) || s.styleCode }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [styles]);
-  const selectedStyleLabel =
-    styleOptions.find((s) => s.id === styleId)?.label ?? null;
+  const selectedStyleLabel = styleOptions.find((s) => s.id === styleId)?.label ?? null;
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
   }, [search]);
 
   useEffect(() => {
     setOffset(0);
-  }, [category, debouncedSearch, styleId]);
+  }, [activeCategory, activeSubCategory, debouncedSearch, styleId]);
+
+  // Sync category prop changes (e.g. from URL)
+  useEffect(() => {
+    setActiveCategory(initialCategoryProp);
+    setActiveSubCategory(null);
+  }, [initialCategoryProp]);
 
   const { data, isLoading } = trpc.cabinets.listForStyle.useQuery(
     {
       styleId: styleId ?? 0,
-      category: category ?? undefined,
+      category: activeCategory ?? undefined,
+      subCategory: activeSubCategory ?? undefined,
       search: debouncedSearch || undefined,
       limit: LIMIT,
       offset,
@@ -349,11 +439,17 @@ function CategoryView({
   const totalPages = Math.ceil(total / LIMIT);
   const currentPage = Math.floor(offset / LIMIT) + 1;
 
-  const heading = category ?? (debouncedSearch ? `${t("cat_results_for")} "${debouncedSearch}"` : t("cat_all_cabinets"));
+  const activeFilterCount = [activeCategory, activeSubCategory, debouncedSearch].filter(Boolean).length;
+
+  const clearAllFilters = () => {
+    setActiveCategory(null);
+    setActiveSubCategory(null);
+    onSearchChange("");
+  };
 
   return (
     <div>
-      {/* Back + heading */}
+      {/* Back */}
       <button
         onClick={onBack}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
@@ -362,28 +458,29 @@ function CategoryView({
         {t("cat_all_categories")}
       </button>
 
-      {category && (
+      {activeCategory && (
         <div className="relative overflow-hidden rounded-xl border border-border mb-6 h-28">
           <img
-            src={tileFor(category).image}
-            alt={`${category} cabinets`}
+            src={tileFor(activeCategory).image}
+            alt={`${activeCategory} cabinets`}
             className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-navy)]/90 to-transparent" />
           <div className="relative px-6 py-5">
-            <h1 className="font-serif text-2xl font-bold text-white">{category}</h1>
-            <p className="text-white/80 text-xs mt-0.5">{tileFor(category).blurb}</p>
+            <h1 className="font-serif text-2xl font-bold text-white">{CATEGORY_LABELS[activeCategory.toLowerCase()] || activeCategory}</h1>
+            <p className="text-white/80 text-xs mt-0.5">{tileFor(activeCategory).blurb}</p>
           </div>
         </div>
       )}
 
-      {!category && (
-        <h1 className="font-serif text-2xl font-bold text-foreground mb-4">{heading}</h1>
+      {!activeCategory && (
+        <h1 className="font-serif text-2xl font-bold text-foreground mb-4">
+          {debouncedSearch ? `${t("cat_results_for")} "${debouncedSearch}"` : t("cat_all_cabinets")}
+        </h1>
       )}
 
-      {/* Door style selector — availability is per door style, so the shopper
-          must choose a style before any cabinets are shown. */}
-      <div className="mb-6 rounded-xl border border-border bg-muted/30 p-4">
+      {/* Door style selector */}
+      <div className="mb-5 rounded-xl border border-border bg-muted/30 p-4">
         <label className="block text-sm font-semibold text-foreground mb-2">
           {t("cat_door_style_label")}
         </label>
@@ -410,72 +507,121 @@ function CategoryView({
         )}
       </div>
 
-      {/* Search (only meaningful once a style is selected) */}
+      {/* Search + filters (only meaningful once a style is selected) */}
       {styleId != null && (
-        <div className="relative mb-6 max-w-lg">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t("cat_search_within")}
-            className="pl-9"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
+        <>
+          {/* Search bar */}
+          <div className="relative mb-4 max-w-lg">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by SKU code or description (e.g. B30, sink base, drawer)"
+              className="pl-9 pr-9"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
+            {search && (
+              <button
+                onClick={() => onSearchChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Category filter pills */}
+          <CategoryFilterBar
+            activeCategory={activeCategory}
+            activeSubCategory={activeSubCategory}
+            onCategoryChange={setActiveCategory}
+            onSubCategoryChange={setActiveSubCategory}
+            styleId={styleId}
           />
-        </div>
+
+          {/* Active filter summary */}
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              {debouncedSearch && (
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  Search: "{debouncedSearch}"
+                  <button onClick={() => onSearchChange("")} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {activeCategory && (
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  {CATEGORY_LABELS[activeCategory.toLowerCase()] || activeCategory}
+                  <button onClick={() => { setActiveCategory(null); setActiveSubCategory(null); }} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {activeSubCategory && (
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  {activeSubCategory}
+                  <button onClick={() => setActiveSubCategory(null)} className="ml-1 hover:text-destructive">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {total} {t("cat_results_count")}
+              </span>
+              <button
+                onClick={clearAllFilters}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 ml-1"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Active filters */}
-      {debouncedSearch && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-          <Badge variant="secondary" className="gap-1">
-            "{debouncedSearch}"
-            <button onClick={() => onSearchChange("")} className="ml-1 hover:text-destructive">
-              ×
-            </button>
-          </Badge>
-          <span className="text-xs text-muted-foreground">{total} {t("cat_results_count")}</span>
-        </div>
-      )}
-
-      {/* Prompt to choose a style before any grid renders */}
+      {/* Prompt to choose a style */}
       {styleId == null ? (
         <div className="text-center py-16 text-muted-foreground">
           <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p className="font-medium">{t("cat_choose_style_title")}</p>
-          <p className="text-sm mt-1">
-            {t("cat_choose_style_sub")}
-          </p>
+          <p className="text-sm mt-1">{t("cat_choose_style_sub")}</p>
         </div>
       ) : (
-      <>
-      {/* Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-border overflow-hidden">
-              <Skeleton className="h-36 w-full" />
-              <div className="p-4 space-y-2">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-3/4" />
-              </div>
+        <>
+          {/* Grid */}
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="rounded-xl border border-border overflow-hidden">
+                  <Skeleton className="h-36 w-full" />
+                  <div className="p-4 space-y-2">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">{t("cat_none_title")}</p>
-          <p className="text-sm mt-1">{t("cat_none_sub")}</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {items.map((cabinet) => (
-            <CabinetCard key={cabinet.id} cabinet={cabinet as CabinetItem} styleId={styleId} />
-          ))}
-        </div>
-      )}
-      </>
+          ) : items.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">{t("cat_none_title")}</p>
+              <p className="text-sm mt-1">{t("cat_none_sub")}</p>
+              {activeFilterCount > 0 && (
+                <Button variant="outline" size="sm" className="mt-4" onClick={clearAllFilters}>
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {items.map((cabinet) => (
+                <CabinetCard key={cabinet.id} cabinet={cabinet as CabinetItem} styleId={styleId} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Pagination */}
@@ -518,12 +664,10 @@ export default function Catalog() {
   const params = new URLSearchParams(searchStr);
   const initialCategory = params.get("category");
 
-  // null = show landing tiles; string = show that category; "" sentinel handled via state
   const [category, setCategory] = useState<string | null>(initialCategory);
   const [showResults, setShowResults] = useState<boolean>(!!initialCategory);
   const [search, setSearch] = useState("");
 
-  // Keep state in sync if the URL ?category= changes (e.g. from a breadcrumb link).
   useEffect(() => {
     const cat = new URLSearchParams(searchStr).get("category");
     if (cat) {
