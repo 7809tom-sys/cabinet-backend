@@ -21,28 +21,14 @@ const STYLE_COLS = [
 async function main() {
   const conn = await mysql.createConnection(process.env.DATABASE_URL);
 
-  // 1. Ensure Clark & Son distributor exists
-  let [distRows] = await conn.query(
-    'SELECT id FROM distributors WHERE name = ? LIMIT 1',
-    [DIST_NAME]
-  );
-  let distributorId;
-  if (distRows.length === 0) {
-    const [ins] = await conn.query(
-      "INSERT INTO distributors (name, code, initials, isActive, displayMode, markupPercent, costMultiplier, baseMultiplier, freightMultiplier, tariffRate, shippingRate, leadTimeDays) VALUES (?, 'CAS', 'CAS', 1, 'neutral', '1.0000', '0.3000', '0.3000', '0.0000', '0.0000', '0.0000', 14)",
-      [DIST_NAME]
-    );
-    distributorId = ins.insertId;
-    console.log(`Created distributor "${DIST_NAME}" id=${distributorId}`);
-  } else {
-    distributorId = distRows[0].id;
-    console.log(`Found distributor "${DIST_NAME}" id=${distributorId}`);
-  }
+  // 1. Use Ashford distributor (id=2, Clark & Son)
+  const distributorId = 2;
+  console.log(`Using Ashford distributor id=${distributorId}`);
 
   // 2. Resolve door style IDs from codes (pick first active match per code)
   const codes = STYLE_COLS.map(s => s.code);
   const [styleRows] = await conn.query(
-    'SELECT id, styleCode FROM door_styles WHERE styleCode IN (?) AND isActive = 1 ORDER BY id ASC',
+    'SELECT id, styleCode FROM door_styles WHERE styleCode IN (?) AND distributorId = 2 ORDER BY id ASC',
     [codes]
   );
   const codeToStyleId = {};
