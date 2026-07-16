@@ -741,6 +741,8 @@ function MultiColumnMappingStep({
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   // Full Catalog Update mode — when true, SKUs absent from the upload are de-listed
   const [fullCatalogUpdate, setFullCatalogUpdate] = useState(false);
+  // Fix dialog: rawCode of the row currently being fixed, or null
+  const [fixDialogFor, setFixDialogFor] = useState<string | null>(null);
   const previewMut = trpc.distributorAdmin.previewAllColumns.useMutation();
   const previewData = previewMut.data;
   const firstListCol = activeMappings.find((m) => m.priceType === "list")?.columnCode ?? activeMappings[0]?.columnCode ?? "";
@@ -948,6 +950,17 @@ function MultiColumnMappingStep({
       </div>
 
       {/* Row-by-row review table */}
+      {/* Fix dialog — searchable master cabinet picker */}
+      <FixMasterDialog
+        open={fixDialogFor !== null}
+        rawCode={fixDialogFor ?? ""}
+        onSelect={(masterCode) => {
+          if (fixDialogFor) setManualMatches((prev) => ({ ...prev, [fixDialogFor]: masterCode }));
+          setFixDialogFor(null);
+        }}
+        onClose={() => setFixDialogFor(null)}
+      />
+
       {showReview && (
         <div className="rounded-md border overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 bg-muted/60 border-b">
@@ -958,7 +971,7 @@ function MultiColumnMappingStep({
             </span>
             {previewData && previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length > 0 && (
               <span className="text-xs text-amber-600 font-medium">
-                {previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length} unmatched — type master code to fix
+                {previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length} need review
               </span>
             )}
           </div>
@@ -980,21 +993,18 @@ function MultiColumnMappingStep({
                 </thead>
                 <tbody>
                   {previewData.rows.map((row) => {
-                    const isMatched = row.matched || Boolean(manualMatches[row.rawCode]?.trim());
+                    const manualCode = manualMatches[row.rawCode]?.trim();
+                    const isMatched = row.matched || Boolean(manualCode);
                     return (
-                      <tr key={row.rawCode} className={`border-t ${isMatched ? "" : "bg-red-50 dark:bg-red-950/20"}`}>
+                      <tr key={row.rawCode} className={`border-t ${isMatched ? "" : "bg-amber-50/60 dark:bg-amber-950/20"}`}>
                         <td className="px-3 py-1.5 font-mono">{row.rawCode}</td>
                         <td className="px-3 py-1.5">
                           {row.matched ? (
                             <span className="text-emerald-700 dark:text-emerald-400 font-medium">{row.masterCode}</span>
+                          ) : manualCode ? (
+                            <span className="text-emerald-700 dark:text-emerald-400 font-medium">{manualCode}</span>
                           ) : (
-                            <input
-                              type="text"
-                              className="h-6 px-1.5 rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-xs font-mono w-32 outline-none focus:border-amber-500"
-                              placeholder="type master code"
-                              value={manualMatches[row.rawCode] ?? ""}
-                              onChange={(e) => setManualMatches((prev) => ({ ...prev, [row.rawCode]: e.target.value }))}
-                            />
+                            <span className="text-muted-foreground italic text-xs">—</span>
                           )}
                         </td>
                         <td className="px-3 py-1.5 text-right font-mono">
@@ -1006,11 +1016,21 @@ function MultiColumnMappingStep({
                         <td className="px-3 py-1.5">
                           {isMatched ? (
                             <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
-                              <CheckCircle2 className="h-3.5 w-3.5" /> Match
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Matched
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-red-500 font-medium">
-                              <AlertTriangle className="h-3.5 w-3.5" /> No match
+                            <span className="inline-flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-semibold px-2 py-0.5 text-[10px]">
+                                <AlertTriangle className="h-3 w-3" /> Needs Review
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => setFixDialogFor(row.rawCode)}
+                              >
+                                Fix
+                              </Button>
                             </span>
                           )}
                         </td>
@@ -2066,4 +2086,131 @@ export default function DistributorImport() {
       )}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// FixMasterDialog — searchable master cabinet picker for unmatched import rows
+// ---------------------------------------------------------------------------
+function FixMasterDialog({
+  open,
+  rawCode,
+  onSelect,
+  onClose,
+}: {
+  open: boolean;
+  rawCode: string;
+  onSelect: (masterCode: string) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounced(query, 300);
+
+  const { data: results, isFetching } = trpc.pricing.adminSearchMasterCabinets.useQuery(
+    { query: debouncedQuery },
+    { enabled: open && debouncedQuery.length >= 1 }
+  );
+
+  // Reset search when dialog opens
+  const prevOpen = useRef(false);
+  useEffect(() => {
+    if (open && !prevOpen.current) setQuery(rawCode);
+    prevOpen.current = open;
+  }, [open, rawCode]);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500" />
+            Fix Unmatched Code
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Sheet code <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">{rawCode}</code> could not be automatically matched.
+            Search for the correct master cabinet below and select it to assign the match.
+          </p>
+
+          {/* Search input */}
+          <div className="relative">
+            <input
+              autoFocus
+              type="text"
+              className="w-full h-9 px-3 rounded-md border bg-background text-sm outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Search by master code or description…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {isFetching && (
+              <Spinner className="absolute right-2.5 top-2 h-4 w-4 text-muted-foreground" />
+            )}
+          </div>
+
+          {/* Results list */}
+          <div className="rounded-md border overflow-hidden max-h-[320px] overflow-y-auto">
+            {!results || results.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground text-sm">
+                {debouncedQuery.length < 1 ? (
+                  <span>Type to search master cabinets</span>
+                ) : isFetching ? (
+                  <span>Searching…</span>
+                ) : (
+                  <span>No cabinets found for &ldquo;{debouncedQuery}&rdquo;</span>
+                )}
+              </div>
+            ) : (
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-muted/80 text-muted-foreground border-b">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Master Code</th>
+                    <th className="px-3 py-2 text-left font-medium">Description</th>
+                    <th className="px-3 py-2 text-left font-medium">Category</th>
+                    <th className="px-3 py-2 w-16"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((cab: { id: number; masterCode: string; description: string | null; category: string | null }) => (
+                    <tr
+                      key={cab.id}
+                      className="border-t hover:bg-muted/40 cursor-pointer transition-colors"
+                      onClick={() => onSelect(cab.masterCode)}
+                    >
+                      <td className="px-3 py-2 font-mono font-semibold">{cab.masterCode}</td>
+                      <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate">{cab.description ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{cab.category ?? "—"}</td>
+                      <td className="px-3 py-2">
+                        <Button
+                          size="sm"
+                          className="h-6 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={(e) => { e.stopPropagation(); onSelect(cab.masterCode); }}
+                        >
+                          Select
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Simple debounce hook */
+function useDebounced<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
 }
