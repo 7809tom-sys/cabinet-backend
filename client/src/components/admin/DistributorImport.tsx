@@ -32,6 +32,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   Download,
@@ -738,6 +739,8 @@ function MultiColumnMappingStep({
   const [showReview, setShowReview] = useState(false);
   const [manualMatches, setManualMatches] = useState<Record<string, string>>({});
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  // Full Catalog Update mode — when true, SKUs absent from the upload are de-listed
+  const [fullCatalogUpdate, setFullCatalogUpdate] = useState(false);
   const previewMut = trpc.distributorAdmin.previewAllColumns.useMutation();
   const previewData = previewMut.data;
   const firstListCol = activeMappings.find((m) => m.priceType === "list")?.columnCode ?? activeMappings[0]?.columnCode ?? "";
@@ -907,6 +910,43 @@ function MultiColumnMappingStep({
         Mappings are saved automatically and pre-filled next time you upload this distributor's sheet.
       </p>
 
+      {/* Full Catalog Update toggle */}
+      <div className={`rounded-lg border p-3 space-y-2 transition-colors ${
+        fullCatalogUpdate
+          ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20"
+          : "border-border bg-muted/30"
+      }`}>
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <Checkbox
+            id="fullCatalogUpdate"
+            checked={fullCatalogUpdate}
+            onCheckedChange={(v) => setFullCatalogUpdate(Boolean(v))}
+            className="mt-0.5 shrink-0"
+          />
+          <div className="space-y-0.5">
+            <p className="text-sm font-semibold leading-none">
+              Full Catalog Update
+            </p>
+            <p className="text-xs text-muted-foreground">
+              When checked, any SKU for the selected distributor + style that is
+              <strong> not present in this upload</strong> will be marked as
+              unavailable (de-listed). Use this when the file represents the
+              complete current catalog. Leave unchecked to only update the
+              provided records without removing anything.
+            </p>
+          </div>
+        </label>
+        {fullCatalogUpdate && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-100 dark:bg-amber-900/30 px-3 py-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 dark:text-amber-300">
+              <strong>Caution:</strong> SKUs not in this file will be de-listed for the selected styles.
+              This cannot be undone automatically — verify the file is complete before publishing.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Row-by-row review table */}
       {showReview && (
         <div className="rounded-md border overflow-hidden">
@@ -997,15 +1037,22 @@ function MultiColumnMappingStep({
           {commitResult && (() => {
             const totalPriced = commitResult.results.reduce((s, r) => s + r.priced, 0);
             const totalUnmatched = commitResult.results.reduce((s, r) => s + r.unmatched, 0);
+            const totalDelisted = commitResult.results.reduce((s, r) => s + (r.delisted ?? 0), 0);
             const totalStyles = commitResult.results.length;
             return (
               <div className="space-y-4">
                 {/* Top summary */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className={`grid gap-3 ${totalDelisted > 0 ? "grid-cols-4" : "grid-cols-3"}`}>
                   <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 p-3 text-center">
                     <div className="text-2xl font-bold text-emerald-700">{totalPriced}</div>
                     <div className="text-xs text-emerald-600 mt-0.5">SKUs Updated</div>
                   </div>
+                  {totalDelisted > 0 && (
+                    <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 p-3 text-center">
+                      <div className="text-2xl font-bold text-amber-600">{totalDelisted}</div>
+                      <div className="text-xs text-amber-600 mt-0.5">De-listed</div>
+                    </div>
+                  )}
                   <div className="rounded-md bg-muted/60 border p-3 text-center">
                     <div className="text-2xl font-bold">{totalStyles}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">Styles Processed</div>
@@ -1118,6 +1165,7 @@ function MultiColumnMappingStep({
               skuColumn: skuCol,
               mappings: activeMappings,
               dryRun: false,
+              fullCatalogUpdate,
             });
           }}
         >
