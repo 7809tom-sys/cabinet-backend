@@ -383,6 +383,10 @@ function ProMatcher({ zip, onZipChange }: { zip: string; onZipChange: (z: string
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminGroupedTabs() {
+  const { data: flaggedDescCount } = trpc.cabinets.adminFlaggedDescriptionCount.useQuery(
+    undefined,
+    { refetchOnWindowFocus: false, staleTime: 60_000 }
+  );
   const initialTab = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("tab") || "crm";
@@ -441,8 +445,13 @@ export default function AdminGroupedTabs() {
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="h-auto w-full flex-wrap justify-start gap-y-1">
           {currentGroup.tabs.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>
+            <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
               {t.label}
+              {t.value === "desc-cleanup" && flaggedDescCount != null && flaggedDescCount > 0 && (
+                <span className="inline-flex items-center justify-center h-4 min-w-[1rem] px-1 text-[10px] font-bold rounded-full bg-red-500 text-white leading-none">
+                  {flaggedDescCount}
+                </span>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>

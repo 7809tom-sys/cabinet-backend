@@ -2241,6 +2241,24 @@ export const cabinetsRouter = router({
     }),
 
   // -- Admin: Description Cleanup -------------------------------------------
+  // Returns just the count of flagged descriptions (for the tab badge).
+  adminFlaggedDescriptionCount: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return 0;
+    const BRAND_NAMES = [
+      "Castleberry", "Aspen", "Skyline", "Spring Forest", "Floral",
+      "Lumina", "Milestone", "Clark & Son", "Clark and Son",
+      "US Cabinet Depot", "Cabinet Depot", "Forevermark", "Fabuwood",
+      "Wolf Classic", "Kraftmaid", "Merillat", "Waypoint", "Diamond",
+      "Aristokraft", "Medallion",
+    ];
+    const rows = await db
+      .select({ id: cabinets.id })
+      .from(cabinets)
+      .where(or(...BRAND_NAMES.map((b) => like(cabinets.description, `%${b}%`))));
+    return rows.length;
+  }),
+
   // Returns cabinets whose description contains a known brand/style name.
   adminListFlaggedDescriptions: adminProcedure.query(async () => {
     const db = await getDb();
