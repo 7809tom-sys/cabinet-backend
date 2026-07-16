@@ -41,6 +41,7 @@ interface DoorStyle {
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
+  pricingVerifiedAt?: Date | string | null;
 }
 
 /** Returns the public-facing display name */
@@ -594,6 +595,18 @@ function StyleCard({ style, isAdmin }: { style: DoorStyle; isAdmin: boolean }) {
           </Button>
         </Link>
 
+        {/* Pricing verified date — admin only */}
+        {isAdmin && localStyle.pricingVerifiedAt && (
+          <div className="flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-300">
+            <span className="font-semibold">✓ Pricing verified:</span>
+            <span>{new Date(localStyle.pricingVerifiedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+          </div>
+        )}
+        {isAdmin && !localStyle.pricingVerifiedAt && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+            <span className="font-semibold">⚠ Pricing not yet verified</span>
+          </div>
+        )}
         {/* Admin inline edit panel — only visible to admins */}
         {isAdmin && (
           <AdminEditPanel

@@ -135,6 +135,7 @@ export const doorStylesRouter = router({
         isBuilderGrade: doorStyles.isBuilderGrade,
         isActive: doorStyles.isActive,
         createdAt: doorStyles.createdAt,
+        pricingVerifiedAt: doorStyles.pricingVerifiedAt,
         // Series name fields from distributors table (for "ourName (seriesName)" display)
         seriesName: distributors.seriesName,
         displayMode: distributors.displayMode,

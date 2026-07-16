@@ -135,6 +135,8 @@ export const doorStyles = mysqlTable("door_styles", {
   isBuilderGrade: boolean("isBuilderGrade").default(false).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  // Date when an admin last verified the pricing for this style is current and correct.
+  pricingVerifiedAt: timestamp("pricingVerifiedAt"),
 });
 
 export type DoorStyle = typeof doorStyles.$inferSelect;
