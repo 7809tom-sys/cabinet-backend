@@ -258,6 +258,40 @@ export const doorStylesRouter = router({
     return rows; // admin sees full rows (incl. distributorName) intentionally
   }),
 
+  // Admin: every active style with per-distributor SKU counts, for the manager UI.
+  listForAdminWithSkuCounts: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const rows = await db
+      .select()
+      .from(doorStyles)
+      .where(eq(doorStyles.isActive, true))
+      .orderBy(asc(doorStyles.ourName));
+    // For each style, get SKU counts per distributor
+    const skuRows = await db
+      .select({
+        styleId: distributorSkus.styleId,
+        distributorId: distributors.id,
+        distributorName: distributors.name,
+        skuCount: sql<number>`COUNT(${distributorSkus.id})`,
+      })
+      .from(distributorSkus)
+      .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+      .where(eq(distributorSkus.isAvailable, true))
+      .groupBy(distributorSkus.styleId, distributors.id, distributors.name);
+    // Build a map: styleId -> [{distributorName, skuCount}]
+    const skuMap = new Map<number, { distributorName: string; skuCount: number }[]>();
+    for (const r of skuRows) {
+      const existing = skuMap.get(r.styleId) ?? [];
+      existing.push({ distributorName: r.distributorName, skuCount: Number(r.skuCount) });
+      skuMap.set(r.styleId, existing);
+    }
+    return rows.map((s) => ({
+      ...s,
+      distributorSkuBreakdown: skuMap.get(s.id) ?? [],
+    }));
+  }),
+
   // Admin: toggle a style's featured state. Enforces the MAX 30 cap on enable.
   setFeatured: adminProcedure
     .input(z.object({ id: z.number(), featured: z.boolean() }))

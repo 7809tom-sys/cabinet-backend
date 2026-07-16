@@ -44,6 +44,7 @@ interface AdminStyle {
   distributorId: number;
   distributorName: string | null;
   seriesName: string | null;
+  distributorSkuBreakdown?: { distributorName: string; skuCount: number }[];
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -612,7 +613,7 @@ export default function FeaturedStylesAdmin() {
   const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
   const [viewingStyle, setViewingStyle] = useState<AdminStyle | null>(null);
   const utils = trpc.useUtils();
-  const { data, isLoading } = trpc.doorStyles.listForAdmin.useQuery();
+  const { data, isLoading } = trpc.doorStyles.listForAdminWithSkuCounts.useQuery();
 
   const styles = useMemo(() => (data ?? []) as unknown as AdminStyle[], [data]);
 
@@ -803,6 +804,19 @@ export default function FeaturedStylesAdmin() {
                       )}
                     </p>
                   )}
+                  {s.distributorSkuBreakdown && s.distributorSkuBreakdown.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {s.distributorSkuBreakdown.map((d) => (
+                        <span
+                          key={d.distributorName}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200"
+                        >
+                          {d.distributorName}
+                          <span className="bg-slate-200 text-slate-700 rounded-full px-1">{d.skuCount}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {/* List items button */}
@@ -944,6 +958,19 @@ export default function FeaturedStylesAdmin() {
                         <span className="text-muted-foreground"> · {s.distributorName}</span>
                       )}
                     </p>
+                  )}
+                  {s.distributorSkuBreakdown && s.distributorSkuBreakdown.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {s.distributorSkuBreakdown.map((d) => (
+                        <span
+                          key={d.distributorName}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200"
+                        >
+                          {d.distributorName}
+                          <span className="bg-slate-200 text-slate-700 rounded-full px-1">{d.skuCount}</span>
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </button>
                 <div className="flex items-center gap-1 shrink-0">

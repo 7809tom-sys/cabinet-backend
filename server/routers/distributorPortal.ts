@@ -79,7 +79,7 @@ export const distributorPortalRouter = router({
       // Door styles carried by this line.
       // Note: we intentionally do NOT filter by isActive here so that the vendor
       // portal shows ALL styles (including disabled ones) and can toggle them.
-      const styles = await db
+      const styleRows = await db
         .select({
           id: doorStyles.id,
           ourName: doorStyles.ourName,
@@ -92,6 +92,19 @@ export const distributorPortalRouter = router({
         .from(doorStyles)
         .where(eq(doorStyles.distributorId, lineId))
         .orderBy(doorStyles.ourName);
+
+      // Per-style SKU counts for this distributor
+      const skuCountRows = await db
+        .select({
+          styleId: distributorSkus.styleId,
+          skuCount: sql<number>`COUNT(${distributorSkus.id})`,
+        })
+        .from(distributorSkus)
+        .where(and(eq(distributorSkus.distributorId, lineId), eq(distributorSkus.isAvailable, true)))
+        .groupBy(distributorSkus.styleId);
+      const skuCountMap = new Map<number, number>();
+      for (const r of skuCountRows) skuCountMap.set(r.styleId, Number(r.skuCount));
+      const styles = styleRows.map((s) => ({ ...s, skuCount: skuCountMap.get(s.id) ?? 0 }));
 
       return {
         line,

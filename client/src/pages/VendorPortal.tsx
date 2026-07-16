@@ -1398,10 +1398,15 @@ function DoorStylesPage() {
               {/* Header row: name + controls */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-medium truncate">{style.ourName}</h3>
                     {!style.isActive && (
                       <span className="shrink-0 text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5 font-semibold">DISABLED</span>
+                    )}
+                    {'skuCount' in style && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                        {(style as any).skuCount} SKUs
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">{style.doorStyle}</p>
