@@ -62,8 +62,13 @@ const CATEGORY_TILES: Record<string, CategoryTile> = {
     image: "/manus-storage/cat-vanity_b8e3457c.jpg",
     blurb: "Bathroom vanity bases with sink and storage options.",
   },
-  Accessory: {
-    match: (c) => c === "accessory",
+  Corner: {
+    match: (c) => c === "corner",
+    image: "/manus-storage/cat-base_9a298dfc.jpg",
+    blurb: "Corner solutions — blind corner, lazy susan, diagonal and angled cabinets.",
+  },
+  Accessories: {
+    match: (c) => c === "accessories" || c === "accessory",
     image: "/manus-storage/cat-accessory_c93204c0.jpg",
     blurb: "Crown molding, fillers, end panels, shelves and trim.",
   },
@@ -258,13 +263,15 @@ function CategoryLanding({ onSearch }: { onSearch: (term: string) => void }) {
 
 // ─── Category filter pills ─────────────────────────────────────────────────────
 
-const CATEGORY_ORDER = ["base", "wall", "tall", "ada", "vanity", "accessory"];
+const CATEGORY_ORDER = ["base", "wall", "corner", "tall", "ada", "vanity", "accessories"];
 const CATEGORY_LABELS: Record<string, string> = {
   base: "Base",
   wall: "Wall",
+  corner: "Corner",
   tall: "Tall / Pantry",
   ada: "ADA",
   vanity: "Vanity",
+  accessories: "Accessories",
   accessory: "Accessories",
 };
 
