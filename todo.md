@@ -1093,3 +1093,11 @@
 - [x] All wall cabinets 12"–24" tall (bridge cabinets) should default to mountBottom = 72" (not 54")
 - [x] Wall cabinets 30"+ tall keep mountBottom = 54" (standard)
 - [x] Apply the 72" rule when auto-placing bridge cabinets above microwaves and windows
+
+## Feature: Mobile Series Switcher UX
+
+- [x] Redesign series tabs in ColorSlotButton with larger tap targets (min 52px height)
+- [x] Add door-sample thumbnail preview to each series tab chip
+- [x] Show style count subtitle on each tab
+- [x] Active tab: dark navy bg + gold checkmark; inactive: white border card
+- [x] Adjust style grid maxHeight to account for taller tabs

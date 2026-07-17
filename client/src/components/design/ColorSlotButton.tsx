@@ -350,31 +350,69 @@ export function ColorSlotButton({
               className="mt-2 rounded-lg border border-border bg-white overflow-hidden"
               style={{ maxHeight: "60vh" }}
             >
-              {/* Series tabs — horizontal scroll strip for quick series switching */}
+              {/* Series tabs — horizontal scroll strip for quick series switching.
+                  Each tab is a tall card with a door-sample thumbnail + series name
+                  so it's easy to tap on mobile (min 52px height). */}
               {groups.length > 1 && (
-                <div className="flex gap-1 overflow-x-auto overscroll-x-contain px-2 py-2 border-b border-border bg-muted/30" style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+                <div
+                  className="flex gap-2 overflow-x-auto overscroll-x-contain px-3 py-2.5 border-b border-border bg-muted/20"
+                  style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}
+                >
                   {groups.map((g) => {
                     const isActive = effectiveGroup === g.distributorId;
+                    // Pick the first style in the group that has a thumbnail for the preview chip.
+                    const previewStyle = g.styles.find((s) => s.thumbnailImageUrl || s.doorSampleImageUrl);
+                    const previewUrl = previewStyle?.thumbnailImageUrl || previewStyle?.doorSampleImageUrl;
                     return (
                       <button
                         key={String(g.distributorId)}
                         type="button"
                         onClick={() => setChosenGroup(g.distributorId)}
                         className={[
-                          "shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap",
+                          "shrink-0 flex items-center gap-2 rounded-xl border px-3 transition-all active:scale-[0.97]",
+                          "min-h-[52px] min-w-[100px] text-left",
                           isActive
-                            ? "bg-[#1a2744] text-white"
-                            : "bg-white border border-border text-foreground hover:bg-[#d4a75a]/10",
+                            ? "border-[#1a2744] bg-[#1a2744] text-white shadow-md"
+                            : "border-border bg-white text-foreground hover:border-[#d4a75a]/70 hover:bg-[#d4a75a]/8",
                         ].join(" ")}
                       >
-                        {g.label}
+                        {previewUrl && (
+                          <div className={[
+                            "h-9 w-7 shrink-0 overflow-hidden rounded-md border",
+                            isActive ? "border-white/30" : "border-border",
+                          ].join(" ")}>
+                            <img
+                              src={previewUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              draggable={false}
+                            />
+                          </div>
+                        )}
+                        <span className="min-w-0">
+                          <span className={[
+                            "block truncate text-[12px] font-bold leading-tight",
+                            isActive ? "text-white" : "text-foreground",
+                          ].join(" ")}>
+                            {g.label}
+                          </span>
+                          <span className={[
+                            "block text-[10px] leading-tight mt-0.5",
+                            isActive ? "text-white/70" : "text-muted-foreground",
+                          ].join(" ")}>
+                            {g.styles.length} {g.styles.length === 1 ? "style" : "styles"}
+                          </span>
+                        </span>
+                        {isActive && (
+                          <Check className="h-3.5 w-3.5 shrink-0 text-[#d4a75a] ml-auto" strokeWidth={3} />
+                        )}
                       </button>
                     );
                   })}
                 </div>
               )}
               {/* Style grid for the active series */}
-              <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(60vh - 48px)", WebkitOverflowScrolling: "touch" }}>
+              <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: groups.length > 1 ? "calc(60vh - 76px)" : "calc(60vh - 8px)", WebkitOverflowScrolling: "touch" }}>
                 {activeGroup ? (
                   <div className="px-2 py-2">
                     <StyleGrid list={activeGroup.styles} cols={3} />
