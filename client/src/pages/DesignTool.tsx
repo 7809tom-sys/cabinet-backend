@@ -1847,18 +1847,38 @@ export default function DesignTool() {
       // styleId is already unique per surface (-id), so a straight set is safe.
       map.set(`${sfc.masterCode}::${sfc.styleId}`, { ...sfc });
     }
-    // Blind Man's Corner: one 3"x96" filler stick per corner (installer cuts
-    // two pieces and forms the L). Only added when a priced BF-3 SKU exists
-    // for the selected style — nothing goes in the cart without a price.
+    // Blind Man's Corner: per corner, each wall side gets one 6" filler + one 3"
+    // filler butted together. The 3" filler overlaps 3" into the perpendicular
+    // filler, leaving a 3"×3" exposed corner square set back 24" from each wall.
+    // Total per corner: 2× BF-6 + 2× BF-3. Only added when priced SKUs exist.
     const blindManCount = (room.blindManCorners ?? []).length;
     if (blindManCount > 0 && styleId != null) {
+      // BF-6: 2 per corner
+      const bf6 = trimPriceByCode.get("BF-6");
+      if (bf6 && bf6.unitPrice > 0) {
+        const key6 = `BF-6::${styleId}`;
+        const ex6 = map.get(key6);
+        if (ex6) ex6.qty += blindManCount * 2;
+        else
+          map.set(key6, {
+            masterCode: bf6.masterCode,
+            name: bf6.description ?? '6" Base Filler (96")',
+            styleId,
+            styleLabel: activeStyleName ?? "",
+            distributorId: lockedDistributorId ?? null,
+            tier: DESIGN_TIER_TO_SHARED[tier],
+            unitPrice: bf6.unitPrice,
+            qty: blindManCount * 2,
+          });
+      }
+      // BF-3: 2 per corner
       const bf3 = trimPriceByCode.get("BF-3");
       if (bf3 && bf3.unitPrice > 0) {
-        const key = `BF-3::${styleId}`;
-        const existing = map.get(key);
-        if (existing) existing.qty += blindManCount;
+        const key3 = `BF-3::${styleId}`;
+        const ex3 = map.get(key3);
+        if (ex3) ex3.qty += blindManCount * 2;
         else
-          map.set(key, {
+          map.set(key3, {
             masterCode: bf3.masterCode,
             name: bf3.description ?? '3" Base Filler (96")',
             styleId,
@@ -1866,7 +1886,7 @@ export default function DesignTool() {
             distributorId: lockedDistributorId ?? null,
             tier: DESIGN_TIER_TO_SHARED[tier],
             unitPrice: bf3.unitPrice,
-            qty: blindManCount,
+            qty: blindManCount * 2,
           });
       }
     }
@@ -2141,7 +2161,7 @@ export default function DesignTool() {
     if (blindManCount > 0) {
       out.push({
         label: `BLIND MAN'S CORNER (×${blindManCount})`,
-        detail: `${blindManCount} corner${blindManCount > 1 ? "s" : ""} — 1×3"×96" filler stick cut into L-shape per corner; countertop extends over dead space`,
+        detail: `${blindManCount} corner${blindManCount > 1 ? "s" : ""} — each wall side: one 6" filler + one 3" filler butted together; 3" filler overlaps 3" into the perpendicular filler leaving a 3"×3" exposed corner square set back 24" from each wall; countertop covers the dead corner; 2× BF-6 + 2× BF-3 per corner`,
       });
     }
     // Decorative hardware spec (finishing note, no price).
@@ -7262,7 +7282,7 @@ export default function DesignTool() {
                     : ""}
                   {cornerBaseViolationUids.size > 0 && (
                     <span>
-                      {`${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a room corner — replace with a Blind Corner Base (BBC), Easy Reach Base (ERB), Lazy Susan (LSB), or Corner Sink Base (CSB), or use Blind Man’s Corner (two 3" fillers in an L-shape, countertop covers the dead space, 1×96" filler stick added to cart). `}
+                      {`${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a room corner — replace with a Blind Corner Base (BBC), Easy Reach Base (ERB), Lazy Susan (LSB), or Corner Sink Base (CSB), or use Blind Man’s Corner (each wall: one 6" + one 3" filler in an L-shape; 3"×3" exposed corner square set back 24" from each wall; countertop covers the dead space; 2× BF-6 + 2× BF-3 added to cart). `}
                       {/* Show a toggle button for each room corner that has a flagged cabinet */}
                       {(() => {
                         // Determine which room corners have flagged cabinets.

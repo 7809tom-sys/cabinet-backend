@@ -1137,6 +1137,10 @@ export function blindCornerViolations(
   const bad = new Set<string>();
   const blinds = placed.filter((p) => isBlindCorner(p.masterCode, p.description));
   for (const blind of blinds) {
+    // If the user has explicitly set a pull distance, the gap between the blind
+    // cabinet and its perpendicular neighbor IS the intentional pull — the
+    // countertop extends to the wall to cover the dead space. Do not flag it.
+    if (typeof blind.blindPull === "number" && blind.blindPull >= 0) continue;
     const rb = footprintRect(blind);
     for (const o of placed) {
       if (o.uid === blind.uid) continue;

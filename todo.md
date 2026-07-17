@@ -1104,7 +1104,7 @@
 
 ## Feature: Blind Corner Conflict Fixes + Blind Man's Corner
 
-- [ ] Fix false-positive: blind corner cabinet pulled away from wall (with filler/countertop covering gap) should not show conflict
-- [ ] Fix false-positive: appliance adjacent to (touching) a cabinet should not show conflict — only actual footprint overlap should flag
+- [x] Fix false-positive: blind corner cabinet pulled away from wall (with filler/countertop covering gap) should not show conflict
+- [x] Fix false-positive: appliance adjacent to (touching) a cabinet should not show conflict — only actual footprint overlap should flag
 - [x] Add "Blind Man's Corner" dead-corner option: two 3" fillers in L-shape at corner, no cabinet, resolves corner conflict
 - [x] In missingCornerBaseViolations: if a corner has two fillers in L-shape (blind man's corner), do not flag it as needing a BBC
