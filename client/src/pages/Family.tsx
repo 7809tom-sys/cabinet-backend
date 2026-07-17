@@ -1,8 +1,7 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Link, useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check, Heart, Pencil, Upload } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
+import { Link } from "wouter";
+import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,8 +65,6 @@ interface FamilyItem extends CabinetLike {
   contractorPrice?: string | null;
   homeownerPrice?: string | null;
   distributorId?: number | null;
-  skuId?: number | null;
-  yourCost?: string | null;
 }
 
 function fmtPrice(n: number | null): string {
@@ -90,316 +87,23 @@ const TYPE_FILTERS: { key: string; labelKey: string; match: (cat: string) => boo
   { key: "accessory", labelKey: "fam_f_accessory", match: (c) => c === "accessory" },
 ];
 
-// ── Favorites helpers ────────────────────────────────────────────────────────
-const FAV_KEY = "cabinet-dealz:favorites";
-
-function readFavs(): Set<string> {
-  try {
-    const raw = localStorage.getItem(FAV_KEY);
-    return new Set(raw ? JSON.parse(raw) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeFavs(favs: Set<string>) {
-  localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(favs)));
-}
-
-function useFavorites() {
-  const [favs, setFavs] = useState<Set<string>>(() => readFavs());
-
-  const toggle = useCallback((key: string) => {
-    setFavs((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      writeFavs(next);
-      return next;
-    });
-  }, []);
-
-  return { favs, toggle };
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
-function InlinePriceEditor({ item, styleId }: { item: FamilyItem; styleId: number }) {
-  const utils = trpc.useUtils();
-  const [open, setOpen] = useState(false);
-  const [listVal, setListVal] = useState("");
-  const [costVal, setCostVal] = useState("");
-  const updateMut = trpc.pricing.adminUpdateSkuCost.useMutation({
-    onSuccess: () => {
-      toast.success("Price updated");
-      utils.doorStyles.familyCatalog.invalidate({ styleId });
-      utils.pricing.stylesForCabinet.invalidate();
-      setOpen(false);
-    },
-    onError: (e) => toast.error(e.message),
-  });
-  function handleOpen(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setListVal(item.listPrice ? String(Number(item.listPrice)) : "");
-    setCostVal(item.yourCost ? String(Number(item.yourCost)) : "");
-    setOpen(true);
-  }
-  if (!item.skuId) return null;
-  return (
-    <>
-      <button
-        type="button"
-        onClick={handleOpen}
-        title="Edit price"
-        className="absolute bottom-2 left-2 z-20 h-6 w-6 flex items-center justify-center rounded bg-amber-500/90 text-white hover:bg-amber-600 opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <Pencil className="h-3 w-3" />
-      </button>
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="bg-card rounded-xl shadow-xl border border-border p-5 w-72"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="font-semibold text-sm mb-3">Edit Price — {item.masterCode}</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">List Price ($)</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={listVal}
-                  onChange={(e) => setListVal(e.target.value)}
-                  placeholder="e.g. 138.00"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Your Cost ($)</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={costVal}
-                  onChange={(e) => setCostVal(e.target.value)}
-                  placeholder="e.g. 95.00"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button
-                size="sm"
-                className="flex-1"
-                onClick={() =>
-                  updateMut.mutate({
-                    skuId: item.skuId!,
-                    listPrice: listVal !== "" ? Number(listVal) : undefined,
-                    yourCost: costVal !== "" ? Number(costVal) : undefined,
-                  })
-                }
-                disabled={updateMut.isPending}
-              >
-                {updateMut.isPending ? "Saving…" : "Save"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-// --- Admin inline cabinet editor -------------------------------------------
-function InlineCabinetEditor({ item, styleId }: { item: FamilyItem; styleId: number }) {
-  const utils = trpc.useUtils();
-  const [open, setOpen] = useState(false);
-  const [description, setDescription] = useState(item.description ?? "");
-  const [category, setCategory] = useState(item.category ?? "");
-  const [subCategory, setSubCategory] = useState(item.subCategory ?? "");
-  const [width, setWidth] = useState(item.width ?? "");
-  const [height, setHeight] = useState(item.height ?? "");
-  const [depth, setDepth] = useState(item.depth ?? "");
-  const [uploading, setUploading] = useState(false);
-  const imgInputRef = useRef<HTMLInputElement>(null);
-
-  const uploadMut = trpc.cabinets.adminUploadCatalogImage.useMutation();
-  const updateMut = trpc.cabinets.adminUpdateCabinet.useMutation({
-    onSuccess: () => {
-      toast.success("Cabinet updated");
-      utils.doorStyles.familyCatalog.invalidate({ styleId });
-      setOpen(false);
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  function handleOpen(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setDescription(item.description ?? "");
-    setCategory(item.category ?? "");
-    setSubCategory(item.subCategory ?? "");
-    setWidth(item.width ?? "");
-    setHeight(item.height ?? "");
-    setDepth(item.depth ?? "");
-    setOpen(true);
-  }
-
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((res, rej) => {
-        reader.onload = () => res(String(reader.result));
-        reader.onerror = rej;
-        reader.readAsDataURL(file);
-      });
-      const { url } = await uploadMut.mutateAsync({
-        filename: file.name,
-        dataBase64: dataUrl,
-        contentType: file.type || "image/jpeg",
-      });
-      await updateMut.mutateAsync({ id: item.cabinetId, catalogImageUrl: url });
-      toast.success("Image updated");
-    } catch (err: unknown) {
-      toast.error((err as Error)?.message ?? "Upload failed");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  }
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={handleOpen}
-        title="Edit cabinet details"
-        className="absolute bottom-2 right-2 z-20 h-6 w-6 flex items-center justify-center rounded bg-blue-600/90 text-white hover:bg-blue-700 opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <Pencil className="h-3 w-3" />
-      </button>
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="bg-card rounded-xl shadow-xl border border-border p-5 w-80 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-sm">Edit Cabinet — {item.masterCode}</h3>
-              <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-2.5">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Description</label>
-                <textarea
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Category</label>
-                  <Input value={category} onChange={(e) => setCategory(e.target.value)} className="h-7 text-xs" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Sub-category</label>
-                  <Input value={subCategory} onChange={(e) => setSubCategory(e.target.value)} className="h-7 text-xs" />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">W (in)</label>
-                  <Input value={width} onChange={(e) => setWidth(e.target.value)} className="h-7 text-xs" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">H (in)</label>
-                  <Input value={height} onChange={(e) => setHeight(e.target.value)} className="h-7 text-xs" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">D (in)</label>
-                  <Input value={depth} onChange={(e) => setDepth(e.target.value)} className="h-7 text-xs" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Cabinet image</label>
-                <input ref={imgInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full h-7 text-xs gap-1"
-                  disabled={uploading}
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); imgInputRef.current?.click(); }}
-                >
-                  {uploading ? <Spinner className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
-                  {uploading ? "Uploading…" : "Upload new image"}
-                </Button>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button
-                size="sm"
-                className="flex-1"
-                onClick={() =>
-                  updateMut.mutate({
-                    id: item.cabinetId,
-                    description: description.trim() || undefined,
-                    category: category.trim() || undefined,
-                    subCategory: subCategory.trim() || null,
-                    width: width.trim() || null,
-                    height: height.trim() || null,
-                    depth: depth.trim() || null,
-                  })
-                }
-                disabled={updateMut.isPending}
-              >
-                {updateMut.isPending ? "Saving…" : "Save"}
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
 function FamilyCabinetCard({
   item,
   finish,
   styleId,
   styleLabel,
   tier,
-  isFavorite,
-  onToggleFavorite,
-  isAdmin,
 }: {
   item: FamilyItem;
   finish: string;
   styleId: number;
   styleLabel: string;
   tier: PricingTier;
-  isFavorite: boolean;
-  onToggleFavorite: (key: string) => void;
-  isAdmin?: boolean;
 }) {
   const { lang } = useLanguage();
   const { addItem, lockedDistributorId, lockedStyleLabel } = useCart();
   const [qty, setQty] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
-  const favKey = `${item.masterCode}::${styleId}`;
 
   const unitPrice = resolveTierPrice(tier, {
     listPrice: item.listPrice,
@@ -449,21 +153,6 @@ function FamilyCabinetCard({
       {/* Image + specs link through to the detail page */}
       <Link href={`/catalog/${item.masterCode}?style=${styleId}`} className="block">
         <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3 cursor-pointer">
-          {/* Heart / favorite button */}
-          <button
-            type="button"
-            aria-label={isFavorite ? "Remove from favorites" : "Save to favorites"}
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(favKey); }}
-            className={`absolute top-2 right-2 z-10 h-7 w-7 flex items-center justify-center rounded-full transition-all duration-150 ${
-              isFavorite
-                ? "bg-rose-50 text-rose-500 scale-110"
-                : "bg-white/70 text-muted-foreground hover:text-rose-400 hover:bg-rose-50 opacity-0 group-hover:opacity-100"
-            }`}
-          >
-            <Heart className={`h-4 w-4 ${isFavorite ? "fill-rose-500" : ""}`} />
-          </button>
-          {isAdmin && <InlinePriceEditor item={item} styleId={styleId} />}
-          {isAdmin && <InlineCabinetEditor item={item} styleId={styleId} />}
           {item.skuImageUrl ? (
             <img
               src={item.skuImageUrl}
@@ -599,21 +288,9 @@ function FamilyCabinetCard({
 
 export default function Family({ styleCode }: { styleCode: string }) {
   const { t, lang } = useLanguage();
-  const [, navigate] = useLocation();
   const [activeType, setActiveType] = useState("all");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [showFavsOnly, setShowFavsOnly] = useState(false);
-  const { favs, toggle: toggleFav } = useFavorites();
-
-  // Smart back: use browser history if available, otherwise go to /styles
-  const handleBack = useCallback(() => {
-    if (window.history.length > 1 && document.referrer && !document.referrer.includes('/family/')) {
-      window.history.back();
-    } else {
-      navigate('/styles');
-    }
-  }, [navigate]);
 
 
   useEffect(() => {
@@ -626,6 +303,23 @@ export default function Family({ styleCode }: { styleCode: string }) {
     styleCode,
   });
   const styleId = (style as FamilyStyle | null)?.id ?? 0;
+
+  // Track product view for vendor analytics (fires once per page load when style resolves).
+  const trackView = trpc.analytics.trackView.useMutation();
+  const trackedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const s = style as (FamilyStyle & { distributorId?: number | null }) | null;
+    if (!s?.id || !s.distributorId) return;
+    const key = `${s.id}:${styleCode}`;
+    if (trackedRef.current === key) return;
+    trackedRef.current = key;
+    trackView.mutate({
+      distributorId: s.distributorId,
+      pageSlug: `/family/${styleCode}`,
+      referrer: document.referrer || undefined,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [style, styleCode]);
 
   const { data, isLoading: catalogLoading } = trpc.doorStyles.familyCatalog.useQuery(
     { styleId },
@@ -661,8 +355,6 @@ export default function Family({ styleCode }: { styleCode: string }) {
     return TYPE_FILTERS.filter((f) => f.key === "all" || cats.has(f.key));
   }, [items]);
 
-  const s = style as FamilyStyle | null;
-
   const visible = useMemo(() => {
     const f = TYPE_FILTERS.find((t) => t.key === activeType) ?? TYPE_FILTERS[0];
     return items.filter((i) => {
@@ -671,15 +363,13 @@ export default function Family({ styleCode }: { styleCode: string }) {
         const hay = `${i.masterCode} ${i.description ?? ""} ${i.subCategory ?? ""}`.toLowerCase();
         if (!hay.includes(debounced)) return false;
       }
-      if (showFavsOnly && !favs.has(`${i.masterCode}::${s?.id ?? 0}`)) return false;
       return true;
     });
-  }, [items, activeType, debounced, showFavsOnly, favs, s?.id]);
-  // White-label display name: always use ourName (our branded name).
-  // featuredLabel is an optional admin override for special marketing names;
-  // it should only be used if it differs from the distributor name.
-  // ourName is the primary white-label identity shown to the public.
-  const familyName = s?.ourName || s?.featuredLabel || s?.styleCode || "Door Style";
+  }, [items, activeType, debounced]);
+
+  const s = style as FamilyStyle | null;
+  // Prefer white-label name (set by admin) over internal name for all public display.
+  const familyName = s?.featuredLabel || s?.ourName || s?.styleCode || "Door Style";
   useSeo({
     title: t("seo_family_t", { name: familyName }),
     description: t("seo_family_d", { name: familyName }),
@@ -729,14 +419,13 @@ export default function Family({ styleCode }: { styleCode: string }) {
 
   return (
     <div className="container py-8">
-      <button
-        type="button"
-        onClick={handleBack}
+      <Link
+        href="/styles"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
       >
         <ChevronLeft className="h-4 w-4" />
         {t("fam_back")}
-      </button>
+      </Link>
 
       {/* ── Family header: room scene + sample door + the facts ───────────────── */}
       <div className="relative overflow-hidden rounded-2xl border border-border mb-8">
@@ -788,20 +477,6 @@ export default function Family({ styleCode }: { styleCode: string }) {
                   <span className="text-white/60">{t("fam_color")}</span> {s.color}
                 </p>
               )}
-            </div>
-
-            {/* Build This Look CTA — takes user to designer pre-loaded with this style */}
-            <div className="mt-6 space-y-3">
-              <Link
-                href={`/design?style=${s.styleCode}`}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-gold)] px-5 py-2.5 text-sm font-semibold text-[var(--color-navy)] shadow-md transition-all hover:brightness-110 active:scale-95"
-              >
-                <Pencil className="h-4 w-4" />
-                Build This Look — Design Your Kitchen in {familyName}
-              </Link>
-              <p className="text-white/70 text-xs leading-relaxed max-w-sm">
-                Shop this cabinet and the full matching line — base, wall, tall, vanity and trim — all in this one finish, with member trade pricing built in.
-              </p>
             </div>
 
             {/* In-place finish picker: switch the color within this door profile
@@ -964,7 +639,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
 
       {/* ── Type filter + search ──────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 mb-6">
-        <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-wrap gap-2">
           {availableTypes.map((f) => (
             <button
               key={f.key}
@@ -978,21 +653,6 @@ export default function Family({ styleCode }: { styleCode: string }) {
               {t(f.labelKey as never)}
             </button>
           ))}
-          {/* end type filters */}
-          {/* Favorites toggle */}
-          {favs.size > 0 && (
-            <button
-              onClick={() => setShowFavsOnly((v) => !v)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                showFavsOnly
-                  ? "bg-rose-500 text-white"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Heart className={`h-3.5 w-3.5 ${showFavsOnly ? "fill-white" : ""}`} />
-              {lang === "es" ? `Favoritos (${favs.size})` : `Favorites (${favs.size})`}
-            </button>
-          )}
         </div>
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1039,9 +699,6 @@ export default function Family({ styleCode }: { styleCode: string }) {
                 styleId={s.id}
                 styleLabel={familyName}
                 tier={viewerTier}
-                isFavorite={favs.has(`${item.masterCode}::${s.id}`)}
-                onToggleFavorite={toggleFav}
-                isAdmin={user?.role === "admin"}
               />
             ))}
           </div>

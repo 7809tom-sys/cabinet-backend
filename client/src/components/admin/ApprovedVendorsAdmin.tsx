@@ -310,15 +310,10 @@ function ProvisionAccountDialog({ vendorId, vendorName, onDone }: { vendorId: nu
   );
 }
 
-// ─── Products Approval Queue ─────────────────────────────────────────────────
+// ─── Pending Products Approval ───────────────────────────────────────────────
 function PendingProductsSection() {
   const utils = trpc.useUtils();
-  const [showAll, setShowAll] = useState(false);
-  const catalog = trpc.distributorPortal.catalog.useQuery({
-    onlyPending: !showAll,
-    limit: 200,
-    offset: 0,
-  });
+  const pending = trpc.distributorPortal.catalog.useQuery({ onlyPending: true, limit: 100, offset: 0 });
   const approve = trpc.distributorPortal.adminSetProductStatus.useMutation({
     onSuccess: () => {
       utils.distributorPortal.catalog.invalidate();
@@ -326,89 +321,64 @@ function PendingProductsSection() {
     },
     onError: (e) => toast.error(e.message),
   });
-  const items = catalog.data?.items ?? [];
-  const pendingCount = items.filter((i: any) => (i.status ?? "pending") === "pending").length;
-  if (catalog.isLoading) return <div className="py-4 text-center"><Spinner /></div>;
+
+  const items = pending.data?.items ?? [];
+
+  if (pending.isLoading) return <div className="py-4 text-center"><Spinner /></div>;
+  if (items.length === 0) return (
+    <div className="py-6 text-center text-sm text-muted-foreground">
+      No pending product submissions.
+    </div>
+  );
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold flex items-center gap-2">
-          <Clock className="h-4 w-4" /> Product Review Queue
-          {pendingCount > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 ml-1">
-              {pendingCount} pending
-            </span>
-          )}
-        </h3>
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant={!showAll ? "default" : "outline"} onClick={() => setShowAll(false)}>Pending only</Button>
-          <Button size="sm" variant={showAll ? "default" : "outline"} onClick={() => setShowAll(true)}>All submissions</Button>
-        </div>
-      </div>
-      {items.length === 0 ? (
-        <div className="py-6 text-center text-sm text-muted-foreground">
-          {!showAll ? "No pending product submissions." : "No product submissions found."}
-        </div>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>SKU</TableHead>
-              <TableHead>Cabinet</TableHead>
-              <TableHead>Style</TableHead>
-              <TableHead>List Price</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+      <h3 className="font-semibold flex items-center gap-2">
+        <Clock className="h-4 w-4" /> Pending Product Submissions ({items.length})
+      </h3>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>SKU</TableHead>
+            <TableHead>Cabinet</TableHead>
+            <TableHead>Style</TableHead>
+            <TableHead>List Price</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item: any) => (
+            <TableRow key={item.id}>
+              <TableCell className="font-mono text-xs">{item.distributorSku}</TableCell>
+              <TableCell>{item.masterCode || item.cabinetId}</TableCell>
+              <TableCell>{item.styleName || item.styleId}</TableCell>
+              <TableCell>{item.listPrice ? `$${item.listPrice}` : "—"}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1 text-green-600"
+                    disabled={approve.isPending}
+                    onClick={() => approve.mutate({ skuId: item.id, status: "approved" })}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" /> Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1 text-destructive"
+                    disabled={approve.isPending}
+                    onClick={() => approve.mutate({ skuId: item.id, status: "rejected" })}
+                  >
+                    <XCircle className="h-3.5 w-3.5" /> Reject
+                  </Button>
+                </div>
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item: any) => {
-              const status = item.status ?? "pending";
-              return (
-                <TableRow key={item.id}>
-                  <TableCell className="font-mono text-xs">{item.distributorSku}</TableCell>
-                  <TableCell>{item.masterCode || item.cabinetId}</TableCell>
-                  <TableCell>{item.styleName || item.styleId}</TableCell>
-                  <TableCell>{item.listPrice ? `$${item.listPrice}` : "—"}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      status === "approved" ? "bg-emerald-100 text-emerald-700" :
-                      status === "rejected" ? "bg-red-100 text-red-700" :
-                      "bg-amber-100 text-amber-700"
-                    }`}>{status}</span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {status !== "approved" && (
-                        <Button size="sm" variant="outline" className="gap-1 text-green-600"
-                          disabled={approve.isPending}
-                          onClick={() => approve.mutate({ skuId: item.id, status: "approved" })}>
-                          <ShieldCheck className="h-3.5 w-3.5" /> Approve
-                        </Button>
-                      )}
-                      {status !== "rejected" && (
-                        <Button size="sm" variant="outline" className="gap-1 text-destructive"
-                          disabled={approve.isPending}
-                          onClick={() => approve.mutate({ skuId: item.id, status: "rejected" })}>
-                          <XCircle className="h-3.5 w-3.5" /> Reject
-                        </Button>
-                      )}
-                      {status !== "pending" && (
-                        <Button size="sm" variant="ghost" className="text-xs text-muted-foreground"
-                          disabled={approve.isPending}
-                          title="Reset to pending"
-                          onClick={() => approve.mutate({ skuId: item.id, status: "approved" })}>
-                          ↩ Undo
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      )}
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

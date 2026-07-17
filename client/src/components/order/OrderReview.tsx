@@ -20,7 +20,7 @@ import {
   Tabs, TabsList, TabsTrigger, TabsContent,
 } from "@/components/ui/tabs";
 import {
-  CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil, Lock, Truck, MapPin, Download,
+  CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil, Lock, Truck, MapPin,
 } from "lucide-react";
 import { CabinetImage } from "@/components/CabinetImage";
 import PayWithCard from "@/components/order/PayWithCard";
@@ -575,7 +575,6 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
 
   // ─── Confirmation screen ──────────────────────────────────────────────────
   const confirmReq = trpc.orders.confirm.useMutation();
-  const generateInvoiceMut = trpc.orders.generateInvoice.useMutation();
   if (submittedId != null) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center">
@@ -603,30 +602,11 @@ export function OrderReview({ lines, source, onLinesChange, onReset }: Props) {
           >
             {confirmReq.isSuccess ? t("or_confirmed") : confirmReq.isPending ? t("or_confirming") : t("or_confirm_this")}
           </Button>
-                    <Button variant="outline" onClick={onReset}>
+          <Button variant="outline" onClick={onReset}>
             {t("or_start_another")}
           </Button>
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={async () => {
-              try {
-                const result = await generateInvoiceMut.mutateAsync({ orderId: submittedId });
-                const blob = new Blob([result.html], { type: "text/html" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = result.filename;
-                a.click();
-                URL.revokeObjectURL(url);
-              } catch {
-                toast.error("Could not generate invoice");
-              }
-            }}
-          >
-            <Download className="h-4 w-4" /> Download Invoice
-          </Button>
         </div>
+
         {/* Upfront card payment — only renders when payments are configured.
             Gated on a freight amount being attached (see PayWithCard). */}
         <div className="mt-8 text-left max-w-lg mx-auto">

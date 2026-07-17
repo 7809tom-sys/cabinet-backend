@@ -1,18 +1,15 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useSearch, useLocation } from "wouter";
 import { useCart, type CartItem } from "@/contexts/CartContext";
 import {
   LayoutGrid, Eye, Trash2, RotateCw, Search, Plus,
   DollarSign, PanelTop, Columns3, Ruler, Square, DoorOpen,
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
-  ChevronUp, ChevronDown, ChevronLeft, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
+  ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, AlertTriangle,
-  AppWindow, Smartphone } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,10 +29,6 @@ import {
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
-import { makeQrDataUrl } from "@/lib/qr";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -69,7 +62,6 @@ import {
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
-  hasCollision,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -92,6 +84,7 @@ import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
+import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
@@ -211,59 +204,6 @@ function DimStepper({
   );
 }
 
-/**
- * Creates a styled drag ghost element showing the cabinet thumbnail + code.
- * Appended off-screen, used as the drag image, then removed after a tick.
- */
-function makeDragGhost(c: import("@/lib/design").DesignCabinet): HTMLElement {
-  const SIZE = 72;
-  const ghost = document.createElement("div");
-  ghost.style.cssText = [
-    "position:fixed",
-    "top:-9999px",
-    "left:-9999px",
-    `width:${SIZE}px`,
-    "display:flex",
-    "flex-direction:column",
-    "align-items:center",
-    "gap:4px",
-    "padding:6px",
-    "background:rgba(26,39,68,0.92)",
-    "border:1.5px solid #d4a75a",
-    "border-radius:8px",
-    "box-shadow:0 4px 16px rgba(0,0,0,0.4)",
-    "pointer-events:none",
-    "z-index:99999",
-  ].join(";");
-
-  // Image or placeholder
-  const imgWrap = document.createElement("div");
-  imgWrap.style.cssText = `width:${SIZE - 12}px;height:${SIZE - 12}px;background:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;overflow:hidden;`;
-  const url = c.catalogImageUrl?.trim();
-  if (url) {
-    const img = document.createElement("img");
-    img.src = url;
-    img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
-    imgWrap.appendChild(img);
-  } else {
-    imgWrap.style.background = "#2a3a5c";
-    const code = document.createElement("span");
-    code.textContent = c.masterCode.slice(0, 6);
-    code.style.cssText = "font-size:9px;font-family:monospace;color:#d4a75a;font-weight:700;text-align:center;";
-    imgWrap.appendChild(code);
-  }
-  ghost.appendChild(imgWrap);
-
-  // Label
-  const label = document.createElement("span");
-  label.textContent = c.masterCode;
-  label.style.cssText = "font-size:9px;font-family:monospace;color:#d4a75a;font-weight:700;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;";
-  ghost.appendChild(label);
-
-  document.body.appendChild(ghost);
-  return ghost;
-}
-
 export default function DesignTool() {
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_design_t"), description: t("seo_design_d"), lang });
@@ -271,50 +211,17 @@ export default function DesignTool() {
   const wallLabel: Record<WallSide, string> = {
     top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
   };
-  // Contact gate (email required; name + phone optional).
-  // Persisted to localStorage so returning visitors skip the gate automatically.
-  const [verified, setVerified] = useState(() => {
-    try {
-      const saved = localStorage.getItem("cabinet-dealz:designer-gate:v1");
-      if (saved) {
-        const p = JSON.parse(saved) as { email?: string };
-        return typeof p?.email === "string" && p.email.length > 0;
-      }
-    } catch { /* ignore */ }
-    return false;
-  });
-  const [verifiedEmail, setVerifiedEmail] = useState(() => {
-    try {
-      const saved = localStorage.getItem("cabinet-dealz:designer-gate:v1");
-      return saved ? ((JSON.parse(saved) as { email?: string }).email ?? "") : "";
-    } catch { return ""; }
-  });
-  const [verifiedName, setVerifiedName] = useState(() => {
-    try {
-      const saved = localStorage.getItem("cabinet-dealz:designer-gate:v1");
-      return saved ? ((JSON.parse(saved) as { name?: string }).name ?? "") : "";
-    } catch { return ""; }
-  });
-  const [verifiedPhone, setVerifiedPhone] = useState(() => {
-    try {
-      const saved = localStorage.getItem("cabinet-dealz:designer-gate:v1");
-      return saved ? ((JSON.parse(saved) as { phone?: string }).phone ?? "") : "";
-    } catch { return ""; }
-  });
+  // Contact gate (email required; name + phone optional)
+  const [verified, setVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [verifiedName, setVerifiedName] = useState("");
+  const [verifiedPhone, setVerifiedPhone] = useState("");
   const captureLead = trpc.design.captureLead.useMutation();
   const handleVerified = useCallback((contact: LeadContact) => {
     setVerifiedEmail(contact.email);
     setVerifiedName(contact.name ?? "");
     setVerifiedPhone(contact.phone ?? "");
     setVerified(true);
-    // Persist so the gate is skipped on future visits from this browser.
-    try {
-      localStorage.setItem("cabinet-dealz:designer-gate:v1", JSON.stringify({
-        email: contact.email,
-        name: contact.name ?? "",
-        phone: contact.phone ?? "",
-      }));
-    } catch { /* ignore quota errors */ }
     // Record the lead so a rep has contact info even if the visitor never saves
     // a design or requests a quote. Fire-and-forget — never block entry on it.
     captureLead.mutate({
@@ -332,14 +239,14 @@ export default function DesignTool() {
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
   }, [search]);
-  const loadedDesignRef = useRef<number | null>(null);
-  // Optional door style pre-selection from ?style=STYLECODE (e.g. from Family page
-  // "Build This Look" button). When present, overrides the draft's styleId so the
-  // designer opens with that color already active.
-  const initialStyleCode = useMemo(() => {
-    return new URLSearchParams(search).get("style") ?? null;
+  // Optional door style to pre-select (?style=<styleId>), e.g. from a "Design
+  // with this" CTA on the homepage or a door style product page.
+  const preloadStyleId = useMemo(() => {
+    const v = new URLSearchParams(search).get("style");
+    const n = v ? Number(v) : NaN;
+    return Number.isFinite(n) ? n : null;
   }, [search]);
-  const initialStyleAppliedRef = useRef(false);
+  const loadedDesignRef = useRef<number | null>(null);
   // Auto-save draft: flips true once we've attempted to restore a saved draft,
   // so the debounced save effect doesn't overwrite the stored draft with the
   // initial empty state before restore runs.
@@ -368,6 +275,8 @@ export default function DesignTool() {
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
+  const [polygonEditMode, setPolygonEditMode] = useState(false);
+  const isPolygonRoom = !!(room.vertices && room.vertices.length >= 3);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
   // ── Undo / Redo for placed cabinets ──────────────────────────────────────
   const undoRedo = useUndoRedo<PlacedCabinet[]>();
@@ -418,110 +327,6 @@ export default function DesignTool() {
   const [islandFace, setIslandFace] = useState<"front" | "back">("front");
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
-  // AR Tape Measure session sync
-  const [measureSessionToken, setMeasureSessionToken] = useState<string | null>(null);
-  const [measureSessionOpen, setMeasureSessionOpen] = useState(false);
-  const [measureQrUrl, setMeasureQrUrl] = useState<string | null>(null);
-  const createMeasureSession = trpc.measureSessions.createSession.useMutation({
-    onSuccess: async (data) => {
-      setMeasureSessionToken(data.token);
-      setMeasureSessionOpen(true);
-      const url = `${window.location.origin}/measure?session=${data.token}`;
-      try {
-        const qr = await makeQrDataUrl(url, { size: 200 });
-        setMeasureQrUrl(qr);
-      } catch { setMeasureQrUrl(null); }
-    },
-  });
-  const consumeMeasureSession = trpc.measureSessions.consumeSession.useMutation();
-  // Poll for measurements when session is open
-  const { data: measurePollData } = trpc.measureSessions.pollSession.useQuery(
-    { token: measureSessionToken! },
-    {
-      enabled: !!measureSessionToken && measureSessionOpen,
-      refetchInterval: 3000,
-    },
-  );
-  const measurePollDataRef = useRef(measurePollData);
-  measurePollDataRef.current = measurePollData;
-  useEffect(() => {
-    if (measurePollData?.status === "completed" && measurePollData.walls && measureSessionToken) {
-      const segments = measurePollData.walls as Array<{
-        label: string; inches: number; feet: number; meters: number;
-        segmentType?: "wall" | "window" | "door" | "plumbing" | "electrical";
-        note?: string;
-      }>;
-
-      // Determine room dimensions from the two longest pure-wall segments
-      const wallSegs = segments.filter((s) => !s.segmentType || s.segmentType === "wall");
-      const sizeSource = wallSegs.length >= 2 ? wallSegs : [...segments];
-      const sizeSorted = [...sizeSource].sort((a, b) => b.inches - a.inches);
-      const widthIn = Math.round(sizeSorted[0]?.inches ?? 144);
-      const depthIn = Math.round(sizeSorted[1]?.inches ?? 120);
-      setRoom((prev) => ({ ...prev, width: widthIn, depth: depthIn }));
-
-      // Build WallOpenings from window / door / plumbing / electrical segments.
-      // Walk in order, accumulate offset along the bottom wall.
-      const newOpenings: WallOpening[] = [];
-      let offsetAlongBottom = 0;
-      for (const seg of segments) {
-        const type = seg.segmentType ?? "wall";
-        const inches = Math.round(seg.inches);
-        const clampedOffset = Math.min(offsetAlongBottom, Math.max(0, widthIn - Math.max(4, inches)));
-        if (type === "window") {
-          newOpenings.push({
-            uid: makeUid(), kind: "window",
-            label: `🪟 Window (${seg.label})`,
-            side: "bottom" as WallSide,
-            offset: clampedOffset, width: inches, height: 36, sill: 42,
-          });
-        } else if (type === "door") {
-          newOpenings.push({
-            uid: makeUid(), kind: "door",
-            label: `🚪 Door (${seg.label})`,
-            side: "bottom" as WallSide,
-            offset: clampedOffset, width: inches, height: 80, sill: 0,
-          });
-        } else if (type === "plumbing") {
-          const noteStr = seg.note ? ` — ${seg.note}` : "";
-          newOpenings.push({
-            uid: makeUid(), kind: "opening",
-            label: `🚰 Plumbing${noteStr} (${seg.label})`,
-            side: "bottom" as WallSide,
-            offset: clampedOffset, width: Math.max(6, inches), height: 4, sill: 0,
-          });
-        } else if (type === "electrical") {
-          const noteStr = seg.note ? ` — ${seg.note}` : "";
-          newOpenings.push({
-            uid: makeUid(), kind: "opening",
-            label: `⚡ Electrical${noteStr} (${seg.label})`,
-            side: "bottom" as WallSide,
-            offset: clampedOffset, width: Math.max(4, inches), height: 4, sill: 48,
-          });
-        }
-        offsetAlongBottom += inches;
-      }
-
-      if (newOpenings.length > 0) setOpenings((prev) => [...prev, ...newOpenings]);
-
-      consumeMeasureSession.mutate({ token: measureSessionToken });
-      setMeasureSessionToken(null);
-      setMeasureSessionOpen(false);
-      setMeasureQrUrl(null);
-
-      const windowCount = newOpenings.filter((o) => o.label.startsWith("🪟")).length;
-      const doorCount = newOpenings.filter((o) => o.label.startsWith("🚪")).length;
-      const plumbingCount = newOpenings.filter((o) => o.label.startsWith("🚰")).length;
-      const electricalCount = newOpenings.filter((o) => o.label.startsWith("⚡")).length;
-      const parts = [`Room ${Math.round(widthIn/12)}' × ${Math.round(depthIn/12)}'`];
-      if (windowCount) parts.push(`${windowCount} window${windowCount > 1 ? "s" : ""}`);
-      if (doorCount) parts.push(`${doorCount} door${doorCount > 1 ? "s" : ""}`);
-      if (plumbingCount) parts.push(`${plumbingCount} plumbing`);
-      if (electricalCount) parts.push(`${electricalCount} electrical`);
-      toast.success(parts.join(" • ") + " placed from phone!");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measurePollData]);
   const [autoDimensions, setAutoDimensions] = useState(false);
   // Island zone: an optional rectangular guide (inches) marking where island
   // cabinets go. Null when disabled.
@@ -634,7 +439,7 @@ export default function DesignTool() {
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "closetparts" | "accessory" | "furniture" | "surfaces">("base");
+  const [paletteType, setPaletteType] = useState<"base" | "vanity" | "corner" | "wall" | "wallht" | "tall" | "appliance" | "opening" | "closetparts" | "accessory" | "furniture" | "surfaces">("base");
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
   // Text annotations placed on the floor plan.
@@ -760,31 +565,8 @@ export default function DesignTool() {
     return distA !== distB;
   }, [doorStyles, styleA, styleB]);
   // De-duplicate by display name so the same style isn't listed once per line.
-  // allDoorStyles: ALL styles across every distributor, de-duped by
-  // (distributorId, name). Used by the ColorSlotButton picker so users can
-  // always see — and switch to — any series, even when a distributor is locked.
-  // The cross-distributor confirmation is handled inside setSlotStyle.
-  const allDoorStyles = useMemo(() => {
-    const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number; styleCode?: string | null }>();
-    const source = (doorStyles ?? []) as Array<{
-      id: number;
-      ourName: string | null;
-      aliasName?: string | null;
-      thumbnailImageUrl?: string | null;
-      doorSampleImageUrl?: string | null;
-      distributorId?: number;
-      styleCode?: string | null;
-    }>;
-    for (const s of source) {
-      const key = `${s.distributorId ?? "_"}::${(styleDisplayName(s) || String(s.id)).toLowerCase()}`;
-      if (!map.has(key)) map.set(key, s);
-    }
-    return Array.from(map.values()).sort((a, b) => (styleDisplayName(a) || "").localeCompare(styleDisplayName(b) || ""));
-  }, [doorStyles]);
-
-  // uniqueDoorStyles: styles scoped to the locked distributor (used for the
-  // palette cabinet filter, pricing, and other places where the design must
-  // stay within one supply line). NOT used by the style picker itself.
+  // When locked, only offer styles from the locked distributor so changing the
+  // finish never silently switches supply lines.
   const uniqueDoorStyles = useMemo(() => {
     const map = new Map<string, { id: number; ourName: string | null; aliasName?: string | null; thumbnailImageUrl?: string | null; doorSampleImageUrl?: string | null; distributorId?: number; styleCode?: string | null }>();
     const source = (doorStyles ?? []) as Array<{
@@ -831,7 +613,7 @@ export default function DesignTool() {
     trpc.design.placeableCabinets.useQuery(
       {
         placement:
-          paletteType === "appliance" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces"
+          paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces"
             ? "base"
             : paletteType === "corner" || paletteType === "vanity"
             ? "base"
@@ -846,9 +628,9 @@ export default function DesignTool() {
         // come from that distributor (member can still change color within it).
         distributorId: lockedDistributorId ?? undefined,
       },
-      { enabled: paletteType !== "appliance" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" }
+      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" }
     );
-  const paletteLoading = paletteType === "appliance" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces" ? false : paletteLoadingRaw;
+  const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces" ? false : paletteLoadingRaw;
 
   // A dedicated, full base-cabinet list for the active line, used by the
   // Auto-Fill engine (independent of which palette tab/search is active).
@@ -1042,7 +824,7 @@ export default function DesignTool() {
   // view). Used to show "N cabinets available in <style>" so a smaller per-finish
   // lineup (e.g. Air Dawn) is obvious instead of looking "empty/broken".
   const availableInStyleCount = useMemo(() => {
-    if (paletteType === "closetparts" || paletteType === "appliance" || paletteType === "furniture" || paletteType === "surfaces") {
+    if (paletteType === "opening" || paletteType === "closetparts" || paletteType === "appliance" || paletteType === "furniture" || paletteType === "surfaces") {
       return null;
     }
     if (paletteType === "corner") {
@@ -1416,18 +1198,7 @@ export default function DesignTool() {
       selectedSurfaces?: SelectedSurface[] | null;
     }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
-      // Sanitize saved designs: wall cabinets with a mountBottom below the
-      // standard 54" mount line (e.g. from old saves before the rule was
-      // enforced) are reset to null so they snap back to the default hang rule.
-      const rawPlaced = Array.isArray(d.placed) ? d.placed : [];
-      const sanitizedPlaced = rawPlaced.map((p) =>
-        p.placement === "wall" &&
-        typeof p.mountBottom === "number" &&
-        p.mountBottom < STD.WALL_MOUNT_BOTTOM
-          ? { ...p, mountBottom: null }
-          : p
-      );
-      setPlaced(normalizeLCornerDepths(sanitizedPlaced));
+      setPlaced(normalizeLCornerDepths(Array.isArray(d.placed) ? d.placed : []));
       setStyleId(d.styleId ?? null);
       // Restore the supply-line lock if the saved design was pinned to one.
       setLockedDistributorId(typeof d.distributorId === "number" ? d.distributorId : null);
@@ -2752,25 +2523,8 @@ export default function DesignTool() {
   const applyFridgeSurround = useCallback(
     (opts: {
       above: "deep" | "bridge" | "none";
-      bridgeCabinetId?: number | null;
-      /** The chosen bridge height in inches (12, 18, or 24). Used to auto-select catalog cabinet. */
-      bridgeHeight?: number | null;
-      /** The chosen bridge depth in inches (12 or 24). Defaults to 12 (standard wall depth) when not provided. */
-      bridgeDepth?: number | null;
-      /** The chosen bridge width in inches. When provided, overrides fp.w for the cabinet above. */
-      bridgeWidth?: number | null;
       panels: "left" | "right" | "both" | "none";
-      endPanelId?: number | null;
-      /** The chosen end panel depth in inches (24-36). When provided, overrides the fridge depth for panel placement. */
-      panelDepth?: number | null;
-      /** Pre-calculated panel height (fridge H + bridge H). When provided, overrides the auto-calc. */
-      panelHeight?: number | null;
-      /** Panel face thickness in inches (0.75, 1.5, or 3). Defaults to 0.75 when not provided. */
-      panelThickness?: number;
       smooth: boolean;
-      fridgeWidth?: number;
-      fridgeHeight?: number;
-      fridgeDepth?: number;
     }) => {
       const fridge = fridgeForDialog;
       const surround = fridgeSurround as
@@ -2783,121 +2537,36 @@ export default function DesignTool() {
       const fw = fp.w; // width along the wall run
       const fd = fp.d; // depth into the room
 
-      // Pick the surround row whose width best matches the fridge width (fallback).
+      // Pick the surround row whose width best matches the fridge width.
       const pickByWidth = (rows: DesignCabinet[] | undefined, target: number): DesignCabinet | undefined => {
         if (!rows || rows.length === 0) return undefined;
         return [...rows].sort(
           (a, b) => Math.abs(parseFloat(String(a.width ?? "999")) - target) - Math.abs(parseFloat(String(b.width ?? "999")) - target)
         )[0];
       };
-      // Pick a specific cabinet by id, falling back to pickByWidth.
-      const pickById = (rows: DesignCabinet[] | undefined, id: number | null | undefined, fallbackTarget: number): DesignCabinet | undefined => {
-        if (id && rows) {
-          const found = rows.find((r) => r.id === id);
-          if (found) return found;
-        }
-        return pickByWidth(rows, fallbackTarget);
-      };
-
-      // 0) Resize the fridge itself if the user changed its dimensions.
-      if (opts.fridgeWidth || opts.fridgeHeight || opts.fridgeDepth) {
-        setPlaced((prev) =>
-          prev.map((p) => {
-            if (p.uid !== fridge.uid) return p;
-            const newW = opts.fridgeWidth ?? p.width;
-            const newH = opts.fridgeHeight ?? p.height;
-            const newD = opts.fridgeDepth ?? p.depth;
-            return {
-              ...p,
-              width: newW,
-              nominalWidth: newW,
-              height: newH,
-              nominalHeight: newH,
-              depth: newD,
-              nominalDepth: newD,
-              masterCode: `FRIDGE-${newW}`,
-              description: `Refrigerator ${newW}"`,
-            };
-          })
-        );
-        // Re-derive fp/fw/fd from the new dimensions so surround pieces align.
-        const newW = opts.fridgeWidth ?? fw;
-        const newD = opts.fridgeDepth ?? fd;
-        Object.assign(fp, { w: newW, d: newD });
-      }
 
       const toPlace: PlacedCabinet[] = [];
-      // Track the bridge height so end panels can be sized to fridge + bridge combined.
-      let bridgeHeightPlaced = 0;
 
       // 1) Cabinet ABOVE the fridge (upper zone → exempt from appliance collision).
       if (opts.above !== "none") {
         const src = opts.above === "deep" ? surround.deepAbove : surround.bridgeAbove;
-        // Use fp.w (updated fridge width) — rotatedSize(fridge).w is the stale pre-resize value.
-        // For bridge mode: filter candidates by the chosen bridge height, then pick best width match.
-        let chosen: DesignCabinet | undefined;
-        if (opts.above === "bridge" && opts.bridgeHeight) {
-          const targetH = opts.bridgeHeight;
-          const targetD = opts.bridgeDepth ?? 12;
-          // Parse dimensions from SKU masterCode when stored columns are null.
-          // Supports W[WW][HH][DD] (e.g. W362424) and WR[WW][HH] (depth always 24).
-          const parseCabDims = (code: string) => {
-            const c = code.replace(/^[^W]*W/, "W");
-            const m6 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
-            if (m6) return { w: parseInt(m6[1], 10), h: parseInt(m6[2], 10), d: parseInt(m6[3], 10) };
-            const mR = c.match(/^WR(\d{2})(\d{2})$/);
-            if (mR) return { w: parseInt(mR[1], 10), h: parseInt(mR[2], 10), d: 24 };
-            return null;
-          };
-          const heightFiltered = src.filter((c) => {
-            const sku = parseCabDims(c.masterCode);
-            const h = parseFloat(String(c.height ?? "")) || (sku ? sku.h : 0);
-            const d = parseFloat(String(c.depth ?? "")) || (sku ? sku.d : 0);
-            const heightOk = Math.abs(h - targetH) < 1.5;
-            const depthOk = d === 0 || Math.abs(d - targetD) < 1.5;
-            return heightOk && depthOk;
-          });
-          // Fall back to height-only match if no depth-matched candidates exist.
-          const fallback = src.filter((c) => {
-            const sku = parseCabDims(c.masterCode);
-            const h = parseFloat(String(c.height ?? "")) || (sku ? sku.h : 0);
-            return Math.abs(h - targetH) < 1.5;
-          });
-          chosen = pickByWidth(
-            heightFiltered.length > 0 ? heightFiltered : fallback.length > 0 ? fallback : src,
-            fp.w
-          );
-        } else {
-          chosen = opts.above === "bridge"
-            ? pickById(src, opts.bridgeCabinetId, fp.w)
-            : pickByWidth(src, fp.w);
-        }
+        const chosen = pickByWidth(src, rotatedSize(fridge).w);
         if (chosen) {
-          // Use the user-chosen bridge width when provided; otherwise fall back to fridge width.
-          const aWidth = (opts.bridgeWidth && opts.bridgeWidth > 0) ? opts.bridgeWidth : fp.w;
+          const aWidth = parseFloat(String(chosen.width ?? rotatedSize(fridge).w)) || rotatedSize(fridge).w;
           const isDeep = opts.above === "deep";
           // Deep refrigerator/corner upper: project 27" and step UP 6" taller
           // than a standard wall cabinet for the staggered built-in look. The
           // shallow bridge stays a normal-height, 12"-deep upper.
-          // For bridge cabinets, use the user-chosen depth (12" shallow or 24" full depth).
-          // Deep/corner uppers always project to fridgeCornerUpperDepth().
-          const aDepth = isDeep
-            ? fridgeCornerUpperDepth()
-            : (opts.above === "bridge" && opts.bridgeDepth)
-              ? opts.bridgeDepth
-              : STD.WALL_DEPTH;
-          // Use the user-chosen bridge height directly (12/18/24) so the placed cabinet
-          // always has the exact height the user selected, even if the catalog entry differs.
-          const catalogH = parseFloat(String((chosen.height ?? STD.WALL_HEIGHT))) || STD.WALL_HEIGHT;
-          const aHeight = (opts.above === "bridge" && opts.bridgeHeight) ? opts.bridgeHeight : catalogH;
-          bridgeHeightPlaced = aHeight;
+          const aDepth = isDeep ? fridgeCornerUpperDepth() : STD.WALL_DEPTH;
+          const catalogH = parseFloat(String(chosen.height ?? STD.WALL_HEIGHT)) || STD.WALL_HEIGHT;
+          const aHeight = catalogH;
           // Center the upper over the fridge run, flush to the same wall.
-          const fridgeCenterAlong = horizontal ? fridge.x + fw / 2 : fridge.y + fw / 2;
-          const along = fridgeCenterAlong - aWidth / 2;
+          const along = horizontal ? fridge.x + fw / 2 - aWidth / 2 : fridge.y + fw / 2 - aWidth / 2;
           const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
           // Hang so its TOP finishes at the wall-cabinet top line (flush with a
           // pantry/tall run cap); a taller stepped box hangs lower at the bottom
           // while sharing that top line. mountBottom = topLine - height.
+          const topLine = wallCabinetTopLine(room);
           toPlace.push({
             uid: makeUid(),
             cabinetId: chosen.id,
@@ -2913,57 +2582,18 @@ export default function DesignTool() {
             numberOfDoors: chosen.numberOfDoors ?? undefined,
             catalogImageUrl: chosen.catalogImageUrl ?? null,
             styleId: styleIdRef.current ?? null,
-            // Bridge cabinets above fridge/range always mount at 72" from the floor.
-            mountBottom: 72,
+            mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, aHeight)),
           });
         }
       }
 
       // 2) Refrigerator END PANELS: tall/deep panels flush to the fridge L/R edge.
-      // Use the user-selected panel id if provided, otherwise fall back to best-width match.
-      // If the catalog has no matching panel, create a synthetic placeholder so the panel
-      // always appears in the drawing with the correct dimensions.
-      const rawFridgeHForPanel = parseFloat(String(fridge.height ?? "72")) || 72;
-      const fridgeHForPanel = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeHForPanel;
-      const syntheticPanelHeight = opts.panelHeight && opts.panelHeight > 0
-        ? opts.panelHeight
-        : fridgeHForPanel + (bridgeHeightPlaced > 0 ? bridgeHeightPlaced : 0);
-      const panelRow: DesignCabinet = pickById(surround.endPanels, opts.endPanelId, fd) ?? surround.endPanels?.[0] ?? {
-        id: 0,
-        masterCode: `PANEL-${syntheticPanelHeight}`,
-        description: `Refrigerator End Panel ${syntheticPanelHeight}"H`,
-        category: "Panel",
-        subCategory: null,
-        width: "0.75",
-        height: String(syntheticPanelHeight),
-        depth: "0.75",
-        numberOfDoors: null,
-        numberOfDrawers: null,
-        isCornerCabinet: false,
-        catalogImageUrl: null,
-      };
+      const panelRow = pickByWidth(surround.endPanels, fd) ?? surround.endPanels?.[0];
       const placePanel = (leftEdge: boolean) => {
-        // pDepth: use user-chosen panel depth when provided; otherwise match the fridge depth.
-        const pDepth = (opts.panelDepth && opts.panelDepth > 0) ? opts.panelDepth : fd;
-        // Infer dimensions from masterCode when catalog values are null
-        // (style-prefixed variants like "ANTIQUE WHITE-S2496" often lack stored dims).
-        const code = (panelRow.masterCode ?? "").toUpperCase();
-        const inferredHeight = code.includes("S2496") || code.includes("REPV") || code.includes("TDEP") ? 96
-          : code.includes("S3696") ? 96 : 96;
-        const inferredDepth = (code.includes("REPV") || code.includes("S2496") || code.includes("S3696")) ? 0.75 : 0.75;
-        // pThick: the panel's face thickness (face width visible in plan view).
-        // Default is 3/4" flat stock; the dialog lets the user choose 0.75", 1.5", or 3".
-        const pThick = (opts.panelThickness && opts.panelThickness > 0) ? opts.panelThickness : 0.75;
-        // Panel height = fridge height + bridge height (if any), so the panel covers
-        // the full built-in column: 72" fridge + 12" bridge → 84", + 18" → 90", + 24" → 96".
-        const rawFridgeH = parseFloat(String(fridge.height ?? "72")) || 72;
-        const fridgeH = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeH;
-        // Use pre-calculated panelHeight from dialog when provided; otherwise auto-calculate.
-        const pHeight = opts.panelHeight && opts.panelHeight > 0
-          ? opts.panelHeight
-          : opts.above !== "none" && bridgeHeightPlaced > 0
-            ? fridgeH + bridgeHeightPlaced
-            : (parseFloat(String(panelRow.height ?? "")) || inferredHeight);
+        if (!panelRow) return;
+        const pDepth = parseFloat(String(panelRow.width ?? fd)) || fd; // panel spans the fridge depth
+        const pThick = 1; // REPV panels are ~1" thick flat stock
+        const pHeight = parseFloat(String(panelRow.height ?? 96)) || 96;
         // Along-wall position: just outside the fridge edge on the chosen side.
         let along: number;
         if (horizontal) {
@@ -3129,8 +2759,7 @@ export default function DesignTool() {
           placement: "wall", x: upSpot.x, y: upSpot.y, width: aWidth, depth: aDepth, height: aHeight,
           rotation: upSpot.rotation, numberOfDoors: deep.numberOfDoors ?? undefined,
           catalogImageUrl: deep.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
-          // Bridge cabinets above fridge always mount at 72" from the floor.
-          mountBottom: 72,
+          mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, aHeight)),
         });
       }
       along += fridgeW;
@@ -3577,26 +3206,10 @@ export default function DesignTool() {
   const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
     if (!selectedUid) return;
     setPlaced((prev) => {
-      const cabinet = prev.find((p) => p.uid === selectedUid);
-      if (!cabinet) return prev;
-      // Candidate position after the nudge.
-      const candidate: PlacedCabinet = {
-        ...cabinet,
-        x: Math.round((cabinet.x + dxIn) * 10) / 10,
-        y: Math.round((cabinet.y + dyIn) * 10) / 10,
-      };
-      // Run through snapPosition so the nudge cannot push the cabinet into a
-      // neighbour — same collision resolution used by plan-view drag.
-      const others = prev.filter(
-        (c) =>
-          c.uid !== selectedUid &&
-          (c.placement === cabinet.placement ||
-            c.placement === "appliance" ||
-            cabinet.placement === "appliance"),
-      );
-      const snapped = snapPosition(candidate, room, others);
       const moved = prev.map((p) =>
-        p.uid === selectedUid ? { ...p, x: snapped.x, y: snapped.y } : p
+        p.uid === selectedUid
+          ? { ...p, x: Math.round((p.x + dxIn) * 10) / 10, y: Math.round((p.y + dyIn) * 10) / 10 }
+          : p
       );
       return clampCabinetsToRoom(moved, room);
     });
@@ -3612,8 +3225,7 @@ export default function DesignTool() {
         if (p.uid !== selectedUid) return p;
         if (p.placement !== "wall") return p;
         const cur = elevationBox(p, room).bottom;
-        // Wall cabinets must never go below the 54" standard mount line.
-        const next = Math.max(STD.WALL_MOUNT_BOTTOM, Math.round((cur + deltaIn) * 10) / 10);
+        const next = Math.max(0, Math.round((cur + deltaIn) * 10) / 10);
         return { ...p, mountBottom: next };
       })
     );
@@ -3621,13 +3233,12 @@ export default function DesignTool() {
 
   // Set an ABSOLUTE mount height (inches from floor to the box bottom) for a
   // specific cabinet — used by the elevation view's vertical drag / Arrow keys.
-  // Wall cabinets only; clamped at WALL_MOUNT_BOTTOM (54") so they can never
-  // be dragged below the standard counter-height mount line.
+  // Wall cabinets only; clamped at 0.
   const setMountBottomFor = useCallback((uid: string, mountBottom: number) => {
     setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== uid || p.placement !== "wall") return p;
-        return { ...p, mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, Math.round(mountBottom * 10) / 10) };
+        return { ...p, mountBottom: Math.max(0, Math.round(mountBottom * 10) / 10) };
       })
     );
   }, []);
@@ -3963,21 +3574,19 @@ export default function DesignTool() {
     // catalog populates immediately — otherwise picking a style into a
     // non-active slot would leave styleId null and the cabinet list empty
     // ("base cabinets gone" regression).
-    // Also always update styleId when the user explicitly changes the style for
-    // the currently-active slot, even if activeSlot differs (e.g. user had
-    // Color 2 active but taps Change Style on Color 1 card).
     const noStyleYet = styleId == null;
     if (slot === "A") {
       setStyleA(newStyleId);
-      // Always update the catalog when Color 1 changes — it is the primary style
-      // and the catalog should always reflect the most recently changed style.
-      setActiveSlot("A");
-      setStyleId(newStyleId);
+      if (activeSlot === "A" || noStyleYet) {
+        if (noStyleYet) setActiveSlot("A");
+        setStyleId(newStyleId);
+      }
     } else {
       setStyleB(newStyleId);
-      // Always update the catalog when Color 2 changes — same as Color 1.
-      setActiveSlot("B");
-      setStyleId(newStyleId);
+      if (activeSlot === "B" || noStyleYet) {
+        if (noStyleYet) setActiveSlot("B");
+        setStyleId(newStyleId);
+      }
     }
     // Auto-open the catalog panel after picking a door style so the user
     // immediately sees the filtered cabinets available in that style.
@@ -4146,72 +3755,6 @@ export default function DesignTool() {
 
   const dragDataRef = useState<{ current: DesignCabinet | null }>(() => ({ current: null }))[0];
 
-  // Live drag ghost state: position + validity (gold = valid, red = invalid).
-  const [dragGhost, setDragGhost] = useState<{ x: number; y: number; isInvalid: boolean; cabinet: DesignCabinet } | null>(null);
-  const dragGhostRef = useRef<{ active: boolean; cabinet: DesignCabinet | null }>({ active: false, cabinet: null });
-  const planCanvasRef = useRef<HTMLElement | null>(null);
-
-  // Track mouse position during drag and update ghost validity.
-  useEffect(() => {
-    const PLAN_PPI = 4;
-    const onMouseMove = (e: MouseEvent) => {
-      if (!dragGhostRef.current.active || !dragGhostRef.current.cabinet) return;
-      const c = dragGhostRef.current.cabinet;
-      // Check if cursor is over the plan canvas (data-room element).
-      const roomEl = document.querySelector("[data-room]") as HTMLElement | null;
-      let isInvalid = false;
-      if (roomEl) {
-        const rect = roomEl.getBoundingClientRect();
-        const inRoom = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
-        if (inRoom) {
-          const cabW = dim(c.width, 24);
-          const cabD = footprintDepth(c);
-          const x = (e.clientX - rect.left) / PLAN_PPI - cabW / 2;
-          const y = (e.clientY - rect.top) / PLAN_PPI - cabD / 2;
-          // Out of room bounds?
-          if (x < 0 || y < 0 || x + cabW > room.width || y + cabD > room.depth) {
-            isInvalid = true;
-          } else {
-            // Overlap check against placed cabinets.
-            const temp: PlacedCabinet = {
-              uid: "__drag_preview__",
-              cabinetId: c.id,
-              masterCode: c.masterCode,
-              description: c.description,
-              category: c.category,
-              subCategory: c.subCategory,
-              width: dim(c.width, 24),
-              height: dim(c.height, standardHeight(c.placement)),
-              depth: dim(c.depth, footprintDepth(c)),
-              placement: c.placement,
-              numberOfDoors: c.numberOfDoors,
-              numberOfDrawers: c.numberOfDrawers,
-              catalogImageUrl: c.catalogImageUrl,
-              x,
-              y,
-              rotation: 0,
-            };
-            isInvalid = hasCollision(temp, placed);
-          }
-        }
-      }
-      setDragGhost({ x: e.clientX, y: e.clientY, isInvalid, cabinet: c });
-    };
-    const onDragEnd = () => {
-      dragGhostRef.current.active = false;
-      dragGhostRef.current.cabinet = null;
-      setDragGhost(null);
-    };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("dragend", onDragEnd);
-    window.addEventListener("drop", onDragEnd);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("dragend", onDragEnd);
-      window.removeEventListener("drop", onDragEnd);
-    };
-  }, [placed, room]);
-
   // Load a saved design from ?load=<id> (e.g. opened from a CRM deal).
   useEffect(() => {
     if (loadDesignId == null || !savedDesign || loadedDesignRef.current === loadDesignId) return;
@@ -4297,23 +3840,6 @@ export default function DesignTool() {
     }
   });
 
-  // Apply ?style=STYLECODE param: once doorStyles are loaded, find the matching
-  // style by styleCode and set it as the active style. This runs before the draft
-  // restore so the URL param always wins over a stale draft color.
-  useEffect(() => {
-    if (!initialStyleCode || initialStyleAppliedRef.current) return;
-    if (!doorStyles || doorStyles.length === 0) return;
-    const match = (doorStyles as Array<{ id: number; styleCode?: string | null }>)
-      .find((d) => d.styleCode?.toLowerCase() === initialStyleCode.toLowerCase());
-    if (match) {
-      setStyleId(match.id);
-      setStyleA(match.id);
-      styleIdRef.current = match.id;
-      toast.success(`Design tool loaded with ${initialStyleCode} style`);
-    }
-    initialStyleAppliedRef.current = true;
-  }, [initialStyleCode, doorStyles]);
-
   // Restore once, after verification, unless we're loading a saved design.
   useEffect(() => {
     if (!verified || draftRestoredRef.current) return;
@@ -4332,8 +3858,7 @@ export default function DesignTool() {
           if (Array.isArray(d.placed)) setPlaced(normalizeLCornerDepths(d.placed));
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);
-          // When ?style=STYLECODE is in the URL, the URL param wins over the draft color.
-          if (!initialStyleCode) setStyleId(d.styleId ?? null);
+          setStyleId(d.styleId ?? null);
           if (typeof d.styleB === "number") setStyleB(d.styleB);
           if (d.activeSlot === "A" || d.activeSlot === "B") setActiveSlot(d.activeSlot);
           if (d.tier) setTier(d.tier);
@@ -4395,6 +3920,20 @@ export default function DesignTool() {
     draftRestoredRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verified, draftKey]);
+
+  // Pre-select a door style from the ?style=<id> URL param (e.g. "Design with
+  // this" CTA from the homepage). Fires once, after the draft has been restored,
+  // so it doesn't conflict with a saved draft that already has a style.
+  const preloadStyleAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!verified || !draftRestoredRef.current || preloadStyleAppliedRef.current) return;
+    if (preloadStyleId == null) return;
+    if (!doorStyles || doorStyles.length === 0) return;
+    preloadStyleAppliedRef.current = true;
+    // Only apply if no style is already set (fresh canvas or empty draft).
+    if (styleId != null) return;
+    setSlotStyle("A", preloadStyleId);
+  }, [verified, preloadStyleId, doorStyles, styleId, setSlotStyle]);
 
   // Consume the Surfaces & Fixtures wizard hand-off ONCE, after verification and
   // after the draft has been restored. This only fires when the customer clicked
@@ -4502,19 +4041,6 @@ export default function DesignTool() {
   // is used instead.
   const [cabEditSheetOpen, setCabEditSheetOpen] = useState(false);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
-  const [bumpOutOpen, setBumpOutOpen] = useState(false);
-  const [doorWindowOpen, setDoorWindowOpen] = useState(false);
-  const [dwCustomWidth, setDwCustomWidth] = useState(36);
-  const [dwCustomHeight, setDwCustomHeight] = useState(80);
-  const [dwCustomSill, setDwCustomSill] = useState(0);
-  const [dwCustomKind, setDwCustomKind] = useState<"door" | "window" | "opening" | "bow">("door");
-  const [dwTab, setDwTab] = useState<"presets" | "custom">("presets");
-  const [bumpOutWall, setBumpOutWall] = useState<"top" | "left" | "right" | "bottom">("top");
-  const [bumpOutWidth, setBumpOutWidth] = useState(36);
-  const [bumpOutDepth, setBumpOutDepth] = useState(24);
-  const [bumpOutDir, setBumpOutDir] = useState<"out" | "in">("out");
-  const [bumpOutShape, setBumpOutShape] = useState<"rectangle" | "semicircle" | "triangle">("rectangle");
-  const [bumpOutOffset, setBumpOutOffset] = useState<number | null>(null); // null = centered
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
 
@@ -4568,61 +4094,8 @@ export default function DesignTool() {
 
         <div className="hidden lg:block h-5 w-px bg-border" />
 
-        {/* View toggle — visible on all screen sizes */}
-        <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30 shrink-0">
-          <button
-            onClick={() => setViewMode("plan")}
-            title={t("dt_sh_birdseye")}
-            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
-              viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("elevation")}
-            title={t("dt_sh_front_view")}
-            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
-              viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("split")}
-            title={t("dt_sh_split")}
-            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
-              viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Columns3 className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("corner")}
-            title={t("dt_sh_corner_title")}
-            className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
-              viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <ScanLine className="h-3.5 w-3.5" />
-          </button>
-          {island && (
-            <button
-              onClick={() => setViewMode("island")}
-              title="Island elevation preview"
-              className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-medium transition-colors ${
-                viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Square className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-
-        <div className="hidden lg:block h-5 w-px bg-border" />
-
-        {/* Room size editor + mouse-draw mode — visible on all screen sizes. */}
-        <div className={`shrink-0 ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
+        {/* Room size editor + mouse-draw mode — desktop only (mobile uses More sheet). */}
+        <div className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
           <RoomSizeControl
             room={room}
             onChange={applyRoom}
@@ -4633,34 +4106,45 @@ export default function DesignTool() {
               setSelectedUid(null);
               setMeasureMode(false);
             }}
+            isPolygon={isPolygonRoom}
+            onTogglePolygon={() => {
+              if (layoutLocked) return;
+              if (!isPolygonRoom) {
+                // Convert current rectangle to polygon
+                import("@/lib/polygonRoom").then(({ rectToPolygon }) => {
+                  const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
+                  setRoom((prev) => ({ ...prev, vertices, customWalls }));
+                });
+                setPolygonEditMode(true);
+                setDrawMode(false);
+                setMeasureMode(false);
+                toast.success("Custom shape mode — split walls and drag vertices to create bump-outs");
+              } else {
+                setPolygonEditMode((v) => !v);
+              }
+            }}
           />
         </div>
 
-
-
-        {/* AR Tape Measure: open a session so the phone can send room dimensions */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => createMeasureSession.mutate()}
-              disabled={createMeasureSession.isPending}
-              className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Measure Room with Phone"
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Measure Room with Phone</TooltipContent>
-        </Tooltip>
+        {/* Mobile room size indicator — shows current dimensions, tapping opens More sheet */}
+        <button
+          className="lg:hidden flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 rounded-md px-2 py-1 shrink-0"
+          onClick={() => setMoreSheetOpen(true)}
+          title="Room size — tap More to edit"
+        >
+          <span className="font-medium text-foreground">{Math.round(room.width / 12)}' × {Math.round(room.depth / 12)}'</span>
+          <span className="text-muted-foreground/60">·</span>
+          <span>{placed.length} items</span>
+        </button>
 
         {/* Wall cabinet height selector: 30/36/42 toggle */}
         <div className="hidden lg:flex items-center gap-1.5">
+          <span className="text-[11px] font-medium text-muted-foreground">{t("dt_wall_height_label")}</span>
           <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
             {([30, 36, 42] as const).map((h) => (
               <button
                 key={h}
                 onClick={() => { setWallCabHeight(h); wallCabHeightRef.current = h; wallCabHeightPromptedRef.current = true; }}
-                title={`Wall cabinet height: ${h}"`}
                 className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
                   wallCabHeight === h ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -4677,44 +4161,56 @@ export default function DesignTool() {
             can be dragged on the canvas to resize the room on that side.
             Desktop-only — on mobile these live in the "More" menu to save space. */}
         <div className="hidden lg:flex items-center gap-1.5">
-          <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
-            {([
-              { w: "top" as WallSide, icon: <ChevronUp className="h-3.5 w-3.5" />, label: "Back wall (top)" },
-              { w: "left" as WallSide, icon: <ChevronLeft className="h-3.5 w-3.5" />, label: "Left wall" },
-              { w: "right" as WallSide, icon: <ChevronRight className="h-3.5 w-3.5" />, label: "Right wall" },
-              { w: "bottom" as WallSide, icon: <ChevronDown className="h-3.5 w-3.5" />, label: "Front wall (bottom)" },
-            ]).map(({ w, icon, label }) => {
-              const wLocked = layoutLocked || lockedWalls.has(w);
-              return (
-                <div key={w} className="relative flex items-center">
-                  <button
-                    onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                    title={`${label} — click to place cabinets here`}
-                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors ${
-                      activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {icon}
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (layoutLocked) { toast.info(t("dt_sh_whole_locked")); return; }
-                      setLockedWalls((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(w)) next.delete(w); else next.add(w);
-                        return next;
-                      });
-                    }}
-                    title={wLocked ? `Unlock ${label}` : `Lock ${label} (prevent changes)`}
-                    className={`rounded p-0.5 transition-colors ${
-                      wLocked ? "text-[#d4a75a]" : "text-muted-foreground/40 hover:text-foreground"
-                    }`}
-                  >
-                    {wLocked ? <Lock className="h-2.5 w-2.5" /> : <LockOpen className="h-2.5 w-2.5" />}
-                  </button>
-                </div>
-              );
-            })}
+          <span className="text-[11px] font-medium text-muted-foreground">{t("dt_sh_wall")}</span>
+          <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30 overflow-x-auto">
+            {isPolygonRoom && room.customWalls ? (
+              // Polygon mode: show custom wall segment tabs
+              room.customWalls.map((cw) => (
+                <button
+                  key={cw.id}
+                  onClick={() => { setActiveWall(cw.id as any); setDrawMode(false); }}
+                  className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                    activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {cw.label || cw.id.slice(0, 6)}
+                </button>
+              ))
+            ) : (
+              // Classic rectangle mode: 4 fixed walls
+              (["top", "left", "right", "bottom"] as WallSide[]).map((w) => {
+                const wLocked = layoutLocked || lockedWalls.has(w);
+                return (
+                  <div key={w} className="flex items-center">
+                    <button
+                      onClick={() => { setActiveWall(w); setDrawMode(false); }}
+                      title={t("dt_sh_wall_highlight", { wall: wallLabel[w] })}
+                      className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                        activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {wallLabel[w]}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (layoutLocked) { toast.info(t("dt_sh_whole_locked")); return; }
+                        setLockedWalls((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(w)) next.delete(w); else next.add(w);
+                          return next;
+                        });
+                      }}
+                      title={wLocked ? t("dt_sh_wall_locked_unlock", { wall: wallLabel[w] }) : t("dt_sh_wall_lock", { wall: wallLabel[w] })}
+                      className={`ml-0.5 mr-0.5 rounded p-1 transition-colors ${
+                        wLocked ? "text-[#d4a75a]" : "text-muted-foreground/50 hover:text-foreground"
+                      }`}
+                    >
+                      {wLocked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
+                    </button>
+                  </div>
+                );
+              })
+            )}
           </div>
           <button
             onClick={() => {
@@ -4723,79 +4219,108 @@ export default function DesignTool() {
               toast.success(!layoutLocked ? t("dt_sh_layout_locked_toast") : t("dt_sh_layout_unlocked_toast"));
             }}
             title={layoutLocked ? t("dt_sh_unlock_plan") : t("dt_sh_lock_plan")}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
               layoutLocked ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >
             {layoutLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+            <span className="hidden xl:inline">{layoutLocked ? t("dt_sh_locked") : t("dt_sh_lock_layout")}</span>
           </button>
           <button
             onClick={autoFillActiveWall}
             disabled={layoutLocked}
             title={t("dt_sh_autofill_title", { wall: wallLabel[activeWall] })}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
           >
-                        <Wand2 className="h-3.5 w-3.5" />
+            <Wand2 className="h-3.5 w-3.5" />
+            <span className="hidden xl:inline">{t("dt_sh_autofill_wall")}</span>
           </button>
-          <button
-            onClick={() => setBumpOutOpen(true)}
-            disabled={layoutLocked}
-            title="Add Bump-Out / Bay Window"
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted disabled:opacity-40"
-          >
-            <ChevronRight className="h-3.5 w-3.5 rotate-90" />
-          </button>
-          <button
-            onClick={() => setDoorWindowOpen(true)}
-            title="Add Door / Window"
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
-          >
-            <AppWindow className="h-3.5 w-3.5" />
-          </button>
+
         </div>
+
         <div className="hidden lg:block h-5 w-px bg-border" />
-        {/* Start New / Clear Design — desktop only */}
-        <Tooltip delayDuration={300}>
-          <TooltipTrigger asChild>
+
+        {/* View toggle — ONE CLICK */}
+        <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
+          <button
+            onClick={() => setViewMode("plan")}
+            title={t("dt_sh_birdseye")}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_birdseye")}</span>
+          </button>
+          <button
+            onClick={() => setViewMode("elevation")}
+            title={t("dt_sh_front_view")}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Eye className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_front_view")}</span>
+          </button>
+          <button
+            onClick={() => setViewMode("split")}
+            title={t("dt_sh_split")}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Columns3 className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_split")}</span>
+          </button>
+          <button
+            onClick={() => setViewMode("corner")}
+            title={t("dt_sh_corner_title")}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <ScanLine className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_corner")}</span>
+          </button>
+          {island && (
             <button
-              type="button"
-              className="hidden lg:flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
-              onClick={() => {
-                if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
-                setPlaced([]);
-                setOpenings([]);
-                setIsland(null);
-                setSelectedUid(null);
-                setSelectedOpeningUid(null);
-                setSinks([]);
-                setSelectedSinkUid(null);
-                setFurniture([]);
-                setSelectedFurnUid(null);
-                setPonyWalls([]);
-                setSelectedPonyWallUid(null);
-                setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
-                setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
-                setBacksplashMaterialId(null);
-                setFlooringMaterialId(null);
-                setCabinetsLocked(false);
-                setConsultMessages([]);
-                setConsultOpen(false);
-                // Reset room to a completely fresh blank footprint — no bump-outs, no polygon shape
-                setRoom(DEFAULT_ROOM);
-                setRoomType("kitchen");
-                setActiveWall("top");
-                clearDraft();
-                toast.success(t("dt_sh_started_new"));
-              }}
+              onClick={() => setViewMode("island")}
+              title="Island elevation preview"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Square className="h-3.5 w-3.5" /> Island
             </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
-            <p className="font-semibold">Clear Design</p>
-            <p className="text-muted-foreground mt-0.5">Removes all placed cabinets, appliances, openings, and trim from the current drawing and starts fresh. The room shape is kept.</p>
-          </TooltipContent>
-        </Tooltip>
+          )}
+        </div>
+
+        {/* Start New / Clear Design — desktop only */}
+        <button
+          type="button"
+          className="hidden lg:flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+          onClick={() => {
+            if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
+            setPlaced([]);
+            setOpenings([]);
+            setIsland(null);
+            setSelectedUid(null);
+            setSelectedOpeningUid(null);
+            setSinks([]);
+            setSelectedSinkUid(null);
+            setFurniture([]);
+            setSelectedFurnUid(null);
+            setPonyWalls([]);
+            setSelectedPonyWallUid(null);
+            setCrown(false); setToeKick(false); setBatten(false); setLightRail(false); setCountertop(false); setValance(false);
+            setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
+            setBacksplashMaterialId(null);
+            setFlooringMaterialId(null);
+            setCabinetsLocked(false);
+            setConsultMessages([]);
+            setConsultOpen(false);
+            clearDraft();
+            toast.success(t("dt_sh_started_new"));
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_start_new")}</span>
+        </button>
 
         {/* Printable graph-paper worksheet */}
         <a
@@ -4803,51 +4328,25 @@ export default function DesignTool() {
           target="_blank"
           rel="noopener noreferrer"
           title={t("dt_sh_print_title")}
-          className="hidden lg:flex w-8 h-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
         >
-          <Printer className="h-3.5 w-3.5" />
+                    <Printer className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_print_sheet")}</span>
         </a>
         {/* Preview modes — desktop toolbar button */}
         {placed.length > 0 && (
           <button
             type="button"
             onClick={() => setPreviewModalOpen(true)}
-            title="3D Preview"
-            className="hidden lg:flex w-8 h-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+            className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
           >
-            <Eye className="h-3.5 w-3.5" />
+            <Eye className="h-3.5 w-3.5" /> Preview
           </button>
         )}
-        {/* Mobile top-bar shortcuts: Styles, Doors, More — visible only on mobile */}
-        <div className="ml-auto flex items-center gap-1 lg:hidden">
-          {/* Styles */}
-          <button
-            onClick={() => setMobilePanel(mobilePanel === "cart" ? null : "cart")}
-            title="Door Styles"
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${
-              mobilePanel === "cart" ? "border-[#d4a75a] bg-[#d4a75a]/10 text-[#d4a75a]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <Palette className="h-3.5 w-3.5" />
-          </button>
-          {/* Doors/Windows */}
-          <button
-            onClick={() => setDoorWindowOpen(true)}
-            title="Add Door / Window"
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
-          >
-            <AppWindow className="h-3.5 w-3.5" />
-          </button>
-          {/* More — opens the More sheet */}
-          <button
-            onClick={() => setMoreSheetOpen(true)}
-            title="More options"
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
-          >
-            <MoreHorizontal className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="lg:hidden">
+        {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
+        <div className="ml-auto flex items-center gap-2 lg:hidden">
+          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setMoreSheetOpen(true)}>
+            <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
+          </Button>
 
           {/* ── Main "More" sheet ─────────────────────────────────────── */}
           <Sheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen}>
@@ -4859,18 +4358,32 @@ export default function DesignTool() {
 
                 {/* Active wall selector */}
                 <p className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("dt_sh_active_wall")}</p>
-                <div className="grid gap-1 px-3 pb-2 grid-cols-4">
-                  {(["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
-                    <button
-                      key={w}
-                      onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                      className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
-                        activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {wallLabel[w]}
-                    </button>
-                  ))}
+                <div className={`grid gap-1 px-3 pb-2 ${isPolygonRoom && room.customWalls ? "grid-cols-3" : "grid-cols-4"}`}>
+                  {isPolygonRoom && room.customWalls ? (
+                    room.customWalls.map((cw) => (
+                      <button
+                        key={cw.id}
+                        onClick={() => { setActiveWall(cw.id as any); setDrawMode(false); }}
+                        className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                          activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {cw.label || cw.id.slice(0, 6)}
+                      </button>
+                    ))
+                  ) : (
+                    (["top", "left", "right", "bottom"] as WallSide[]).map((w) => (
+                      <button
+                        key={w}
+                        onClick={() => { setActiveWall(w); setDrawMode(false); }}
+                        className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                          activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {wallLabel[w]}
+                      </button>
+                    ))
+                  )}
                 </div>
 
                 {/* Wall cabinet height selector (mobile) */}
@@ -4927,10 +4440,6 @@ export default function DesignTool() {
                     <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">Add Pony Wall</span>
                     {ponyWalls.length > 0 && <span className="text-xs text-muted-foreground">{ponyWalls.length}</span>}
-                  </button>
-                  <button disabled={layoutLocked} onClick={() => { setMoreSheetOpen(false); setTimeout(() => setBumpOutOpen(true), 120); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 rotate-90" />
-                    <span className="flex-1 text-left">Add Bump-Out / Bay Window</span>
                   </button>
                   <button disabled={layoutLocked} onClick={addManualFiller} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -5115,10 +4624,6 @@ export default function DesignTool() {
                       setCabinetsLocked(false);
                       setConsultMessages([]);
                       setConsultOpen(false);
-                      // Reset room to a completely fresh blank footprint — no bump-outs, no polygon shape
-                      setRoom(DEFAULT_ROOM);
-                      setRoomType("kitchen");
-                      setActiveWall("top");
                       clearDraft();
                       toast.success(t("dt_sh_started_new"));
                       setMoreSheetOpen(false);
@@ -5252,10 +4757,10 @@ export default function DesignTool() {
         {/* Desktop action cluster */}
         <div className="ml-auto hidden lg:flex items-center gap-2">
           {/* Undo / Redo */}
-          <Button variant="outline" size="icon" onClick={handleUndo} className="h-8 w-8" title={t("dt_sh_undo")}>
+          <Button variant="outline" size="sm" onClick={handleUndo} className="h-8 gap-1.5" title={t("dt_sh_undo")}>
             <Undo2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleRedo} className="h-8 w-8" title={t("dt_sh_redo")}>
+          <Button variant="outline" size="sm" onClick={handleRedo} className="h-8 gap-1.5" title={t("dt_sh_redo")}>
             <Redo2 className="h-3.5 w-3.5" />
           </Button>
 
@@ -5264,48 +4769,45 @@ export default function DesignTool() {
           {/* Measure / Dimensions */}
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             onClick={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}
-            title={t("dt_sh_measure")}
-            className={`h-8 w-8 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+            className={`h-8 gap-1.5 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
-            <Ruler className="h-3.5 w-3.5" />
+            <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_measure")}
           </Button>
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             onClick={() => setAutoDimensions((d) => !d)}
-            title={t("dt_sh_auto_dim")}
-            className={`h-8 w-8 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+            className={`h-8 gap-1.5 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
-            <Ruler className="h-3.5 w-3.5" />
+            <Ruler className="h-3.5 w-3.5" /> {t("dt_sh_auto_dim")}
           </Button>
           <Button
             variant="outline"
-            size="icon"
-            title={t("dt_ann_add")}
+            size="sm"
             onClick={() => {
               const text = window.prompt(t("dt_ann_prompt"));
               if (text && text.trim()) {
                 setAnnotations((prev) => [...prev, makeAnnotation(room.width / 2, room.depth / 2, text.trim())]);
               }
             }}
-            className="h-8 w-8"
+            className="h-8 gap-1.5"
           >
-            <StickyNote className="h-3.5 w-3.5" />
+            <StickyNote className="h-3.5 w-3.5" /> {t("dt_ann_add")}
           </Button>
 
           <div className="h-5 w-px bg-border" />
 
           {/* Selected-item actions */}
-          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-8 w-8" title={`${t("dt_sh_rotate")} (R)`}>
-            <RotateCw className="h-3.5 w-3.5" />
+          <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-8 gap-1.5">
+            <RotateCw className="h-3.5 w-3.5" /> {t("dt_sh_rotate")} <span className="text-[10px] opacity-60">(R)</span>
           </Button>
-          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-8 w-8" title={`${t("dt_sh_swing")} (S)`}>
-            <DoorOpen className="h-3.5 w-3.5" />
+          <Button variant="outline" size="sm" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-8 gap-1.5">
+            <DoorOpen className="h-3.5 w-3.5" /> {t("dt_sh_swing")} <span className="text-[10px] opacity-60">(S)</span>
           </Button>
-          <Button variant="outline" size="icon" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-8 w-8 text-destructive" title={t("dt_sh_delete")}>
-            <Trash2 className="h-3.5 w-3.5" />
+          <Button variant="outline" size="sm" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-8 gap-1.5 text-destructive">
+            <Trash2 className="h-3.5 w-3.5" /> {t("dt_sh_delete")}
           </Button>
 
           <div className="h-5 w-px bg-border" />
@@ -5313,37 +4815,30 @@ export default function DesignTool() {
           {/* Lock Cabs */}
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             onClick={() => {
               setCabinetsLocked((v) => !v);
               toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked — you can move them again");
             }}
             title={cabinetsLocked ? "Unlock cabinets (allow moving)" : "Lock cabinets (freeze positions)"}
-            className={`h-8 w-8 ${
+            className={`h-8 gap-1.5 ${
               cabinetsLocked ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600" : ""
             }`}
           >
             {cabinetsLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+            {cabinetsLocked ? "Locked" : "Lock Cabs"}
           </Button>
 
           {/* More ▾ dropdown — Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop */}
           <DropdownMenu>
-            <Tooltip delayDuration={300}>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-7 w-7 relative">
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                    {(island || crown || toeKick || batten || lightRail || valance || countertop) && (
-                      <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-[#d4a75a]" />
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-[220px] text-center text-xs">
-                <p className="font-semibold">More Options</p>
-                <p className="text-muted-foreground mt-0.5">Toggle island, crown molding, toe kick, batten, light rail, valance, filler, and countertop.</p>
-              </TooltipContent>
-            </Tooltip>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                <MoreHorizontal className="h-3.5 w-3.5" /> More
+                {(island || crown || toeKick || batten || lightRail || valance || countertop) && (
+                  <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-[#d4a75a]" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel className="text-xs text-muted-foreground">Room Features</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
@@ -5440,22 +4935,15 @@ export default function DesignTool() {
               })
             }
           />
-          <Tooltip delayDuration={300}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCsvImportOpen(true)}
-                className="h-7 w-7 border-[#d4a75a]/60 text-[#1a2744] hover:bg-[#d4a75a]/10"
-              >
-                <FileText className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
-              <p className="font-semibold">Import CSV</p>
-              <p className="text-muted-foreground mt-0.5">Import a parts list from a 2020 Design CSV export to populate the design.</p>
-            </TooltipContent>
-          </Tooltip>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCsvImportOpen(true)}
+            title="Import parts list from 2020 Design CSV"
+            className="h-8 gap-1.5 border-[#d4a75a]/60 text-[#1a2744] hover:bg-[#d4a75a]/10"
+          >
+            <FileText className="h-3.5 w-3.5" /> Import CSV
+          </Button>
           <CsvImportDialog open={csvImportOpen} onOpenChange={setCsvImportOpen} />
           <div className="h-5 w-px bg-border" />
           <DesignHelp />
@@ -5556,7 +5044,42 @@ export default function DesignTool() {
                   </>
                 )}
               </div>
-{/* Per-cabinet finish selector removed — style selection is only in the Cart panel */}
+              {/* Per-cabinet finish (two-tone): give THIS cabinet a different
+                  color/finish than the design default, within the locked supply
+                  line. "Match design" clears the override. */}
+              {styleId && uniqueDoorStyles.length > 0 && !cabinetsLocked && (
+                <>
+                  <div className="h-4 w-px bg-border" />
+                  <div className="flex items-center gap-1 rounded-md bg-[#d4a75a]/10 px-1.5 py-1 ring-1 ring-[#d4a75a]/30">
+                    <Palette className="h-3.5 w-3.5 text-[#1a2744]" />
+                    <span className="text-[11px] font-semibold text-[#1a2744] mr-0.5">{t("dt_cx_finish_this")}</span>
+                    <Select
+                      value={selectedCab.styleId != null ? String(selectedCab.styleId) : "__match__"}
+                      onValueChange={(v) => setCabinetStyle(v === "__match__" ? null : Number(v))}
+                    >
+                      <SelectTrigger className="h-7 w-[150px] text-[11px] bg-white">
+                        <SelectValue placeholder={t("dt_cx_match_design")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
+                        {uniqueDoorStyles.map((s) => (
+                                    <SelectItem key={s.id} value={String(s.id)}>{styleDisplayName(s) || s.ourName}</SelectItem>
+                        ))}                      </SelectContent>
+                    </Select>
+                    {selectedCab.styleId != null && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[11px] text-[#1a2744] hover:bg-[#d4a75a]/20"
+                        title={t("dt_cx_apply_all")}
+                        onClick={applySelectedFinishToMatching}
+                      >
+                        {t("dt_cx_apply_to_all")}
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
               {selectedCab.placement === "wall" && (
                 <>
                   <div className="h-4 w-px bg-border" />
@@ -5812,7 +5335,38 @@ export default function DesignTool() {
                   )}
                 </div>
 
-{/* Per-cabinet finish selector removed — style selection is only in the Cart panel */}
+                {styleId && uniqueDoorStyles.length > 0 && !cabinetsLocked && (
+                  <div className="rounded-xl border border-border bg-[#d4a75a]/10 p-3 ring-1 ring-[#d4a75a]/30">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#1a2744]">
+                      <Palette className="h-4 w-4" />
+                      <span>{t("dt_cx_finish_this")}</span>
+                    </div>
+                    <Select
+                      value={selectedCab.styleId != null ? String(selectedCab.styleId) : "__match__"}
+                      onValueChange={(v) => setCabinetStyle(v === "__match__" ? null : Number(v))}
+                    >
+                      <SelectTrigger className="h-9 w-full bg-white text-[12px]">
+                        <SelectValue placeholder={t("dt_cx_match_design")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
+                        {uniqueDoorStyles.map((s) => (
+                                    <SelectItem key={s.id} value={String(s.id)}>{styleDisplayName(s) || s.ourName}</SelectItem>
+                        ))}                      </SelectContent>
+                    </Select>
+                    {selectedCab.styleId != null && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 h-8 px-2 text-[11px] text-[#1a2744] hover:bg-[#d4a75a]/20"
+                        title={t("dt_cx_apply_all")}
+                        onClick={applySelectedFinishToMatching}
+                      >
+                        {t("dt_cx_apply_to_all")}
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {selectedCab.placement === "wall" && (
                   <div className="rounded-xl border border-border bg-muted/30 p-3">
@@ -6022,19 +5576,19 @@ export default function DesignTool() {
             {/* Catalog tabs. Closet mode leads with the Closet parts tab but
                 still exposes cabinets + the Door/Win tool so a closet can hold
                 cabinets and an entry door. Kitchen mode keeps its tab set. */}
-            <div className="grid grid-cols-5 gap-0.5 rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
+            <div className="flex lg:flex-wrap overflow-x-auto no-scrollbar rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
-                ? (["closetparts", "base", "wall", "tall", "accessory"] as const)
+                ? (["closetparts", "base", "wall", "tall", "opening", "accessory"] as const)
                 : roomType === "bathroom"
-                ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "accessory"] as const)
+                ? (["vanity", "appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "opening", "accessory"] as const)
                 : roomType === "laundry"
-                ? (["appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "accessory"] as const)
-                : (["base", "corner", "wall", "wallht", "tall", "appliance", "surfaces", "accessory", "furniture"] as const)
+                ? (["appliance", "base", "corner", "wall", "wallht", "tall", "surfaces", "opening", "accessory"] as const)
+                : (["base", "corner", "wall", "wallht", "tall", "appliance", "surfaces", "opening", "accessory", "furniture"] as const)
               ).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setPaletteType(tab)}
-                  className={`py-1.5 rounded-md text-[10px] font-semibold text-center leading-tight transition-colors ${
+                  className={`shrink-0 whitespace-nowrap px-2.5 lg:px-1 lg:flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
                     paletteType === tab ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -6042,6 +5596,8 @@ export default function DesignTool() {
                     ? (roomType === "bathroom" || roomType === "laundry" ? t("dt_tab_fixtures") : t("dt_tab_appli"))
                     : tab === "surfaces"
                     ? "Surfaces"
+                    : tab === "opening"
+                    ? t("dt_tab_door_win")
                     : tab === "wallht"
                     ? t("dt_tab_wall_by_ht")
                     : tab === "corner"
@@ -6083,7 +5639,45 @@ export default function DesignTool() {
                 </button>
               )}
             </div>
-
+            {/* Distributor / Collection filter — simple dropdown so the user
+                can switch between supply lines. Auto-selects the locked one. */}
+            {styleId && (distributorLabels ?? []).length > 1 && (
+              <div className="mt-2">
+                <Select
+                  value={lockedDistributorId != null ? String(lockedDistributorId) : "all"}
+                  onValueChange={(val) => {
+                    if (val === "all") {
+                      if (placed.length > 0 && lockedDistributorId != null) {
+                        const ok = window.confirm(t("dt_dist_override_body"));
+                        if (!ok) return;
+                        setMixedWarehouseOverride(true);
+                      }
+                      setLockedDistributorId(null);
+                    } else {
+                      const newDist = Number(val);
+                      if (placed.length > 0 && lockedDistributorId != null && newDist !== lockedDistributorId) {
+                        const ok = window.confirm(t("dt_dist_override_body"));
+                        if (!ok) return;
+                        setMixedWarehouseOverride(true);
+                      }
+                      setLockedDistributorId(newDist);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="All Collections" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Collections</SelectItem>
+                    {(distributorLabels ?? []).map((d) => (
+                      <SelectItem key={d.id} value={String(d.id)}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -6092,6 +5686,7 @@ export default function DesignTool() {
                 clear call-out + a jump to the picker, instead of leaving users
                 staring at an empty list. */}
             {!styleId &&
+              paletteType !== "opening" &&
               paletteType !== "closetparts" &&
               paletteType !== "surfaces" &&
               paletteType !== "accessory" && (
@@ -6102,7 +5697,22 @@ export default function DesignTool() {
                   <p className="text-[11px] leading-snug text-muted-foreground">
                     {t("dt_pl_need_style_body")}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">Open the Cart panel to choose a door style.</p>
+                  <Button
+                    size="sm"
+                    className="h-7 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 text-[11px]"
+                    onClick={() => {
+                      const el = document.getElementById("door-style-picker-card");
+                      if (el) {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        el.classList.add("ring-2", "ring-[#a87f33]", "rounded-lg");
+                        window.setTimeout(() => {
+                          el.classList.remove("ring-2", "ring-[#a87f33]", "rounded-lg");
+                        }, 1800);
+                      }
+                    }}
+                  >
+                    {t("dt_pl_need_style_cta")}
+                  </Button>
                 </div>
               )}
             {/* Per-style availability hint: when a style is selected and the user
@@ -6178,6 +5788,23 @@ export default function DesignTool() {
                   );
                 });
               })()
+            ) : paletteType === "opening" ? (
+              OPENINGS.map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => addOpening(o)}
+                  className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                >
+                  <div className={`h-9 w-9 rounded border flex items-center justify-center shrink-0 ${o.kind === "door" ? "bg-[#9b6a3c]/30 border-[#9b6a3c]/50" : o.kind === "opening" ? "bg-[#8a8f98]/20 border-dashed border-[#8a8f98]/70" : "bg-[#7fb4d6]/30 border-[#7fb4d6]/60"}`}>
+                    {o.kind === "door" ? <PanelTop className="h-4 w-4 text-[#8a5f33]" /> : o.kind === "opening" ? <DoorOpen className="h-4 w-4 text-[#5b6770]" /> : <Square className="h-4 w-4 text-[#3f7da6]" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-semibold text-foreground truncate">{o.label}</div>
+                    <div className="text-[10px] text-muted-foreground capitalize">{o.kind} · {o.width}"W × {o.height}"H</div>
+                  </div>
+                  <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                </button>
+              ))
             ) : paletteLoading ? (
               Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)
             ) : (
@@ -6202,7 +5829,7 @@ export default function DesignTool() {
                     <span className="flex-1 text-left">{group.label}</span>
                     <span className="font-normal normal-case">({group.items.length})</span>
                   </button>
-                  {open && group.items.map((c, ci) => {
+                  {open && group.items.map((c) => {
                     // Accessories & Trim: only PHYSICAL placeable items
                     // (decorative/end panels, skins, appliance garages) appear —
                     // they drop onto the drawing like a cabinet box. Loose
@@ -6211,120 +5838,74 @@ export default function DesignTool() {
                     // as an add-on sale in the design tool and is hidden here.
                     if (paletteType === "accessory") {
                       if (!isPlaceableAccessory(c)) return null;
-                      const cabPrice = styleId ? (priceMap.get(`${c.id}:${styleId}`) ?? null) : null;
                       return (
-                        <Tooltip key={`${group.label}:${c.masterCode}:${ci}`} delayDuration={400}>
-                          <TooltipTrigger asChild>
-                            <button
-                              draggable
-                              onDragStart={(e) => { dragDataRef.current = c; dragGhostRef.current = { active: true, cabinet: c }; const px = document.createElement("canvas"); px.width = 1; px.height = 1; e.dataTransfer.setDragImage(px, 0, 0); }}
-                              onDragEnd={() => { dragGhostRef.current.active = false; dragGhostRef.current.cabinet = null; setDragGhost(null); }}
-                              onClick={() => addCabinet(c)}
-                              className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
-                            >
-                              <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
-                                <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
-                                <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                                <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
-                              </div>
-                              <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[240px] p-2 space-y-1.5 text-xs">
-                            <div className="flex gap-2 items-start">
-                              <div className="h-16 w-16 rounded bg-white border border-border flex items-center justify-center shrink-0 p-1">
-                                <CabinetImage cabinet={c} className="h-full w-auto max-w-full object-contain" />
-                              </div>
-                              <div className="min-w-0 flex-1 space-y-0.5">
-                                <p className="font-mono font-semibold leading-tight">{c.masterCode}</p>
-                                <p className="text-muted-foreground leading-snug">{c.description}</p>
-                                <p className="text-foreground">
-                                  {dim(c.width, 24)}"W
-                                  {c.height ? ` × ${dim(c.height, 0)}"H` : ""}
-                                  {c.depth ? ` × ${dim(c.depth, 0)}"D` : ""}
-                                </p>
-                                {cabPrice != null && (
-                                  <p className="font-semibold text-primary">${cabPrice.toFixed(2)}</p>
-                                )}
-                              </div>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
+                        <button
+                          key={c.masterCode}
+                          draggable
+                          onDragStart={() => { dragDataRef.current = c; }}
+                          onClick={() => addCabinet(c)}
+                          className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                        >
+                          <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                            <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                            <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
+                          </div>
+                          <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                        </button>
                       );
                     }
-                    {
-                      const isBaseBox =
-                        paletteType === "base" ||
-                        paletteType === "vanity" ||
-                        (paletteType === "corner" && isCornerBase(c));
-                      const hVal = isBaseBox ? "34.5" : (dim(c.height, 0) > 0 ? String(dim(c.height, 0)) : null) ?? "—";
-                      const showH = isBaseBox || dim(c.height, 0) > 0;
-                      const cabPrice = styleId ? (priceMap.get(`${c.id}:${styleId}`) ?? null) : null;
-                      return (
-                        <Tooltip key={`${group.label}:${c.masterCode}:${ci}`} delayDuration={400}>
-                          <TooltipTrigger asChild>
-                            <button
-                              draggable
-                              onDragStart={(e) => { dragDataRef.current = c; dragGhostRef.current = { active: true, cabinet: c }; const px = document.createElement("canvas"); px.width = 1; px.height = 1; e.dataTransfer.setDragImage(px, 0, 0); }}
-                              onDragEnd={() => { dragGhostRef.current.active = false; dragGhostRef.current.cabinet = null; setDragGhost(null); }}
-                              onClick={() => addCabinet(c)}
-                              className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
-                            >
-                              <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
-                                <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
-                                <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
-                                <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {hVal}{showH ? "\"H" : ""}</div>
-                              </div>
-                              {paletteFinishSwatch && (
-                                <img
-                                  src={paletteFinishSwatch}
-                                  alt={activeStyleName ? `${activeStyleName} finish` : "selected finish"}
-                                  title={activeStyleName ?? undefined}
-                                  loading="lazy"
-                                  className="h-7 w-7 rounded-sm object-cover border border-[#a07d4a]/40 shrink-0"
-                                />
-                              )}
-                              <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[260px] p-2 space-y-1.5 text-xs">
-                            <div className="flex gap-2 items-start">
-                              <div className="h-16 w-16 rounded bg-white border border-border flex items-center justify-center shrink-0 p-1">
-                                <CabinetImage cabinet={c} className="h-full w-auto max-w-full object-contain" />
-                              </div>
-                              <div className="min-w-0 flex-1 space-y-0.5">
-                                <p className="font-mono font-semibold leading-tight">{c.masterCode}</p>
-                                <p className="text-muted-foreground leading-snug">{c.description}</p>
-                                <p className="text-foreground">
-                                  {dim(c.width, 24)}"W
-                                  {showH ? ` × ${hVal}"H` : ""}
-                                  {c.depth ? ` × ${dim(c.depth, 0)}"D` : ""}
-                                </p>
-                                {c.numberOfDoors != null && c.numberOfDoors > 0 && (
-                                  <p className="text-muted-foreground">{c.numberOfDoors} door{c.numberOfDoors !== 1 ? "s" : ""}{c.numberOfDrawers ? `, ${c.numberOfDrawers} drawer${c.numberOfDrawers !== 1 ? "s" : ""}` : ""}</p>
-                                )}
-                                {cabPrice != null && (
-                                  <p className="font-semibold text-primary">${cabPrice.toFixed(2)}</p>
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground/70">Click or drag to place</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    }
+                    return (
+                    <button
+                      key={c.masterCode}
+                      draggable
+                      onDragStart={() => { dragDataRef.current = c; }}
+                      onClick={() => addCabinet(c)}
+                      className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+                    >
+                      <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                        <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                        {(() => {
+                          // A base-family box (Base/Vanity tab, or a corner BASE
+                          // cabinet inside the unified Corner tab) is always the
+                          // standard 34.5" tall; wall/tall/corner-wall boxes use
+                          // their real catalog height.
+                          const isBaseBox =
+                            paletteType === "base" ||
+                            paletteType === "vanity" ||
+                            (paletteType === "corner" && isCornerBase(c));
+                          const hVal = isBaseBox ? "34.5" : (dim(c.height, 0) > 0 ? String(dim(c.height, 0)) : null) ?? "—";
+                          const showH = isBaseBox || dim(c.height, 0) > 0;
+                          return (
+                            <div className="text-[10px] text-muted-foreground">{dim(c.width, 24)}"W × {hVal}{showH ? "\"H" : ""}</div>
+                          );
+                        })()}
+                      </div>
+                      {paletteFinishSwatch && (
+                        <img
+                          src={paletteFinishSwatch}
+                          alt={activeStyleName ? `${activeStyleName} finish` : "selected finish"}
+                          title={activeStyleName ?? undefined}
+                          loading="lazy"
+                          className="h-7 w-7 rounded-sm object-cover border border-[#a07d4a]/40 shrink-0"
+                        />
+                      )}
+                      <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />
+                    </button>
+                    );
                   })}
                 </div>
                 );
               })
             )}
-            {paletteType !== "surfaces" && paletteType !== "furniture" && !paletteLoading && filteredPalette.length === 0 && (
+            {paletteType !== "opening" && paletteType !== "surfaces" && paletteType !== "furniture" && !paletteLoading && filteredPalette.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">
                 {paletteSearch
                   ? t("dt_pl_no_match")
@@ -6333,7 +5914,9 @@ export default function DesignTool() {
                   : t("dt_pl_no_category")}
               </p>
             )}
-
+            {paletteType === "opening" && (
+              <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">{t("dt_pl_click_add_drag")}</p>
+            )}
             {paletteType === "accessory" && filteredPalette.length > 0 && (
               <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">{t("dt_pl_panels_note")}</p>
             )}
@@ -6347,7 +5930,21 @@ export default function DesignTool() {
 
         {/* Canvas */}
         <div className="flex-1 min-w-0 relative pb-16 lg:pb-0">
-
+          {viewMode === "plan" && isPolygonRoom && polygonEditMode && (
+            <div className="absolute inset-0 z-20">
+              <PolygonRoomEditor
+                vertices={room.vertices!}
+                customWalls={room.customWalls!}
+                ppi={4}
+                onChange={(vertices, customWalls, width, depth) => {
+                  setRoom((prev) => ({ ...prev, vertices, customWalls, width, depth }));
+                }}
+                activeWallId={activeWall}
+                onSelectWall={(wallId) => setActiveWall(wallId as any)}
+                locked={layoutLocked}
+              />
+            </div>
+          )}
           {viewMode === "plan" && (
             <PlanCanvas
               room={room}
@@ -6375,6 +5972,7 @@ export default function DesignTool() {
               onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
               activeWall={activeWall}
               onSelectWall={setActiveWall}
+              onResizeWall={resizeWall}
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}
               lockedWalls={lockedWalls}
@@ -6532,6 +6130,7 @@ export default function DesignTool() {
                   onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
                   activeWall={activeWall}
                   onSelectWall={setActiveWall}
+                  onResizeWall={resizeWall}
                   conflictUids={conflictUids}
                   layoutLocked={layoutLocked}
                   lockedWalls={lockedWalls}
@@ -6678,9 +6277,8 @@ export default function DesignTool() {
                 slot="A"
                 active={activeSlot === "A"}
                 style={styleA != null ? (doorStyles?.find((d) => d.id === styleA) ?? null) : null}
-                styles={allDoorStyles}
+                styles={uniqueDoorStyles}
                 distributors={distributorLabels ?? []}
-                lockedDistributorId={lockedDistributorId}
                 onSelect={() => {
                   if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
                   selectColorSlot("A");
@@ -6825,11 +6423,7 @@ export default function DesignTool() {
                       <div className="flex items-center gap-1 shrink-0">
                         <div className="text-right">
                           <div className="font-semibold leading-none">
-                            {styleId
-                            ? lineTotal != null
-                              ? `$${lineTotal.toFixed(2)}`
-                              : <span className="text-red-600 flex items-center gap-0.5 text-[10px] font-semibold"><span>⚠</span><span>Price needed</span></span>
-                            : "—"}
+                            {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A") : "—"}
                           </div>
                           {styleId && g.qty > 1 && g.unitPrice != null && (
                             <div className="text-[9px] text-muted-foreground mt-0.5">${g.unitPrice.toFixed(2)} ea</div>
@@ -6987,7 +6581,7 @@ export default function DesignTool() {
                   const pcs = effectiveTrimPieces.toeKick;
                   const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
-                  <div className={`flex items-center justify-between gap-2 p-2 rounded-lg text-xs ${ext == null ? "bg-red-500/10 border border-red-500/30" : "bg-muted/30"}`}>
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_toe_kick")}</div>
                       <div className="text-[10px] text-muted-foreground">
@@ -6997,9 +6591,7 @@ export default function DesignTool() {
                       </div>
                       <TrimQtyStepper kind="toeKick" value={pcs} auto={toeKickOrder.pieces} override={trimQtyOverride.toeKick} setOverride={setTrimQtyOverride} />
                     </div>
-                    {ext != null
-                      ? <span className="font-semibold shrink-0">${ext.toFixed(2)}</span>
-                      : <span className="font-semibold shrink-0 text-red-600 flex items-center gap-1"><span>⚠</span><span>Price needed</span></span>}
+                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
                   </div>
                   );
                 })()}
@@ -7008,7 +6600,7 @@ export default function DesignTool() {
                   const pcs = effectiveTrimPieces.batten;
                   const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
-                  <div className={`flex items-center justify-between gap-2 p-2 rounded-lg text-xs ${ext == null ? "bg-red-500/10 border border-red-500/30" : "bg-muted/30"}`}>
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_bs_batten_molding")}</div>
                       <div className="text-[10px] text-muted-foreground">
@@ -7018,9 +6610,7 @@ export default function DesignTool() {
                       </div>
                       <TrimQtyStepper kind="batten" value={pcs} auto={battenOrder.pieces} override={trimQtyOverride.batten} setOverride={setTrimQtyOverride} />
                     </div>
-                    {ext != null
-                      ? <span className="font-semibold shrink-0">${ext.toFixed(2)}</span>
-                      : <span className="font-semibold shrink-0 text-red-600 flex items-center gap-1"><span>⚠</span><span>Price needed</span></span>}
+                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
                   </div>
                   );
                 })()}
@@ -7029,7 +6619,7 @@ export default function DesignTool() {
                   const pcs = effectiveTrimPieces.lightRail;
                   const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
-                  <div className={`flex items-center justify-between gap-2 p-2 rounded-lg text-xs ${ext == null ? "bg-red-500/10 border border-red-500/30" : "bg-muted/30"}`}>
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg text-xs bg-muted/30">
                     <div className="min-w-0">
                       <div className="font-mono font-semibold truncate">{t("dt_sh_light_rail_btn")}</div>
                       <div className="text-[10px] text-muted-foreground">
@@ -7039,9 +6629,7 @@ export default function DesignTool() {
                       </div>
                       <TrimQtyStepper kind="lightRail" value={pcs} auto={lightRailOrder.pieces} override={trimQtyOverride.lightRail} setOverride={setTrimQtyOverride} />
                     </div>
-                    {ext != null
-                      ? <span className="font-semibold shrink-0">${ext.toFixed(2)}</span>
-                      : <span className="font-semibold shrink-0 text-red-600 flex items-center gap-1"><span>⚠</span><span>Price needed</span></span>}
+                    <span className="font-semibold shrink-0">{ext != null ? `$${ext.toFixed(2)}` : t("dt_bs_incl")}</span>
                   </div>
                   );
                 })()}
@@ -7059,9 +6647,7 @@ export default function DesignTool() {
                       </div>
                       <TrimQtyStepper kind="valance" value={pcs} auto={valanceOrder.length} override={trimQtyOverride.valance} setOverride={setTrimQtyOverride} />
                     </div>
-                    {hasPricing
-                      ? <span className="font-semibold shrink-0">${totalPrice.toFixed(2)}</span>
-                      : <span className="font-semibold shrink-0 text-red-600 flex items-center gap-1"><span>⚠</span><span>Price needed</span></span>}
+                    <span className="font-semibold shrink-0">{hasPricing ? `$${totalPrice.toFixed(2)}` : t("dt_bs_incl")}</span>
                   </div>
                   );
                 })()}
@@ -7259,29 +6845,6 @@ export default function DesignTool() {
                 </div>
               );
             })()}
-            {/* Unpriced items warning — shown when any cabinet or trim line has no price */}
-            {styleId && (() => {
-              const unpricedCabCount = panelGroups.filter((g) => g.unitPrice == null).length;
-              const trimMissing: string[] = [];
-              if (toeKick && effectiveTrimPieces.toeKick > 0) { const p = trimPriceByCode.get("TK-8"); if (!p || p.unitPrice <= 0) trimMissing.push("Toe Kick"); }
-              if (batten && effectiveTrimPieces.batten > 0) { const p = trimPriceByCode.get("BAM"); if (!p || p.unitPrice <= 0) trimMissing.push("Batten Molding"); }
-              if (lightRail && effectiveTrimPieces.lightRail > 0) { const p = trimPriceByCode.get("LRM-8"); if (!p || p.unitPrice <= 0) trimMissing.push("Light Rail"); }
-              if (valance && valanceOrder.length > 0) { const p = trimPriceByCode.get("VA-48"); if (!p || p.unitPrice <= 0) trimMissing.push("Valance"); }
-              if (unpricedCabCount === 0 && trimMissing.length === 0) return null;
-              return (
-                <div className="mb-3 rounded-md border border-red-400/60 bg-red-50 dark:bg-red-950/20 px-3 py-2.5 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-semibold text-red-700 dark:text-red-400">Pricing incomplete — total is understated</p>
-                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5 leading-snug">
-                      {unpricedCabCount > 0 && <span>{unpricedCabCount} cabinet line{unpricedCabCount > 1 ? "s have" : " has"} no price for this style. </span>}
-                      {trimMissing.length > 0 && <span>{trimMissing.join(", ")} {trimMissing.length > 1 ? "have" : "has"} no price — add pricing in the admin panel. </span>}
-                      The total shown does not include these items.
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
             {/* Mixed-warehouse shipping surcharge warning */}
             {mixedWarehouseOverride && (
               <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
@@ -7289,22 +6852,11 @@ export default function DesignTool() {
                 {t("dt_dist_surcharge_body")}
               </div>
             )}
-            {/* No door style selected warning */}
-            {!styleId && cartableLines.length > 0 && (
-              <div className="mb-2 rounded-lg border border-red-400/60 bg-red-50 px-3 py-2.5 flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-semibold text-red-700">Door style &amp; series required</p>
-                  <p className="text-[11px] text-red-600 mt-0.5 leading-snug">Please select a door style and series above before adding cabinets to your cart.</p>
-                </div>
-              </div>
-            )}
             {/* PRIMARY action: turn the design into a real, orderable cart. */}
             <Button
-              className="w-full mt-2 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-              disabled={cartableLines.length === 0 || !styleId}
+              className="w-full mt-2 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 gap-2"
+              disabled={cartableLines.length === 0}
               onClick={() => {
-                if (!styleId) return;
                 if (hasConflicts && !window.confirm(
                   t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
                 )) return;
@@ -7449,11 +7001,16 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-4 h-14">
+          <div className="grid grid-cols-6 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
               onClick={() => setMobilePanel("catalog")}
+            />
+            <MobileBarButton
+              icon={viewMode === "elevation" ? <LayoutGrid className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              label={viewMode === "elevation" ? "Plan" : "Front"}
+              onClick={() => setViewMode((m) => (m === "elevation" ? "plan" : "elevation"))}
             />
             <MobileBarButton
               icon={<RotateCw className="h-5 w-5" />}
@@ -7476,6 +7033,13 @@ export default function DesignTool() {
                 setCabinetsLocked((v) => !v);
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
               }}
+            />
+
+            <MobileBarButton
+              icon={<ShoppingCart className="h-5 w-5" />}
+              label="Cart"
+              badge={placed.length || undefined}
+              onClick={() => setMobilePanel("cart")}
             />
           </div>
         </div>
@@ -7539,10 +7103,9 @@ export default function DesignTool() {
       <RefrigeratorOptionsDialog
         open={!!fridgeDialog}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
-        fridgeWidthInches={fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined}
-        deepAbove={(fridgeSurround as { deepAbove?: DesignCabinet[] } | undefined)?.deepAbove ?? []}
-        bridgeAbove={(fridgeSurround as { bridgeAbove?: DesignCabinet[] } | undefined)?.bridgeAbove ?? []}
-        endPanels={(fridgeSurround as { endPanels?: DesignCabinet[] } | undefined)?.endPanels ?? []}
+        hasDeepAbove={((fridgeSurround as { deepAbove?: unknown[] } | undefined)?.deepAbove?.length ?? 0) > 0}
+        hasBridgeAbove={((fridgeSurround as { bridgeAbove?: unknown[] } | undefined)?.bridgeAbove?.length ?? 0) > 0}
+        hasEndPanels={((fridgeSurround as { endPanels?: unknown[] } | undefined)?.endPanels?.length ?? 0) > 0}
         hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
         onApply={applyFridgeSurround}
         onSkip={() => setFridgeDialog(null)}
@@ -7615,399 +7178,10 @@ export default function DesignTool() {
         countertopName={countertopMaterial(countertopMaterialId).name}
         hardwareName={hardwareStyleId !== "none" ? (HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label || undefined) : undefined}
       />
-
-      {/* AR Tape Measure session dialog */}
-      <Dialog open={measureSessionOpen} onOpenChange={(open) => {
-        setMeasureSessionOpen(open);
-        if (!open) {
-          setMeasureSessionToken(null);
-          setMeasureQrUrl(null);
-        }
-      }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Measure Room with Your Phone</DialogTitle>
-            <DialogDescription>
-              Open this link on your phone, measure each wall, then tap "Send to Designer".
-            </DialogDescription>
-          </DialogHeader>
-          {measureQrUrl && (
-            <div className="flex justify-center">
-              <img src={measureQrUrl} className="w-48 h-48" alt="QR code to open AR measure on phone" />
-            </div>
-          )}
-          {measureSessionToken && (
-            <div className="text-sm text-center break-all text-muted-foreground">
-              <span className="font-medium text-foreground">Direct link:</span>{" "}
-              <a
-                href={`${window.location.origin}/measure?session=${measureSessionToken}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 underline"
-              >
-                {`${window.location.origin}/measure?session=${measureSessionToken}`}
-              </a>
-            </div>
-          )}
-          <div className="text-center text-sm text-muted-foreground animate-pulse">
-            Waiting for measurements from your phone…
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Live drag ghost portal — follows cursor and turns red on invalid placement */}
-      {dragGhost && createPortal(
-        <div
-          style={{
-            position: "fixed",
-            left: dragGhost.x + 12,
-            top: dragGhost.y + 12,
-            width: 72,
-            pointerEvents: "none",
-            zIndex: 99999,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 4,
-            padding: 6,
-            background: dragGhost.isInvalid ? "rgba(180,30,30,0.92)" : "rgba(26,39,68,0.92)",
-            border: `1.5px solid ${dragGhost.isInvalid ? "#ff6b6b" : "#d4a75a"}`,
-            borderRadius: 8,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-            transition: "background 120ms ease-out, border-color 120ms ease-out",
-          }}
-        >
-          <div style={{ width: 60, height: 60, background: "#fff", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: 2 }}>
-            {dragGhost.cabinet.catalogImageUrl ? (
-              <img src={dragGhost.cabinet.catalogImageUrl} alt={dragGhost.cabinet.masterCode} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-            ) : (
-              <span style={{ fontSize: 9, fontFamily: "monospace", color: dragGhost.isInvalid ? "#ff6b6b" : "#d4a75a", fontWeight: 700, textAlign: "center" }}>
-                {dragGhost.cabinet.masterCode.slice(0, 6)}
-              </span>
-            )}
-          </div>
-          <span style={{ fontSize: 9, fontFamily: "monospace", color: dragGhost.isInvalid ? "#ffaaaa" : "#d4a75a", fontWeight: 700, whiteSpace: "nowrap", maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis" }}>
-            {dragGhost.cabinet.masterCode}
-          </span>
-          {dragGhost.isInvalid && (
-            <span style={{ fontSize: 8, color: "#ffaaaa", fontWeight: 600, textAlign: "center", lineHeight: 1.2 }}>Invalid</span>
-          )}
-        </div>,
-                document.body
-      )}
-      {/* ─── Bump-Out / Bay Window Dialog ─────────────────────────────── */}
-      {bumpOutOpen && (() => {
-        // Compute the wall length so we can show the slider range
-        const wallLabels: Record<string, string> = { top: "Back", right: "Right", bottom: "Front", left: "Left" };
-        const targetLabel = wallLabels[bumpOutWall];
-        const base = room.vertices && room.customWalls
-          ? { vertices: room.vertices, customWalls: room.customWalls }
-          : null;
-        const wallLen = (() => {
-          if (!base) {
-            // rectangle fallback
-            if (bumpOutWall === "top" || bumpOutWall === "bottom") return room.width;
-            return room.depth;
-          }
-          const w = base.customWalls.find((w) => w.label === targetLabel || w.label?.startsWith(targetLabel));
-          if (!w) return bumpOutWall === "top" || bumpOutWall === "bottom" ? room.width : room.depth;
-          const s = base.vertices.find((v) => v.id === w.startVertexId);
-          const e = base.vertices.find((v) => v.id === w.endVertexId);
-          if (!s || !e) return 0;
-          return Math.round(Math.sqrt((e.x - s.x) ** 2 + (e.y - s.y) ** 2));
-        })();
-        const maxOffset = Math.max(0, wallLen - bumpOutWidth);
-        const currentOffset = bumpOutOffset ?? Math.round(maxOffset / 2);
-        return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setBumpOutOpen(false)}>
-          <div className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-md p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-foreground">Add Bump-Out / Bay Window</h2>
-              <button onClick={() => setBumpOutOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Wall</label>
-                <div className="grid grid-cols-4 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
-                  {(["top", "left", "right", "bottom"] as const).map((w) => (
-                    <button key={w} onClick={() => setBumpOutWall(w)}
-                      className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                        bumpOutWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                      }`}>
-                      {w === "top" ? "Back" : w === "bottom" ? "Front" : w.charAt(0).toUpperCase() + w.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Direction</label>
-                <div className="grid grid-cols-2 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
-                  {(["out", "in"] as const).map((d) => (
-                    <button key={d} onClick={() => setBumpOutDir(d)}
-                      className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                        bumpOutDir === d ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                      }`}>
-                      {d === "out" ? "Bump Out (bay)" : "Bump In (recess)"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Width (inches)</label>
-                  <input type="number" min={12} max={wallLen ? wallLen - 6 : 240} step={6} value={bumpOutWidth}
-                    onChange={(e) => { const w = Number(e.target.value); setBumpOutWidth(w); if (bumpOutShape === "semicircle") setBumpOutDepth(Math.round(w / 2)); }}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                    Depth (inches){bumpOutShape === "semicircle" && <span className="ml-1 text-[#d4a75a] font-normal normal-case tracking-normal text-[10px]">— arc projection</span>}
-                  </label>
-                  <input
-                    type="number" min={6} max={600} step={6}
-                    value={bumpOutDepth}
-                    onChange={(e) => setBumpOutDepth(Number(e.target.value))}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                </div>
-              </div>
-              {/* Shape selector */}
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Shape</label>
-                <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
-                  {(["rectangle", "semicircle", "triangle"] as const).map((s) => (
-                    <button key={s} onClick={() => { setBumpOutShape(s); if (s === "semicircle" && bumpOutDepth === 0) setBumpOutDepth(Math.round(bumpOutWidth / 2)); }}
-                      className={`py-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-colors ${
-                        bumpOutShape === s ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                      }`}>
-                      {s === "rectangle" ? (
-                        <><svg width="13" height="9" viewBox="0 0 14 10" fill="none"><rect x="1" y="1" width="12" height="8" rx="0.5" stroke="currentColor" strokeWidth="1.5"/><rect x="3" y="1" width="8" height="4" fill="currentColor" opacity="0.25"/></svg> Rect</>
-                      ) : s === "semicircle" ? (
-                        <><svg width="13" height="9" viewBox="0 0 14 10" fill="none"><path d="M1 9 Q1 1 7 1 Q13 1 13 9" stroke="currentColor" strokeWidth="1.5" fill="none"/><line x1="1" y1="9" x2="13" y2="9" stroke="currentColor" strokeWidth="1.5"/></svg> Arc</>
-                      ) : (
-                        <><svg width="13" height="9" viewBox="0 0 14 10" fill="none"><polygon points="7,1 13,9 1,9" stroke="currentColor" strokeWidth="1.5" fill="currentColor" opacity="0.25"/></svg> Triangle</>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Position slider */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Position on Wall</label>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setBumpOutOffset(null)}
-                      className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                        bumpOutOffset === null ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a]" : "border-border text-muted-foreground hover:text-foreground"
-                      }`}>Center</button>
-                    <span className="text-[11px] text-muted-foreground">{bumpOutOffset !== null ? `${currentOffset}" from left` : "Centered"}</span>
-                  </div>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={Math.max(0, maxOffset)}
-                  step={1}
-                  value={currentOffset}
-                  onChange={(e) => setBumpOutOffset(Number(e.target.value))}
-                  className="w-full accent-[#d4a75a]"
-                />
-                <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-                  <span>Left edge</span>
-                  <span>Right edge</span>
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {bumpOutShape === "semicircle" ? `Arc: projects ${bumpOutDepth}" from the wall.` : ""}
-                {" "}Width must be less than the selected wall length.
-              </p>
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => setBumpOutOpen(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
-                <button
-                  onClick={async () => {
-                    const { rectToPolygon, addOpenSquare, addHalfCircle, addTriangle } = await import("@/lib/polygonRoom");
-                    const baseGeom = room.vertices && room.customWalls
-                      ? { vertices: room.vertices, customWalls: room.customWalls }
-                      : rectToPolygon(room.width, room.depth);
-                    const wall = baseGeom.customWalls.find((w) => w.label === targetLabel || w.label?.startsWith(targetLabel));
-                    if (!wall) { toast.error("Could not find the selected wall"); return; }
-                    const offsetArg = bumpOutOffset !== null ? currentOffset : undefined;
-                    const effectiveDepth = bumpOutShape === "semicircle" ? Math.round(bumpOutWidth / 2) : bumpOutDepth;
-                    const result = bumpOutShape === "semicircle"
-                      ? addHalfCircle(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, bumpOutDir, 12, offsetArg, bumpOutDepth)
-                      : bumpOutShape === "triangle"
-                      ? addTriangle(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, effectiveDepth, bumpOutDir, offsetArg)
-                      : addOpenSquare(wall.id, baseGeom.vertices, baseGeom.customWalls, bumpOutWidth, effectiveDepth, bumpOutDir, offsetArg);
-                    if (!result) { toast.error("Bump-out is wider than the wall — reduce width"); return; }
-                    const bounds = result.vertices.reduce((acc, v) => ({
-                      minX: Math.min(acc.minX, v.x), minY: Math.min(acc.minY, v.y),
-                      maxX: Math.max(acc.maxX, v.x), maxY: Math.max(acc.maxY, v.y),
-                    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-                    setRoom((prev) => ({
-                      ...prev,
-                      vertices: result.vertices,
-                      customWalls: result.customWalls,
-                      width: Math.round(bounds.maxX - bounds.minX),
-                      depth: Math.round(bounds.maxY - bounds.minY),
-                    }));
-                    setBumpOutOpen(false);
-                    const shapeLabel = bumpOutShape === "semicircle" ? "Semi-circle" : bumpOutShape === "triangle" ? "Triangle" : "Rectangular";
-                    toast.success(`${shapeLabel} bump-${bumpOutDir === "out" ? "out" : "in"} added to ${targetLabel} wall`);
-                  }}
-                  className="flex-1 rounded-lg bg-[#1a2744] text-white px-4 py-2 text-sm font-semibold hover:bg-[#1a2744]/90 transition-colors"
-                >Apply</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        );
-      })()}
-      {/* ─── Door / Window Dialog ──────────────────────────────────────── */}
-      {doorWindowOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={() => setDoorWindowOpen(false)}>
-          <div className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-md p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-foreground">Add Door / Window</h2>
-              <button onClick={() => setDoorWindowOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-            </div>
-            {/* Tabs: Presets / Custom */}
-            <div className="grid grid-cols-2 gap-1 rounded-lg border border-border p-0.5 bg-muted/30 mb-4">
-              {(["presets", "custom"] as const).map((t) => (
-                <button key={t} onClick={() => setDwTab(t)}
-                  className={`py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                    dwTab === t ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
-                  }`}>
-                  {t === "presets" ? "Presets" : "Custom Size"}
-                </button>
-              ))}
-            </div>
-            {dwTab === "presets" ? (
-              <div className="space-y-1.5">
-                {/* Doors group */}
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mb-1">Doors</p>
-                {OPENINGS.filter((o) => o.kind === "door").map((o) => (
-                  <button key={o.key} onClick={() => { addOpening(o); setDoorWindowOpen(false); toast.success(`${o.label} added — drag to position`); }}
-                    className="w-full text-left p-2.5 rounded-lg border border-border hover:border-[#d4a75a]/60 hover:bg-muted/50 transition-colors flex items-center gap-3">
-                    <div className="h-9 w-9 rounded border bg-[#9b6a3c]/20 border-[#9b6a3c]/40 flex items-center justify-center shrink-0">
-                      <PanelTop className="h-4 w-4 text-[#8a5f33]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-foreground">{o.label}</div>
-                      <div className="text-[10px] text-muted-foreground">{o.width}"W × {o.height}"H</div>
-                    </div>
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  </button>
-                ))}
-                {/* Windows group */}
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mt-3 mb-1">Windows</p>
-                {OPENINGS.filter((o) => o.kind === "window").map((o) => (
-                  <button key={o.key} onClick={() => { addOpening(o); setDoorWindowOpen(false); toast.success(`${o.label} added — drag to position`); }}
-                    className="w-full text-left p-2.5 rounded-lg border border-border hover:border-[#d4a75a]/60 hover:bg-muted/50 transition-colors flex items-center gap-3">
-                    <div className="h-9 w-9 rounded border bg-[#7fb4d6]/20 border-[#7fb4d6]/50 flex items-center justify-center shrink-0">
-                      <Square className="h-4 w-4 text-[#3f7da6]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-foreground">{o.label}</div>
-                      <div className="text-[10px] text-muted-foreground">{o.width}"W × {o.height}"H · sill {o.sill}"</div>
-                    </div>
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  </button>
-                ))}
-                {/* Openings group */}
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mt-3 mb-1">Cased Openings</p>
-                {OPENINGS.filter((o) => o.kind === "opening").map((o) => (
-                  <button key={o.key} onClick={() => { addOpening(o); setDoorWindowOpen(false); toast.success(`${o.label} added — drag to position`); }}
-                    className="w-full text-left p-2.5 rounded-lg border border-border hover:border-[#d4a75a]/60 hover:bg-muted/50 transition-colors flex items-center gap-3">
-                    <div className="h-9 w-9 rounded border border-dashed bg-[#8a8f98]/10 border-[#8a8f98]/50 flex items-center justify-center shrink-0">
-                      <DoorOpen className="h-4 w-4 text-[#5b6770]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-foreground">{o.label}</div>
-                      <div className="text-[10px] text-muted-foreground">{o.width}"W × {o.height}"H{o.sill ? ` · sill ${o.sill}"` : ""}</div>
-                    </div>
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  </button>
-                ))}
-                {/* Bow windows group */}
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1 mt-3 mb-1">Bow Windows</p>
-                {OPENINGS.filter((o) => o.kind === "bow").map((o) => (
-                  <button key={o.key} onClick={() => { addOpening(o); setDoorWindowOpen(false); toast.success(`${o.label} added — drag to position`); }}
-                    className="w-full text-left p-2.5 rounded-lg border border-border hover:border-[#d4a75a]/60 hover:bg-muted/50 transition-colors flex items-center gap-3">
-                    <div className="h-9 w-9 rounded border bg-[#7fb4d6]/30 border-[#7fb4d6]/60 flex items-center justify-center shrink-0">
-                      <Square className="h-4 w-4 text-[#3f7da6]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-foreground">{o.label}</div>
-                      <div className="text-[10px] text-muted-foreground">{o.width}"W × {o.height}"H · sill {o.sill}" · projects outward</div>
-                    </div>
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Type</label>
-                  <div className="grid grid-cols-4 gap-1 rounded-lg border border-border p-0.5 bg-muted/30">
-                    {(["door", "window", "opening", "bow"] as const).map((k) => (
-                      <button key={k} onClick={() => { setDwCustomKind(k); if (k === "door") { setDwCustomHeight(80); setDwCustomSill(0); } else if (k === "window") { setDwCustomHeight(36); setDwCustomSill(42); } else if (k === "bow") { setDwCustomHeight(48); setDwCustomSill(36); } else { setDwCustomHeight(80); setDwCustomSill(0); } }}
-                        className={`py-1.5 rounded-md text-xs font-semibold capitalize transition-colors ${
-                          dwCustomKind === k ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                        }`}>
-                        {k === "opening" ? "Cased" : k === "bow" ? "Bow" : k.charAt(0).toUpperCase() + k.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Width (in)</label>
-                    <input type="number" min={6} max={240} step={1} value={dwCustomWidth}
-                      onChange={(e) => setDwCustomWidth(Number(e.target.value))}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Height (in)</label>
-                    <input type="number" min={6} max={120} step={1} value={dwCustomHeight}
-                      onChange={(e) => setDwCustomHeight(Number(e.target.value))}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                  </div>
-                </div>
-                {(dwCustomKind === "window" || dwCustomKind === "opening") && (
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Sill Height (in from floor)</label>
-                    <input type="number" min={0} max={96} step={1} value={dwCustomSill}
-                      onChange={(e) => setDwCustomSill(Number(e.target.value))}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-                  </div>
-                )}
-                <p className="text-[11px] text-muted-foreground">After adding, drag the opening to position it on the wall. Select it to fine-tune width, height, sill, and offset.</p>
-                <div className="flex gap-2 pt-1">
-                  <button onClick={() => setDoorWindowOpen(false)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
-                  <button
-                    onClick={() => {
-                      const customDef: import("@/lib/design").OpeningDef = {
-                        key: `custom-${Date.now()}`,
-                        kind: dwCustomKind,
-                        label: `Custom ${dwCustomKind.charAt(0).toUpperCase() + dwCustomKind.slice(1)} ${dwCustomWidth}"`,
-                        width: dwCustomWidth,
-                        height: dwCustomHeight,
-                        sill: dwCustomSill,
-                      };
-                      addOpening(customDef);
-                      setDoorWindowOpen(false);
-                      toast.success(`Custom ${dwCustomKind} added — drag to position`);
-                    }}
-                    className="flex-1 rounded-lg bg-[#1a2744] text-white px-4 py-2 text-sm font-semibold hover:bg-[#1a2744]/90 transition-colors"
-                  >Add to Wall</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+
 // ─── Mobile bottom-bar button ───────────────────────────────────────────────
 function MobileBarButton({
   icon, label, onClick, disabled, danger, badge, active,

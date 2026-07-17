@@ -1471,7 +1471,7 @@ export type WallSide = "top" | "bottom" | "left" | "right";
 // "opening" = a cased opening / pass-through (a doorway WITH NO DOOR). Like a
 // door it breaks the floor run (no base cabinet can cross it) and renders as a
 // full-height open gap in the elevation; unlike a window it sits on the floor.
-export type OpeningKind = "door" | "window" | "opening" | "bow";
+export type OpeningKind = "door" | "window" | "opening";
 
 // Openings that break the BASE (floor) run: a person/traffic passes through, so
 // no base cabinet may sit across them. Windows do NOT (a base cabinet can sit
@@ -1501,11 +1501,6 @@ export const OPENINGS: OpeningDef[] = [
   { key: "cased-opening", kind: "opening", label: 'Cased Opening 36"', width: 36, height: 80, sill: 0 },
   { key: "cased-opening-wide", kind: "opening", label: 'Wide Opening 60"', width: 60, height: 84, sill: 0 },
   { key: "pass-through", kind: "opening", label: 'Pass-Through 48"', width: 48, height: 36, sill: 40 },
-  // Bow windows project outward from the wall. Width is the rough-opening span;
-  // the bump-out depth is handled separately in the room geometry.
-  { key: "bow-window-48", kind: "bow", label: 'Bow Window 48"', width: 48, height: 48, sill: 36 },
-  { key: "bow-window-60", kind: "bow", label: 'Bow Window 60"', width: 60, height: 48, sill: 36 },
-  { key: "bow-window-72", kind: "bow", label: 'Bow Window 72"', width: 72, height: 48, sill: 36 },
 ];
 
 export interface WallOpening {

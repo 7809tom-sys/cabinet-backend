@@ -25,7 +25,7 @@ import { DashboardLayoutSkeleton } from "@/components/DashboardLayoutSkeleton";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, LogOut, PanelLeft, ShoppingBag, DollarSign,
-  Palette, FileText, BarChart2, Megaphone, Tag, BookOpen, ExternalLink, CreditCard, CalendarDays,
+  Palette, FileText, BarChart2, Megaphone, Tag, BookOpen, ExternalLink,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -41,10 +41,7 @@ export type AffiliateSection =
   | "pricing"
   | "customize"
   | "marketing"
-  | "tax"
-  | "payout"
-  | "resources"
-  | "banners";
+  | "tax";
 
 const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSection }[] = [
   { icon: LayoutDashboard, label: "Overview", section: "overview" },
@@ -57,9 +54,6 @@ const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSec
   { icon: Palette, label: "Customize Store", section: "customize" },
   { icon: Megaphone, label: "Marketing Hub", section: "marketing" },
   { icon: FileText, label: "Tax Info (W-9)", section: "tax" },
-  { icon: CreditCard, label: "Payout Setup", section: "payout" },
-  { icon: CalendarDays, label: "Banner Scheduler", section: "banners" },
-  { icon: BookOpen, label: "Resources", section: "resources" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "affiliate-sidebar-width";
@@ -190,6 +184,7 @@ function SidebarInner({
                       onClick={() => onSection(item.section)}
                       tooltip={item.label}
                       className="h-10 transition-all font-normal"
+                      data-tab={item.section}
                     >
                       <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
                       <span>{item.label}</span>

@@ -63,13 +63,9 @@ function num(v: number | string | null | undefined): number | null {
  * Resolve the single effective price for a user's tier from a SKU's price set.
  *
  * Resolution rules:
- *  - wholesale  → wholesalePrice, else contractorPrice, else homeowner/list
- *  - contractor → contractorPrice, else wholesalePrice, else homeowner/list
- *  - homeowner  → homeownerPrice, else listPrice, else contractor
- *
- * NOTE: adjustedListPrice (listPrice × 0.89) is intentionally excluded from
- * this chain. We always show the raw published listPrice, never the adjusted
- * variant. adjustedListPrice remains in the DB schema for legacy data only.
+ *  - wholesale  → wholesalePrice, else contractorPrice, else homeowner/adjusted/list
+ *  - contractor → contractorPrice, else wholesalePrice, else homeowner/adjusted/list
+ *  - homeowner  → homeownerPrice, else adjustedListPrice, else listPrice, else contractor
  *
  * Returns null when no usable price exists.
  */
@@ -80,16 +76,17 @@ export function resolveTierPrice(
   const wholesale = num(prices.wholesalePrice);
   const contractor = num(prices.contractorPrice);
   const homeowner = num(prices.homeownerPrice);
+  const adjusted = num(prices.adjustedListPrice);
   const list = num(prices.listPrice);
 
   switch (tier) {
     case "wholesale":
-      return wholesale ?? contractor ?? homeowner ?? list;
+      return wholesale ?? contractor ?? homeowner ?? adjusted ?? list;
     case "contractor":
-      return contractor ?? wholesale ?? homeowner ?? list;
+      return contractor ?? wholesale ?? homeowner ?? adjusted ?? list;
     case "homeowner":
     default:
-      return homeowner ?? list ?? contractor ?? wholesale;
+      return homeowner ?? adjusted ?? list ?? contractor ?? wholesale;
   }
 }
 
@@ -107,12 +104,9 @@ export function resolveStorefrontTier(
 
 /**
  * The struck-through "Compare at" reference price for the homeowner sale
- * display: the raw published listPrice, shown only when it is strictly higher
- * than the live homeowner price. Null when there is no genuine markdown to
- * show, or for non-homeowner tiers.
- *
- * NOTE: adjustedListPrice is intentionally NOT used here — we always compare
- * against the raw published list price.
+ * display: the prior list price (adjustedListPrice/listPrice), shown only when
+ * it is strictly higher than the live homeowner price. Null when there is no
+ * genuine markdown to show, or for non-homeowner tiers.
  */
 export function compareAtPrice(
   tier: PricingTier,
@@ -120,7 +114,7 @@ export function compareAtPrice(
 ): number | null {
   if (tier !== "homeowner") return null;
   const live = resolveTierPrice("homeowner", prices);
-  const compare = num(prices.listPrice);
+  const compare = num(prices.adjustedListPrice) ?? num(prices.listPrice);
   if (live === null || compare === null) return null;
   return compare > live ? compare : null;
 }

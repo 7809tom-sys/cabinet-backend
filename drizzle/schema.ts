@@ -9,9 +9,6 @@ import {
   decimal,
   boolean,
   json,
-  date,
-  bigint,
-  unique,
 } from "drizzle-orm/mysql-core";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -172,6 +169,7 @@ export const cabinets = mysqlTable("cabinets", {
   graphicType: varchar("graphicType", { length: 64 }), // base_1door, wall_2door, etc.
   // Catalog line-art image (20/20 catalog renders, keyed by code). Falls back to code-drawn SVG.
   catalogImageUrl: varchar("catalogImageUrl", { length: 512 }),
+  roomSceneUrl: varchar("roomSceneUrl", { length: 512 }),
   // Packaging
   pkgLength: decimal("pkgLength", { precision: 6, scale: 2 }),
   pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
@@ -226,9 +224,6 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   status: mysqlEnum("status", ["approved", "pending", "rejected"]).default("approved").notNull(),
   // PO-only fields (internal; never shown to customers)
   supplierCabinetName: varchar("supplierCabinetName", { length: 255 }), // distributor's own cabinet name on the PO
-  // Warehouse availability: which distributor warehouses stock this SKU, e.g. ["Orlando", "Atlanta", "Dallas"]
-  // null = available from all warehouses (default); empty array = not stocked anywhere
-  availableWarehouses: json("availableWarehouses").$type<string[]>(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -292,6 +287,11 @@ export const orders = mysqlTable("orders", {
   total: decimal("total", { precision: 12, scale: 2 }),
   notes: text("notes"),
   sourceType: mysqlEnum("sourceType", ["manual", "csv_upload", "ocr_upload", "design_tool"]).default("manual"),
+  // Stripe payment fields
+  stripeSessionId: varchar("stripeSessionId", { length: 255 }),
+  stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 255 }),
+  paymentStatus: mysqlEnum("paymentStatus", ["pending", "paid", "failed", "refunded"]).default("pending"),
+  paidAt: timestamp("paidAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -557,15 +557,6 @@ export const affiliates = mysqlTable("affiliates", {
   yearsInBusiness: int("yearsInBusiness"),
   facebookUrl: varchar("facebookUrl", { length: 512 }),
   instagramUrl: varchar("instagramUrl", { length: 512 }),
-  // Hero section customization
-  heroHeadline: varchar("heroHeadline", { length: 256 }),
-  // Promotional banner strip
-  promoBannerText: varchar("promoBannerText", { length: 512 }),
-  promoBannerActive: boolean("promoBannerActive").default(false).notNull(),
-  promoBannerImageUrl: varchar("promoBannerImageUrl", { length: 512 }),
-  // Contact info shown on storefront footer
-  address: varchar("address", { length: 512 }),
-  businessHours: varchar("businessHours", { length: 512 }),
   storefrontEnabled: boolean("storefrontEnabled").default(true).notNull(),
   // Storefront layout template variant
   template: mysqlEnum("template", ["classic", "showcase", "minimal", "craftsman"]).default("classic").notNull(),
@@ -601,34 +592,6 @@ export const affiliates = mysqlTable("affiliates", {
   w9SubmittedAt: timestamp("w9SubmittedAt"),
   w9VerifiedAt: timestamp("w9VerifiedAt"),
   w9AdminNotes: text("w9AdminNotes"),                          // Admin-only notes on verification
-  // ─── Payout / 1099-NEC banking info ──────────────────────────────────────────
-  // Bank details for ACH direct deposit of commissions. Routing + account numbers
-  // are stored as-is here; in a production hardening pass these would be encrypted
-  // at rest. The last-4 digits of the account number are safe to display.
-  bankName: varchar("bankName", { length: 256 }),
-  bankRoutingNumber: varchar("bankRoutingNumber", { length: 9 }),   // 9-digit ABA routing number
-  bankAccountNumber: varchar("bankAccountNumber", { length: 64 }),  // full account number (admin-only display)
-  bankAccountType: mysqlEnum("bankAccountType", ["checking", "savings"]),
-  bankVerified: boolean("bankVerified").default(false).notNull(),
-  bankVerifiedAt: timestamp("bankVerifiedAt"),
-  bankAdminNotes: text("bankAdminNotes"),
-  // ─── Identity documents (S3 URLs, admin-only access) ─────────────────────────
-  ssnCardUrl: varchar("ssnCardUrl", { length: 512 }),    // Social Security card front
-  dlFrontUrl: varchar("dlFrontUrl", { length: 512 }),    // Driver's license front
-  dlBackUrl: varchar("dlBackUrl", { length: 512 }),      // Driver's license back
-  idVerified: boolean("idVerified").default(false).notNull(),
-  idVerifiedAt: timestamp("idVerifiedAt"),
-  idAdminNotes: text("idAdminNotes"),
-  // ─── E-signature / 1099 consent ───────────────────────────────────────────────
-  // Affiliate acknowledges independent-contractor status and consents to 1099-NEC.
-  payoutConsentSigned: boolean("payoutConsentSigned").default(false).notNull(),
-  payoutConsentSignedAt: timestamp("payoutConsentSignedAt"),
-  payoutConsentIp: varchar("payoutConsentIp", { length: 64 }),
-  payoutConsentName: varchar("payoutConsentName", { length: 256 }), // typed legal name at signing
-  // ─── Payout gate ──────────────────────────────────────────────────────────────
-  // Set by admin once w9 verified + bank verified + id verified + consent signed.
-  payoutReady: boolean("payoutReady").default(false).notNull(),
-  payoutReadyAt: timestamp("payoutReadyAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -649,60 +612,13 @@ export const affiliateStyleBranding = mysqlTable("affiliate_style_branding", {
   // Catalog curation: affiliate can feature specific styles and upload their own room scene photo
   featured: boolean("featured").default(false).notNull(),
   sortOrder: int("sortOrder").default(0).notNull(),
-  roomSceneUrl: text("roomSceneUrl"), // affiliate's own primary room scene photo for this style
-  hidden: boolean("hidden").default(false).notNull(), // affiliate hides this style from their storefront
+  roomSceneUrl: text("roomSceneUrl"), // affiliate's own room scene photo for this style
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type AffiliateStyleBranding = typeof affiliateStyleBranding.$inferSelect;
 export type InsertAffiliateStyleBranding = typeof affiliateStyleBranding.$inferInsert;
-
-// ─── Affiliate room scene gallery ──────────────────────────────────────────────────────────────
-// Additional room scene photos per (affiliate, style). Business rule: images
-// can only be REPLACED, never deleted outright — a replacement upload must be
-// provided before the old slot is overwritten.
-export const affiliateRoomSceneGallery = mysqlTable("affiliate_room_scene_gallery", {
-  id: int("id").autoincrement().primaryKey(),
-  affiliateId: int("affiliateId").notNull(),
-  styleId: int("styleId").notNull(),
-  imageUrl: varchar("imageUrl", { length: 512 }).notNull(),
-  sortOrder: int("sortOrder").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-export type AffiliateRoomSceneGallery = typeof affiliateRoomSceneGallery.$inferSelect;
-
-// ─── Affiliate promo discount rules ──────────────────────────────────────────────────────────────
-// Affiliate-controlled discount rules that reduce the effective markup for a
-// targeted set of products during a promo window.
-// targetType: "all" = every style, "category" = category slug, "style" = styleId
-export const affiliatePromoDiscounts = mysqlTable("affiliate_promo_discounts", {
-  id: int("id").autoincrement().primaryKey(),
-  affiliateId: int("affiliateId").notNull(),
-  label: varchar("label", { length: 256 }).notNull(),
-  targetType: mysqlEnum("targetType", ["all", "category", "style"]).notNull().default("all"),
-  targetId: varchar("targetId", { length: 64 }),
-  discountBps: int("discountBps").notNull(),
-  startsAt: timestamp("startsAt"),
-  endsAt: timestamp("endsAt"),
-  active: boolean("active").default(true).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-export type AffiliatePromoDiscount = typeof affiliatePromoDiscounts.$inferSelect;
-
-// ─── Affiliate Banner Schedules ─────────────────────────────────────────────
-export const affiliateBannerSchedules = mysqlTable("affiliate_banner_schedules", {
-  id: int("id").autoincrement().primaryKey(),
-  affiliateId: int("affiliate_id").notNull(),
-  message: varchar("message", { length: 500 }).notNull(),
-  holidayKey: varchar("holiday_key", { length: 64 }),
-  startDate: varchar("start_date", { length: 10 }).notNull(),
-  endDate: varchar("end_date", { length: 10 }).notNull(),
-  createdAt: bigint("created_at", { mode: "number" }).notNull(),
-  updatedAt: bigint("updated_at", { mode: "number" }).notNull(),
-});
-export type AffiliateBannerSchedule = typeof affiliateBannerSchedules.$inferSelect;
 
 // ─── CRM: Sales pipeline (admin) + affiliate pipeline ──────────────────────────
 // A lightweight task-board / pipeline over leads & deals. A deal with
@@ -1509,87 +1425,42 @@ export const qboTokens = mysqlTable("qbo_tokens", {
 export type QboTokens = typeof qboTokens.$inferSelect;
 export type InsertQboTokens = typeof qboTokens.$inferInsert;
 
-// ─── Page Content (CMS) ───────────────────────────────────────────────────────
-// Key-value store for admin-editable page content (hero text, banners, etc.)
-// pageKey = page identifier (e.g. "home", "door-styles", "surfaces")
-// field   = field name within the page (e.g. "hero_title", "hero_subtitle", "banner_text")
-export const pageContent = mysqlTable("page_content", {
-  id: int("id").autoincrement().primaryKey(),
-  pageKey: varchar("pageKey", { length: 64 }).notNull(),
-  field: varchar("field", { length: 128 }).notNull(),
-  value: text("value").notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  updatedBy: int("updatedBy"), // user id of last editor
-});
-export type PageContent = typeof pageContent.$inferSelect;
-export type InsertPageContent = typeof pageContent.$inferInsert;
-
-// ─── Distributor Column Mappings ──────────────────────────────────────────────
-// Remembers which price column (e.g. "SW") maps to which door style for a
-// given distributor so the admin doesn't have to re-map on every upload.
-export const distributorColumnMappings = mysqlTable("distributor_column_mappings", {
-  id: int("id").autoincrement().primaryKey(),
-  distributorId: int("distributorId").notNull(),
-  columnCode: varchar("columnCode", { length: 32 }).notNull(), // e.g. "SW", "GR", "SE"
-  doorStyleId: int("doorStyleId").notNull(),
-  priceType: mysqlEnum("priceType", ["list", "cost"]).default("list").notNull(),
-  lastUsedAt: timestamp("lastUsedAt").defaultNow().onUpdateNow().notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-}, (t) => ({
-  uniqDistCol: unique("uniq_dist_col").on(t.distributorId, t.columnCode),
-}));
-export type DistributorColumnMapping = typeof distributorColumnMappings.$inferSelect;
-export type InsertDistributorColumnMapping = typeof distributorColumnMappings.$inferInsert;
-
-// ─── Import Pending SKUs ──────────────────────────────────────────────────────
-// Stores unmatched cabinet codes from distributor imports so admins can
-// assign them to a master cabinet (creating an alias) and then import the rows.
-export const importPendingSkus = mysqlTable("import_pending_skus", {
-  id: int("id").autoincrement().primaryKey(),
-  distributorId: int("distributorId").notNull(),
-  rawCode: varchar("rawCode", { length: 128 }).notNull(), // e.g. "3DB12"
-  // JSON: { [styleCode]: { listPrice: number, yourCost: number, styleId: number } }
-  pricesJson: text("pricesJson").notNull(),
-  status: mysqlEnum("status", ["pending", "resolved", "ignored"]).default("pending").notNull(),
-  resolvedCabinetId: int("resolvedCabinetId"), // set when admin assigns to master
-  resolvedAt: timestamp("resolvedAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-}, (t) => ({
-  uniqDistCode: unique("uniq_dist_code").on(t.distributorId, t.rawCode),
-}));
-export type ImportPendingSku = typeof importPendingSkus.$inferSelect;
-export type InsertImportPendingSku = typeof importPendingSkus.$inferInsert;
-
-// ─── AR Measure Sessions ──────────────────────────────────────────────────────
-// Temporary sessions that bridge the AR Tape Measure (phone) with the Design
-// Tool (desktop). The designer creates a session and shows a QR code; the phone
-// saves measurements to the session; the designer polls and auto-fills the room.
+// ─── Measure Sessions (AR Tape Measure ↔ Design Tool bridge) ─────────────────
 export const measureSessions = mysqlTable("measure_sessions", {
   id: int("id").autoincrement().primaryKey(),
-  token: varchar("token", { length: 64 }).notNull().unique(), // random UUID shown in QR
-  userId: int("userId"), // null = anonymous (guest)
-  // JSON array of wall measurements: [{ label: string, meters: number, feet: number, inches: number }]
-  measurements: text("measurements"),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  userId: int("userId").notNull(),
   status: mysqlEnum("status", ["pending", "completed", "consumed"]).default("pending").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  measurements: text("measurements"), // JSON array of WallMeasurement objects
+  expiresAt: timestamp("expiresAt").notNull(),
   completedAt: timestamp("completedAt"),
-  expiresAt: timestamp("expiresAt").notNull(), // 30 min TTL
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type MeasureSession = typeof measureSessions.$inferSelect;
 export type InsertMeasureSession = typeof measureSessions.$inferInsert;
 
 // ─── Media Library ────────────────────────────────────────────────────────────
-// Central repository for all uploaded images. Every image field in the admin
-// should reference a record here rather than uploading directly to S3 each time.
 export const mediaLibrary = mysqlTable("media_library", {
   id: int("id").autoincrement().primaryKey(),
-  fileKey: varchar("fileKey", { length: 512 }).notNull().unique(),
+  fileKey: varchar("fileKey", { length: 512 }).notNull(),
   url: varchar("url", { length: 1024 }).notNull(),
-  filename: varchar("filename", { length: 256 }),
-  mimeType: varchar("mimeType", { length: 64 }),
+  filename: varchar("filename", { length: 255 }),
+  mimeType: varchar("mimeType", { length: 128 }),
   sizeBytes: int("sizeBytes"),
   uploadedBy: int("uploadedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type MediaLibraryItem = typeof mediaLibrary.$inferSelect;
 export type InsertMediaLibraryItem = typeof mediaLibrary.$inferInsert;
+
+// ─── Page Content (CMS for editable text blocks) ─────────────────────────────
+export const pageContent = mysqlTable("page_content", {
+  id: int("id").autoincrement().primaryKey(),
+  pageKey: varchar("pageKey", { length: 128 }).notNull(),
+  field: varchar("field", { length: 128 }).notNull(),
+  value: text("value"),
+  updatedBy: int("updatedBy"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type PageContent = typeof pageContent.$inferSelect;
+export type InsertPageContent = typeof pageContent.$inferInsert;

@@ -65,16 +65,8 @@ interface StyleRow {
   doorSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
   thumbnailImageUrl: string | null;
-  woodSpecies: string | null;
-  boxConstruction: string | null;
-  drawerConstruction: string | null;
-  hardware: string | null;
-  frameSize: string | null;
-  overlayType: string | null;
-  isBuilderGrade: boolean | null;
-  skuImageUrl?: string | null;
   listPrice: string | null;
-  adjustedListPrice?: string | null; // legacy; not displayed — use listPrice
+  adjustedListPrice: string | null;
   wholesalePrice: string | null;
   contractorPrice: string | null;
   homeownerPrice: string | null;
@@ -286,6 +278,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const { data: cabinet, isLoading: cabinetLoading } = trpc.cabinets.byCode.useQuery({
     masterCode,
   });
+
   const seoName = cabinet?.description
     ? translateSpec(cabinet.description, lang)
     : masterCode;
@@ -323,21 +316,6 @@ export default function CabinetDetail({ masterCode }: Props) {
   );
 
   const styleRows = (styles ?? []) as StyleRow[];
-
-  // ── Product view tracking ─────────────────────────────────────────────────
-  const trackViewMut = trpc.analytics.trackView.useMutation();
-  useEffect(() => {
-    const distId = styleRows.find((s) => s.distributorId != null)?.distributorId;
-    if (cabinet?.id && distId != null) {
-      trackViewMut.mutate({
-        distributorId: distId,
-        cabinetId: cabinet.id,
-        pageSlug: `/catalog/${masterCode}`,
-        referrer: typeof document !== "undefined" ? document.referrer || undefined : undefined,
-      });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cabinet?.id, styleRows.length]);
 
   // Auto-select: the family passed in ?style= if it's available for this
   // cabinet, otherwise the explicit user choice, otherwise the first style.
@@ -627,57 +605,47 @@ export default function CabinetDetail({ masterCode }: Props) {
       <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
         {/* Left: Image + specs */}
         <div>
-          {/* Product image: show the room scene photo if available, otherwise
-              the SKU-specific portal photo, otherwise the to-scale drawing. */}
-          {(() => {
-            const skuPhoto = realImageUrl(selectedRow?.skuImageUrl);
-            const roomScene = realImageUrl(selectedRow?.roomSceneImageUrl);
-            const primaryPhoto = skuPhoto || roomScene;
-            return (
-              <div className="mb-4">
-                {primaryPhoto ? (
-                  <div className="rounded-xl border border-border overflow-hidden bg-muted/20">
-                    <img
-                      src={primaryPhoto}
-                      alt={`${selectedRow?.name || "Cabinet"} — ${cabinet.description || masterCode}`}
-                      className="w-full object-contain max-h-72"
-                      loading="eager"
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 h-64 flex items-center justify-center overflow-hidden p-4">
-                    <CabinetImage
-                      cabinet={cabinet}
-                      finishColor={finishFace}
-                      className="h-full w-auto max-w-full"
-                    />
-                  </div>
-                )}
-                {/* Door style strip */}
-                {selectedRow && (
-                  <div className="flex items-center gap-3 mt-3 rounded-lg border border-border p-2.5">
-                    {doorFamilyPhoto(selectedRow) ? (
-                      <div className="h-12 w-10 rounded bg-muted/40 shrink-0 overflow-hidden">
-                        <img
-                          src={doorFamilyPhoto(selectedRow)!}
-                          alt={`${selectedRow.doorStyle || "Door"} panel profile`}
-                          loading="lazy"
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                    ) : null}
-                    <div className="h-12 w-12 rounded bg-muted/40 shrink-0 flex items-center justify-center p-1 overflow-hidden">
-                      <DoorStyleSwatch style={selectedRow} className="h-full w-auto" />
-                    </div>
-                    <div className="text-xs text-muted-foreground leading-tight">
-                      <div className="font-medium text-foreground">{selectedRow.name}</div>
-                      <div>{selectedRow.doorStyle ? `${selectedRow.doorStyle} profile · true color` : "Selected door style"}</div>
-                    </div>
-                  </div>
-                )}
+          {/* Product image: an accurate, to-scale drawing of THIS exact item,
+              recolored to the selected door-style finish. The drawing is driven
+              by the cabinet's real type + dimensions + door/drawer counts, so it
+              always matches the actual item (no generic/wrong renders). */}
+          <div className="mb-2">
+            <div className="rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 h-64 flex items-center justify-center overflow-hidden p-4">
+              <CabinetImage
+                cabinet={cabinet}
+                finishColor={finishFace}
+                className="h-full w-auto max-w-full"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5 text-center">
+              {cabinet.catalogImageUrl
+                ? "Catalog illustration — front elevation"
+                : `Drawn to scale${selectedRow ? ` in ${selectedRow.name}` : ""} — front elevation`}
+            </p>
+          </div>
+          {selectedRow ? (
+            <div className="flex items-center gap-3 mb-6 rounded-lg border border-border p-2.5">
+              {doorFamilyPhoto(selectedRow) ? (
+                <div className="h-12 w-10 rounded bg-muted/40 shrink-0 overflow-hidden">
+                  <img
+                    src={doorFamilyPhoto(selectedRow)!}
+                    alt={`${selectedRow.doorStyle || "Door"} panel profile`}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : null}
+              <div className="h-12 w-12 rounded bg-muted/40 shrink-0 flex items-center justify-center p-1 overflow-hidden">
+                <DoorStyleSwatch style={selectedRow} className="h-full w-auto" />
               </div>
-            );
-          })()}
+              <div className="text-xs text-muted-foreground leading-tight">
+                <div className="font-medium text-foreground">{selectedRow.name}</div>
+                <div>{selectedRow.doorStyle ? `${selectedRow.doorStyle} profile · true color` : "Selected door style"} · drawing to scale</div>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6" />
+          )}
 
           {/* Blind corner details */}
           {(cabinet.openingWidth || cabinet.minPull || cabinet.maxPull) && (
@@ -713,14 +681,12 @@ export default function CabinetDetail({ masterCode }: Props) {
               <Info className="h-4 w-4 text-muted-foreground" />
               Specifications
             </h3>
-            {/* Dimensions */}
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               {[
                 { label: "Type", value: cabinetTypeLabel(cabinet) },
                 { label: "Width", value: cabinet.width ? `${cabinet.width}"` : null },
                 { label: "Height", value: cabinet.height ? `${cabinet.height}"` : null },
                 { label: "Depth", value: cabinet.depth ? `${cabinet.depth}"` : null },
-                { label: "Weight", value: cabinet.weight ? `${cabinet.weight} lbs` : null },
                 { label: "Doors", value: resolveDoorDrawerCounts(cabinet).doors ? String(resolveDoorDrawerCounts(cabinet).doors) : null },
                 { label: "Drawers", value: resolveDoorDrawerCounts(cabinet).drawers ? String(resolveDoorDrawerCounts(cabinet).drawers) : null },
               ]
@@ -732,71 +698,6 @@ export default function CabinetDetail({ masterCode }: Props) {
                   </div>
                 ))}
             </dl>
-            {/* Packaging / shipping dimensions */}
-            {(cabinet.pkgLength || cabinet.pkgWidth || cabinet.pkgHeight || cabinet.pkgWeight) && (
-              <div className="border-t border-border pt-3 mb-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Packaging</p>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-                  {[
-                    { label: "Box Dimensions",
-                      value: (cabinet.pkgLength && cabinet.pkgWidth && cabinet.pkgHeight)
-                        ? `${cabinet.pkgLength}" × ${cabinet.pkgWidth}" × ${cabinet.pkgHeight}"`
-                        : null },
-                    { label: "Shipping Weight", value: cabinet.pkgWeight ? `${cabinet.pkgWeight} lbs` : null },
-                  ]
-                    .filter((item) => item.value)
-                    .map((item) => (
-                      <div key={item.label}>
-                        <dt className="text-muted-foreground">{item.label}</dt>
-                        <dd className="font-medium text-foreground">{item.value}</dd>
-                      </div>
-                    ))}
-                </dl>
-              </div>
-            )}
-            {/* Construction specs from manufacturer */}
-            {selectedRow && (
-              <>
-                <div className="border-t border-border pt-4">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Construction</p>
-                  <ol className="space-y-2 text-sm">
-                    {[
-                      { label: "Door & Drawer Front", value: selectedRow.overlayType
-                        ? `${selectedRow.overlayType}${selectedRow.doorStyle ? `, ${selectedRow.doorStyle} profile` : ""}, solid wood with MDF center panel`
-                        : selectedRow.doorStyle
-                          ? `${selectedRow.doorStyle} profile, solid wood with MDF center panel`
-                          : "Full overlay, 5-piece door & drawer, solid wood with MDF center panel" },
-                      { label: "Face Frame", value: selectedRow.frameSize
-                        ? `${selectedRow.frameSize} solid wood frame`
-                        : "3/4\" solid wood frame" },
-                      { label: "Cabinet Box", value: selectedRow.boxConstruction || "1/2\" cabinet grade particleboard box" },
-                      { label: "Drawer Box", value: selectedRow.drawerConstruction || "Plywood, rebate joint drawer box" },
-                      { label: "Drawer Glides", value: selectedRow.hardware?.includes("soft") || selectedRow.hardware?.includes("Soft")
-                        ? "Soft-close undermount drawer glides"
-                        : selectedRow.isBuilderGrade
-                          ? "Builder grade undermount drawer glides"
-                          : "Soft-close undermount drawer glides" },
-                      { label: "Hinges", value: selectedRow.hardware?.includes("soft") || selectedRow.hardware?.includes("Soft")
-                        ? "6-way adjustable, soft-close"
-                        : selectedRow.isBuilderGrade
-                          ? "6-way adjustable, non soft-close"
-                          : "6-way adjustable, soft-close" },
-                      { label: "Exterior Finish", value: "Matching color exterior" },
-                      { label: "Interior Finish", value: "Melamine natural interior" },
-                      { label: "Shelves", value: "5/8\" particleboard with natural melamine, edge banding on all sides" },
-                      { label: "Accessories", value: "Door bumper, metal shelf pin, metal clips, L bracket for base cabinet" },
-                      { label: "Package", value: "One box per cabinet" },
-                      { label: "Certification", value: "TSCA VI, KCMA, CARB2, NGBS Green" },
-                    ].map((item, i) => (
-                      <li key={item.label} className="flex gap-2">
-                        <span className="text-muted-foreground shrink-0 w-4 text-right">{i + 1}.</span>
-                        <span><span className="font-semibold text-foreground">{item.label}:</span> {item.value}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </>
-            )}
           </div>
         </div>
 

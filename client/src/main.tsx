@@ -10,21 +10,7 @@ import { getLoginUrl } from "./const";
 import { shouldRedirectToLoginOnError } from "./lib/authRedirect";
 import "./index.css";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Cache data for 60 seconds before considering it stale — prevents
-      // re-fetching the same data on every navigation between pages.
-      staleTime: 60_000,
-      // Keep unused data in cache for 5 minutes so navigating back is instant.
-      gcTime: 5 * 60_000,
-      // Don't refetch just because the user switches browser tabs.
-      refetchOnWindowFocus: false,
-      // Retry once on failure (default 3 is too aggressive for slow connections).
-      retry: 1,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 const goToLogin = () => {
   if (typeof window === "undefined") return;

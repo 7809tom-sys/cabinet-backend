@@ -453,50 +453,8 @@
     {
       "idx": 64,
       "version": "5",
-      "when": 1783832321640,
-      "tag": "0064_jittery_kid_colt",
-      "breakpoints": true
-    },
-    {
-      "idx": 65,
-      "version": "5",
-      "when": 1783899865802,
-      "tag": "0065_absurd_blizzard",
-      "breakpoints": true
-    },
-    {
-      "idx": 66,
-      "version": "5",
-      "when": 1783974526563,
-      "tag": "0066_warm_leo",
-      "breakpoints": true
-    },
-    {
-      "idx": 67,
-      "version": "5",
-      "when": 1783974825837,
-      "tag": "0067_classy_living_lightning",
-      "breakpoints": true
-    },
-    {
-      "idx": 68,
-      "version": "5",
-      "when": 1784059738450,
-      "tag": "0068_boring_carnage",
-      "breakpoints": true
-    },
-    {
-      "idx": 69,
-      "version": "5",
-      "when": 1784064514434,
-      "tag": "0069_yielding_paladin",
-      "breakpoints": true
-    },
-    {
-      "idx": 70,
-      "version": "5",
-      "when": 1784172301327,
-      "tag": "0070_brown_spyke",
+      "when": 1784314619862,
+      "tag": "0064_bitter_malcolm_colcord",
       "breakpoints": true
     }
   ]

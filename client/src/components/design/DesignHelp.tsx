@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -94,24 +93,17 @@ export function DesignHelp() {
   const helpButton = useMemo(
     () => (
       <Dialog>
-        <Tooltip delayDuration={300}>
-          <TooltipTrigger asChild>
-            <DialogTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-7 w-7 bg-background"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-              </Button>
-            </DialogTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
-            <p className="font-semibold">Design Help</p>
-            <p className="text-muted-foreground mt-0.5">Step-by-step guide to drawing rooms, placing cabinets, and using the design tools.</p>
-          </TooltipContent>
-        </Tooltip>
+        <DialogTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 bg-background"
+          >
+            <HelpCircle className="h-4 w-4" />
+            {t("dt_help_btn")}
+          </Button>
+        </DialogTrigger>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("dt_help_title")}</DialogTitle>

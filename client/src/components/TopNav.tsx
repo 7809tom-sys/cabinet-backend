@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { Menu, X, ShoppingCart, ChevronDown, Languages, Smartphone } from "lucide-react";
+import { Menu, X, ShoppingCart, ChevronDown, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useCart } from "@/contexts/CartContext";
@@ -263,18 +263,6 @@ export function TopNav() {
             </Link>
           )}
 
-          {/* Get the App button (desktop only) */}
-          <Link href="/app" className="hidden lg:flex">
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex items-center gap-1.5 border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)] hover:text-[var(--color-navy)] transition-colors"
-            >
-              <Smartphone className="h-3.5 w-3.5" />
-              Get the App
-            </Button>
-          </Link>
-
           {/* Mobile menu toggle */}
           <Button
             variant="ghost"
@@ -346,12 +334,6 @@ export function TopNav() {
                 <Button className="w-full bg-[var(--color-navy)] text-white">{t("nav_sign_in")}</Button>
               </Link>
             )}
-            <Link href="/app" onClick={() => setMobileOpen(false)} className="px-3 pt-1">
-              <Button className="w-full flex items-center gap-2 bg-transparent border border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)] hover:text-[var(--color-navy)]">
-                <Smartphone className="h-4 w-4" />
-                Get the App
-              </Button>
-            </Link>
           </nav>
         </div>
       )}

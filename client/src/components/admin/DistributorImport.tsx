@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useRef } from "react";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../server/routers";
 import { trpc } from "@/lib/trpc";
@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -15,43 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import {
-  Download,
-  Upload,
-  FileSpreadsheet,
-  CheckCircle2,
-  AlertTriangle,
-  Plus,
-  CheckCheck,
-  Check,
-  ChevronsUpDown,
-  AlertCircle,
-  HelpCircle,
-  ArrowRight,
-  RotateCcw,
-  Table2,
-  Link2,
-  X,
-} from "lucide-react";
+import { Download, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle } from "lucide-react";
 
 const ACTION_LABEL: Record<string, string> = {
   "create-info": "New item",
@@ -66,1504 +30,31 @@ const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   error: "destructive",
 };
 
-type PreviewData = inferRouterOutputs<AppRouter>["distributorAdmin"]["importPreview"];
-type PreviewRow = PreviewData["rows"][number];
-type ParseColumnsOutput = inferRouterOutputs<AppRouter>["distributorAdmin"]["parseXlsxColumns"];
-type XlsxSheet = ParseColumnsOutput["sheets"][number];
-
-/** Green/yellow/red confidence indicator for each row */
-function MatchBadge({ row }: { row: PreviewRow }) {
-  const conf = (row as PreviewRow & { matchConfidence?: string }).matchConfidence;
-  if (conf === "exact") {
-    return (
-      <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-medium">
-        <CheckCheck className="h-3.5 w-3.5" /> Exact
-      </span>
-    );
-  }
-  if (conf === "normalized" || conf === "alias") {
-    return (
-      <span className="inline-flex items-center gap-1 text-amber-600 text-xs font-medium">
-        <AlertCircle className="h-3.5 w-3.5" />
-        {conf === "alias" ? "Alias" : "Fuzzy"}
-      </span>
-    );
-  }
-  if (row.action === "create-info") {
-    return (
-      <span className="inline-flex items-center gap-1 text-blue-500 text-xs font-medium">
-        <Plus className="h-3.5 w-3.5" /> New
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-destructive text-xs font-medium">
-      <HelpCircle className="h-3.5 w-3.5" /> No match
-    </span>
-  );
-}
-
-/** Row background based on confidence */
-function rowBg(row: PreviewRow): string {
-  const conf = (row as PreviewRow & { matchConfidence?: string }).matchConfidence;
-  if (row.action === "error") return "bg-destructive/5";
-  if (conf === "exact") return "";
-  if (conf === "normalized" || conf === "alias") return "bg-amber-50 dark:bg-amber-950/20";
-  if (row.action === "create-info") return "bg-blue-50 dark:bg-blue-950/20";
-  return "bg-destructive/5";
-}
-
-// ─── Add Distributor Dialog ────────────────────────────────────────────────
-function AddDistributorDialog({
-  open,
-  onClose,
-  onCreated,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onCreated: (id: number, name: string) => void;
-}) {
-  const [name, setName] = useState("");
-  const [brandName, setBrandName] = useState("");
-  const mut = trpc.distributorAdmin.addDistributor.useMutation({
-    onSuccess: (r) => {
-      onCreated(r.id, r.name);
-      setName("");
-      setBrandName("");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Add distributor</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label>Internal name *</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Skyline Cabinetry"
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label>Brand name (optional)</Label>
-            <Input
-              value={brandName}
-              onChange={(e) => setBrandName(e.target.value)}
-              placeholder="e.g. Skyline"
-              className="mt-1"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            disabled={!name.trim() || mut.isPending}
-            onClick={() => mut.mutate({ name: name.trim(), brandName: brandName.trim() || undefined })}
-          >
-            {mut.isPending ? <Spinner className="mr-1.5 h-4 w-4" /> : null}
-            Create
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Add Door Style Dialog ─────────────────────────────────────────────────
-function AddDoorStyleDialog({
-  open,
-  distributorId,
-  onClose,
-  onCreated,
-}: {
-  open: boolean;
-  distributorId: number;
-  onClose: () => void;
-  onCreated: (id: number, ourName: string) => void;
-}) {
-  const [ourName, setOurName] = useState("");
-  const [styleCode, setStyleCode] = useState("");
-  const mut = trpc.distributorAdmin.addDoorStyle.useMutation({
-    onSuccess: (r) => {
-      onCreated(r.id, r.ourName);
-      setOurName("");
-      setStyleCode("");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Add door style</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label>Display name *</Label>
-            <Input
-              value={ourName}
-              onChange={(e) => setOurName(e.target.value)}
-              placeholder="e.g. White Shaker Skyline"
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label>Style code *</Label>
-            <Input
-              value={styleCode}
-              onChange={(e) => setStyleCode(e.target.value)}
-              placeholder="e.g. WS-SKY"
-              className="mt-1"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            disabled={!ourName.trim() || !styleCode.trim() || mut.isPending || !distributorId}
-            onClick={() =>
-              mut.mutate({ distributorId, ourName: ourName.trim(), styleCode: styleCode.trim() })
-            }
-          >
-            {mut.isPending ? <Spinner className="mr-1.5 h-4 w-4" /> : null}
-            Create
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Cabinet Category Picker ─────────────────────────────────────────────────
-/**
- * Per-code alias picker: shows category tabs, then a scrollable list of all
- * cabinets in that category. Click a cabinet to assign it.
- */
-function CabinetCategoryPicker({
-  onSelect,
-}: {
-  onSelect: (masterCode: string, description: string) => void;
-}) {
-  const { data: categoryList } = trpc.cabinets.allCategories.useQuery();
-  const utils = trpc.useUtils();
-  const [category, setCategory] = useState("");
-  const resolvedCategory = category || (categoryList?.[0] ?? "");
-  const [search, setSearch] = useState("");
-  const [showNew, setShowNew] = useState(false);
-  const [newCode, setNewCode] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const createMut = trpc.cabinets.adminCreateCabinet.useMutation({
-    onSuccess: (r) => {
-      utils.distributorAdmin.listCabinetsByCategory.invalidate({ category: resolvedCategory });
-      onSelect(r.masterCode, newDesc);
-      setShowNew(false);
-      setNewCode("");
-      setNewDesc("");
-    },
-    onError: (e) => { const { toast } = require("sonner"); toast.error(e.message); },
-  });
-  const { data: cabinets, isLoading } = trpc.distributorAdmin.listCabinetsByCategory.useQuery(
-    { category: resolvedCategory },
-    { enabled: resolvedCategory !== "", refetchOnWindowFocus: false }
-  );
-  const filtered = cabinets
-    ? cabinets.filter((c) => {
-        if (!search.trim()) return true;
-        const q = search.trim().toLowerCase();
-        return (
-          c.masterCode.toLowerCase().includes(q) ||
-          (c.description ?? "").toLowerCase().includes(q) ||
-          (c.subCategory ?? "").toLowerCase().includes(q)
-        );
-      })
-    : [];
-  return (
-    <div className="border border-border rounded-md bg-background overflow-hidden">
-      {/* Category tabs */}
-      <div className="flex flex-wrap gap-0.5 p-1.5 border-b border-border bg-muted/40">
-        {(categoryList ?? []).map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => { setCategory(cat); setSearch(""); }}
-            className={`px-2.5 py-1 text-xs rounded font-medium transition-colors ${
-              resolvedCategory === cat
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-      {/* Search within category */}
-      <div className="px-2 py-1.5 border-b border-border">
-        <input
-          type="text"
-          className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground font-mono"
-          placeholder={`Filter ${resolvedCategory} cabinets…`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-      {/* Cabinet list */}
-      <div className="max-h-48 overflow-y-auto">
-        {isLoading ? (
-          <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-            <Spinner className="h-3 w-3" /> Loading…
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">No cabinets found.</div>
-        ) : (
-          filtered.map((cab) => (
-            <button
-              key={cab.id}
-              type="button"
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent text-left transition-colors"
-              onClick={() => onSelect(cab.masterCode, cab.description ?? "")}
-            >
-              <span className="font-mono font-semibold shrink-0 min-w-[80px]">{cab.masterCode}</span>
-              <span className="text-muted-foreground truncate flex-1">{cab.description}</span>
-              {cab.subCategory && (
-                <span className="shrink-0 text-[10px] bg-muted px-1.5 py-0.5 rounded">{cab.subCategory}</span>
-              )}
-            </button>
-          ))
-        )}
-      </div>
-      {/* ── New cabinet button + inline form ── */}
-      {resolvedCategory && (
-        <div className="border-t border-border">
-          {!showNew ? (
-            <button
-              type="button"
-              className="w-full flex items-center gap-1.5 px-3 py-2 text-xs text-primary hover:bg-accent transition-colors font-medium"
-              onClick={() => setShowNew(true)}
-            >
-              <Plus className="h-3.5 w-3.5" /> New {resolvedCategory} cabinet
-            </button>
-          ) : (
-            <div className="p-3 space-y-2 bg-muted/30">
-              <p className="text-xs font-semibold text-foreground">New {resolvedCategory} cabinet</p>
-              <input
-                type="text"
-                className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background outline-none focus:ring-1 focus:ring-primary font-mono uppercase"
-                placeholder="Master code (e.g. B24)"
-                value={newCode}
-                onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-                autoFocus
-              />
-              <input
-                type="text"
-                className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background outline-none focus:ring-1 focus:ring-primary"
-                placeholder='Description (e.g. 24" Base Cabinet)'
-                value={newDesc}
-                onChange={(e) => setNewDesc(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={!newCode.trim() || !newDesc.trim() || createMut.isPending}
-                  className="flex-1 text-xs bg-primary text-primary-foreground rounded px-2 py-1.5 font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
-                  onClick={() =>
-                    createMut.mutate({
-                      masterCode: newCode.trim(),
-                      description: newDesc.trim(),
-                      category: resolvedCategory,
-                    })
-                  }
-                >
-                  {createMut.isPending ? "Creating…" : "Create & Assign"}
-                </button>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded hover:bg-accent transition-colors"
-                  onClick={() => { setShowNew(false); setNewCode(""); setNewDesc(""); }}
-                >
-                  Cancel
-                </button>
-              </div>
-              {createMut.isError && (
-                <p className="text-xs text-destructive">{createMut.error?.message}</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Unmatched SKU Alias Resolution Panel ────────────────────────────────────
-/**
- * After an import, shows all unmatched distributor SKU codes.
- * For each code, the admin picks a category then clicks the matching cabinet
- * from the list. Clicking "Save aliases" persists all mappings.
- */
-function UnmatchedAliasPanel({
-  unmatchedCodes,
-  distributorId,
-}: {
-  unmatchedCodes: string[];
-  distributorId: number;
-}) {
-  const [aliases, setAliases] = useState<Record<string, string>>(
-    () => Object.fromEntries(unmatchedCodes.map((c) => [c, ""]))
-  );
-  const [savedSet, setSavedSet] = useState<Set<string>>(new Set());
-  const [activeCode, setActiveCode] = useState<string | null>(null);
-
-  const saveAliasesMut = trpc.distributorAdmin.saveSkuAliases.useMutation({
-    onSuccess: (r) => {
-      setSavedSet((prev) => {
-        const next = new Set(prev);
-        r.saved > 0 && Object.entries(aliases).forEach(([raw, master]) => {
-          if (master.trim()) next.add(raw);
-        });
-        return next;
-      });
-      if (r.notFound.length > 0) {
-        toast.error(`Cabinet codes not found: ${r.notFound.join(", ")}`);
-      } else {
-        toast.success(`${r.saved} alias${r.saved !== 1 ? "es" : ""} saved — re-import to apply.`);
-        setActiveCode(null);
-      }
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const pendingCodes = unmatchedCodes.filter((c) => !savedSet.has(c));
-  if (pendingCodes.length === 0) {
-    return (
-      <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-3">
-        <p className="text-xs font-medium text-emerald-700 flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5" /> All aliases saved — re-import the file to apply them.
-        </p>
-      </div>
-    );
-  }
-
-  const filledCount = pendingCodes.filter((c) => aliases[c]?.trim()).length;
-
-  return (
-    <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
-      <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        {pendingCodes.length} model number{pendingCodes.length !== 1 ? "s" : ""} not found — pick the matching cabinet for each one:
-      </p>
-      <div className="space-y-2">
-        {pendingCodes.map((code) => (
-          <div key={code} className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <code className="text-xs font-mono bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded text-amber-900 dark:text-amber-200 min-w-[120px] shrink-0">
-                {code}
-              </code>
-              {aliases[code]?.trim() ? (
-                <span className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1 flex-1">
-                  <CheckCircle2 className="h-3 w-3 shrink-0" />
-                  <span className="font-mono font-semibold">{aliases[code]}</span>
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground italic">not assigned yet</span>
-              )}
-              <button
-                type="button"
-                className="text-xs underline text-amber-700 dark:text-amber-300 shrink-0"
-                onClick={() => setActiveCode(activeCode === code ? null : code)}
-              >
-                {activeCode === code ? "Close" : aliases[code]?.trim() ? "Change" : "Pick cabinet"}
-              </button>
-            </div>
-            {activeCode === code && (
-              <div className="ml-4">
-                <CabinetCategoryPicker
-                  onSelect={(masterCode) => {
-                    setAliases((prev) => ({ ...prev, [code]: masterCode }));
-                    setActiveCode(null);
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      <Button
-        size="sm"
-        disabled={filledCount === 0 || saveAliasesMut.isPending}
-        className="bg-amber-600 hover:bg-amber-700 text-white"
-        onClick={() => {
-          const toSave = pendingCodes
-            .filter((c) => aliases[c]?.trim())
-            .map((c) => ({ rawCode: c, masterCode: aliases[c].trim() }));
-          if (toSave.length > 0) saveAliasesMut.mutate({ aliases: toSave, distributorId });
-        }}
-      >
-        {saveAliasesMut.isPending ? <Spinner className="mr-1.5 h-3.5 w-3.5" /> : null}
-        Save {filledCount > 0 ? filledCount : ""} alias{filledCount !== 1 ? "es" : ""}
-      </Button>
-    </div>
-  );
-}
-
-// ─── Style Combobox (inline text input with dropdown) ────────────────────────
-/** Inline text input that filters door styles as you type. Click or type to search, click a result to select. */
-function StyleCombobox({
-  styles,
-  value,
-  onChange,
-}: {
-  styles: Array<{ id: number; ourName: string; styleCode?: string | null }>;
-  value: string; // door style id as string, or ""
-  onChange: (val: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [inputVal, setInputVal] = useState("");
-  const selected = styles.find((s) => String(s.id) === value);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // When a selection is made, show its name in the input
-  const displayText = open ? inputVal : (selected?.ourName ?? "");
-
-  const filtered = inputVal.trim()
-    ? styles.filter((s) =>
-        s.ourName.toLowerCase().includes(inputVal.toLowerCase()) ||
-        (s.styleCode ?? "").toLowerCase().includes(inputVal.toLowerCase())
-      )
-    : styles;
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setInputVal("");
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  return (
-    <div ref={containerRef} className="relative w-full min-w-[180px]">
-      <div className="flex items-center h-7 rounded-md border border-input bg-background px-2 gap-1">
-        <input
-          type="text"
-          className="flex-1 text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-          placeholder={selected ? selected.ourName : "— Not imported —"}
-          value={displayText}
-          onFocus={() => { setOpen(true); setInputVal(""); }}
-          onChange={(e) => { setInputVal(e.target.value); setOpen(true); }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") { setOpen(false); setInputVal(""); }
-            if (e.key === "Backspace" && !inputVal && value) { onChange(""); }
-          }}
-        />
-        {value && (
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={() => { onChange(""); setInputVal(""); }}
-            tabIndex={-1}
-          >
-            <X className="h-3 w-3" />
-          </button>
-        )}
-        <ChevronsUpDown className="h-3 w-3 text-muted-foreground shrink-0" />
-      </div>
-      {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-full min-w-[200px] rounded-md border border-border bg-popover shadow-md max-h-[220px] overflow-y-auto">
-          <div
-            className="px-3 py-1.5 text-xs text-muted-foreground cursor-pointer hover:bg-accent"
-            onMouseDown={(e) => { e.preventDefault(); onChange(""); setOpen(false); setInputVal(""); }}
-          >
-            — Not imported —
-          </div>
-          {filtered.length === 0 && (
-            <div className="px-3 py-2 text-xs text-muted-foreground">No styles found.</div>
-          )}
-          {filtered.map((s) => (
-            <div
-              key={s.id}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-accent ${
-                String(s.id) === value ? "bg-accent/60 font-medium" : ""
-              }`}
-              onMouseDown={(e) => { e.preventDefault(); onChange(String(s.id)); setOpen(false); setInputVal(""); }}
-            >
-              <Check className={`h-3 w-3 shrink-0 ${String(s.id) === value ? "opacity-100" : "opacity-0"}`} />
-              <span>{s.ourName}</span>
-              {s.styleCode && <span className="ml-auto text-muted-foreground">{s.styleCode}</span>}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Column Mapping Step ───────────────────────────────────────────────────
-/**
- * Multi-column mapping step: shows ALL price columns from the spreadsheet in a
- * table. Each row lets the admin assign a door style (and price type) to that
- * column. Saved mappings are pre-filled from the database. Imports all selected
- * columns in one shot.
- */
-function MultiColumnMappingStep({
-  sheets,
-  distributorId,
-  fileBase64,
-  filename,
-  onDone,
-  onReset,
-}: {
-  sheets: XlsxSheet[];
-  distributorId: number;
-  fileBase64: string;
-  filename: string;
-  onDone: () => void;
-  onReset: () => void;
-}) {
-  const [sheetName, setSheetName] = useState(sheets[0]?.name ?? "");
-  const activeSheet = sheets.find((s) => s.name === sheetName) ?? sheets[0];
-  const headers = activeSheet?.headers ?? [];
-
-  // Auto-detect the SKU column
-  function autoDetect(candidates: string[]): string {
-    for (const c of candidates) {
-      const found = headers.find((h) => h.toLowerCase().includes(c.toLowerCase()));
-      if (found) return found;
-    }
-    return "";
-  }
-
-  const [skuCol, setSkuCol] = useState(() =>
-    autoDetect(["model", "sku", "item", "code", "part", "number"])
-  );
-
-  // Columns to skip (non-price columns)
-  const SKIP_COLS = new Set(["description", "assemble", "assembled", "taxable", "hinge", "notes", "note"]);
-  const priceColumns = headers.filter(
-    (h) => h !== skuCol && !SKIP_COLS.has(h.toLowerCase())
-  );
-
-  // Load all door styles for this distributor
-  const { data: allStyles } = trpc.distributorAdmin.adminStyles.useQuery(
-    { distributorId },
-    { enabled: distributorId > 0 }
-  );
-
-  // Load saved column mappings for this distributor
-  const { data: savedMappings } = trpc.distributorAdmin.getColumnMappings.useQuery(
-    { distributorId },
-    { enabled: distributorId > 0 }
-  );
-
-  // Per-column state: { doorStyleId, priceType, enabled }
-  type ColMapping = { doorStyleId: string; priceType: "list" | "cost"; enabled: boolean };
-  const [colMappings, setColMappings] = useState<Record<string, ColMapping>>({});
-
-  // Fuzzy match a column code against door style names/codes
-  function autoMatchStyle(col: string): string {
-    if (!allStyles || allStyles.length === 0) return "";
-    const colLower = col.toLowerCase();
-    // 1. Exact style code match
-    const exactCode = allStyles.find((s) => s.styleCode?.toLowerCase() === colLower);
-    if (exactCode) return String(exactCode.id);
-    // 2. Style code starts with col
-    const codePrefix = allStyles.find((s) => s.styleCode?.toLowerCase().startsWith(colLower));
-    if (codePrefix) return String(codePrefix.id);
-    // 3. Style name contains all letters of col as initials
-    // e.g. SW → "Shaker White", GR → "Gray", SE → "Stone/Espresso"
-    const nameWords = (name: string) => name.toLowerCase().split(/[\s\-_/]+/);
-    const initials = allStyles.find((s) => {
-      const words = nameWords(s.ourName);
-      const firstLetters = words.map((w) => w[0] ?? "").join("");
-      return firstLetters.includes(colLower) || firstLetters === colLower;
-    });
-    if (initials) return String(initials.id);
-    // 4. Style name contains col as substring
-    const nameContains = allStyles.find((s) => s.ourName.toLowerCase().includes(colLower));
-    if (nameContains) return String(nameContains.id);
-    return "";
-  }
-
-  // Pre-fill from saved mappings (or auto-suggest) once loaded — must be in useEffect, not render
-  const savedRef = useRef(false);
-  useEffect(() => {
-    if (savedMappings !== undefined && allStyles !== undefined && !savedRef.current && priceColumns.length > 0) {
-      savedRef.current = true;
-      const initial: Record<string, ColMapping> = {};
-      for (const col of priceColumns) {
-        const saved = savedMappings.find((m) => m.columnCode === col);
-        if (saved) {
-          initial[col] = {
-            doorStyleId: String(saved.doorStyleId),
-            priceType: saved.priceType as "list" | "cost",
-            enabled: true,
-          };
-        } else {
-          const suggested = autoMatchStyle(col);
-          initial[col] = {
-            doorStyleId: suggested,
-            priceType: "list",
-            enabled: Boolean(suggested),
-          };
-        }
-      }
-      setColMappings(initial);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedMappings, allStyles, priceColumns.join("|")]);
-
-  function setColField<K extends keyof ColMapping>(col: string, field: K, value: ColMapping[K]) {
-    setColMappings((prev) => ({
-      ...prev,
-      [col]: { ...(prev[col] ?? { doorStyleId: "", priceType: "list", enabled: false }), [field]: value },
-    }));
-  }
-
-  const activeMappings = priceColumns
-    .filter((col) => colMappings[col]?.enabled && colMappings[col]?.doorStyleId)
-    .map((col) => ({
-      columnCode: col,
-      doorStyleId: Number(colMappings[col].doorStyleId),
-      priceType: colMappings[col].priceType,
-    }));
-
-  // Full row-by-row preview
-  const [showReview, setShowReview] = useState(false);
-  const [manualMatches, setManualMatches] = useState<Record<string, string>>({});
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
-  // Full Catalog Update mode — when true, SKUs absent from the upload are de-listed
-  const [fullCatalogUpdate, setFullCatalogUpdate] = useState(false);
-  // Fix dialog: rawCode of the row currently being fixed, or null
-  const [fixDialogFor, setFixDialogFor] = useState<string | null>(null);
-  const previewMut = trpc.distributorAdmin.previewAllColumns.useMutation();
-  const previewData = previewMut.data;
-  const firstListCol = activeMappings.find((m) => m.priceType === "list")?.columnCode ?? activeMappings[0]?.columnCode ?? "";
-
-  function handleReview() {
-    if (!canImport || !firstListCol) return;
-    setShowReview(true);
-    setManualMatches({});
-    previewMut.mutate({
-      distributorId,
-      fileBase64,
-      filename,
-      skuColumn: skuCol,
-      priceColumn: firstListCol,
-      priceType: activeMappings.find((m) => m.columnCode === firstListCol)?.priceType ?? "list",
-    });
-  }
-
-  const importAllMut = trpc.distributorAdmin.importAllColumns.useMutation({
-    onSuccess: (r) => {
-      if (r.dryRun) return;
-      setShowSummaryModal(true);
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const commitResult = importAllMut.data && !importAllMut.data.dryRun ? importAllMut.data : null;
-  const canImport = activeMappings.length > 0 && Boolean(skuCol);
-
-  // Sample prices for the first data row (for preview column)
-  const firstRow = activeSheet?.previewRows?.[0] ?? {};
-
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Table2 className="h-4 w-4" /> Map price columns to door styles
-        </h3>
-        <Button variant="ghost" size="sm" onClick={onReset}>
-          <RotateCcw className="h-3.5 w-3.5 mr-1" /> Choose different file
-        </Button>
-      </div>
-
-      {/* Sheet selector (only shown for multi-sheet workbooks) */}
-      {sheets.length > 1 && (
-        <div>
-          <Label className="text-xs font-medium">Sheet</Label>
-          <Select value={sheetName} onValueChange={setSheetName}>
-            <SelectTrigger className="mt-1 h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sheets.map((s) => (
-                <SelectItem key={s.name} value={s.name}>
-                  {s.name} ({s.headers.length} columns, {s.previewRows.length}+ rows)
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* SKU column selector */}
-      <div className="flex items-center gap-3">
-        <Label className="text-xs font-medium whitespace-nowrap">
-          Model / SKU column <span className="text-destructive">*</span>
-        </Label>
-        <Select value={skuCol} onValueChange={setSkuCol}>
-          <SelectTrigger className="h-8 text-sm w-48">
-            <SelectValue placeholder="Select column…" />
-          </SelectTrigger>
-          <SelectContent>
-            {headers.map((h) => (
-              <SelectItem key={h} value={h}>{h}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-xs text-muted-foreground">
-          {activeSheet?.previewRows?.length ?? 0}+ rows detected
-        </span>
-      </div>
-
-      {/* Multi-column mapping table */}
-      <div className="rounded-md border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/60 text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium w-8">
-                <input
-                  type="checkbox"
-                  checked={priceColumns.every((c) => colMappings[c]?.enabled)}
-                  onChange={(e) => {
-                    setColMappings((prev) => {
-                      const next = { ...prev };
-                      for (const col of priceColumns) {
-                        next[col] = { ...(prev[col] ?? { doorStyleId: "", priceType: "list" as const }), enabled: e.target.checked };
-                      }
-                      return next;
-                    });
-                  }}
-                  className="cursor-pointer"
-                />
-              </th>
-              <th className="px-3 py-2 text-left font-medium">Column</th>
-              <th className="px-3 py-2 text-left font-medium">Sample price</th>
-              <th className="px-3 py-2 text-left font-medium">Door style</th>
-              <th className="px-3 py-2 text-left font-medium">Price type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {priceColumns.map((col) => {
-              const mapping = colMappings[col] ?? { doorStyleId: "", priceType: "list" as const, enabled: false };
-              const sampleVal = firstRow[col];
-              return (
-                <tr key={col} className={`border-t transition-colors ${mapping.enabled ? "bg-background" : "bg-muted/20 opacity-60"}`}>
-                  <td className="px-3 py-2">
-                    <input
-                      type="checkbox"
-                      checked={mapping.enabled}
-                      onChange={(e) => setColField(col, "enabled", e.target.checked)}
-                      className="cursor-pointer"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{col}</code>
-                    {savedMappings?.find((m) => m.columnCode === col) && (
-                      <span className="ml-1.5 text-[10px] text-emerald-600 font-medium">saved</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground font-mono text-xs">
-                    {sampleVal != null ? String(sampleVal) : "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    <StyleCombobox
-                      styles={allStyles ?? []}
-                      value={mapping.doorStyleId}
-                      onChange={(val) => {
-                        setColField(col, "doorStyleId", val);
-                        if (val) setColField(col, "enabled", true);
-                      }}
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <Select
-                      value={mapping.priceType}
-                      onValueChange={(v) => setColField(col, "priceType", v as "list" | "cost")}
-                      disabled={!mapping.enabled}
-                    >
-                      <SelectTrigger className="h-7 text-xs w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="list">List price</SelectItem>
-                        <SelectItem value="cost">My cost</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        {activeMappings.length} of {priceColumns.length} columns selected for import.
-        Mappings are saved automatically and pre-filled next time you upload this distributor's sheet.
-      </p>
-
-      {/* Full Catalog Update toggle */}
-      <div className={`rounded-lg border p-3 space-y-2 transition-colors ${
-        fullCatalogUpdate
-          ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20"
-          : "border-border bg-muted/30"
-      }`}>
-        <label className="flex items-start gap-3 cursor-pointer select-none">
-          <Checkbox
-            id="fullCatalogUpdate"
-            checked={fullCatalogUpdate}
-            onCheckedChange={(v) => setFullCatalogUpdate(Boolean(v))}
-            className="mt-0.5 shrink-0"
-          />
-          <div className="space-y-0.5">
-            <p className="text-sm font-semibold leading-none">
-              Full Catalog Update
-            </p>
-            <p className="text-xs text-muted-foreground">
-              When checked, any SKU for the selected distributor + style that is
-              <strong> not present in this upload</strong> will be marked as
-              unavailable (de-listed). Use this when the file represents the
-              complete current catalog. Leave unchecked to only update the
-              provided records without removing anything.
-            </p>
-          </div>
-        </label>
-        {fullCatalogUpdate && (
-          <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-100 dark:bg-amber-900/30 px-3 py-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-800 dark:text-amber-300">
-              <strong>Caution:</strong> SKUs not in this file will be de-listed for the selected styles.
-              This cannot be undone automatically — verify the file is complete before publishing.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Row-by-row review table */}
-      {/* Fix dialog — searchable master cabinet picker */}
-      <FixMasterDialog
-        open={fixDialogFor !== null}
-        rawCode={fixDialogFor ?? ""}
-        onSelect={(masterCode) => {
-          if (fixDialogFor) setManualMatches((prev) => ({ ...prev, [fixDialogFor]: masterCode }));
-          setFixDialogFor(null);
-        }}
-        onClose={() => setFixDialogFor(null)}
-      />
-
-      {showReview && (
-        <div className="rounded-md border overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 bg-muted/60 border-b">
-            <span className="text-sm font-semibold">
-              {previewData
-                ? `${previewData.rows.filter((r) => r.matched || manualMatches[r.rawCode]?.trim()).length} / ${previewData.rows.length} rows matched`
-                : "Loading…"}
-            </span>
-            {previewData && previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length > 0 && (
-              <span className="text-xs text-amber-600 font-medium">
-                {previewData.rows.filter((r) => !r.matched && !manualMatches[r.rawCode]?.trim()).length} need review
-              </span>
-            )}
-          </div>
-          {previewMut.isPending ? (
-            <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground text-sm">
-              <Spinner className="h-4 w-4" /> Checking all rows…
-            </div>
-          ) : previewData ? (
-            <div className="max-h-[400px] overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-muted/80 text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium">Sheet Code</th>
-                    <th className="px-3 py-2 text-left font-medium">Master Cabinet</th>
-                    <th className="px-3 py-2 text-right font-medium">List Price</th>
-                    <th className="px-3 py-2 text-right font-medium">Your Cost</th>
-                    <th className="px-3 py-2 text-left font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewData.rows.map((row) => {
-                    const manualCode = manualMatches[row.rawCode]?.trim();
-                    const isMatched = row.matched || Boolean(manualCode);
-                    return (
-                      <tr key={row.rawCode} className={`border-t ${isMatched ? "" : "bg-amber-50/60 dark:bg-amber-950/20"}`}>
-                        <td className="px-3 py-1.5 font-mono">{row.rawCode}</td>
-                        <td className="px-3 py-1.5">
-                          {row.matched ? (
-                            <span className="text-emerald-700 dark:text-emerald-400 font-medium">{row.masterCode}</span>
-                          ) : manualCode ? (
-                            <span className="text-emerald-700 dark:text-emerald-400 font-medium">{manualCode}</span>
-                          ) : (
-                            <span className="text-muted-foreground italic text-xs">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-1.5 text-right font-mono">
-                          {row.listPrice != null ? `$${row.listPrice.toFixed(2)}` : row.notAvailable ? <span className="text-muted-foreground">N/A</span> : "—"}
-                        </td>
-                        <td className="px-3 py-1.5 text-right font-mono">
-                          {row.yourCost != null ? `$${row.yourCost.toFixed(2)}` : "—"}
-                        </td>
-                        <td className="px-3 py-1.5">
-                          {isMatched ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
-                              <CheckCircle2 className="h-3.5 w-3.5" /> Matched
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-2">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-semibold px-2 py-0.5 text-[10px]">
-                                <AlertTriangle className="h-3 w-3" /> Needs Review
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => setFixDialogFor(row.rawCode)}
-                              >
-                                Fix
-                              </Button>
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {/* Commit results — success summary */}
-      {/* Publish Summary Modal */}
-      <Dialog open={showSummaryModal} onOpenChange={(v) => { if (!v) { setShowSummaryModal(false); if (commitResult && commitResult.results.every((r) => r.unmatched === 0)) onDone(); } }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              Publish Complete
-            </DialogTitle>
-          </DialogHeader>
-          {commitResult && (() => {
-            const totalPriced = commitResult.results.reduce((s, r) => s + r.priced, 0);
-            const totalUnmatched = commitResult.results.reduce((s, r) => s + r.unmatched, 0);
-            const totalDelisted = commitResult.results.reduce((s, r) => s + (r.delisted ?? 0), 0);
-            const totalStyles = commitResult.results.length;
-            return (
-              <div className="space-y-4">
-                {/* Top summary */}
-                <div className={`grid gap-3 ${totalDelisted > 0 ? "grid-cols-4" : "grid-cols-3"}`}>
-                  <div className="rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 p-3 text-center">
-                    <div className="text-2xl font-bold text-emerald-700">{totalPriced}</div>
-                    <div className="text-xs text-emerald-600 mt-0.5">SKUs Updated</div>
-                  </div>
-                  {totalDelisted > 0 && (
-                    <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 p-3 text-center">
-                      <div className="text-2xl font-bold text-amber-600">{totalDelisted}</div>
-                      <div className="text-xs text-amber-600 mt-0.5">De-listed</div>
-                    </div>
-                  )}
-                  <div className="rounded-md bg-muted/60 border p-3 text-center">
-                    <div className="text-2xl font-bold">{totalStyles}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">Styles Processed</div>
-                  </div>
-                  <div className={`rounded-md border p-3 text-center ${totalUnmatched > 0 ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200" : "bg-muted/60"}` }>
-                    <div className={`text-2xl font-bold ${totalUnmatched > 0 ? "text-amber-600" : "text-muted-foreground"}`}>{totalUnmatched}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">Unmatched</div>
-                  </div>
-                </div>
-
-                {/* Per-style breakdown */}
-                <div className="rounded-md border overflow-hidden">
-                  <div className="px-3 py-1.5 bg-muted/60 border-b text-xs font-semibold text-muted-foreground">Breakdown by Style</div>
-                  <div className="max-h-[240px] overflow-y-auto divide-y">
-                    {commitResult.results.map((r) => {
-                      const style = allStyles?.find((s) => s.id === r.doorStyleId);
-                      const hasIssue = r.unmatched > 0;
-                      return (
-                        <div key={r.columnCode} className={`flex items-center gap-3 px-3 py-2 text-xs ${hasIssue ? "bg-amber-50/60 dark:bg-amber-950/10" : ""}` }>
-                          <code className="font-mono bg-muted px-1.5 py-0.5 rounded min-w-[36px] text-center shrink-0">{r.columnCode}</code>
-                          <span className="flex-1 truncate font-medium">{style?.ourName ?? `Style #${r.doorStyleId}`}</span>
-                          <span className="text-emerald-600 font-semibold shrink-0">{r.priced} saved</span>
-                          {r.unmatched > 0 && (
-                            <span className="text-amber-600 shrink-0">{r.unmatched} failed</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Unmatched codes list */}
-                {totalUnmatched > 0 && (
-                  <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
-                    <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      {totalUnmatched} code{totalUnmatched !== 1 ? "s" : ""} not found — assign master codes below to fix on next import:
-                    </p>
-                    <UnmatchedAliasPanel
-                      unmatchedCodes={Array.from(new Set(commitResult.results.flatMap((r) => r.unmatchedCodes)))}
-                      distributorId={distributorId}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-          <DialogFooter>
-            <Button
-              onClick={() => {
-                setShowSummaryModal(false);
-                if (commitResult && commitResult.results.every((r) => r.unmatched === 0)) onDone();
-              }}
-            >
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Button
-          disabled={!canImport || previewMut.isPending}
-          variant="outline"
-          onClick={handleReview}
-        >
-          {previewMut.isPending ? (
-            <Spinner className="mr-1.5 h-4 w-4" />
-          ) : (
-            <Table2 className="mr-1.5 h-4 w-4" />
-          )}
-          Review All Rows
-        </Button>
-
-        {previewData && !previewMut.isPending && (
-          <span className="text-sm">
-            <span className="text-emerald-600 font-medium">
-              {previewData.rows.filter((r) => r.matched).length} matched
-            </span>
-            {previewData.rows.filter((r) => !r.matched).length > 0 && (
-              <span className="text-amber-600 ml-2">
-                · {previewData.rows.filter((r) => !r.matched).length} unmatched
-              </span>
-            )}
-          </span>
-        )}
-
-        <Button
-          disabled={!canImport || importAllMut.isPending}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          onClick={async () => {
-            // First save any manual matches as aliases
-            const toAlias = Object.entries(manualMatches)
-              .filter(([, master]) => master.trim())
-              .map(([rawCode, masterCode]) => ({ rawCode, masterCode: masterCode.trim() }));
-            if (toAlias.length > 0) {
-              try {
-                // Fire-and-forget alias save before import
-                await new Promise<void>((resolve) => {
-                  const utils = trpc.useUtils();
-                  void utils.client.distributorAdmin.saveSkuAliases.mutate({ aliases: toAlias, distributorId }).then(() => resolve()).catch(() => resolve());
-                });
-              } catch { /* ignore */ }
-            }
-            importAllMut.mutate({
-              distributorId,
-              fileBase64,
-              filename,
-              skuColumn: skuCol,
-              mappings: activeMappings,
-              dryRun: false,
-              fullCatalogUpdate,
-            });
-          }}
-        >
-          {importAllMut.isPending ? (
-            <Spinner className="mr-1.5 h-4 w-4" />
-          ) : (
-            <CheckCircle2 className="mr-1.5 h-4 w-4" />
-          )}
-          Publish All Matched
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Legacy single-column mapping step (kept for backward compatibility).
- * @deprecated Use MultiColumnMappingStep instead.
- */
-function ColumnMappingStep({
-  sheets,
-  distributorId,
-  styleId,
-  fileBase64,
-  filename,
-  onDone,
-  onReset,
-}: {
-  sheets: XlsxSheet[];
-  distributorId: number;
-  styleId: number;
-  fileBase64: string;
-  filename: string;
-  onDone: () => void;
-  onReset: () => void;
-}) {
-  const [sheetName, setSheetName] = useState(sheets[0]?.name ?? "");
-  const activeSheet = sheets.find((s) => s.name === sheetName) ?? sheets[0];
-  const headers = activeSheet?.headers ?? [];
-
-  // Auto-detect common column names
-  function autoDetect(candidates: string[]): string {
-    for (const c of candidates) {
-      const found = headers.find((h) => h.toLowerCase().includes(c.toLowerCase()));
-      if (found) return found;
-    }
-    return "";
-  }
-
-  const [skuCol, setSkuCol] = useState(() =>
-    autoDetect(["model", "sku", "item", "code", "part", "number"])
-  );
-  const [priceCol, setPriceCol] = useState(() =>
-    autoDetect(["list", "price", "msrp", "cost", "dealer"])
-  );
-  const [priceType, setPriceType] = useState<"listPrice" | "yourCost">(() => {
-    const p = autoDetect(["list", "msrp"]);
-    return p ? "listPrice" : "yourCost";
-  });
-  const [descCol, setDescCol] = useState(() =>
-    autoDetect(["desc", "name", "product"])
-  );
-
-  const importMut = trpc.distributorAdmin.importWithMapping.useMutation({
-    onSuccess: (r) => {
-      if (r.dryRun) return; // handled below
-      const aliasMsg = r.aliasesLearned ? `, ${r.aliasesLearned} aliases learned` : "";
-      const unmatchedMsg = r.unmatched > 0 ? ` (${r.unmatched} unmatched — see below)` : "";
-      toast.success(`Import complete — ${r.matched} matched, ${r.priced} priced, ${r.skipped} skipped${aliasMsg}${unmatchedMsg}.`);
-      if (r.unmatched === 0) onDone();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const dryRunResult = importMut.data?.dryRun ? importMut.data : null;
-  const commitResult = importMut.data && !importMut.data.dryRun ? importMut.data : null;
-
-  const canRun = Boolean(skuCol) && Boolean(priceCol) && Boolean(distributorId) && Boolean(styleId);
-
-  // Preview table of first rows using current mapping
-  const previewRows = (activeSheet?.previewRows ?? []).slice(0, 5);
-
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Table2 className="h-4 w-4" /> Map columns
-        </h3>
-        <Button variant="ghost" size="sm" onClick={onReset}>
-          <RotateCcw className="h-3.5 w-3.5 mr-1" /> Choose different file
-        </Button>
-      </div>
-
-      {/* Sheet selector (only shown for multi-sheet workbooks) */}
-      {sheets.length > 1 && (
-        <div>
-          <Label className="text-xs font-medium">Sheet</Label>
-          <Select value={sheetName} onValueChange={setSheetName}>
-            <SelectTrigger className="mt-1 h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sheets.map((s) => (
-                <SelectItem key={s.name} value={s.name}>
-                  {s.name} ({s.headers.length} columns, {s.previewRows.length}+ rows)
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Column mapping grid */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {/* SKU column */}
-        <div>
-          <Label className="text-xs font-medium">
-            Model / SKU column <span className="text-destructive">*</span>
-          </Label>
-          <Select value={skuCol} onValueChange={setSkuCol}>
-            <SelectTrigger className="mt-1 h-8 text-sm">
-              <SelectValue placeholder="Select column…" />
-            </SelectTrigger>
-            <SelectContent>
-              {headers.map((h) => (
-                <SelectItem key={h} value={h}>{h}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Price column */}
-        <div>
-          <Label className="text-xs font-medium">
-            Price column <span className="text-destructive">*</span>
-          </Label>
-          <Select value={priceCol} onValueChange={setPriceCol}>
-            <SelectTrigger className="mt-1 h-8 text-sm">
-              <SelectValue placeholder="Select column…" />
-            </SelectTrigger>
-            <SelectContent>
-              {headers.map((h) => (
-                <SelectItem key={h} value={h}>{h}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Price type */}
-        <div>
-          <Label className="text-xs font-medium">
-            Price type <span className="text-destructive">*</span>
-          </Label>
-          <Select
-            value={priceType}
-            onValueChange={(v) => setPriceType(v as "listPrice" | "yourCost")}
-          >
-            <SelectTrigger className="mt-1 h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="listPrice">List price (MSRP)</SelectItem>
-              <SelectItem value="yourCost">My cost (dealer cost)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Description column (optional) */}
-        <div>
-          <Label className="text-xs font-medium">
-            Description column <span className="text-muted-foreground">(optional)</span>
-          </Label>
-          <Select value={descCol || "__skip__"} onValueChange={(v) => setDescCol(v === "__skip__" ? "" : v)}>
-            <SelectTrigger className="mt-1 h-8 text-sm">
-              <SelectValue placeholder="Skip description" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__skip__">— Skip —</SelectItem>
-              {headers.map((h) => (
-                <SelectItem key={h} value={h}>{h}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Data preview table */}
-      {previewRows.length > 0 && skuCol && priceCol && (
-        <div>
-          <p className="text-xs text-muted-foreground mb-1">
-            Preview of first {previewRows.length} rows with your mapping:
-          </p>
-          <div className="overflow-x-auto rounded-md border text-xs">
-            <table className="w-full text-left">
-              <thead className="bg-muted/60 text-muted-foreground">
-                <tr>
-                  <th className="px-2 py-1.5 font-medium">Model / SKU</th>
-                  <th className="px-2 py-1.5 font-medium">
-                    {priceType === "listPrice" ? "List price" : "My cost"}
-                  </th>
-                  {descCol && <th className="px-2 py-1.5 font-medium">Description</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {previewRows.map((row, i) => (
-                  <tr key={i} className="border-t">
-                    <td className="px-2 py-1 font-mono">{row[skuCol] || "—"}</td>
-                    <td className="px-2 py-1">{row[priceCol] || "—"}</td>
-                    {descCol && <td className="px-2 py-1 truncate max-w-[200px]">{row[descCol] || "—"}</td>}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Commit result — success summary */}
-      {commitResult && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-4 space-y-2">
-          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            Import complete
-          </p>
-          <div className="text-xs space-y-1 text-emerald-700 dark:text-emerald-300">
-            <p>{commitResult.matched} model numbers matched &middot; {commitResult.priced} prices saved</p>
-            {commitResult.skipped > 0 && <p>{commitResult.skipped} rows skipped (blank or invalid)</p>}
-            {commitResult.aliasesLearned > 0 && <p>{commitResult.aliasesLearned} new aliases learned</p>}
-            {commitResult.unmatched === 0 && <p className="text-emerald-600">All model numbers matched successfully.</p>}
-          </div>
-        </div>
-      )}
-
-      {/* Unmatched codes from last run — inline alias resolution */}
-      {commitResult && commitResult.unmatched > 0 && (
-        <UnmatchedAliasPanel
-          unmatchedCodes={commitResult.unmatchedCodes}
-          distributorId={distributorId}
-        />
-      )}
-
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          disabled={!canRun || importMut.isPending}
-          variant="outline"
-          onClick={() =>
-            importMut.mutate({
-              fileBase64,
-              filename,
-              sheetName,
-              skuColumn: skuCol,
-              priceColumn: priceCol,
-              priceType,
-              descriptionColumn: descCol || undefined,
-              distributorId,
-              styleId,
-              dryRun: true,
-            })
-          }
-        >
-          {importMut.isPending && importMut.variables?.dryRun ? (
-            <Spinner className="mr-1.5 h-4 w-4" />
-          ) : null}
-          Preview
-        </Button>
-
-        {dryRunResult && (
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-emerald-600 font-medium">{dryRunResult.matched} will match</span>
-            {dryRunResult.unmatched > 0 && (
-              <span className="text-amber-600">{dryRunResult.unmatched} unmatched</span>
-            )}
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-          </div>
-        )}
-
-        <Button
-          disabled={!canRun || importMut.isPending}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          onClick={() =>
-            importMut.mutate({
-              fileBase64,
-              filename,
-              sheetName,
-              skuColumn: skuCol,
-              priceColumn: priceCol,
-              priceType,
-              descriptionColumn: descCol || undefined,
-              distributorId,
-              styleId,
-              dryRun: false,
-            })
-          }
-        >
-          {importMut.isPending && !importMut.variables?.dryRun ? (
-            <Spinner className="mr-1.5 h-4 w-4" />
-          ) : (
-            <CheckCircle2 className="mr-1.5 h-4 w-4" />
-          )}
-          Import prices
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Component ────────────────────────────────────────────────────────
 export default function DistributorImport() {
   const [distributorId, setDistributorId] = useState<string>("");
   const [styleId, setStyleId] = useState<string>("");
   const [csv, setCsv] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
-  const xlsxFileRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
-  const [showAddDist, setShowAddDist] = useState(false);
-  const [showAddStyle, setShowAddStyle] = useState(false);
-
-  const { data: dists, refetch: refetchDists } = trpc.distributorAdmin.adminList.useQuery();
-  const { data: styles, refetch: refetchStyles } = trpc.distributorAdmin.adminStyles.useQuery(
+  const { data: dists } = trpc.distributorAdmin.adminList.useQuery();
+  const { data: styles } = trpc.distributorAdmin.adminStyles.useQuery(
     { distributorId: Number(distributorId) },
     { enabled: Boolean(distributorId) }
   );
 
+  type PreviewData =
+    inferRouterOutputs<AppRouter>["distributorAdmin"]["importPreview"];
   const [preview, setPreview] = useState<PreviewData | null>(null);
-  // Per-row master code overrides for unmatched rows (key = row index as string)
-  const [masterCodeOverrides, setMasterCodeOverrides] = useState<Record<string, string>>({});
 
-  // ── XLSX/CSV column-mapping flow ─────────────────────────────────────────
-  const [xlsxFile, setXlsxFile] = useState<{ base64: string; name: string } | null>(null);
-  const [xlsxSheets, setXlsxSheets] = useState<XlsxSheet[] | null>(null);
-  const [xlsxParsing, setXlsxParsing] = useState(false);
-
-  // ── Google Drive link flow ────────────────────────────────────────────────
-  const [driveLink, setDriveLink] = useState("");
-  const driveMut = trpc.distributorAdmin.fetchFromDriveLink.useMutation({
-    onSuccess: (r) => {
-      setXlsxFile({ base64: r.base64, name: r.filename });
-      setDriveLink("");
-      toast.success(`Downloaded "${r.filename}" from Google Drive (${(r.sizeBytes / 1024).toFixed(0)} KB)`);
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const parseColumnsMut = trpc.distributorAdmin.parseXlsxColumns.useMutation({
-    onSuccess: (data) => { setXlsxSheets(data.sheets); setXlsxParsing(false); },
-    onError: (e) => { toast.error(e.message); setXlsxFile(null); setXlsxParsing(false); },
-  });
-
-  function onXlsxFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setXlsxSheets(null);
-    setXlsxParsing(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result ?? "");
-      const b64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
-      const fileData = { base64: b64, name: f.name };
-      setXlsxFile(fileData);
-      parseColumnsMut.mutate({ fileBase64: b64, filename: f.name });
-    };
-    reader.readAsDataURL(f);
-    // Reset the input so the same file can be re-selected
-    e.target.value = "";
-  }
-
-  // ── CSV paste / legacy flow ───────────────────────────────────────────────
   const previewMut = trpc.distributorAdmin.importPreview.useMutation({
     onSuccess: (data) => setPreview(data),
     onError: (e) => toast.error(e.message),
   });
   const commitMut = trpc.distributorAdmin.importCommit.useMutation({
     onSuccess: (r) => {
-      const aliasMsg = r.aliasesLearned ? `, ${r.aliasesLearned} aliases learned` : "";
       toast.success(
-        `Imported: ${r.created} created, ${r.updated} updated, ${r.priced} priced, ${r.skipped} skipped${aliasMsg}.`
+        `Imported: ${r.created} created, ${r.updated} updated, ${r.priced} priced, ${r.skipped} skipped.`
       );
       setPreview(null);
       setCsv("");
@@ -1602,7 +93,7 @@ export default function DistributorImport() {
     });
   }
 
-  function onCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
     const reader = new FileReader();
@@ -1613,49 +104,10 @@ export default function DistributorImport() {
     reader.readAsText(f);
   }
 
-  const canRunCsv = Boolean(distributorId) && csv.trim().length > 0;
-
-  // Summary stats for confidence breakdown
-  const confidenceCounts = preview
-    ? {
-        exact: preview.rows.filter((r) => (r as PreviewRow & { matchConfidence?: string }).matchConfidence === "exact").length,
-        fuzzy: preview.rows.filter((r) => {
-          const c = (r as PreviewRow & { matchConfidence?: string }).matchConfidence;
-          return c === "normalized" || c === "alias";
-        }).length,
-        none: preview.rows.filter((r) => (r as PreviewRow & { matchConfidence?: string }).matchConfidence === "none" && r.action !== "create-info").length,
-        newItems: preview.rows.filter((r) => r.action === "create-info").length,
-      }
-    : null;
+  const canRun = Boolean(distributorId) && csv.trim().length > 0;
 
   return (
     <div className="space-y-6">
-      {/* Add Distributor Dialog */}
-      <AddDistributorDialog
-        open={showAddDist}
-        onClose={() => setShowAddDist(false)}
-        onCreated={(id, name) => {
-          refetchDists();
-          setDistributorId(String(id));
-          setShowAddDist(false);
-          toast.success(`Now using "${name}" as the active distributor.`);
-        }}
-      />
-
-      {/* Add Door Style Dialog */}
-      <AddDoorStyleDialog
-        open={showAddStyle}
-        distributorId={Number(distributorId)}
-        onClose={() => setShowAddStyle(false)}
-        onCreated={(id, ourName) => {
-          refetchStyles();
-          setStyleId(String(id));
-          setShowAddStyle(false);
-          toast.success(`Style "${ourName}" created and selected.`);
-        }}
-      />
-
-      {/* ── Master catalog export ─────────────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -1676,291 +128,145 @@ export default function DistributorImport() {
         </CardContent>
       </Card>
 
-      {/* ── Distributor + style selectors ─────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" /> Distributor price import
+            <FileSpreadsheet className="h-5 w-5" /> Distributor product import
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Upload a distributor's price list (XLSX or CSV) to import prices for a door style.
-            Pick your file — the system detects the columns and lets you choose which one is the
-            model number and which is the price before anything is saved.
+            Upload a distributor's catalog spreadsheet (CSV) to add or update
+            product descriptions, dimensions, and pricing. Run a preview first —
+            nothing is written until you commit. Imported prices start
+            unpublished so you can review them before they go live.
           </p>
 
-          {/* Distributor + style row */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label className="text-sm font-medium">Distributor line</Label>
-              <div className="flex gap-2 mt-1">
-                <Select
-                  value={distributorId}
-                  onValueChange={(v) => {
-                    setDistributorId(v);
-                    setStyleId("");
-                    setPreview(null);
-                    setXlsxSheets(null);
-                    setXlsxFile(null);
-                  }}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Choose a distributor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(dists ?? []).map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name}{d.brandName ? ` (${d.brandName})` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Add new distributor"
-                  onClick={() => setShowAddDist(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+              <label className="text-sm font-medium">Distributor line</label>
+              <Select
+                value={distributorId}
+                onValueChange={(v) => {
+                  setDistributorId(v);
+                  setStyleId("");
+                  setPreview(null);
+                }}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Choose a distributor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(dists ?? []).map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.name}
+                      {d.brandName ? ` (${d.brandName})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
             <div>
-              <Label className="text-sm font-medium">
-                Door style <span className="text-muted-foreground text-xs">(required for price import)</span>
-              </Label>
-              <div className="flex gap-2 mt-1">
-                <Select
-                  value={styleId}
-                  onValueChange={(v) => {
-                    setStyleId(v);
-                    setPreview(null);
-                  }}
-                  disabled={!distributorId}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Choose a style" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(styles ?? []).map((s) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        {s.ourName} ({s.styleCode})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  title="Add new door style"
-                  disabled={!distributorId}
-                  onClick={() => setShowAddStyle(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
+              <label className="text-sm font-medium">
+                Door style{" "}
+                <span className="text-muted-foreground">(only if pricing included)</span>
+              </label>
+              <Select
+                value={styleId}
+                onValueChange={(v) => {
+                  setStyleId(v);
+                  setPreview(null);
+                }}
+                disabled={!distributorId}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Choose a style for prices" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(styles ?? []).map((s) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {s.ourName} ({s.styleCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* ── XLSX/CSV upload with column mapping ─────────────────────── */}
-          <div className="rounded-lg border border-dashed border-border p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Upload spreadsheet (XLSX or CSV)</p>
-              {xlsxSheets && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => { setXlsxFile(null); setXlsxSheets(null); }}
-                >
-                  <RotateCcw className="h-3.5 w-3.5 mr-1" /> Change file
-                </Button>
-              )}
-            </div>
-
-            {/* Loading overlay while parsing */}
-            {(xlsxParsing || parseColumnsMut.isPending || driveMut.isPending) && (
-              <div className="flex flex-col items-center justify-center py-8 gap-3">
-                <Spinner className="h-8 w-8 text-primary" />
-                <div className="text-center">
-                  <p className="text-sm font-medium">
-                    {driveMut.isPending ? "Downloading from Google Drive…" : "Parsing spreadsheet…"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {xlsxFile?.name ?? "Reading file columns and rows"}
-                  </p>
-                </div>
-                <div className="w-48 h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full animate-[progress_1.5s_ease-in-out_infinite]" style={{ width: "60%" }} />
-                </div>
-              </div>
-            )}
-
-            {!xlsxSheets && !(xlsxParsing || parseColumnsMut.isPending || driveMut.isPending) ? (
-              <div className="space-y-3">
-                {/* Local file upload */}
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    ref={xlsxFileRef}
-                    type="file"
-                    accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-                    className="hidden"
-                    onChange={onXlsxFile}
-                  />
-                  <Button
-                    variant="outline"
-                    disabled={xlsxParsing || parseColumnsMut.isPending || driveMut.isPending}
-                    onClick={() => xlsxFileRef.current?.click()}
-                  >
-                    {(xlsxParsing || parseColumnsMut.isPending) ? (
-                      <Spinner className="mr-1.5 h-4 w-4" />
-                    ) : (
-                      <FileSpreadsheet className="mr-1.5 h-4 w-4" />
-                    )}
-                    {xlsxFile ? xlsxFile.name : "Choose file from device…"}
-                  </Button>
-                  <p className="text-xs text-muted-foreground self-center">
-                    Supports .xlsx and .csv — any column layout
-                  </p>
-                </div>
-
-                {/* Google Drive link */}
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                    <Link2 className="h-3.5 w-3.5" /> Or paste a Google Drive share link
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      value={driveLink}
-                      onChange={(e) => setDriveLink(e.target.value)}
-                      placeholder="https://drive.google.com/file/d/…/view"
-                      className="flex-1 h-8 text-sm font-mono"
-                      disabled={driveMut.isPending}
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!driveLink.trim() || driveMut.isPending}
-                      onClick={() => driveMut.mutate({ url: driveLink.trim() })}
-                    >
-                      {driveMut.isPending ? (
-                        <Spinner className="mr-1.5 h-4 w-4" />
-                      ) : (
-                        <Download className="mr-1.5 h-4 w-4" />
-                      )}
-                      Fetch
-                    </Button>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    The file must be shared as <strong>"Anyone with the link can view"</strong>.
-                    Supports Google Sheets and any .xlsx or .csv file in Drive.
-                  </p>
-                </div>
-              </div>
-            ) : !xlsxSheets ? null : (
-              <MultiColumnMappingStep
-                sheets={xlsxSheets}
-                distributorId={Number(distributorId)}
-                fileBase64={xlsxFile!.base64}
-                filename={xlsxFile!.name}
-                onDone={() => { setXlsxFile(null); setXlsxSheets(null); }}
-                onReset={() => { setXlsxFile(null); setXlsxSheets(null); }}
-              />
-            )}
-
-            {!xlsxSheets && !distributorId && (
-              <p className="text-xs text-amber-600">Select a distributor first before uploading.</p>
-            )}
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={downloadTemplate}>
+              <Download className="mr-1.5 h-4 w-4" /> Download template
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={onFile}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="mr-1.5 h-4 w-4" /> Upload CSV file
+            </Button>
           </div>
 
-          {/* ── CSV paste / legacy flow ──────────────────────────────────── */}
-          <details className="group">
-            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground select-none flex items-center gap-1.5">
-              <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
-              Advanced: paste CSV or use template format
-            </summary>
-            <div className="mt-3 space-y-3 pl-4 border-l border-border">
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={downloadTemplate}>
-                  <Download className="mr-1.5 h-4 w-4" /> Download template
-                </Button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".csv,text/csv"
-                  className="hidden"
-                  onChange={onCsvFile}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <Upload className="mr-1.5 h-4 w-4" /> Upload CSV file
-                </Button>
-              </div>
+          <div>
+            <label className="text-sm font-medium">Or paste CSV</label>
+            <Textarea
+              value={csv}
+              onChange={(e) => {
+                setCsv(e.target.value);
+                setPreview(null);
+              }}
+              placeholder="Master Code,Description,Category,Width,Height,List Price,Your Cost"
+              className="mt-1 h-32 font-mono text-xs"
+            />
+          </div>
 
-              <div>
-                <Label className="text-sm font-medium">Or paste CSV</Label>
-                <Textarea
-                  value={csv}
-                  onChange={(e) => {
-                    setCsv(e.target.value);
-                    setPreview(null);
-                  }}
-                  placeholder="Master Code,List Price,Your Cost"
-                  className="mt-1 h-32 font-mono text-xs"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Minimal format: <code>Master Code</code> + <code>List Price</code> (or <code>Your Cost</code>).
-                  Use <code>NA</code>, <code>X</code>, or leave blank to mark as unavailable.
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  disabled={!canRunCsv || previewMut.isPending}
-                  onClick={() =>
-                    previewMut.mutate({
-                      distributorId: Number(distributorId),
-                      styleId: styleId ? Number(styleId) : undefined,
-                      csv,
-                    })
-                  }
-                >
-                  {previewMut.isPending ? <Spinner className="mr-1.5 h-4 w-4" /> : null}
-                  Preview import
-                </Button>
-                {preview && preview.fatalErrors.length === 0 && (
-                  <Button
-                    variant="default"
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                    disabled={commitMut.isPending}
-                    onClick={() =>
-                      commitMut.mutate({
-                        distributorId: Number(distributorId),
-                        styleId: styleId ? Number(styleId) : undefined,
-                        csv,
-                        masterCodeOverrides: Object.keys(masterCodeOverrides).length > 0 ? masterCodeOverrides : undefined,
-                      })
-                    }
-                  >
-                    {commitMut.isPending ? (
-                      <Spinner className="mr-1.5 h-4 w-4" />
-                    ) : (
-                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                    )}
-                    Commit import
-                  </Button>
+          <div className="flex gap-2">
+            <Button
+              disabled={!canRun || previewMut.isPending}
+              onClick={() =>
+                previewMut.mutate({
+                  distributorId: Number(distributorId),
+                  styleId: styleId ? Number(styleId) : undefined,
+                  csv,
+                })
+              }
+            >
+              {previewMut.isPending ? (
+                <Spinner className="mr-1.5 h-4 w-4" />
+              ) : null}
+              Preview import
+            </Button>
+            {preview && preview.fatalErrors.length === 0 && (
+              <Button
+                variant="default"
+                className="bg-emerald-600 hover:bg-emerald-700"
+                disabled={commitMut.isPending}
+                onClick={() =>
+                  commitMut.mutate({
+                    distributorId: Number(distributorId),
+                    styleId: styleId ? Number(styleId) : undefined,
+                    csv,
+                  })
+                }
+              >
+                {commitMut.isPending ? (
+                  <Spinner className="mr-1.5 h-4 w-4" />
+                ) : (
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
                 )}
-              </div>
-            </div>
-          </details>
+                Commit import
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* ── CSV preview results ───────────────────────────────────────────── */}
       {preview && (
         <Card>
           <CardHeader>
@@ -1992,28 +298,6 @@ export default function DistributorImport() {
               </span>
             </div>
 
-            {confidenceCounts && (
-              <div className="flex flex-wrap gap-4 text-xs border rounded-md px-3 py-2 bg-muted/30">
-                <span className="font-medium text-muted-foreground">Match quality:</span>
-                <span className="inline-flex items-center gap-1 text-emerald-600">
-                  <CheckCheck className="h-3.5 w-3.5" /> {confidenceCounts.exact} exact
-                </span>
-                <span className="inline-flex items-center gap-1 text-amber-600">
-                  <AlertCircle className="h-3.5 w-3.5" /> {confidenceCounts.fuzzy} fuzzy/alias
-                </span>
-                {confidenceCounts.newItems > 0 && (
-                  <span className="inline-flex items-center gap-1 text-blue-500">
-                    <Plus className="h-3.5 w-3.5" /> {confidenceCounts.newItems} new
-                  </span>
-                )}
-                {confidenceCounts.none > 0 && (
-                  <span className="inline-flex items-center gap-1 text-destructive">
-                    <HelpCircle className="h-3.5 w-3.5" /> {confidenceCounts.none} unmatched
-                  </span>
-                )}
-              </div>
-            )}
-
             {preview.unknownHeaders.length > 0 && (
               <p className="text-xs text-muted-foreground">
                 Ignored columns: {preview.unknownHeaders.join(", ")}
@@ -2026,38 +310,16 @@ export default function DistributorImport() {
                   <tr>
                     <th className="px-3 py-2">Row</th>
                     <th className="px-3 py-2">Code</th>
-                    <th className="px-3 py-2">Match</th>
                     <th className="px-3 py-2">Action</th>
                     <th className="px-3 py-2">Changes</th>
                     <th className="px-3 py-2">Notes</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.rows.map((r: PreviewRow) => (
-                    <tr key={r.rowNumber} className={`border-t ${rowBg(r)}`}>
+                  {preview.rows.map((r: PreviewData["rows"][number]) => (
+                    <tr key={r.rowNumber} className="border-t">
                       <td className="px-3 py-2 text-muted-foreground">{r.rowNumber}</td>
-                      <td className="px-3 py-2 font-mono">
-                        {(r as PreviewRow & { matchConfidence?: string }).matchConfidence === "none" ? (
-                          <div className="flex flex-col gap-1">
-                            <span className="text-muted-foreground">{r.masterCode || "—"}</span>
-                            <input
-                              type="text"
-                              placeholder="Override master code..."
-                              value={masterCodeOverrides[String(preview!.rows.indexOf(r))] ?? ""}
-                              onChange={(e) => setMasterCodeOverrides((prev) => ({
-                                ...prev,
-                                [String(preview!.rows.indexOf(r))]: e.target.value,
-                              }))}
-                              className="w-36 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs font-mono outline-none focus:ring-1 focus:ring-amber-400"
-                            />
-                          </div>
-                        ) : (
-                          <span>{r.masterCode || "—"}</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <MatchBadge row={r} />
-                      </td>
+                      <td className="px-3 py-2 font-mono">{r.masterCode || "—"}</td>
                       <td className="px-3 py-2">
                         <Badge variant={ACTION_VARIANT[r.action]}>
                           {ACTION_LABEL[r.action]}
@@ -2070,10 +332,14 @@ export default function DistributorImport() {
                       </td>
                       <td className="px-3 py-2 text-xs">
                         {r.errors.length > 0 && (
-                          <span className="text-destructive block">{r.errors.join(" ")}</span>
+                          <span className="text-destructive">
+                            {r.errors.join(" ")}
+                          </span>
                         )}
                         {r.warnings.length > 0 && (
-                          <span className="text-amber-600 block">{r.warnings.join(" ")}</span>
+                          <span className="text-amber-600">
+                            {r.warnings.join(" ")}
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -2086,131 +352,4 @@ export default function DistributorImport() {
       )}
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// FixMasterDialog — searchable master cabinet picker for unmatched import rows
-// ---------------------------------------------------------------------------
-function FixMasterDialog({
-  open,
-  rawCode,
-  onSelect,
-  onClose,
-}: {
-  open: boolean;
-  rawCode: string;
-  onSelect: (masterCode: string) => void;
-  onClose: () => void;
-}) {
-  const [query, setQuery] = useState("");
-  const debouncedQuery = useDebounced(query, 300);
-
-  const { data: results, isFetching } = trpc.pricing.adminSearchMasterCabinets.useQuery(
-    { query: debouncedQuery },
-    { enabled: open && debouncedQuery.length >= 1 }
-  );
-
-  // Reset search when dialog opens
-  const prevOpen = useRef(false);
-  useEffect(() => {
-    if (open && !prevOpen.current) setQuery(rawCode);
-    prevOpen.current = open;
-  }, [open, rawCode]);
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            Fix Unmatched Code
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Sheet code <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">{rawCode}</code> could not be automatically matched.
-            Search for the correct master cabinet below and select it to assign the match.
-          </p>
-
-          {/* Search input */}
-          <div className="relative">
-            <input
-              autoFocus
-              type="text"
-              className="w-full h-9 px-3 rounded-md border bg-background text-sm outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Search by master code or description…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            {isFetching && (
-              <Spinner className="absolute right-2.5 top-2 h-4 w-4 text-muted-foreground" />
-            )}
-          </div>
-
-          {/* Results list */}
-          <div className="rounded-md border overflow-hidden max-h-[320px] overflow-y-auto">
-            {!results || results.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground text-sm">
-                {debouncedQuery.length < 1 ? (
-                  <span>Type to search master cabinets</span>
-                ) : isFetching ? (
-                  <span>Searching…</span>
-                ) : (
-                  <span>No cabinets found for &ldquo;{debouncedQuery}&rdquo;</span>
-                )}
-              </div>
-            ) : (
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-muted/80 text-muted-foreground border-b">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-medium">Master Code</th>
-                    <th className="px-3 py-2 text-left font-medium">Description</th>
-                    <th className="px-3 py-2 text-left font-medium">Category</th>
-                    <th className="px-3 py-2 w-16"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.map((cab: { id: number; masterCode: string; description: string | null; category: string | null }) => (
-                    <tr
-                      key={cab.id}
-                      className="border-t hover:bg-muted/40 cursor-pointer transition-colors"
-                      onClick={() => onSelect(cab.masterCode)}
-                    >
-                      <td className="px-3 py-2 font-mono font-semibold">{cab.masterCode}</td>
-                      <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate">{cab.description ?? "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{cab.category ?? "—"}</td>
-                      <td className="px-3 py-2">
-                        <Button
-                          size="sm"
-                          className="h-6 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={(e) => { e.stopPropagation(); onSelect(cab.masterCode); }}
-                        >
-                          Select
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** Simple debounce hook */
-function useDebounced<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
 }

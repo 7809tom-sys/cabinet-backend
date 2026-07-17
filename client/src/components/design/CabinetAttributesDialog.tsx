@@ -165,7 +165,7 @@ export function CabinetAttributesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:w-auto sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[440px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-mono text-base">{cabinet.masterCode}</DialogTitle>
           <DialogDescription className="truncate">{cabinet.description}</DialogDescription>
@@ -193,7 +193,7 @@ export function CabinetAttributesDialog({
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="flex items-end gap-3">
               <Dim
                 label="W"
                 value={Math.round(cabinet.width * 10) / 10}
@@ -221,7 +221,7 @@ export function CabinetAttributesDialog({
             </div>
           </section>
 
-          {/* Door + Handle — 2-column grid on wider dialog */}
+          {/* Door */}
           <section className="space-y-3 border-t border-border pt-4">
             <h4 className="text-sm font-semibold">{t("dt_ca_door_hardware")}</h4>
 
@@ -247,62 +247,65 @@ export function CabinetAttributesDialog({
               />
             </div>
 
-            {/* Door swing + Handle position — side by side */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
-                <Label className="text-sm">{t("dt_ca_door_swing")}</Label>
-                {isDouble ? (
-                  <p className="text-[11px] text-muted-foreground">{t("dt_ca_double_hint")}</p>
-                ) : !hasDoorSwing(cabinet) ? (
-                  <p className="text-[11px] text-muted-foreground">{t("dt_ca_no_hinged")}</p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant={swing === "left" ? "default" : "outline"}
-                      size="sm"
-                      className="h-8"
-                      disabled={!canSwing}
-                      onClick={() => onSetSwing(uid, "left")}
-                    >
-                      {t("dt_ca_left_hinge")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={swing === "right" ? "default" : "outline"}
-                      size="sm"
-                      className="h-8"
-                      disabled={!canSwing}
-                      onClick={() => onSetSwing(uid, "right")}
-                    >
-                      {t("dt_ca_right_hinge")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
-                <Label className="text-sm">{t("dt_ca_handle_position")}</Label>
+            {/* Door swing */}
+            <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
+              <Label className="text-sm">{t("dt_ca_door_swing")}</Label>
+              {isDouble ? (
+                <p className="text-[11px] text-muted-foreground">
+                  {t("dt_ca_double_hint")}
+                </p>
+              ) : !hasDoorSwing(cabinet) ? (
+                <p className="text-[11px] text-muted-foreground">
+                  {t("dt_ca_no_hinged")}
+                </p>
+              ) : (
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     type="button"
-                    variant={handleSide === "left" ? "default" : "outline"}
+                    variant={swing === "left" ? "default" : "outline"}
                     size="sm"
                     className="h-8"
-                    onClick={() => onSetHandleSide(uid, "left")}
+                    disabled={!canSwing}
+                    onClick={() => onSetSwing(uid, "left")}
                   >
-                    {t("dt_ca_left")}
+                    {t("dt_ca_left_hinge")}
                   </Button>
                   <Button
                     type="button"
-                    variant={handleSide === "right" ? "default" : "outline"}
+                    variant={swing === "right" ? "default" : "outline"}
                     size="sm"
                     className="h-8"
-                    onClick={() => onSetHandleSide(uid, "right")}
+                    disabled={!canSwing}
+                    onClick={() => onSetSwing(uid, "right")}
                   >
-                    {t("dt_ca_right")}
+                    {t("dt_ca_right_hinge")}
                   </Button>
                 </div>
+              )}
+            </div>
+
+            {/* Handle position */}
+            <div className={cn("space-y-1.5", noDoor && "opacity-40 pointer-events-none")}>
+              <Label className="text-sm">{t("dt_ca_handle_position")}</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={handleSide === "left" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => onSetHandleSide(uid, "left")}
+                >
+                  {t("dt_ca_left")}
+                </Button>
+                <Button
+                  type="button"
+                  variant={handleSide === "right" ? "default" : "outline"}
+                  size="sm"
+                  className="h-8"
+                  onClick={() => onSetHandleSide(uid, "right")}
+                >
+                  {t("dt_ca_right")}
+                </Button>
               </div>
             </div>
           </section>

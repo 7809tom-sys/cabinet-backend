@@ -288,6 +288,93 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
           </div>
         </div>
       </div>
+
+      {/* Complete this look: sink ↔ faucet pairing */}
+      {(data.subCategory === "Faucets" || data.subCategory === "Sinks") && (
+        <CompleteThisLook slug={slug} pairedType={data.subCategory === "Faucets" ? "Sinks" : "Faucets"} />
+      )}
+    </div>
+  );
+}
+
+function CompleteThisLook({ slug, pairedType }: { slug: string; pairedType: string }) {
+  const [, navigate] = useLocation();
+  const { addItem } = useCart();
+  const { data: related, isLoading } = trpc.pelican.relatedProducts.useQuery(
+    { slug, limit: 4 },
+    { staleTime: 60_000 }
+  );
+
+  if (isLoading) return null;
+  if (!related || related.length === 0) return null;
+
+  const handleAddToCart = (product: any) => {
+    if (!product.sellPrice) return;
+    const res = addItem({
+      masterCode: product.pelicanCode,
+      name: product.name,
+      styleId: 0,
+      styleLabel: product.category,
+      distributorId: null,
+      tier: "homeowner",
+      unitPrice: product.sellPrice,
+      qty: 1,
+      imageUrl: product.imageUrl ?? null,
+      category: product.category,
+    });
+    if (res.ok) {
+      toast.success(`Added ${product.name} to cart`, {
+        action: { label: "View Cart", onClick: () => navigate("/cart") },
+      });
+    }
+  };
+
+  return (
+    <div className="border-t bg-muted/20 py-12">
+      <div className="container">
+        <h2 className="text-xl font-semibold mb-2">Complete This Look</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Pair with a matching {pairedType.toLowerCase().replace("s", "")} for a coordinated finish.
+        </p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {related.map((product: any) => (
+            <Link key={product.id} href={`/surfaces/product/${product.slug}`}>
+              <Card className="group overflow-hidden border-border/70 hover:shadow-md transition-all duration-200 cursor-pointer">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Waves className="h-8 w-8 text-muted-foreground/40" />
+                    </div>
+                  )}
+                </div>
+                <div className="p-3">
+                  <p className="text-xs font-medium line-clamp-2 group-hover:text-primary transition-colors">
+                    {product.name}
+                  </p>
+                  {product.sellPrice && (
+                    <p className="mt-1 text-sm font-semibold text-primary">{formatPrice(product.sellPrice)}</p>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-2 w-full text-xs h-7"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddToCart(product); }}
+                  >
+                    <ShoppingCart className="mr-1 h-3 w-3" /> Add to Cart
+                  </Button>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
