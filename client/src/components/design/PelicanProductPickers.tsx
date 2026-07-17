@@ -169,7 +169,7 @@ export function PelicanSinkPicker({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Pelican Sinks
+          StoneCreek Sinks
         </span>
         <button
           type="button"

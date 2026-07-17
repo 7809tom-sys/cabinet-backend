@@ -25,6 +25,7 @@ import {
   Search,
   Trash2,
   AlertTriangle,
+  Upload,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -480,7 +481,17 @@ export default function AdminGroupedTabs() {
 
         {/* Products & Catalog */}
         <TabsContent value="cabinets" className="mt-6"><AdminTabHelp tab="cabinets" /><CabinetSpreadsheetAdmin /><CabinetLineDownload /></TabsContent>
-        <TabsContent value="distributors" className="mt-6 space-y-6"><AdminTabHelp tab="distributors" /><LineBrandingEditor /><DistributorFulfillmentEditor /><ErrorBoundary><DistributorImport /></ErrorBoundary></TabsContent>
+        <TabsContent value="distributors" className="mt-6 space-y-6">
+          <AdminTabHelp tab="distributors" />
+          <div className="flex justify-end">
+            <a href="/admin/catalog-upload" className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+              <Upload className="h-4 w-4" /> Smart Catalog Upload Wizard
+            </a>
+          </div>
+          <LineBrandingEditor />
+          <DistributorFulfillmentEditor />
+          <ErrorBoundary><DistributorImport /></ErrorBoundary>
+        </TabsContent>
         <TabsContent value="featured" className="mt-6"><AdminTabHelp tab="featured" /><FeaturedStylesAdmin /></TabsContent>
         <TabsContent value="door-corrections" className="mt-6"><AdminTabHelp tab="door-corrections" /><DoorCorrectionsAdmin /></TabsContent>
         <TabsContent value="images" className="mt-6"><AdminTabHelp tab="images" /><SkuImageManager /></TabsContent>

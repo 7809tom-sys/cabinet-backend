@@ -134,6 +134,11 @@ export const doorStyles = mysqlTable("door_styles", {
   // Drives a UI badge + hardware note so it is clearly distinguished from premium lines.
   isBuilderGrade: boolean("isBuilderGrade").default(false).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
+  // Dominant face color sampled from the door sample photo or room scene image.
+  // Stored as a 6-digit hex string (e.g. "c08a4e") without the # prefix.
+  // Used by the design tool to render accurate cabinet finish colors instead of
+  // relying on keyword guessing from the style name.
+  dominantColor: varchar("dominantColor", { length: 7 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   // Date when an admin last verified the pricing for this style is current and correct.
   pricingVerifiedAt: timestamp("pricingVerifiedAt"),

@@ -16,6 +16,7 @@ import {
   pricingSettings,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
+import { extractDominantColor } from "../lib/colorSampler";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { sellPriceForTier } from "@shared/margins";
 import { invokeLLM } from "../_core/llm";
@@ -134,6 +135,7 @@ export const doorStylesRouter = router({
         featuredLabel: doorStyles.featuredLabel,
         isBuilderGrade: doorStyles.isBuilderGrade,
         isActive: doorStyles.isActive,
+        dominantColor: doorStyles.dominantColor,
         createdAt: doorStyles.createdAt,
         pricingVerifiedAt: doorStyles.pricingVerifiedAt,
         // Series name fields from distributors table (for "ourName (seriesName)" display)
@@ -3534,6 +3536,55 @@ export const pricingRouter = router({
    * Returns up to 30 cabinets matching the query by masterCode or description.
    * Used by the import review table to let admins manually assign unmatched SKUs.
    */
+  // Sample dominant face color from each door style's sample photo or room scene
+  // image. Uses server-side fetch + canvas-free pixel sampling via the built-in
+  // fetch API + a simple median-cut on the raw image buffer. Stores the result
+  // as a 6-digit hex string in dominantColor. Called from the admin UI.
+  adminSampleDoorColors: adminProcedure
+    .input(z.object({ styleIds: z.array(z.number().int()).optional() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Fetch all styles that have a door sample or room scene image.
+      const rows = await db
+        .select({
+          id: doorStyles.id,
+          ourName: doorStyles.ourName,
+          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+          roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+        })
+        .from(doorStyles)
+        .where(
+          input.styleIds && input.styleIds.length > 0
+            ? inArray(doorStyles.id, input.styleIds)
+            : sql`(${doorStyles.doorSampleImageUrl} IS NOT NULL OR ${doorStyles.roomSceneImageUrl} IS NOT NULL)`
+        );
+
+      let updated = 0;
+      let failed = 0;
+
+      for (const row of rows) {
+        const imageUrl = row.doorSampleImageUrl || row.roomSceneImageUrl;
+        if (!imageUrl) continue;
+        try {
+          // Fetch the image as a buffer.
+          const res = await fetch(imageUrl, { signal: AbortSignal.timeout(10000) });
+          if (!res.ok) { failed++; continue; }
+          const buf = Buffer.from(await res.arrayBuffer());
+          // Detect format from magic bytes and decode pixels manually.
+          // We use a simple approach: parse JPEG/PNG headers to get raw pixel data.
+          // For speed, we sample every Nth pixel from the center 40% of the image.
+          const hex = await extractDominantColor(buf);
+          if (!hex) { failed++; continue; }
+          await db.update(doorStyles).set({ dominantColor: hex }).where(eq(doorStyles.id, row.id));
+          updated++;
+        } catch {
+          failed++;
+        }
+      }
+      return { total: rows.length, updated, failed };
+    }),
+
   adminSearchMasterCabinets: adminProcedure
     .input(z.object({ query: z.string().trim().min(1).max(64) }))
     .query(async ({ input }) => {

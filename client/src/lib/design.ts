@@ -1656,6 +1656,46 @@ export function finishColors(...parts: (string | null | undefined)[]): FinishCol
   return FALLBACK_FINISHES[hashString(s) % FALLBACK_FINISHES.length];
 }
 
+/**
+ * Build a FinishColors from a 6-digit hex string sampled from the door photo.
+ * The face color IS the sampled hex. Edge is darkened by 18%, label is chosen
+ * based on luminance (dark face → light label, light face → dark label).
+ * Returns null if the hex is invalid or missing.
+ */
+export function finishColorsFromHex(hex: string | null | undefined): FinishColors | null {
+  if (!hex) return null;
+  const clean = hex.replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return null;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  // Perceived luminance (ITU-R BT.709)
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // Edge: darken face by ~18% for depth
+  const edgeR = Math.round(r * 0.82);
+  const edgeG = Math.round(g * 0.82);
+  const edgeB = Math.round(b * 0.82);
+  const toHex = (v: number) => Math.min(255, Math.max(0, v)).toString(16).padStart(2, "0");
+  return {
+    face: `#${clean}`,
+    edge: `#${toHex(edgeR)}${toHex(edgeG)}${toHex(edgeB)}`,
+    label: lum > 140 ? "#1a2744" : "#f5f0e8",
+  };
+}
+
+/**
+ * Resolve finish colors for a door style, preferring the photo-sampled
+ * dominantColor over keyword matching when available.
+ */
+export function finishColorsForStyle(
+  dominantColor: string | null | undefined,
+  ...nameParts: (string | null | undefined)[]
+): FinishColors {
+  const fromPhoto = finishColorsFromHex(dominantColor);
+  if (fromPhoto) return fromPhoto;
+  return finishColors(...nameParts);
+}
+
 // ─── Crown molding & toe kick (design trim, rendered in elevation) ──────────
 // These are toggleable trim layers in the Design Tool. Crown runs along the top
 // of every wall cabinet; toe kick is the recessed strip under base/tall cabinets.

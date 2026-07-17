@@ -1,12 +1,17 @@
+import { AdminEditField } from "@/components/admin/AdminEditField";
+
 export default function ShippingPolicy() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
-      <h1 className="text-3xl font-bold text-foreground mb-2">Shipping Policy</h1>
+      <h1 className="text-3xl font-bold text-foreground mb-2">
+        <AdminEditField pageKey="shipping" field="page_title" defaultValue="Shipping Policy">
+          {(val) => <>{val}</>}
+        </AdminEditField>
+      </h1>
       <p className="text-sm text-muted-foreground mb-10">
-        Cabinet Dealz ships orders fulfilled by our authorized vendor network. The following policies reflect
-        the official terms of <strong className="text-foreground">U.S. Cabinet Depot</strong>, our primary
-        vendor for framed cabinetry. Additional vendor-specific terms may apply for orders fulfilled by
-        Clark &amp; Son Cabinets or Forevermark Cabinetry.
+        <AdminEditField pageKey="shipping" field="intro" defaultValue="Cabinet Dealz ships orders fulfilled by our authorized vendor network. The following policies reflect the official terms of U.S. Cabinet Depot, our primary vendor for framed cabinetry. Additional vendor-specific terms may apply for orders fulfilled by Clark & Son Cabinets or Forevermark Cabinetry." multiline>
+          {(val) => <>{val}</>}
+        </AdminEditField>
       </p>
 
       <div className="prose prose-neutral max-w-none space-y-8 text-foreground">

@@ -1432,6 +1432,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
         <div
           className="absolute inset-[1.5px] rounded-[1.5px]"
           style={{
+            background: `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #fff) 0%, ${face} 45%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
             ...drawerBg,
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 2px rgba(0,0,0,0.16), 0 0 0 1px ${edge}44`,
           }}
@@ -1827,11 +1828,13 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
   switch (kind) {
     case "slab":
       // Flat modern door: no panel, just a machined edge + soft top highlight.
-      // When a door sample is available, use it as the slab face.
+      // Always apply the face color as background so the cabinet never renders
+      // white when the door sample image is missing or fails to load.
       return (
         <div
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
+            background: `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #fff) 0%, ${face} 45%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
             ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 3px rgba(0,0,0,0.14), 0 0 0 1px ${edge}44`,
           }}

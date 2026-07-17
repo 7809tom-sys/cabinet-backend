@@ -1,8 +1,18 @@
+import { AdminEditField } from "@/components/admin/AdminEditField";
+
 export default function Terms() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
-      <h1 className="text-3xl font-bold text-foreground mb-2">Terms &amp; Conditions</h1>
-      <p className="text-sm text-muted-foreground mb-10">Last updated: July 2025</p>
+      <h1 className="text-3xl font-bold text-foreground mb-2">
+        <AdminEditField pageKey="terms" field="page_title" defaultValue="Terms & Conditions">
+          {(val) => <>{val}</>}
+        </AdminEditField>
+      </h1>
+      <p className="text-sm text-muted-foreground mb-10">
+        <AdminEditField pageKey="terms" field="last_updated" defaultValue="Last updated: July 2025">
+          {(val) => <>{val}</>}
+        </AdminEditField>
+      </p>
 
       <div className="space-y-8 text-foreground">
 

@@ -1119,6 +1119,15 @@ export const ordersRouter = router({
       };
       const csv = buildNetsuiteOrderCsv(header, nsLines);
       const distName = dist.brandName || dist.name;
+
+      // Resolve the brand name for the email subject: use affiliate's store name
+      // when the order was placed through an affiliate storefront.
+      let senderBrandName = "Cabinet Dealz";
+      if (order.affiliateId) {
+        const [aff] = await db.select({ storeName: affiliates.storeName }).from(affiliates).where(eq(affiliates.id, order.affiliateId)).limit(1);
+        if (aff?.storeName) senderBrandName = aff.storeName;
+      }
+
       const text = buildOrderEmailText(header, nsLines, {
         distributorName: distName,
         pickupAddress: dist.pickupAddress,
@@ -1137,7 +1146,7 @@ export const ordersRouter = router({
       const result = await sendEmailViaSettings(emailCfg!, {
         to: dist.orderEmail,
         cc: cc.length ? cc : undefined,
-        subject: `Purchase Order ${order.requestNumber} — Cabinet Dealz`,
+        subject: `Purchase Order ${order.requestNumber} — ${senderBrandName}`,
         text: text + apiNote,
         replyTo: order.originatorEmail ?? undefined,
         attachments: [

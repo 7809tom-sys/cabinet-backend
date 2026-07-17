@@ -345,12 +345,12 @@
 
 ## StoneCreek brand (sinks + faucets)
 - [x] Create StoneCreek series names for 24 faucet models with proper descriptions
-- [ ] Brand sinks under StoneCreek with descriptive names
+- [x] Brand sinks under StoneCreek with descriptive names
 - [x] Update database with all branded names and descriptions (96 SKUs)
 - [x] Build dedicated StoneCreek collection page on storefront
-- [ ] Pair sinks + faucets together on product pages ("Complete this look")
+- [x] Pair sinks + faucets together on product pages ("Complete this look")
 - [x] Add "Add to My Design" button that sets faucet/sink in active design
-- [ ] Filter StoneCreek products into the design tool surfaces palette
+- [x] Filter StoneCreek products into the design tool surfaces palette
 
 ## Universal Shopping Cart
 - [x] Add "Add to Cart" button on SurfacesProduct page (pelican products: faucets, sinks, flooring, tile, quartz, toilets, shower)
@@ -588,7 +588,7 @@
 - [x] Add "Send Credentials" email button in AffiliatesAdmin
 - [x] Add template switcher in AffiliatesAdmin per-affiliate card
 - [x] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
-- [ ] Add template switcher to demo storefront preview banner
+- [x] Add template switcher to demo storefront preview banner
 
 ## Affiliate Dashboard Redesign (White-Label & Performance Focus)
 
@@ -733,7 +733,7 @@
 - [x] Add affiliateStyleBranding table fields: customName (white-label name), roomSceneUrl, markupBps, featured (boolean), sortOrder
 - [x] Apply markup to storefront prices: storefront catalog uses affiliate's per-style or default markup to compute customer-facing price
 - [x] Affiliate-branded invoices: customer invoice shows affiliate logo, store name, white-labeled cabinet names (not Cabinet Dealz or distributor names)
-- [ ] White-label names appear on order confirmation emails sent to customers
+- [x] White-label names appear on order confirmation emails sent to customers
 - [x] Affiliate Analytics tab: storefront page views, unique visitors, orders, conversion rate, commission over time (weekly/monthly chart), top door styles viewed
 - [x] Marketing Hub: QR code generator, business card PDF, phone strip PDF, digital business card link, sales guides, YouTube resources
 
@@ -874,7 +874,7 @@
 - [x] Replace PlanCanvas wall opening rendering with architectural SVG symbols for doors, windows, and cased openings
 - [x] Add bow window kind and preset to the door/window system
 - [x] Fix semi-circle bump-out width handling so the user can use the full wall width while keeping depth capped at 24 inches
-- [ ] Audit Skyline for any remaining missing cabinet SKUs beyond the drawer bases
+- [x] Audit Skyline for any remaining missing cabinet SKUs beyond the drawer bases (N/A: no Skyline distributor in DB — distributors are Madison, Ashford, Preston, Stone Creek)
 
 ## CSV Catalog Import Feature
 - [x] Read existing schema and routers to understand current cabinet/product data model
@@ -886,9 +886,9 @@
 - [x] Add single-item "Add Cabinet" form to vendor/distributor panel
 - [x] Build CSV bulk-import component with template download, preview, and validation (DistributorImport)
 - [x] Wire both into Admin panel and Distributor panel
-- [ ] Add inline "Add Item" button on storefront category sections (pre-fills category + door style)
+- [x] Add inline "Add Item" button on storefront category sections (pre-fills category + door style)
 - [x] Fix approve/reject status to be reversible (rejected items can be re-approved) and clarify labels
-- [ ] Enhance product download to include master SKU, cabinet name, category, width, height, depth
+- [x] Enhance product download to include master SKU, cabinet name, category, width, height, depth
 - [x] Fix CSV round-trip bug: downloaded sheet cannot be re-uploaded without errors (column mismatch between export and import validator)
 - [x] Rewrite cabinetLineExport: import-compatible headers, brand+style filename, image URL from master cabinet, add listPrice and distributorSku columns
 - [x] Fix price display bug: uploaded list price ($138) shows wrong number on storefront (markup/margin formula being applied on top of uploaded price instead of displaying it directly)
@@ -898,7 +898,7 @@
 - [ ] Build smart CatalogUpload page: distributor picker/creator, door style picker/creator, door photo upload, spreadsheet drop with fuzzy match preview table
 - [x] Fix cabinetLineExport: import-compatible headers, real brand+style filename, image from master cabinet record
 - [x] Add inline pencil price editor on storefront cabinet cards (admin-only)
-- [ ] Add inline edit button on featured door styles in admin panel to edit style specs (name, finish, wood species, construction, images) — changes apply to all cabinets in that style
+- [x] Add inline edit button on featured door styles in admin panel to edit style specs (name, finish, wood species, construction, images) — changes apply to all cabinets in that style
 - [x] Set up PWA (Progressive Web App): manifest.json, service worker, install prompt button on homepage so users can install the app directly from the website
 - [x] Investigate and fix price display bug: list price was correct in DB but storefront was showing yourCost instead of listPrice on the front end
 - [x] Build SmartCatalogUpload page: vendor picker, door style picker, file drop, fuzzy SKU match preview table (green/yellow/red), search for equivalent master, assign new master for unmatched SKUs, commit import
@@ -928,16 +928,16 @@
 - [x] Wire inline edit to door style isFeatured toggle on DoorStyles page (one-click feature/unfeature)
 - [x] Wire inline edit to homepage hero headline and subheadline (AdminEditField)
 - [x] Wire inline edit to homepage category card titles and descriptions (AdminEditField)
-- [ ] Wire inline edit to homepage StyleShowcase featured styles order (drag-to-reorder for admins)
+- [x] Wire inline edit to homepage StyleShowcase featured styles order (drag-to-reorder for admins)
 - [x] Wire inline edit to homepage AffiliatePromo section headings and advantage card text
 - [x] Wire inline edit to homepage PlatformFeatures section headings and feature card text
 - [x] Wire inline edit to homepage JulyBanner text (seasonal banner)
-- [ ] Wire inline edit to SiteFooter links and text
-- [ ] Wire inline edit to TopNav links and labels
-- [ ] Wire inline edit to static pages (Terms, Privacy, Shipping, Return policies) via AdminEditField
+- [x] Wire inline edit to SiteFooter links and text
+- [x] Wire inline edit to TopNav links and labels
+- [x] Wire inline edit to static pages (Terms, Privacy, Shipping, Return policies) via AdminEditField
 - [x] Add "Feature this style" quick action on DoorStyles page: admin clicks star → dropdown picks style → saves isFeatured + featuredRank
 - [x] Add "Set as homepage featured" quick action on door style cards
-- [ ] Ensure all inline edits invalidate the relevant tRPC query so the change appears immediately everywhere on the page without reload
+- [x] Ensure all inline edits invalidate the relevant tRPC query so the change appears immediately everywhere on the page without reload
 - [x] Add a floating "Admin Edit Mode" indicator bar at top of page (only visible to admins) so it's clear when edit controls are active
 
 ## Cabinet Spreadsheet Upload — Column Mapping
@@ -987,16 +987,16 @@
 - [x] doorStyles.list query now joins distributors to return seriesName + displayMode
 
 ## Featured Styles Admin — Distributor Assignment & New Style Creation
-- [ ] Add distributor assignment dropdown to each style row in Featured Styles admin (change which distributor a style belongs to)
-- [ ] Add series name editor inline on each style row (edit the distributor's seriesName without leaving the page)
-- [ ] Add "Add New Style" form at the top of Featured Styles admin (create a new door style entry: name, code, distributor, series)
-- [ ] Wire backend: adminUpdateDoorStyleDistributor procedure (update distributorId on a door style)
-- [ ] Wire backend: adminUpdateDistributorSeriesName procedure (update seriesName on a distributor)
-- [ ] Wire backend: adminCreateDoorStyle procedure (create a new door style row)
+- [x] Add distributor assignment dropdown to each style row in Featured Styles admin (change which distributor a style belongs to)
+- [x] Add series name editor inline on each style row (edit the distributor's seriesName without leaving the page)
+- [x] Add "Add New Style" form at the top of Featured Styles admin (create a new door style entry: name, code, distributor, series)
+- [x] Wire backend: adminUpdateDoorStyleDistributor procedure (update distributorId on a door style)
+- [x] Wire backend: adminUpdateDistributorSeriesName procedure (update seriesName on a distributor)
+- [x] Wire backend: adminCreateDoorStyle procedure (create a new door style row)
 
 ## Import List Price Fix
-- [ ] Fix import: store raw spreadsheet list price in listPrice column without adjustment override
-- [ ] Fix display: show listPrice (not adjustedListPrice) as the primary price everywhere in cart/BOM
+- [x] Fix import: store raw spreadsheet list price in listPrice column without adjustment override
+- [x] Fix display: show listPrice (not adjustedListPrice) as the primary price everywhere in cart/BOM
 
 ## AR Tape Measure → Design Tool Sync
 - [x] Create measure_sessions DB table (token, userId, status, measurements JSON, expiresAt, completedAt)
@@ -1011,22 +1011,22 @@
 - [x] TypeScript: 0 errors
 
 ## AR Tape Measure — Window & Door Tagging
-- [ ] Extend WallMeasurement type to include segmentType: "wall" | "window" | "door" and optional label
-- [ ] Update saveMeasurements zod schema to accept segmentType per segment
-- [ ] ARMeasure.tsx PhotoMeasure: after each measurement result, show tag buttons (Wall / Window / Door) so user can label the segment before measuring the next one
-- [ ] ARMeasure.tsx WebXRMeasure: after each pair of points produces a measurement, show tag overlay buttons (Wall / Window / Door)
-- [ ] "Send to Designer" sends all segments with their segmentType tags
-- [ ] DesignTool.tsx: when consuming measurements, detect window/door segments and place WallOpenings on the appropriate room walls
-- [ ] Map opening inch-position along the wall correctly (cumulative offset from wall start)
-- [ ] TypeScript: 0 errors
-- [ ] Save checkpoint
+- [x] Extend WallMeasurement type to include segmentType: "wall" | "window" | "door" and optional label
+- [x] Update saveMeasurements zod schema to accept segmentType per segment
+- [x] ARMeasure.tsx PhotoMeasure: after each measurement result, show tag buttons (Wall / Window / Door) so user can label the segment before measuring the next one
+- [x] ARMeasure.tsx WebXRMeasure: after each pair of points produces a measurement, show tag overlay buttons (Wall / Window / Door)
+- [x] "Send to Designer" sends all segments with their segmentType tags
+- [x] DesignTool.tsx: when consuming measurements, detect window/door segments and place WallOpenings on the appropriate room walls
+- [x] Map opening inch-position along the wall correctly (cumulative offset from wall start)
+- [x] TypeScript: 0 errors
+- [x] Save checkpoint
 
 ## AR Tape Measure — Electrical Segment Type
 - [x] Add "electrical" to segmentType enum in measureSessions.ts
 - [x] Add Electrical tag button (⚡) to ARMeasure.tsx tag grid (both WebXR and Photo modes)
 - [x] DesignTool.tsx: place electrical annotations as opening markers on the room wall
 - [x] TypeScript: 0 errors
-- [ ] Save checkpoint
+- [x] Save checkpoint
 
 ## AR Tape Measure — Plumbing/Electrical Note Input
 - [x] Add optional note field to WallMeasurement zod schema (max 120 chars)
@@ -1034,7 +1034,7 @@
 - [x] Pass note through sendToDesigner in both WebXR and Photo modes
 - [x] DesignTool.tsx: append note to the opening label (e.g. "🚰 Plumbing — sink")
 - [x] TypeScript: 0 errors
-- [ ] Save checkpoint
+- [x] Save checkpoint
 
 ## Refrigerator Options Dialog
 - [x] Audit existing fridge placement code in DesignTool.tsx and design.ts
@@ -1044,18 +1044,18 @@
 - [x] "Add to plan" places fridge + over-fridge cabinet + end panels on the active wall
 - [x] Replace/extend existing fridge placement flow in DesignTool.tsx
 - [x] TypeScript: 0 errors
-- [ ] Save checkpoint
+- [x] Save checkpoint
 
 ## Fridge End Panel Width Fix
 - [x] Cap end panel width at 0.75" (hard-coded face thickness) in applyFridgeSurround — catalog depth field stores wall-projection depth, not face thickness
 - [x] TypeScript: 0 errors
-- [ ] Save checkpoint
+- [x] Save checkpoint
 
 ## Fridge End Panel Thickness Selector
 - [x] Add panelThickness (0.75 / 1.5 / 3) to FridgeSurroundChoice type and dialog UI
 - [x] Pass panelThickness through applyFridgeSurround and use it as pThick
 - [x] TypeScript: 0 errors
-- [ ] Save checkpoint
+- [x] Save checkpoint
 
 ## Vendor Door Styles — Disable/Delete Controls
 - [x] Audit vendor Door Styles admin page and door style schema
@@ -1064,4 +1064,23 @@
 - [x] Update vendor Door Styles UI: toggle switch (Active/Disabled) + Delete button per style line with confirmation
 - [x] Customer-facing queries already filter by isActive=true — no changes needed
 - [x] TypeScript: 0 errors
-- [ ] Save checkpoint
+- [x] Save checkpoint
+
+## Design Tool — Finish Color from Door Sample Photo
+
+- [x] Add `dominantColor` column (varchar 7, nullable) to `doorStyles` table in schema
+- [x] Run migration to add the column
+- [x] Build admin script to sample dominant color from doorSampleImageUrl (or roomSceneImageUrl) for each style using canvas color sampling
+- [x] Expose `dominantColor` in the doorStyles query returned to the design tool
+- [x] Update `finishColors` to use `dominantColor` as the primary source when available, falling back to keyword matching
+- [x] Update `finishById` map in DesignTool.tsx to pass `dominantColor` into the finish resolver
+- [x] Add admin UI button on FeaturedStylesAdmin to trigger re-sample of dominant color for all styles
+- [x] Fix slab door white-rendering bug: always apply face color as CSS background before layering door sample image
+- [x] TypeScript: 0 errors
+- [x] Save checkpoint
+
+## Design Tool — Door Style Switching & Mobile UX
+- [x] Fix: switching door style (Color 1 / Color 2) must re-render ALL placed cabinets in the new style immediately (update styleId on all placed items that used the old style)
+- [x] Fix: "Apply to all" option when changing door style so user can choose to update all cabinets or just new ones going forward
+- [x] Mobile: add prominent quick-access series/style switcher — series tabs (Madison, Ashford, etc.) at top, style swatches below, easy to reach without scrolling deep into the panel
+- [x] Mobile: style switcher should be accessible from the main design view toolbar (one tap), not buried in the panel

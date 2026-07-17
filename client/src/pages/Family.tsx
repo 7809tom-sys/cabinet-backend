@@ -1,7 +1,10 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check, Heart, Pencil, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check, Heart, Pencil, Upload, PlusCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useState as useDialogState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,7 +16,7 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { realImageUrl } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
-import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
+import { type CabinetLike } from "@/lib/cabinetGraphics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { translateSpec } from "@/lib/i18n/specPhrases";
@@ -484,9 +487,6 @@ function FamilyCabinetCard({
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
               {item.masterCode}
             </span>
-            <Badge variant="secondary" className="text-xs shrink-0">
-              {cabinetTypeLabel(item)}
-            </Badge>
           </div>
 
           <p className="text-sm font-medium text-foreground mt-2 leading-snug line-clamp-2">
@@ -1045,8 +1045,107 @@ export default function Family({ styleCode }: { styleCode: string }) {
               />
             ))}
           </div>
+          {user?.role === "admin" && (
+            <InlineAddItemButton styleId={s.id} styleCode={s.styleCode} distributorId={visible[0]?.distributorId ?? 0} />
+          )}
         </>
       )}
     </div>
+  );
+}
+
+// ── Inline Add Item button (admin only) ──────────────────────────────────────
+function InlineAddItemButton({ styleId, styleCode, distributorId }: { styleId: number; styleCode: string; distributorId: number }) {
+  const [open, setOpen] = useDialogState(false);
+  const [masterCode, setMasterCode] = useDialogState("");
+  const [description, setDescription] = useDialogState("");
+  const [category, setCategory] = useDialogState("Base Cabinets");
+  const [subCategory, setSubCategory] = useDialogState("");
+  const [width, setWidth] = useDialogState("");
+  const [height, setHeight] = useDialogState("");
+  const [depth, setDepth] = useDialogState("");
+  const [listPrice, setListPrice] = useDialogState("");
+  const [yourCost, setYourCost] = useDialogState("");
+  const utils = trpc.useUtils();
+  const createMut = trpc.cabinets.adminCreateCabinet.useMutation({
+    onSuccess: () => {
+      toast.success(`Cabinet ${masterCode} created.`);
+      utils.doorStyles.familyCatalog.invalidate();
+      setOpen(false);
+      setMasterCode(""); setDescription(""); setWidth(""); setHeight(""); setDepth(""); setListPrice(""); setYourCost("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!masterCode.trim() || !description.trim()) return;
+    createMut.mutate({
+      masterCode: masterCode.trim().toUpperCase(),
+      description: description.trim(),
+      category: category.trim(),
+      subCategory: subCategory.trim() || undefined,
+      width: width ? parseFloat(width) : undefined,
+      height: height ? parseFloat(height) : undefined,
+      depth: depth ? parseFloat(depth) : undefined,
+      distributorSku: distributorId > 0 ? {
+        distributorId,
+        styleId,
+        distributorSku: masterCode.trim().toUpperCase(),
+        listPrice: listPrice ? parseFloat(listPrice) : undefined,
+        yourCost: yourCost ? parseFloat(yourCost) : undefined,
+      } : undefined,
+    });
+  }
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors border border-dashed border-border rounded-lg px-4 py-2 w-full justify-center hover:border-primary"
+      >
+        <PlusCircle className="h-4 w-4" /> Add item to {styleCode}
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Cabinet to {styleCode}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Master Code *</Label>
+                <Input value={masterCode} onChange={(e) => setMasterCode(e.target.value)} placeholder="B30" className="h-8 text-xs mt-1" required />
+              </div>
+              <div>
+                <Label className="text-xs">Category</Label>
+                <Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Base Cabinets" className="h-8 text-xs mt-1" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Description *</Label>
+              <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder='30" Base Cabinet' className="h-8 text-xs mt-1" required />
+            </div>
+            <div>
+              <Label className="text-xs">Sub-category</Label>
+              <Input value={subCategory} onChange={(e) => setSubCategory(e.target.value)} placeholder="Single Door Base" className="h-8 text-xs mt-1" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div><Label className="text-xs">W (in)</Label><Input value={width} onChange={(e) => setWidth(e.target.value)} type="number" step="0.5" className="h-8 text-xs mt-1" /></div>
+              <div><Label className="text-xs">H (in)</Label><Input value={height} onChange={(e) => setHeight(e.target.value)} type="number" step="0.5" className="h-8 text-xs mt-1" /></div>
+              <div><Label className="text-xs">D (in)</Label><Input value={depth} onChange={(e) => setDepth(e.target.value)} type="number" step="0.5" className="h-8 text-xs mt-1" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">List Price ($)</Label><Input value={listPrice} onChange={(e) => setListPrice(e.target.value)} type="number" step="0.01" className="h-8 text-xs mt-1" /></div>
+              <div><Label className="text-xs">Your Cost ($)</Label><Input value={yourCost} onChange={(e) => setYourCost(e.target.value)} type="number" step="0.01" className="h-8 text-xs mt-1" /></div>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="submit" size="sm" disabled={createMut.isPending}>
+                {createMut.isPending ? <Spinner className="h-3.5 w-3.5" /> : <PlusCircle className="h-3.5 w-3.5" />} Add Cabinet
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

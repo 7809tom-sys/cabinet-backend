@@ -658,6 +658,17 @@ export default function FeaturedStylesAdmin() {
       .sort((a, b) => a.ourName.localeCompare(b.ourName));
   }, [styles, search, distributorFilter]);
 
+  const [samplingColors, setSamplingColors] = useState(false);
+  const sampleColors = trpc.pricing.adminSampleDoorColors.useMutation({
+    onSuccess: (res: { total: number; updated: number; failed: number }) => {
+      toast.success(`Color sampling complete: ${res.updated} updated, ${res.failed} failed out of ${res.total} styles`);
+      utils.doorStyles.listForAdmin.invalidate();
+      utils.doorStyles.listForAdminWithSkuCounts.invalidate();
+      setSamplingColors(false);
+    },
+    onError: (e: { message: string }) => { toast.error(e.message); setSamplingColors(false); },
+  });
+
   const setFeatured = trpc.doorStyles.setFeatured.useMutation({
     onSuccess: () => {
       utils.doorStyles.listForAdmin.invalidate();
@@ -741,6 +752,22 @@ export default function FeaturedStylesAdmin() {
           <Badge variant={atCap ? "destructive" : "secondary"} className="text-sm">
             {featured.length} / {MAX_FEATURED} featured
           </Badge>
+          <button
+            type="button"
+            disabled={samplingColors}
+            onClick={() => {
+              setSamplingColors(true);
+              sampleColors.mutate({});
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted transition-colors disabled:opacity-60"
+            title="Sample dominant face color from each style's door photo. Updates the design tool so cabinet colors match the real product photos."
+          >
+            {samplingColors ? (
+              <><span className="animate-spin inline-block h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full" /> Sampling…</>
+            ) : (
+              <><span className="text-base">🎨</span> Sample Colors from Photos</>
+            )}
+          </button>
           <AddNewStyleForm onCreated={invalidateAll} />
         </div>
       </div>

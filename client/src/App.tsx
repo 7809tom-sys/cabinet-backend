@@ -27,6 +27,7 @@ const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
 const BecomeVendor = lazy(() => import("@/pages/BecomeVendor"));
 const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
 const Admin = lazy(() => import("@/pages/Admin"));
+const SmartCatalogUpload = lazy(() => import("@/pages/SmartCatalogUpload"));
 const Storefront = lazy(() => import("@/pages/Storefront"));
 const StorefrontPreview = lazy(() => import("@/pages/StorefrontPreview"));
 const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
@@ -382,6 +383,14 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <FabricatorSheet />
           </Suspense>
+        </Route>
+
+        <Route path="/admin/catalog-upload">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <SmartCatalogUpload />
+            </Suspense>
+          </AppLayout>
         </Route>
 
         {/* Admin-only Fee System reference sheet — print/PDF, no app chrome */}

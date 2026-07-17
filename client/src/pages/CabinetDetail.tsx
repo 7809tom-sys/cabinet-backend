@@ -26,7 +26,7 @@ import {
   ownerCostBreakdown,
 } from "@shared/pricingTier";
 import { CabinetImage } from "@/components/CabinetImage";
-import { cabinetTypeLabel, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
+import { resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto, realImageUrl } from "@/lib/doorFamilyPhotos";
 import { finishColors } from "@/lib/design";
@@ -716,7 +716,6 @@ export default function CabinetDetail({ masterCode }: Props) {
             {/* Dimensions */}
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
               {[
-                { label: "Type", value: cabinetTypeLabel(cabinet) },
                 { label: "Width", value: cabinet.width ? `${cabinet.width}"` : null },
                 { label: "Height", value: cabinet.height ? `${cabinet.height}"` : null },
                 { label: "Depth", value: cabinet.depth ? `${cabinet.depth}"` : null },
@@ -741,7 +740,6 @@ export default function CabinetDetail({ masterCode }: Props) {
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
               {masterCode}
             </span>
-            <Badge variant="secondary" className="ml-2 text-xs">{cabinetTypeLabel(cabinet)}</Badge>
             {isOwner && cabinet.isActive === false && (
               <Badge variant="destructive" className="ml-2 text-xs">Inactive</Badge>
             )}

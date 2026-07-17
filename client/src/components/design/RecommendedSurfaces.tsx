@@ -21,8 +21,8 @@ export const RECOMMENDED_SECTIONS: {
   { role: "flooring", label: "Flooring", blurb: "Pelican planks & flooring" },
   { role: "backsplash", label: "Backsplash", blurb: "Pelican tile & mosaic" },
   { role: "countertop", label: "Countertop", blurb: "Pelican quartz slabs" },
-  { role: "sink", label: "Sink", blurb: "Pelican sinks" },
-  { role: "faucet", label: "Faucet", blurb: "Pelican faucets" },
+  { role: "sink", label: "Sink", blurb: "StoneCreek sinks" },
+  { role: "faucet", label: "Faucet", blurb: "StoneCreek faucets" },
 ];
 
 type RecItem = {
@@ -186,7 +186,7 @@ export function RecommendedSurfaces({
   return (
     <div className="space-y-4">
       <p className="px-1 text-[11px] leading-snug text-muted-foreground">
-        Recommended Pelican surfaces & fixtures. Tap to add to your design — they
+        Recommended surfaces & fixtures. Tap to add to your design — they
         appear in your quote and unlock the 3D View. Tap again to remove.
       </p>
       {RECOMMENDED_SECTIONS.map((s) => (

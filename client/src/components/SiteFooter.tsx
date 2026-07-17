@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Phone, Mail, MapPin } from "lucide-react";
+import { AdminEditField } from "@/components/admin/AdminEditField";
 
 export function SiteFooter() {
   const { t } = useLanguage();
@@ -19,24 +20,28 @@ export function SiteFooter() {
               </span>
             </div>
             <p className="text-sm leading-relaxed mb-4">
-              {t("home_footer_blurb")}
+              <AdminEditField pageKey="footer" field="blurb" defaultValue={t("home_footer_blurb")} multiline>
+                {(val) => <>{val}</>}
+              </AdminEditField>
             </p>
             <ul className="space-y-2 text-sm">
               <li className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-[var(--color-gold)]" />
-                <span>470 N Tamiami Trail<br />Osprey, FL 34229</span>
+                <AdminEditField pageKey="footer" field="address" defaultValue="470 N Tamiami Trail, Osprey, FL 34229">
+                  {(val) => <span>{val}</span>}
+                </AdminEditField>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="h-4 w-4 shrink-0 text-[var(--color-gold)]" />
-                <a href="tel:+19418993288" className="hover:text-white transition-colors">
-                  (941) 899-3288
-                </a>
+                <AdminEditField pageKey="footer" field="phone" defaultValue="(941) 899-3288">
+                  {(val) => <a href={`tel:${val.replace(/[^0-9+]/g, '')}`} className="hover:text-white transition-colors">{val}</a>}
+                </AdminEditField>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 shrink-0 text-[var(--color-gold)]" />
-                <a href="mailto:sales@cabinetdealz.com" className="hover:text-white transition-colors">
-                  sales@cabinetdealz.com
-                </a>
+                <AdminEditField pageKey="footer" field="email" defaultValue="sales@cabinetdealz.com">
+                  {(val) => <a href={`mailto:${val}`} className="hover:text-white transition-colors">{val}</a>}
+                </AdminEditField>
               </li>
             </ul>
           </div>

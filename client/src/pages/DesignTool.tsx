@@ -51,7 +51,7 @@ import {
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
   FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
-  finishColors, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
+  finishColors, finishColorsForStyle, crownLinearInches, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, battenLinearInches, valancePiecesNeeded,
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
@@ -1391,9 +1391,9 @@ export default function DesignTool() {
   }, [doorStyles, styleId]);
   const activeFinish = useMemo(() => {
     const s = doorStyles?.find((d) => d.id === styleId) as
-      | { ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null }
+      | { ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null; dominantColor?: string | null }
       | undefined;
-    return finishColors(s?.ourName, s?.color, s?.finish, s?.woodSpecies);
+    return finishColorsForStyle(s?.dominantColor, s?.ourName, s?.color, s?.finish, s?.woodSpecies);
   }, [doorStyles, styleId]);
 
   // Full active door style (with woodSpecies) so we can apply the Hickory-only
@@ -1677,8 +1677,8 @@ export default function DesignTool() {
   const finishById = useMemo(() => {
     const m = new Map<number, ReturnType<typeof finishColors>>();
     doorStyles?.forEach((d) => {
-      const s = d as { id: number; ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null };
-      m.set(s.id, finishColors(s.ourName, s.color, s.finish, s.woodSpecies));
+      const s = d as { id: number; ourName?: string | null; color?: string | null; finish?: string | null; woodSpecies?: string | null; dominantColor?: string | null };
+      m.set(s.id, finishColorsForStyle(s.dominantColor, s.ourName, s.color, s.finish, s.woodSpecies));
     });
     return m;
   }, [doorStyles]);
@@ -3991,21 +3991,41 @@ export default function DesignTool() {
     // Color 2 active but taps Change Style on Color 1 card).
     const noStyleYet = styleId == null;
     if (slot === "A") {
+      const oldStyleA = styleA;
       setStyleA(newStyleId);
       // Always update the catalog when Color 1 changes — it is the primary style
       // and the catalog should always reflect the most recently changed style.
       setActiveSlot("A");
       setStyleId(newStyleId);
+      // Re-paint all placed cabinets that were explicitly using the old slot A
+      // style so the entire design updates consistently when the user switches
+      // styles ("apply to all" behaviour).
+      if (oldStyleA != null) {
+        setPlaced((prev) =>
+          prev.map((p) =>
+            p.styleId === oldStyleA ? { ...p, styleId: newStyleId } : p
+          )
+        );
+      }
     } else {
+      const oldStyleB = styleB;
       setStyleB(newStyleId);
       // Always update the catalog when Color 2 changes — same as Color 1.
       setActiveSlot("B");
       setStyleId(newStyleId);
+      // Re-paint all placed cabinets that were explicitly using the old slot B style.
+      if (oldStyleB != null) {
+        setPlaced((prev) =>
+          prev.map((p) =>
+            p.styleId === oldStyleB ? { ...p, styleId: newStyleId } : p
+          )
+        );
+      }
     }
     // Auto-open the catalog panel after picking a door style so the user
     // immediately sees the filtered cabinets available in that style.
     setMobilePanel("catalog");
-  }, [activeSlot, styleId, styleA, doorStyles, lockedDistributorId, t]);
+  }, [activeSlot, styleId, styleA, styleB, doorStyles, lockedDistributorId, t]);
 
   // Snap the currently-selected cabinet flush to the chosen wall.
   const snapSelectedToWall = useCallback(

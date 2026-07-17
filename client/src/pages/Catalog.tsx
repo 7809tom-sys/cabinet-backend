@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { CabinetImage } from "@/components/CabinetImage";
-import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
+import { type CabinetLike } from "@/lib/cabinetGraphics";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
@@ -114,9 +114,6 @@ function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: num
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
               {cabinet.masterCode}
             </span>
-            <Badge variant="secondary" className="text-xs shrink-0">
-              {cabinetTypeLabel(cabinet)}
-            </Badge>
           </div>
           <p className="text-sm font-medium text-foreground mt-2 leading-snug line-clamp-2">
             {translateSpec(cabinet.description, lang)}

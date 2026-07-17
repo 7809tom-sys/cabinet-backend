@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,9 @@ import { useSeo } from "@/hooks/useSeo";
 import { categorySlug, CATEGORY_GRADIENT, formatPrice } from "@/lib/pelican";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { ArrowLeft, DollarSign, Minus, PencilRuler, Plus, ShoppingCart, Star, Tag, TrendingDown, Waves } from "lucide-react";
+import { ArrowLeft, DollarSign, Minus, PencilRuler, Plus, ShoppingCart, Sparkles, Star, Tag, TrendingDown, Waves } from "lucide-react";
 import { toast } from "sonner";
+import { requestSurfaceHandoff } from "@/lib/surfaceSelection";
 
 export default function SurfacesProduct({ slug }: { slug: string }) {
   const [, navigate] = useLocation();
@@ -33,9 +34,9 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
     const res = addItem({
       masterCode: data.pelicanCode,
       name: data.name,
-      styleId: 0, // No style for pelican products
+      styleId: 0,
       styleLabel: data.category,
-      distributorId: null, // Pelican products bypass distributor lock
+      distributorId: null,
       tier: "homeowner",
       unitPrice: data.sellPrice ?? null,
       qty,
@@ -88,13 +89,11 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
   const sellPrice = data.sellPrice;
   const msrp = data.msrp ? Number(data.msrp) : null;
   const listPrice = data.listPrice ? Number(data.listPrice) : null;
-  // Use MSRP as the "compare at" reference; fall back to listPrice if MSRP is missing
   const compareAt = msrp && msrp > (sellPrice ?? 0) ? msrp : listPrice && listPrice > (sellPrice ?? 0) ? listPrice : null;
   const savePct = compareAt && sellPrice && compareAt > sellPrice
     ? Math.round(((compareAt - sellPrice) / compareAt) * 100)
     : null;
 
-  // Cost breakdown - show our cost (yourCost or listPrice as fallback)
   const isOwner = user?.role === "admin";
   const ourCost = data.yourCost ? Number(data.yourCost) : (data.listPrice ? Number(data.listPrice) : null);
   const yourCost = ourCost;
@@ -102,6 +101,11 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
   const marginPct = marginDollars != null && sellPrice != null && sellPrice > 0
     ? Math.round((marginDollars / sellPrice) * 1000) / 10
     : null;
+
+  // Determine if this is a StoneCreek sink or faucet for pairing
+  const isStoneCreekSink = data.name?.startsWith("StoneCreek") && data.subCategory === "Sinks";
+  const isStoneCreekFaucet = data.name?.startsWith("StoneCreek") && data.subCategory === "Faucets";
+  const showPairing = isStoneCreekSink || isStoneCreekFaucet;
 
   return (
     <div className="container py-8">
@@ -288,6 +292,221 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
           </div>
         </div>
       </div>
+
+      {/* ─── Complete This Look: sink+faucet pairing ─── */}
+      {showPairing && (
+        <CompleteThisLook
+          currentProduct={data}
+          isSink={isStoneCreekSink}
+          isFaucet={isStoneCreekFaucet}
+          onAddToCart={(p) => {
+            const res = addItem({
+              masterCode: p.pelicanCode ?? p.slug ?? `SC-${p.id}`,
+              name: p.name,
+              styleId: 0,
+              styleLabel: "StoneCreek",
+              distributorId: null,
+              tier: "homeowner",
+              unitPrice: p.sellPrice ?? null,
+              qty: 1,
+              imageUrl: p.imageUrl ?? null,
+              category: p.category ?? "Sinks & Faucets",
+            });
+            if (res.ok) {
+              toast.success(`Added ${p.name} to cart`, {
+                action: { label: "View Cart", onClick: () => navigate("/cart") },
+              });
+            }
+          }}
+          onAddToDesign={(p) => {
+            const role = isStoneCreekSink ? "faucet" : "sink";
+            requestSurfaceHandoff({
+              v: 1,
+              savedAt: Date.now(),
+              picks: {
+                [role]: {
+                  id: p.id,
+                  slug: p.slug,
+                  name: p.name,
+                  category: p.category,
+                  subCategory: p.subCategory ?? null,
+                  size: p.size ?? null,
+                  imageUrl: p.imageUrl ?? null,
+                  sellPrice: p.sellPrice ?? null,
+                  role,
+                },
+              },
+              layout: "l-shape",
+            });
+            toast.success(`${p.name} will be added to your design`);
+            navigate("/design");
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** "Complete this look" section: if viewing a sink, show matching faucets; if viewing a faucet, show matching sinks. */
+function CompleteThisLook({
+  currentProduct,
+  isSink,
+  isFaucet,
+  onAddToCart,
+  onAddToDesign,
+}: {
+  currentProduct: any;
+  isSink: boolean;
+  isFaucet: boolean;
+  onAddToCart: (p: any) => void;
+  onAddToDesign: (p: any) => void;
+}) {
+  // Fetch the complementary product type
+  const pairSubCategory = isSink ? "Faucets" : "Sinks";
+  const { data, isLoading } = trpc.pelican.byCategory.useQuery(
+    {
+      category: "Sinks & Faucets" as any,
+      scope: "catalog",
+      subCategory: pairSubCategory,
+      limit: 200,
+      offset: 0,
+    },
+    { staleTime: 60_000 }
+  );
+
+  // Extract finish from current product name to suggest matching finish
+  const currentFinish = useMemo(() => {
+    const name = currentProduct.name ?? "";
+    if (name.includes("Matte Black")) return "Matte Black";
+    if (name.includes("Brushed Nickel")) return "Brushed Nickel";
+    if (name.includes("Chrome")) return "Chrome";
+    if (name.includes("Brushed Gold")) return "Brushed Gold";
+    if (name.includes("Oil Rubbed Bronze")) return "Oil Rubbed Bronze";
+    if (name.includes("White") || name.includes("Alpina")) return null; // sinks may not have finish
+    return null;
+  }, [currentProduct.name]);
+
+  const pairs = useMemo(() => {
+    if (!data?.items) return [];
+    const stonecreek = data.items.filter((p: any) => p.name?.startsWith("StoneCreek"));
+    // Prefer matching finish, then fall back to all StoneCreek items
+    if (currentFinish) {
+      const matching = stonecreek.filter((p: any) => p.name?.includes(currentFinish));
+      if (matching.length > 0) return matching.slice(0, 4);
+    }
+    return stonecreek.slice(0, 4);
+  }, [data, currentFinish]);
+
+  if (!isLoading && pairs.length === 0) return null;
+
+  return (
+    <div className="mt-14 border-t pt-10">
+      <div className="flex items-center gap-2 mb-6">
+        <Sparkles className="h-5 w-5 text-[var(--color-gold)]" />
+        <h2 className="text-xl font-semibold tracking-tight">Complete This Look</h2>
+        <span className="text-sm text-muted-foreground">
+          — pair with a matching StoneCreek {isSink ? "faucet" : "sink"}
+        </span>
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-[4/3] rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {pairs.map((p: any) => (
+            <PairingCard
+              key={p.id}
+              product={p}
+              onAddToCart={onAddToCart}
+              onAddToDesign={onAddToDesign}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 text-center">
+        <Link href="/stonecreek">
+          <Button variant="outline" size="sm" className="gap-2">
+            Browse all StoneCreek {isSink ? "Faucets" : "Sinks"}
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function PairingCard({
+  product,
+  onAddToCart,
+  onAddToDesign,
+}: {
+  product: any;
+  onAddToCart: (p: any) => void;
+  onAddToDesign: (p: any) => void;
+}) {
+  const [, navigate] = useLocation();
+
+  return (
+    <Link href={`/surfaces/product/${product.slug}`}>
+      <Card className="group overflow-hidden border-border/70 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <Waves className="h-8 w-8 text-stone-400" />
+            </div>
+          )}
+        </div>
+        <div className="p-3">
+          <p className="text-xs font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+            {product.name?.replace("StoneCreek ", "")}
+          </p>
+          <div className="mt-2 flex items-center justify-between gap-1">
+            <span className="text-sm font-semibold text-primary">
+              {product.sellPrice ? formatPrice(product.sellPrice) : "—"}
+            </span>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 w-6 p-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAddToCart(product);
+                }}
+                disabled={!product.sellPrice}
+                title="Add to Cart"
+              >
+                <ShoppingCart className="h-3 w-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                className="h-6 w-6 p-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAddToDesign(product);
+                }}
+                title="Add to Design"
+              >
+                <PencilRuler className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </Link>
   );
 }

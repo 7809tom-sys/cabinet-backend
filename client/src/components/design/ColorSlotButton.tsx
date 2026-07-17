@@ -347,11 +347,43 @@ export function ColorSlotButton({
           </button>
           {pickerOpen && (
             <div
-              className="mt-2 rounded-lg border border-border bg-white overflow-y-auto overscroll-contain"
-              style={{ maxHeight: "55vh", WebkitOverflowScrolling: "touch" }}
+              className="mt-2 rounded-lg border border-border bg-white overflow-hidden"
+              style={{ maxHeight: "60vh" }}
             >
-              <div className="px-2 py-2">
-                <StyleList cols={3} />
+              {/* Series tabs — horizontal scroll strip for quick series switching */}
+              {groups.length > 1 && (
+                <div className="flex gap-1 overflow-x-auto overscroll-x-contain px-2 py-2 border-b border-border bg-muted/30" style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+                  {groups.map((g) => {
+                    const isActive = effectiveGroup === g.distributorId;
+                    return (
+                      <button
+                        key={String(g.distributorId)}
+                        type="button"
+                        onClick={() => setChosenGroup(g.distributorId)}
+                        className={[
+                          "shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors whitespace-nowrap",
+                          isActive
+                            ? "bg-[#1a2744] text-white"
+                            : "bg-white border border-border text-foreground hover:bg-[#d4a75a]/10",
+                        ].join(" ")}
+                      >
+                        {g.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {/* Style grid for the active series */}
+              <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(60vh - 48px)", WebkitOverflowScrolling: "touch" }}>
+                {activeGroup ? (
+                  <div className="px-2 py-2">
+                    <StyleGrid list={activeGroup.styles} cols={3} />
+                  </div>
+                ) : (
+                  <div className="px-2 py-2">
+                    <LineChooser />
+                  </div>
+                )}
               </div>
             </div>
           )}
