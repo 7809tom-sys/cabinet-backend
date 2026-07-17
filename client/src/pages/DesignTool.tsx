@@ -1849,7 +1849,7 @@ export default function DesignTool() {
     }
     // Blind Man's Corner: per corner, each wall side gets one 6" filler + one 3"
     // filler butted together. The 3" filler overlaps 3" into the perpendicular
-    // filler, leaving a 3"×3" exposed corner square set back 24" from each wall.
+    // filler, leaving a 3"×3" exposed corner square set back 27" from each wall.
     // Total per corner: 2× BF-6 + 2× BF-3. Only added when priced SKUs exist.
     const blindManCount = (room.blindManCorners ?? []).length;
     if (blindManCount > 0 && styleId != null) {
@@ -2161,7 +2161,7 @@ export default function DesignTool() {
     if (blindManCount > 0) {
       out.push({
         label: `BLIND MAN'S CORNER (×${blindManCount})`,
-        detail: `${blindManCount} corner${blindManCount > 1 ? "s" : ""} — each wall side: one 6" filler + one 3" filler butted together; 3" filler overlaps 3" into the perpendicular filler leaving a 3"×3" exposed corner square set back 24" from each wall; countertop covers the dead corner; 2× BF-6 + 2× BF-3 per corner`,
+        detail: `${blindManCount} corner${blindManCount > 1 ? "s" : ""} — each wall side: one 6" filler + one 3" filler butted together; 3" filler overlaps 3" into the perpendicular filler leaving a 3"×3" exposed corner square set back 27" from each wall; countertop covers the dead corner; 2× BF-6 + 2× BF-3 per corner`,
       });
     }
     // Decorative hardware spec (finishing note, no price).
@@ -7282,7 +7282,7 @@ export default function DesignTool() {
                     : ""}
                   {cornerBaseViolationUids.size > 0 && (
                     <span>
-                      {`${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a room corner — replace with a Blind Corner Base (BBC), Easy Reach Base (ERB), Lazy Susan (LSB), or Corner Sink Base (CSB), or use Blind Man’s Corner (each wall: one 6" + one 3" filler in an L-shape; 3"×3" exposed corner square set back 24" from each wall; countertop covers the dead space; 2× BF-6 + 2× BF-3 added to cart). `}
+                      {`${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a room corner — replace with a Blind Corner Base (BBC), Easy Reach Base (ERB), Lazy Susan (LSB), or Corner Sink Base (CSB), or use Blind Man’s Corner (each wall: one 6" + one 3" filler in an L-shape; 3"×3" exposed corner square set back 27" from each wall; countertop covers the dead space; 2× BF-6 + 2× BF-3 added to cart). `}
                       {/* Show a toggle button for each room corner that has a flagged cabinet */}
                       {(() => {
                         // Determine which room corners have flagged cabinets.
@@ -7324,8 +7324,8 @@ export default function DesignTool() {
                                       <li><strong>1× BF-6</strong> (6″ base filler, 96″ long)</li>
                                       <li><strong>1× BF-3</strong> (3″ base filler, 96″ long)</li>
                                     </ul>
-                                    <p>The 3″ filler overlaps 3″ into the perpendicular filler, leaving a <strong>3″×3″ exposed corner square</strong> set back 24″ from each wall.</p>
-                                    <p>The countertop extends over the entire 24″×24″ dead corner area.</p>
+                                    <p>The 3″ filler overlaps 3″ into the perpendicular filler, leaving a <strong>3″×3″ exposed corner square</strong> set back 27″ from each wall.</p>
+                                    <p>The countertop extends over the entire 27″×27″ dead corner area.</p>
                                     <p className="text-muted-foreground">{isSet ? "Click to remove this solution." : "Click to apply — 2× BF-6 + 2× BF-3 added to cart (if priced)."}</p>
                                   </TooltipContent>
                                 </Tooltip>

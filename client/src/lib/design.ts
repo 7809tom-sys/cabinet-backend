@@ -3302,22 +3302,23 @@ export function countertopSurfaces(
       kind: "island",
     });
   }
-  // Blind Man's Corner: add a square countertop slab at each designated corner.
-  // The slab is COUNTERTOP_DEPTH_IN wide on each side (same as a standard base
-  // run), covering the dead corner space left by the two L-shaped fillers.
+  // Blind Man's Corner: add a 27"×27" countertop slab at each designated corner.
+  // Each wall side has a 6"+3" filler assembly (9" total) set 24" from the wall,
+  // giving a 27"×27" dead corner square covered by the countertop.
+  const BMC = 27; // inches — filler assembly width on each side
   for (const cornerId of (room.blindManCorners ?? [])) {
     switch (cornerId) {
       case "top-left":
-        out.push({ x: 0, y: 0, width: D, depth: D, kind: "blind-man-corner" });
+        out.push({ x: 0, y: 0, width: BMC, depth: BMC, kind: "blind-man-corner" });
         break;
       case "top-right":
-        out.push({ x: room.width - D, y: 0, width: D, depth: D, kind: "blind-man-corner" });
+        out.push({ x: room.width - BMC, y: 0, width: BMC, depth: BMC, kind: "blind-man-corner" });
         break;
       case "bottom-left":
-        out.push({ x: 0, y: room.depth - D, width: D, depth: D, kind: "blind-man-corner" });
+        out.push({ x: 0, y: room.depth - BMC, width: BMC, depth: BMC, kind: "blind-man-corner" });
         break;
       case "bottom-right":
-        out.push({ x: room.width - D, y: room.depth - D, width: D, depth: D, kind: "blind-man-corner" });
+        out.push({ x: room.width - BMC, y: room.depth - BMC, width: BMC, depth: BMC, kind: "blind-man-corner" });
         break;
     }
   }
