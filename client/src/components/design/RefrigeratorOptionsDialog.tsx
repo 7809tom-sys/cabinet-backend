@@ -116,8 +116,8 @@ export function RefrigeratorOptionsDialog({
               value={above}
               onChange={setAbove}
               options={[
-                { value: "deep", label: t("dt_fridge_above_deep"), disabled: !hasDeepAbove },
-                { value: "bridge", label: t("dt_fridge_above_bridge"), disabled: !hasBridgeAbove },
+                { value: "deep", label: t("dt_fridge_above_deep") },
+                { value: "bridge", label: t("dt_fridge_above_bridge") },
                 { value: "none", label: t("dt_fridge_above_none") },
               ]}
             />
@@ -130,16 +130,16 @@ export function RefrigeratorOptionsDialog({
               value={panels}
               onChange={setPanels}
               options={[
-                { value: "left", label: t("dt_fridge_panel_left"), disabled: !hasEndPanels },
-                { value: "right", label: t("dt_fridge_panel_right"), disabled: !hasEndPanels },
-                { value: "both", label: t("dt_fridge_panel_both"), disabled: !hasEndPanels },
+                { value: "left", label: t("dt_fridge_panel_left") },
+                { value: "right", label: t("dt_fridge_panel_right") },
+                { value: "both", label: t("dt_fridge_panel_both") },
                 { value: "none", label: t("dt_fridge_panel_none") },
               ]}
             />
           </div>
 
-          {/* Optional smooth refrigerator panel */}
-          {hasSmoothPanel && (
+          {/* Optional smooth refrigerator panel — always shown so user can choose */}
+          {(hasSmoothPanel || true) && (
             <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"

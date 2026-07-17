@@ -2518,9 +2518,10 @@ export default function DesignTool() {
     { styleId: styleId ?? 0, fridgeWidth: fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined },
     { enabled: !!fridgeDialog && !!styleId }
   );
-  // Only open the dialog once the surround data has loaded so the options
-  // (hasDeepAbove, hasBridgeAbove, etc.) are correctly enabled/disabled from the start.
-  const fridgeDialogReady = !!fridgeDialog && !fridgeSurroundLoading && fridgeSurround != null;
+  // Open the dialog immediately when a fridge is dropped — all options are always
+  // shown as enabled. applyFridgeSurround handles missing cabinets gracefully
+  // (skips pieces that aren't available in the selected style).
+  const fridgeDialogReady = !!fridgeDialog;
 
   // Place the chosen refrigerator surround pieces flush to the seeded fridge.
   const applyFridgeSurround = useCallback(
