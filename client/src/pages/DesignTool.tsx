@@ -43,7 +43,7 @@ import {
   PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet,
   dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
   normalizeLCornerDepths,
-  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
+  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, blindCornerAutoFiller, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations, islandClearanceViolations,
   isSinkBaseCabinet, placedFootprint, effectiveStyleId, distinctStyleIds, isMixedFinish,
   isPlaceableAccessory, accessoryPlacement, isPanelItem,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing,
@@ -2022,6 +2022,8 @@ export default function DesignTool() {
     ceilingViolationUids.forEach((uid: string) => set.add(uid));
     // Non-corner base cabinet placed at a room corner (needs BBC/ERB/LSB/CSB).
     missingCornerBaseViolations(placed, room, island, openings).forEach((uid: string) => set.add(uid));
+    // Island 3-ft clearance: wall cabinets within 36" of the island zone.
+    islandClearanceViolations(placed, island).forEach((uid: string) => set.add(uid));
     return set;
   }, [placed, room, island, openings, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
   const hasConflicts = conflictUids.size > 0;
@@ -3520,6 +3522,21 @@ export default function DesignTool() {
     });
   }, [room]);
 
+  // Rotate the island zone 90° (swap width ↔ depth, keep center fixed).
+  // Cabinets on the island stay in place — the zone boundary changes around them.
+  const rotateIsland = useCallback(() => {
+    setIsland((cur) => {
+      if (!cur) return cur;
+      const cx = cur.x + cur.width / 2;
+      const cy = cur.y + cur.depth / 2;
+      const newW = cur.depth;
+      const newD = cur.width;
+      const nx = Math.max(0, Math.min(cx - newW / 2, room.width - newW));
+      const ny = Math.max(0, Math.min(cy - newD / 2, room.depth - newD));
+      return { ...cur, x: nx, y: ny, width: newW, depth: newD };
+    });
+  }, [room]);
+
   // Apply a new room size and keep every item inside the new walls.
   const applyRoom = useCallback((next: RoomData) => {
     setRoom(next);
@@ -3606,6 +3623,10 @@ export default function DesignTool() {
       prev.map((p) => {
         if (p.uid !== selectedUid) return p;
         const rotated = { ...p, rotation: (p.rotation + 90) % 360 };
+        // Island cabinets rotate freely in place — no wall snap.
+        if (island && isOnIsland(p, island)) {
+          return rotated;
+        }
         // Re-seat against the wall so the new orientation sits cleanly
         // instead of keeping the old footprint's snapped position.
         const snapped = snapPosition(
@@ -4126,6 +4147,10 @@ export default function DesignTool() {
       prev.map((p) => {
         if (p.uid !== uid) return p;
         const rotated = { ...p, rotation: (p.rotation + 90) % 360 };
+        // Island cabinets rotate freely in place — no wall snap.
+        if (island && isOnIsland(p, island)) {
+          return rotated;
+        }
         const snapped = snapPosition(
           rotated,
           room,
@@ -4134,7 +4159,7 @@ export default function DesignTool() {
         return { ...rotated, x: snapped.x, y: snapped.y };
       })
     );
-  }, [room]);
+  }, [room, island]);
 
   // Right-click a WALL cabinet -> drop it to the floor as an island/peninsula
   // base. It keeps its width but becomes a floor-standing box that stands on a
@@ -5045,6 +5070,41 @@ export default function DesignTool() {
                     <span className="flex-1 text-left">{t("dt_sh_island_zone")}</span>
                     {!!island && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
                   </button>
+                  {/* Max island size recommendation based on 36" clearance rule */}
+                  {(() => {
+                    const C = 36;
+                    // Find the closest wall cabinet footprint on each side
+                    let minLeft = 0, minRight = room.width, minTop = 0, minBottom = room.depth;
+                    for (const p of placed) {
+                      if (p.placement === "appliance") continue;
+                      if (island && isOnIsland(p, island)) continue;
+                      const { w, d } = rotatedSize(p);
+                      // Right edge of cabinet (left boundary for island)
+                      if (p.x + w < room.width / 2) minLeft = Math.max(minLeft, p.x + w);
+                      // Left edge of cabinet (right boundary for island)
+                      if (p.x > room.width / 2) minRight = Math.min(minRight, p.x);
+                      // Bottom edge of cabinet (top boundary for island)
+                      if (p.y + d < room.depth / 2) minTop = Math.max(minTop, p.y + d);
+                      // Top edge of cabinet (bottom boundary for island)
+                      if (p.y > room.depth / 2) minBottom = Math.min(minBottom, p.y);
+                    }
+                    const maxW = Math.max(0, minRight - C - (minLeft + C));
+                    const maxD = Math.max(0, minBottom - C - (minTop + C));
+                    if (maxW <= 0 || maxD <= 0) return null;
+                    return (
+                      <div className="mx-3 mb-1 rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-800">
+                        <span className="font-semibold">Max island size (3-ft rule):</span>{" "}
+                        {Math.round(maxW)}″ wide × {Math.round(maxD)}″ deep
+                        {maxW >= 12 && maxD >= 12 && (() => {
+                          const fw = inchesToFeetInches(maxW);
+                          const fd = inchesToFeetInches(maxD);
+                          const fmt = (v: { feet: number; inches: number }) =>
+                            v.feet > 0 ? `${v.feet}' ${v.inches}"` : `${v.inches}"`;
+                          return <span className="text-blue-600"> ({fmt(fw)} × {fmt(fd)})</span>;
+                        })()}
+                      </div>
+                    );
+                  })()}
                   <button onClick={() => { setMoreSheetOpen(false); setPonyWalls((prev) => [...prev, makePonyWall(room)]); toast.success("Pony wall added — drag to position, resize with handle"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                     <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">Add Pony Wall</span>
@@ -6526,6 +6586,7 @@ export default function DesignTool() {
               island={island}
               onIslandChange={setIsland}
               onIslandMove={moveIsland}
+              onIslandRotate={rotateIsland}
               openings={openings}
               selectedOpeningUid={selectedOpeningUid}
               onSelectOpening={selectOpening}

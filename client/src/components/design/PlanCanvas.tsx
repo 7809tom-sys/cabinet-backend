@@ -46,6 +46,8 @@ interface Props {
   // Incremental island move (inches). When provided, moving the island also
   // carries the cabinets sitting on it. Resize still uses onIslandChange.
   onIslandMove?: (dxIn: number, dyIn: number) => void;
+  /** Rotate the island zone 90° (swap width ↔ depth, keep center). */
+  onIslandRotate?: () => void;
   openings?: WallOpening[];
   selectedOpeningUid?: string | null;
   onSelectOpening?: (uid: string | null) => void;
@@ -134,7 +136,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 
 export function PlanCanvas({
   room, cabinets, selectedUid, onSelect, onMove, onDelete, onRotate, onOpenAttributes, onDropNew, onDropToFloor,
-  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
+  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove, onIslandRotate,
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
@@ -212,8 +214,43 @@ export function PlanCanvas({
     const dxIn = (e.clientX - d.startX) / ppiRef.current;
     const dyIn = (e.clientY - d.startY) / ppiRef.current;
     if (d.mode === "move") {
-      const x = Math.max(0, Math.min(d.orig.x + dxIn, room.width - d.orig.width));
-      const y = Math.max(0, Math.min(d.orig.y + dyIn, room.depth - d.orig.depth));
+      const C = 36; // 36" minimum clearance from wall cabinets
+      // Clamp to room bounds first
+      let x = Math.max(0, Math.min(d.orig.x + dxIn, room.width - d.orig.width));
+      let y = Math.max(0, Math.min(d.orig.y + dyIn, room.depth - d.orig.depth));
+      // Then clamp away from wall cabinets: island must stay >= 36" from any
+      // non-island cabinet footprint on each side.
+      for (const cab of cabinets) {
+        // Skip island cabinets (they move with the island)
+        if (
+          cab.x + (cab.rotation % 180 === 0 ? cab.width : cab.depth) / 2 >= island.x - 1 &&
+          cab.x + (cab.rotation % 180 === 0 ? cab.width : cab.depth) / 2 <= island.x + island.width + 1 &&
+          cab.y + (cab.rotation % 180 === 0 ? cab.depth : cab.width) / 2 >= island.y - 1 &&
+          cab.y + (cab.rotation % 180 === 0 ? cab.depth : cab.width) / 2 <= island.y + island.depth + 1
+        ) continue;
+        if (cab.placement === "appliance") continue;
+        const cw = cab.rotation % 180 === 0 ? cab.width : cab.depth;
+        const cd = cab.rotation % 180 === 0 ? cab.depth : cab.width;
+        // Cabinet right edge: island must be at least C" to the right
+        if (cab.x + cw + C > x && cab.x < x + d.orig.width) {
+          x = Math.max(x, cab.x + cw + C);
+        }
+        // Cabinet left edge: island must be at least C" to the left
+        if (cab.x - C < x + d.orig.width && cab.x > x) {
+          x = Math.min(x, cab.x - C - d.orig.width);
+        }
+        // Cabinet bottom edge: island must be at least C" below
+        if (cab.y + cd + C > y && cab.y < y + d.orig.depth) {
+          y = Math.max(y, cab.y + cd + C);
+        }
+        // Cabinet top edge: island must be at least C" above
+        if (cab.y - C < y + d.orig.depth && cab.y > y) {
+          y = Math.min(y, cab.y - C - d.orig.depth);
+        }
+      }
+      // Re-clamp to room after cabinet clearance adjustments
+      x = Math.max(0, Math.min(x, room.width - d.orig.width));
+      y = Math.max(0, Math.min(y, room.depth - d.orig.depth));
       // If a grouped-move handler is provided, report the incremental delta from
       // the island's CURRENT position so the cabinets on it move in lockstep.
       if (onIslandMove) {
@@ -867,6 +904,20 @@ export function PlanCanvas({
             <span className="absolute left-1 top-1 text-[9px] font-bold tracking-wide text-[#a87f33] bg-white/70 px-1 rounded pointer-events-none">
               ISLAND {Math.round(island.width)}″×{Math.round(island.depth)}″
             </span>
+            {/* Rotate button — top-right corner */}
+            {onIslandRotate && !layoutLocked && (
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onIslandRotate(); }}
+                className="absolute -top-2.5 -right-2.5 h-5 w-5 rounded-full bg-[#1a2744] border border-white shadow flex items-center justify-center cursor-pointer hover:bg-[#2a3a5c] transition-colors"
+                title="Rotate island 90°"
+              >
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round">
+                  <path d="M9.5 2A5 5 0 1 0 11 6.5" />
+                  <polyline points="9.5,0 9.5,2.5 12,2.5" />
+                </svg>
+              </button>
+            )}
             <div
               onPointerDown={(e) => onIslandPointerDown(e, "resize")}
               onPointerMove={onIslandPointerMove}

@@ -1108,3 +1108,10 @@
 - [x] Fix false-positive: appliance adjacent to (touching) a cabinet should not show conflict — only actual footprint overlap should flag
 - [x] Add "Blind Man's Corner" dead-corner option: two 3" fillers in L-shape at corner, no cabinet, resolves corner conflict
 - [x] In missingCornerBaseViolations: if a corner has two fillers in L-shape (blind man's corner), do not flag it as needing a BBC
+
+## Feature: Island Zone Rotate
+- [x] Add rotate button to island zone that swaps width and depth (90° rotation)
+- [x] Add rotate button to island zone in plan canvas (swaps width/depth, keeps center)
+- [x] Enable Rotate button for cabinets placed on the island zone
+- [x] Enforce 36" (3 ft) minimum clearance between island zone and wall cabinets — flag as conflict if violated
+- [x] Show recommended max island dimensions based on 36" clearance rule from wall cabinets

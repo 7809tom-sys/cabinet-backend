@@ -2919,6 +2919,47 @@ export interface IslandZone {
   depth: number;
 }
 
+// ─── Island 3-ft clearance rule ─────────────────────────────────────────────
+// NKBA guidelines require at least 36" (3 ft) of clear walkway between the
+// island and any wall cabinet run. Returns UIDs of wall/base cabinets whose
+// footprint comes within 36" of the island zone boundary on any side.
+export const ISLAND_MIN_CLEARANCE_IN = 36;
+
+export function islandClearanceViolations(
+  placed: PlacedCabinet[],
+  island: IslandZone | null
+): Set<string> {
+  const violations = new Set<string>();
+  if (!island) return violations;
+  const { x: ix, y: iy, width: iw, depth: id } = island;
+  const C = ISLAND_MIN_CLEARANCE_IN;
+  // Expanded island zone: any cabinet whose footprint overlaps this expanded
+  // rectangle is too close.
+  const ex = ix - C;
+  const ey = iy - C;
+  const ew = iw + 2 * C;
+  const ed = id + 2 * C;
+  for (const p of placed) {
+    // Skip cabinets that are ON the island (they're island cabinets, not wall runs).
+    if (isOnIsland(p, island)) continue;
+    // Skip appliances — they don't count as cabinet runs for clearance.
+    if (p.placement === "appliance") continue;
+    const { w, d } = rotatedSize(p);
+    // Check if the cabinet footprint overlaps the expanded zone but NOT the
+    // island itself (i.e. it's in the clearance band).
+    const inExpanded =
+      p.x < ex + ew && p.x + w > ex &&
+      p.y < ey + ed && p.y + d > ey;
+    const inIsland =
+      p.x < ix + iw && p.x + w > ix &&
+      p.y < iy + id && p.y + d > iy;
+    if (inExpanded && !inIsland) {
+      violations.add(p.uid);
+    }
+  }
+  return violations;
+}
+
 export function clampIslandToRoom(island: IslandZone | null, room: RoomData): IslandZone | null {
   if (!island) return null;
   const width = Math.max(12, Math.min(island.width, room.width));
