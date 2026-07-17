@@ -1906,7 +1906,7 @@ export const cabinetsRouter = router({
       const conditions = [];
       if (input.missingOnly) {
         conditions.push(
-          sql`(${cabinets.weight} IS NULL OR ${cabinets.weight} = 0 OR ${cabinets.pkgLength} IS NULL OR ${cabinets.pkgWidth} IS NULL OR ${cabinets.pkgHeight} IS NULL OR ${cabinets.pkgWeight} IS NULL)`
+          sql`(${cabinets.width} IS NULL OR ${cabinets.height} IS NULL OR ${cabinets.depth} IS NULL OR ${cabinets.weight} IS NULL OR ${cabinets.weight} = 0 OR ${cabinets.pkgLength} IS NULL OR ${cabinets.pkgWidth} IS NULL OR ${cabinets.pkgHeight} IS NULL OR ${cabinets.pkgWeight} IS NULL)`
         );
       }
       if (input.search) {
@@ -3298,8 +3298,41 @@ export const pricingRouter = router({
       if (input.distributorId) parts.push(`dist${input.distributorId}`);
       if (input.styleId) parts.push(`style${input.styleId}`);
       const suffix = parts.length > 0 ? parts.join("-") : "full";
-      const filename = `cabinet-dealz-export-${suffix}-${date}.xlsx`;
+            const filename = `cabinet-dealz-export-${suffix}-${date}.xlsx`;
       return { xlsx, filename, counts };
     }),
 
+  /**
+   * Quick master-cabinet search for the import Fix dialog.
+   * Returns up to 30 cabinets matching the query by masterCode or description.
+   * Used by the import review table to let admins manually assign unmatched SKUs.
+   */
+  adminSearchMasterCabinets: adminProcedure
+    .input(z.object({ query: z.string().trim().min(1).max(64) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [] as { id: number; masterCode: string; description: string | null; category: string | null }[];
+      const q = `%${input.query}%`;
+      const rows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+        })
+        .from(cabinets)
+        .where(
+          and(
+            eq(cabinets.isActive, true),
+            sql`(${cabinets.masterCode} LIKE ${q} OR ${cabinets.description} LIKE ${q})`
+          )
+        )
+        .orderBy(
+          sql`CASE WHEN UPPER(${cabinets.masterCode}) = UPPER(${input.query}) THEN 0 ELSE 1 END`,
+          asc(cabinets.masterCode)
+        )
+        .limit(30);
+      return rows;
+    }),
 });

@@ -1069,9 +1069,9 @@ function SkuEditRow({ sku, onSaved }: { sku: SkuRow; onSaved: () => void }) {
   });
 
   const handleSave = () => {
+    // Always send all price fields — let the server decide what changed.
     const payload: Record<string, number | null> = { skuId: sku.id };
     for (const f of SKU_PRICE_FIELDS) {
-      if (draft[f.key] === initial[f.key]) continue;
       const trimmed = draft[f.key].trim();
       payload[f.key] = trimmed === "" ? null : Number(trimmed);
     }

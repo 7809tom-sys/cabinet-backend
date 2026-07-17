@@ -998,6 +998,14 @@ export const distributorImportRouter = router({
         priceType: z.enum(["list", "cost"]).default("list"),
       })).min(1),
       dryRun: z.boolean().default(false),
+      /**
+       * Full Catalog Update mode.
+       * When true: after upserting all rows from the file, any distributor_skus row
+       * for this distributor+style combination whose cabinetId was NOT present in the
+       * upload is marked isAvailable=false (soft-delete / de-list).
+       * When false (default): only the provided rows are touched; nothing is removed.
+       */
+      fullCatalogUpdate: z.boolean().default(false),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -1043,6 +1051,7 @@ export const distributorImportRouter = router({
         unmatched: number;
         priced: number;
         unmatchedCodes: string[];
+        delisted: number;
       }> = [];
 
       const newAliases: Array<{ cabinetId: number; rawCodeSample: string; rawCodeCanon: string; distributorId: number }> = [];
@@ -1157,7 +1166,39 @@ export const distributorImportRouter = router({
             }
           }
         }
-        results.push({ columnCode: mapping.columnCode, doorStyleId: mapping.doorStyleId, priceType: mapping.priceType, matched, unmatched, priced, unmatchedCodes });
+        // --- Full Catalog Update: de-list SKUs not in the upload ---
+        let delisted = 0;
+        if (!input.dryRun && input.fullCatalogUpdate && upserts.length > 0) {
+          // Collect all cabinetIds that were present in this upload for this style
+          const uploadedCabinetIds = upserts.map((u) => u.cabinetId as number);
+          // Mark any SKU for this distributor+style NOT in the upload as unavailable
+          const existingSkus = await db
+            .select({ id: distributorSkus.id, cabinetId: distributorSkus.cabinetId })
+            .from(distributorSkus)
+            .where(
+              and(
+                eq(distributorSkus.distributorId, input.distributorId),
+                eq(distributorSkus.styleId, mapping.doorStyleId),
+                eq(distributorSkus.isAvailable, true)
+              )
+            );
+          const toDelistIds = existingSkus
+            .filter((s) => !uploadedCabinetIds.includes(s.cabinetId!))
+            .map((s) => s.id);
+          if (toDelistIds.length > 0) {
+            // Process in chunks of 200 to avoid oversized IN clauses
+            for (let i = 0; i < toDelistIds.length; i += 200) {
+              const chunk = toDelistIds.slice(i, i + 200);
+              await db.update(distributorSkus)
+                .set({ isAvailable: false })
+                .where(inArray(distributorSkus.id, chunk));
+            }
+            delisted = toDelistIds.length;
+            console.log(`[importAllColumns] fullCatalogUpdate: de-listed ${delisted} SKUs for distributor=${input.distributorId} style=${mapping.doorStyleId}`);
+          }
+        }
+
+        results.push({ columnCode: mapping.columnCode, doorStyleId: mapping.doorStyleId, priceType: mapping.priceType, matched, unmatched, priced, unmatchedCodes, delisted });
       }
 
       // Save/update column mappings for next time

@@ -720,6 +720,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                 { label: "Width", value: cabinet.width ? `${cabinet.width}"` : null },
                 { label: "Height", value: cabinet.height ? `${cabinet.height}"` : null },
                 { label: "Depth", value: cabinet.depth ? `${cabinet.depth}"` : null },
+                { label: "Weight", value: cabinet.weight ? `${cabinet.weight} lbs` : null },
                 { label: "Doors", value: resolveDoorDrawerCounts(cabinet).doors ? String(resolveDoorDrawerCounts(cabinet).doors) : null },
                 { label: "Drawers", value: resolveDoorDrawerCounts(cabinet).drawers ? String(resolveDoorDrawerCounts(cabinet).drawers) : null },
               ]
@@ -731,6 +732,28 @@ export default function CabinetDetail({ masterCode }: Props) {
                   </div>
                 ))}
             </dl>
+            {/* Packaging / shipping dimensions */}
+            {(cabinet.pkgLength || cabinet.pkgWidth || cabinet.pkgHeight || cabinet.pkgWeight) && (
+              <div className="border-t border-border pt-3 mb-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Packaging</p>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                  {[
+                    { label: "Box Dimensions",
+                      value: (cabinet.pkgLength && cabinet.pkgWidth && cabinet.pkgHeight)
+                        ? `${cabinet.pkgLength}" × ${cabinet.pkgWidth}" × ${cabinet.pkgHeight}"`
+                        : null },
+                    { label: "Shipping Weight", value: cabinet.pkgWeight ? `${cabinet.pkgWeight} lbs` : null },
+                  ]
+                    .filter((item) => item.value)
+                    .map((item) => (
+                      <div key={item.label}>
+                        <dt className="text-muted-foreground">{item.label}</dt>
+                        <dd className="font-medium text-foreground">{item.value}</dd>
+                      </div>
+                    ))}
+                </dl>
+              </div>
+            )}
             {/* Construction specs from manufacturer */}
             {selectedRow && (
               <>

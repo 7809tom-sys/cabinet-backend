@@ -36,6 +36,9 @@ type CabinetRow = {
 };
 
 type DraftRow = {
+  width: string;
+  height: string;
+  depth: string;
   weight: string;
   pkgLength: string;
   pkgWidth: string;
@@ -45,21 +48,6 @@ type DraftRow = {
 };
 
 const PAGE_SIZE = 100;
-
-const CATEGORIES = [
-  "Base",
-  "Wall",
-  "Tall",
-  "Corner",
-  "Drawer",
-  "Specialty",
-  "Vanity",
-  "Pantry",
-  "Island",
-  "Filler",
-  "Molding",
-  "Accessory",
-];
 
 // ── Row component ──────────────────────────────────────────────────────────────
 
@@ -71,6 +59,9 @@ function DimRow({
   onSaved: () => void;
 }) {
   const [draft, setDraft] = useState<DraftRow>({
+    width: row.width ?? "",
+    height: row.height ?? "",
+    depth: row.depth ?? "",
     weight: row.weight ?? "",
     pkgLength: row.pkgLength ?? "",
     pkgWidth: row.pkgWidth ?? "",
@@ -86,6 +77,9 @@ function DimRow({
   const uploadImgMut = trpc.cabinets.adminUploadCatalogImage.useMutation();
 
   const isDirty =
+    (draft.width || null) !== (row.width || null) ||
+    (draft.height || null) !== (row.height || null) ||
+    (draft.depth || null) !== (row.depth || null) ||
     (draft.weight || null) !== (row.weight || null) ||
     (draft.pkgLength || null) !== (row.pkgLength || null) ||
     (draft.pkgWidth || null) !== (row.pkgWidth || null) ||
@@ -93,13 +87,10 @@ function DimRow({
     (draft.pkgWeight || null) !== (row.pkgWeight || null) ||
     (draft.catalogImageUrl || null) !== (row.catalogImageUrl || null);
 
-  const isMissingData =
-    !row.weight ||
-    Number(row.weight) === 0 ||
-    !row.pkgLength ||
-    !row.pkgWidth ||
-    !row.pkgHeight ||
-    !row.pkgWeight;
+  const isMissingAssembled = !row.width || !row.height || !row.depth;
+  const isMissingPkg = !row.pkgLength || !row.pkgWidth || !row.pkgHeight || !row.pkgWeight;
+  const isMissingWeight = !row.weight || Number(row.weight) === 0;
+  const isMissingData = isMissingAssembled || isMissingPkg || isMissingWeight;
 
   const set = (field: keyof DraftRow) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setDraft((d) => ({ ...d, [field]: e.target.value }));
@@ -109,6 +100,9 @@ function DimRow({
     try {
       await updateMut.mutateAsync({
         id: row.id,
+        width: draft.width || null,
+        height: draft.height || null,
+        depth: draft.depth || null,
         weight: draft.weight || null,
         pkgLength: draft.pkgLength || null,
         pkgWidth: draft.pkgWidth || null,
@@ -161,7 +155,7 @@ function DimRow({
           )}
           <div>
             <div className="font-mono text-xs font-semibold">{row.masterCode}</div>
-            <div className="text-xs text-muted-foreground line-clamp-1 max-w-[180px]">{row.description}</div>
+            <div className="text-xs text-muted-foreground line-clamp-1 max-w-[160px]">{row.description}</div>
           </div>
         </div>
       </td>
@@ -171,11 +165,37 @@ function DimRow({
         <Badge variant="outline" className="text-xs whitespace-nowrap">{row.category}</Badge>
       </td>
 
-      {/* Assembled dims (read-only display) */}
-      <td className="px-2 py-2 align-middle text-xs text-muted-foreground whitespace-nowrap">
-        {row.width && row.height && row.depth
-          ? `${row.width}"W × ${row.height}"H × ${row.depth}"D`
-          : <span className="text-amber-500">—</span>}
+      {/* Assembled W */}
+      <td className="px-1 py-2 align-middle">
+        <Input
+          value={draft.width}
+          onChange={set("width")}
+          placeholder='W"'
+          className={`h-7 w-14 text-xs text-center ${isMissingAssembled ? "border-amber-400" : ""}`}
+          type="number" min="0" step="0.25"
+        />
+      </td>
+
+      {/* Assembled H */}
+      <td className="px-1 py-2 align-middle">
+        <Input
+          value={draft.height}
+          onChange={set("height")}
+          placeholder='H"'
+          className={`h-7 w-14 text-xs text-center ${isMissingAssembled ? "border-amber-400" : ""}`}
+          type="number" min="0" step="0.25"
+        />
+      </td>
+
+      {/* Assembled D */}
+      <td className="px-1 py-2 align-middle">
+        <Input
+          value={draft.depth}
+          onChange={set("depth")}
+          placeholder='D"'
+          className={`h-7 w-14 text-xs text-center ${isMissingAssembled ? "border-amber-400" : ""}`}
+          type="number" min="0" step="0.25"
+        />
       </td>
 
       {/* Assembled weight */}
@@ -184,7 +204,7 @@ function DimRow({
           value={draft.weight}
           onChange={set("weight")}
           placeholder="lbs"
-          className="h-7 w-16 text-xs text-center"
+          className={`h-7 w-16 text-xs text-center ${isMissingWeight ? "border-amber-400" : ""}`}
           type="number"
           min="0"
           step="0.1"
@@ -197,7 +217,7 @@ function DimRow({
           value={draft.pkgLength}
           onChange={set("pkgLength")}
           placeholder="L in"
-          className="h-7 w-14 text-xs text-center"
+          className={`h-7 w-14 text-xs text-center ${isMissingPkg ? "border-amber-400" : ""}`}
           type="number"
           min="0"
           step="0.1"
@@ -210,7 +230,7 @@ function DimRow({
           value={draft.pkgWidth}
           onChange={set("pkgWidth")}
           placeholder="W in"
-          className="h-7 w-14 text-xs text-center"
+          className={`h-7 w-14 text-xs text-center ${isMissingPkg ? "border-amber-400" : ""}`}
           type="number"
           min="0"
           step="0.1"
@@ -223,7 +243,7 @@ function DimRow({
           value={draft.pkgHeight}
           onChange={set("pkgHeight")}
           placeholder="H in"
-          className="h-7 w-14 text-xs text-center"
+          className={`h-7 w-14 text-xs text-center ${isMissingPkg ? "border-amber-400" : ""}`}
           type="number"
           min="0"
           step="0.1"
@@ -236,7 +256,7 @@ function DimRow({
           value={draft.pkgWeight}
           onChange={set("pkgWeight")}
           placeholder="lbs"
-          className="h-7 w-16 text-xs text-center"
+          className={`h-7 w-16 text-xs text-center ${isMissingPkg ? "border-amber-400" : ""}`}
           type="number"
           min="0"
           step="0.1"
@@ -299,7 +319,8 @@ function DimRow({
 
 export function BulkDimensionsAdmin() {
   const [page, setPage] = useState(0);
-  const [missingOnly, setMissingOnly] = useState(false);
+  // Default to missing-only so admins immediately see what needs filling in
+  const [missingOnly, setMissingOnly] = useState(true);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [category, setCategory] = useState<string>("");
@@ -313,6 +334,10 @@ export function BulkDimensionsAdmin() {
     search: search || undefined,
     category: category || undefined,
   });
+
+  // Also fetch the all-categories list for the filter
+  const { data: categoriesData } = trpc.cabinets.allCategories.useQuery();
+  const categories = categoriesData ?? [];
 
   const rows = (data?.rows ?? []) as CabinetRow[];
   const total = data?.total ?? 0;
@@ -328,8 +353,9 @@ export function BulkDimensionsAdmin() {
     utils.cabinets.adminListDimensions.invalidate();
   }, [refetch, utils]);
 
-  const missingCount = rows.filter(
-    (r) => !r.weight || Number(r.weight) === 0 || !r.pkgLength || !r.pkgWidth || !r.pkgHeight || !r.pkgWeight
+  const missingOnPageCount = rows.filter(
+    (r) => !r.width || !r.height || !r.depth || !r.weight || Number(r.weight) === 0 ||
+           !r.pkgLength || !r.pkgWidth || !r.pkgHeight || !r.pkgWeight
   ).length;
 
   return (
@@ -339,14 +365,15 @@ export function BulkDimensionsAdmin() {
         <div>
           <h2 className="text-lg font-semibold">Dimensions & Weight Editor</h2>
           <p className="text-sm text-muted-foreground">
-            Edit assembled weight, package dimensions, and catalog images for all cabinets.
+            Edit assembled dimensions (W/H/D), weight, and package dimensions for all cabinets.
+            Amber borders indicate missing fields.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">{total} cabinets</span>
-          {missingCount > 0 && (
+          {missingOnPageCount > 0 && (
             <Badge variant="destructive" className="text-xs">
-              {missingCount} missing data on this page
+              {missingOnPageCount} incomplete on this page
             </Badge>
           )}
         </div>
@@ -373,12 +400,12 @@ export function BulkDimensionsAdmin() {
           value={category || "all"}
           onValueChange={(v) => { setCategory(v === "all" ? "" : v); setPage(0); }}
         >
-          <SelectTrigger className="h-8 w-36 text-sm">
+          <SelectTrigger className="h-8 w-40 text-sm">
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <SelectItem key={c} value={c}>{c}</SelectItem>
             ))}
           </SelectContent>
@@ -404,7 +431,7 @@ export function BulkDimensionsAdmin() {
         </div>
       ) : rows.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          {missingOnly ? "All cabinets have complete dimension data ✓" : "No cabinets found"}
+          {missingOnly ? "✓ All cabinets have complete dimension data" : "No cabinets found"}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
@@ -413,12 +440,14 @@ export function BulkDimensionsAdmin() {
               <tr className="border-b bg-muted/50 text-xs text-muted-foreground">
                 <th className="px-3 py-2 text-left font-medium">Cabinet</th>
                 <th className="px-2 py-2 text-left font-medium">Category</th>
-                <th className="px-2 py-2 text-left font-medium">Assembled Dims</th>
+                <th className="px-1 py-2 text-center font-medium">W (in)</th>
+                <th className="px-1 py-2 text-center font-medium">H (in)</th>
+                <th className="px-1 py-2 text-center font-medium">D (in)</th>
                 <th className="px-2 py-2 text-center font-medium">Weight (lbs)</th>
-                <th className="px-1 py-2 text-center font-medium">Pkg L (in)</th>
-                <th className="px-1 py-2 text-center font-medium">Pkg W (in)</th>
-                <th className="px-1 py-2 text-center font-medium">Pkg H (in)</th>
-                <th className="px-2 py-2 text-center font-medium">Pkg Wt (lbs)</th>
+                <th className="px-1 py-2 text-center font-medium">Pkg L</th>
+                <th className="px-1 py-2 text-center font-medium">Pkg W</th>
+                <th className="px-1 py-2 text-center font-medium">Pkg H</th>
+                <th className="px-2 py-2 text-center font-medium">Pkg Wt</th>
                 <th className="px-2 py-2 text-left font-medium">Image</th>
                 <th className="px-2 py-2 text-center font-medium"></th>
               </tr>
@@ -442,20 +471,20 @@ export function BulkDimensionsAdmin() {
             <Button
               variant="outline"
               size="sm"
-              className="h-8 px-2"
+              className="h-7 px-2"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="h-8 px-2"
+              className="h-7 px-2"
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={page >= totalPages - 1}
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           </div>
         </div>
