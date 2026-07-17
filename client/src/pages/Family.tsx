@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "wouter";
-import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -477,6 +477,25 @@ export default function Family({ styleCode }: { styleCode: string }) {
                   <span className="text-white/60">{t("fam_color")}</span> {s.color}
                 </p>
               )}
+            </div>
+
+            {/* ── Design with this style CTA ─────────────────────────────── */}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                href={`/design?style=${styleId}`}
+                title="Open the 2D kitchen designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--color-gold)] hover:bg-[var(--color-gold)]/90 text-[var(--color-navy)] font-semibold text-sm px-5 py-2.5 transition-all shadow-md hover:shadow-lg"
+              >
+                <Pencil className="h-4 w-4" />
+                Design with this style
+              </Link>
+              <Link
+                href={`/order/new?style=${styleId}`}
+                className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 text-white font-semibold text-sm px-5 py-2.5 transition-all"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                Request a quote
+              </Link>
             </div>
 
             {/* In-place finish picker: switch the color within this door profile
