@@ -326,13 +326,19 @@ export const designRouter = router({
           return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
         });
 
-      // Deep refrigerator wall cabinets end in "-24" (24" deep) e.g. W-30-12-24.
+      // Deep refrigerator wall cabinets:
+      //  - Skyline/USCD format: masterCode ends in "-24" e.g. W-36-24-24
+      //  - Clark and Sons format: WR prefix (WR3315, WR3324, WR3624 etc.) — always 24" deep
+      //  Note: WRC% = wine rack wall cabinets — excluded from fridge cabinet results
       const deepRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, like(cabinets.masterCode, "W-%-24")));
-      // Shallow bridge wall cabinets: short W-* that are NOT the deep "-24" ones.
+        .where(and(gate, or(
+          like(cabinets.masterCode, "W-%-24"),
+          and(like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`)
+        )));
+      // Shallow bridge wall cabinets: short W-* that are NOT the deep "-24" or WR fridge boxes.
       const wallRows = await db
         .select(cols)
         .from(cabinets)
@@ -340,17 +346,26 @@ export const designRouter = router({
         .where(and(gate, like(cabinets.masterCode, "W-%")));
       const bridgeRows = wallRows.filter((r) => {
         const h = parseFloat(String(r.height ?? ""));
-        // A bridge is a short (≤ 18") wall cabinet, and NOT a deep 24" fridge box.
-        return !/-24$/.test(r.masterCode) && Number.isFinite(h) && h <= 18;
+        // A bridge is a short (≤ 18") wall cabinet, and NOT a deep 24" fridge box or WR cabinet.
+        return !/-24$/.test(r.masterCode) && !/^WR/.test(r.masterCode) && Number.isFinite(h) && h <= 18;
       });
       // Refrigerator end panels + smooth skin panels.
+      // Patterns by distributor:
+      //  - Skyline (GR-): REPV-* end panels, WSV* smooth skin panels
+      //  - Clark and Sons: REP9624 end panel (no smooth panel equivalent)
+      //  - USCD: REPV30* end panels, WSV* smooth skin panels
+      // Note: WS1542 (Clark and Sons wall skin) is NOT a refrigerator smooth panel — excluded.
       const panelRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, sql`(${cabinets.masterCode} LIKE 'REPV-%' OR ${cabinets.masterCode} LIKE 'WSV-%')`));
-      const endPanels = panelRows.filter((r) => /^REPV-/.test(r.masterCode));
-      const smoothPanels = panelRows.filter((r) => /^WSV-/.test(r.masterCode));
+        .where(and(gate, sql`(
+          ${cabinets.masterCode} LIKE 'REPV%'
+          OR ${cabinets.masterCode} LIKE 'REP9%'
+          OR ${cabinets.masterCode} LIKE 'WSV%'
+        )`));
+      const endPanels = panelRows.filter((r) => /^REPV/.test(r.masterCode) || /^REP9/.test(r.masterCode));
+      const smoothPanels = panelRows.filter((r) => /^WSV/.test(r.masterCode));
 
       // Dedupe helper (a cabinet can join multiple SKU rows).
       const uniq = <T extends { id: number }>(rows: T[]) => {
@@ -424,11 +439,21 @@ export const designRouter = router({
       // Pantry: 96"-tall utility (U-*-96-24). Fall back to any ≥ 84" utility.
       let pantryRows = await run(like(cabinets.masterCode, "U-%-96-24"));
       if (pantryRows.length === 0) pantryRows = await run(like(cabinets.masterCode, "UC%96"));
-      const deepRows = await run(like(cabinets.masterCode, "W-%-24"));
-      const panelRows = await run(like(cabinets.masterCode, "REPV-%"));
-      // Standard wall cabinets (short/tall boxes) minus the deep "-24" fridge box.
+      // Deep fridge wall cabinets:
+      //  - Skyline/USCD: end in "-24" (e.g. W-36-24-24)
+      //  - Clark and Sons: WR prefix (WR3624 etc.) — WRC% wine rack excluded
+      const deepRows = [
+        ...(await run(like(cabinets.masterCode, "W-%-24"))),
+        ...(await db.select(cols).from(cabinets).innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id)).where(and(gate, like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`))),
+      ];
+      // End panels: REPV-* (Skyline/USCD), REP9* (Clark and Sons)
+      const panelRows = [
+        ...(await run(like(cabinets.masterCode, "REPV%"))),
+        ...(await run(like(cabinets.masterCode, "REP9%"))),
+      ];
+      // Standard wall cabinets (short/tall boxes) minus the deep "-24" fridge box and WR cabinets.
       const wallRows = (await run(like(cabinets.masterCode, "W-%"))).filter(
-        (r) => !/-24$/.test(r.masterCode)
+        (r) => !/-24$/.test(r.masterCode) && !/^WR/.test(r.masterCode)
       );
 
       return {

@@ -815,3 +815,20 @@
 - [x] Fix U24xxxx and U30xxxx utility pantry cabinets to use double-door pantry image
 - [x] Verify U18xxxx uses single-door pantry image (correct)
 - [x] Verify UOC/O3xxxx oven pantry cabinets use oven cabinet image (correct)
+
+## Bug: Clark and Sons fridge cabinet SKU mapping broken + fridge popup missing options
+- [ ] Audit Clark and Sons WR-prefix fridge cabinet SKUs in the database (WR3324 = 33w x 24h x 24d bridge)
+- [ ] Fix fridge cabinet SKU resolver: map WR prefix for Clark and Sons (WR{width}{height} = 24-deep bridge)
+- [ ] Restore all fridge options in the fridge popup (options missing since yesterday)
+- [ ] Verify W361224 equivalent is correctly resolved for Clark and Sons as WR3624
+- [ ] Test and checkpoint
+
+## Bug: Clark and Sons fridge cabinet SKU mapping and popup options
+
+- [x] Fix WR-prefix cabinets (Clark and Sons 24"-deep fridge wall) depth stored as 12 → corrected to 24 in DB
+- [x] Fix bridge cabinet heights stored as 30 → corrected to actual heights (12/15/18) from masterCode
+- [x] Update surroundForFridge query to include WR% pattern for Clark and Sons deep fridge wall cabinets
+- [x] Update surroundForFridge query to include REP9% pattern for Clark and Sons refrigerator end panels
+- [x] Remove WS1% (wall skin) from smoothPanels — WS1542 is not a refrigerator smooth panel
+- [x] Update builtinFridgeRun to include WR% and REP9% patterns for Clark and Sons
+- [x] Verify fridge options popup shows all options: deepAbove=10, bridgeAbove=9, endPanels=1, smoothPanels=0 for Clark and Sons styles
