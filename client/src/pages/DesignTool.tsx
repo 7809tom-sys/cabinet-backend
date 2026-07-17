@@ -3644,16 +3644,22 @@ export default function DesignTool() {
 
   // Set an ABSOLUTE mount height (inches from floor to the box bottom) for a
   // specific cabinet — used by the elevation view's vertical drag / Arrow keys.
-  // Wall cabinets only; clamped at WALL_MOUNT_BOTTOM (54") so they can never
-  // be dragged below the standard counter-height mount line.
+  // Wall cabinets only. Bridge cabinets (h < 30") are clamped at their
+  // top-anchor position (topLine - h, e.g. 72" for a 12" bridge on 8ft ceiling);
+  // standard uppers (h >= 30") are clamped at the classic 54" mount line.
   const setMountBottomFor = useCallback((uid: string, mountBottom: number) => {
     setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== uid || p.placement !== "wall") return p;
-        return { ...p, mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, Math.round(mountBottom * 10) / 10) };
+        const h = p.height ?? 0;
+        const topLine = wallCabinetTopLine(room);
+        const minBottom = h > 0 && h < 30
+          ? Math.max(0, topLine - h)
+          : STD.WALL_MOUNT_BOTTOM;
+        return { ...p, mountBottom: Math.max(minBottom, Math.round(mountBottom * 10) / 10) };
       })
     );
-  }, []);
+  }, [room]);
 
   // Clear the override so the cabinet returns to its default rule position.
   const resetMountHeight = useCallback(() => {

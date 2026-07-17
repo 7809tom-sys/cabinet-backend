@@ -341,15 +341,23 @@ export function ElevationView({
       const { height } = elevationBox(cabinet, room);
       const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
       let nextBottom = vDragStartBottom.current + dyIn;
-      // Wall cabinets must never be dragged below the standard 54" mount line
-      // (WALL_MOUNT_BOTTOM). Clamping at 0 would allow them to sit on the floor,
-      // which violates the placement rule: wall cabinets belong above the counter.
-      const minBottom = STD.WALL_MOUNT_BOTTOM;
+      // For short wall cabinets (bridge/over-appliance, h < 30") the natural
+      // resting position is TOP-anchored at the upper-run top line, so their
+      // bottom is at (topLine - h) — e.g. 72" for a 12" bridge on an 8ft
+      // ceiling. Use that as the minimum so dragging down can't push them
+      // below their default 72" position. Standard uppers (h >= 30") use the
+      // classic 54" mount line as the minimum.
+      const topLine = wallCabinetTopLine(room);
+      const minBottom = height < 30
+        ? Math.max(0, topLine - height)
+        : STD.WALL_MOUNT_BOTTOM;
       nextBottom = Math.max(minBottom, Math.min(maxBottom, nextBottom));
-      // Snap to the standard mount line (54") and the upper-run top line so it
-      // is easy to line back up with neighbors.
+      // Snap guides: the natural resting position and the standard 54" line.
       const SNAP_IN = 1.5;
-      for (const guide of [STD.WALL_MOUNT_BOTTOM]) {
+      const snapGuides = height < 30
+        ? [Math.max(0, topLine - height)]
+        : [STD.WALL_MOUNT_BOTTOM];
+      for (const guide of snapGuides) {
         if (Math.abs(nextBottom - guide) <= SNAP_IN) nextBottom = guide;
       }
       onMoveVertical(dragUid, Math.round(nextBottom * 10) / 10);
@@ -505,8 +513,13 @@ export function ElevationView({
         const dir = e.key === "ArrowUp" ? 1 : -1;
         const { bottom, height } = elevationBox(cab, room);
         const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
-        // Wall cabinets must never go below the 54" mount line (same rule as drag).
-        const next = Math.max(STD.WALL_MOUNT_BOTTOM, Math.min(maxBottom, bottom + dir * step));
+        // Bridge cabinets (h < 30") use their top-anchor position as the floor;
+        // standard uppers (h >= 30") use the classic 54" mount line.
+        const topLine = wallCabinetTopLine(room);
+        const minBottom = height < 30
+          ? Math.max(0, topLine - height)
+          : STD.WALL_MOUNT_BOTTOM;
+        const next = Math.max(minBottom, Math.min(maxBottom, bottom + dir * step));
         onMoveVertical(cab.uid, Math.round(next * 10) / 10);
       }
     };
@@ -561,7 +574,6 @@ export function ElevationView({
           className="absolute"
           onPointerMove={handleWallPointerMove}
           onPointerUp={handleWallPointerUp}
-          onPointerLeave={handleWallPointerUp}
           style={{
             width: wallPxW,
             height: wallPxH,

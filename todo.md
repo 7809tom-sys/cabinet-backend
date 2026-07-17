@@ -895,7 +895,7 @@
 - [x] Add inline price edit pencil on cabinet cards/rows in admin panel and storefront (admin-only) to edit list price and cost directly without CSV upload
 - [x] Simplify storefront price: yourCost (or listPrice) × distributor costMultiplier only, no tier stacking
 - [x] Add skuAliases column to cabinets table + fuzzy SKU normalizer (strips dashes/spaces/dots, case-insensitive) [done via code_aliases table + shared/codeMatch.ts]
-- [ ] Build smart CatalogUpload page: distributor picker/creator, door style picker/creator, door photo upload, spreadsheet drop with fuzzy match preview table
+- [x] Build smart CatalogUpload page: distributor picker/creator, door style picker/creator, door photo upload, spreadsheet drop with fuzzy match preview table
 - [x] Fix cabinetLineExport: import-compatible headers, real brand+style filename, image from master cabinet record
 - [x] Add inline pencil price editor on storefront cabinet cards (admin-only)
 - [x] Add inline edit button on featured door styles in admin panel to edit style specs (name, finish, wood species, construction, images) — changes apply to all cabinets in that style
@@ -1084,3 +1084,12 @@
 - [x] Fix: "Apply to all" option when changing door style so user can choose to update all cabinets or just new ones going forward
 - [x] Mobile: add prominent quick-access series/style switcher — series tabs (Madison, Ashford, etc.) at top, style swatches below, easy to reach without scrolling deep into the panel
 - [x] Mobile: style switcher should be accessible from the main design view toolbar (one tap), not buried in the panel
+
+## Bug: Wall cabinet vertical drag not working on mobile (regression)
+- [x] Fix vertical drag for wall cabinets on mobile — up/down repositioning broken again
+- [x] Ensure pointer capture is set on the wall container so both horizontal and vertical touch drag work
+
+## Bug: Bridge/wall cabinets should mount at 72" from floor
+- [x] All wall cabinets 12"–24" tall (bridge cabinets) should default to mountBottom = 72" (not 54")
+- [x] Wall cabinets 30"+ tall keep mountBottom = 54" (standard)
+- [x] Apply the 72" rule when auto-placing bridge cabinets above microwaves and windows
