@@ -237,6 +237,7 @@ function FeaturedStyles() {
                 </span>
                 <button
                   type="button"
+                  title="Open the 2D kitchen designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/design?style=${first.id}`; }}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition-all"
                 >
@@ -271,6 +272,7 @@ function FeaturedStyles() {
                 {/* Design with this button */}
                 <Link
                   href={`/design?style=${style.id}`}
+                  title="Open the 2D kitchen designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
                   className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--color-navy)]/80 hover:bg-[var(--color-navy)] text-white text-[10px] font-semibold rounded-full px-2.5 py-1 flex items-center gap-1"
                 >
                   <ChevronRight className="h-3 w-3" /> Design
