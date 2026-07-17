@@ -190,7 +190,7 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
  * Pure + framework-free so it is unit-testable. Order of checks matters: the
  * most specific specialty signals win, then sink, then drawer, then plain base.
  */
-export type BaseSubGroup = "base" | "drawer" | "sink" | "specialty";
+export type BaseSubGroup = "base" | "drawer" | "sink" | "fullheight" | "ada" | "specialty";
 
 export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
   const code = lc(cab.masterCode);
@@ -212,19 +212,30 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
     return "sink";
   }
 
-  // 2) Specialty bases: corners that fall on the Base tab, appliance bases
-  //    (microwave/oven/trash/waste), spice pull-outs, blind/lazy-susan, ADA,
+  // 2a) ADA bases — their own section so they're easy to find.
+  if (type === "ada" || /\bada\b/.test(hay)) {
+    return "ada";
+  }
+
+  // 2b) Full-height base cabinets (HB / BFH / tall floor-to-ceiling base units).
+  if (
+    /^(?:hb|bfh|fhb)[-_ ]?\d/.test(code) ||
+    /full[- ]?height base|tall base/.test(hay)
+  ) {
+    return "fullheight";
+  }
+
+  // 2c) Specialty bases: corners that fall on the Base tab, appliance bases
+  //    (microwave/oven/trash/waste), spice pull-outs, blind/lazy-susan,
   //    end/wine/desk and other non-standard boxes.
   if (
     type === "blind-corner" ||
     type === "corner-drawer-base" ||
     type === "appliance-garage" ||
-    type === "ada" ||
     cab.isCornerCabinet ||
     /blind|lazy susan|easy reach|diagonal|corner/.test(hay) ||
     /microwave|\boven\b|trash|waste|recycl/.test(hay) ||
     /spice|pull[- ]?out|pullout|roll[- ]?out|tray base/.test(hay) ||
-    /\bada\b/.test(hay) ||
     /end (?:shelf|panel|base)|angle|wine|desk|peninsula base|appliance base/.test(
       hay,
     )

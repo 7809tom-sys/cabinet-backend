@@ -1099,6 +1099,21 @@ export default function DesignTool() {
     // Decorative End Panels, Roll-Out Trays, Skin Panels, …) rather than by
     // height, which is meaningless for loose trim/hardware.
     if (paletteType === "accessory") {
+      // Accessories are ordered by relevance to the design workflow:
+      // Trim & Molding first (most commonly ordered), then Fillers/Panels,
+      // then Toe Kick/Valance, then functional inserts (roll-outs, shelves),
+      // then specialty items, and hardware last.
+      const ACC_ORDER: Record<string, number> = {
+        "Crown Molding": 1, "Light Rail": 2, "Scribe Molding": 3,
+        "Valance": 4, "Trim & Molding": 5, "Trim": 5,
+        "Filler": 6, "Filler Panel": 7,
+        "Skin Panel": 8, "End Panel": 9, "Decorative End Panel": 9,
+        "Toe Kick": 10,
+        "Roll Out Shelf": 11, "Roll Out Tray": 11, "Floating Shelf": 12,
+        "Wine Storage": 13, "Trash Can Kit": 14, "Range Hood": 15,
+        "Specialty": 16, "Other": 17,
+        "Hardware": 99,
+      };
       const bySub = new Map<string, DesignCabinet[]>();
       for (const c of filteredPalette) {
         const label = (c.subCategory || "Other").trim() || "Other";
@@ -1106,9 +1121,13 @@ export default function DesignTool() {
         if (arr) arr.push(c);
         else bySub.set(label, [c]);
       }
-      return sortGroups(Array.from(bySub.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([label, items]) => ({ label, items })));
+      const sorted = Array.from(bySub.entries()).sort((a, b) => {
+        const oa = ACC_ORDER[a[0]] ?? 50;
+        const ob = ACC_ORDER[b[0]] ?? 50;
+        if (oa !== ob) return oa - ob;
+        return a[0].localeCompare(b[0]);
+      });
+      return sortGroups(sorted.map(([label, items]) => ({ label, items })));
     }
     // The unified Corner tab splits into two fixed sections — Corner Base
     // Cabinets and Corner Wall Cabinets — so every corner type lives under one
@@ -1127,22 +1146,26 @@ export default function DesignTool() {
     // standard door bases and live in the first "Base Cabinets" group; there is
     // no separate section for them. Empty sections are dropped.
     if (paletteType === "base") {
-      const order: { key: BaseSubGroup; labelKey: SiteStringKey }[] = [
-        { key: "base", labelKey: "dt_pl_grp_base_std" },
-        { key: "drawer", labelKey: "dt_pl_grp_base_drawer" },
-        { key: "sink", labelKey: "dt_pl_grp_base_sink" },
-        { key: "specialty", labelKey: "dt_pl_grp_base_specialty" },
+      const order: { key: BaseSubGroup; label: string }[] = [
+        { key: "base",       label: "Base Cabinets" },
+        { key: "drawer",     label: "Drawer Bases" },
+        { key: "sink",       label: "Sink Bases" },
+        { key: "fullheight", label: "Full Height Bases" },
+        { key: "ada",        label: "ADA Bases" },
+        { key: "specialty",  label: "Specialty Bases" },
       ];
       const buckets: Record<BaseSubGroup, DesignCabinet[]> = {
         base: [],
         drawer: [],
         sink: [],
+        fullheight: [],
+        ada: [],
         specialty: [],
       };
       for (const c of filteredPalette) buckets[baseSubGroup(c)].push(c);
       return sortGroups(
         order
-          .map(({ key, labelKey }) => ({ label: t(labelKey), items: buckets[key] }))
+          .map(({ key, label }) => ({ label, items: buckets[key] }))
           .filter((g) => g.items.length > 0)
       );
     }

@@ -731,54 +731,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                   </div>
                 ))}
             </dl>
-            {/* Construction specs — collapsible */}
-            {selectedRow && (
-              <>
-                <details className="border-t border-border pt-3 group">
-                  <summary className="cursor-pointer text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1 select-none list-none hover:text-foreground transition-colors">
-                    <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
-                    Construction Details
-                  </summary>
-                  <div className="mt-3">
-                  <ol className="space-y-2 text-sm">
-                    {[
-                      { label: "Door & Drawer Front", value: selectedRow.overlayType
-                        ? `${selectedRow.overlayType}${selectedRow.doorStyle ? `, ${selectedRow.doorStyle} profile` : ""}, solid wood with MDF center panel`
-                        : selectedRow.doorStyle
-                          ? `${selectedRow.doorStyle} profile, solid wood with MDF center panel`
-                          : "Full overlay, 5-piece door & drawer, solid wood with MDF center panel" },
-                      { label: "Face Frame", value: selectedRow.frameSize
-                        ? `${selectedRow.frameSize} solid wood frame`
-                        : "3/4\" solid wood frame" },
-                      { label: "Cabinet Box", value: selectedRow.boxConstruction || "1/2\" cabinet grade particleboard box" },
-                      { label: "Drawer Box", value: selectedRow.drawerConstruction || "Plywood, rebate joint drawer box" },
-                      { label: "Drawer Glides", value: selectedRow.hardware?.includes("soft") || selectedRow.hardware?.includes("Soft")
-                        ? "Soft-close undermount drawer glides"
-                        : selectedRow.isBuilderGrade
-                          ? "Builder grade undermount drawer glides"
-                          : "Soft-close undermount drawer glides" },
-                      { label: "Hinges", value: selectedRow.hardware?.includes("soft") || selectedRow.hardware?.includes("Soft")
-                        ? "6-way adjustable, soft-close"
-                        : selectedRow.isBuilderGrade
-                          ? "6-way adjustable, non soft-close"
-                          : "6-way adjustable, soft-close" },
-                      { label: "Exterior Finish", value: "Matching color exterior" },
-                      { label: "Interior Finish", value: "Melamine natural interior" },
-                      { label: "Shelves", value: "5/8\" particleboard with natural melamine, edge banding on all sides" },
-                      { label: "Accessories", value: "Door bumper, metal shelf pin, metal clips, L bracket for base cabinet" },
-                      { label: "Package", value: "One box per cabinet" },
-                      { label: "Certification", value: "TSCA VI, KCMA, CARB2, NGBS Green" },
-                    ].map((item, i) => (
-                      <li key={item.label} className="flex gap-2">
-                        <span className="text-muted-foreground shrink-0 w-4 text-right">{i + 1}.</span>
-                        <span><span className="font-semibold text-foreground">{item.label}:</span> {item.value}</span>
-                      </li>
-                    ))}
-                  </ol>
-                  </div>
-                </details>
-              </>
-            )}
+
           </div>
         </div>
 
