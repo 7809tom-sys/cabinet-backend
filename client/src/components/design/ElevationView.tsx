@@ -214,12 +214,27 @@ export function ElevationView({
           dragAxis.current = null;
           vDragStartY.current = e.clientY;
           vDragStartBottom.current = bottom;
-          // Capture on the WALL container so pointermove fires there (not on
-          // the tiny cabinet div which mobile browsers isolate after capture).
-          if (wallInnerRef.current) {
-            wallInnerRef.current.setPointerCapture(e.pointerId);
-            capturedPointerId.current = e.pointerId;
-          }
+          // MOBILE-SAFE pointer capture: capture on the element that received
+          // pointerdown (the cabinet div itself). Mobile browsers only route
+          // captured events to the element that called setPointerCapture — if we
+          // capture on the parent wall container the move events never arrive on
+          // mobile. We attach native pointermove/pointerup listeners directly on
+          // the captured element and clean them up on release.
+          const cabEl = e.currentTarget as HTMLElement;
+          cabEl.setPointerCapture(e.pointerId);
+          capturedPointerId.current = e.pointerId;
+          const onMove_ = (ev: PointerEvent) => {
+            handleWallPointerMove(ev as unknown as React.PointerEvent<HTMLDivElement>);
+          };
+          const onUp_ = (ev: PointerEvent) => {
+            cabEl.removeEventListener("pointermove", onMove_);
+            cabEl.removeEventListener("pointerup", onUp_);
+            cabEl.removeEventListener("pointercancel", onUp_);
+            handleWallPointerUp(ev as unknown as React.PointerEvent);
+          };
+          cabEl.addEventListener("pointermove", onMove_);
+          cabEl.addEventListener("pointerup", onUp_);
+          cabEl.addEventListener("pointercancel", onUp_);
         } : undefined}
         onClick={(e) => {
           e.stopPropagation();
@@ -436,9 +451,14 @@ export function ElevationView({
     onMove(dragUid, newX, newY);
   };
 
-  const handleWallPointerUp = (e?: React.PointerEvent) => {
-    if (capturedPointerId.current != null && wallInnerRef.current) {
-      try { wallInnerRef.current.releasePointerCapture(capturedPointerId.current); } catch { /* already released */ }
+  const handleWallPointerUp = (e?: React.PointerEvent | PointerEvent) => {
+    // Release capture if it is still held (it may have been auto-released by the
+    // browser on pointerup/pointercancel, but the try/catch is harmless).
+    if (capturedPointerId.current != null) {
+      const target = (e?.target ?? e?.currentTarget) as HTMLElement | null;
+      if (target) {
+        try { target.releasePointerCapture(capturedPointerId.current); } catch { /* already released */ }
+      }
       capturedPointerId.current = null;
     }
     setDragUid(null);
@@ -572,6 +592,9 @@ export function ElevationView({
         <div
           ref={wallInnerRef}
           className="absolute"
+          // pointermove/pointerup are handled via native listeners on the
+          // captured cabinet element (see onPointerDown in renderCabinetBox).
+          // These React props are kept as a desktop fallback only.
           onPointerMove={handleWallPointerMove}
           onPointerUp={handleWallPointerUp}
           style={{
