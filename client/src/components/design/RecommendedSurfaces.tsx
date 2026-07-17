@@ -21,8 +21,8 @@ export const RECOMMENDED_SECTIONS: {
   { role: "flooring", label: "Flooring", blurb: "Pelican planks & flooring" },
   { role: "backsplash", label: "Backsplash", blurb: "Pelican tile & mosaic" },
   { role: "countertop", label: "Countertop", blurb: "Pelican quartz slabs" },
-  { role: "sink", label: "Sink", blurb: "StoneCreek sinks" },
-  { role: "faucet", label: "Faucet", blurb: "StoneCreek faucets" },
+  { role: "sink", label: "Sink", blurb: "Pelican sinks" },
+  { role: "faucet", label: "Faucet", blurb: "Pelican faucets" },
 ];
 
 type RecItem = {

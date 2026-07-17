@@ -19,7 +19,7 @@ export const pageContentRouter = router({
       // Return as a flat key→value map
       const map: Record<string, string> = {};
       for (const row of rows) {
-        map[row.field] = row.value ?? "";
+        map[row.field] = row.value;
       }
       return map;
     }),

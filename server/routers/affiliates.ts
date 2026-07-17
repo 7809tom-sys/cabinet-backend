@@ -10,7 +10,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts } from "../../drizzle/schema";
+import { affiliates, orderRequests, affiliateStyleBranding, affiliateRoomSceneGallery, affiliatePromoDiscounts, affiliateBannerSchedules, doorStyles, affiliatePayouts } from "../../drizzle/schema";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -46,6 +46,12 @@ function toPublicStorefront(a: typeof affiliates.$inferSelect) {
     instagramUrl: a.instagramUrl,
     storefrontEnabled: a.storefrontEnabled,
     template: a.template,
+    heroHeadline: a.heroHeadline,
+    promoBannerText: a.promoBannerText,
+    promoBannerActive: a.promoBannerActive,
+    promoBannerImageUrl: a.promoBannerImageUrl,
+    address: a.address,
+    businessHours: a.businessHours,
   };
 }
 
@@ -99,7 +105,18 @@ export const affiliatesRouter = router({
         .limit(1);
       const a = rows[0];
       if (!a || !a.storefrontEnabled || a.status === "inactive") return null;
-      return toPublicStorefront(a);
+      const base = toPublicStorefront(a);
+      // Auto-resolve scheduled banner: if a schedule is active today, it overrides the manual promoBanner
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const schedules = await db
+        .select()
+        .from(affiliateBannerSchedules)
+        .where(eq(affiliateBannerSchedules.affiliateId, a.id));
+      const activeSched = schedules.find((s) => s.startDate <= today && s.endDate >= today);
+      if (activeSched) {
+        return { ...base, promoBannerText: activeSched.message, promoBannerActive: true };
+      }
+      return base;
     }),
 
   // ─── Public: resolve a referral code (for attribution / validation) ────────
@@ -163,6 +180,12 @@ export const affiliatesRouter = router({
         instagramUrl: null,
         storefrontEnabled: true,
         template: input.template,
+        heroHeadline: "Transform Your Kitchen Today",
+        promoBannerText: "Limited-time offer: Free design consultation with any cabinet order!",
+        promoBannerActive: true,
+        promoBannerImageUrl: null,
+        address: "1234 Cabinet Way, Sarasota, FL 34231",
+        businessHours: "Mon–Fri 9am–5pm, Sat 10am–3pm",
       };
     }),
 
@@ -360,7 +383,7 @@ export const affiliatesRouter = router({
     const db = await getDb();
     if (!db) return null;
     const styles = await db
-      .select({ id: doorStyles.id, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+      .select({ id: doorStyles.id, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl, roomSceneImageUrl: doorStyles.roomSceneImageUrl, doorSampleImageUrl: doorStyles.doorSampleImageUrl })
       .from(doorStyles)
       .where(eq(doorStyles.isActive, true));
     const overrides = await db
@@ -653,7 +676,6 @@ export const affiliatesRouter = router({
       paidCents,
       pendingCents: Math.max(0, lifetimeCents - paidCents),
       weeks: weeks.map((w) => ({ ...w, payout: payoutByWeek.get(w.weekKey) ?? null })),
-      w9Status: mine.w9Status ?? "not_submitted",
     };
   }),
 
@@ -966,6 +988,333 @@ export const affiliatesRouter = router({
       return { ok: true, status: "submitted" as const };
     }),
 
+  // ─── Partner: toggle hide/show a style on their storefront ──────────────────────────────────────────────────────────────
+  toggleStyleHidden: partnerProcedure
+    .input(z.object({ styleId: z.number().int(), hidden: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [existing] = await db.select().from(affiliateStyleBranding)
+        .where(and(eq(affiliateStyleBranding.affiliateId, mine.id), eq(affiliateStyleBranding.styleId, input.styleId))).limit(1);
+      if (existing) {
+        await db.update(affiliateStyleBranding).set({ hidden: input.hidden }).where(eq(affiliateStyleBranding.id, existing.id));
+      } else {
+        await db.insert(affiliateStyleBranding).values({ affiliateId: mine.id, styleId: input.styleId, hidden: input.hidden, featured: false, sortOrder: 0 });
+      }
+      return { styleId: input.styleId, hidden: input.hidden };
+    }),
+
+  // ─── Partner: room scene gallery (replace-only — no standalone delete) ──────────────────────────────────────────────────────────────
+  listRoomSceneGallery: partnerProcedure
+    .input(z.object({ styleId: z.number().int() }))
+    .query(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) return [];
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(affiliateRoomSceneGallery)
+        .where(and(eq(affiliateRoomSceneGallery.affiliateId, mine.id), eq(affiliateRoomSceneGallery.styleId, input.styleId)))
+        .orderBy(affiliateRoomSceneGallery.sortOrder);
+    }),
+
+  addRoomSceneGallery: partnerProcedure
+    .input(z.object({ styleId: z.number().int(), fileBase64: z.string().min(1), mimeType: z.string().default("image/jpeg") }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const ext = input.mimeType.split("/")[1] ?? "jpg";
+      const key = `affiliate-gallery/${mine.id}/${input.styleId}-${Date.now()}.${ext}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      const existing = await db.select().from(affiliateRoomSceneGallery)
+        .where(and(eq(affiliateRoomSceneGallery.affiliateId, mine.id), eq(affiliateRoomSceneGallery.styleId, input.styleId)));
+      const maxSort = existing.reduce((m, r) => Math.max(m, r.sortOrder), -1);
+      await db.insert(affiliateRoomSceneGallery).values({ affiliateId: mine.id, styleId: input.styleId, imageUrl: url, sortOrder: maxSort + 1 });
+      return { url, sortOrder: maxSort + 1 };
+    }),
+
+  // Replace a gallery slot — the ONLY way to remove a photo (must supply replacement).
+  replaceRoomSceneGallery: partnerProcedure
+    .input(z.object({ id: z.number().int(), fileBase64: z.string().min(1), mimeType: z.string().default("image/jpeg") }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [row] = await db.select().from(affiliateRoomSceneGallery)
+        .where(and(eq(affiliateRoomSceneGallery.id, input.id), eq(affiliateRoomSceneGallery.affiliateId, mine.id))).limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Gallery image not found." });
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const ext = input.mimeType.split("/")[1] ?? "jpg";
+      const key = `affiliate-gallery/${mine.id}/${row.styleId}-${Date.now()}.${ext}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      await db.update(affiliateRoomSceneGallery).set({ imageUrl: url }).where(eq(affiliateRoomSceneGallery.id, input.id));
+      return { id: input.id, url };
+    }),
+
+  // ─── Partner: save storefront header / branding customization ──────────────────────────────────────────────────────────────
+  saveHeaderCustomization: partnerProcedure
+    .input(z.object({
+      heroHeadline: z.string().max(256).nullable().optional(),
+      promoBannerText: z.string().max(512).nullable().optional(),
+      promoBannerActive: z.boolean().optional(),
+      promoBannerImageUrl: z.string().max(512).nullable().optional(),
+      phone: z.string().max(32).nullable().optional(),
+      address: z.string().max(512).nullable().optional(),
+      businessHours: z.string().max(512).nullable().optional(),
+      logoUrl: z.string().max(512).nullable().optional(),
+      heroImageUrl: z.string().max(512).nullable().optional(),
+      tagline: z.string().max(256).nullable().optional(),
+      taglineEs: z.string().max(256).nullable().optional(),
+      aboutText: z.string().max(4000).nullable().optional(),
+      aboutTextEs: z.string().max(4000).nullable().optional(),
+      primaryColor: z.string().max(16).nullable().optional(),
+      accentColor: z.string().max(16).nullable().optional(),
+      facebookUrl: z.string().max(512).nullable().optional(),
+      instagramUrl: z.string().max(512).nullable().optional(),
+      serviceArea: z.string().max(256).nullable().optional(),
+      yearsInBusiness: z.number().int().min(0).max(200).nullable().optional(),
+      storefrontEnabled: z.boolean().optional(),
+      template: z.enum(["classic", "showcase", "minimal", "craftsman"]).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const set: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(input)) { if (v !== undefined) set[k] = v; }
+      if (Object.keys(set).length > 0) await db.update(affiliates).set(set).where(eq(affiliates.id, mine.id));
+      return { id: mine.id };
+    }),
+
+  // ─── Partner: promo discount rules ──────────────────────────────────────────────────────────────
+  listPromoDiscounts: partnerProcedure
+    .query(async ({ ctx }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) return [];
+      const db = await getDb();
+      if (!db) return [];
+      return db.select().from(affiliatePromoDiscounts).where(eq(affiliatePromoDiscounts.affiliateId, mine.id)).orderBy(desc(affiliatePromoDiscounts.createdAt));
+    }),
+
+  savePromoDiscount: partnerProcedure
+    .input(z.object({
+      id: z.number().int().optional(),
+      label: z.string().min(1).max(256),
+      targetType: z.enum(["all", "category", "style"]),
+      targetId: z.string().max(64).nullable().optional(),
+      discountBps: z.number().int().min(1).max(9999),
+      startsAt: z.string().datetime().nullable().optional(),
+      endsAt: z.string().datetime().nullable().optional(),
+      active: z.boolean().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const vals = {
+        affiliateId: mine.id,
+        label: input.label,
+        targetType: input.targetType,
+        targetId: input.targetId ?? null,
+        discountBps: input.discountBps,
+        startsAt: input.startsAt ? new Date(input.startsAt) : null,
+        endsAt: input.endsAt ? new Date(input.endsAt) : null,
+        active: input.active,
+      };
+      if (input.id) {
+        const [existing] = await db.select().from(affiliatePromoDiscounts)
+          .where(and(eq(affiliatePromoDiscounts.id, input.id), eq(affiliatePromoDiscounts.affiliateId, mine.id))).limit(1);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Discount rule not found." });
+        await db.update(affiliatePromoDiscounts).set(vals).where(eq(affiliatePromoDiscounts.id, input.id));
+        return { id: input.id };
+      } else {
+        await db.insert(affiliatePromoDiscounts).values(vals);
+        return { id: null };
+      }
+    }),
+
+  deletePromoDiscount: partnerProcedure
+    .input(z.object({ id: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const { eq: eqOp } = await import("drizzle-orm");
+      await db.delete(affiliatePromoDiscounts)
+        .where(and(eqOp(affiliatePromoDiscounts.id, input.id), eqOp(affiliatePromoDiscounts.affiliateId, mine.id)));
+      return { ok: true };
+    }),
+
+  // ─── Partner: payout / 1099-NEC setup ──────────────────────────────────────────────────────────────
+  getPayoutSetupStatus: partnerProcedure
+    .query(async ({ ctx }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const w9Done = mine.w9Status === "verified";
+      const bankDone = mine.bankVerified;
+      const idDone = mine.idVerified;
+      const consentSigned = mine.payoutConsentSigned;
+      const payoutReady = mine.payoutReady;
+      // Mask account number — show only last 4 digits
+      const maskedAccount = mine.bankAccountNumber
+        ? `****${mine.bankAccountNumber.slice(-4)}`
+        : null;
+      return {
+        w9Done,
+        bankDone,
+        idDone,
+        consentSigned,
+        payoutReady,
+        bankName: mine.bankName,
+        bankRoutingNumber: mine.bankRoutingNumber,
+        maskedAccountNumber: maskedAccount,
+        bankAccountType: mine.bankAccountType,
+        ssnCardUploaded: !!mine.ssnCardUrl,
+        dlFrontUploaded: !!mine.dlFrontUrl,
+        dlBackUploaded: !!mine.dlBackUrl,
+        payoutConsentName: mine.payoutConsentName,
+        payoutConsentSignedAt: mine.payoutConsentSignedAt,
+      };
+    }),
+
+  savePayoutBankInfo: partnerProcedure
+    .input(z.object({
+      bankName: z.string().min(1).max(256),
+      bankRoutingNumber: z.string().regex(/^\d{9}$/, "Routing number must be exactly 9 digits"),
+      bankAccountNumber: z.string().min(4).max(64),
+      bankAccountType: z.enum(["checking", "savings"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      // Saving new bank info resets verification (admin must re-approve)
+      await db.update(affiliates).set({
+        bankName: input.bankName,
+        bankRoutingNumber: input.bankRoutingNumber,
+        bankAccountNumber: input.bankAccountNumber,
+        bankAccountType: input.bankAccountType,
+        bankVerified: false,
+        bankVerifiedAt: null,
+        payoutReady: false,
+        payoutReadyAt: null,
+      }).where(eq(affiliates.id, mine.id));
+      await notifyOwner({
+        title: "Affiliate bank info submitted",
+        content: `${mine.storeName} submitted bank info for payout setup. Please review in the admin panel.`,
+      });
+      return { ok: true, maskedAccount: `****${input.bankAccountNumber.slice(-4)}` };
+    }),
+
+  uploadPayoutIdDoc: partnerProcedure
+    .input(z.object({
+      docType: z.enum(["ssn_card", "dl_front", "dl_back"]),
+      fileBase64: z.string().min(1),
+      mimeType: z.string().default("image/jpeg"),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const ext = input.mimeType.split("/")[1] ?? "jpg";
+      // Store under a private path — only admin can generate presigned URLs
+      const key = `affiliate-id-docs/${mine.id}/${input.docType}-${Date.now()}.${ext}`;
+      const { url } = await storagePut(key, buffer, input.mimeType);
+      const fieldMap: Record<string, Partial<typeof affiliates.$inferInsert>> = {
+        ssn_card: { ssnCardUrl: url, idVerified: false, idVerifiedAt: null, payoutReady: false, payoutReadyAt: null },
+        dl_front: { dlFrontUrl: url, idVerified: false, idVerifiedAt: null, payoutReady: false, payoutReadyAt: null },
+        dl_back: { dlBackUrl: url, idVerified: false, idVerifiedAt: null, payoutReady: false, payoutReadyAt: null },
+      };
+      await db.update(affiliates).set(fieldMap[input.docType]).where(eq(affiliates.id, mine.id));
+      await notifyOwner({
+        title: "Affiliate ID document uploaded",
+        content: `${mine.storeName} uploaded ${input.docType.replace("_", " ")}. Please review in the admin panel.`,
+      });
+      return { ok: true, docType: input.docType };
+    }),
+
+  signPayoutConsent: partnerProcedure
+    .input(z.object({
+      legalName: z.string().min(2).max(256),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db.update(affiliates).set({
+        payoutConsentSigned: true,
+        payoutConsentSignedAt: new Date(),
+        payoutConsentName: input.legalName,
+      }).where(eq(affiliates.id, mine.id));
+      return { ok: true, signedAt: new Date() };
+    }),
+
+  // ─── Admin: view any affiliate's full data ──────────────────────────────────────────────────────────────
+  adminViewAffiliate: adminProcedure
+    .input(z.object({ affiliateId: z.number().int() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const [row] = await db.select().from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1);
+      return row ?? null;
+    }),
+
+  // Admin: review and approve/reject payout setup (bank + ID)
+  adminReviewPayoutSetup: adminProcedure
+    .input(z.object({
+      affiliateId: z.number().int().positive(),
+      bankAction: z.enum(["approve", "reject", "none"]).default("none"),
+      idAction: z.enum(["approve", "reject", "none"]).default("none"),
+      bankAdminNotes: z.string().max(1000).optional(),
+      idAdminNotes: z.string().max(1000).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [a] = await db.select().from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1);
+      if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      const update: Partial<typeof affiliates.$inferInsert> = {};
+      if (input.bankAction === "approve") {
+        update.bankVerified = true;
+        update.bankVerifiedAt = new Date();
+        if (input.bankAdminNotes) update.bankAdminNotes = input.bankAdminNotes;
+      } else if (input.bankAction === "reject") {
+        update.bankVerified = false;
+        update.bankVerifiedAt = null;
+        if (input.bankAdminNotes) update.bankAdminNotes = input.bankAdminNotes;
+      }
+      if (input.idAction === "approve") {
+        update.idVerified = true;
+        update.idVerifiedAt = new Date();
+        if (input.idAdminNotes) update.idAdminNotes = input.idAdminNotes;
+      } else if (input.idAction === "reject") {
+        update.idVerified = false;
+        update.idVerifiedAt = null;
+        if (input.idAdminNotes) update.idAdminNotes = input.idAdminNotes;
+      }
+      // Auto-set payoutReady when all four gates pass
+      const refreshed = { ...a, ...update };
+      const allVerified = refreshed.w9Status === "verified" && refreshed.bankVerified && refreshed.idVerified && refreshed.payoutConsentSigned;
+      update.payoutReady = allVerified;
+      update.payoutReadyAt = allVerified ? new Date() : null;
+      if (Object.keys(update).length > 0) {
+        await db.update(affiliates).set(update).where(eq(affiliates.id, input.affiliateId));
+      }
+      return { ok: true, payoutReady: allVerified };
+    }),
+
   // ─── Admin: verify or reject a W-9 submission ──────────────────────────────────────────────────────────────
   adminVerifyW9: adminProcedure
     .input(z.object({
@@ -995,73 +1344,188 @@ export const affiliatesRouter = router({
       return { ok: true };
     }),
 
-  // ─── Banner Schedules (stub — full implementation pending) ─────────────────
-  listBannerSchedules: partnerProcedure.query(async () => {
-    return [] as Array<{ id: number; message: string; startDate: string; endDate: string; holidayKey: string | null }>;
-  }),
-  createBannerSchedule: partnerProcedure
-    .input(z.object({ message: z.string(), holidayKey: z.string().optional(), startDate: z.string(), endDate: z.string() }))
-    .mutation(async () => ({ id: 0, ok: true })),
-  updateBannerSchedule: partnerProcedure
-    .input(z.object({ id: z.number(), message: z.string().optional(), holidayKey: z.string().optional(), startDate: z.string().optional(), endDate: z.string().optional() }))
-    .mutation(async () => ({ ok: true })),
-  deleteBannerSchedule: partnerProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(async () => ({ ok: true })),
-
-  // ─── Payout Setup (stub — full implementation pending) ─────────────────────
-  savePayoutBankInfo: partnerProcedure
-    .input(z.object({
-      bankName: z.string(),
-      bankRoutingNumber: z.string(),
-      bankAccountNumber: z.string(),
-      bankAccountType: z.enum(["checking", "savings"]),
-    }))
-    .mutation(async () => ({ ok: true, maskedAccount: "****0000" })),
-  uploadPayoutIdDoc: partnerProcedure
-    .input(z.object({ docType: z.string(), fileBase64: z.string(), mimeType: z.string() }))
-    .mutation(async () => ({ ok: true, url: "" })),
-  signPayoutConsent: partnerProcedure
-    .input(z.object({ legalName: z.string() }))
-    .mutation(async () => ({ ok: true })),
-  getPayoutSetupStatus: partnerProcedure.query(async () => ({
-    bankInfoSaved: false,
-    idDocUploaded: false,
-    consentSigned: false,
-    isComplete: false,
-    payoutReady: false,
-    w9Done: false,
-    bankDone: false,
-    idDone: false,
-    // Bank details
-    bankName: null as string | null,
-    maskedAccountNumber: null as string | null,
-    bankAccountType: null as string | null,
-    // ID doc upload status
-    ssnCardUploaded: false,
-    dlFrontUploaded: false,
-    dlBackUploaded: false,
-    // Consent
-    payoutConsentName: null as string | null,
-    payoutConsentSignedAt: null as number | null,
-  })),
-
-  // ─── Payout Verification (admin stub) ──────────────────────────────────────
+  // ─── Admin: list affiliates for payout verification ─────────────────────────
   listForPayoutVerification: adminProcedure.query(async () => {
-    return [] as Array<{
-      id: number; storeName: string; email: string;
-      legalName: string | null; businessName: string | null;
-      taxEntityType: string | null; taxId: string | null;
-      taxAddress: string | null; taxCity: string | null;
-      taxState: string | null; taxZip: string | null;
-      bankName: string | null; bankAccountType: string | null;
-      bankAccountLast4: string | null; bankRoutingLast4: string | null;
-      ssnCardUrl: string | null; dlFrontUrl: string | null; dlBackUrl: string | null;
-      payoutVerificationStatus: string | null; payoutVerificationNotes: string | null;
-      payoutEsignedAt: number | null; payoutSetupCompletedAt: number | null;
-    }>;
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const rows = await db
+      .select({
+        id: affiliates.id,
+        storeName: affiliates.storeName,
+        email: affiliates.email,
+        legalName: affiliates.w9LegalName,
+        businessName: affiliates.w9BusinessName,
+        taxEntityType: affiliates.w9EntityType,
+        taxId: affiliates.w9TaxId,
+        taxAddress: affiliates.w9Address,
+        taxCity: affiliates.w9City,
+        taxState: affiliates.w9State,
+        taxZip: affiliates.w9Zip,
+        bankName: affiliates.bankName,
+        bankAccountType: affiliates.bankAccountType,
+        bankAccountNumber: affiliates.bankAccountNumber,
+        bankRoutingNumber: affiliates.bankRoutingNumber,
+        bankVerified: affiliates.bankVerified,
+        ssnCardUrl: affiliates.ssnCardUrl,
+        dlFrontUrl: affiliates.dlFrontUrl,
+        dlBackUrl: affiliates.dlBackUrl,
+        idVerified: affiliates.idVerified,
+        payoutConsentSigned: affiliates.payoutConsentSigned,
+        payoutConsentSignedAt: affiliates.payoutConsentSignedAt,
+        payoutConsentName: affiliates.payoutConsentName,
+        payoutReady: affiliates.payoutReady,
+        payoutReadyAt: affiliates.payoutReadyAt,
+        payoutVerificationNotes: affiliates.w9AdminNotes,
+        w9Status: affiliates.w9Status,
+      })
+      .from(affiliates)
+      .orderBy(affiliates.createdAt);
+
+    return rows.map((r: typeof rows[number]) => ({
+      ...r,
+      bankAccountLast4: r.bankAccountNumber ? r.bankAccountNumber.slice(-4) : null,
+      bankRoutingLast4: r.bankRoutingNumber ? r.bankRoutingNumber.slice(-4) : null,
+      payoutEsignedAt: r.payoutConsentSignedAt ? r.payoutConsentSignedAt.getTime() : null,
+      payoutSetupCompletedAt: r.payoutReadyAt ? r.payoutReadyAt.getTime() : null,
+      payoutVerificationStatus: r.payoutReady
+        ? "approved"
+        : (r.w9Status as string) === "rejected"
+        ? "rejected"
+        : (r.w9Status as string) === "submitted" || r.bankName || r.ssnCardUrl
+        ? "pending"
+        : null,
+    }));
   }),
+
+  // ─── Admin: update payout verification status ────────────────────────────────
   updatePayoutVerification: adminProcedure
-    .input(z.object({ affiliateId: z.number(), status: z.string(), notes: z.string().optional() }))
-    .mutation(async () => ({ ok: true })),
+    .input(
+      z.object({
+        affiliateId: z.number().int().positive(),
+        status: z.enum(["pending", "approved", "rejected", "needs_info"]),
+        notes: z.string().max(2000).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [a] = await db.select().from(affiliates).where(eq(affiliates.id, input.affiliateId)).limit(1);
+      if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+
+      const updates: Record<string, unknown> = {
+        w9AdminNotes: input.notes ?? a.w9AdminNotes,
+      };
+
+      if (input.status === "approved") {
+        updates.payoutReady = true;
+        updates.payoutReadyAt = new Date();
+        updates.w9Status = "verified";
+        updates.w9VerifiedAt = new Date();
+        updates.bankVerified = true;
+        updates.bankVerifiedAt = new Date();
+        updates.idVerified = true;
+        updates.idVerifiedAt = new Date();
+      } else if (input.status === "rejected") {
+        updates.payoutReady = false;
+        updates.w9Status = "rejected";
+      } else {
+        updates.payoutReady = false;
+        updates.w9Status = "pending";
+      }
+
+      await db.update(affiliates).set(updates).where(eq(affiliates.id, input.affiliateId));
+
+      if (input.status === "approved" && a.email) {
+        try {
+          await notifyOwner({
+            title: "Affiliate Payout Approved",
+            content: `Affiliate ${a.storeName} (${a.email}) payout setup has been approved.`,
+          });
+        } catch (_) { /* non-critical */ }
+      }
+
+      return { ok: true };
+    }),
+
+  // ─── Banner Scheduler ─────────────────────────────────────────────────────
+
+  listBannerSchedules: protectedProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return [];
+    const aff = await resolveMyAffiliate(ctx);
+    if (!aff) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+    const rows = await db
+      .select()
+      .from(affiliateBannerSchedules)
+      .where(eq(affiliateBannerSchedules.affiliateId, aff.id))
+      .orderBy(affiliateBannerSchedules.startDate);
+    return rows;
+  }),
+
+  createBannerSchedule: protectedProcedure
+    .input(z.object({
+      message: z.string().min(1).max(500),
+      holidayKey: z.string().max(64).optional(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const aff = await resolveMyAffiliate(ctx);
+      if (!aff) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      const now = Date.now();
+      await db.insert(affiliateBannerSchedules).values({
+        affiliateId: aff.id,
+        message: input.message,
+        holidayKey: input.holidayKey ?? null,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { ok: true };
+    }),
+
+  updateBannerSchedule: protectedProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      message: z.string().min(1).max(500),
+      holidayKey: z.string().max(64).optional(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const aff = await resolveMyAffiliate(ctx);
+      if (!aff) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      const existing = await db
+        .select()
+        .from(affiliateBannerSchedules)
+        .where(and(eq(affiliateBannerSchedules.id, input.id), eq(affiliateBannerSchedules.affiliateId, aff.id)))
+        .limit(1);
+      if (!existing[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Banner schedule not found" });
+      await db.update(affiliateBannerSchedules)
+        .set({ message: input.message, holidayKey: input.holidayKey ?? null, startDate: input.startDate, endDate: input.endDate, updatedAt: Date.now() })
+        .where(eq(affiliateBannerSchedules.id, input.id));
+      return { ok: true };
+    }),
+
+  deleteBannerSchedule: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const aff = await resolveMyAffiliate(ctx);
+      if (!aff) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found" });
+      const existing = await db
+        .select()
+        .from(affiliateBannerSchedules)
+        .where(and(eq(affiliateBannerSchedules.id, input.id), eq(affiliateBannerSchedules.affiliateId, aff.id)))
+        .limit(1);
+      if (!existing[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Banner schedule not found" });
+      await db.delete(affiliateBannerSchedules).where(eq(affiliateBannerSchedules.id, input.id));
+      return { ok: true };
+    }),
 });

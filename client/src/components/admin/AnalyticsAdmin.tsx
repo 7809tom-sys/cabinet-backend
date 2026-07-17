@@ -1,13 +1,19 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, ExternalLink } from "lucide-react";
+import { BarChart3, ExternalLink, Eye, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { trpc } from "@/lib/trpc";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const ANALYTICS_WEBSITE_ID = import.meta.env.VITE_ANALYTICS_WEBSITE_ID || "";
 const ANALYTICS_ENDPOINT = import.meta.env.VITE_ANALYTICS_ENDPOINT || "";
 
 export function AnalyticsAdmin() {
-  // Umami share URL pattern: {endpoint}/share/{websiteId}/{name}
-  // If no share URL is configured, show the embedded iframe with the dashboard
+  const [days, setDays] = useState(30);
+  const { data: vendorBreakdown, isLoading } = trpc.analytics.adminVendorBreakdown.useQuery({ days });
+
   const dashboardUrl = ANALYTICS_ENDPOINT
     ? `${ANALYTICS_ENDPOINT}/websites/${ANALYTICS_WEBSITE_ID}`
     : null;
@@ -29,6 +35,72 @@ export function AnalyticsAdmin() {
           </Button>
         )}
       </div>
+
+      {/* Per-vendor product view breakdown */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Eye className="h-4 w-4 text-muted-foreground" />
+              Product Views by Vendor
+            </CardTitle>
+            <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Last 7 days</SelectItem>
+                <SelectItem value="30">Last 30 days</SelectItem>
+                <SelectItem value="90">Last 90 days</SelectItem>
+                <SelectItem value="365">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : !vendorBreakdown?.length ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Package className="mx-auto h-10 w-10 mb-3 opacity-30" />
+              <p className="text-sm">No product views recorded in this period.</p>
+              <p className="text-xs mt-1">Views are tracked when customers visit cabinet detail pages.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
+                    <th className="text-left py-2 pr-4">Vendor</th>
+                    <th className="text-right py-2 pr-4">Total Views</th>
+                    <th className="text-right py-2">Unique Products</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vendorBreakdown.map((row, i) => (
+                    <tr key={row.distributorId ?? i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                      <td className="py-2.5 pr-4 font-medium">
+                        {row.vendorName ?? <span className="text-muted-foreground italic">Unknown vendor</span>}
+                        <span className="ml-2 text-xs text-muted-foreground">#{row.distributorId}</span>
+                      </td>
+                      <td className="py-2.5 pr-4 text-right">
+                        <Badge variant="secondary" className="font-mono">
+                          {Number(row.totalViews).toLocaleString()}
+                        </Badge>
+                      </td>
+                      <td className="py-2.5 text-right text-muted-foreground">
+                        {Number(row.uniqueProducts).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {ANALYTICS_ENDPOINT && ANALYTICS_WEBSITE_ID ? (
         <Card className="overflow-hidden">

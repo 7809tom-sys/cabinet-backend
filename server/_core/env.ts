@@ -18,14 +18,4 @@ export const ENV = {
     const raw = (process.env.CRM_WEBHOOK_URL ?? "").trim();
     return /^https?:\/\//i.test(raw) ? raw : "";
   })(),
-  // Stripe payment processing
-  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
-  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
-  stripePublishableKey: process.env.VITE_STRIPE_PUBLISHABLE_KEY ?? "",
-  // QuickBooks Online
-  qboClientId: process.env.QBO_CLIENT_ID ?? "",
-  qboClientSecret: process.env.QBO_CLIENT_SECRET ?? "",
-  // Authorize.Net
-  authorizeNetApiLoginId: process.env.AUTHORIZE_NET_API_LOGIN_ID ?? "",
-  authorizeNetTransactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY ?? "",
 };

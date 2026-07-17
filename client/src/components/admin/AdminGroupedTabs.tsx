@@ -23,12 +23,26 @@ import {
   Hammer,
   Layers,
   Search,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Tab content components
 import { CrmBoard } from "@/components/crm/CrmBoard";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import LineBrandingEditor from "@/components/admin/LineBrandingEditor";
 import DistributorFulfillmentEditor from "@/components/admin/DistributorFulfillmentEditor";
 import CustomersAdmin from "@/components/admin/CustomersAdmin";
@@ -38,7 +52,8 @@ import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
 import ShippingAdmin from "@/components/admin/ShippingAdmin";
 import MarginsAdmin from "@/components/admin/MarginsAdmin";
 import DistributorMultipliersAdmin from "@/components/admin/DistributorMultipliersAdmin";
-import ConflictsAdmin from "@/components/admin/ConflictsAdmin";
+import ConflictsAdmin, { PendingSkusTab } from "@/components/admin/ConflictsAdmin";
+import DescriptionCleanupAdmin from "@/components/admin/DescriptionCleanupAdmin";
 import PayoutsAdmin from "@/components/admin/PayoutsAdmin";
 import CostLookupAdmin from "@/components/admin/CostLookupAdmin";
 import PaymentsAdmin from "@/components/admin/PaymentsAdmin";
@@ -64,6 +79,7 @@ import ApprovedVendorsAdmin from "@/components/admin/ApprovedVendorsAdmin";
 import PelicanCatalogAdmin from "@/components/admin/PelicanCatalogAdmin";
 import { AnalyticsAdmin } from "@/components/admin/AnalyticsAdmin";
 import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
+import PayoutVerificationAdmin from "@/components/admin/PayoutVerificationAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -90,6 +106,7 @@ const GROUPS = [
       { value: "affiliates", label: "Affiliates" },
       { value: "affiliate-invoices", label: "Affiliate Invoices" },
       { value: "payouts", label: "Payouts" },
+      { value: "payout-verification", label: "Payout Verification" },
       { value: "commissions", label: "Sales Commissions" },
       { value: "pros", label: "Pro Applications" },
       { value: "vendors", label: "Vendors" },
@@ -108,6 +125,7 @@ const GROUPS = [
       { value: "images", label: "Product Images" },
       { value: "pelican-catalog", label: "Pelican Catalog" },
       { value: "conflicts", label: "Conflicts" },
+      { value: "desc-cleanup", label: "Description Cleanup" },
       { value: "dimensions", label: "Dimensions & Weight" },
     ],
   },
@@ -365,6 +383,10 @@ function ProMatcher({ zip, onZipChange }: { zip: string; onZipChange: (z: string
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminGroupedTabs() {
+  const { data: flaggedDescCount } = trpc.cabinets.adminFlaggedDescriptionCount.useQuery(
+    undefined,
+    { refetchOnWindowFocus: false, staleTime: 60_000 }
+  );
   const initialTab = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("tab") || "crm";
@@ -423,8 +445,13 @@ export default function AdminGroupedTabs() {
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="h-auto w-full flex-wrap justify-start gap-y-1">
           {currentGroup.tabs.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>
+            <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
               {t.label}
+              {t.value === "desc-cleanup" && flaggedDescCount != null && flaggedDescCount > 0 && (
+                <span className="inline-flex items-center justify-center h-4 min-w-[1rem] px-1 text-[10px] font-bold rounded-full bg-red-500 text-white leading-none">
+                  {flaggedDescCount}
+                </span>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -443,6 +470,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="affiliates" className="mt-6"><AdminTabHelp tab="affiliates" /><AffiliatesAdmin /></TabsContent>
         <TabsContent value="affiliate-invoices" className="mt-6"><AdminTabHelp tab="affiliate-invoices" /><AffiliateInvoicesAdmin /></TabsContent>
         <TabsContent value="payouts" className="mt-6"><AdminTabHelp tab="payouts" /><PayoutsAdmin /></TabsContent>
+        <TabsContent value="payout-verification" className="mt-6"><PayoutVerificationAdmin /></TabsContent>
         <TabsContent value="commissions" className="mt-6"><AdminTabHelp tab="commissions" /><SalesCommissionsAdmin /></TabsContent>
         <TabsContent value="pros" className="mt-6"><AdminTabHelp tab="pros" /><ProApplications /></TabsContent>
         <TabsContent value="vendors" className="mt-6"><AdminTabHelp tab="vendors" /><VendorApplications /></TabsContent>
@@ -450,12 +478,26 @@ export default function AdminGroupedTabs() {
 
         {/* Products & Catalog */}
         <TabsContent value="cabinets" className="mt-6"><AdminTabHelp tab="cabinets" /><CabinetSpreadsheetAdmin /><CabinetLineDownload /></TabsContent>
-        <TabsContent value="distributors" className="mt-6 space-y-6"><AdminTabHelp tab="distributors" /><LineBrandingEditor /><DistributorFulfillmentEditor /><DistributorImport /></TabsContent>
+        <TabsContent value="distributors" className="mt-6 space-y-6"><AdminTabHelp tab="distributors" /><LineBrandingEditor /><DistributorFulfillmentEditor /><ErrorBoundary><DistributorImport /></ErrorBoundary></TabsContent>
         <TabsContent value="featured" className="mt-6"><AdminTabHelp tab="featured" /><FeaturedStylesAdmin /></TabsContent>
         <TabsContent value="door-corrections" className="mt-6"><AdminTabHelp tab="door-corrections" /><DoorCorrectionsAdmin /></TabsContent>
         <TabsContent value="images" className="mt-6"><AdminTabHelp tab="images" /><SkuImageManager /></TabsContent>
         <TabsContent value="pelican-catalog" className="mt-6"><PelicanCatalogAdmin /></TabsContent>
-        <TabsContent value="conflicts" className="mt-6"><AdminTabHelp tab="conflicts" /><ConflictsAdmin /></TabsContent>
+        <TabsContent value="conflicts" className="mt-6">
+          <AdminTabHelp tab="conflicts" />
+          <div className="space-y-8">
+            <DeduplicateSkusTool />
+            <PendingSkusTab />
+            <ConflictsAdmin />
+          </div>
+        </TabsContent>
+        <TabsContent value="desc-cleanup" className="mt-6">
+          <div className="space-y-2 mb-4">
+            <h2 className="text-lg font-semibold">Description Cleanup</h2>
+            <p className="text-sm text-muted-foreground">Review and clean cabinet descriptions that contain brand or supplier names. Check items to approve the suggested clean version (or edit it), then save.</p>
+          </div>
+          <DescriptionCleanupAdmin />
+        </TabsContent>
         <TabsContent value="dimensions" className="mt-6"><AdminTabHelp tab="dimensions" /><BulkDimensionsAdmin /></TabsContent>
 
         {/* Pricing */}
@@ -478,6 +520,84 @@ export default function AdminGroupedTabs() {
         <TabsContent value="analytics" className="mt-6"><AnalyticsAdmin /></TabsContent>
         <TabsContent value="export" className="mt-6"><FullDatabaseExport /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ─── Deduplicate SKUs Tool ────────────────────────────────────────────────────
+function DeduplicateSkusTool() {
+  const [done, setDone] = useState<{ deleted: number } | null>(null);
+
+  const { data: countData, isLoading: counting, refetch: recount } =
+    trpc.doorStyles.adminCountDuplicateSkus.useQuery(undefined, { refetchOnWindowFocus: false });
+
+  const dedup = trpc.doorStyles.adminDeduplicateAllSkus.useMutation({
+    onSuccess: (res) => {
+      setDone(res);
+      recount();
+      toast.success(`Removed ${res.deleted} duplicate SKU row${res.deleted !== 1 ? "s" : ""}`);
+    },
+    onError: (e) => toast.error(e.message || "Dedup failed"),
+  });
+
+  const rowsToDelete = countData?.rowsToDelete ?? 0;
+  const groups = countData?.duplicateGroups ?? 0;
+
+  if (rowsToDelete === 0 && !counting && !done) return null;
+
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex items-start gap-2 flex-1">
+        <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-semibold text-amber-800 text-sm">
+            {counting
+              ? "Scanning for duplicate SKU rows…"
+              : done
+              ? `Deduplication complete — ${done.deleted} duplicate row${done.deleted !== 1 ? "s" : ""} removed`
+              : `${rowsToDelete} duplicate SKU row${rowsToDelete !== 1 ? "s" : ""} found across ${groups} cabinet/style group${groups !== 1 ? "s" : ""}`}
+          </p>
+          <p className="text-xs text-amber-700 mt-0.5">
+            {done
+              ? "The catalog is now clean. Each cabinet/style/distributor combination has exactly one row."
+              : "The same cabinet is linked to more than one SKU row for the same style and distributor. This causes duplicates in the Line Items view. Deduplication keeps the latest upload and removes the older copies."}
+          </p>
+        </div>
+      </div>
+      {!done && rowsToDelete > 0 && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-amber-400 text-amber-800 hover:bg-amber-100 gap-1.5"
+              disabled={dedup.isPending}
+            >
+              <Trash2 className="h-4 w-4" />
+              {dedup.isPending ? "Removing…" : `Remove ${rowsToDelete} duplicate${rowsToDelete !== 1 ? "s" : ""}`}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove {rowsToDelete} duplicate SKU rows?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete {rowsToDelete} duplicate SKU row{rowsToDelete !== 1 ? "s" : ""} across{" "}
+                {groups} cabinet/style group{groups !== 1 ? "s" : ""}. The latest upload for each group will be kept.
+                This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={() => dedup.mutate()}
+              >
+                Yes, remove duplicates
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

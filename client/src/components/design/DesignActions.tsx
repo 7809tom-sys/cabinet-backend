@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator, Printer, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -397,12 +398,28 @@ export function DesignActions({
 
   return (
     <>
-      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setSaveOpen(true)}>
-        <Save className="h-3.5 w-3.5" /> {t("dt_act_save_btn")}
-      </Button>
-      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setLoadOpen(true)}>
-        <FolderOpen className="h-3.5 w-3.5" /> {t("dt_act_my_designs_btn")}
-      </Button>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setSaveOpen(true)}>
+            <Save className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+          <p className="font-semibold">Save Design</p>
+          <p className="text-muted-foreground mt-0.5">Save the current layout with a name so you can reload it later.</p>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setLoadOpen(true)}>
+            <FolderOpen className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+          <p className="font-semibold">My Designs</p>
+          <p className="text-muted-foreground mt-0.5">Browse and reload your previously saved kitchen designs.</p>
+        </TooltipContent>
+      </Tooltip>
 
       {/* Save dialog */}
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
@@ -597,18 +614,42 @@ export function DesignActions({
         </DialogContent>
       </Dialog>
 
-      {/* Export build sheet — replaces the placeholder cart action */}
-      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExport}>
-        <Download className="h-3.5 w-3.5" /> {t("dt_act_export_btn")}
-      </Button>
-      {/* Print Presentation — opens a print-optimized page with floor plan, elevations, and BOM */}
-      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => window.open("/design/presentation", "_blank")}>
-        <Printer className="h-3.5 w-3.5" /> {t("dt_act_presentation_btn")}
-      </Button>
-      {/* Fabricator Countertop Sheet — dimensioned drawing for countertop fabricators */}
-      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => window.open("/design/fabricator-sheet", "_blank")}>
-        <Ruler className="h-3.5 w-3.5" /> {t("dt_act_fabricator_btn")}
-      </Button>
+      {/* Export build sheet */}
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleExport}>
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+          <p className="font-semibold">Export Build Sheet</p>
+          <p className="text-muted-foreground mt-0.5">Download an itemized CSV of all cabinets and trim in this design.</p>
+        </TooltipContent>
+      </Tooltip>
+      {/* Print Presentation */}
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => window.open("/design/presentation", "_blank")}>
+            <Printer className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+          <p className="font-semibold">Print Presentation</p>
+          <p className="text-muted-foreground mt-0.5">Open a print-ready page with the floor plan, elevations, and bill of materials.</p>
+        </TooltipContent>
+      </Tooltip>
+      {/* Fabricator Countertop Sheet */}
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => window.open("/design/fabricator-sheet", "_blank")}>
+            <Ruler className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[200px] text-center text-xs">
+          <p className="font-semibold">Fabricator Sheet</p>
+          <p className="text-muted-foreground mt-0.5">Open a dimensioned countertop drawing for countertop fabricators.</p>
+        </TooltipContent>
+      </Tooltip>
     </>
   );
 }

@@ -5,7 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, blindPullRange,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -196,7 +196,7 @@ export function ElevationView({
     // the right. This drives the door flip so the door faces the exposed side.
     const isBlind = isBlindCorner(p.masterCode, p.description);
     const blindLeft = isBlind ? (posAlong <= 2) : true;
-    const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
+    const canDrag = !seam && !moveLocked && !!onMove;
 
     return (
       <div
@@ -287,6 +287,30 @@ export function ElevationView({
               {p.masterCode}
             </span>
           </div>
+          {/* Blind corner pull-distance tooltip: shown when this cabinet is
+              selected. Floats above the cabinet box as a gold chip. */}
+          {isBlind && isSelected && (() => {
+            const pr = blindPullRange(p);
+            if (!pr) return null;
+            const current = typeof p.blindPull === "number" ? p.blindPull : pr.max;
+            return (
+              <div
+                className="pointer-events-none absolute left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full px-2 py-0.5 shadow-lg"
+                style={{
+                  bottom: "calc(100% + 6px)",
+                  background: "#1a2744",
+                  border: "1.5px solid #d4a75a",
+                  zIndex: 20,
+                  whiteSpace: "nowrap",
+                  ...textFlip,
+                }}
+              >
+                <span className="text-[9px] font-semibold text-[#d4a75a]">{t("dt_blind_pull_label")}</span>
+                <span className="text-[9px] text-white font-bold">{current}"</span>
+                <span className="text-[8px] text-white/60">({t("dt_blind_pull_range", { min: pr.min, max: pr.max })})</span>
+              </div>
+            );
+          })()}
         </div>
       </div>
     );
@@ -317,7 +341,11 @@ export function ElevationView({
       const { height } = elevationBox(cabinet, room);
       const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
       let nextBottom = vDragStartBottom.current + dyIn;
-      nextBottom = Math.max(0, Math.min(maxBottom, nextBottom));
+      // Wall cabinets must never be dragged below the standard 54" mount line
+      // (WALL_MOUNT_BOTTOM). Clamping at 0 would allow them to sit on the floor,
+      // which violates the placement rule: wall cabinets belong above the counter.
+      const minBottom = STD.WALL_MOUNT_BOTTOM;
+      nextBottom = Math.max(minBottom, Math.min(maxBottom, nextBottom));
       // Snap to the standard mount line (54") and the upper-run top line so it
       // is easy to line back up with neighbors.
       const SNAP_IN = 1.5;
@@ -424,7 +452,8 @@ export function ElevationView({
       const cab = cabinets.find((c) => c.uid === selectedUid);
       if (!cab || cabinetWall(cab, room) !== side) return;
       const step = e.shiftKey ? 3 : 0.5;
-      // Horizontal (along-wall) nudge.
+      // Horizontal (along-wall) nudge — with collision detection so the cabinet
+      // cannot be nudged into a neighbour on the same wall/vertical band.
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
         if (!onMove) return;
         e.preventDefault();
@@ -432,7 +461,40 @@ export function ElevationView({
         const sizeAlong = horizontal ? placedFootprint(cab).w : placedFootprint(cab).d;
         const planSpanLen = horizontal ? room.width : room.depth;
         const cur = horizontal ? cab.x : cab.y;
-        const next = Math.max(0, Math.min(planSpanLen - sizeAlong, cur + dir * step));
+        let next = cur + dir * step;
+        // Collision: build the same vertical-band neighbour list used by the
+        // drag handler so the arrow key respects the same boundaries.
+        const cabBox = elevationBox(cab, room);
+        const cabTop = cabBox.bottom + cabBox.height;
+        const keyNeighbours = cabinets.filter(
+          (c) =>
+            c.uid !== cab.uid &&
+            cabinetWall(c, room) === side &&
+            (() => {
+              const oBox = elevationBox(c, room);
+              return cabBox.bottom < oBox.bottom + oBox.height - 0.01 &&
+                     oBox.bottom < cabTop - 0.01;
+            })() &&
+            !isStacker(c) &&
+            !isStacker(cab) &&
+            !isBridgeOverRange(cab, c) &&
+            !isBridgeOverRange(c, cab),
+        );
+        // Clamp next to the free interval [lo, hi] between neighbours.
+        let lo = 0;
+        let hi = planSpanLen - sizeAlong;
+        for (const o of keyNeighbours) {
+          const oAlong = horizontal ? o.x : o.y;
+          const oSize = horizontal ? placedFootprint(o).w : placedFootprint(o).d;
+          if (dir < 0) {
+            // Moving left: must not go past the right edge of a left neighbour.
+            if (oAlong + oSize <= cur + 0.01) lo = Math.max(lo, oAlong + oSize);
+          } else {
+            // Moving right: must not go past the left edge of a right neighbour.
+            if (oAlong >= cur + sizeAlong - 0.01) hi = Math.min(hi, oAlong - sizeAlong);
+          }
+        }
+        next = Math.max(lo, Math.min(hi, next));
         if (horizontal) onMove(cab.uid, next, cab.y);
         else onMove(cab.uid, cab.x, next);
         return;
@@ -443,7 +505,8 @@ export function ElevationView({
         const dir = e.key === "ArrowUp" ? 1 : -1;
         const { bottom, height } = elevationBox(cab, room);
         const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
-        const next = Math.max(0, Math.min(maxBottom, bottom + dir * step));
+        // Wall cabinets must never go below the 54" mount line (same rule as drag).
+        const next = Math.max(STD.WALL_MOUNT_BOTTOM, Math.min(maxBottom, bottom + dir * step));
         onMoveVertical(cab.uid, Math.round(next * 10) / 10);
       }
     };

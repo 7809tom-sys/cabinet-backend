@@ -1,1 +1,0 @@
-ALTER TABLE `door_styles` ADD `pricingVerifiedAt` timestamp;

@@ -1,1 +1,0 @@
-ALTER TABLE `pricing_settings` ADD `tierPricesRecalcAt` timestamp;

@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { publicProcedure, distributorProcedure, router } from "../_core/trpc";
+import { publicProcedure, distributorProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { productViews } from "../../drizzle/schema";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { productViews, distributors } from "../../drizzle/schema";
+import { eq, and, gte, sql, desc } from "drizzle-orm";
 
 export const analyticsRouter = router({
   // Public: track a product view (called from storefront pages)
@@ -47,7 +47,7 @@ export const analyticsRouter = router({
       // Admin must pass distributorId; distributor uses their own
       let distId: number;
       if (ctx.isAdmin) {
-        if (!input?.distributorId) return { totalViews: 0, uniqueProducts: 0, topProducts: [], dailyViews: [] };
+        if (!input?.distributorId) return { totalViews: 0, uniqueProducts: 0, topProducts: [], dailyViews: [], topReferrers: [] };
         distId = input.distributorId;
       } else {
         distId = ctx.distributorId!;
@@ -121,5 +121,27 @@ export const analyticsRouter = router({
         topProducts,
         topReferrers,
       };
+    }),
+
+  // Admin: per-vendor product view breakdown
+  adminVendorBreakdown: adminProcedure
+    .input(z.object({ days: z.number().min(1).max(365).default(30) }).optional())
+    .query(async ({ input }) => {
+      const db = (await getDb())!;
+      const days = input?.days ?? 30;
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const rows = await db
+        .select({
+          distributorId: productViews.distributorId,
+          vendorName: distributors.name,
+          totalViews: sql<number>`COUNT(*)`.as("totalViews"),
+          uniqueProducts: sql<number>`COUNT(DISTINCT ${productViews.pageSlug})`.as("uniqueProducts"),
+        })
+        .from(productViews)
+        .leftJoin(distributors, eq(productViews.distributorId, distributors.id))
+        .where(gte(productViews.viewedAt, since))
+        .groupBy(productViews.distributorId, distributors.name)
+        .orderBy(desc(sql`COUNT(*)`));
+      return rows;
     }),
 });

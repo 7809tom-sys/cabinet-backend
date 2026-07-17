@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
-import { getDb, notInConflict, getPricingSettings } from "../db";
-import { sellPriceForTier } from "@shared/margins";
+import { getDb, notInConflict } from "../db";
 import {
   cabinets,
   distributors,
@@ -10,6 +9,7 @@ import {
   distributorSkus,
   affiliates,
   affiliateStyleBranding,
+  affiliateBannerSchedules,
 } from "../../drizzle/schema";
 
 // ─── Family-locked storefront browsing ─────────────────────────────────────────
@@ -344,6 +344,7 @@ export const storefrontRouter = router({
 
       const baseSelect = {
         id: cabinets.id,
+        skuId: distributorSkus.id,
         masterCode: cabinets.masterCode,
         description: cabinets.description,
         category: cabinets.category,
@@ -376,19 +377,13 @@ export const storefrontRouter = router({
         const grouped = allRows.filter(
           (r) => accessoryGroupFor(r) === input.subCategory
         );
-        const psAcc = await getPricingSettings();
         const pricedAcc = grouped
           .slice(input.offset, input.offset + input.limit)
           .map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
             ...r,
-            // Retail = cost base × homeowner markup (matches the admin tab). We
-            // strip the raw cost columns from the client payload.
-            homeownerPrice:
-              sellPriceForTier(
-                { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
-                psAcc,
-                "homeowner"
-              )?.toFixed(2) ?? r.homeownerPrice,
+            // Show homeownerPrice directly (set by vendor or admin inline edit).
+            // Fall back to listPrice then yourCost. No tier-markup stacking.
+            homeownerPrice: r.homeownerPrice ?? r.listPrice ?? yourCost ?? null,
           }));
         return {
           items: pricedAcc,
@@ -411,19 +406,11 @@ export const storefrontRouter = router({
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(...conditions));
 
-      // Apply the platform homeowner tier markup so the displayed retail price
-      // reflects the admin's Pricing & Margins setting (0% => unchanged).
-      const ps = await getPricingSettings();
       const priced = rows.map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
         ...r,
-        // Retail = cost base × homeowner markup (matches the admin tab). The raw
-        // cost columns are stripped from the client payload.
-        homeownerPrice:
-          sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
-            ps,
-            "homeowner"
-          )?.toFixed(2) ?? r.homeownerPrice,
+        // Show homeownerPrice directly (set by vendor or admin inline edit).
+        // Fall back to listPrice then yourCost. No tier-markup stacking.
+        homeownerPrice: r.homeownerPrice ?? r.listPrice ?? yourCost ?? null,
       }));
 
       return {
@@ -540,16 +527,10 @@ export const storefrontRouter = router({
         ]);
       }
 
-      // Retail = cost base × homeowner markup; strip raw cost columns.
-      const psRec = await getPricingSettings();
       const items = rows.map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
         ...r,
-        homeownerPrice:
-          sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
-            psRec,
-            "homeowner"
-          )?.toFixed(2) ?? r.homeownerPrice,
+        // Show homeownerPrice directly; fall back to listPrice then yourCost.
+        homeownerPrice: r.homeownerPrice ?? r.listPrice ?? yourCost ?? null,
       }));
 
       return { intent: input.intent, items };
@@ -610,17 +591,11 @@ export const storefrontRouter = router({
 
       const g = rows[0];
       if (!g) return null;
-      // Retail = cost base × homeowner markup; strip raw cost columns.
-      const psG = await getPricingSettings();
-      const { wholesalePrice, adjustedListPrice, yourCost, ...rest } = g;
+      const { wholesalePrice: _wp, adjustedListPrice: _alp, yourCost: _yc, ...rest } = g;
       return {
         ...rest,
-        homeownerPrice:
-          sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: rest.listPrice },
-            psG,
-            "homeowner"
-          )?.toFixed(2) ?? rest.homeownerPrice,
+        // Show homeownerPrice directly; fall back to listPrice then yourCost.
+        homeownerPrice: g.homeownerPrice ?? g.listPrice ?? g.yourCost ?? null,
       };
     }),
 
@@ -649,19 +624,59 @@ export const storefrontRouter = router({
           styleId: affiliateStyleBranding.styleId,
           brandName: affiliateStyleBranding.brandName,
           markupBps: affiliateStyleBranding.markupBps,
+          featured: affiliateStyleBranding.featured,
+          sortOrder: affiliateStyleBranding.sortOrder,
+          roomSceneUrl: affiliateStyleBranding.roomSceneUrl,
+          hidden: affiliateStyleBranding.hidden,
         })
         .from(affiliateStyleBranding)
         .where(eq(affiliateStyleBranding.affiliateId, a.id));
+
+      // Fetch door style names + thumbnails for featured (non-hidden) styles
+      const featuredStyleIds = brandRows
+        .filter((r) => r.featured && !r.hidden)
+        .map((r) => r.styleId);
+      let doorStyleDetails: Array<{ id: number; ourName: string | null; thumbnailImageUrl: string | null }> = [];
+      if (featuredStyleIds.length > 0) {
+        doorStyleDetails = await db
+          .select({ id: doorStyles.id, ourName: doorStyles.ourName, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+          .from(doorStyles)
+          .where(inArray(doorStyles.id, featuredStyleIds));
+      }
+      const doorStyleMap = new Map(doorStyleDetails.map((d) => [d.id, d]));
 
       // styleId -> brand name override (blank entries omitted)
       const styleNames: Record<number, string> = {};
       // styleId -> per-style markup bps override
       const styleMarkupBps: Record<number, number> = {};
+      // hidden style IDs (affiliate has hidden these from their storefront)
+      const hiddenStyleIds: number[] = [];
+      // featured styles for spotlight section
+      const featuredStyles: Array<{
+        styleId: number;
+        displayName: string;
+        roomSceneUrl: string | null;
+        thumbnailUrl: string | null;
+        sortOrder: number;
+      }> = [];
+
       for (const r of brandRows) {
         const nm = (r.brandName ?? "").trim();
         if (nm) styleNames[r.styleId] = nm;
         if (typeof r.markupBps === "number") styleMarkupBps[r.styleId] = r.markupBps;
+        if (r.hidden) hiddenStyleIds.push(r.styleId);
+        if (r.featured && !r.hidden) {
+          const ds = doorStyleMap.get(r.styleId);
+          featuredStyles.push({
+            styleId: r.styleId,
+            displayName: nm || ds?.ourName || `Style ${r.styleId}`,
+            roomSceneUrl: r.roomSceneUrl ?? null,
+            thumbnailUrl: ds?.thumbnailImageUrl ?? null,
+            sortOrder: r.sortOrder,
+          });
+        }
       }
+      featuredStyles.sort((a, b) => a.sortOrder - b.sortOrder);
 
       let categoryMarkupBps: Record<string, number> = {};
       try {
@@ -670,11 +685,36 @@ export const storefrontRouter = router({
         categoryMarkupBps = {};
       }
 
+      // Resolve active scheduled banner by today's date
+      const today = new Date().toISOString().slice(0, 10);
+      const bannerRows = await db
+        .select()
+        .from(affiliateBannerSchedules)
+        .where(
+          and(
+            eq(affiliateBannerSchedules.affiliateId, a.id),
+            sql`${affiliateBannerSchedules.startDate} <= ${today}`,
+            sql`${affiliateBannerSchedules.endDate} >= ${today}`,
+          )
+        )
+        .orderBy(affiliateBannerSchedules.createdAt)
+        .limit(1);
+      const scheduledBanner = bannerRows[0] ?? null;
+
+      // Merge: scheduled banner overrides manual promo banner if active
+      const activeBannerText = scheduledBanner
+        ? scheduledBanner.message
+        : (a.promoBannerActive ? (a.promoBannerText ?? null) : null);
+
       return {
         globalMarkupBps: a.defaultMarkupBps ?? 0,
         categoryMarkupBps,
         styleMarkupBps,
         styleNames,
+        hiddenStyleIds,
+        featuredStyles,
+        promoBannerText: activeBannerText,
+        promoBannerActive: activeBannerText !== null,
       };
     }),
 });

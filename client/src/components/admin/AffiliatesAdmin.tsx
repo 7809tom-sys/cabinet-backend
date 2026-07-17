@@ -859,12 +859,15 @@ const IT_MAX = 100;
 const PRICE_CATEGORIES = ["base", "wall", "tall", "vanity", "specialty"] as const;
 type PriceCategory = typeof PRICE_CATEGORIES[number];
 const PRICE_CATEGORY_LABELS: Record<PriceCategory, string> = { base: "Base Cabinets", wall: "Wall Cabinets", tall: "Tall / Pantry", vanity: "Vanity", specialty: "Specialty" };
-function computeFloor(retail: number) {
+type AdminPaymentMethod = "card" | "ach_wire";
+function computeFloor(retail: number, paymentMethod: AdminPaymentMethod = "card") {
   const baseline = retail * (1 + BASELINE_PCT);
   const afterDamage = baseline * (1 + DAMAGE_PCT);
-  const afterCC = afterDamage * (1 + CC_PCT);
+  const ccRate = paymentMethod === "card" ? CC_PCT : 0;
+  const afterCC = afterDamage * (1 + ccRate);
+  const ccFee = afterCC - afterDamage;
   const itFee = Math.min(retail * IT_PCT, IT_MAX);
-  return { baseline, afterDamage, afterCC, itFee, floor: afterCC + itFee };
+  return { baseline, afterDamage, afterCC, ccFee, itFee, floor: afterCC + itFee };
 }
 function bpsToPercent(bps: number) { return (bps / 100).toFixed(2); }
 function percentToBps(pct: string) { return Math.round(parseFloat(pct) * 100); }
@@ -875,6 +878,7 @@ function AffiliatePricingAdmin({ affiliateId }: { affiliateId: number }) {
   const [defaultPct, setDefaultPct] = useState("");
   const [categoryPcts, setCategoryPcts] = useState<Partial<Record<PriceCategory, string>>>({});
   const [calcRetail, setCalcRetail] = useState("1000");
+  const [adminPaymentMethod, setAdminPaymentMethod] = useState<AdminPaymentMethod>("card");
   const [initialized, setInitialized] = useState(false);
 
   const updateMarkup = trpc.affiliates.adminUpdateMarkup.useMutation({
@@ -893,7 +897,7 @@ function AffiliatePricingAdmin({ affiliateId }: { affiliateId: number }) {
   }
 
   const retail = parseFloat(calcRetail) || 0;
-  const { baseline, afterDamage, afterCC, itFee, floor } = useMemo(() => computeFloor(retail), [retail]);
+  const { baseline, afterDamage, afterCC, ccFee, itFee, floor } = useMemo(() => computeFloor(retail, adminPaymentMethod), [retail, adminPaymentMethod]);
   const defaultMarkupBps = percentToBps(defaultPct || "0");
   const customerPrice = floor * (1 + defaultMarkupBps / 10000);
 
@@ -914,23 +918,40 @@ function AffiliatePricingAdmin({ affiliateId }: { affiliateId: number }) {
     <div className="space-y-5 max-w-2xl">
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
         <p className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4 text-primary" /> Cost Floor Calculator</p>
-        <div className="flex items-end gap-3">
-          <div className="space-y-1 flex-1 max-w-xs">
-            <Label className="text-xs">Cabinet Dealz retail price ($)</Label>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1 flex-1 min-w-[130px] max-w-xs">
+            <Label className="text-xs">Cabinet Dealz cost ($)</Label>
             <Input type="number" value={calcRetail} onChange={(e) => setCalcRetail(e.target.value)} placeholder="1000" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Payment method</Label>
+            <div className="flex rounded-md border border-border overflow-hidden text-xs">
+              <button type="button" onClick={() => setAdminPaymentMethod("card")}
+                className={`px-2.5 py-1.5 font-medium transition-colors ${
+                  adminPaymentMethod === "card" ? "bg-primary text-white" : "bg-background text-muted-foreground hover:bg-muted"
+                }`}>Credit Card</button>
+              <button type="button" onClick={() => setAdminPaymentMethod("ach_wire")}
+                className={`px-2.5 py-1.5 font-medium transition-colors border-l border-border ${
+                  adminPaymentMethod === "ach_wire" ? "bg-primary text-white" : "bg-background text-muted-foreground hover:bg-muted"
+                }`}>ACH / Wire</button>
+            </div>
           </div>
         </div>
         <div className="rounded-lg border border-border overflow-hidden text-sm">
           {[
-            ["Cabinet Dealz retail", `$${retail.toFixed(2)}`],
-            ["+5% affiliate baseline", `$${baseline.toFixed(2)}`],
-            ["+1% damage protection", `$${afterDamage.toFixed(2)}`],
-            ["+4% credit card fee", `$${afterCC.toFixed(2)}`],
-            ["+IT/platform fee (10%, max $100)", `$${itFee.toFixed(2)}`],
-          ].map(([label, val]) => (
-            <div key={label} className="flex justify-between px-3 py-1.5 border-b border-border last:border-0">
-              <span className="text-muted-foreground text-xs">{label}</span>
-              <span className="tabular-nums text-xs">{val}</span>
+            ["Cabinet Dealz cost", `$${retail.toFixed(2)}`, false],
+            ["+5% affiliate baseline", `$${baseline.toFixed(2)}`, false],
+            ["+1% damage protection", `$${afterDamage.toFixed(2)}`, false],
+            [
+              adminPaymentMethod === "card" ? "+4% credit card fee" : "Credit card fee (waived — ACH/wire)",
+              adminPaymentMethod === "card" ? `$${afterCC.toFixed(2)}` : `$${(afterDamage * (1 + CC_PCT)).toFixed(2)}`,
+              adminPaymentMethod === "ach_wire",
+            ],
+            ["+IT/platform fee (10%, max $100)", `$${itFee.toFixed(2)}`, false],
+          ].map(([label, val, waived]) => (
+            <div key={label as string} className="flex justify-between px-3 py-1.5 border-b border-border last:border-0">
+              <span className="text-muted-foreground text-xs">{label as string}</span>
+              <span className={`tabular-nums text-xs ${waived ? "text-emerald-600 line-through" : ""}`}>{val as string}</span>
             </div>
           ))}
           <div className="flex justify-between px-3 py-2 bg-amber-50 font-semibold text-sm">

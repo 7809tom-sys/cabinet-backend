@@ -13,7 +13,7 @@ import {
   flooringMaterial,
   type PlanAnnotation,
   wallDimensions, type DimensionSeg,
-  type PonyWall, clampPonyWall,
+  type PonyWall, clampPonyWall, blindPullRange,
 } from "@/lib/design";
 import { X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -617,7 +617,10 @@ export function PlanCanvas({
           left: "50%",
           top: "50%",
           transform: "translate(-50%, -50%)",
-          border: "3px solid #1a2744",
+          border: room.vertices && room.vertices.length >= 3 ? "none" : "3px solid #1a2744",
+          ...(room.vertices && room.vertices.length >= 3 ? {
+            clipPath: `polygon(${room.vertices.map((v) => `${(v.x / room.width) * 100}% ${(v.y / room.depth) * 100}%`).join(", ")})`,
+          } : {}),
           backgroundColor: flooringMaterialId
             ? flooringMaterial(flooringMaterialId).fill
             : "#ffffff",
@@ -684,6 +687,23 @@ export function PlanCanvas({
           })(),
         }}
       >
+        {/* Polygon room outline: when the room has vertices, draw the polygon border as an SVG overlay */}
+        {room.vertices && room.vertices.length >= 3 && (
+          <svg
+            className="pointer-events-none absolute inset-0 z-[6] overflow-visible"
+            width={roomPxW}
+            height={roomPxH}
+            style={{ left: 0, top: 0 }}
+          >
+            <polyline
+              points={[...room.vertices, room.vertices[0]].map((v) => `${(v.x / room.width) * roomPxW},${(v.y / room.depth) * roomPxH}`).join(" ")}
+              fill="none"
+              stroke="#1a2744"
+              strokeWidth={3}
+              strokeLinejoin="miter"
+            />
+          </svg>
+        )}
         {/* Draggable wall bands: click to highlight, drag to resize the room on
             that side. Rendered first so they sit beneath cabinets. */}
         {onSelectWall && !measureMode && !drawMode && (["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
@@ -697,14 +717,14 @@ export function PlanCanvas({
                 width: roomPxW,
                 height: band,
                 top: side === "top" ? 0 : roomPxH - band,
-                cursor: wallLocked ? "pointer" : onResizeWall ? "ns-resize" : "pointer",
+                cursor: "pointer",
               }
             : {
                 top: 0,
                 height: roomPxH,
                 width: band,
                 left: side === "left" ? 0 : roomPxW - band,
-                cursor: wallLocked ? "pointer" : onResizeWall ? "ew-resize" : "pointer",
+                cursor: "pointer",
               };
           return (
             <div
@@ -725,7 +745,7 @@ export function PlanCanvas({
                   className="pointer-events-none rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold text-white shadow whitespace-nowrap"
                   style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
                 >
-                  {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : t("dt_pc_wall_resize_suffix")}
+                  {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : ""}
                 </span>
               )}
               {wallLocked && !isActive && (
@@ -952,50 +972,154 @@ export function PlanCanvas({
           const horizontal = o.side === "top" || o.side === "bottom";
           const isSel = o.uid === selectedOpeningUid;
           const isDoor = o.kind === "door";
+          const isWindow = o.kind === "window";
           const isOpening = o.kind === "opening";
-          // Wall band thickness in px (how far the opening graphic extends into the room).
-          const band = 10;
+          // Wall thickness in px — matches the 3px solid border of the room div.
+          const wallPx = 3;
+          // The opening graphic straddles the wall border: wallPx outside + wallPx inside.
+          const wallBand = wallPx * 2; // 6 px total
           const lenPx = o.width * ppi;
           const offPx = o.offset * ppi;
-          const style: React.CSSProperties = horizontal
+          // For doors we need room for the swing arc (radius = lenPx).
+          const swingSize = isDoor ? lenPx : 0;
+          // Outer container: absolutely positioned relative to the room div.
+          const containerStyle: React.CSSProperties = horizontal
             ? {
                 left: offPx,
                 width: lenPx,
-                height: band,
-                top: o.side === "top" ? -band / 2 : roomPxH - band / 2,
+                height: wallBand + swingSize,
+                top:
+                  o.side === "top"
+                    ? -wallPx
+                    : roomPxH - wallPx - swingSize,
               }
             : {
                 top: offPx,
                 height: lenPx,
-                width: band,
-                left: o.side === "left" ? -band / 2 : roomPxW - band / 2,
+                width: wallBand + swingSize,
+                left:
+                  o.side === "left"
+                    ? -wallPx
+                    : roomPxW - wallPx - swingSize,
               };
+
+          // SVG total size
+          const svgW = horizontal ? lenPx : wallBand + swingSize;
+          const svgH = horizontal ? wallBand + swingSize : lenPx;
+
+          // Gap rect: white rectangle that erases the wall border at the opening.
+          const gapRect = horizontal
+            ? <rect x={0} y={0} width={lenPx} height={wallBand} fill="white" />
+            : <rect x={0} y={0} width={wallBand} height={lenPx} fill="white" />;
+
+          // Door swing arc: quarter-circle from hinge corner (start of opening).
+          // Arc swings INTO the room. Hinge is at the start (left/top) of the opening.
+          let doorSymbol: React.ReactNode = null;
+          if (isDoor) {
+            if (horizontal) {
+              // Interior edge of wall is at y=wallBand (top wall) or y=0 (bottom wall, flipped).
+              const interiorY = o.side === "top" ? wallBand : 0;
+              // Arc endpoint: from (lenPx, interiorY) sweeping to (0, interiorY ± lenPx)
+              const arcEndY = o.side === "top" ? interiorY + lenPx : interiorY - lenPx;
+              const sweepDir = o.side === "top" ? 0 : 1;
+              doorSymbol = (
+                <g stroke="#1a2744" strokeWidth={1.2} fill="none">
+                  {/* door panel line along the wall interior edge */}
+                  <line x1={0} y1={interiorY} x2={lenPx} y2={interiorY} />
+                  {/* swing arc from far end of door back to hinge corner */}
+                  <path d={`M ${lenPx},${interiorY} A ${lenPx},${lenPx} 0 0,${sweepDir} 0,${arcEndY}`} />
+                </g>
+              );
+            } else {
+              const interiorX = o.side === "left" ? wallBand : 0;
+              const arcEndX = o.side === "left" ? interiorX + lenPx : interiorX - lenPx;
+              const sweepDir = o.side === "left" ? 0 : 1;
+              doorSymbol = (
+                <g stroke="#1a2744" strokeWidth={1.2} fill="none">
+                  <line x1={interiorX} y1={0} x2={interiorX} y2={lenPx} />
+                  <path d={`M ${interiorX},${lenPx} A ${lenPx},${lenPx} 0 0,${sweepDir} ${arcEndX},0`} />
+                </g>
+              );
+            }
+          }
+
+          // Window symbol: light-blue glass fill + two thin parallel frame lines.
+          let windowSymbol: React.ReactNode = null;
+          if (isWindow) {
+            const fi = Math.max(1, Math.round(wallBand * 0.25));
+            if (horizontal) {
+              windowSymbol = (
+                <g>
+                  <rect x={0} y={0} width={lenPx} height={wallBand} fill="#b8d8f0" />
+                  <line x1={0} y1={fi} x2={lenPx} y2={fi} stroke="#5a9fc0" strokeWidth={0.8} />
+                  <line x1={0} y1={wallBand - fi} x2={lenPx} y2={wallBand - fi} stroke="#5a9fc0" strokeWidth={0.8} />
+                </g>
+              );
+            } else {
+              windowSymbol = (
+                <g>
+                  <rect x={0} y={0} width={wallBand} height={lenPx} fill="#b8d8f0" />
+                  <line x1={fi} y1={0} x2={fi} y2={lenPx} stroke="#5a9fc0" strokeWidth={0.8} />
+                  <line x1={wallBand - fi} y1={0} x2={wallBand - fi} y2={lenPx} stroke="#5a9fc0" strokeWidth={0.8} />
+                </g>
+              );
+            }
+          }
+
+          // Label position: centered over the gap band.
+          const labelX = horizontal ? lenPx / 2 : (wallBand + swingSize) / 2;
+          const labelY = horizontal
+            ? (o.side === "top" ? wallBand / 2 : swingSize + wallBand / 2)
+            : lenPx / 2;
+
           return (
             <div
               key={o.uid}
               onPointerDown={(e) => onOpeningPointerDown(e, o, "move")}
               onPointerMove={onOpeningPointerMove}
               onPointerUp={onOpeningPointerUp}
-              className={`group absolute z-[15] flex items-center justify-center ${onOpeningChange ? "cursor-move" : ""}`}
-              style={{
-                ...style,
-                background: isDoor ? "#9b6a3c" : isOpening ? "#e8eaed" : "#7fb4d6",
-                border: isSel
-                  ? "2px solid #1a2744"
-                  : isOpening
-                  ? "1px dashed rgba(90,103,112,0.85)"
-                  : "1px solid rgba(0,0,0,0.35)",
-                boxShadow: isSel ? "0 0 0 3px rgba(212,167,90,0.5)" : undefined,
-                borderRadius: 2,
-              }}
+              className={`group absolute z-[15] ${onOpeningChange ? "cursor-move" : ""}`}
+              style={containerStyle}
               title={t("dt_pc_opening_drag", { label: o.label, width: Math.round(o.width) })}
             >
-              <span
-                className={`pointer-events-none whitespace-nowrap text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}
-                style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
+              <svg
+                width={svgW}
+                height={svgH}
+                style={{ display: "block", overflow: "visible" }}
+                className="pointer-events-none"
               >
-                {isDoor ? t("dt_pc_door") : isOpening ? t("dt_pc_open") : t("dt_pc_win")} {Math.round(o.width)}"
-              </span>
+                {/* White gap erases the wall border at the opening */}
+                {gapRect}
+                {/* Architectural symbol (door arc or window glass) */}
+                {doorSymbol}
+                {windowSymbol}
+                {/* Selection highlight outline */}
+                {isSel && (
+                  horizontal
+                    ? <rect x={0} y={0} width={lenPx} height={wallBand} fill="none" stroke="#d4a75a" strokeWidth={2} strokeDasharray="4 2" />
+                    : <rect x={0} y={0} width={wallBand} height={lenPx} fill="none" stroke="#d4a75a" strokeWidth={2} strokeDasharray="4 2" />
+                )}
+                {/* Cased opening: dashed outline only */}
+                {isOpening && (
+                  horizontal
+                    ? <rect x={0} y={0} width={lenPx} height={wallBand} fill="none" stroke="rgba(90,103,112,0.7)" strokeWidth={1} strokeDasharray="3 2" />
+                    : <rect x={0} y={0} width={wallBand} height={lenPx} fill="none" stroke="rgba(90,103,112,0.7)" strokeWidth={1} strokeDasharray="3 2" />
+                )}
+                {/* Label */}
+                <text
+                  x={labelX}
+                  y={labelY}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={7}
+                  fontWeight="bold"
+                  fill={isOpening ? "#3a4047" : isDoor ? "#1a2744" : "#1a5070"}
+                  style={{ userSelect: "none" }}
+                  transform={horizontal ? undefined : `rotate(-90, ${labelX}, ${labelY})`}
+                >
+                  {isDoor ? t("dt_pc_door") : isOpening ? t("dt_pc_open") : t("dt_pc_win")} {Math.round(o.width)}"
+                </text>
+              </svg>
               {/* width-resize handle at the far end */}
               {onOpeningChange && (
                 <div
@@ -1005,8 +1129,8 @@ export function PlanCanvas({
                   className="absolute h-3 w-3 rounded-sm bg-[#1a2744] border border-white shadow"
                   style={
                     horizontal
-                      ? { right: -6, top: "50%", transform: "translateY(-50%)", cursor: "ew-resize" }
-                      : { bottom: -6, left: "50%", transform: "translateX(-50%)", cursor: "ns-resize" }
+                      ? { right: -6, top: wallPx - 6, cursor: "ew-resize" }
+                      : { bottom: -6, left: wallPx - 6, cursor: "ns-resize" }
                   }
                 />
               )}
@@ -1207,6 +1331,30 @@ export function PlanCanvas({
                     <X className="h-3 w-3" strokeWidth={3} />
                   </button>
                 )}
+                {/* Blind corner pull-distance chip: floats above the cabinet
+                    in plan view when it is selected so the user can see the
+                    current pull and the allowed min/max range at a glance. */}
+                {isSelected && !measureMode && isBlind && (() => {
+                  const pr = blindPullRange(p);
+                  if (!pr) return null;
+                  const current = typeof p.blindPull === "number" ? p.blindPull : pr.max;
+                  return (
+                    <div
+                      className="pointer-events-none absolute left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full px-2 py-0.5 shadow-lg"
+                      style={{
+                        bottom: "calc(100% + 6px)",
+                        background: "#1a2744",
+                        border: "1.5px solid #d4a75a",
+                        zIndex: 30,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <span className="text-[9px] font-semibold text-[#d4a75a]">{t("dt_blind_pull_label")}</span>
+                      <span className="text-[9px] text-white font-bold">{current}"</span>
+                      <span className="text-[8px] text-white/60">({t("dt_blind_pull_range", { min: pr.min, max: pr.max })})</span>
+                    </div>
+                  );
+                })()}
                 {/* Lock badge: shown on selected cabinet when cabinets are locked */}
                 {isSelected && !measureMode && cabinetsLocked && (
                   <div

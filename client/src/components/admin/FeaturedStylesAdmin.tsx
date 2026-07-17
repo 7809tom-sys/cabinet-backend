@@ -2,6 +2,7 @@ import { useMemo, useState, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
   AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon,
+  List, Save, Eye, EyeOff,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,11 @@ import {
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import DoorPhotoCorrectButton from "./DoorPhotoCorrectButton";
 
@@ -37,6 +43,7 @@ interface AdminStyle {
   featuredRank: number;
   distributorId: number;
   distributorName: string | null;
+  seriesName: string | null;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -168,6 +175,13 @@ function ImageField({
 
 // ── Quick-edit dialog ─────────────────────────────────────────────────────────
 
+// ── Inline Editable Pricing Table (used inside EditDialog) ───────────────────
+// Delegates to StylePricingInlineTable which is defined after SkuEditRow/SKU_PRICE_FIELDS
+// to avoid referencing consts before their declaration.
+function StylePricingSummary({ styleId }: { styleId: number }) {
+  return <StylePricingInlineTable styleId={styleId} />;
+}
+
 interface EditDialogProps {
   style: AdminStyle;
   open: boolean;
@@ -186,6 +200,11 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [doorSampleImageUrl, setDoorSampleImageUrl] = useState(style.doorSampleImageUrl ?? "");
   const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
   const [thumbnailImageUrl, setThumbnailImageUrl] = useState(style.thumbnailImageUrl ?? "");
+  const [selectedDistributorId, setSelectedDistributorId] = useState(String(style.distributorId));
+  const [editingSeriesName, setEditingSeriesName] = useState(false);
+  const [seriesNameDraft, setSeriesNameDraft] = useState(style.seriesName ?? "");
+
+  const { data: distributorList } = trpc.distributors.list.useQuery();
 
   // Reset state when dialog opens for a different style
   const resetToStyle = (s: AdminStyle) => {
@@ -199,7 +218,20 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setDoorSampleImageUrl(s.doorSampleImageUrl ?? "");
     setRoomSceneImageUrl(s.roomSceneImageUrl ?? "");
     setThumbnailImageUrl(s.thumbnailImageUrl ?? "");
+    setSelectedDistributorId(String(s.distributorId));
+    setSeriesNameDraft(s.seriesName ?? "");
+    setEditingSeriesName(false);
   };
+
+  const updateDistributor = trpc.doorStyles.adminUpdateDoorStyleDistributor.useMutation({
+    onSuccess: () => { toast.success("Distributor updated"); onSaved(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const updateSeriesName = trpc.doorStyles.adminUpdateDistributorSeriesName.useMutation({
+    onSuccess: () => { toast.success("Series name updated"); setEditingSeriesName(false); onSaved(); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const update = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
     onSuccess: () => {
@@ -214,6 +246,11 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     if (!ourName.trim()) {
       toast.error("Internal name is required");
       return;
+    }
+    // Reassign distributor if changed
+    const newDistId = Number(selectedDistributorId);
+    if (newDistId && newDistId !== style.distributorId) {
+      updateDistributor.mutate({ id: style.id, distributorId: newDistId });
     }
     update.mutate({
       id: style.id,
@@ -300,6 +337,60 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
             </p>
           </div>
 
+          {/* Distributor assignment */}
+          <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-3 space-y-3">
+            <Label className="text-sm font-medium text-blue-900">Distributor / Series</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-dist" className="text-xs text-muted-foreground">Assign to Distributor</Label>
+              <Select value={selectedDistributorId} onValueChange={setSelectedDistributorId}>
+                <SelectTrigger id="ed-dist" className="h-9">
+                  <SelectValue placeholder="Select distributor…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(distributorList ?? []).map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.name}{d.seriesName ? ` (${d.seriesName})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Changing this reassigns the style to a different supply line.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Series Name (for this distributor)</Label>
+              {editingSeriesName ? (
+                <div className="flex gap-2">
+                  <Input
+                    value={seriesNameDraft}
+                    onChange={(e) => setSeriesNameDraft(e.target.value)}
+                    placeholder="e.g. Ashford"
+                    className="h-9"
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    className="h-9 bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={updateSeriesName.isPending}
+                    onClick={() => updateSeriesName.mutate({ distributorId: Number(selectedDistributorId), seriesName: seriesNameDraft.trim() || null })}
+                  >
+                    {updateSeriesName.isPending ? "Saving…" : "Save"}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-9" onClick={() => { setEditingSeriesName(false); setSeriesNameDraft(style.seriesName ?? ""); }}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{style.seriesName || <span className="text-muted-foreground italic">None set</span>}</span>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingSeriesName(true)}>
+                    <Pencil className="h-3 w-3 mr-1" /> Edit
+                  </Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">This is the series name shown after the style name, e.g. "Lumina White (Ashford)".</p>
+            </div>
+          </div>
+
           {/* Internal name */}
           <div className="space-y-1.5">
             <Label htmlFor="ed-name">
@@ -358,6 +449,9 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
             </div>
           </div>
 
+          {/* Pricing Summary */}
+          <StylePricingSummary styleId={style.id} />
+
           {/* Images — upload from device or paste a URL; changes save site-wide */}
           <div className="space-y-4">
             <Label className="text-sm font-medium">Images</Label>
@@ -407,12 +501,116 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   );
 }
 
+// ── Add New Style form ───────────────────────────────────────────────────────
+
+function AddNewStyleForm({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [distributorId, setDistributorId] = useState("");
+  const [styleCode, setStyleCode] = useState("");
+  const [ourName, setOurName] = useState("");
+  const [distributorName, setDistributorName] = useState("");
+  const [doorStyle, setDoorStyle] = useState("");
+  const [color, setColor] = useState("");
+
+  const { data: distributorList } = trpc.distributors.list.useQuery();
+
+  const create = trpc.doorStyles.adminCreateDoorStyle.useMutation({
+    onSuccess: () => {
+      toast.success("Door style created");
+      setOpen(false);
+      setDistributorId(""); setStyleCode(""); setOurName(""); setDistributorName(""); setDoorStyle(""); setColor("");
+      onCreated();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (!open) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-9 border-dashed"
+        onClick={() => setOpen(true)}
+      >
+        <span className="mr-1.5 text-lg leading-none">+</span> Add New Door Style
+      </Button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="font-semibold text-sm text-blue-900">Add New Door Style</h4>
+        <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5 col-span-2">
+          <Label className="text-xs">Distributor *</Label>
+          <Select value={distributorId} onValueChange={setDistributorId}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Select distributor…" />
+            </SelectTrigger>
+            <SelectContent>
+              {(distributorList ?? []).map((d) => (
+                <SelectItem key={d.id} value={String(d.id)}>
+                  {d.name}{d.seriesName ? ` (${d.seriesName})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Style Code * <span className="text-muted-foreground font-normal">(e.g. SW, AG)</span></Label>
+          <Input value={styleCode} onChange={(e) => setStyleCode(e.target.value.toUpperCase())} placeholder="SW" className="h-9 font-mono" maxLength={32} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Our Name * <span className="text-muted-foreground font-normal">(white-label)</span></Label>
+          <Input value={ourName} onChange={(e) => setOurName(e.target.value)} placeholder="e.g. Blanc Core" className="h-9" maxLength={128} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Distributor Name <span className="text-muted-foreground font-normal">(their name)</span></Label>
+          <Input value={distributorName} onChange={(e) => setDistributorName(e.target.value)} placeholder="e.g. Shaker White" className="h-9" maxLength={128} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Door Style Type</Label>
+          <Input value={doorStyle} onChange={(e) => setDoorStyle(e.target.value)} placeholder="e.g. Shaker" className="h-9" maxLength={64} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Color</Label>
+          <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. White" className="h-9" maxLength={64} />
+        </div>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <Button
+          size="sm"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+          disabled={create.isPending || !distributorId || !styleCode.trim() || !ourName.trim()}
+          onClick={() => create.mutate({
+            distributorId: Number(distributorId),
+            styleCode: styleCode.trim(),
+            ourName: ourName.trim(),
+            distributorName: distributorName.trim() || undefined,
+            doorStyle: doorStyle.trim() || null,
+            color: color.trim() || null,
+          })}
+        >
+          {create.isPending ? "Creating…" : "Create Style"}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function FeaturedStylesAdmin() {
   const [search, setSearch] = useState("");
   const [distributorFilter, setDistributorFilter] = useState<string>("all");
   const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
+  const [viewingStyle, setViewingStyle] = useState<AdminStyle | null>(null);
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.doorStyles.listForAdmin.useQuery();
 
@@ -538,6 +736,7 @@ export default function FeaturedStylesAdmin() {
           <Badge variant={atCap ? "destructive" : "secondary"} className="text-sm">
             {featured.length} / {MAX_FEATURED} featured
           </Badge>
+          <AddNewStyleForm onCreated={invalidateAll} />
         </div>
       </div>
 
@@ -596,8 +795,27 @@ export default function FeaturedStylesAdmin() {
                   <p className="text-xs text-muted-foreground truncate">
                     {[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
                   </p>
+                  {(s.distributorName || s.seriesName) && (
+                    <p className="text-xs truncate mt-0.5">
+                      <span className="text-blue-600 font-medium">{s.seriesName || s.distributorName}</span>
+                      {s.seriesName && s.distributorName && (
+                        <span className="text-muted-foreground"> · {s.distributorName}</span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  {/* List items button */}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    onClick={() => setViewingStyle(s)}
+                    aria-label="View & edit line items"
+                    title="View & edit line items"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
                   {/* Quick-edit button */}
                   <Button
                     size="icon"
@@ -719,6 +937,14 @@ export default function FeaturedStylesAdmin() {
                   <p className="text-xs text-muted-foreground truncate">
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
                   </p>
+                  {(s.distributorName || s.seriesName) && (
+                    <p className="text-xs truncate mt-0.5">
+                      <span className="text-blue-600 font-medium">{s.seriesName || s.distributorName}</span>
+                      {s.seriesName && s.distributorName && (
+                        <span className="text-muted-foreground"> · {s.distributorName}</span>
+                      )}
+                    </p>
+                  )}
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button
@@ -763,6 +989,428 @@ export default function FeaturedStylesAdmin() {
           onSaved={invalidateAll}
         />
       )}
+      {/* Line items dialog */}
+      {viewingStyle && (
+        <StyleSkuListDialog
+          style={viewingStyle}
+          open={!!viewingStyle}
+          onClose={() => setViewingStyle(null)}
+          onSaved={invalidateAll}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Price fields config ──────────────────────────────────────────────────────
+const SKU_PRICE_FIELDS = [
+  { key: "yourCost", label: "Your Cost" },
+  { key: "listPrice", label: "List Price" },
+  { key: "wholesalePrice", label: "Wholesale" },
+  { key: "contractorPrice", label: "Contractor" },
+  { key: "homeownerPrice", label: "Homeowner" },
+] as const;
+type SkuPriceKey = (typeof SKU_PRICE_FIELDS)[number]["key"];
+
+interface SkuRow {
+  id: number;
+  platformSku: string | null;
+  distributorSku: string | null;
+  listPrice: string | null;
+  yourCost: string | null;
+  wholesalePrice: string | null;
+  contractorPrice: string | null;
+  homeownerPrice: string | null;
+  isAvailable: boolean;
+  isPublished: boolean;
+  cabinetId: number | null;
+  masterCode: string | null;
+  description: string | null;
+  category: string | null;
+  subCategory: string | null;
+  width: number | null;
+  height: number | null;
+  depth: number | null;
+  conflictStatus: string | null;
+  conflictReason: string | null;
+}
+
+function dollarVal(v: string | null | undefined): string {
+  if (v === null || v === undefined) return "";
+  const n = Number(v);
+  return Number.isFinite(n) ? String(n) : "";
+}
+
+function SkuEditRow({ sku, onSaved }: { sku: SkuRow; onSaved: () => void }) {
+  const initial: Record<SkuPriceKey, string> = {
+    yourCost: dollarVal(sku.yourCost),
+    listPrice: dollarVal(sku.listPrice),
+    wholesalePrice: dollarVal(sku.wholesalePrice),
+    contractorPrice: dollarVal(sku.contractorPrice),
+    homeownerPrice: dollarVal(sku.homeownerPrice),
+  };
+  const [draft, setDraft] = useState<Record<SkuPriceKey, string>>(initial);
+  const dirty = SKU_PRICE_FIELDS.some((f) => draft[f.key] !== initial[f.key]);
+
+  const updateCost = trpc.pricing.adminUpdateSkuCost.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.changed > 0 ? `Saved ${res.changed} change${res.changed === 1 ? "" : "s"}` : "No changes");
+      onSaved();
+    },
+    onError: (e: { message: string }) => toast.error(e.message || "Save failed"),
+  });
+  const toggleAvail = trpc.pricing.adminUpdateSkuAvailability.useMutation({
+    onSuccess: () => onSaved(),
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+  const togglePublished = trpc.doorStyles.adminToggleSkuPublished.useMutation({
+    onSuccess: () => onSaved(),
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const handleSave = () => {
+    const payload: Record<string, number | null> = { skuId: sku.id };
+    for (const f of SKU_PRICE_FIELDS) {
+      if (draft[f.key] === initial[f.key]) continue;
+      const trimmed = draft[f.key].trim();
+      payload[f.key] = trimmed === "" ? null : Number(trimmed);
+    }
+    updateCost.mutate(payload as Parameters<typeof updateCost.mutate>[0]);
+  };
+
+  const isConflict = sku.conflictStatus === "conflict";
+
+  return (
+    <TableRow className={isConflict ? "bg-red-50/60" : dirty ? "bg-amber-50/40" : undefined}>
+      {/* Cabinet info */}
+      <TableCell className="align-top min-w-[160px]">
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-xs font-semibold">{sku.masterCode ?? "—"}</span>
+          {isConflict && (
+            <Badge variant="destructive" className="text-[9px] px-1 py-0">Conflict</Badge>
+          )}
+        </div>
+        <div className="text-xs text-muted-foreground leading-snug mt-0.5 line-clamp-2">{sku.description ?? ""}</div>
+        {sku.category && (
+          <Badge variant="outline" className="text-[10px] mt-1">
+            {sku.category}{sku.subCategory ? ` / ${sku.subCategory}` : ""}
+          </Badge>
+        )}
+        {isConflict && sku.conflictReason && (
+          <p className="text-[10px] text-red-600 mt-0.5 leading-tight">{sku.conflictReason}</p>
+        )}
+      </TableCell>
+      {/* SKU codes */}
+      <TableCell className="align-top min-w-[120px]">
+        <div className="font-mono text-xs">{sku.platformSku}</div>
+        <div className="font-mono text-[10px] text-muted-foreground">{sku.distributorSku}</div>
+      </TableCell>
+      {/* Price fields */}
+      {SKU_PRICE_FIELDS.map((f) => (
+        <TableCell key={f.key} className="align-top p-1.5 min-w-[80px]">
+          <Input
+            inputMode="decimal"
+            value={draft[f.key]}
+            placeholder="—"
+            className={`h-7 text-xs px-2 ${draft[f.key] !== initial[f.key] ? "border-amber-500" : ""}`}
+            onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+          />
+        </TableCell>
+      ))}
+      {/* Availability & Published toggles */}
+      <TableCell className="align-top min-w-[90px]">
+        <div className="flex flex-col gap-1.5">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Switch
+              checked={sku.isAvailable}
+              onCheckedChange={(v) => toggleAvail.mutate({ skuId: sku.id, isAvailable: v })}
+              className="scale-75"
+            />
+            <span className={`text-[10px] ${sku.isAvailable ? "text-emerald-600" : "text-muted-foreground"}`}>
+              {sku.isAvailable ? "Avail" : "N/A"}
+            </span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Switch
+              checked={sku.isPublished}
+              onCheckedChange={(v) => togglePublished.mutate({ skuId: sku.id, isPublished: v })}
+              className="scale-75"
+            />
+            <span className={`text-[10px] ${sku.isPublished ? "text-emerald-600" : "text-muted-foreground"}`}>
+              {sku.isPublished ? "Pub" : "Hidden"}
+            </span>
+          </label>
+        </div>
+      </TableCell>
+      {/* Save */}
+      <TableCell className="align-top">
+        <Button
+          size="sm"
+          className="h-7 text-xs"
+          disabled={!dirty || updateCost.isPending}
+          onClick={handleSave}
+        >
+          {updateCost.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+          Save
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ── StylePricingInlineTable — full inline editable SKU table for EditDialog ──
+// Defined here (after SKU_PRICE_FIELDS and SkuEditRow) to avoid forward-reference errors.
+function StylePricingInlineTable({ styleId }: { styleId: number }) {
+  const [search, setSearch] = useState("");
+  const { data, isLoading, refetch } = trpc.doorStyles.adminListSkusForStyle.useQuery(
+    { styleId },
+    { refetchOnWindowFocus: false }
+  );
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading pricing data…
+        </div>
+      </div>
+    );
+  }
+
+  const rows = (data ?? []) as SkuRow[];
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-muted/30 px-3 py-3">
+        <p className="text-xs text-muted-foreground">No SKU pricing data uploaded for this style yet.</p>
+      </div>
+    );
+  }
+
+  const activeCount = rows.filter((r) => r.isAvailable && r.isPublished).length;
+  const conflictCount = rows.filter((r) => r.conflictStatus === "conflict").length;
+  const q = search.trim().toLowerCase();
+  const filtered = rows.filter((r) =>
+    q
+      ? `${r.masterCode ?? ""} ${r.description ?? ""} ${r.platformSku ?? ""} ${r.distributorSku ?? ""}`
+          .toLowerCase()
+          .includes(q)
+      : true
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">SKU Pricing</Label>
+        <div className="flex items-center gap-2">
+          {conflictCount > 0 && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+              {conflictCount} conflict{conflictCount !== 1 ? "s" : ""}
+            </Badge>
+          )}
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            {activeCount} / {rows.length} active
+          </Badge>
+        </div>
+      </div>
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          placeholder="Search code, SKU…"
+          className="pl-8 h-8 text-xs"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+      <div className="max-h-72 overflow-y-auto rounded border">
+        <Table>
+          <TableHeader className="bg-muted/50 sticky top-0">
+            <TableRow>
+              <TableHead className="text-xs py-1.5">Code / Description</TableHead>
+              <TableHead className="text-xs py-1.5">SKU</TableHead>
+              {SKU_PRICE_FIELDS.map((f) => (
+                <TableHead key={f.key} className="text-xs py-1.5 text-right whitespace-nowrap">{f.label}</TableHead>
+              ))}
+              <TableHead className="text-xs py-1.5 text-center">Avail</TableHead>
+              <TableHead className="text-xs py-1.5 text-center">Live</TableHead>
+              <TableHead className="text-xs py-1.5" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((sku) => (
+              <SkuEditRow key={sku.id} sku={sku} onSaved={refetch} />
+            ))}
+          </TableBody>
+        </Table>
+        {filtered.length === 0 && (
+          <div className="py-6 text-center text-xs text-muted-foreground">No matching SKUs</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StyleSkuListDialog({
+  style,
+  open,
+  onClose,
+  onSaved,
+}: {
+  style: AdminStyle;
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const { data, isLoading, refetch } = trpc.doorStyles.adminListSkusForStyle.useQuery(
+    { styleId: style.id },
+    { enabled: open }
+  );
+  const toggleAll = trpc.doorStyles.adminToggleAllSkusPublished.useMutation({
+    onSuccess: () => { refetch(); onSaved(); },
+    onError: (e: { message: string }) => toast.error(e.message),
+  });
+
+  const rows = useMemo(() => {
+    const all = (data ?? []) as SkuRow[];
+    const q = search.trim().toLowerCase();
+    const filtered = all
+      .filter((r) => categoryFilter === "all" || r.category === categoryFilter)
+      .filter((r) =>
+        q
+          ? `${r.masterCode ?? ""} ${r.description ?? ""} ${r.platformSku ?? ""} ${r.distributorSku ?? ""}`
+              .toLowerCase()
+              .includes(q)
+          : true
+      );
+    return filtered;
+  }, [data, search, categoryFilter]);
+
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    for (const r of (data ?? []) as SkuRow[]) {
+      if (r.category) cats.add(r.category);
+    }
+    return Array.from(cats).sort();
+  }, [data]);
+
+  const conflictCount = useMemo(
+    () => ((data ?? []) as SkuRow[]).filter((r) => r.conflictStatus === "conflict").length,
+    [data]
+  );
+  const activeCount = useMemo(
+    () => ((data ?? []) as SkuRow[]).filter((r) => r.isAvailable && r.isPublished).length,
+    [data]
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-6xl w-full h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
+            <List className="h-4 w-4" />
+            Line Items — {style.ourName}
+            {style.aliasName && (
+              <span className="text-muted-foreground font-normal text-sm">({style.aliasName})</span>
+            )}
+            <div className="flex items-center gap-1.5 ml-auto">
+              {conflictCount > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {conflictCount} conflict{conflictCount !== 1 ? "s" : ""}
+                </Badge>
+              )}
+              <Badge variant="secondary" className="text-xs">
+                {activeCount} active / {(data ?? []).length} total
+              </Badge>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+        {/* Toolbar */}
+        <div className="px-4 py-2 border-b shrink-0 flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search code, description, SKU…"
+              className="pl-8 h-8 text-xs"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs gap-1"
+            onClick={() => toggleAll.mutate({ styleId: style.id, isPublished: true })}
+            disabled={toggleAll.isPending}
+          >
+            <Eye className="h-3.5 w-3.5" /> Publish all
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs gap-1"
+            onClick={() => toggleAll.mutate({ styleId: style.id, isPublished: false })}
+            disabled={toggleAll.isPending}
+          >
+            <EyeOff className="h-3.5 w-3.5" /> Unpublish all
+          </Button>
+        </div>
+        {/* Table */}
+        <ScrollArea className="flex-1 overflow-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <List className="h-8 w-8 mb-2 opacity-30" />
+              <p className="text-sm">No line items found</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="text-xs">
+                  <TableHead className="min-w-[160px]">Cabinet</TableHead>
+                  <TableHead className="min-w-[120px]">SKU</TableHead>
+                  {SKU_PRICE_FIELDS.map((f) => (
+                    <TableHead key={f.key} className="min-w-[80px]">{f.label}</TableHead>
+                  ))}
+                  <TableHead className="min-w-[90px]">Status</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((sku) => (
+                  <SkuEditRow key={sku.id} sku={sku as SkuRow} onSaved={() => { refetch(); onSaved(); }} />
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </ScrollArea>
+        <div className="px-6 py-3 border-t shrink-0 flex justify-between items-center">
+          <p className="text-xs text-muted-foreground">
+            {rows.length} row{rows.length !== 1 ? "s" : ""} shown
+            {conflictCount > 0 && (
+              <span className="text-red-600 ml-2">
+                · {conflictCount} conflict item{conflictCount !== 1 ? "s" : ""} shown at top
+              </span>
+            )}
+          </p>
+          <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

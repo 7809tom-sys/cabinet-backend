@@ -7,12 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+// Sheet removed — mobile picker is now inline to avoid nested-Sheet Chrome bug
 import { useIsMobile } from "@/hooks/useMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { styleDisplayName } from "@/lib/styleDisplayName";
@@ -72,6 +67,8 @@ interface ColorSlotButtonProps {
   disabled?: boolean;
   /** Tooltip shown when the user tries to open a disabled picker. */
   disabledReason?: string;
+  /** When set, the LineChooser shows a "Current series" badge on the locked distributor's row. */
+  lockedDistributorId?: number | null;
 }
 
 interface StyleGroup {
@@ -91,6 +88,7 @@ export function ColorSlotButton({
   onClear,
   disabled = false,
   disabledReason,
+  lockedDistributorId,
 }: ColorSlotButtonProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile(1024);
@@ -211,6 +209,7 @@ export function ColorSlotButton({
         const hasSelected = g.styles.some(
           (s) => (style as { id?: number } | null)?.id === s.id
         );
+        const isLocked = lockedDistributorId != null && g.distributorId === lockedDistributorId;
         return (
           <button
             key={String(g.distributorId)}
@@ -218,7 +217,7 @@ export function ColorSlotButton({
             onClick={() => setChosenGroup(g.distributorId)}
             className={[
               "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left transition-all active:scale-[0.99]",
-              hasSelected
+              hasSelected || isLocked
                 ? "border-[#d4a75a] bg-[#d4a75a]/10"
                 : "border-border bg-white hover:border-[#d4a75a]/60 hover:bg-accent/50",
             ].join(" ")}
@@ -228,10 +227,12 @@ export function ColorSlotButton({
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-semibold text-foreground">{g.label}</span>
                 <span className="block text-[10px] text-muted-foreground">
-                  {t("dt_cs_group_count", { count: g.styles.length })}
+                  {isLocked
+                    ? t("dt_cs_current_series")
+                    : t("dt_cs_group_count", { count: g.styles.length })}
                 </span>
               </span>
-              {hasSelected && (
+              {(hasSelected || isLocked) && (
                 <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#d4a75a] text-white">
                   <Check className="h-2 w-2" strokeWidth={3} />
                 </span>
@@ -244,37 +245,14 @@ export function ColorSlotButton({
     </div>
   );
 
-  // Distributor-first picker: step 1 = choose a supply line, step 2 = its styles.
-  // When only one line is in scope (slot B, or a locked design) we skip step 1.
+  // Flat picker: show all available styles directly with no supply-line drill-down.
   const StyleList = ({ cols = 2 }: { cols?: 2 | 3 }) =>
     styles.length === 0 ? (
       <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
         {t("dt_cs_none_available")}
       </div>
-    ) : onlyOneGroup ? (
-      <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} />
-    ) : activeGroup == null ? (
-      <LineChooser />
     ) : (
-      <div className="space-y-2">
-        {/* Back to supply-line list */}
-        <button
-          type="button"
-          onClick={() => setChosenGroup(null)}
-          className="flex items-center gap-1 rounded-md px-1 py-1 text-[11px] font-medium text-[#1a2744] hover:underline"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          {t("dt_cs_back_to_lines")}
-        </button>
-        <div className="flex items-center gap-1.5 px-1">
-          <Layers className="h-3.5 w-3.5 text-[#d4a75a]" />
-          <span className="truncate text-[12px] font-semibold text-foreground">{activeGroup.label}</span>
-          <span className="text-[10px] text-muted-foreground">
-            {t("dt_cs_group_count", { count: activeGroup.styles.length })}
-          </span>
-        </div>
-        <StyleGrid list={activeGroup.styles} cols={cols} />
-      </div>
+      <StyleGrid list={styles} cols={cols} />
     );
 
   return (
@@ -344,38 +322,39 @@ export function ColorSlotButton({
       {/* The trigger looks identical on desktop & mobile; only what it opens differs. */}
       {isMobile ? (
         <>
+          {/* On mobile we render the picker INLINE (no nested Sheet) to avoid
+              Chrome's nested-Sheet pointer-event capture bug where taps on
+              items inside a second Sheet opened from within a first Sheet are
+              silently swallowed. The inline accordion expands below the button
+              and collapses when a style is picked or the button is tapped again. */}
           <button
             type="button"
             onClick={() => {
               if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); return; }
-              setPickerOpen(true);
+              setPickerOpen((prev) => !prev);
             }}
             className={[
-              "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium hover:underline",
-              disabled ? "text-muted-foreground opacity-50 cursor-not-allowed" : "text-[#1a2744]",
+              "mt-2 w-full flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors",
+              disabled
+                ? "border-border text-muted-foreground opacity-50 cursor-not-allowed bg-muted/30"
+                : hasStyle
+                  ? "border-[#d4a75a]/60 text-[#1a2744] bg-[#d4a75a]/10 hover:bg-[#d4a75a]/20"
+                  : "border-[#d4a75a] text-white bg-[#1a2744] hover:bg-[#1a2744]/90",
             ].join(" ")}
           >
-            <Pencil className="h-3 w-3" />
-            {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
+            <Pencil className="h-3.5 w-3.5" />
+            {pickerOpen ? "Close" : hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
           </button>
-          <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
-            <SheetContent
-              side="bottom"
-              className="flex max-h-[85vh] flex-col rounded-t-2xl p-0"
+          {pickerOpen && (
+            <div
+              className="mt-2 rounded-lg border border-border bg-white overflow-y-auto overscroll-contain"
+              style={{ maxHeight: "55vh", WebkitOverflowScrolling: "touch" }}
             >
-              <SheetHeader className="border-b px-4 py-3">
-                <SheetTitle className="text-base">
-                  {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
-                </SheetTitle>
-              </SheetHeader>
-              <div
-                className="flex-1 overflow-y-auto overscroll-contain px-3 py-2"
-                style={{ WebkitOverflowScrolling: "touch" }}
-              >
+              <div className="px-2 py-2">
                 <StyleList cols={3} />
               </div>
-            </SheetContent>
-          </Sheet>
+            </div>
+          )}
         </>
       ) : (
         <Popover open={disabled ? false : pickerOpen} onOpenChange={(o) => { if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); return; } setPickerOpen(o); }}>
@@ -384,11 +363,15 @@ export function ColorSlotButton({
               type="button"
               onClick={() => { if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); } }}
               className={[
-                "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium hover:underline",
-                disabled ? "text-muted-foreground opacity-50 cursor-not-allowed" : "text-[#1a2744]",
+                "mt-2 w-full flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors",
+                disabled
+                  ? "border-border text-muted-foreground opacity-50 cursor-not-allowed bg-muted/30"
+                  : hasStyle
+                    ? "border-[#d4a75a]/60 text-[#1a2744] bg-[#d4a75a]/10 hover:bg-[#d4a75a]/20"
+                    : "border-[#d4a75a] text-white bg-[#1a2744] hover:bg-[#1a2744]/90",
               ].join(" ")}
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-3.5 w-3.5" />
               {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
             </button>
           </PopoverTrigger>

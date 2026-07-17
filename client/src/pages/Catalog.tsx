@@ -245,8 +245,8 @@ function CategoryLanding({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {(featuredStyles.length > 0
           ? featuredStyles.map((s) => ({
-              // Prefer aliasName (CD_STANDARDS white-label), then featuredLabel, then ourName.
-              label: styleDisplayName(s) || s.featuredLabel || s.styleCode,
+              // White-label display name: aliasName → ourName → styleCode (no distributor names).
+              label: styleDisplayName(s) || s.styleCode,
               href: `/family/${encodeURIComponent(s.styleCode)}`,
               // Real, verified per-style scene from the DB (guaranteed present by
               // the filter above) — matches the style's name, never a guess.

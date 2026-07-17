@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { Star, StarOff, Upload, X, Pencil, Check } from "lucide-react";
+import { Star, StarOff, Upload, Eye, EyeOff, Pencil, Check, ImageIcon, Maximize2 } from "lucide-react";
 
 type StyleRow = {
   id: number;
@@ -15,12 +15,15 @@ type StyleRow = {
   doorStyle: string | null;
   color: string | null;
   thumbnailImageUrl: string | null;
+  roomSceneImageUrl?: string | null;
+  doorSampleImageUrl?: string | null;
   override: {
     brandName: string | null;
     markupBps: number | null;
     featured: boolean;
     sortOrder: number;
     roomSceneUrl: string | null;
+    hidden: boolean;
   } | null;
 };
 
@@ -50,6 +53,14 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
     onError: (e) => toast.error(e.message),
   });
 
+  const toggleHidden = trpc.affiliates.toggleStyleHidden.useMutation({
+    onSuccess: (res) => {
+      utils.affiliates.myBranding.invalidate();
+      toast.success(res.hidden ? "Style hidden from storefront" : "Style visible on storefront");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const uploadScene = trpc.affiliates.uploadStyleRoomScene.useMutation({
     onSuccess: () => {
       utils.affiliates.myBranding.invalidate();
@@ -59,6 +70,7 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
   });
 
   const featured = style.override?.featured ?? false;
+  const hidden = style.override?.hidden ?? false;
   const displayName = style.override?.brandName || style.ourName || style.styleCode || "Unnamed Style";
   const effectiveBps = style.override?.markupBps ?? affiliateDefaultBps;
 
@@ -88,19 +100,55 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
     e.target.value = "";
   }
 
-  const roomScene = style.override?.roomSceneUrl;
+  const roomScene = style.override?.roomSceneUrl || style.roomSceneImageUrl || null;
+  const doorSample = style.doorSampleImageUrl || style.thumbnailImageUrl || null;
+  const [showDoor, setShowDoor] = useState(false);
+  const [sceneFailed, setSceneFailed] = useState(false);
+  const [doorFailed, setDoorFailed] = useState(false);
+  const heroSrc = showDoor
+    ? (doorSample && !doorFailed ? doorSample : null)
+    : (roomScene && !sceneFailed ? roomScene : null);
 
   return (
-    <div className={`rounded-lg border transition-colors ${featured ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
-      {/* Thumbnail row */}
-      <div className="flex gap-3 p-3">
-        <div className="w-16 h-16 rounded-md overflow-hidden bg-muted shrink-0">
-          {style.thumbnailImageUrl ? (
-            <img src={style.thumbnailImageUrl} alt={displayName} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No img</div>
-          )}
+    <div className={`rounded-lg border transition-colors overflow-hidden ${
+      hidden ? "border-border bg-muted/40 opacity-60" :
+      featured ? "border-primary bg-primary/5" : "border-border bg-card"
+    }`}>
+      {/* Room scene hero — primary image */}
+      <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+        {heroSrc ? (
+          <img
+            src={heroSrc}
+            alt={showDoor ? `${displayName} door` : `${displayName} kitchen`}
+            className="w-full h-full object-cover"
+            onError={() => showDoor ? setDoorFailed(true) : setSceneFailed(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No room scene</div>
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+        {/* Door toggle */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setShowDoor((v) => !v); }}
+          className={`absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-md transition-colors z-10 ${
+            showDoor ? "border-white bg-white text-foreground" : "border-white/80 bg-black/40 text-white hover:bg-black/60"
+          }`}
+          title={showDoor ? "Show room scene" : "View door close-up"}
+        >
+          {showDoor ? <Maximize2 className="h-2.5 w-2.5" /> : <ImageIcon className="h-2.5 w-2.5" />}
+        </button>
+        <span className="absolute bottom-2 left-2 text-[9px] font-medium text-white/90 bg-black/50 px-1.5 py-0.5 rounded-full">
+          {showDoor ? "Door" : "Room"}
+        </span>
+        {/* Status badges */}
+        <div className="absolute top-2 left-2 flex gap-1">
+          {hidden && <Badge variant="destructive" className="text-[10px] py-0 px-1.5">Hidden</Badge>}
+          {featured && !hidden && <Badge className="text-[10px] py-0 px-1.5 bg-primary/90 text-primary-foreground">Featured</Badge>}
         </div>
+      </div>
+      {/* Info row */}
+      <div className="flex gap-3 p-3">
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-start justify-between gap-2">
             <div>
@@ -109,40 +157,41 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
                 <p className="text-xs text-muted-foreground truncate">Original: {style.ourName || style.styleCode}</p>
               )}
             </div>
-            <button
-              onClick={toggleFeatured}
-              className={`shrink-0 p-1 rounded transition-colors ${featured ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-foreground"}`}
-              title={featured ? "Remove from featured" : "Feature this style"}
-            >
-              {featured ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => toggleHidden.mutate({ styleId: style.id, hidden: !hidden })}
+                className={`p-1 rounded transition-colors ${hidden ? "text-destructive hover:text-destructive/70" : "text-muted-foreground hover:text-foreground"}`}
+                title={hidden ? "Show on storefront" : "Hide from storefront"}
+                disabled={toggleHidden.isPending}
+              >
+                {hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+              <button
+                onClick={toggleFeatured}
+                className={`p-1 rounded transition-colors ${featured && !hidden ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-foreground"}`}
+                title={featured ? "Remove from featured" : "Feature this style"}
+                disabled={hidden}
+              >
+                {featured && !hidden ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {featured && <Badge className="text-xs bg-primary/10 text-primary border-primary/30">Featured</Badge>}
-            <Badge variant="outline" className="text-xs">
-              {style.override?.markupBps != null ? `${bpsToPercent(style.override.markupBps)}% markup` : `${bpsToPercent(affiliateDefaultBps)}% (default)`}
-            </Badge>
+            {!hidden && (
+              <Badge variant="outline" className="text-xs">
+                {style.override?.markupBps != null ? `${bpsToPercent(style.override.markupBps)}% markup` : `${bpsToPercent(affiliateDefaultBps)}% (default)`}
+              </Badge>
+            )}
             {style.color && <Badge variant="secondary" className="text-xs">{style.color}</Badge>}
           </div>
         </div>
       </div>
 
-      {/* Room scene row */}
+      {/* Room scene upload row — replace-only, no delete */}
       <div className="border-t border-border px-3 py-2 flex items-center gap-3">
-        {roomScene ? (
-          <>
-            <img src={roomScene} alt="Room scene" className="w-12 h-8 rounded object-cover border border-border" />
-            <span className="text-xs text-muted-foreground flex-1">Custom room scene uploaded</span>
-            <button
-              onClick={() => upsert.mutate({ styleId: style.id })}
-              className="text-xs text-destructive hover:underline"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </>
-        ) : (
-          <span className="text-xs text-muted-foreground flex-1">No custom room scene</span>
-        )}
+        <span className="text-xs text-muted-foreground flex-1">
+          {roomScene ? (style.override?.roomSceneUrl ? "Custom room scene active" : "Using master room scene") : "No room scene uploaded"}
+        </span>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
         <Button
           variant="outline" size="sm" className="gap-1 text-xs h-7"
@@ -150,7 +199,7 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
           disabled={uploadScene.isPending}
         >
           {uploadScene.isPending ? <Spinner className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
-          {roomScene ? "Replace" : "Upload Photo"}
+          {style.override?.roomSceneUrl ? "Replace Scene" : "Upload Scene"}
         </Button>
       </div>
 
