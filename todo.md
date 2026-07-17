@@ -795,3 +795,9 @@
 - [x] Identify Accessory items with no subCategory and no approved SKUs (2 records)
 - [x] Mark all 175 ambiguous cabinets as conflictStatus='conflict' with descriptive reasons
 - [ ] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)
+
+## Feature: Cabinet Catalog Images (SQL Bulk Update)
+- [x] Assigned catalogImageUrl to all 573 cabinets using AI-generated config images
+- [x] Mapped images by category/subCategory/description patterns (Base, Wall, Tall, Vanity, Accessory)
+- [x] All 224 base cabinets returned by placeableCabinets API now have catalog images
+- [x] Designer palette shows correct images for all cabinet types
