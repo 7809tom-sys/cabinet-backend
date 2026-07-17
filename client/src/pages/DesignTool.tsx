@@ -5066,6 +5066,41 @@ export default function DesignTool() {
                     <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_ceiling_filler")}</span>
                   </button>
+                  {/* Blind Man's Corner — toggle per room corner */}
+                  <div className="rounded-lg px-3 py-2.5">
+                    <div className="flex items-center gap-3 mb-2">
+                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground shrink-0"><path d="M2 12 L2 2 L12 2" strokeLinecap="round"/><path d="M2 12 L12 12 L12 2" strokeLinecap="round" strokeDasharray="2 2"/></svg>
+                      <span className="flex-1 text-sm">Blind Man’s Corner</span>
+                      {(room.blindManCorners ?? []).length > 0 && (
+                        <span className="text-[10px] text-green-700 font-medium">{(room.blindManCorners ?? []).length} active</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
+                      No cabinet in corner. Each wall side: 1× BF-6 + 1× BF-3 filler in L-shape.
+                      3″×3″ exposed square set back 27″ from each wall. Countertop covers 27″×27″ dead space.
+                    </p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {(["top-left", "top-right", "bottom-left", "bottom-right"] as const).map((cornerId) => {
+                        const labels: Record<string, string> = { "top-left": "Back-Left", "top-right": "Back-Right", "bottom-left": "Front-Left", "bottom-right": "Front-Right" };
+                        const isSet = (room.blindManCorners ?? []).includes(cornerId);
+                        return (
+                          <button
+                            key={cornerId}
+                            disabled={layoutLocked}
+                            onClick={() => toggleBlindManCorner(cornerId)}
+                            className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[11px] font-medium border transition-colors disabled:opacity-50 ${
+                              isSet
+                                ? "bg-green-50 border-green-400 text-green-800"
+                                : "bg-muted/40 border-border text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <span>{labels[cornerId]}</span>
+                            {isSet && <Check className="h-3 w-3 text-green-600" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <button disabled={!selectedUid || measureMode} onClick={swingSelected} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <DoorOpen className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_swing_door")}</span>
