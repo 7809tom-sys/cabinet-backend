@@ -172,6 +172,43 @@ export const pelicanRouter = router({
       if (!priced.sellPrice || priced.sellPrice <= 0) return null;
       return priced;
     }),
+  // Returns related products for "Complete this look" pairing (sink ↔ faucet).
+  // For a faucet, returns matching sinks in the same category. For a sink, returns faucets.
+  relatedProducts: publicProcedure
+    .input(z.object({ slug: z.string(), limit: z.number().min(1).max(12).default(4) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const [row] = await db
+        .select()
+        .from(pelicanProducts)
+        .where(eq(pelicanProducts.slug, input.slug))
+        .limit(1);
+      if (!row) return [];
+      // Determine the paired subCategory
+      let pairedSub: string | null = null;
+      if (row.subCategory === "Faucets") pairedSub = "Sinks";
+      else if (row.subCategory === "Sinks") pairedSub = "Faucets";
+      else return [];
+      const markupMap = await loadMarkupMap(db);
+      const rows = await db
+        .select()
+        .from(pelicanProducts)
+        .where(
+          and(
+            eq(pelicanProducts.category, row.category),
+            eq(pelicanProducts.subCategory, pairedSub),
+            eq(pelicanProducts.isActive, true),
+            eq(pelicanProducts.showInCatalog, true)
+          )
+        )
+        .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank))
+        .limit(input.limit);
+      return rows
+        .map((r) => withPricing(r, markupMap))
+        .filter((r) => r.sellPrice && r.sellPrice > 0);
+    }),
+
   adminList: adminProcedure
     .input(
       z.object({

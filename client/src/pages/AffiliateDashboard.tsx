@@ -1144,6 +1144,36 @@ function EarningsPanel() {
     paid: "border-emerald-400/60 text-emerald-700 bg-emerald-50",
   };
 
+  // W-9 gate: if not started (pending) or submitted-but-awaiting-review, show a notice instead of payout details.
+  // Schema: pending = not started, submitted = awaiting admin review, verified = approved
+  if (data.w9Status === "pending" || data.w9Status === "submitted") {
+    const isUnderReview = data.w9Status === "submitted";
+    return (
+      <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-6 space-y-3">
+        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          {isUnderReview ? "W-9 Under Review" : "W-9 Required Before Payouts"}
+        </div>
+        <p className="text-sm text-amber-800 dark:text-amber-300">
+          {isUnderReview
+            ? "Your W-9 tax form has been submitted and is currently under review. Payout details will be visible once it has been verified by our team."
+            : "To receive commission payouts, you must first complete and submit your W-9 tax form. This is required by the IRS for all affiliate payments."}
+        </p>
+        <button
+          onClick={() => {
+            // Navigate to the Tax Info tab
+            const el = document.querySelector('[data-tab="tax"]') as HTMLElement | null;
+            el?.click();
+          }}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-400 hover:underline"
+        >
+          {isUnderReview ? "View W-9 Status" : "Complete W-9 Form"}
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

@@ -16,7 +16,7 @@ const HERO_KITCHEN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/D
 const HERO_BATH = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-bath-hero-fCp9GA4H5XXQNmpgUdMiWg.webp";
 const HERO_DETAIL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-lifestyle-detail-ksbNiy4yt4dWyBSzZDyKV4.webp";
 
-type FaucetTab = "kitchen" | "bathroom";
+type FaucetTab = "kitchen" | "bathroom" | "sinks";
 const FINISHES = ["All", "Matte Black", "Brushed Nickel", "Chrome", "Brushed Gold", "Oil Rubbed Bronze"] as const;
 type Finish = (typeof FINISHES)[number];
 
@@ -81,13 +81,34 @@ export default function StoneCreekCollection() {
     { staleTime: 60_000 }
   );
 
+  // Query sinks
+  const { data: sinksData, isLoading: sinksLoading } = trpc.pelican.byCategory.useQuery(
+    {
+      category: "Sinks & Faucets" as any,
+      scope: "catalog",
+      subCategory: "Sinks",
+      limit: 200,
+      offset: 0,
+    },
+    { staleTime: 60_000 }
+  );
+
   const allFaucets = useMemo(() => {
     if (!data?.items) return [];
     // Only show StoneCreek branded faucets (those with the new names)
     return data.items.filter((p: any) => p.name?.startsWith("StoneCreek"));
   }, [data]);
 
+  const allSinks = useMemo(() => {
+    if (!sinksData?.items) return [];
+    return sinksData.items.filter((p: any) => p.name?.startsWith("StoneCreek"));
+  }, [sinksData]);
+
   const filtered = useMemo(() => {
+    if (tab === "sinks") {
+      // Sinks don't use the finish filter (they use color names in the name)
+      return allSinks;
+    }
     let items = allFaucets;
     // Filter by tab (kitchen vs bathroom)
     if (tab === "kitchen") {
@@ -102,7 +123,7 @@ export default function StoneCreekCollection() {
       items = items.filter((p: any) => p.name?.includes(finish));
     }
     return items;
-  }, [allFaucets, tab, finish]);
+  }, [allFaucets, allSinks, tab, finish]);
 
   // Group by series for display
   const grouped = useMemo(() => {
@@ -142,14 +163,14 @@ export default function StoneCreekCollection() {
               Solid brass construction. Precision ceramic cartridges. Lead-free and backed by a
               lifetime warranty. Designed for kitchens and bathrooms that demand more.
             </p>
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 flex flex-wrap gap-3">
               <Button
                 size="lg"
                 variant={tab === "kitchen" ? "default" : "outline"}
                 onClick={() => setTab("kitchen")}
                 className={tab === "kitchen" ? "" : "border-white/30 text-white hover:bg-white/10"}
               >
-                <ChefHat className="mr-2 h-4 w-4" /> Kitchen
+                <ChefHat className="mr-2 h-4 w-4" /> Kitchen Faucets
               </Button>
               <Button
                 size="lg"
@@ -157,7 +178,15 @@ export default function StoneCreekCollection() {
                 onClick={() => setTab("bathroom")}
                 className={tab === "bathroom" ? "" : "border-white/30 text-white hover:bg-white/10"}
               >
-                <ShowerHead className="mr-2 h-4 w-4" /> Bathroom
+                <ShowerHead className="mr-2 h-4 w-4" /> Bathroom Faucets
+              </Button>
+              <Button
+                size="lg"
+                variant={tab === "sinks" ? "default" : "outline"}
+                onClick={() => setTab("sinks")}
+                className={tab === "sinks" ? "" : "border-white/30 text-white hover:bg-white/10"}
+              >
+                <Droplets className="mr-2 h-4 w-4" /> Sinks
               </Button>
             </div>
           </div>
@@ -213,7 +242,7 @@ export default function StoneCreekCollection() {
       {/* Product Grid */}
       <section className="py-12">
         <div className="container">
-          {isLoading ? (
+          {(isLoading || sinksLoading) ? (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {Array.from({ length: 8 }).map((_, i) => (
                 <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
@@ -222,14 +251,18 @@ export default function StoneCreekCollection() {
           ) : filtered.length === 0 ? (
             <div className="py-20 text-center">
               <Droplets className="mx-auto h-12 w-12 text-muted-foreground/40" />
-              <p className="mt-4 text-muted-foreground">No faucets match this filter.</p>
+              <p className="mt-4 text-muted-foreground">
+                {tab === "sinks" ? "No sinks available." : "No faucets match this filter."}
+              </p>
             </div>
           ) : (
             <div className="space-y-16">
               {grouped.map(([series, items]) => (
                 <div key={series}>
                   <div className="mb-6 flex items-baseline gap-3">
-                    <h2 className="text-2xl font-semibold tracking-tight">{series} Series</h2>
+                    <h2 className="text-2xl font-semibold tracking-tight">
+                      {series} {tab === "sinks" ? "Sink Collection" : "Series"}
+                    </h2>
                     <span className="text-sm text-muted-foreground">
                       {items.length} {items.length === 1 ? "option" : "options"}
                     </span>

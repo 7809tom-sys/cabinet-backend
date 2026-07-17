@@ -249,11 +249,11 @@
 - [x] Added visible "Collection" filter dropdown in catalog panel for easy switching
 
 ## Feature: Homepage featured products from real database
-- [ ] Featured products on homepage should pull from actual door styles/surfaces in the design tool database
-- [ ] Add "Design with this" CTA button that opens designer pre-loaded with the featured style
-- [ ] Admin can mark which styles/surfaces to feature (configurable, top 2-3 items)
-- [ ] Ensure featured items show high-quality product images
-- [ ] Improve admin image upload flow for updating product photos in one place
+- [x] Featured products on homepage should pull from actual door styles/surfaces in the design tool database
+- [x] Add "Design with this" CTA button that opens designer pre-loaded with the featured style
+- [x] Admin can mark which styles/surfaces to feature (configurable, top 2-3 items)
+- [x] Ensure featured items show high-quality product images
+- [x] Improve admin image upload flow for updating product photos in one place
 
 ## Feature: Vendor Portal (full authority over their product line)
 - [ ] Vendor login via same auth system (role=distributor) with vendor dashboard redirect
@@ -334,23 +334,23 @@
 - [x] Add promotions DB schema (promo table: distributorId, skuId or lineFilter, discountType, discountValue, startDate, endDate, active)
 - [x] Add promotions management UI in vendor portal (create/edit/delete promos)
 - [x] Display promotions on storefront (sale badge, strikethrough original price, show promo price)
-- [ ] Add gallery/image management: vendors can upload product gallery photos and replace existing images
-- [ ] Vendor portal image upload for individual SKU gallery (multiple photos per product)
+- [x] Add gallery/image management: vendors can upload product gallery photos and replace existing images
+- [x] Vendor portal image upload for individual SKU gallery (multiple photos per product)
 
 ## Admin Analytics tab
 - [x] Add Analytics tab to admin panel with embedded Umami dashboard
-- [ ] Add product view event tracking (fire events when users view product pages)
-- [ ] Show per-vendor product view breakdown in admin analytics
-- [ ] Show vendor-facing analytics in vendor portal (their own product views/stats)
+- [x] Add product view event tracking (fire events when users view product pages)
+- [x] Show per-vendor product view breakdown in admin analytics
+- [x] Show vendor-facing analytics in vendor portal (their own product views/stats)
 
 ## StoneCreek brand (sinks + faucets)
 - [x] Create StoneCreek series names for 24 faucet models with proper descriptions
-- [ ] Brand sinks under StoneCreek with descriptive names
+- [x] Brand sinks under StoneCreek with descriptive names
 - [x] Update database with all branded names and descriptions (96 SKUs)
 - [x] Build dedicated StoneCreek collection page on storefront
-- [ ] Pair sinks + faucets together on product pages ("Complete this look")
+- [x] Pair sinks + faucets together on product pages ("Complete this look")
 - [x] Add "Add to My Design" button that sets faucet/sink in active design
-- [ ] Filter StoneCreek products into the design tool surfaces palette
+- [x] Filter StoneCreek products into the design tool surfaces palette
 
 ## Universal Shopping Cart
 - [x] Add "Add to Cart" button on SurfacesProduct page (pelican products: faucets, sinks, flooring, tile, quartz, toilets, shower)
@@ -588,7 +588,7 @@
 - [x] Add "Send Credentials" email button in AffiliatesAdmin
 - [x] Add template switcher in AffiliatesAdmin per-affiliate card
 - [x] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
-- [ ] Add template switcher to demo storefront preview banner
+- [x] Add template switcher to demo storefront preview banner
 
 ## Affiliate Dashboard Redesign (White-Label & Performance Focus)
 
@@ -721,7 +721,7 @@
 - [x] Add adminVerifyW9 tRPC procedure (adminProcedure) to mark W-9 as verified
 - [x] Build W-9 tab in affiliate dashboard with form (legal name, entity type, SSN/EIN, address) and ID upload
 - [x] Show W-9 status badge in admin Affiliates panel per affiliate
-- [ ] Gate payout display with W-9 required notice if not yet submitted
+- [x] Gate payout display with W-9 required notice if not yet submitted
 - [x] Notify owner when affiliate submits W-9 for review
 
 ## Feature: Affiliate Admin Panel Rebuild
@@ -794,7 +794,7 @@
 - [x] Identify cabinets with no approved distributor SKUs and no placementType (166 records)
 - [x] Identify Accessory items with no subCategory and no approved SKUs (2 records)
 - [x] Mark all 175 ambiguous cabinets as conflictStatus='conflict' with descriptive reasons
-- [ ] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)
+- [x] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)
 
 ## Feature: Cabinet Catalog Images (SQL Bulk Update)
 - [x] Assigned catalogImageUrl to all 573 cabinets using AI-generated config images
@@ -817,11 +817,11 @@
 - [x] Verify UOC/O3xxxx oven pantry cabinets use oven cabinet image (correct)
 
 ## Bug: Clark and Sons fridge cabinet SKU mapping broken + fridge popup missing options
-- [ ] Audit Clark and Sons WR-prefix fridge cabinet SKUs in the database (WR3324 = 33w x 24h x 24d bridge)
-- [ ] Fix fridge cabinet SKU resolver: map WR prefix for Clark and Sons (WR{width}{height} = 24-deep bridge)
-- [ ] Restore all fridge options in the fridge popup (options missing since yesterday)
-- [ ] Verify W361224 equivalent is correctly resolved for Clark and Sons as WR3624
-- [ ] Test and checkpoint
+- [x] Audit Clark and Sons WR-prefix fridge cabinet SKUs in the database (WR3324 = 33w x 24h x 24d bridge)
+- [x] Fix fridge cabinet SKU resolver: map WR prefix for Clark and Sons (WR{width}{height} = 24-deep bridge)
+- [x] Restore all fridge options in the fridge popup (options missing since yesterday)
+- [x] Verify W361224 equivalent is correctly resolved for Clark and Sons as WR3624
+- [x] Test and checkpoint
 
 ## Bug: Clark and Sons fridge cabinet SKU mapping and popup options
 

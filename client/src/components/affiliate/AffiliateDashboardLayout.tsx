@@ -184,6 +184,7 @@ function SidebarInner({
                       onClick={() => onSection(item.section)}
                       tooltip={item.label}
                       className="h-10 transition-all font-normal"
+                      data-tab={item.section}
                     >
                       <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
                       <span>{item.label}</span>

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { ChevronLeft, ChevronRight, Package, Search, X, Expand, Minus, Plus, ShoppingCart, Check } from "lucide-react";
@@ -303,6 +303,23 @@ export default function Family({ styleCode }: { styleCode: string }) {
     styleCode,
   });
   const styleId = (style as FamilyStyle | null)?.id ?? 0;
+
+  // Track product view for vendor analytics (fires once per page load when style resolves).
+  const trackView = trpc.analytics.trackView.useMutation();
+  const trackedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const s = style as (FamilyStyle & { distributorId?: number | null }) | null;
+    if (!s?.id || !s.distributorId) return;
+    const key = `${s.id}:${styleCode}`;
+    if (trackedRef.current === key) return;
+    trackedRef.current = key;
+    trackView.mutate({
+      distributorId: s.distributorId,
+      pageSlug: `/family/${styleCode}`,
+      referrer: document.referrer || undefined,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [style, styleCode]);
 
   const { data, isLoading: catalogLoading } = trpc.doorStyles.familyCatalog.useQuery(
     { styleId },

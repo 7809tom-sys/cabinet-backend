@@ -653,6 +653,7 @@ export const affiliatesRouter = router({
       paidCents,
       pendingCents: Math.max(0, lifetimeCents - paidCents),
       weeks: weeks.map((w) => ({ ...w, payout: payoutByWeek.get(w.weekKey) ?? null })),
+      w9Status: mine.w9Status ?? "not_submitted",
     };
   }),
 

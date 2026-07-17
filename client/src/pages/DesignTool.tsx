@@ -239,6 +239,13 @@ export default function DesignTool() {
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
   }, [search]);
+  // Optional door style to pre-select (?style=<styleId>), e.g. from a "Design
+  // with this" CTA on the homepage or a door style product page.
+  const preloadStyleId = useMemo(() => {
+    const v = new URLSearchParams(search).get("style");
+    const n = v ? Number(v) : NaN;
+    return Number.isFinite(n) ? n : null;
+  }, [search]);
   const loadedDesignRef = useRef<number | null>(null);
   // Auto-save draft: flips true once we've attempted to restore a saved draft,
   // so the debounced save effect doesn't overwrite the stored draft with the
@@ -3913,6 +3920,20 @@ export default function DesignTool() {
     draftRestoredRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verified, draftKey]);
+
+  // Pre-select a door style from the ?style=<id> URL param (e.g. "Design with
+  // this" CTA from the homepage). Fires once, after the draft has been restored,
+  // so it doesn't conflict with a saved draft that already has a style.
+  const preloadStyleAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!verified || !draftRestoredRef.current || preloadStyleAppliedRef.current) return;
+    if (preloadStyleId == null) return;
+    if (!doorStyles || doorStyles.length === 0) return;
+    preloadStyleAppliedRef.current = true;
+    // Only apply if no style is already set (fresh canvas or empty draft).
+    if (styleId != null) return;
+    setSlotStyle("A", preloadStyleId);
+  }, [verified, preloadStyleId, doorStyles, styleId, setSlotStyle]);
 
   // Consume the Surfaces & Fixtures wizard hand-off ONCE, after verification and
   // after the draft has been restored. This only fires when the customer clicked

@@ -155,18 +155,152 @@ function Hero() {
   );
 }
 
+// ─── Featured Door Styles (from DB) ─────────────────────────────────────────
+
+function FeaturedStyles() {
+  const { data: featured, isLoading } = trpc.doorStyles.featured.useQuery();
+
+  // Deduplicate by styleCode (keep first/lowest id per code)
+  const uniqueFeatured = useMemo(() => {
+    if (!featured) return [];
+    const seen = new Set<string>();
+    return featured.filter((s) => {
+      const code = (s as { styleCode?: string | null }).styleCode ?? String(s.id);
+      if (seen.has(code)) return false;
+      seen.add(code);
+      return true;
+    });
+  }, [featured]);
+
+  if (isLoading) {
+    return (
+      <section className="py-16 md:py-20">
+        <div className="container">
+          <div className="grid md:grid-cols-3 gap-6">
+            {[1,2,3].map((i) => (
+              <div key={i} className="h-72 rounded-2xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!uniqueFeatured.length) return null;
+
+  const [first, ...rest] = uniqueFeatured;
+
+  return (
+    <section className="py-16 md:py-20">
+      <div className="container">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+            Featured Door Styles
+            <span className="h-px w-8 bg-[var(--color-wood)]" />
+          </div>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
+            Find Your Perfect Kitchen Style
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Browse our most popular door styles — each available in multiple finishes. Shop the full catalog or jump straight into the 2D design tool.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Hero style — large card */}
+          <Link
+            href={`/family/${encodeURIComponent((first as { styleCode?: string | null }).styleCode ?? String(first.id))}`}
+            className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 md:row-span-2"
+          >
+            <img
+              src={(first as { roomSceneImageUrl?: string | null }).roomSceneImageUrl ?? KITCHEN_SCENES["shaker-white"]}
+              alt={(first as { ourName?: string | null }).ourName ?? "Featured Style"}
+              className="h-72 w-full object-cover transition-transform duration-500 group-hover:scale-105 md:h-full"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              {(first as { featuredLabel?: string | null }).featuredLabel && (
+                <span className="inline-block text-xs font-bold uppercase tracking-wider text-[var(--color-gold)] bg-[var(--color-gold)]/15 border border-[var(--color-gold)]/30 rounded-full px-3 py-0.5 mb-2">
+                  {(first as { featuredLabel?: string | null }).featuredLabel}
+                </span>
+              )}
+              <h3 className="font-serif text-2xl font-bold text-white mb-1">
+                {(first as { ourName?: string | null }).ourName ?? (first as { styleCode?: string | null }).styleCode}
+              </h3>
+              <p className="text-sm text-white/75 mb-4">
+                {[(first as { doorStyle?: string | null }).doorStyle, (first as { woodSpecies?: string | null }).woodSpecies].filter(Boolean).join(" · ") || "Premium cabinet door style"}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
+                  Shop this style <ArrowRight className="h-4 w-4" />
+                </span>
+                <Link
+                  href={`/design?style=${first.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition-all"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" /> Design with this
+                </Link>
+              </div>
+            </div>
+          </Link>
+
+          {/* Remaining featured styles — smaller cards */}
+          <div className="grid grid-cols-2 gap-6">
+            {rest.slice(0, 4).map((style) => (
+              <div key={style.id} className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300">
+                <Link href={`/family/${encodeURIComponent((style as { styleCode?: string | null }).styleCode ?? String(style.id))}`}>
+                  <img
+                    src={(style as { roomSceneImageUrl?: string | null }).roomSceneImageUrl ?? KITCHEN_SCENES["shaker-white"]}
+                    alt={(style as { ourName?: string | null }).ourName ?? "Style"}
+                    className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    {(style as { featuredLabel?: string | null }).featuredLabel && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-gold)] block mb-0.5">
+                        {(style as { featuredLabel?: string | null }).featuredLabel}
+                      </span>
+                    )}
+                    <div className="font-serif text-sm font-bold text-white leading-tight">
+                      {(style as { ourName?: string | null }).ourName ?? (style as { styleCode?: string | null }).styleCode}
+                    </div>
+                  </div>
+                </Link>
+                {/* Design with this button */}
+                <Link
+                  href={`/design?style=${style.id}`}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--color-navy)]/80 hover:bg-[var(--color-navy)] text-white text-[10px] font-semibold rounded-full px-2.5 py-1 flex items-center gap-1"
+                >
+                  <ChevronRight className="h-3 w-3" /> Design
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link href="/styles">
+            <Button size="lg" variant="outline" className="gap-2 bg-card">
+              Browse All Door Styles <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link href="/design">
+            <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2">
+              Start Designing Your Kitchen <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── Product Category Showcase ───────────────────────────────────────────────
 
 function ProductShowcase() {
   const categories = [
-    {
-      title: "Kitchen Cabinets",
-      description: "Every door style, every configuration. Base, wall, tall, vanity, ADA — all at trade pricing.",
-      image: KITCHEN_SCENES["shaker-white"],
-      href: "/styles",
-      cta: "Shop by Door Style",
-      accent: "from-amber-600/80 to-amber-900/90",
-    },
     {
       title: "Countertops & Tile",
       description: "Premium quartz slabs, porcelain tile, mosaic backsplash, and luxury flooring options.",
@@ -194,9 +328,9 @@ function ProductShowcase() {
   ];
 
   return (
-    <section className="py-16 md:py-20">
+    <section className="py-12 md:py-16 bg-muted/30">
       <div className="container">
-        <div className="text-center mb-12">
+        <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
             <span className="h-px w-8 bg-[var(--color-wood)]" />
             Everything You Need
@@ -206,23 +340,23 @@ function ProductShowcase() {
             One Platform, Every Product
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            From cabinets to countertops to complete bathroom kits — shop everything for your next kitchen or bath project at trade pricing.
+            From countertops to complete bathroom kits — shop everything for your next kitchen or bath project at trade pricing.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           {categories.map((cat) => (
             <Link key={cat.title} href={cat.href} className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer">
               <img
                 src={cat.image}
                 alt={cat.title}
-                className="h-64 md:h-72 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                className="h-56 w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
               <div className={`absolute inset-0 bg-gradient-to-t ${cat.accent} via-transparent to-transparent`} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-6">
-                <h3 className="font-serif text-2xl font-bold text-white mb-1">{cat.title}</h3>
-                <p className="text-sm text-white/80 mb-3 line-clamp-2">{cat.description}</p>
+              <div className="absolute bottom-0 left-0 right-0 p-5">
+                <h3 className="font-serif text-xl font-bold text-white mb-1">{cat.title}</h3>
+                <p className="text-xs text-white/80 mb-3 line-clamp-2">{cat.description}</p>
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
                   {cat.cta} <ArrowRight className="h-4 w-4" />
                 </span>
@@ -645,6 +779,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <JulyBanner />
       <Hero />
+      <FeaturedStyles />
       <ProductShowcase />
       <AffiliatePromo />
       <Footer />
