@@ -235,13 +235,13 @@ function FeaturedStyles() {
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
                   Shop this style <ArrowRight className="h-4 w-4" />
                 </span>
-                <Link
-                  href={`/design?style=${first.id}`}
-                  onClick={(e) => e.stopPropagation()}
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/design?style=${first.id}`; }}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition-all"
                 >
                   <ChevronRight className="h-3.5 w-3.5" /> Design with this
-                </Link>
+                </button>
               </div>
             </div>
           </Link>
