@@ -2514,10 +2514,13 @@ export default function DesignTool() {
     () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
     [fridgeDialog, placed]
   );
-  const { data: fridgeSurround } = trpc.design.surroundForFridge.useQuery(
+  const { data: fridgeSurround, isLoading: fridgeSurroundLoading } = trpc.design.surroundForFridge.useQuery(
     { styleId: styleId ?? 0, fridgeWidth: fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined },
     { enabled: !!fridgeDialog && !!styleId }
   );
+  // Only open the dialog once the surround data has loaded so the options
+  // (hasDeepAbove, hasBridgeAbove, etc.) are correctly enabled/disabled from the start.
+  const fridgeDialogReady = !!fridgeDialog && !fridgeSurroundLoading && fridgeSurround != null;
 
   // Place the chosen refrigerator surround pieces flush to the seeded fridge.
   const applyFridgeSurround = useCallback(
@@ -7094,9 +7097,11 @@ export default function DesignTool() {
         onSetWaterfall={(uid, side, enabled) => setCabAttr(uid, side === "left" ? { waterfallLeft: enabled } : { waterfallRight: enabled })}
       />
 
-      {/* Refrigerator Options: opens right after a fridge is dropped */}
+      {/* Refrigerator Options: opens right after a fridge is dropped.
+           Wait for surroundForFridge to load so hasDeepAbove/hasBridgeAbove
+           are correctly set from the moment the dialog first opens. */}
       <RefrigeratorOptionsDialog
-        open={!!fridgeDialog}
+        open={fridgeDialogReady}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
         hasDeepAbove={((fridgeSurround as { deepAbove?: unknown[] } | undefined)?.deepAbove?.length ?? 0) > 0}
         hasBridgeAbove={((fridgeSurround as { bridgeAbove?: unknown[] } | undefined)?.bridgeAbove?.length ?? 0) > 0}

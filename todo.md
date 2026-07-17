@@ -832,3 +832,8 @@
 - [x] Remove WS1% (wall skin) from smoothPanels — WS1542 is not a refrigerator smooth panel
 - [x] Update builtinFridgeRun to include WR% and REP9% patterns for Clark and Sons
 - [x] Verify fridge options popup shows all options: deepAbove=10, bridgeAbove=9, endPanels=1, smoothPanels=0 for Clark and Sons styles
+
+## Bug: Clark & Sons fridge cabinet SKU resolver broken + fridge popup missing options (Jul 17)
+- [ ] Fix Clark & Sons WR-prefix SKU resolver: W361224 must map to WR3612 (WR{width}{height}, always 24 deep)
+- [ ] Restore all fridge popup options that were showing before (heights, depths, widths)
+- [ ] Verify Clark & Sons fridge bridge cabinets resolve correctly for all widths (30, 33, 36, etc.)
