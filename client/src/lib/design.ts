@@ -525,6 +525,13 @@ export interface RoomData {
   vertices?: import("@/lib/polygonRoom").RoomVertex[];
   /** Polygon room: wall segments connecting vertices. */
   customWalls?: import("@/lib/polygonRoom").CustomWall[];
+  /**
+   * Corners where the user has chosen the "Blind Man's Corner" solution:
+   * two 3" fillers in an L-shape fill the dead corner, no cabinet is placed,
+   * and the countertop extends over the whole area. Values are corner ids:
+   * "top-left" | "top-right" | "bottom-left" | "bottom-right".
+   */
+  blindManCorners?: string[];
 }
 
 // Standard US ceiling height. Common alternatives: 108" (9ft), 120" (10ft).
@@ -3195,7 +3202,7 @@ export interface CountertopSurface {
   y: number;
   width: number;
   depth: number;
-  kind: "base" | "island";
+  kind: "base" | "island" | "blind-man-corner";
 }
 
 /**
@@ -3291,6 +3298,25 @@ export function countertopSurfaces(
       kind: "island",
     });
   }
+  // Blind Man's Corner: add a square countertop slab at each designated corner.
+  // The slab is COUNTERTOP_DEPTH_IN wide on each side (same as a standard base
+  // run), covering the dead corner space left by the two L-shaped fillers.
+  for (const cornerId of (room.blindManCorners ?? [])) {
+    switch (cornerId) {
+      case "top-left":
+        out.push({ x: 0, y: 0, width: D, depth: D, kind: "blind-man-corner" });
+        break;
+      case "top-right":
+        out.push({ x: room.width - D, y: 0, width: D, depth: D, kind: "blind-man-corner" });
+        break;
+      case "bottom-left":
+        out.push({ x: 0, y: room.depth - D, width: D, depth: D, kind: "blind-man-corner" });
+        break;
+      case "bottom-right":
+        out.push({ x: room.width - D, y: room.depth - D, width: D, depth: D, kind: "blind-man-corner" });
+        break;
+    }
+  }
   return out;
 }
 
@@ -3367,6 +3393,8 @@ export function missingCornerBaseViolations(
   openingReach = 2
 ): Set<string> {
   const violations = new Set<string>();
+  // Corners where the user has chosen the Blind Man's Corner solution are exempt.
+  const blindManSet = new Set(room.blindManCorners ?? []);
 
   // Does a door/cased opening reach the given end ("near" = wall start, "far" =
   // wall end) of the wall on `side`? Windows never block floor access, so only
@@ -3409,17 +3437,19 @@ export function missingCornerBaseViolations(
     // actually reaches that corner on either of the two forming walls. The
     // wall-start/end mapping: top/bottom run left→right (near=left corner),
     // left/right run top→bottom (near=top corner).
+    // Blind Man's Corner exemption: if the user has chosen this solution for
+    // a given corner, skip the flag — two 3" fillers cover the dead space.
     let flag = false;
-    if (nearTop && nearLeft) {
+    if (nearTop && nearLeft && !blindManSet.has("top-left")) {
       if (openingAtWallEnd("top", "near") || openingAtWallEnd("left", "near")) flag = true;
     }
-    if (nearTop && nearRight) {
+    if (nearTop && nearRight && !blindManSet.has("top-right")) {
       if (openingAtWallEnd("top", "far") || openingAtWallEnd("right", "near")) flag = true;
     }
-    if (nearBottom && nearLeft) {
+    if (nearBottom && nearLeft && !blindManSet.has("bottom-left")) {
       if (openingAtWallEnd("bottom", "near") || openingAtWallEnd("left", "far")) flag = true;
     }
-    if (nearBottom && nearRight) {
+    if (nearBottom && nearRight && !blindManSet.has("bottom-right")) {
       if (openingAtWallEnd("bottom", "far") || openingAtWallEnd("right", "far")) flag = true;
     }
 

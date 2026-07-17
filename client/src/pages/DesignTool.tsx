@@ -1847,8 +1847,31 @@ export default function DesignTool() {
       // styleId is already unique per surface (-id), so a straight set is safe.
       map.set(`${sfc.masterCode}::${sfc.styleId}`, { ...sfc });
     }
+    // Blind Man's Corner: one 3"x96" filler stick per corner (installer cuts
+    // two pieces and forms the L). Only added when a priced BF-3 SKU exists
+    // for the selected style — nothing goes in the cart without a price.
+    const blindManCount = (room.blindManCorners ?? []).length;
+    if (blindManCount > 0 && styleId != null) {
+      const bf3 = trimPriceByCode.get("BF-3");
+      if (bf3 && bf3.unitPrice > 0) {
+        const key = `BF-3::${styleId}`;
+        const existing = map.get(key);
+        if (existing) existing.qty += blindManCount;
+        else
+          map.set(key, {
+            masterCode: bf3.masterCode,
+            name: bf3.description ?? '3" Base Filler (96")',
+            styleId,
+            styleLabel: activeStyleName ?? "",
+            distributorId: lockedDistributorId ?? null,
+            tier: DESIGN_TIER_TO_SHARED[tier],
+            unitPrice: bf3.unitPrice,
+            qty: blindManCount,
+          });
+      }
+    }
     return Array.from(map.values());
-  }, [cabinetCartLines, trimCartLines, surfaceCartLines, lockedDistributorId, tier]);
+  }, [cabinetCartLines, trimCartLines, surfaceCartLines, lockedDistributorId, tier, room.blindManCorners, styleId, trimPriceByCode, activeStyleName]);
 
   const addAllToCart = useCallback(() => {
     if (cartableLines.length === 0) {
@@ -2111,6 +2134,14 @@ export default function DesignTool() {
       out.push({
         label: "SINK (quote)",
         detail: `${sinks.length} basin${sinks.length === 1 ? "" : "s"}${faucetCount > 0 ? ` + ${faucetCount} faucet${faucetCount === 1 ? "" : "s"}` : ""}`,
+      });
+    }
+    // Blind Man's Corner: note on build sheet (one per corner).
+    const blindManCount = (room.blindManCorners ?? []).length;
+    if (blindManCount > 0) {
+      out.push({
+        label: `BLIND MAN'S CORNER (×${blindManCount})`,
+        detail: `${blindManCount} corner${blindManCount > 1 ? "s" : ""} — 1×3"×96" filler stick cut into L-shape per corner; countertop extends over dead space`,
       });
     }
     // Decorative hardware spec (finishing note, no price).
@@ -3748,6 +3779,17 @@ export default function DesignTool() {
   const setGlassDoorFor = useCallback((uid: string, glassDoor: boolean) => {
     setCabAttr(uid, glassDoor ? { glassDoor, noDoor: false } : { glassDoor });
   }, [setCabAttr]);
+
+  // Toggle the Blind Man's Corner solution for a specific room corner.
+  // Adds or removes the corner id from room.blindManCorners.
+  const toggleBlindManCorner = useCallback((cornerId: string) => {
+    setRoom((prev) => {
+      const current = new Set(prev.blindManCorners ?? []);
+      if (current.has(cornerId)) current.delete(cornerId);
+      else current.add(cornerId);
+      return { ...prev, blindManCorners: Array.from(current) };
+    });
+  }, []);
 
   // Whether the currently-open attributes cabinet has a GD variant in the catalog.
   // We check if a code ending in GD exists for the cabinet's masterCode.
@@ -7218,9 +7260,48 @@ export default function DesignTool() {
                   {ceilingViolationUids.size > 0
                     ? `${ceilingViolationUids.size} cabinet${ceilingViolationUids.size > 1 ? "s are" : " is"} taller than the ${(() => { const c = inchesToFeetInches(roomCeiling(room)); return c.inches === 0 ? `${c.feet}'` : `${c.feet}'${c.inches}"`; })()} ceiling — pick a shorter box or raise the ceiling height. `
                     : ""}
-                  {cornerBaseViolationUids.size > 0
-                    ? `${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a room corner — replace with a Blind Corner Base (BBC), Easy Reach Base (ERB), Lazy Susan (LSB), or Corner Sink Base (CSB). `
-                    : ""}
+                  {cornerBaseViolationUids.size > 0 && (
+                    <span>
+                      {`${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a room corner — replace with a Blind Corner Base (BBC), Easy Reach Base (ERB), Lazy Susan (LSB), or Corner Sink Base (CSB), or use Blind Man’s Corner (two 3" fillers in an L-shape, countertop covers the dead space, 1×96" filler stick added to cart). `}
+                      {/* Show a toggle button for each room corner that has a flagged cabinet */}
+                      {(() => {
+                        // Determine which room corners have flagged cabinets.
+                        const flaggedCorners: { id: string; label: string }[] = [];
+                        for (const uid of Array.from(cornerBaseViolationUids)) {
+                          const p = placed.find((c) => c.uid === uid);
+                          if (!p) continue;
+                          const { w, d } = rotatedSize(p);
+                          const tol = 2;
+                          if (p.y <= tol && p.x <= tol) flaggedCorners.push({ id: "top-left", label: "Top-Left" });
+                          if (p.y <= tol && Math.abs(p.x + w - room.width) <= tol) flaggedCorners.push({ id: "top-right", label: "Top-Right" });
+                          if (Math.abs(p.y + d - room.depth) <= tol && p.x <= tol) flaggedCorners.push({ id: "bottom-left", label: "Bottom-Left" });
+                          if (Math.abs(p.y + d - room.depth) <= tol && Math.abs(p.x + w - room.width) <= tol) flaggedCorners.push({ id: "bottom-right", label: "Bottom-Right" });
+                        }
+                        const unique = flaggedCorners.filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i);
+                        if (unique.length === 0) return null;
+                        return (
+                          <span className="block mt-1 flex flex-wrap gap-1">
+                            {unique.map((corner) => {
+                              const isSet = (room.blindManCorners ?? []).includes(corner.id);
+                              return (
+                                <button
+                                  key={corner.id}
+                                  onClick={() => toggleBlindManCorner(corner.id)}
+                                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                                    isSet
+                                      ? "bg-green-100 border-green-400 text-green-800"
+                                      : "bg-white border-red-300 text-red-700 hover:bg-red-50"
+                                  }`}
+                                >
+                                  {isSet ? "✓ " : ""}{corner.label}: Blind Man&apos;s Corner {isSet ? "(on)" : "(off)"}
+                                </button>
+                              );
+                            })}
+                          </span>
+                        );
+                      })()}
+                    </span>
+                  )}
                   An appliance running into a cabinet must be fixed before ordering.
                 </span>
               </div>
