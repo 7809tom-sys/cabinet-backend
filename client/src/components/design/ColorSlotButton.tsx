@@ -77,6 +77,95 @@ interface StyleGroup {
   styles: StyleOption[];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SeriesSwitcher — compact single-row series selector for mobile.
+// Shows only the active series name as a pill. Tapping it opens an inline
+// dropdown of all series so the user can switch without losing grid space.
+// ─────────────────────────────────────────────────────────────────────────────
+function SeriesSwitcher({
+  groups,
+  effectiveGroup,
+  onChoose,
+  activeStyle,
+}: {
+  groups: StyleGroup[];
+  effectiveGroup: number | null | undefined;
+  onChoose: (distId: number | null) => void;
+  activeStyle: { id?: number } | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const activeGroupItem = groups.find((g) => g.distributorId === effectiveGroup) ?? groups[0];
+  const previewStyle = activeGroupItem?.styles.find((s) => s.thumbnailImageUrl || s.doorSampleImageUrl);
+  const previewUrl = previewStyle?.thumbnailImageUrl || previewStyle?.doorSampleImageUrl;
+
+  return (
+    <div className="border-b border-border">
+      {/* Compact pill row — always visible, shows active series */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2 bg-muted/20 hover:bg-muted/40 transition-colors active:scale-[0.99]"
+      >
+        {previewUrl && (
+          <div className="h-7 w-5 shrink-0 overflow-hidden rounded border border-border">
+            <img src={previewUrl} alt="" className="h-full w-full object-cover" draggable={false} />
+          </div>
+        )}
+        <span className="flex-1 min-w-0 text-left">
+          <span className="text-[11px] text-muted-foreground font-medium">Series: </span>
+          <span className="text-[12px] font-bold text-foreground">{activeGroupItem?.label ?? "—"}</span>
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {/* Expandable series list — only visible when open */}
+      {open && (
+        <div className="border-t border-border bg-white">
+          {groups.map((g) => {
+            const isActive = effectiveGroup === g.distributorId;
+            const gPreviewStyle = g.styles.find((s) => s.thumbnailImageUrl || s.doorSampleImageUrl);
+            const gPreviewUrl = gPreviewStyle?.thumbnailImageUrl || gPreviewStyle?.doorSampleImageUrl;
+            const hasSelected = g.styles.some((s) => (activeStyle as { id?: number } | null)?.id === s.id);
+            return (
+              <button
+                key={String(g.distributorId)}
+                type="button"
+                onClick={() => { onChoose(g.distributorId); setOpen(false); }}
+                className={[
+                  "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
+                  isActive
+                    ? "bg-[#1a2744]/8 border-l-2 border-[#1a2744]"
+                    : "hover:bg-muted/40 border-l-2 border-transparent",
+                ].join(" ")}
+              >
+                {gPreviewUrl ? (
+                  <div className="h-8 w-6 shrink-0 overflow-hidden rounded border border-border">
+                    <img src={gPreviewUrl} alt="" className="h-full w-full object-cover" draggable={false} />
+                  </div>
+                ) : (
+                  <div className="h-8 w-6 shrink-0 rounded border border-border bg-muted/30" />
+                )}
+                <span className="flex-1 min-w-0">
+                  <span className={`block truncate text-[13px] font-semibold ${isActive ? "text-[#1a2744]" : "text-foreground"}`}>
+                    {g.label}
+                  </span>
+                  <span className="block text-[10px] text-muted-foreground">
+                    {g.styles.length} {g.styles.length === 1 ? "style" : "styles"}
+                  </span>
+                </span>
+                {(isActive || hasSelected) && (
+                  <Check className="h-4 w-4 shrink-0 text-[#d4a75a]" strokeWidth={3} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ColorSlotButton({
   label,
   active,
@@ -350,69 +439,19 @@ export function ColorSlotButton({
               className="mt-2 rounded-lg border border-border bg-white overflow-hidden"
               style={{ maxHeight: "60vh" }}
             >
-              {/* Series tabs — horizontal scroll strip for quick series switching.
-                  Each tab is a tall card with a door-sample thumbnail + series name
-                  so it's easy to tap on mobile (min 52px height). */}
+              {/* Series switcher — compact single-row pill showing only the active
+                  series. Tapping it expands a dropdown list so the user can switch.
+                  This keeps the style grid tall and visible by default. */}
               {groups.length > 1 && (
-                <div
-                  className="flex gap-2 overflow-x-auto overscroll-x-contain px-3 py-2.5 border-b border-border bg-muted/20"
-                  style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}
-                >
-                  {groups.map((g) => {
-                    const isActive = effectiveGroup === g.distributorId;
-                    // Pick the first style in the group that has a thumbnail for the preview chip.
-                    const previewStyle = g.styles.find((s) => s.thumbnailImageUrl || s.doorSampleImageUrl);
-                    const previewUrl = previewStyle?.thumbnailImageUrl || previewStyle?.doorSampleImageUrl;
-                    return (
-                      <button
-                        key={String(g.distributorId)}
-                        type="button"
-                        onClick={() => setChosenGroup(g.distributorId)}
-                        className={[
-                          "shrink-0 flex items-center gap-2 rounded-xl border px-3 transition-all active:scale-[0.97]",
-                          "min-h-[52px] min-w-[100px] text-left",
-                          isActive
-                            ? "border-[#1a2744] bg-[#1a2744] text-white shadow-md"
-                            : "border-border bg-white text-foreground hover:border-[#d4a75a]/70 hover:bg-[#d4a75a]/8",
-                        ].join(" ")}
-                      >
-                        {previewUrl && (
-                          <div className={[
-                            "h-9 w-7 shrink-0 overflow-hidden rounded-md border",
-                            isActive ? "border-white/30" : "border-border",
-                          ].join(" ")}>
-                            <img
-                              src={previewUrl}
-                              alt=""
-                              className="h-full w-full object-cover"
-                              draggable={false}
-                            />
-                          </div>
-                        )}
-                        <span className="min-w-0">
-                          <span className={[
-                            "block truncate text-[12px] font-bold leading-tight",
-                            isActive ? "text-white" : "text-foreground",
-                          ].join(" ")}>
-                            {g.label}
-                          </span>
-                          <span className={[
-                            "block text-[10px] leading-tight mt-0.5",
-                            isActive ? "text-white/70" : "text-muted-foreground",
-                          ].join(" ")}>
-                            {g.styles.length} {g.styles.length === 1 ? "style" : "styles"}
-                          </span>
-                        </span>
-                        {isActive && (
-                          <Check className="h-3.5 w-3.5 shrink-0 text-[#d4a75a] ml-auto" strokeWidth={3} />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                <SeriesSwitcher
+                  groups={groups}
+                  effectiveGroup={effectiveGroup}
+                  onChoose={(distId) => setChosenGroup(distId)}
+                  activeStyle={style as { id?: number } | null}
+                />
               )}
               {/* Style grid for the active series */}
-              <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: groups.length > 1 ? "calc(60vh - 76px)" : "calc(60vh - 8px)", WebkitOverflowScrolling: "touch" }}>
+              <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: groups.length > 1 ? "calc(60vh - 44px)" : "calc(60vh - 8px)", WebkitOverflowScrolling: "touch" }}>
                 {activeGroup ? (
                   <div className="px-2 py-2">
                     <StyleGrid list={activeGroup.styles} cols={3} />
