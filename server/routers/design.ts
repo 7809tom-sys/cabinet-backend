@@ -363,8 +363,9 @@ export const designRouter = router({
           ${cabinets.masterCode} LIKE 'REPV%'
           OR ${cabinets.masterCode} LIKE 'REP9%'
           OR ${cabinets.masterCode} LIKE 'WSV%'
+          OR ${cabinets.masterCode} = 'PLYEB42'
         )`));
-      const endPanels = panelRows.filter((r) => /^REPV/.test(r.masterCode) || /^REP9/.test(r.masterCode));
+      const endPanels = panelRows.filter((r) => /^REPV/.test(r.masterCode) || /^REP9/.test(r.masterCode) || r.masterCode === 'PLYEB42');
       const smoothPanels = panelRows.filter((r) => /^WSV/.test(r.masterCode));
 
       // Dedupe helper (a cabinet can join multiple SKU rows).
@@ -446,10 +447,11 @@ export const designRouter = router({
         ...(await run(like(cabinets.masterCode, "W-%-24"))),
         ...(await db.select(cols).from(cabinets).innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id)).where(and(gate, like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`))),
       ];
-      // End panels: REPV-* (Skyline/USCD), REP9* (Clark and Sons)
+      // End panels: REPV-* (Skyline/USCD), REP9* (Clark and Sons), PLYEB42 (Clark and Sons plywood panel)
       const panelRows = [
         ...(await run(like(cabinets.masterCode, "REPV%"))),
         ...(await run(like(cabinets.masterCode, "REP9%"))),
+        ...(await run(eq(cabinets.masterCode, "PLYEB42"))),
       ];
       // Standard wall cabinets (short/tall boxes) minus the deep "-24" fridge box and WR cabinets.
       const wallRows = (await run(like(cabinets.masterCode, "W-%"))).filter(
