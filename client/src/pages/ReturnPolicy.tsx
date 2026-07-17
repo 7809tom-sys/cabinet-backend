@@ -1,18 +1,8 @@
-import { AdminEditField } from "@/components/admin/AdminEditField";
-
 export default function ReturnPolicy() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
-      <h1 className="text-3xl font-bold text-foreground mb-2">
-        <AdminEditField pageKey="return" field="page_title" defaultValue="Return Policy & Warranty">
-          {(val) => <>{val}</>}
-        </AdminEditField>
-      </h1>
-      <p className="text-sm text-muted-foreground mb-10">
-        <AdminEditField pageKey="return" field="last_updated" defaultValue="Last updated: July 2025">
-          {(val) => <>{val}</>}
-        </AdminEditField>
-      </p>
+      <h1 className="text-3xl font-bold text-foreground mb-2">Return Policy &amp; Warranty</h1>
+      <p className="text-sm text-muted-foreground mb-10">Last updated: July 2025</p>
 
       <div className="space-y-10 text-foreground">
 

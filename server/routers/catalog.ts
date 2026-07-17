@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, type SQL } from "drizzle-orm";
+import { eq, and, like, inArray, isNotNull, sql, desc, asc, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
@@ -12,11 +12,8 @@ import {
   distributorSkus,
   costChangeLog,
   doorStyleCorrections,
-  codeAliases,
-  pricingSettings,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
-import { extractDominantColor } from "../lib/colorSampler";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { sellPriceForTier } from "@shared/margins";
 import { invokeLLM } from "../_core/llm";
@@ -24,7 +21,7 @@ import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@sha
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
 
-// --- Supplier-identity scrubbing -----------------------------------------------
+// ─── Supplier-identity scrubbing ───────────────────────────────────────────────
 // Cabinet Dealz never exposes the underlying supplier. These helpers strip any
 // supplier-identifying columns from rows before they leave a public procedure,
 // so the door-style-first UI can present purely by style.
@@ -44,7 +41,7 @@ function dayKeyUTC(d: Date = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-// --- Distributors -------------------------------------------------------------
+// ─── Distributors ─────────────────────────────────────────────────────────────
 
 export const distributorsRouter = router({
   list: publicProcedure.query(async () => {
@@ -71,7 +68,7 @@ export const distributorsRouter = router({
   }),
 });
 
-// --- Door Styles --------------------------------------------------------------
+// ─── Door Styles ──────────────────────────────────────────────────────────────
 
 // A style is only shown publicly if it has at least one *orderable* cabinet:
 // a published + available SKU whose cabinet is active, shown in the designer,
@@ -135,30 +132,20 @@ export const doorStylesRouter = router({
         featuredLabel: doorStyles.featuredLabel,
         isBuilderGrade: doorStyles.isBuilderGrade,
         isActive: doorStyles.isActive,
-        dominantColor: doorStyles.dominantColor,
         createdAt: doorStyles.createdAt,
-        pricingVerifiedAt: doorStyles.pricingVerifiedAt,
-        // Series name fields from distributors table (for "ourName (seriesName)" display)
-        seriesName: distributors.seriesName,
-        displayMode: distributors.displayMode,
       };
       const available = await availableStyleIds(db);
       const rows = input?.distributorId
         ? await db
             .select(projection)
             .from(doorStyles)
-            .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
             .where(
               and(
                 eq(doorStyles.distributorId, input.distributorId),
                 eq(doorStyles.isActive, true)
               )
             )
-        : await db
-            .select(projection)
-            .from(doorStyles)
-            .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
-            .where(eq(doorStyles.isActive, true));
+        : await db.select(projection).from(doorStyles).where(eq(doorStyles.isActive, true));
       // Hide active-but-empty styles from every public surface (storefront +
       // Design Tool picker). Admin back-office queries do not use this router.
       return filterStylesByAvailability(rows, available);
@@ -234,7 +221,7 @@ export const doorStylesRouter = router({
       return out.map(scrubDoorStyle);
     }),
 
-  // -- Featured door styles (admin-curated 80/20 merchandising) ----------------
+  // ── Featured door styles (admin-curated 80/20 merchandising) ────────────────
   // Public: the curated set pushed on the storefront, ordered by rank, hard
   // capped at 30 so the affiliate/homeowner sees a focused selection.
   featured: publicProcedure.query(async () => {
@@ -259,40 +246,6 @@ export const doorStylesRouter = router({
       .where(eq(doorStyles.isActive, true))
       .orderBy(asc(doorStyles.ourName));
     return rows; // admin sees full rows (incl. distributorName) intentionally
-  }),
-
-  // Admin: every active style with per-distributor SKU counts, for the manager UI.
-  listForAdminWithSkuCounts: adminProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) return [];
-    const rows = await db
-      .select()
-      .from(doorStyles)
-      .where(eq(doorStyles.isActive, true))
-      .orderBy(asc(doorStyles.ourName));
-    // For each style, get SKU counts per distributor
-    const skuRows = await db
-      .select({
-        styleId: distributorSkus.styleId,
-        distributorId: distributors.id,
-        distributorName: distributors.name,
-        skuCount: sql<number>`COUNT(${distributorSkus.id})`,
-      })
-      .from(distributorSkus)
-      .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
-      .where(eq(distributorSkus.isAvailable, true))
-      .groupBy(distributorSkus.styleId, distributors.id, distributors.name);
-    // Build a map: styleId -> [{distributorName, skuCount}]
-    const skuMap = new Map<number, { distributorName: string; skuCount: number }[]>();
-    for (const r of skuRows) {
-      const existing = skuMap.get(r.styleId) ?? [];
-      existing.push({ distributorName: r.distributorName, skuCount: Number(r.skuCount) });
-      skuMap.set(r.styleId, existing);
-    }
-    return rows.map((s) => ({
-      ...s,
-      distributorSkuBreakdown: skuMap.get(s.id) ?? [],
-    }));
   }),
 
   // Admin: toggle a style's featured state. Enforces the MAX 30 cap on enable.
@@ -403,7 +356,7 @@ export const doorStylesRouter = router({
       return { ok: true };
     }),
 
-  // -- Door sample-photo corrections (two-way photo tool) ----------------------
+  // ── Door sample-photo corrections (two-way photo tool) ──────────────────────
   // Submit a real photo to correct a door style's on-file sample. Admins apply
   // it to the live sample immediately (logged as approved + verified). Everyone
   // else creates a pending correction for an admin to review. Reuses S3.
@@ -699,11 +652,11 @@ export const doorStylesRouter = router({
       }
     }),
 
-  // -- Family catalog (the door-style-FAMILY-first shopping view) --------------
+  // ── Family catalog (the door-style-FAMILY-first shopping view) ──────────────
 
-  // -- Family catalog (the door-style-FAMILY-first shopping view) --------------
+  // ── Family catalog (the door-style-FAMILY-first shopping view) ──────────────
   // Given one door style, return EVERY cabinet available in that style (base,
-  // wall, tall, vanity, accessory -- all together) collapsed to one priced row
+  // wall, tall, vanity, accessory — all together) collapsed to one priced row
   // per cabinet. This powers the /family/:styleCode page so a shopper picks a
   // family first and then sees all cabinet types in that one look.
   familyCatalog: publicProcedure
@@ -712,9 +665,14 @@ export const doorStylesRouter = router({
       const db = await getDb();
       if (!db) return { style: null, items: [] };
 
-      // Simplified pricing: storefront shows listPrice directly (what the
-      // distributor uploaded). No tier math, no markup stacking.
+      // Price entitlement: guests/homeowners see retail; approved pros see the
+      // tier the owner assigned them; admin sees all. Sell prices are ALWAYS
+      // computed from the cost base × per-tier markup (never the raw stored
+      // price columns) so the markup can't be double-applied or fall back to
+      // list price. This mirrors `stylesForCabinet` above.
+      const viewerTier = resolveStorefrontTier(ctx.user);
       const isAdmin = ctx.user?.role === "admin";
+      const ps = await getPricingSettings();
 
       const styleRows = await db
         .select()
@@ -747,7 +705,6 @@ export const doorStylesRouter = router({
           platformSku: distributorSkus.platformSku,
           skuImageUrl: distributorSkus.imageUrl,
           distributorId: distributorSkus.distributorId,
-          skuId: distributorSkus.id,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
@@ -762,7 +719,7 @@ export const doorStylesRouter = router({
         );
 
       // Collapse to one row per cabinet (a cabinet may be carried by multiple
-      // supply lines in the same style). Prefer the lowest list price.
+      // supply lines in the same style). Prefer the lowest contractor price.
       const byCabinet = new Map<number, (typeof rows)[number]>();
       for (const r of rows) {
         const existing = byCabinet.get(r.cabinetId);
@@ -770,8 +727,10 @@ export const doorStylesRouter = router({
           byCabinet.set(r.cabinetId, r);
           continue;
         }
-        const a = Number(r.listPrice ?? Infinity);
-        const b = Number(existing.listPrice ?? Infinity);
+        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+        const b = Number(
+          existing.contractorPrice ?? existing.wholesalePrice ?? Infinity
+        );
         if (a < b) byCabinet.set(r.cabinetId, r);
       }
 
@@ -781,222 +740,44 @@ export const doorStylesRouter = router({
             numeric: true,
           })
         )
-        .map((r) => ({
-          ...r,
-          // Admins see cost; customers never see it
-          yourCost: isAdmin ? r.yourCost : null,
-        }));
+        .map((r) => {
+          // Cost base precedence (yourCost first) MUST match stylesForCabinet
+          // so the Family page and the Cabinet Detail page price identically.
+          const costRow = {
+            yourCost: r.yourCost,
+            wholesalePrice: r.wholesalePrice,
+            adjustedListPrice: r.adjustedListPrice,
+            listPrice: r.listPrice,
+          };
+          const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
+          const sellContractor = sellPriceForTier(costRow, ps, "contractor");
+          const sellWholesale = sellPriceForTier(costRow, ps, "wholesale");
+          const gated = visiblePricesForViewer(
+            {
+              listPrice: r.listPrice,
+              adjustedListPrice: r.adjustedListPrice,
+              wholesalePrice: sellWholesale?.toFixed(2) ?? null,
+              contractorPrice: sellContractor?.toFixed(2) ?? null,
+              homeownerPrice: sellHomeowner?.toFixed(2) ?? null,
+            },
+            viewerTier,
+            isAdmin,
+          );
+          return {
+            ...r,
+            listPrice: gated.listPrice,
+            adjustedListPrice: gated.adjustedListPrice,
+            wholesalePrice: gated.wholesalePrice,
+            contractorPrice: gated.contractorPrice,
+            homeownerPrice: gated.homeownerPrice,
+          };
+        });
 
       return { style: scrubDoorStyle(style), items };
     }),
-
-  // Admin: upload an image for a door style (room scene, door sample, or thumbnail).
-  // Accepts a base64 data URL, uploads to storage, and returns the URL so the
-  // client can save it via adminUpdateDoorStyle.
-  adminUploadDoorStyleImage: adminProcedure
-    .input(
-      z.object({
-        filename: z.string().min(1),
-        dataBase64: z.string().min(1),
-        contentType: z.string().default("image/jpeg"),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const raw = input.dataBase64.includes(",")
-        ? input.dataBase64.slice(input.dataBase64.indexOf(",") + 1)
-        : input.dataBase64;
-      const buf = Buffer.from(raw, "base64");
-      const safe = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const { url } = await storagePut(`door-style-images/${Date.now()}_${safe}`, buf, input.contentType);
-      return { url };
-    }),
-
-  // Admin: reassign a door style to a different distributor.
-  adminUpdateDoorStyleDistributor: adminProcedure
-    .input(z.object({ id: z.number(), distributorId: z.number() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.update(doorStyles).set({ distributorId: input.distributorId }).where(eq(doorStyles.id, input.id));
-      return { ok: true };
-    }),
-
-  // Admin: update the series name for a distributor.
-  adminUpdateDistributorSeriesName: adminProcedure
-    .input(z.object({ distributorId: z.number(), seriesName: z.string().max(128).nullable() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.update(distributors).set({ seriesName: input.seriesName?.trim() || null }).where(eq(distributors.id, input.distributorId));
-      return { ok: true };
-    }),
-
-  // Admin: create a new door style entry for a distributor.
-  adminCreateDoorStyle: adminProcedure
-    .input(
-      z.object({
-        distributorId: z.number(),
-        styleCode: z.string().min(1).max(32),
-        ourName: z.string().min(1).max(128),
-        distributorName: z.string().max(128).optional(),
-        doorStyle: z.string().max(64).nullable().optional(),
-        color: z.string().max(64).nullable().optional(),
-        finish: z.string().max(128).nullable().optional(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const [result] = await db.insert(doorStyles).values({
-        distributorId: input.distributorId,
-        styleCode: input.styleCode.trim().toUpperCase(),
-        ourName: input.ourName.trim(),
-        distributorName: input.distributorName?.trim() || input.ourName.trim(),
-        doorStyle: input.doorStyle?.trim() || null,
-        color: input.color?.trim() || null,
-        finish: input.finish?.trim() || null,
-        isActive: true,
-        isFeatured: false,
-        featuredRank: 0,
-        doorSampleVerified: false,
-        isBuilderGrade: false,
-      });
-            return { ok: true, id: (result as { insertId: number }).insertId };
-    }),
-
-  /** Admin: list all distributor SKUs for a door style with cabinet info. */
-  adminListSkusForStyle: adminProcedure
-    .input(z.object({ styleId: z.number().int() }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const rows = await db
-        .select({
-          id: distributorSkus.id,
-          platformSku: distributorSkus.platformSku,
-          distributorSku: distributorSkus.distributorSku,
-          listPrice: distributorSkus.listPrice,
-          yourCost: distributorSkus.yourCost,
-          wholesalePrice: distributorSkus.wholesalePrice,
-          contractorPrice: distributorSkus.contractorPrice,
-          homeownerPrice: distributorSkus.homeownerPrice,
-          isAvailable: distributorSkus.isAvailable,
-          isPublished: distributorSkus.isPublished,
-          cabinetId: distributorSkus.cabinetId,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          subCategory: cabinets.subCategory,
-          width: cabinets.width,
-          height: cabinets.height,
-          depth: cabinets.depth,
-          conflictStatus: cabinets.conflictStatus,
-          conflictReason: cabinets.conflictReason,
-        })
-        .from(distributorSkus)
-        .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(eq(distributorSkus.styleId, input.styleId))
-        .orderBy(
-          // Conflict items bubble to the top so admin sees them first
-          sql`case when ${cabinets.conflictStatus} = 'conflict' then 0 else 1 end`,
-          asc(cabinets.category),
-          asc(cabinets.masterCode)
-        );
-      return rows;
-    }),
-
-  /** Admin: count duplicate SKU rows system-wide (same cabinetId+styleId+distributorId, keep highest id). */
-  adminCountDuplicateSkus: adminProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    // Find groups with more than one row
-    const groups = await db
-      .select({
-        cabinetId: distributorSkus.cabinetId,
-        styleId: distributorSkus.styleId,
-        distributorId: distributorSkus.distributorId,
-        cnt: sql<number>`count(*)`,
-        maxId: sql<number>`max(${distributorSkus.id})`,
-      })
-      .from(distributorSkus)
-      .groupBy(distributorSkus.cabinetId, distributorSkus.styleId, distributorSkus.distributorId)
-      .having(sql`count(*) > 1`);
-    // Total rows that would be deleted = sum of (cnt - 1) for each group
-    const toDelete = groups.reduce((acc, g) => acc + (Number(g.cnt) - 1), 0);
-    return { duplicateGroups: groups.length, rowsToDelete: toDelete };
-  }),
-
-  /** Admin: delete duplicate SKU rows system-wide, keeping the latest upload (highest id) per cabinetId+styleId+distributorId. */
-  adminDeduplicateAllSkus: adminProcedure.mutation(async () => {
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    // Find all groups with duplicates and collect the ids to delete
-    const groups = await db
-      .select({
-        cabinetId: distributorSkus.cabinetId,
-        styleId: distributorSkus.styleId,
-        distributorId: distributorSkus.distributorId,
-        maxId: sql<number>`max(${distributorSkus.id})`,
-      })
-      .from(distributorSkus)
-      .groupBy(distributorSkus.cabinetId, distributorSkus.styleId, distributorSkus.distributorId)
-      .having(sql`count(*) > 1`);
-    if (groups.length === 0) return { deleted: 0 };
-    // For each duplicate group, delete all rows except the one with the highest id
-    let deleted = 0;
-    for (const g of groups) {
-      const result = await db
-        .delete(distributorSkus)
-        .where(
-          and(
-            eq(distributorSkus.cabinetId, g.cabinetId),
-            eq(distributorSkus.styleId, g.styleId),
-            eq(distributorSkus.distributorId, g.distributorId),
-            sql`${distributorSkus.id} != ${g.maxId}`
-          )
-        );
-      deleted += (result as unknown as { rowsAffected?: number }).rowsAffected ?? 0;
-    }
-    return { deleted };
-  }),
-
-  /** Admin: delete a single distributor SKU row. */
-  adminDeleteSku: adminProcedure
-    .input(z.object({ skuId: z.number().int() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.delete(distributorSkus).where(eq(distributorSkus.id, input.skuId));
-      return { ok: true };
-    }),
-
-  /** Admin: toggle isPublished for a single SKU. */
-  adminToggleSkuPublished: adminProcedure
-    .input(z.object({ skuId: z.number().int(), isPublished: z.boolean() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db
-        .update(distributorSkus)
-        .set({ isPublished: input.isPublished })
-        .where(eq(distributorSkus.id, input.skuId));
-      return { ok: true };
-    }),
-
-  /** Admin: bulk toggle isPublished for ALL SKUs of a door style. */
-  adminToggleAllSkusPublished: adminProcedure
-    .input(z.object({ styleId: z.number().int(), isPublished: z.boolean() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db
-        .update(distributorSkus)
-        .set({ isPublished: input.isPublished })
-        .where(eq(distributorSkus.styleId, input.styleId));
-      return { ok: true };
-    }),
 });
-// --- Cabinets -----------------------------------------------------------------
+
+// ─── Cabinets ─────────────────────────────────────────────────────────────────
 
 export const cabinetsRouter = router({
   list: publicProcedure
@@ -1028,11 +809,9 @@ export const cabinetsRouter = router({
         const canon = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
         // SQL-side canonicalization of masterCode: remove dashes and spaces.
         const canonCol = sql`UPPER(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''))`;
-        // Also search alias raw_code_sample so distributor codes like BEP3 find their master.
         const orParts = [
           sql`${cabinets.masterCode} LIKE ${`%${raw}%`}`,
           sql`${cabinets.description} LIKE ${`%${raw}%`}`,
-          sql`EXISTS (SELECT 1 FROM code_aliases ca WHERE ca.cabinet_id = ${cabinets.id} AND (ca.raw_code_sample LIKE ${`%${raw}%`} OR UPPER(REPLACE(REPLACE(ca.raw_code_sample, '-', ''), ' ', '')) LIKE ${`%${canon}%`}))`,
         ];
         if (canon) {
           orParts.push(sql`${canonCol} LIKE ${`%${canon}%`}`);
@@ -1186,118 +965,10 @@ export const cabinetsRouter = router({
       return rows[0] ? scrubCabinet(rows[0]) : null;
     }),
 
-  // -- Admin: Missing Image dashboard ----------------------------------------
-  // Lists every active cabinet that has no catalogImageUrl, so the admin can
-  // assign one from the media library or upload a new one. Does NOT require
-  // conflictStatus = 'image_missing'; it surfaces any cabinet missing an image
-  // regardless of status, giving the admin a full picture.
-  adminListMissingImages: adminProcedure
-    .input(
-      z.object({
-        page: z.number().int().min(0).default(0),
-        pageSize: z.number().int().min(1).max(200).default(50),
-        search: z.string().optional(),
-      }).optional()
-    )
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) return { items: [], total: 0 };
-      const p = input ?? { page: 0, pageSize: 50 };
-      const conds = [eq(cabinets.isActive, true), sql`(${cabinets.catalogImageUrl} IS NULL OR ${cabinets.catalogImageUrl} = '')` as SQL];
-      if (p.search?.trim()) {
-        const q = `%${p.search.trim()}%`;
-        conds.push(sql`(${cabinets.masterCode} LIKE ${q} OR ${cabinets.description} LIKE ${q})` as SQL);
-      }
-      const where = and(...conds);
-      const [countRow] = await db.select({ n: sql<number>`count(*)` }).from(cabinets).where(where);
-      const total = Number(countRow?.n ?? 0);
-      const items = await db
-        .select({
-          id: cabinets.id,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          subCategory: cabinets.subCategory,
-          conflictStatus: cabinets.conflictStatus,
-          catalogImageUrl: cabinets.catalogImageUrl,
-        })
-        .from(cabinets)
-        .where(where)
-        .orderBy(asc(cabinets.category), asc(cabinets.masterCode))
-        .limit(p.pageSize)
-        .offset(p.page * p.pageSize);
-      return { items, total };
-    }),
-
-  // -- Admin: Fix a cabinet's catalog image ------------------------------------
-  // Assigns a new image URL to a cabinet. If the cabinet's conflictStatus is
-  // 'image_missing', it is automatically cleared back to 'none'.
-  adminFixCabinetImage: adminProcedure
-    .input(z.object({ id: z.number().int(), imageUrl: z.string().min(1) }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const [cab] = await db.select({ conflictStatus: cabinets.conflictStatus }).from(cabinets).where(eq(cabinets.id, input.id)).limit(1);
-      if (!cab) throw new TRPCError({ code: "NOT_FOUND", message: "Cabinet not found." });
-      const patch: Record<string, unknown> = { catalogImageUrl: input.imageUrl };
-      if (cab.conflictStatus === "image_missing") {
-        patch.conflictStatus = "none";
-        patch.conflictReason = null;
-        patch.conflictedAt = null;
-      }
-      await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
-      return { ok: true, conflictCleared: cab.conflictStatus === "image_missing" };
-    }),
-
-  // -- Admin: Bulk-assign the same image to multiple cabinets ----------------
-  // Assigns a single imageUrl to every cabinet in the ids array. Cabinets whose
-  // conflictStatus is 'image_missing' are automatically cleared back to 'none'.
-  adminBulkFixCabinetImages: adminProcedure
-    .input(
-      z.object({
-        ids: z.array(z.number().int()).min(1).max(500),
-        imageUrl: z.string().min(1),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      // Single UPDATE for all ids — set image and clear image_missing flags in one pass
-      const CHUNK = 200;
-      let updated = 0;
-      let conflictsCleared = 0;
-      for (let i = 0; i < input.ids.length; i += CHUNK) {
-        const chunk = input.ids.slice(i, i + CHUNK);
-        // Fetch current conflict statuses for this chunk so we can count clears
-        const rows = await db
-          .select({ id: cabinets.id, conflictStatus: cabinets.conflictStatus })
-          .from(cabinets)
-          .where(inArray(cabinets.id, chunk));
-        const imageMissingIds = rows
-          .filter((r) => r.conflictStatus === "image_missing")
-          .map((r) => r.id);
-        // Update all in chunk: set image
-        await db
-          .update(cabinets)
-          .set({ catalogImageUrl: input.imageUrl })
-          .where(inArray(cabinets.id, chunk));
-        updated += chunk.length;
-        // Clear image_missing flags for the subset that had them
-        if (imageMissingIds.length > 0) {
-          await db
-            .update(cabinets)
-            .set({ conflictStatus: "none", conflictReason: null, conflictedAt: null })
-            .where(inArray(cabinets.id, imageMissingIds));
-          conflictsCleared += imageMissingIds.length;
-        }
-      }
-      return { ok: true, updated, conflictsCleared };
-    }),
-
-  // -- Admin: Conflict / Needs-Review back office ---------------------------
+  // ── Admin: Conflict / Needs-Review back office ───────────────────────────
   // Lists every product currently held in conflict status, together with the
   // info we DO know: distributor name(s) and door style(s) it is carried under
-  // (resolved from its SKUs). Admin-only -- supplier identity is allowed here.
+  // (resolved from its SKUs). Admin-only — supplier identity is allowed here.
   conflicts: adminProcedure.query(async () => {
     type ConflictItem = {
       id: number;
@@ -1308,33 +979,12 @@ export const cabinetsRouter = router({
       width: string | null;
       height: string | null;
       depth: string | null;
-      weight: string | null;
-      pkgLength: string | null;
-      pkgWidth: string | null;
-      pkgHeight: string | null;
-      pkgWeight: string | null;
-      catalogImageUrl: string | null;
       conflictReason: string | null;
       conflictedAt: Date | null;
       skuCount: number;
       distributorNames: string[];
       doorStyleNames: string[];
       styleIds: number[];
-      aliases: string[];
-      skus: Array<{
-        id: number;
-        distributorSku: string | null;
-        platformSku: string | null;
-        yourCost: string | null;
-        listPrice: string | null;
-        wholesalePrice: string | null;
-        contractorPrice: string | null;
-        homeownerPrice: string | null;
-        isAvailable: boolean;
-        isPublished: boolean;
-        styleName: string | null;
-        distributorName: string | null;
-      }>;
     };
     const db = await getDb();
     if (!db) return [] as ConflictItem[];
@@ -1350,7 +1000,6 @@ export const cabinetsRouter = router({
     const skuRows = await db
       .select({
         cabinetId: distributorSkus.cabinetId,
-        id: distributorSkus.id,
         styleId: distributorSkus.styleId,
         distributorName: distributors.name,
         styleName: doorStyles.ourName,
@@ -1358,12 +1007,6 @@ export const cabinetsRouter = router({
         distributorSku: distributorSkus.distributorSku,
         platformSku: distributorSkus.platformSku,
         listPrice: distributorSkus.listPrice,
-        yourCost: distributorSkus.yourCost,
-        wholesalePrice: distributorSkus.wholesalePrice,
-        contractorPrice: distributorSkus.contractorPrice,
-        homeownerPrice: distributorSkus.homeownerPrice,
-        isAvailable: distributorSkus.isAvailable,
-        isPublished: distributorSkus.isPublished,
       })
       .from(distributorSkus)
       .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
@@ -1374,18 +1017,6 @@ export const cabinetsRouter = router({
       const arr = byCab.get(r.cabinetId) ?? [];
       arr.push(r);
       byCab.set(r.cabinetId, arr);
-    }
-    // Fetch aliases for all conflict cabinets
-    const aliasRows = await db
-      .select({ cabinetId: codeAliases.cabinetId, rawCodeSample: codeAliases.rawCodeSample })
-      .from(codeAliases)
-      .where(inArray(codeAliases.cabinetId, ids));
-    const aliasesByCab = new Map<number, string[]>();
-    for (const a of aliasRows) {
-      if (a.cabinetId == null) continue;
-      const arr = aliasesByCab.get(a.cabinetId) ?? [];
-      arr.push(a.rawCodeSample);
-      aliasesByCab.set(a.cabinetId, arr);
     }
     const result: ConflictItem[] = items.map((c) => {
       const skus = byCab.get(c.id) ?? [];
@@ -1411,33 +1042,12 @@ export const cabinetsRouter = router({
         width: c.width,
         height: c.height,
         depth: c.depth,
-        weight: c.weight ?? null,
-        pkgLength: c.pkgLength ?? null,
-        pkgWidth: c.pkgWidth ?? null,
-        pkgHeight: c.pkgHeight ?? null,
-        pkgWeight: c.pkgWeight ?? null,
-        catalogImageUrl: c.catalogImageUrl ?? null,
         conflictReason: c.conflictReason,
         conflictedAt: c.conflictedAt,
         skuCount: skus.length,
         distributorNames,
         doorStyleNames,
         styleIds,
-        aliases: aliasesByCab.get(c.id) ?? [],
-        skus: skus.map((s) => ({
-          id: s.id,
-          distributorSku: s.distributorSku,
-          platformSku: s.platformSku,
-          yourCost: s.yourCost,
-          listPrice: s.listPrice,
-          wholesalePrice: s.wholesalePrice,
-          contractorPrice: s.contractorPrice,
-          homeownerPrice: s.homeownerPrice,
-          isAvailable: s.isAvailable ?? false,
-          isPublished: s.isPublished ?? false,
-          styleName: s.styleName ? `${s.styleName}${s.styleCode ? ` (${s.styleCode})` : ""}` : null,
-          distributorName: s.distributorName,
-        })),
       };
     });
     return result;
@@ -1508,12 +1118,6 @@ export const cabinetsRouter = router({
         width: z.string().nullable().optional(),
         height: z.string().nullable().optional(),
         depth: z.string().nullable().optional(),
-        weight: z.string().nullable().optional(),
-        pkgLength: z.string().nullable().optional(),
-        pkgWidth: z.string().nullable().optional(),
-        pkgHeight: z.string().nullable().optional(),
-        pkgWeight: z.string().nullable().optional(),
-        catalogImageUrl: z.string().nullable().optional(),
         conflictReason: z.string().nullable().optional(),
         // Re-assign this product to the correct door style. When provided, ALL of
         // the item's distributor SKUs are re-pointed to this styleId so the
@@ -1532,12 +1136,6 @@ export const cabinetsRouter = router({
       if (input.width !== undefined) patch.width = input.width;
       if (input.height !== undefined) patch.height = input.height;
       if (input.depth !== undefined) patch.depth = input.depth;
-      if (input.weight !== undefined) patch.weight = input.weight;
-      if (input.pkgLength !== undefined) patch.pkgLength = input.pkgLength;
-      if (input.pkgWidth !== undefined) patch.pkgWidth = input.pkgWidth;
-      if (input.pkgHeight !== undefined) patch.pkgHeight = input.pkgHeight;
-      if (input.pkgWeight !== undefined) patch.pkgWeight = input.pkgWeight;
-      if (input.catalogImageUrl !== undefined) patch.catalogImageUrl = input.catalogImageUrl;
       if (input.conflictReason !== undefined) patch.conflictReason = input.conflictReason;
       if (input.clearAfter) {
         patch.conflictStatus = "none";
@@ -1583,107 +1181,13 @@ export const cabinetsRouter = router({
       return { ok: true };
     }),
 
-  // -- Admin: Promote conflict item to a brand-new master cabinet -----------
-  // Fills in all required fields on the conflict cabinet and clears the
-  // conflict status in one step. The cabinet gets a new master code.
-  adminPromoteToNewMaster: adminProcedure
-    .input(
-      z.object({
-        id: z.number(),
-        masterCode: z.string().min(1),
-        description: z.string().min(1),
-        category: z.string().min(1),
-        subCategory: z.string().optional().nullable(),
-        width: z.string().optional().nullable(),
-        height: z.string().optional().nullable(),
-        depth: z.string().optional().nullable(),
-        weight: z.string().optional().nullable(),
-        pkgLength: z.string().optional().nullable(),
-        pkgWidth: z.string().optional().nullable(),
-        pkgHeight: z.string().optional().nullable(),
-        pkgWeight: z.string().optional().nullable(),
-        catalogImageUrl: z.string().optional().nullable(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      // Ensure the new master code is not already taken by a different cabinet
-      const existing = await db
-        .select({ id: cabinets.id })
-        .from(cabinets)
-        .where(eq(cabinets.masterCode, input.masterCode))
-        .limit(1);
-      if (existing.length > 0 && existing[0].id !== input.id) {
-        throw new TRPCError({ code: "CONFLICT", message: `Master code "${input.masterCode}" is already in use by another cabinet.` });
-      }
-      await db.update(cabinets).set({
-        masterCode: input.masterCode,
-        description: input.description,
-        category: input.category,
-        subCategory: input.subCategory ?? null,
-        width: input.width ?? null,
-        height: input.height ?? null,
-        depth: input.depth ?? null,
-        weight: input.weight ?? null,
-        pkgLength: input.pkgLength ?? null,
-        pkgWidth: input.pkgWidth ?? null,
-        pkgHeight: input.pkgHeight ?? null,
-        pkgWeight: input.pkgWeight ?? null,
-        catalogImageUrl: input.catalogImageUrl ?? null,
-        conflictStatus: "none",
-        conflictReason: null,
-        conflictedAt: null,
-      }).where(eq(cabinets.id, input.id));
-      return { ok: true, masterCode: input.masterCode };
-    }),
-
-  // -- Admin: Map conflict item to an existing master cabinet ---------------
-  // Re-points all SKUs from the conflict cabinet to an existing master, then
-  // deactivates the conflict cabinet record so it no longer appears anywhere.
-  adminMapConflictToExisting: adminProcedure
-    .input(z.object({ conflictId: z.number(), targetMasterCode: z.string().min(1) }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const target = await db
-        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
-        .from(cabinets)
-        .where(eq(cabinets.masterCode, input.targetMasterCode))
-        .limit(1);
-      if (!target[0]) {
-        throw new TRPCError({ code: "NOT_FOUND", message: `Cabinet "${input.targetMasterCode}" not found in master catalog.` });
-      }
-      if (target[0].id === input.conflictId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot map a cabinet to itself." });
-      }
-      // Move all SKUs from the conflict cabinet to the target
-      await db
-        .update(distributorSkus)
-        .set({ cabinetId: target[0].id })
-        .where(eq(distributorSkus.cabinetId, input.conflictId));
-      // Deactivate the conflict cabinet (it is now a duplicate)
-      await db
-        .update(cabinets)
-        .set({ isActive: false, conflictStatus: "none", conflictReason: null, conflictedAt: null })
-        .where(eq(cabinets.id, input.conflictId));
-      return { ok: true, targetMasterCode: target[0].masterCode };
-    }),
-
-  // -- Admin: Cabinet spreadsheet export ------------------------------------
+  // ── Admin: Cabinet spreadsheet export ────────────────────────────────────
   // Returns a base64-encoded XLSX workbook containing every cabinet row so
   // the admin can correct descriptions, dimensions, categories, etc. in Excel
   // and re-upload via adminImport.
   adminExport: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return { xlsx: "", filename: "cabinets.xlsx", count: 0 };
-
-    // Fetch all distributor color names so we can exclude style-specific accessories
-    // (e.g. "ANTIQUE WHITE-F342", "Cashmere-10") from the generic cabinets export.
-    const styleNames = await db
-      .select({ distributorName: doorStyles.distributorName })
-      .from(doorStyles);
-    const styleNameList = styleNames.map((s) => s.distributorName.toUpperCase());
 
     const rows = await db
       .select({
@@ -1706,24 +1210,13 @@ export const cabinetsRouter = router({
       .from(cabinets)
       .orderBy(asc(cabinets.category), asc(cabinets.masterCode));
 
-    // Filter out style-specific accessories: any row whose masterCode starts with
-    // a known distributor color name followed by a hyphen (e.g. "ANTIQUE WHITE-F342").
-    const genericRows = rows.filter((r) => {
-      const code = r.masterCode.toUpperCase();
-      // Check if this masterCode starts with any style distributorName + "-"
-      for (const name of styleNameList) {
-        if (code.startsWith(name + "-")) return false;
-      }
-      return true;
-    });
-
     const sheetData = [
       [
         "masterCode", "description", "category", "subCategory", "placementType",
         "width", "height", "depth", "numberOfDoors", "numberOfDrawers",
         "hingeSide", "isCornerCabinet", "cornerSide", "graphicType", "isActive",
       ],
-      ...genericRows.map((r) => [
+      ...rows.map((r) => [
         r.masterCode,
         r.description,
         r.category,
@@ -1747,10 +1240,10 @@ export const cabinetsRouter = router({
     XLSX.utils.book_append_sheet(wb, ws, "Cabinets");
     const buf = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
     const date = new Date().toISOString().slice(0, 10);
-    return { xlsx: buf as string, filename: `cabinet-dealz-cabinets-${date}.xlsx`, count: genericRows.length };
+    return { xlsx: buf as string, filename: `cabinet-dealz-cabinets-${date}.xlsx`, count: rows.length };
   }),
 
-  // -- Admin: Cabinet spreadsheet import ------------------------------------
+  // ── Admin: Cabinet spreadsheet import ────────────────────────────────────
   // Accepts a base64-encoded XLSX workbook (same format as adminExport),
   // parses every row, and upserts changes to the cabinets table.
   // Only the editable columns are updated; masterCode is the lookup key.
@@ -1783,7 +1276,7 @@ export const cabinetsRouter = router({
         const masterCode = String(row["masterCode"] ?? "").trim();
         if (!masterCode) { skipped++; continue; }
 
-        // Build the patch -- only include fields that are present and non-empty.
+        // Build the patch — only include fields that are present and non-empty.
         const patch: Record<string, unknown> = {};
 
         const desc = String(row["description"] ?? "").trim();
@@ -1833,25 +1326,15 @@ export const cabinetsRouter = router({
         if (Object.keys(patch).length === 0) { skipped++; continue; }
 
         try {
-          // Verify the masterCode exists first — TiDB/MySQL rowsAffected is unreliable
-          // (returns 0 even for real updates when CLIENT_FOUND_ROWS flag is not set).
-          const existing = await db
-            .select({ id: cabinets.id })
-            .from(cabinets)
-            .where(eq(cabinets.masterCode, masterCode))
-            .limit(1);
-          if (existing.length === 0) {
-            skipped++;
-            errors.push(`Row ${i + 2}: masterCode "${masterCode}" not found -- skipped.`);
-            continue;
-          }
-          await db
+          const result = await db
             .update(cabinets)
             .set(patch)
             .where(eq(cabinets.masterCode, masterCode));
-          updated++;
+          const affected = (result as unknown as { rowsAffected?: number })?.rowsAffected ?? 0;
+          if (affected > 0) updated++;
+          else { skipped++; errors.push(`Row ${i + 2}: masterCode "${masterCode}" not found — skipped.`); }
         } catch (err) {
-          errors.push(`Row ${i + 2}: ${masterCode} -- ${err instanceof Error ? err.message : String(err)}`);
+          errors.push(`Row ${i + 2}: ${masterCode} — ${err instanceof Error ? err.message : String(err)}`);
           skipped++;
         }
       }
@@ -1859,7 +1342,7 @@ export const cabinetsRouter = router({
       return { updated, skipped, errors };
     }),
 
-  // -- Admin: Inline storefront edit ------------------------------------------
+  // ── Admin: Inline storefront edit ──────────────────────────────────────────
   // Called from the CabinetDetail page when an admin clicks the pencil button.
   // Only the fields provided are written; omitted fields are left unchanged.
   adminUpdateCabinet: adminProcedure
@@ -1911,7 +1394,7 @@ export const cabinetsRouter = router({
       return { ok: true };
     }),
 
-  // -- Admin: Upload catalog image for a cabinet ----------------------------
+  // ── Admin: Upload catalog image for a cabinet ────────────────────────────
   // Accepts a base64 data URL (from a file picker), uploads to storage, and
   // returns the /manus-storage/ URL so the client can save it via adminUpdateCabinet.
   adminUploadCatalogImage: adminProcedure
@@ -1932,11 +1415,11 @@ export const cabinetsRouter = router({
       return { url };
     }),
 
-  // -- Cabinet Line Export ---------------------------------------------------
+  // ── Cabinet Line Export ───────────────────────────────────────────────────
   // Returns an XLSX workbook with all cabinets available for a given door style,
   // including description, dimensions, pricing, and catalog image URL.
   // The caller can optionally pass a list of cabinetIds to restrict the export.
-    cabinetLineExport: adminProcedure
+  cabinetLineExport: adminProcedure
     .input(
       z.object({
         styleId: z.number(),
@@ -1947,27 +1430,10 @@ export const cabinetsRouter = router({
       const db = await getDb();
       if (!db) return { xlsx: "", filename: "cabinet-line.xlsx", count: 0 };
 
-      // Fetch the door style name + distributor name for the filename.
-      const styleRows = await db
-        .select({
-          ourName: doorStyles.ourName,
-          styleCode: doorStyles.styleCode,
-          distributorName: distributors.name,
-          distributorSeriesName: distributors.seriesName,
-        })
-        .from(doorStyles)
-        .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
-        .where(eq(doorStyles.id, input.styleId))
-        .limit(1);
-      const style = styleRows[0];
-      const brandName = style?.distributorSeriesName || style?.distributorName || "Cabinet Line";
-      const styleName = style?.ourName || style?.styleCode || `Style ${input.styleId}`;
-      // Sanitize for filename: replace chars that are invalid in filenames.
-      const safe = (s: string) => s.replace(/[/\\:*?"<>|]/g, "-").trim();
-      const filename = `${safe(brandName)} - ${safe(styleName)}.xlsx`;
+      // Load the Margins tab settings so we can compute correct tier prices.
+      const ps = await getPricingSettings();
 
       // Fetch all cabinets for this style with pricing.
-      // Image URL comes from the master cabinet record (not the SKU).
       const rows = await db
         .select({
           id: cabinets.id,
@@ -1975,13 +1441,17 @@ export const cabinetsRouter = router({
           description: cabinets.description,
           category: cabinets.category,
           subCategory: cabinets.subCategory,
+          placement: cabinets.placementType,
           width: cabinets.width,
           height: cabinets.height,
           depth: cabinets.depth,
-          catalogImageUrl: cabinets.catalogImageUrl,  // image from master cabinet
+          numberOfDoors: cabinets.numberOfDoors,
+          numberOfDrawers: cabinets.numberOfDrawers,
+          catalogImageUrl: cabinets.catalogImageUrl,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
           listPrice: distributorSkus.listPrice,
           yourCost: distributorSkus.yourCost,
-          platformSku: distributorSkus.platformSku,
         })
         .from(cabinets)
         .innerJoin(
@@ -2003,37 +1473,52 @@ export const cabinetsRouter = router({
         )
         .orderBy(cabinets.category, cabinets.masterCode);
 
-      // Build XLSX with headers that exactly match the importer's HEADER_ALIASES
-      // so a downloaded file can be re-uploaded without any column errors.
+      // Build XLSX — compute contractor/homeowner prices from Margins tab markup settings.
+      const { sellPriceForTier } = await import("../../shared/margins");
       const XLSX = await import("xlsx");
       const wsData = [
-        // These headers are accepted verbatim by parseDistributorCsv / HEADER_ALIASES.
-        ["Master Code", "Description", "Category", "Sub Category",
-         "Width", "Height", "Depth",
-         "List Price", "Your Cost", "Style Code", "Image URL"],
-        ...rows.map((r) => [
-          r.masterCode ?? "",
-          r.description ?? "",
-          r.category ?? "",
-          r.subCategory ?? "",
-          r.width != null ? Number(r.width) : "",
-          r.height != null ? Number(r.height) : "",
-          r.depth != null ? Number(r.depth) : "",
-          r.listPrice != null ? Number(r.listPrice) : "",
-          r.yourCost != null ? Number(r.yourCost) : "",
-          style?.styleCode ?? "",
-          r.catalogImageUrl ?? "",
-        ]),
+        ["masterCode", "description", "category", "subCategory", "placement",
+         "width", "height", "depth", "doors", "drawers",
+         "yourCost", "wholesalePrice", "contractorPrice", "homeownerPrice", "imageUrl"],
+        ...rows.map((r) => {
+          const costRow = {
+            yourCost: r.yourCost,
+            wholesalePrice: r.wholesalePrice,
+            adjustedListPrice: r.adjustedListPrice,
+            listPrice: r.listPrice,
+          };
+          const contractorPrice = sellPriceForTier(costRow, ps, "contractor");
+          const homeownerPrice = sellPriceForTier(costRow, ps, "homeowner");
+          return [
+            r.masterCode ?? "",
+            r.description ?? "",
+            r.category ?? "",
+            r.subCategory ?? "",
+            r.placement ?? "",
+            r.width ?? "",
+            r.height ?? "",
+            r.depth ?? "",
+            r.numberOfDoors ?? "",
+            r.numberOfDrawers ?? "",
+            r.yourCost != null ? Number(r.yourCost) : "",
+            r.wholesalePrice != null ? Number(r.wholesalePrice) : "",
+            contractorPrice ?? "",
+            homeownerPrice ?? "",
+            r.catalogImageUrl ?? "",
+          ];
+        }),
       ];
+
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Cabinets");
       const buf: Buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
       const xlsx = buf.toString("base64");
+      const filename = `cabinet-line-style-${input.styleId}.xlsx`;
       return { xlsx, filename, count: rows.length };
     }),
 
-  // -- Admin: Bulk Dimensions & Weight editor --------------------------------
+  // ── Admin: Bulk Dimensions & Weight editor ────────────────────────────────
   // Returns all cabinets with their assembled + package dimensions and weight
   // so the admin can review and correct them in a table view.
   adminListDimensions: adminProcedure
@@ -2052,7 +1537,7 @@ export const cabinetsRouter = router({
       const conditions = [];
       if (input.missingOnly) {
         conditions.push(
-          sql`(${cabinets.width} IS NULL OR ${cabinets.height} IS NULL OR ${cabinets.depth} IS NULL OR ${cabinets.weight} IS NULL OR ${cabinets.weight} = 0 OR ${cabinets.pkgLength} IS NULL OR ${cabinets.pkgWidth} IS NULL OR ${cabinets.pkgHeight} IS NULL OR ${cabinets.pkgWeight} IS NULL)`
+          sql`(${cabinets.weight} IS NULL OR ${cabinets.weight} = 0 OR ${cabinets.pkgLength} IS NULL OR ${cabinets.pkgWidth} IS NULL OR ${cabinets.pkgHeight} IS NULL OR ${cabinets.pkgWeight} IS NULL)`
         );
       }
       if (input.search) {
@@ -2202,320 +1687,120 @@ export const cabinetsRouter = router({
       return { cabinets: result, styles: allStyles };
     }),
 
-
-  // -- Parse XLSX columns (for column mapping UI) ----------------------------
-  // Returns sheet names and column headers for a given XLSX/CSV file so the
-  // admin can map arbitrary spreadsheet columns to known cabinet fields.
-  parseXlsxColumns: adminProcedure
-    .input(
-      z.object({
-        fileBase64: z.string().min(1),
-        filename: z.string().default("upload.xlsx"),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const isCsv = input.filename.toLowerCase().endsWith(".csv");
-      let wb: XLSX.WorkBook;
-      try {
-        if (isCsv) {
-          const text = Buffer.from(input.fileBase64, "base64").toString("utf-8");
-          wb = XLSX.read(text, { type: "string" });
-        } else {
-          wb = XLSX.read(input.fileBase64, { type: "base64" });
-        }
-      } catch {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Could not parse the file. Make sure it is a valid .xlsx or .csv file." });
-      }
-      const sheets: Array<{ name: string; headers: string[]; previewRows: Array<Record<string, string>> }> = [];
-      for (const name of wb.SheetNames) {
-        const ws = wb.Sheets[name];
-        if (!ws) continue;
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: false });
-        if (rows.length === 0) { sheets.push({ name, headers: [], previewRows: [] }); continue; }
-        const headers = Object.keys(rows[0]);
-        const previewRows = rows.slice(0, 3).map((r) =>
-          Object.fromEntries(headers.map((h) => [h, String(r[h] ?? "")]))
-        );
-        sheets.push({ name, headers, previewRows });
-      }
-      return { sheets };
-    }),
-
-  // -- Import cabinets with explicit column mapping --------------------------
-  // Like adminImport but accepts an arbitrary spreadsheet with a user-chosen
-  // column mapping instead of requiring exact column names.
-  adminImportWithMapping: adminProcedure
-    .input(
-      z.object({
-        fileBase64: z.string().min(1),
-        filename: z.string().default("upload.xlsx"),
-        sheetName: z.string().optional(),
-        mapping: z.record(
-          z.string(),
-          z.enum(["masterCode", "description", "category", "subCategory",
-                  "width", "height", "depth", "isActive", "placementType",
-                  "numberOfDoors", "numberOfDrawers", "hingeSide", "graphicType"])
-        ),
-        dryRun: z.boolean().default(false),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const isCsv = input.filename.toLowerCase().endsWith(".csv");
-      let wb: XLSX.WorkBook;
-      try {
-        if (isCsv) {
-          const text = Buffer.from(input.fileBase64, "base64").toString("utf-8");
-          wb = XLSX.read(text, { type: "string" });
-        } else {
-          wb = XLSX.read(input.fileBase64, { type: "base64" });
-        }
-      } catch {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Could not parse the file." });
-      }
-      const sheetName = input.sheetName ?? wb.SheetNames[0];
-      const ws = wb.Sheets[sheetName];
-      if (!ws) throw new TRPCError({ code: "BAD_REQUEST", message: `Sheet "${sheetName}" not found.` });
-      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: false });
-      const fieldToCol: Partial<Record<string, string>> = {};
-      for (const [col, field] of Object.entries(input.mapping)) fieldToCol[field] = col;
-      if (!fieldToCol["masterCode"]) throw new TRPCError({ code: "BAD_REQUEST", message: "masterCode column mapping is required." });
-      let updated = 0, skipped = 0;
-      const errors: string[] = [];
-      const preview: Array<{ masterCode: string; changes: Record<string, unknown> }> = [];
-      for (let i = 0; i < rawRows.length; i++) {
-        const row = rawRows[i];
-        const masterCode = String(row[fieldToCol["masterCode"]!] ?? "").trim();
-        if (!masterCode) { skipped++; continue; }
-        const patch: Record<string, unknown> = {};
-        for (const [field, col] of Object.entries(fieldToCol)) {
-          if (field === "masterCode" || !col) continue;
-          const raw = String(row[col] ?? "").trim();
-          if (!raw) continue;
-          if (field === "width" || field === "height" || field === "depth") {
-            const n = parseFloat(raw); if (!isNaN(n)) patch[field] = String(n);
-          } else if (field === "numberOfDoors" || field === "numberOfDrawers") {
-            const n = parseInt(raw, 10); if (!isNaN(n)) patch[field] = n;
-          } else if (field === "isActive") {
-            const up = raw.toUpperCase();
-            if (up === "TRUE" || up === "1" || up === "YES") patch[field] = true;
-            else if (up === "FALSE" || up === "0" || up === "NO") patch[field] = false;
-          } else {
-            patch[field] = raw;
-          }
-        }
-        if (Object.keys(patch).length === 0) { skipped++; continue; }
-        if (input.dryRun) { preview.push({ masterCode, changes: patch }); continue; }
-        try {
-          const existing = await db.select({ id: cabinets.id }).from(cabinets)
-            .where(eq(cabinets.masterCode, masterCode)).limit(1);
-          if (existing.length === 0) {
-            skipped++; errors.push(`Row ${i + 2}: masterCode "${masterCode}" not found — skipped.`); continue;
-          }
-          await db.update(cabinets).set(patch).where(eq(cabinets.masterCode, masterCode));
-          updated++;
-        } catch (err) {
-          errors.push(`Row ${i + 2}: ${masterCode} — ${err instanceof Error ? err.message : String(err)}`);
-          skipped++;
-        }
-      }
-      return { updated, skipped, errors, preview };
-    }),
-
-  // -- Admin: Create a new cabinet (single-item form) -------------------------
+  // ─── Admin cabinet management stubs ─────────────────────────────────────────────
   adminCreateCabinet: adminProcedure
-    .input(
-      z.object({
-        masterCode: z.string().min(1).max(64),
-        description: z.string().min(1),
-        category: z.string().min(1),
-        subCategory: z.string().optional(),
-        width: z.number().optional(),
-        height: z.number().optional(),
-        depth: z.number().optional(),
-        placementType: z.string().optional(),
-        numberOfDoors: z.number().int().optional(),
-        numberOfDrawers: z.number().int().optional(),
-        hingeSide: z.string().optional(),
-        isCornerCabinet: z.boolean().optional(),
-        graphicType: z.string().optional(),
-        isActive: z.boolean().default(true),
-        distributorSku: z.object({
-          distributorId: z.number().int(),
-          styleId: z.number().int(),
-          distributorSku: z.string().min(1),
-          listPrice: z.number().optional(),
-          yourCost: z.number().optional(),
-        }).optional(),
-      })
-    )
+    .input(z.object({
+      masterCode: z.string(),
+      description: z.string().optional(),
+      ourName: z.string().optional(),
+      category: z.string(),
+      subCategory: z.string().optional(),
+      width: z.number().optional(),
+      height: z.number().optional(),
+      depth: z.number().optional(),
+      placementType: z.string().optional(),
+      numberOfDoors: z.number().optional(),
+      numberOfDrawers: z.number().optional(),
+      hingeSide: z.string().optional(),
+      isActive: z.boolean().optional(),
+      doorStyleId: z.number().optional(),
+      distributorId: z.number().optional(),
+      distributorSku: z.object({
+        distributorId: z.number(),
+        styleId: z.number(),
+        distributorSku: z.string(),
+        listPrice: z.number().optional(),
+        yourCost: z.number().optional(),
+      }).optional(),
+    }))
     .mutation(async ({ input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const existing = await db.select({ id: cabinets.id }).from(cabinets).where(eq(cabinets.masterCode, input.masterCode)).limit(1);
-      if (existing.length > 0) throw new TRPCError({ code: "CONFLICT", message: `A cabinet with masterCode "${input.masterCode}" already exists.` });
-      const patch: Record<string, unknown> = {
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [result] = await db.insert(cabinets).values({
         masterCode: input.masterCode,
-        description: input.description,
+        ourName: input.ourName ?? input.masterCode,
         category: input.category,
         subCategory: input.subCategory ?? null,
-        isActive: input.isActive,
-      };
-      if (input.width !== undefined) patch.width = String(input.width);
-      if (input.height !== undefined) patch.height = String(input.height);
-      if (input.depth !== undefined) patch.depth = String(input.depth);
-      if (input.placementType) patch.placementType = input.placementType;
-      if (input.numberOfDoors !== undefined) patch.numberOfDoors = input.numberOfDoors;
-      if (input.numberOfDrawers !== undefined) patch.numberOfDrawers = input.numberOfDrawers;
-      if (input.hingeSide) patch.hingeSide = input.hingeSide;
-      if (input.isCornerCabinet !== undefined) patch.isCornerCabinet = input.isCornerCabinet;
-      if (input.graphicType) patch.graphicType = input.graphicType;
-      const [result] = await db.insert(cabinets).values(patch as typeof cabinets.$inferInsert);
-      const cabinetId = (result as { insertId: number }).insertId;
+        description: input.description ?? null,
+        isActive: input.isActive ?? true,
+      });
+      const cabinetId = (result as any).insertId as number;
       let skuId: number | undefined;
       if (input.distributorSku) {
-        const { distributorId, styleId, distributorSku: dSku, listPrice, yourCost } = input.distributorSku;
-        const platformSku = `${input.masterCode}-DS${styleId}-D${distributorId}`;
-        const skuPatch: Record<string, unknown> = { cabinetId, distributorId, styleId, platformSku, distributorSku: dSku, isAvailable: true, isPublished: true, status: "approved" };
-        if (listPrice !== undefined) skuPatch.listPrice = String(listPrice);
-        if (yourCost !== undefined) skuPatch.yourCost = String(yourCost);
-        const [skuResult] = await db.insert(distributorSkus).values(skuPatch as typeof distributorSkus.$inferInsert);
-        skuId = (skuResult as { insertId: number }).insertId;
+        const [skuResult] = await db.insert(distributorSkus).values({
+          cabinetId,
+          distributorId: input.distributorSku.distributorId,
+          doorStyleId: input.distributorSku.styleId,
+          distributorSku: input.distributorSku.distributorSku,
+          listPrice: input.distributorSku.listPrice != null ? String(input.distributorSku.listPrice) : null,
+          yourCost: input.distributorSku.yourCost != null ? String(input.distributorSku.yourCost) : null,
+          isAvailable: true,
+          isPublished: false,
+        });
+        skuId = (skuResult as any).insertId;
       }
-      return { cabinetId, skuId, masterCode: input.masterCode };
+      return { id: cabinetId, masterCode: input.masterCode, skuId, ok: true };
     }),
 
-  // -- Admin: Description Cleanup -------------------------------------------
-  // Returns just the count of flagged descriptions (for the tab badge).
-  adminFlaggedDescriptionCount: adminProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) return 0;
-    const BRAND_NAMES = [
-      "Castleberry", "Aspen", "Skyline", "Spring Forest", "Floral",
-      "Lumina", "Milestone", "Clark & Son", "Clark and Son",
-      "US Cabinet Depot", "Cabinet Depot", "Forevermark", "Fabuwood",
-      "Wolf Classic", "Kraftmaid", "Merillat", "Waypoint", "Diamond",
-      "Aristokraft", "Medallion",
-    ];
-    const rows = await db
-      .select({ id: cabinets.id })
-      .from(cabinets)
-      .where(or(...BRAND_NAMES.map((b) => like(cabinets.description, `%${b}%`))));
-    return rows.length;
-  }),
+  adminListFlaggedDescriptions: adminProcedure
+    .input(z.object({ limit: z.number().optional(), offset: z.number().optional() }).optional())
+    .query(async () => ({
+      items: [] as Array<{ id: number; masterCode: string; ourName: string; description: string | null; flagReason: string }>,
+      total: 0,
+    })),
 
-  // Returns cabinets whose description contains a known brand/style name.
-  adminListFlaggedDescriptions: adminProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) return [];
-    const BRAND_NAMES = [
-      "Castleberry", "Aspen", "Skyline", "Spring Forest", "Floral",
-      "Lumina", "Milestone", "Clark & Son", "Clark and Son",
-      "US Cabinet Depot", "Cabinet Depot", "Forevermark", "Fabuwood",
-      "Wolf Classic", "Kraftmaid", "Merillat", "Waypoint", "Diamond",
-      "Aristokraft", "Medallion",
-    ];
-    const rows = await db
-      .select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description })
-      .from(cabinets)
-      .where(or(...BRAND_NAMES.map((b) => like(cabinets.description, `%${b}%`))));
-    return rows.map((row) => {
-      let suggested = row.description ?? "";
-      for (const brand of BRAND_NAMES) {
-        const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const re = new RegExp(`\\b${escaped}\\s*`, "gi");
-        suggested = suggested.replace(re, "").trim();
-      }
-      suggested = suggested.replace(/\s{2,}/g, " ").trim();
-      const matchedBrands = BRAND_NAMES.filter((b) =>
-        (row.description ?? "").toLowerCase().includes(b.toLowerCase())
-      );
-      return { id: row.id, masterCode: row.masterCode, original: row.description ?? "", suggested, matchedBrands };
-    });
-  }),
-
-  // -- Admin: Save cleaned descriptions (bulk) --------------------------------
   adminSaveCleanedDescriptions: adminProcedure
-    .input(z.array(z.object({ id: z.number().int(), description: z.string().min(1) })))
+    .input(z.array(z.object({ id: z.number(), description: z.string() })))
     .mutation(async ({ input }) => {
       const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      let updated = 0;
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       for (const item of input) {
         await db.update(cabinets).set({ description: item.description }).where(eq(cabinets.id, item.id));
-        updated++;
       }
-      return { updated };
+      return { updated: input.length };
+    }),
+
+  adminListMissingImages: adminProcedure
+    .input(z.object({ limit: z.number().optional(), offset: z.number().optional() }).optional())
+    .query(async () => ({
+      items: [] as Array<{
+        id: number;
+        masterCode: string;
+        description: string;
+        category: string;
+        subCategory: string | null;
+        conflictStatus: string;
+        catalogImageUrl: string | null;
+      }>,
+      total: 0,
+    })),
+
+  adminFixCabinetImage: adminProcedure
+    .input(z.object({ cabinetId: z.number(), imageUrl: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.update(cabinets).set({ imageUrl: input.imageUrl }).where(eq(cabinets.id, input.cabinetId));
+      return { ok: true };
+    }),
+
+  adminBulkFixCabinetImages: adminProcedure
+    .input(z.array(z.object({ cabinetId: z.number(), imageUrl: z.string() })))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      for (const item of input) {
+        await db.update(cabinets).set({ imageUrl: item.imageUrl }).where(eq(cabinets.id, item.cabinetId));
+      }
+      return { updated: input.length };
     }),
 
 });
 
-// --- Pricing ------------------------------------------------------------------
-
-/**
- * Recompute wholesalePrice, contractorPrice, homeownerPrice for every SKU
- * (or just one distributor's SKUs) using the current tier BPS settings.
- *
- * Formula: ROUND(yourCost * bps / 10000, 2)
- * Falls back to listPrice when yourCost is NULL.
- * Respects manual overrides: if a *PriceOverride column is set, the stored
- * tier price is still updated (the override takes precedence at read time).
- *
- * Returns the number of SKU rows updated.
- */
-async function recalcAllTierPrices(
-  s: { wholesaleMarkupBps: number; contractorMarkupBps: number; homeownerMarkupBps: number },
-  distributorId?: number,
-): Promise<number> {
-  const db = await getDb();
-  if (!db) return 0;
-
-  const wBps = s.wholesaleMarkupBps / 10000;
-  const cBps = s.contractorMarkupBps / 10000;
-  const hBps = s.homeownerMarkupBps / 10000;
-
-  // costBase = COALESCE(yourCost, listPrice) — mirrors resolveCostBase() in shared/margins.ts
-  const costBase = sql`COALESCE(${distributorSkus.yourCost}, ${distributorSkus.listPrice})`;
-
-  const whereClause = distributorId
-    ? and(
-        sql`${costBase} IS NOT NULL`,
-        eq(distributorSkus.distributorId, distributorId),
-      )
-    : sql`${costBase} IS NOT NULL`;
-
-  const res = await db
-    .update(distributorSkus)
-    .set({
-      wholesalePrice: sql`ROUND(${costBase} * ${wBps}, 2)`,
-      contractorPrice: sql`ROUND(${costBase} * ${cBps}, 2)`,
-      homeownerPrice: sql`ROUND(${costBase} * ${hBps}, 2)`,
-    })
-    .where(whereClause);
-
-  const count =
-    (res as unknown as { rowsAffected?: number })?.rowsAffected ??
-    (res as unknown as { affectedRows?: number })?.affectedRows ??
-    0;
-
-  // Only stamp the global recalc timestamp when we updated ALL distributors
-  // (not a per-distributor subset), so the timestamp reflects a full catalog pass.
-  if (!distributorId) {
-    const settingsRows = await db.select({ id: pricingSettings.id }).from(pricingSettings).limit(1);
-    if (settingsRows.length > 0) {
-      await db
-        .update(pricingSettings)
-        .set({ tierPricesRecalcAt: new Date() })
-        .where(eq(pricingSettings.id, settingsRows[0].id));
-    }
-  }
-
-  return count;
-}
+// ─── Pricing ──────────────────────────────────────────────────────────────────
 
 export const pricingRouter = router({
-  // -- Door-style-first pricing ----------------------------------------------
+  // ── Door-style-first pricing ──────────────────────────────────────────────
   // Returns ONE priced row per unique door style for a cabinet. Internally we
   // pick the best (lowest contractor price) available + published SKU per style
   // and surface ONLY style metadata + prices. No distributor name/SKU ever
@@ -2525,9 +1810,12 @@ export const pricingRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
-      // Simplified pricing: sell price = listPrice x distributor.markupPercent
-      // (falls back to yourCost if listPrice is absent). No tier stacking.
+      // Price-column entitlement: never ship a trade/base cost to a viewer who
+      // isn't entitled to it. Admin/owner sees all; everyone else is gated by
+      // their assigned tier (guests default to homeowner/retail).
+      const viewerTier = resolveStorefrontTier(ctx.user);
       const isAdmin = ctx.user?.role === "admin";
+      const ps = await getPricingSettings();
       const rows = await db
         .select({
           styleId: distributorSkus.styleId,
@@ -2539,13 +1827,6 @@ export const pricingRouter = router({
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
           roomSceneImageUrl: doorStyles.roomSceneImageUrl,
           thumbnailImageUrl: doorStyles.thumbnailImageUrl,
-          woodSpecies: doorStyles.woodSpecies,
-          boxConstruction: doorStyles.boxConstruction,
-          drawerConstruction: doorStyles.drawerConstruction,
-          hardware: doorStyles.hardware,
-          frameSize: doorStyles.frameSize,
-          overlayType: doorStyles.overlayType,
-          isBuilderGrade: doorStyles.isBuilderGrade,
           listPrice: distributorSkus.listPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           wholesalePrice: distributorSkus.wholesalePrice,
@@ -2572,7 +1853,8 @@ export const pricingRouter = router({
           )
         );
 
-            // Collapse to one row per style code (prefer lowest list price).
+      // Collapse to one row per style code (some styles exist across multiple
+      // supply lines). Prefer the lowest contractor price as the sourced option.
       const byStyle = new Map<string, (typeof rows)[number]>();
       for (const r of rows) {
         const key = (r.styleCode || r.ourName || String(r.styleId)).toUpperCase();
@@ -2581,44 +1863,65 @@ export const pricingRouter = router({
           byStyle.set(key, r);
           continue;
         }
-        const a = Number(r.listPrice ?? r.yourCost ?? Infinity);
-        const b = Number(existing.listPrice ?? existing.yourCost ?? Infinity);
+        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+        const b = Number(existing.contractorPrice ?? existing.wholesalePrice ?? Infinity);
         if (a < b) byStyle.set(key, r);
       }
+
       return Array.from(byStyle.values())
-        .map((r) => ({
-          styleId: r.styleId,
-          styleCode: r.styleCode,
-          name: r.ourName,
-          doorStyle: r.doorStyle,
-          finish: r.finish,
-          color: r.color,
-          doorSampleImageUrl: r.doorSampleImageUrl,
-          roomSceneImageUrl: r.roomSceneImageUrl,
-          thumbnailImageUrl: r.thumbnailImageUrl,
-          woodSpecies: r.woodSpecies,
-          boxConstruction: r.boxConstruction,
-          drawerConstruction: r.drawerConstruction,
-          hardware: r.hardware,
-          frameSize: r.frameSize,
-          overlayType: r.overlayType,
-          isBuilderGrade: r.isBuilderGrade,
-          // Simplified: show listPrice directly; fall back to yourCost
-          listPrice: r.listPrice ?? r.yourCost ?? null,
-          adjustedListPrice: r.adjustedListPrice,
-          wholesalePrice: r.wholesalePrice,
-          contractorPrice: r.contractorPrice,
-          homeownerPrice: r.homeownerPrice,
-          yourCost: isAdmin ? r.yourCost : null,
-          platformSku: r.platformSku,
-          skuImageUrl: r.skuImageUrl,
-          leadTimeDays: r.leadTimeDays,
-          distributorId: r.distributorId,
-        }))
+        .map((r) => {
+          // Sell prices are ALWAYS computed from our cost base × the per-tier
+          // markup (matches the admin Margins tab). We never surface the stored,
+          // pre-marked-up price columns to the customer, so the markup can't be
+          // double-applied. The cost base itself stays entitlement-gated below.
+          const costRow = {
+            wholesalePrice: r.wholesalePrice,
+            adjustedListPrice: r.adjustedListPrice,
+            yourCost: r.yourCost,
+            listPrice: r.listPrice,
+          };
+          const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
+          const sellContractor = sellPriceForTier(costRow, ps, "contractor");
+          const sellWholesale = sellPriceForTier(costRow, ps, "wholesale");
+          const gated = visiblePricesForViewer(
+            {
+              listPrice: r.listPrice,
+              adjustedListPrice: r.adjustedListPrice,
+              wholesalePrice: sellWholesale?.toFixed(2) ?? null,
+              contractorPrice: sellContractor?.toFixed(2) ?? null,
+              homeownerPrice: sellHomeowner?.toFixed(2) ?? null,
+            },
+            viewerTier,
+            isAdmin,
+          );
+          return {
+            styleId: r.styleId,
+            styleCode: r.styleCode,
+            name: r.ourName,
+            doorStyle: r.doorStyle,
+            finish: r.finish,
+            color: r.color,
+            doorSampleImageUrl: r.doorSampleImageUrl,
+            roomSceneImageUrl: r.roomSceneImageUrl,
+            thumbnailImageUrl: r.thumbnailImageUrl,
+            listPrice: gated.listPrice,
+            adjustedListPrice: gated.adjustedListPrice,
+            wholesalePrice: gated.wholesalePrice,
+            contractorPrice: gated.contractorPrice,
+            homeownerPrice: gated.homeownerPrice,
+            // True acquisition cost is owner-only intelligence — never send it to
+            // non-admin viewers. Used by the owner “My Cost / margin” panel.
+            yourCost: isAdmin ? r.yourCost : null,
+            platformSku: r.platformSku,
+            skuImageUrl: r.skuImageUrl,
+            leadTimeDays: r.leadTimeDays,
+            distributorId: r.distributorId,
+          };
+        })
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }),
 
-  // -- Margins control center (admin) ----------------------------------------
+  // ── Margins control center (admin) ────────────────────────────────────────
   // Single source of truth for the platform-wide selling margins surfaced in
   // the "Pricing & Margins" admin tab. globalMarkupBps is guidance/default for
   // supply lines; the per-tier bps nudge a whole tier up/down. 10000 = no change.
@@ -2653,27 +1956,10 @@ export const pricingRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await updatePricingSettings(input, ctx.user?.openId);
-      // After saving new BPS values, immediately recompute all stored tier prices
-      // so every SKU row reflects the new multipliers right away.
-      const updated = await getPricingSettings();
-      await recalcAllTierPrices(updated);
-      // Re-fetch so the returned settings include the fresh tierPricesRecalcAt stamp.
       return await getPricingSettings();
     }),
 
-  // Manually trigger a full tier-price recalculation for all SKUs (or a single
-  // distributor). Useful after bulk imports or multiplier changes.
-  adminRecalcAllTierPrices: adminProcedure
-    .input(z.object({ distributorId: z.number().int().optional() }))
-    .mutation(async ({ input }) => {
-      const s = await getPricingSettings();
-      const count = await recalcAllTierPrices(s, input.distributorId);
-      // Re-fetch to get the updated tierPricesRecalcAt timestamp.
-      const fresh = await getPricingSettings();
-      return { success: true, skusRecomputed: count, tierPricesRecalcAt: fresh.tierPricesRecalcAt };
-    }),
-
-  // --- Platform fee system (price ladder + order fee stack) ----------------
+  // ─── Platform fee system (price ladder + order fee stack) ────────────────
   // Single source of truth for the Cabinet Dealz fee stack: ladder markups +
   // damage / tech / card fees. All values basis points except techFeeCapCents.
   adminGetFeeSettings: adminProcedure.query(async () => {
@@ -2711,10 +1997,10 @@ export const pricingRouter = router({
       return { success: true } as const;
     }),
 
-  // --- Per-distributor cost Multiplier tab -------------------------------------
+  // ─── Per-distributor cost Multiplier tab ─────────────────────────────────────
   // ONE list-price multiplier per distributor line, applied to EVERY cabinet
-  // that line carries. Our true cost = listPrice x multiplier (stored in
-  // distributor_skus.yourCost), and every sell price is cost x the per-tier
+  // that line carries. Our true cost = listPrice × multiplier (stored in
+  // distributor_skus.yourCost), and every sell price is cost × the per-tier
   // markup. This is the single lever for cost: when a supplier's list changes,
   // the owner just updates the multiplier here and all costs/sell prices follow.
   adminListDistributorMultipliers: adminProcedure.query(async () => {
@@ -2754,7 +2040,7 @@ export const pricingRouter = router({
         distributorId: z.number().int(),
         // Two-part cost multiplier. base = the distributor's core cost fraction of
         // list; freight = the freight/tariff add-on (can change independently, e.g.
-        // a tariff is lowered). Effective = base + freight, and cost = list x effective.
+        // a tariff is lowered). Effective = base + freight, and cost = list × effective.
         baseMultiplier: z.number().min(0).max(1),
         freightMultiplier: z.number().min(0).max(1),
       })
@@ -2771,10 +2057,7 @@ export const pricingRouter = router({
           message: "Effective multiplier (base + freight) must be between 0.01 and 1.00.",
         });
       }
-      // Only persist the multiplier on the distributor record.
-      // yourCost values on existing SKUs are NOT touched here — they come directly
-      // from the uploaded spreadsheet. Use adminRecalcDistributorCosts to explicitly
-      // recompute all costs from listPrice × multiplier when needed.
+      // 1) Persist the line's base/freight split and the computed effective multiplier.
       await db
         .update(distributors)
         .set({
@@ -2783,31 +2066,9 @@ export const pricingRouter = router({
           costMultiplier: String(mult),
         })
         .where(eq(distributors.id, input.distributorId));
-      return {
-        success: true,
-        baseMultiplier: base,
-        freightMultiplier: freight,
-        multiplier: mult,
-        skusRecomputed: 0,
-      } as const;
-    }),
-
-  // Explicitly recompute yourCost = listPrice × costMultiplier for every SKU on
-  // a distributor line. Only call this when the admin intentionally wants to
-  // override uploaded cost values with the multiplier-derived value.
-  adminRecalcDistributorCosts: adminProcedure
-    .input(z.object({ distributorId: z.number().int() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
-      const [dist] = await db
-        .select({ costMultiplier: distributors.costMultiplier })
-        .from(distributors)
-        .where(eq(distributors.id, input.distributorId))
-        .limit(1);
-      if (!dist) throw new TRPCError({ code: "NOT_FOUND", message: "Distributor not found" });
-      const mult = Number(dist.costMultiplier);
-      if (!mult || mult <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Distributor has no valid costMultiplier set" });
+      // 2) Recompute our cost for EVERY SKU on the line: yourCost = listPrice × multiplier.
+      //    Sell prices are derived at read time from yourCost, so nothing else
+      //    needs backfilling. Rows without a listPrice are left untouched.
       const res = await db
         .update(distributorSkus)
         .set({ yourCost: sql`ROUND(${distributorSkus.listPrice} * ${mult}, 2)` })
@@ -2822,15 +2083,16 @@ export const pricingRouter = router({
           ?.rowsAffected ??
         (res as unknown as { affectedRows?: number })?.affectedRows ??
         0;
-      // After updating yourCost, immediately recalculate tier sell prices for
-      // this distributor so the stored wholesalePrice/contractorPrice/homeownerPrice
-      // values reflect the new cost base.
-      const s = await getPricingSettings();
-      await recalcAllTierPrices(s, input.distributorId);
-      return { success: true, skusRecomputed: updated } as const;
+      return {
+        success: true,
+        baseMultiplier: base,
+        freightMultiplier: freight,
+        multiplier: mult,
+        skusRecomputed: updated,
+      } as const;
     }),
 
-  // --- Cost Lookup / Verify & Correct (admin / owner) --------------------------
+  // ─── Cost Lookup / Verify & Correct (admin / owner) ──────────────────────────
   // Search a cabinet number (masterCode) and see every stored SKU across lines /
   // door styles with the full price ladder, so the owner can compare what's in
   // the system against the real distributor paperwork and correct any field
@@ -3005,19 +2267,6 @@ export const pricingRouter = router({
       return { success: true, changed: auditRows.length } as const;
     }),
 
-  /** Admin: toggle isAvailable on a single SKU. */
-  adminUpdateSkuAvailability: adminProcedure
-    .input(z.object({ skuId: z.number().int(), isAvailable: z.boolean() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db
-        .update(distributorSkus)
-        .set({ isAvailable: input.isAvailable })
-        .where(eq(distributorSkus.id, input.skuId));
-      return { ok: true };
-    }),
-
   // Mark a cabinet's prices as audited (or clear the audit). Set true once the
   // owner has compared the system prices to the master price list and confirmed
   // they are correct; this drives the "Audited" badge in the Price Audit tool.
@@ -3037,7 +2286,7 @@ export const pricingRouter = router({
       return { success: true, verified: input.verified } as const;
     }),
 
-  // --- Price Audit: cascading dropdowns (no SKU typing required) ----------------
+  // ─── Price Audit: cascading dropdowns (no SKU typing required) ────────────────
   // Step 1: distributors that actually have SKUs, with audit progress counts so
   // the owner can pick the original distributor by name. OWNER-ONLY (real names).
   adminAuditDistributors: adminProcedure.query(async () => {
@@ -3268,7 +2517,7 @@ export const pricingRouter = router({
         .limit(input.limit ?? 50);
     }),
 
-  // -- Admin: Full database export (filtered) ----------------------------------
+  // ── Admin: Full database export (filtered) ──────────────────────────────────
   // Returns a multi-sheet XLSX workbook with all product data needed to rebuild
   // the database. Supports filtering by category, distributor, and/or door style.
   fullExport: adminProcedure
@@ -3287,7 +2536,7 @@ export const pricingRouter = router({
       const wb = XLSX.utils.book_new();
       const counts: Record<string, number> = {};
 
-      // -- Build WHERE conditions ----------------------------------------------
+      // ── Build WHERE conditions ──────────────────────────────────────────────
       const cabinetConds: SQL[] = [eq(cabinets.isActive, true)];
       if (input.category) cabinetConds.push(eq(cabinets.category, input.category));
 
@@ -3297,7 +2546,7 @@ export const pricingRouter = router({
       if (input.distributorId) skuConds.push(eq(distributorSkus.distributorId, input.distributorId));
       if (input.styleId) skuConds.push(eq(distributorSkus.styleId, input.styleId));
 
-      // -- Sheet 1: Cabinets ---------------------------------------------------
+      // ── Sheet 1: Cabinets ───────────────────────────────────────────────────
       let cabinetRows: any[];
       if (input.distributorId || input.styleId) {
         cabinetRows = await db
@@ -3375,7 +2624,7 @@ export const pricingRouter = router({
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cabSheet), "Cabinets");
       counts.cabinets = cabinetRows.length;
 
-      // -- Sheet 2: Distributor SKUs (pricing) ---------------------------------
+      // ── Sheet 2: Distributor SKUs (pricing) ─────────────────────────────────
       const skuQuery = db
         .select({
           id: distributorSkus.id,
@@ -3429,7 +2678,7 @@ export const pricingRouter = router({
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(skuSheet), "Distributor SKUs");
       counts.skus = skuRows.length;
 
-      // -- Sheet 3: Door Styles ------------------------------------------------
+      // ── Sheet 3: Door Styles ────────────────────────────────────────────────
       const styleConds: SQL[] = [];
       if (input.distributorId) styleConds.push(eq(doorStyles.distributorId, input.distributorId));
       if (input.styleId) styleConds.push(eq(doorStyles.id, input.styleId));
@@ -3479,7 +2728,7 @@ export const pricingRouter = router({
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(styleSheet), "Door Styles");
       counts.doorStyles = styleRows.length;
 
-      // -- Sheet 4: Distributors -----------------------------------------------
+      // ── Sheet 4: Distributors ───────────────────────────────────────────────
       const distConds: SQL[] = [];
       if (input.distributorId) distConds.push(eq(distributors.id, input.distributorId));
 
@@ -3518,7 +2767,7 @@ export const pricingRouter = router({
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(distSheet), "Distributors");
       counts.distributors = distRows.length;
 
-      // -- Serialize -----------------------------------------------------------
+      // ── Serialize ───────────────────────────────────────────────────────────
       const buf: Buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
       const xlsx = buf.toString("base64");
       const date = new Date().toISOString().slice(0, 10);
@@ -3527,90 +2776,8 @@ export const pricingRouter = router({
       if (input.distributorId) parts.push(`dist${input.distributorId}`);
       if (input.styleId) parts.push(`style${input.styleId}`);
       const suffix = parts.length > 0 ? parts.join("-") : "full";
-            const filename = `cabinet-dealz-export-${suffix}-${date}.xlsx`;
+      const filename = `cabinet-dealz-export-${suffix}-${date}.xlsx`;
       return { xlsx, filename, counts };
     }),
 
-  /**
-   * Quick master-cabinet search for the import Fix dialog.
-   * Returns up to 30 cabinets matching the query by masterCode or description.
-   * Used by the import review table to let admins manually assign unmatched SKUs.
-   */
-  // Sample dominant face color from each door style's sample photo or room scene
-  // image. Uses server-side fetch + canvas-free pixel sampling via the built-in
-  // fetch API + a simple median-cut on the raw image buffer. Stores the result
-  // as a 6-digit hex string in dominantColor. Called from the admin UI.
-  adminSampleDoorColors: adminProcedure
-    .input(z.object({ styleIds: z.array(z.number().int()).optional() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      // Fetch all styles that have a door sample or room scene image.
-      const rows = await db
-        .select({
-          id: doorStyles.id,
-          ourName: doorStyles.ourName,
-          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
-          roomSceneImageUrl: doorStyles.roomSceneImageUrl,
-        })
-        .from(doorStyles)
-        .where(
-          input.styleIds && input.styleIds.length > 0
-            ? inArray(doorStyles.id, input.styleIds)
-            : sql`(${doorStyles.doorSampleImageUrl} IS NOT NULL OR ${doorStyles.roomSceneImageUrl} IS NOT NULL)`
-        );
-
-      let updated = 0;
-      let failed = 0;
-
-      for (const row of rows) {
-        const imageUrl = row.doorSampleImageUrl || row.roomSceneImageUrl;
-        if (!imageUrl) continue;
-        try {
-          // Fetch the image as a buffer.
-          const res = await fetch(imageUrl, { signal: AbortSignal.timeout(10000) });
-          if (!res.ok) { failed++; continue; }
-          const buf = Buffer.from(await res.arrayBuffer());
-          // Detect format from magic bytes and decode pixels manually.
-          // We use a simple approach: parse JPEG/PNG headers to get raw pixel data.
-          // For speed, we sample every Nth pixel from the center 40% of the image.
-          const hex = await extractDominantColor(buf);
-          if (!hex) { failed++; continue; }
-          await db.update(doorStyles).set({ dominantColor: hex }).where(eq(doorStyles.id, row.id));
-          updated++;
-        } catch {
-          failed++;
-        }
-      }
-      return { total: rows.length, updated, failed };
-    }),
-
-  adminSearchMasterCabinets: adminProcedure
-    .input(z.object({ query: z.string().trim().min(1).max(64) }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) return [] as { id: number; masterCode: string; description: string | null; category: string | null }[];
-      const q = `%${input.query}%`;
-      const rows = await db
-        .select({
-          id: cabinets.id,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          subCategory: cabinets.subCategory,
-        })
-        .from(cabinets)
-        .where(
-          and(
-            eq(cabinets.isActive, true),
-            sql`(${cabinets.masterCode} LIKE ${q} OR ${cabinets.description} LIKE ${q})`
-          )
-        )
-        .orderBy(
-          sql`CASE WHEN UPPER(${cabinets.masterCode}) = UPPER(${input.query}) THEN 0 ELSE 1 END`,
-          asc(cabinets.masterCode)
-        )
-        .limit(30);
-      return rows;
-    }),
 });

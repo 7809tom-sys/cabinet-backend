@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -9,14 +9,14 @@ import { useSeo } from "@/hooks/useSeo";
 import { formatPrice } from "@/lib/pelican";
 import { requestSurfaceHandoff } from "@/lib/surfaceSelection";
 import { toast } from "sonner";
-import { Droplets, ShowerHead, ChefHat, ArrowRight, Sparkles, PaintBucket, ShoppingCart, Waves } from "lucide-react";
+import { Droplets, ShowerHead, ChefHat, ArrowRight, Sparkles, PaintBucket, ShoppingCart } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
 const HERO_KITCHEN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-kitchen-hero-GNgNkcBRXKeBwSEoXrBMBg.webp";
 const HERO_BATH = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-bath-hero-fCp9GA4H5XXQNmpgUdMiWg.webp";
 const HERO_DETAIL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-lifestyle-detail-ksbNiy4yt4dWyBSzZDyKV4.webp";
 
-type ProductTab = "faucets" | "sinks";
+type FaucetTab = "kitchen" | "bathroom";
 const FINISHES = ["All", "Matte Black", "Brushed Nickel", "Chrome", "Brushed Gold", "Oil Rubbed Bronze"] as const;
 type Finish = (typeof FINISHES)[number];
 
@@ -30,16 +30,17 @@ function finishFromName(name: string): string {
 }
 
 function seriesFromName(name: string): string {
+  // Extract the series name between "StoneCreek " and the next word that's a faucet type
   const match = name.match(/StoneCreek\s+(\w+)/);
   return match?.[1] ?? "";
 }
 
 export default function StoneCreekCollection() {
   const [, navigate] = useLocation();
-  const [productTab, setProductTab] = useState<ProductTab>("faucets");
+  const [tab, setTab] = useState<FaucetTab>("kitchen");
   const [finish, setFinish] = useState<Finish>("All");
 
-  const handleAddFaucetToDesign = (product: any) => {
+  const handleAddToDesign = (product: any) => {
     requestSurfaceHandoff({
       v: 1,
       savedAt: Date.now(),
@@ -62,37 +63,14 @@ export default function StoneCreekCollection() {
     navigate("/design");
   };
 
-  const handleAddSinkToDesign = (product: any) => {
-    requestSurfaceHandoff({
-      v: 1,
-      savedAt: Date.now(),
-      picks: {
-        sink: {
-          id: product.id,
-          slug: product.slug,
-          name: product.name,
-          category: product.category,
-          subCategory: product.subCategory ?? null,
-          size: product.size ?? null,
-          imageUrl: product.imageUrl ?? null,
-          sellPrice: product.sellPrice ?? null,
-          role: "sink",
-        },
-      },
-      layout: "l-shape",
-    });
-    toast.success(`${product.name} will be added to your design`);
-    navigate("/design");
-  };
-
   useSeo({
     title: "StoneCreek Collection — Premium Sinks & Faucets | Cabinet Dealz",
     description:
-      "Discover the StoneCreek collection of premium kitchen and bathroom sinks and faucets. Solid brass construction, ceramic cartridges, lifetime warranty. Available in 5 finishes.",
+      "Discover the StoneCreek collection of premium kitchen and bathroom faucets. Solid brass construction, ceramic cartridges, lifetime warranty. Available in 5 finishes.",
   });
 
-  // Query faucets
-  const { data: faucetData, isLoading: faucetLoading } = trpc.pelican.byCategory.useQuery(
+  // Query faucets from the Sinks & Faucets category, subCategory = Faucets
+  const { data, isLoading } = trpc.pelican.byCategory.useQuery(
     {
       category: "Sinks & Faucets" as any,
       scope: "catalog",
@@ -103,68 +81,39 @@ export default function StoneCreekCollection() {
     { staleTime: 60_000 }
   );
 
-  // Query sinks
-  const { data: sinkData, isLoading: sinkLoading } = trpc.pelican.byCategory.useQuery(
-    {
-      category: "Sinks & Faucets" as any,
-      scope: "catalog",
-      subCategory: "Sinks",
-      limit: 200,
-      offset: 0,
-    },
-    { staleTime: 60_000 }
-  );
-
   const allFaucets = useMemo(() => {
-    if (!faucetData?.items) return [];
-    return faucetData.items.filter((p: any) => p.name?.startsWith("StoneCreek"));
-  }, [faucetData]);
+    if (!data?.items) return [];
+    // Only show StoneCreek branded faucets (those with the new names)
+    return data.items.filter((p: any) => p.name?.startsWith("StoneCreek"));
+  }, [data]);
 
-  const allSinks = useMemo(() => {
-    if (!sinkData?.items) return [];
-    return sinkData.items.filter((p: any) => p.name?.startsWith("StoneCreek"));
-  }, [sinkData]);
-
-  const filteredFaucets = useMemo(() => {
+  const filtered = useMemo(() => {
     let items = allFaucets;
+    // Filter by tab (kitchen vs bathroom)
+    if (tab === "kitchen") {
+      items = items.filter((p: any) => p.name?.includes("Kitchen"));
+    } else {
+      items = items.filter(
+        (p: any) => p.name?.includes("Vanity") || p.name?.includes("Vessel") || p.name?.includes("Widespread") || p.name?.includes("Bathroom")
+      );
+    }
+    // Filter by finish
     if (finish !== "All") {
       items = items.filter((p: any) => p.name?.includes(finish));
     }
     return items;
-  }, [allFaucets, finish]);
-
-  const filteredSinks = useMemo(() => {
-    let items = allSinks;
-    if (finish !== "All") {
-      items = items.filter((p: any) => p.name?.includes(finish));
-    }
-    return items;
-  }, [allSinks, finish]);
+  }, [allFaucets, tab, finish]);
 
   // Group by series for display
-  const groupedFaucets = useMemo(() => {
+  const grouped = useMemo(() => {
     const map = new Map<string, any[]>();
-    for (const item of filteredFaucets) {
+    for (const item of filtered) {
       const series = seriesFromName(item.name ?? "");
       if (!map.has(series)) map.set(series, []);
       map.get(series)!.push(item);
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filteredFaucets]);
-
-  const groupedSinks = useMemo(() => {
-    const map = new Map<string, any[]>();
-    for (const item of filteredSinks) {
-      const series = seriesFromName(item.name ?? "");
-      if (!map.has(series)) map.set(series, []);
-      map.get(series)!.push(item);
-    }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filteredSinks]);
-
-  const isLoading = productTab === "faucets" ? faucetLoading : sinkLoading;
-  const grouped = productTab === "faucets" ? groupedFaucets : groupedSinks;
-  const isEmpty = grouped.length === 0;
+  }, [filtered]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -172,7 +121,7 @@ export default function StoneCreekCollection() {
       <section className="relative h-[70vh] min-h-[500px] overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src={productTab === "sinks" ? HERO_BATH : HERO_KITCHEN}
+            src={tab === "kitchen" ? HERO_KITCHEN : HERO_BATH}
             alt="StoneCreek Collection"
             className="h-full w-full object-cover transition-opacity duration-700"
           />
@@ -196,19 +145,19 @@ export default function StoneCreekCollection() {
             <div className="mt-8 flex gap-3">
               <Button
                 size="lg"
-                variant={productTab === "faucets" ? "default" : "outline"}
-                onClick={() => setProductTab("faucets")}
-                className={productTab === "faucets" ? "" : "border-white/30 text-white hover:bg-white/10"}
+                variant={tab === "kitchen" ? "default" : "outline"}
+                onClick={() => setTab("kitchen")}
+                className={tab === "kitchen" ? "" : "border-white/30 text-white hover:bg-white/10"}
               >
-                <ChefHat className="mr-2 h-4 w-4" /> Faucets
+                <ChefHat className="mr-2 h-4 w-4" /> Kitchen
               </Button>
               <Button
                 size="lg"
-                variant={productTab === "sinks" ? "default" : "outline"}
-                onClick={() => setProductTab("sinks")}
-                className={productTab === "sinks" ? "" : "border-white/30 text-white hover:bg-white/10"}
+                variant={tab === "bathroom" ? "default" : "outline"}
+                onClick={() => setTab("bathroom")}
+                className={tab === "bathroom" ? "" : "border-white/30 text-white hover:bg-white/10"}
               >
-                <Waves className="mr-2 h-4 w-4" /> Sinks
+                <ShowerHead className="mr-2 h-4 w-4" /> Bathroom
               </Button>
             </div>
           </div>
@@ -270,10 +219,10 @@ export default function StoneCreekCollection() {
                 <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
               ))}
             </div>
-          ) : isEmpty ? (
+          ) : filtered.length === 0 ? (
             <div className="py-20 text-center">
               <Droplets className="mx-auto h-12 w-12 text-muted-foreground/40" />
-              <p className="mt-4 text-muted-foreground">No products match this filter.</p>
+              <p className="mt-4 text-muted-foreground">No faucets match this filter.</p>
             </div>
           ) : (
             <div className="space-y-16">
@@ -287,11 +236,7 @@ export default function StoneCreekCollection() {
                   </div>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {items.map((product: any) => (
-                      <StoneCreekCard
-                        key={product.id}
-                        product={product}
-                        onAddToDesign={productTab === "faucets" ? handleAddFaucetToDesign : handleAddSinkToDesign}
-                      />
+                      <StoneCreekCard key={product.id} product={product} onAddToDesign={handleAddToDesign} />
                     ))}
                   </div>
                 </div>
@@ -315,9 +260,9 @@ export default function StoneCreekCollection() {
               fingerprints day after day.
             </p>
             <p className="mt-4 text-muted-foreground leading-relaxed">
-              Our sink collection spans undermount, farmhouse apron-front, and vessel styles —
-              available in Matte Black, Brushed Nickel, Chrome, Brushed Gold, and Oil Rubbed
-              Bronze to complement your cabinet hardware and countertop selections seamlessly.
+              Available in Matte Black, Brushed Nickel, Chrome, Brushed Gold, and Oil Rubbed
+              Bronze — each finish is designed to complement your cabinet hardware and countertop
+              selections seamlessly.
             </p>
             <Link href="/design">
               <Button className="mt-6" size="lg">

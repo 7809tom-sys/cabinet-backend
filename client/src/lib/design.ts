@@ -525,13 +525,6 @@ export interface RoomData {
   vertices?: import("@/lib/polygonRoom").RoomVertex[];
   /** Polygon room: wall segments connecting vertices. */
   customWalls?: import("@/lib/polygonRoom").CustomWall[];
-  /**
-   * Corners where the user has chosen the "Blind Man's Corner" solution:
-   * two 3" fillers in an L-shape fill the dead corner, no cabinet is placed,
-   * and the countertop extends over the whole area. Values are corner ids:
-   * "top-left" | "top-right" | "bottom-left" | "bottom-right".
-   */
-  blindManCorners?: string[];
 }
 
 // Standard US ceiling height. Common alternatives: 108" (9ft), 120" (10ft).
@@ -1137,10 +1130,6 @@ export function blindCornerViolations(
   const bad = new Set<string>();
   const blinds = placed.filter((p) => isBlindCorner(p.masterCode, p.description));
   for (const blind of blinds) {
-    // If the user has explicitly set a pull distance, the gap between the blind
-    // cabinet and its perpendicular neighbor IS the intentional pull — the
-    // countertop extends to the wall to cover the dead space. Do not flag it.
-    if (typeof blind.blindPull === "number" && blind.blindPull >= 0) continue;
     const rb = footprintRect(blind);
     for (const o of placed) {
       if (o.uid === blind.uid) continue;
@@ -1482,7 +1471,7 @@ export type WallSide = "top" | "bottom" | "left" | "right";
 // "opening" = a cased opening / pass-through (a doorway WITH NO DOOR). Like a
 // door it breaks the floor run (no base cabinet can cross it) and renders as a
 // full-height open gap in the elevation; unlike a window it sits on the floor.
-export type OpeningKind = "door" | "window" | "opening" | "bow";
+export type OpeningKind = "door" | "window" | "opening";
 
 // Openings that break the BASE (floor) run: a person/traffic passes through, so
 // no base cabinet may sit across them. Windows do NOT (a base cabinet can sit
@@ -1512,11 +1501,6 @@ export const OPENINGS: OpeningDef[] = [
   { key: "cased-opening", kind: "opening", label: 'Cased Opening 36"', width: 36, height: 80, sill: 0 },
   { key: "cased-opening-wide", kind: "opening", label: 'Wide Opening 60"', width: 60, height: 84, sill: 0 },
   { key: "pass-through", kind: "opening", label: 'Pass-Through 48"', width: 48, height: 36, sill: 40 },
-  // Bow windows project outward from the wall. Width is the rough-opening span;
-  // the bump-out depth is handled separately in the room geometry.
-  { key: "bow-window-48", kind: "bow", label: 'Bow Window 48"', width: 48, height: 48, sill: 36 },
-  { key: "bow-window-60", kind: "bow", label: 'Bow Window 60"', width: 60, height: 48, sill: 36 },
-  { key: "bow-window-72", kind: "bow", label: 'Bow Window 72"', width: 72, height: 48, sill: 36 },
 ];
 
 export interface WallOpening {
@@ -1665,46 +1649,6 @@ export function finishColors(...parts: (string | null | undefined)[]): FinishCol
   }
   if (!s.trim()) return DEFAULT_FINISH;
   return FALLBACK_FINISHES[hashString(s) % FALLBACK_FINISHES.length];
-}
-
-/**
- * Build a FinishColors from a 6-digit hex string sampled from the door photo.
- * The face color IS the sampled hex. Edge is darkened by 18%, label is chosen
- * based on luminance (dark face → light label, light face → dark label).
- * Returns null if the hex is invalid or missing.
- */
-export function finishColorsFromHex(hex: string | null | undefined): FinishColors | null {
-  if (!hex) return null;
-  const clean = hex.replace(/^#/, "");
-  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return null;
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  // Perceived luminance (ITU-R BT.709)
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  // Edge: darken face by ~18% for depth
-  const edgeR = Math.round(r * 0.82);
-  const edgeG = Math.round(g * 0.82);
-  const edgeB = Math.round(b * 0.82);
-  const toHex = (v: number) => Math.min(255, Math.max(0, v)).toString(16).padStart(2, "0");
-  return {
-    face: `#${clean}`,
-    edge: `#${toHex(edgeR)}${toHex(edgeG)}${toHex(edgeB)}`,
-    label: lum > 140 ? "#1a2744" : "#f5f0e8",
-  };
-}
-
-/**
- * Resolve finish colors for a door style, preferring the photo-sampled
- * dominantColor over keyword matching when available.
- */
-export function finishColorsForStyle(
-  dominantColor: string | null | undefined,
-  ...nameParts: (string | null | undefined)[]
-): FinishColors {
-  const fromPhoto = finishColorsFromHex(dominantColor);
-  if (fromPhoto) return fromPhoto;
-  return finishColors(...nameParts);
 }
 
 // ─── Crown molding & toe kick (design trim, rendered in elevation) ──────────
@@ -2919,47 +2863,6 @@ export interface IslandZone {
   depth: number;
 }
 
-// ─── Island 3-ft clearance rule ─────────────────────────────────────────────
-// NKBA guidelines require at least 36" (3 ft) of clear walkway between the
-// island and any wall cabinet run. Returns UIDs of wall/base cabinets whose
-// footprint comes within 36" of the island zone boundary on any side.
-export const ISLAND_MIN_CLEARANCE_IN = 36;
-
-export function islandClearanceViolations(
-  placed: PlacedCabinet[],
-  island: IslandZone | null
-): Set<string> {
-  const violations = new Set<string>();
-  if (!island) return violations;
-  const { x: ix, y: iy, width: iw, depth: id } = island;
-  const C = ISLAND_MIN_CLEARANCE_IN;
-  // Expanded island zone: any cabinet whose footprint overlaps this expanded
-  // rectangle is too close.
-  const ex = ix - C;
-  const ey = iy - C;
-  const ew = iw + 2 * C;
-  const ed = id + 2 * C;
-  for (const p of placed) {
-    // Skip cabinets that are ON the island (they're island cabinets, not wall runs).
-    if (isOnIsland(p, island)) continue;
-    // Skip appliances — they don't count as cabinet runs for clearance.
-    if (p.placement === "appliance") continue;
-    const { w, d } = rotatedSize(p);
-    // Check if the cabinet footprint overlaps the expanded zone but NOT the
-    // island itself (i.e. it's in the clearance band).
-    const inExpanded =
-      p.x < ex + ew && p.x + w > ex &&
-      p.y < ey + ed && p.y + d > ey;
-    const inIsland =
-      p.x < ix + iw && p.x + w > ix &&
-      p.y < iy + id && p.y + d > iy;
-    if (inExpanded && !inIsland) {
-      violations.add(p.uid);
-    }
-  }
-  return violations;
-}
-
 export function clampIslandToRoom(island: IslandZone | null, room: RoomData): IslandZone | null {
   if (!island) return null;
   const width = Math.max(12, Math.min(island.width, room.width));
@@ -3247,7 +3150,7 @@ export interface CountertopSurface {
   y: number;
   width: number;
   depth: number;
-  kind: "base" | "island" | "blind-man-corner";
+  kind: "base" | "island";
 }
 
 /**
@@ -3343,26 +3246,6 @@ export function countertopSurfaces(
       kind: "island",
     });
   }
-  // Blind Man's Corner: add a 27"×27" countertop slab at each designated corner.
-  // Each wall side has a 6"+3" filler assembly (9" total) set 24" from the wall,
-  // giving a 27"×27" dead corner square covered by the countertop.
-  const BMC = 27; // inches — filler assembly width on each side
-  for (const cornerId of (room.blindManCorners ?? [])) {
-    switch (cornerId) {
-      case "top-left":
-        out.push({ x: 0, y: 0, width: BMC, depth: BMC, kind: "blind-man-corner" });
-        break;
-      case "top-right":
-        out.push({ x: room.width - BMC, y: 0, width: BMC, depth: BMC, kind: "blind-man-corner" });
-        break;
-      case "bottom-left":
-        out.push({ x: 0, y: room.depth - BMC, width: BMC, depth: BMC, kind: "blind-man-corner" });
-        break;
-      case "bottom-right":
-        out.push({ x: room.width - BMC, y: room.depth - BMC, width: BMC, depth: BMC, kind: "blind-man-corner" });
-        break;
-    }
-  }
   return out;
 }
 
@@ -3439,8 +3322,6 @@ export function missingCornerBaseViolations(
   openingReach = 2
 ): Set<string> {
   const violations = new Set<string>();
-  // Corners where the user has chosen the Blind Man's Corner solution are exempt.
-  const blindManSet = new Set(room.blindManCorners ?? []);
 
   // Does a door/cased opening reach the given end ("near" = wall start, "far" =
   // wall end) of the wall on `side`? Windows never block floor access, so only
@@ -3483,19 +3364,17 @@ export function missingCornerBaseViolations(
     // actually reaches that corner on either of the two forming walls. The
     // wall-start/end mapping: top/bottom run left→right (near=left corner),
     // left/right run top→bottom (near=top corner).
-    // Blind Man's Corner exemption: if the user has chosen this solution for
-    // a given corner, skip the flag — two 3" fillers cover the dead space.
     let flag = false;
-    if (nearTop && nearLeft && !blindManSet.has("top-left")) {
+    if (nearTop && nearLeft) {
       if (openingAtWallEnd("top", "near") || openingAtWallEnd("left", "near")) flag = true;
     }
-    if (nearTop && nearRight && !blindManSet.has("top-right")) {
+    if (nearTop && nearRight) {
       if (openingAtWallEnd("top", "far") || openingAtWallEnd("right", "near")) flag = true;
     }
-    if (nearBottom && nearLeft && !blindManSet.has("bottom-left")) {
+    if (nearBottom && nearLeft) {
       if (openingAtWallEnd("bottom", "near") || openingAtWallEnd("left", "far")) flag = true;
     }
-    if (nearBottom && nearRight && !blindManSet.has("bottom-right")) {
+    if (nearBottom && nearRight) {
       if (openingAtWallEnd("bottom", "far") || openingAtWallEnd("right", "far")) flag = true;
     }
 

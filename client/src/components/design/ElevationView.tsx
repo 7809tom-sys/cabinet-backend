@@ -5,7 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, blindPullRange,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -196,7 +196,7 @@ export function ElevationView({
     // the right. This drives the door flip so the door faces the exposed side.
     const isBlind = isBlindCorner(p.masterCode, p.description);
     const blindLeft = isBlind ? (posAlong <= 2) : true;
-    const canDrag = !seam && !moveLocked && !!onMove;
+    const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
     return (
       <div
@@ -214,27 +214,12 @@ export function ElevationView({
           dragAxis.current = null;
           vDragStartY.current = e.clientY;
           vDragStartBottom.current = bottom;
-          // MOBILE-SAFE pointer capture: capture on the element that received
-          // pointerdown (the cabinet div itself). Mobile browsers only route
-          // captured events to the element that called setPointerCapture — if we
-          // capture on the parent wall container the move events never arrive on
-          // mobile. We attach native pointermove/pointerup listeners directly on
-          // the captured element and clean them up on release.
-          const cabEl = e.currentTarget as HTMLElement;
-          cabEl.setPointerCapture(e.pointerId);
-          capturedPointerId.current = e.pointerId;
-          const onMove_ = (ev: PointerEvent) => {
-            handleWallPointerMove(ev as unknown as React.PointerEvent<HTMLDivElement>);
-          };
-          const onUp_ = (ev: PointerEvent) => {
-            cabEl.removeEventListener("pointermove", onMove_);
-            cabEl.removeEventListener("pointerup", onUp_);
-            cabEl.removeEventListener("pointercancel", onUp_);
-            handleWallPointerUp(ev as unknown as React.PointerEvent);
-          };
-          cabEl.addEventListener("pointermove", onMove_);
-          cabEl.addEventListener("pointerup", onUp_);
-          cabEl.addEventListener("pointercancel", onUp_);
+          // Capture on the WALL container so pointermove fires there (not on
+          // the tiny cabinet div which mobile browsers isolate after capture).
+          if (wallInnerRef.current) {
+            wallInnerRef.current.setPointerCapture(e.pointerId);
+            capturedPointerId.current = e.pointerId;
+          }
         } : undefined}
         onClick={(e) => {
           e.stopPropagation();
@@ -302,30 +287,6 @@ export function ElevationView({
               {p.masterCode}
             </span>
           </div>
-          {/* Blind corner pull-distance tooltip: shown when this cabinet is
-              selected. Floats above the cabinet box as a gold chip. */}
-          {isBlind && isSelected && (() => {
-            const pr = blindPullRange(p);
-            if (!pr) return null;
-            const current = typeof p.blindPull === "number" ? p.blindPull : pr.max;
-            return (
-              <div
-                className="pointer-events-none absolute left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full px-2 py-0.5 shadow-lg"
-                style={{
-                  bottom: "calc(100% + 6px)",
-                  background: "#1a2744",
-                  border: "1.5px solid #d4a75a",
-                  zIndex: 20,
-                  whiteSpace: "nowrap",
-                  ...textFlip,
-                }}
-              >
-                <span className="text-[9px] font-semibold text-[#d4a75a]">{t("dt_blind_pull_label")}</span>
-                <span className="text-[9px] text-white font-bold">{current}"</span>
-                <span className="text-[8px] text-white/60">({t("dt_blind_pull_range", { min: pr.min, max: pr.max })})</span>
-              </div>
-            );
-          })()}
         </div>
       </div>
     );
@@ -356,23 +317,11 @@ export function ElevationView({
       const { height } = elevationBox(cabinet, room);
       const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
       let nextBottom = vDragStartBottom.current + dyIn;
-      // For short wall cabinets (bridge/over-appliance, h < 30") the natural
-      // resting position is TOP-anchored at the upper-run top line, so their
-      // bottom is at (topLine - h) — e.g. 72" for a 12" bridge on an 8ft
-      // ceiling. Use that as the minimum so dragging down can't push them
-      // below their default 72" position. Standard uppers (h >= 30") use the
-      // classic 54" mount line as the minimum.
-      const topLine = wallCabinetTopLine(room);
-      const minBottom = height < 30
-        ? Math.max(0, topLine - height)
-        : STD.WALL_MOUNT_BOTTOM;
-      nextBottom = Math.max(minBottom, Math.min(maxBottom, nextBottom));
-      // Snap guides: the natural resting position and the standard 54" line.
+      nextBottom = Math.max(0, Math.min(maxBottom, nextBottom));
+      // Snap to the standard mount line (54") and the upper-run top line so it
+      // is easy to line back up with neighbors.
       const SNAP_IN = 1.5;
-      const snapGuides = height < 30
-        ? [Math.max(0, topLine - height)]
-        : [STD.WALL_MOUNT_BOTTOM];
-      for (const guide of snapGuides) {
+      for (const guide of [STD.WALL_MOUNT_BOTTOM]) {
         if (Math.abs(nextBottom - guide) <= SNAP_IN) nextBottom = guide;
       }
       onMoveVertical(dragUid, Math.round(nextBottom * 10) / 10);
@@ -451,14 +400,9 @@ export function ElevationView({
     onMove(dragUid, newX, newY);
   };
 
-  const handleWallPointerUp = (e?: React.PointerEvent | PointerEvent) => {
-    // Release capture if it is still held (it may have been auto-released by the
-    // browser on pointerup/pointercancel, but the try/catch is harmless).
-    if (capturedPointerId.current != null) {
-      const target = (e?.target ?? e?.currentTarget) as HTMLElement | null;
-      if (target) {
-        try { target.releasePointerCapture(capturedPointerId.current); } catch { /* already released */ }
-      }
+  const handleWallPointerUp = (e?: React.PointerEvent) => {
+    if (capturedPointerId.current != null && wallInnerRef.current) {
+      try { wallInnerRef.current.releasePointerCapture(capturedPointerId.current); } catch { /* already released */ }
       capturedPointerId.current = null;
     }
     setDragUid(null);
@@ -480,8 +424,7 @@ export function ElevationView({
       const cab = cabinets.find((c) => c.uid === selectedUid);
       if (!cab || cabinetWall(cab, room) !== side) return;
       const step = e.shiftKey ? 3 : 0.5;
-      // Horizontal (along-wall) nudge — with collision detection so the cabinet
-      // cannot be nudged into a neighbour on the same wall/vertical band.
+      // Horizontal (along-wall) nudge.
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
         if (!onMove) return;
         e.preventDefault();
@@ -489,40 +432,7 @@ export function ElevationView({
         const sizeAlong = horizontal ? placedFootprint(cab).w : placedFootprint(cab).d;
         const planSpanLen = horizontal ? room.width : room.depth;
         const cur = horizontal ? cab.x : cab.y;
-        let next = cur + dir * step;
-        // Collision: build the same vertical-band neighbour list used by the
-        // drag handler so the arrow key respects the same boundaries.
-        const cabBox = elevationBox(cab, room);
-        const cabTop = cabBox.bottom + cabBox.height;
-        const keyNeighbours = cabinets.filter(
-          (c) =>
-            c.uid !== cab.uid &&
-            cabinetWall(c, room) === side &&
-            (() => {
-              const oBox = elevationBox(c, room);
-              return cabBox.bottom < oBox.bottom + oBox.height - 0.01 &&
-                     oBox.bottom < cabTop - 0.01;
-            })() &&
-            !isStacker(c) &&
-            !isStacker(cab) &&
-            !isBridgeOverRange(cab, c) &&
-            !isBridgeOverRange(c, cab),
-        );
-        // Clamp next to the free interval [lo, hi] between neighbours.
-        let lo = 0;
-        let hi = planSpanLen - sizeAlong;
-        for (const o of keyNeighbours) {
-          const oAlong = horizontal ? o.x : o.y;
-          const oSize = horizontal ? placedFootprint(o).w : placedFootprint(o).d;
-          if (dir < 0) {
-            // Moving left: must not go past the right edge of a left neighbour.
-            if (oAlong + oSize <= cur + 0.01) lo = Math.max(lo, oAlong + oSize);
-          } else {
-            // Moving right: must not go past the left edge of a right neighbour.
-            if (oAlong >= cur + sizeAlong - 0.01) hi = Math.min(hi, oAlong - sizeAlong);
-          }
-        }
-        next = Math.max(lo, Math.min(hi, next));
+        const next = Math.max(0, Math.min(planSpanLen - sizeAlong, cur + dir * step));
         if (horizontal) onMove(cab.uid, next, cab.y);
         else onMove(cab.uid, cab.x, next);
         return;
@@ -533,13 +443,7 @@ export function ElevationView({
         const dir = e.key === "ArrowUp" ? 1 : -1;
         const { bottom, height } = elevationBox(cab, room);
         const maxBottom = Math.max(0, WALL_TOTAL_HEIGHT - height);
-        // Bridge cabinets (h < 30") use their top-anchor position as the floor;
-        // standard uppers (h >= 30") use the classic 54" mount line.
-        const topLine = wallCabinetTopLine(room);
-        const minBottom = height < 30
-          ? Math.max(0, topLine - height)
-          : STD.WALL_MOUNT_BOTTOM;
-        const next = Math.max(minBottom, Math.min(maxBottom, bottom + dir * step));
+        const next = Math.max(0, Math.min(maxBottom, bottom + dir * step));
         onMoveVertical(cab.uid, Math.round(next * 10) / 10);
       }
     };
@@ -592,11 +496,9 @@ export function ElevationView({
         <div
           ref={wallInnerRef}
           className="absolute"
-          // pointermove/pointerup are handled via native listeners on the
-          // captured cabinet element (see onPointerDown in renderCabinetBox).
-          // These React props are kept as a desktop fallback only.
           onPointerMove={handleWallPointerMove}
           onPointerUp={handleWallPointerUp}
+          onPointerLeave={handleWallPointerUp}
           style={{
             width: wallPxW,
             height: wallPxH,
@@ -1467,7 +1369,6 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
         <div
           className="absolute inset-[1.5px] rounded-[1.5px]"
           style={{
-            background: `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #fff) 0%, ${face} 45%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
             ...drawerBg,
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 2px rgba(0,0,0,0.16), 0 0 0 1px ${edge}44`,
           }}
@@ -1863,13 +1764,11 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
   switch (kind) {
     case "slab":
       // Flat modern door: no panel, just a machined edge + soft top highlight.
-      // Always apply the face color as background so the cabinet never renders
-      // white when the door sample image is missing or fails to load.
+      // When a door sample is available, use it as the slab face.
       return (
         <div
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
-            background: `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #fff) 0%, ${face} 45%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
             ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 3px rgba(0,0,0,0.14), 0 0 0 1px ${edge}44`,
           }}

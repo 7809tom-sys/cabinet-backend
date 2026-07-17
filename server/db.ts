@@ -214,15 +214,14 @@ export async function getPricingSettings(): Promise<
     | "homeownerMarkupBps"
     | "contractorMarkupBps"
     | "wholesaleMarkupBps"
-    | "tierPricesRecalcAt"
   >
 > {
   const db = await getDb();
-  if (!db) return { ...DEFAULT_PRICING_SETTINGS, tierPricesRecalcAt: null };
+  if (!db) return { ...DEFAULT_PRICING_SETTINGS };
   const rows = await db.select().from(pricingSettings).limit(1);
   if (rows.length === 0) {
     await db.insert(pricingSettings).values({ ...DEFAULT_PRICING_SETTINGS });
-    return { ...DEFAULT_PRICING_SETTINGS, tierPricesRecalcAt: null };
+    return { ...DEFAULT_PRICING_SETTINGS };
   }
   const r = rows[0];
   return {
@@ -230,7 +229,6 @@ export async function getPricingSettings(): Promise<
     homeownerMarkupBps: r.homeownerMarkupBps,
     contractorMarkupBps: r.contractorMarkupBps,
     wholesaleMarkupBps: r.wholesaleMarkupBps,
-    tierPricesRecalcAt: r.tierPricesRecalcAt,
   };
 }
 

@@ -1,9 +1,9 @@
 import { Link } from "wouter";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star, Smartphone } from "lucide-react";
+import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AdminEditField } from "@/components/admin/AdminEditField";
+
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -35,11 +35,9 @@ function JulyBanner() {
       </div>
       <div className="container relative flex items-center justify-center gap-3 text-center">
         <span className="text-lg">🇺🇸</span>
-        <AdminEditField pageKey="home" field="july_banner_text" defaultValue="Happy 4th of July! Celebrate Independence Day with trade pricing on everything for your next project.">
-          {(val) => (
-            <p className="text-sm md:text-base font-semibold tracking-wide">{val}</p>
-          )}
-        </AdminEditField>
+        <p className="text-sm md:text-base font-semibold tracking-wide">
+          Happy 4th of July! Celebrate Independence Day with trade pricing on everything for your next project.
+        </p>
         <span className="text-lg">🎆</span>
       </div>
     </div>
@@ -75,40 +73,40 @@ function Hero() {
             </div>
 
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              <AdminEditField pageKey="home" field="hero_headline" defaultValue="Your One-Stop Shop for|Kitchen & Bath.">
-                {(val) => {
-                  const [line1, line2] = val.includes("|") ? val.split("|") : [val, ""];
-                  return <>
-                    {line1}
-                    {line2 && <><br /><span className="text-[var(--color-gold)]">{line2}</span></>}
-                  </>;
-                }}
-              </AdminEditField>
+              Your One-Stop Shop for
+              <br />
+              <span className="text-[var(--color-gold)]">Kitchen & Bath.</span>
             </h1>
 
             <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
-              <AdminEditField pageKey="home" field="hero_subheadline" defaultValue="Cabinets, countertops, tile, flooring, sinks, faucets, showers, and toilets — all at trade pricing. Design kitchens in 2D, browse thousands of products, and submit orders in one membership." multiline>
-                {(val) => <>{val}</>}
-              </AdminEditField>
+              Cabinets, countertops, tile, flooring, sinks, faucets, showers, and toilets — all at trade pricing. Design kitchens in 2D, browse thousands of products, and submit orders in one membership.
             </p>
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-              <Button asChild size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
-                <Link href="/styles">Shop Cabinets <ArrowRight className="h-4 w-4" /></Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                <Link href="/surfaces">Surfaces & Fixtures <ArrowRight className="h-4 w-4" /></Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                <Link href="/plumbers-choice">Plumber's Choice <ArrowRight className="h-4 w-4" /></Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
-                <Link href="/design">Design Your Kitchen</Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="border-[var(--color-gold)] text-[var(--color-gold)] bg-transparent hover:bg-[var(--color-gold)] hover:text-[var(--color-navy)] gap-2 font-semibold">
-                <Link href="/app"><Smartphone className="h-4 w-4" /> Get the App</Link>
-              </Button>
+              <Link href="/styles">
+                <Button size="lg" className="bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-2">
+                  Shop Cabinets
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/surfaces">
+                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                  Surfaces & Fixtures
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/plumbers-choice">
+                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                  Plumber's Choice
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/design">
+                <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
+                  Design Your Kitchen
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -151,113 +149,6 @@ function Hero() {
               <div className="text-sm text-white/60 mt-1">{stat.label}</div>
             </div>
           ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Featured Door Styles (from DB) ─────────────────────────────────────────
-
-function FeaturedStyles() {
-  const { t } = useLanguage();
-  const { data: featured, isLoading } = trpc.doorStyles.featured.useQuery();
-  const { data: allStyles } = trpc.doorStyles.list.useQuery();
-
-  // Use featured if available, otherwise fall back to first 3 styles with room scenes
-  const styles = useMemo(() => {
-    if (featured && featured.length > 0) {
-      return featured.slice(0, 3);
-    }
-    if (allStyles) {
-      return allStyles
-        .filter((s) => s.roomSceneImageUrl || s.thumbnailImageUrl || s.doorSampleImageUrl)
-        .slice(0, 3);
-    }
-    return [];
-  }, [featured, allStyles]);
-
-  if (isLoading) {
-    return (
-      <section className="py-16 md:py-20">
-        <div className="container">
-          <div className="grid md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-80 rounded-2xl bg-muted animate-pulse" />
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (styles.length === 0) return null;
-
-  return (
-    <section className="py-16 md:py-20 bg-muted/20">
-      <div className="container">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
-            <span className="h-px w-8 bg-[var(--color-wood)]" />
-            Featured Styles
-            <span className="h-px w-8 bg-[var(--color-wood)]" />
-          </div>
-          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
-            Trending Door Styles
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Handpicked by our design team — start your kitchen design with one of these popular styles.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-6">
-          {styles.map((style) => {
-            const image = style.roomSceneImageUrl || style.thumbnailImageUrl || style.doorSampleImageUrl;
-            const name = style.featuredLabel || style.ourName || style.styleCode;
-            const blurb = [style.doorStyle, style.woodSpecies].filter(Boolean).join(" · ") || "Premium cabinet style";
-            return (
-              <div key={style.id} className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 bg-card border border-border">
-                {image ? (
-                  <div className="relative overflow-hidden">
-                    <img
-                      src={image}
-                      alt={name}
-                      className="h-56 w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                    <div className="absolute bottom-3 left-4 right-4">
-                      <h3 className="font-serif text-xl font-bold text-white leading-tight">{name}</h3>
-                      <p className="text-xs text-white/80 mt-0.5">{blurb}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-56 bg-muted flex items-center justify-center">
-                    <h3 className="font-serif text-xl font-bold text-foreground">{name}</h3>
-                  </div>
-                )}
-                <div className="p-4 flex flex-col gap-2">
-                  <div className="flex gap-2">
-                    <Button asChild size="sm" className="flex-1 bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold gap-1.5">
-                      <Link href={`/design?style=${encodeURIComponent(style.styleCode)}`}>
-                        <Palette className="h-3.5 w-3.5" /> Design with this
-                      </Link>
-                    </Button>
-                    <Button asChild size="sm" variant="outline" className="flex-1 gap-1.5">
-                      <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
-                        View Collection <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-10 text-center">
-          <Button asChild size="lg" variant="outline" className="gap-2 bg-card">
-            <Link href="/styles">Browse All Door Styles <ArrowRight className="h-4 w-4" /></Link>
-          </Button>
         </div>
       </div>
     </section>
@@ -330,19 +221,11 @@ function ProductShowcase() {
               <div className={`absolute inset-0 bg-gradient-to-t ${cat.accent} via-transparent to-transparent`} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6">
-                <AdminEditField pageKey="home" field={`cat_title_${cat.href.replace(/\//g, '')}`} defaultValue={cat.title}>
-                  {(val) => <h3 className="font-serif text-2xl font-bold text-white mb-1">{val}</h3>}
-                </AdminEditField>
-                <AdminEditField pageKey="home" field={`cat_desc_${cat.href.replace(/\//g, '')}`} defaultValue={cat.description} multiline>
-                  {(val) => <p className="text-sm text-white/80 mb-3 line-clamp-2">{val}</p>}
-                </AdminEditField>
-                <AdminEditField pageKey="home" field={`cat_cta_${cat.href.replace(/\//g, '')}`} defaultValue={cat.cta}>
-                  {(val) => (
-                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
-                      {val} <ArrowRight className="h-4 w-4" />
-                    </span>
-                  )}
-                </AdminEditField>
+                <h3 className="font-serif text-2xl font-bold text-white mb-1">{cat.title}</h3>
+                <p className="text-sm text-white/80 mb-3 line-clamp-2">{cat.description}</p>
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
+                  {cat.cta} <ArrowRight className="h-4 w-4" />
+                </span>
               </div>
             </Link>
           ))}
@@ -476,9 +359,11 @@ function StyleShowcase() {
         </div>
 
         <div className="mt-10 text-center">
-          <Button asChild size="lg" variant="outline" className="gap-2 bg-card">
-            <Link href="/styles">{t("home_showcase_explore_all")} <ArrowRight className="h-4 w-4" /></Link>
-          </Button>
+          <Link href="/styles">
+            <Button size="lg" variant="outline" className="gap-2 bg-card">
+              {t("home_showcase_explore_all")} <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
         </div>
       </div>
     </section>
@@ -488,40 +373,33 @@ function StyleShowcase() {
 // ─── Become an Affiliate ──────────────────────────────────────────────────────
 
 function AffiliatePromo() {
-  const { t } = useLanguage();
   const advantages = [
     {
-      key: "storefront",
       icon: Star,
       title: "Your Own Branded Storefront",
       description: "Get a custom-branded storefront powered by the full Cabinet Dealz catalog. Your name, your brand, our backend.",
     },
     {
-      key: "earn",
       icon: Sparkles,
       title: "Earn on Every Order",
       description: "Every kitchen or bath project that comes through your storefront earns you a commission. No inventory, no risk.",
     },
     {
-      key: "products",
       icon: Grid3X3,
       title: "Thousands of Products",
       description: "Cabinets, countertops, tile, flooring, sinks, faucets, showers, toilets — your customers get access to everything.",
     },
     {
-      key: "pricing",
       icon: Users,
       title: "Trade Pricing Built In",
       description: "Your customers see competitive trade pricing automatically. You don't negotiate — the platform handles it.",
     },
     {
-      key: "design",
       icon: Palette,
       title: "2D Design Tool Included",
       description: "Your customers can design their kitchen right on your storefront with the built-in 2D planner. No extra software.",
     },
     {
-      key: "fulfillment",
       icon: FileSpreadsheet,
       title: "We Handle Fulfillment",
       description: "Orders ship direct from the supply network. You focus on sales and relationships — we handle the logistics.",
@@ -539,14 +417,10 @@ function AffiliatePromo() {
             Affiliate Program
           </div>
           <h2 className="font-serif text-3xl md:text-5xl font-bold text-foreground mb-4">
-            <AdminEditField pageKey="home" field="affiliate_promo_title" defaultValue="Become a Cabinet Dealz Affiliate">
-              {(val) => <>{val}</>}
-            </AdminEditField>
+            Become a Cabinet Dealz Affiliate
           </h2>
           <p className="text-muted-foreground text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
-            <AdminEditField pageKey="home" field="affiliate_promo_sub" defaultValue="Launch your own branded kitchen & bath storefront — backed by the full Cabinet Dealz product catalog, trade pricing, and fulfillment network. Zero inventory. Zero risk. Maximum earning potential." multiline>
-              {(val) => <>{val}</>}
-            </AdminEditField>
+            Launch your own branded kitchen & bath storefront — backed by the full Cabinet Dealz product catalog, trade pricing, and fulfillment network. Zero inventory. Zero risk. Maximum earning potential.
           </p>
         </div>
 
@@ -556,24 +430,19 @@ function AffiliatePromo() {
               <div className="inline-flex p-2.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 mb-4">
                 <adv.icon className="h-5 w-5" />
               </div>
-              <h3 className="font-serif text-lg font-bold text-foreground mb-2">
-                <AdminEditField pageKey="home" field={`affiliate_adv_title_${adv.key}`} defaultValue={adv.title}>
-                  {(val) => <>{val}</>}
-                </AdminEditField>
-              </h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                <AdminEditField pageKey="home" field={`affiliate_adv_desc_${adv.key}`} defaultValue={adv.description} multiline>
-                  {(val) => <>{val}</>}
-                </AdminEditField>
-              </p>
+              <h3 className="font-serif text-lg font-bold text-foreground mb-2">{adv.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{adv.description}</p>
             </div>
           ))}
         </div>
 
         <div className="text-center">
-          <Button asChild size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 px-8 py-6 text-base">
-            <Link href="/affiliate">Start Your Affiliate Storefront <ArrowRight className="h-5 w-5" /></Link>
-          </Button>
+          <Link href="/affiliate">
+            <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 px-8 py-6 text-base">
+              Start Your Affiliate Storefront
+              <ArrowRight className="h-5 w-5" />
+            </Button>
+          </Link>
           <p className="text-sm text-muted-foreground mt-3">
             Free to join. No upfront costs. Start earning from day one.
           </p>
@@ -604,14 +473,10 @@ function PlatformFeatures() {
               {t("home_feat_eyebrow")}
             </div>
             <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-4">
-              <AdminEditField pageKey="home" field="platform_feat_title" defaultValue={t("home_feat_title")}>
-                {(val) => <>{val}</>}
-              </AdminEditField>
+              {t("home_feat_title")}
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-8">
-              <AdminEditField pageKey="home" field="platform_feat_sub" defaultValue={t("home_feat_sub")} multiline>
-                {(val) => <>{val}</>}
-              </AdminEditField>
+              {t("home_feat_sub")}
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -629,9 +494,12 @@ function PlatformFeatures() {
             </div>
 
             <div className="mt-8">
-              <Button asChild size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2">
-                <Link href="/order/new">{t("home_feat_build_cta")} <ArrowRight className="h-4 w-4" /></Link>
-              </Button>
+              <Link href="/order/new">
+                <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2">
+                  {t("home_feat_build_cta")}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
               <p className="text-xs text-muted-foreground mt-2">
                 {t("home_feat_build_note")}
               </p>
@@ -777,10 +645,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <JulyBanner />
       <Hero />
-      <FeaturedStyles />
       <ProductShowcase />
       <AffiliatePromo />
-      <PlatformFeatures />
       <Footer />
     </div>
   );

@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { ImageIcon, Maximize2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,107 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-// ─── Style card with room-scene-first display ────────────────────────────────
-type PriceStyleData = {
-  styleId: number;
-  styleCode: string | null;
-  name: string | null;
-  doorStyle: string | null;
-  finish: string | null;
-  color: string | null;
-  thumbnailImageUrl: string | null;
-  doorSampleImageUrl: string | null;
-  roomSceneImageUrl: string | null;
-  totalPrice: string | null;
-  totalCost: string | null;
-  completeness: number;
-};
-
-function PriceStyleCard({
-  style,
-  isAdmin,
-  onClick,
-}: {
-  style: PriceStyleData;
-  isAdmin: boolean;
-  onClick: () => void;
-}) {
-  const [showDoor, setShowDoor] = useState(false);
-  const [sceneFailed, setSceneFailed] = useState(false);
-  const [doorFailed, setDoorFailed] = useState(false);
-  const heroSrc = showDoor
-    ? (style.doorSampleImageUrl && !doorFailed ? style.doorSampleImageUrl : null)
-    : (style.roomSceneImageUrl && !sceneFailed ? style.roomSceneImageUrl : style.thumbnailImageUrl && !sceneFailed ? style.thumbnailImageUrl : null);
-  return (
-    <Card
-      className="cursor-pointer hover:shadow-lg transition-shadow border-border/60 hover:border-amber-500/40 overflow-hidden"
-      onClick={onClick}
-    >
-      {/* Room scene hero */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        {heroSrc ? (
-          <img
-            src={heroSrc}
-            alt={showDoor ? `${style.name} door sample` : `${style.name} kitchen`}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            onError={() => showDoor ? setDoorFailed(true) : setSceneFailed(true)}
-          />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center bg-muted text-muted-foreground text-xs">No image</div>
-        )}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-        {/* Door toggle */}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setShowDoor((v) => !v); }}
-          className={`absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border-2 shadow-md transition-colors z-10 ${
-            showDoor ? "border-white bg-white text-foreground" : "border-white/80 bg-black/40 text-white hover:bg-black/60"
-          }`}
-          title={showDoor ? "Show room scene" : "View door close-up"}
-        >
-          {showDoor ? <Maximize2 className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
-        </button>
-        <span className="absolute bottom-2 left-2 text-[10px] font-medium text-white/90 bg-black/50 px-1.5 py-0.5 rounded-full">
-          {showDoor ? "Door" : "Room"}
-        </span>
-      </div>
-      <CardHeader className="pb-2 pt-3">
-        <CardTitle className="text-base truncate">{style.name || style.styleCode}</CardTitle>
-        <p className="text-xs text-muted-foreground truncate">
-          {[style.doorStyle, style.finish, style.color].filter(Boolean).join(" • ")}
-        </p>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="flex items-end justify-between">
-          <div>
-            {style.totalPrice ? (
-              <>
-                <p className="text-2xl font-bold text-foreground">
-                  ${Number(style.totalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                {isAdmin && style.totalCost && (
-                  <p className="text-xs text-emerald-600 font-medium">
-                    Cost: ${Number(style.totalCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">total for 19'L layout</p>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">Price unavailable</p>
-            )}
-          </div>
-          {style.completeness < 1 && (
-            <Badge variant="outline" className="text-amber-600 border-amber-600/40 text-xs">
-              {Math.round(style.completeness * 100)}% available
-            </Badge>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function PriceShop() {
   const { user } = useAuth();
@@ -216,12 +114,63 @@ export default function PriceShop() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredStyles.map((style) => (
-              <PriceStyleCard
+              <Card
                 key={style.styleId}
-                style={style}
-                isAdmin={isAdmin}
+                className="cursor-pointer hover:shadow-lg transition-shadow border-border/60 hover:border-amber-500/40"
                 onClick={() => setSelectedStyle(style)}
-              />
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start gap-3">
+                    {style.thumbnailImageUrl ? (
+                      <img
+                        src={style.thumbnailImageUrl}
+                        alt={style.name || ""}
+                        className="w-14 h-14 rounded-md object-cover border"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-md bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                        No img
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base truncate">
+                        {style.name || style.styleCode}
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {[style.doorStyle, style.finish, style.color]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-end justify-between">
+                    <div>
+                      {style.totalPrice ? (
+                        <>
+                          <p className="text-2xl font-bold text-foreground">
+                            ${Number(style.totalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          {isAdmin && style.totalCost && (
+                            <p className="text-xs text-emerald-600 font-medium">
+                              Cost: ${Number(style.totalCost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground">total for 19'L layout</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Price unavailable</p>
+                      )}
+                    </div>
+                    {style.completeness < 1 && (
+                      <Badge variant="outline" className="text-amber-600 border-amber-600/40 text-xs">
+                        {Math.round(style.completeness * 100)}% available
+                      </Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}
@@ -241,11 +190,11 @@ export default function PriceShop() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
-{(selectedStyle?.roomSceneImageUrl || selectedStyle?.doorSampleImageUrl || selectedStyle?.thumbnailImageUrl) && (
+              {selectedStyle?.thumbnailImageUrl && (
                 <img
-                  src={selectedStyle.roomSceneImageUrl || selectedStyle.doorSampleImageUrl || selectedStyle.thumbnailImageUrl || ""}
+                  src={selectedStyle.thumbnailImageUrl}
                   alt=""
-                  className="w-14 h-14 rounded-md object-cover border"
+                  className="w-10 h-10 rounded-md object-cover border"
                 />
               )}
               <div>

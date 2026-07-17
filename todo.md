@@ -249,24 +249,24 @@
 - [x] Added visible "Collection" filter dropdown in catalog panel for easy switching
 
 ## Feature: Homepage featured products from real database
-- [x] Featured products on homepage should pull from actual door styles/surfaces in the design tool database
-- [x] Add "Design with this" CTA button that opens designer pre-loaded with the featured style
-- [x] Admin can mark which styles/surfaces to feature (configurable, top 2-3 items)
-- [x] Ensure featured items show high-quality product images
-- [x] Improve admin image upload flow for updating product photos in one place
+- [ ] Featured products on homepage should pull from actual door styles/surfaces in the design tool database
+- [ ] Add "Design with this" CTA button that opens designer pre-loaded with the featured style
+- [ ] Admin can mark which styles/surfaces to feature (configurable, top 2-3 items)
+- [ ] Ensure featured items show high-quality product images
+- [ ] Improve admin image upload flow for updating product photos in one place
 
 ## Feature: Vendor Portal (full authority over their product line)
-- [x] Vendor login via same auth system (role=distributor) with vendor dashboard redirect
-- [x] Vendor dashboard layout with sidebar navigation at /vendor
-- [x] Vendor can manage existing door styles (edit photos/samples, descriptions) — instant updates
-- [x] Vendor can manage existing cabinet SKUs (update prices, photos, availability) — instant updates
-- [x] Vendor can deactivate/remove existing products — instant
-- [x] Vendor can upload NEW products — goes to "pending approval" queue for admin
-- [x] Admin approval workflow for new vendor-submitted products
-- [x] Vendor can upload product images (room scenes, door samples, cabinet photos)
-- [x] Vendor can view their order history (orders containing their products)
-- [x] Vendor can toggle which of their products appear in the design tool (max 8 picks)
-- [x] All vendor actions scoped to their distributor ID only
+- [ ] Vendor login via same auth system (role=distributor) with vendor dashboard redirect
+- [ ] Vendor dashboard layout with sidebar navigation at /vendor
+- [ ] Vendor can manage existing door styles (edit photos/samples, descriptions) — instant updates
+- [ ] Vendor can manage existing cabinet SKUs (update prices, photos, availability) — instant updates
+- [ ] Vendor can deactivate/remove existing products — instant
+- [ ] Vendor can upload NEW products — goes to "pending approval" queue for admin
+- [ ] Admin approval workflow for new vendor-submitted products
+- [ ] Vendor can upload product images (room scenes, door samples, cabinet photos)
+- [ ] Vendor can view their order history (orders containing their products)
+- [ ] Vendor can toggle which of their products appear in the design tool (max 8 picks)
+- [ ] All vendor actions scoped to their distributor ID only
 
 ## Fix: Backsplash rendering rules
 - [x] Backsplash should start at the corner of the wall (not just behind cabinets)
@@ -334,23 +334,23 @@
 - [x] Add promotions DB schema (promo table: distributorId, skuId or lineFilter, discountType, discountValue, startDate, endDate, active)
 - [x] Add promotions management UI in vendor portal (create/edit/delete promos)
 - [x] Display promotions on storefront (sale badge, strikethrough original price, show promo price)
-- [x] Add gallery/image management: vendors can upload product gallery photos and replace existing images
-- [x] Vendor portal image upload for individual SKU gallery (multiple photos per product)
+- [ ] Add gallery/image management: vendors can upload product gallery photos and replace existing images
+- [ ] Vendor portal image upload for individual SKU gallery (multiple photos per product)
 
 ## Admin Analytics tab
 - [x] Add Analytics tab to admin panel with embedded Umami dashboard
-- [x] Add product view event tracking (fire events when users view product pages)
-- [x] Show per-vendor product view breakdown in admin analytics
-- [x] Show vendor-facing analytics in vendor portal (their own product views/stats)
+- [ ] Add product view event tracking (fire events when users view product pages)
+- [ ] Show per-vendor product view breakdown in admin analytics
+- [ ] Show vendor-facing analytics in vendor portal (their own product views/stats)
 
 ## StoneCreek brand (sinks + faucets)
 - [x] Create StoneCreek series names for 24 faucet models with proper descriptions
-- [x] Brand sinks under StoneCreek with descriptive names
+- [ ] Brand sinks under StoneCreek with descriptive names
 - [x] Update database with all branded names and descriptions (96 SKUs)
 - [x] Build dedicated StoneCreek collection page on storefront
-- [x] Pair sinks + faucets together on product pages ("Complete this look")
+- [ ] Pair sinks + faucets together on product pages ("Complete this look")
 - [x] Add "Add to My Design" button that sets faucet/sink in active design
-- [x] Filter StoneCreek products into the design tool surfaces palette
+- [ ] Filter StoneCreek products into the design tool surfaces palette
 
 ## Universal Shopping Cart
 - [x] Add "Add to Cart" button on SurfacesProduct page (pelican products: faucets, sinks, flooring, tile, quartz, toilets, shower)
@@ -588,7 +588,7 @@
 - [x] Add "Send Credentials" email button in AffiliatesAdmin
 - [x] Add template switcher in AffiliatesAdmin per-affiliate card
 - [x] Add "Demo Storefront" sales tool button in admin panel linking to /store-preview/classic
-- [x] Add template switcher to demo storefront preview banner
+- [ ] Add template switcher to demo storefront preview banner
 
 ## Affiliate Dashboard Redesign (White-Label & Performance Focus)
 
@@ -721,7 +721,7 @@
 - [x] Add adminVerifyW9 tRPC procedure (adminProcedure) to mark W-9 as verified
 - [x] Build W-9 tab in affiliate dashboard with form (legal name, entity type, SSN/EIN, address) and ID upload
 - [x] Show W-9 status badge in admin Affiliates panel per affiliate
-- [x] Gate payout display with W-9 required notice if not yet submitted
+- [ ] Gate payout display with W-9 required notice if not yet submitted
 - [x] Notify owner when affiliate submits W-9 for review
 
 ## Feature: Affiliate Admin Panel Rebuild
@@ -732,8 +732,8 @@
 - [x] Build My Catalog tab: pick which door styles to feature on storefront, reorder them, rename them (white-label), upload per-style room scene photo
 - [x] Add affiliateStyleBranding table fields: customName (white-label name), roomSceneUrl, markupBps, featured (boolean), sortOrder
 - [x] Apply markup to storefront prices: storefront catalog uses affiliate's per-style or default markup to compute customer-facing price
-- [x] Affiliate-branded invoices: customer invoice shows affiliate logo, store name, white-labeled cabinet names (not Cabinet Dealz or distributor names)
-- [x] White-label names appear on order confirmation emails sent to customers
+- [ ] Affiliate-branded invoices: customer invoice shows affiliate logo, store name, white-labeled cabinet names (not Cabinet Dealz or distributor names)
+- [ ] White-label names appear on order confirmation emails sent to customers
 - [x] Affiliate Analytics tab: storefront page views, unique visitors, orders, conversion rate, commission over time (weekly/monthly chart), top door styles viewed
 - [x] Marketing Hub: QR code generator, business card PDF, phone strip PDF, digital business card link, sales guides, YouTube resources
 
@@ -794,324 +794,4 @@
 - [x] Identify cabinets with no approved distributor SKUs and no placementType (166 records)
 - [x] Identify Accessory items with no subCategory and no approved SKUs (2 records)
 - [x] Mark all 175 ambiguous cabinets as conflictStatus='conflict' with descriptive reasons
-- [x] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)
-
-## Affiliate Resources Hub Tab
-- [x] Add "Resources" tab to AffiliateDashboardLayout sidebar nav
-- [x] Create AffiliateResourcesHub.tsx component
-- [x] Section 1 — Platform Guides: "How to Use Cabinet Dealz Website", "How to Use the Design Tool", "How to Set Up Your Storefront", "Affiliate Welcome Guide" (existing PDF)
-- [x] Section 2 — Sales Training: "How to Sell Kitchen Cabinets", "Handling Objections & Closing Techniques", "Kitchen Remodel Consultation Guide", "Building Your Pipeline with the CRM"
-- [x] Section 3 — Design Training: "Kitchen Design Principles & Layout Rules", "Cabinet Sizing Reference Guide", "Two-Tone & Mixed Finish Design Guide", "Countertop & Backsplash Pairing Guide"
-- [x] Section 4 — Curated YouTube Channels: embed cards with channel name, description, subscriber count context, and direct link (channels: Kitchen & Bath Design TV, NKBA, Cliqstudios, Lily Ann Cabinets, Leanne Ford Interiors, The Futur - sales/business, Patrick Dang - sales techniques, Alex Hormozi - sales/closing)
-- [x] Section 5 — Quick-Start Checklist: 10-step onboarding checklist (set up storefront, upload logo, set markup, customize hero, share referral link, etc.) with checkboxes that persist per affiliate
-- [x] Wire Resources tab into AffiliateDashboard.tsx section routing
-
-## Affiliate 1099-NEC Payout Setup Flow
-- [x] Add payout fields to affiliates table in schema.ts: bankName, bankRoutingNumber (encrypted), bankAccountNumber (encrypted), bankAccountType (checking/savings), bankVerified, bankVerifiedAt, ssnCardUrl (S3, admin-only), dlFrontUrl (S3, admin-only), dlBackUrl (S3, admin-only), idVerified, idVerifiedAt, payoutConsentSigned, payoutConsentSignedAt, payoutConsentIp, payoutReadyAt (all verified = payout unlocked)
-- [x] DB migration: ALTER TABLE affiliates to add all payout fields
-- [x] Server: savePayoutBankInfo procedure (partner) — save routing/account/type, mask account number in response
-- [x] Server: uploadPayoutIdDoc procedure (partner) — upload SSN card or DL front/back to S3 private path, store URL
-- [x] Server: signPayoutConsent procedure (partner) — record e-signature timestamp + IP
-- [x] Server: getPayoutSetupStatus procedure (partner) — return checklist: w9Done, bankDone, idDone, consentSigned, payoutReady
-- [x] Server: adminReviewPayoutSetup procedure (admin) — view bank info (masked), view ID doc URLs, approve/reject bank + ID separately, add admin notes
-- [x] AffiliatePayoutSetup.tsx: progress checklist (4 steps: W-9, Bank Info, ID Docs, E-Sign)
-- [x] AffiliatePayoutSetup.tsx: Step 1 — W-9 form (reuse/link existing W-9 tab)
-- [x] AffiliatePayoutSetup.tsx: Step 2 — Bank info form (bank name, routing #, account #, account type) with security notice
-- [x] AffiliatePayoutSetup.tsx: Step 3 — ID document upload (SSN card front, DL front, DL back) with file size/type validation
-- [x] AffiliatePayoutSetup.tsx: Step 4 — E-signature consent (checkbox + typed name + timestamp) — 1099-NEC independent contractor acknowledgment
-- [x] AffiliatePayoutSetup.tsx: locked banner when payoutReady (all verified by admin)
-- [x] Admin panel: Payout Verification tab in affiliate Details — show W-9 status, masked bank info, ID doc links (secure presigned URLs), approve/reject buttons, admin notes
-- [x] Payout gating: commissions show "Pending payout setup" until payoutReady = true
-
-## Holiday Banner Scheduler
-- [x] affiliate_banner_schedules DB table (id, affiliateId, message, startDate, endDate, holidayKey, createdAt)
-- [x] Server procedures: listBannerSchedules, createBannerSchedule, updateBannerSchedule, deleteBannerSchedule
-- [x] Auto-resolve active banner by today's date in brandingForSlug (scheduled overrides manual)
-- [x] AffiliateBannerScheduler UI: list of upcoming/active/past banners with status badges
-- [x] Create/edit modal: message, start date, end date, holiday preset picker
-- [x] Delete confirmation for scheduled banners
-- [x] Storefront uses date-resolved scheduled banner when one is active
-
-## Cabinet Design Tool Placement Rules
-- [x] ElevationView drag clamp: wall cabinets clamped at STD.WALL_MOUNT_BOTTOM (54") minimum — cannot be dragged to floor
-- [x] ElevationView arrow key handler: same 54" clamp applied to Up/Down arrow key movement
-- [x] DesignTool adjustMountHeight: clamps at STD.WALL_MOUNT_BOTTOM instead of 0
-- [x] DesignTool setMountBottomFor: clamps at STD.WALL_MOUNT_BOTTOM instead of 0
-- [x] loadSavedDesign sanitization: wall cabinets with mountBottom < 54" are reset to null on load (auto-corrects old designs)
-
-## Feature: Horizontal Collision Detection During Drag and Arrow Key Movement
-- [x] ElevationView drag: collision detection already present (bandOverlap + lo/hi interval clamp)
-- [x] ElevationView arrow keys (Left/Right): added same bandOverlap neighbour filter + lo/hi clamp so arrow nudge cannot push cabinet into a neighbour
-- [x] DesignTool plan-view nudgeSelected (arrow keys in plan view): now runs snapPosition after nudge to push cabinet out of any overlap, same as plan-view drag
-- [x] Plan-view drag (PlanCanvas): already uses snapPosition with overlap-resolution loop (no change needed)
-
-## Clark & Son (Ashford Series) Corner Cabinets Import
-
-- [x] Parse Clark & Son 2026 price sheet from Google Drive for corner cabinet SKUs
-- [x] Map Clark & Son code aliases (WDC→DCW, LS33/36→LSB33/36) to existing cabinet records
-- [x] Create 5 missing cabinet records: CDB36, DCSB36, WCA1230, WCA1236, WCA1242
-- [x] Import 134 new corner cabinet SKUs for all 13 Clark & Son styles (distributor ID 2)
-- [x] Ashford corner cabinets in designer: 18 (BBC36, CDB36, DCSB36, LSB33/36, WBC, DCW, WCA, WER)
-
-## Bug: Cannot switch from Faircrest (Ashford/Clark & Son) series to other series in designer
-
-- [x] Diagnose why the style picker is locked to the current distributor and cannot show other series
-- [x] Fix the style picker to show all series (with a clear "switch series" affordance) even when a distributor is locked
-- [x] Ensure the cross-distributor confirmation dialog fires correctly when user picks a style from a different series
-- [x] Verify switching works in both directions (Faircrest → other, other → Faircrest)
-
-## Feature: Blind Corner Pull Distance Tooltip
-- [x] Show min/max pull distance tooltip when a BBC/WBC is selected or being placed in the designer
-- [x] Tooltip should appear in both plan view (PlanCanvas) and elevation view (ElevationView)
-- [x] Display current pull value, min pull, and max pull clearly
-- [x] Add i18n keys for the tooltip text
-
-## Bug: Email Gate Not Working in Designer
-- [x] Diagnose why email verification fails — email gate logic is correct (onVerified sets verified=true, localStorage persists state)
-- [x] Fix email submission and verification so designer unlocks after entering email
-
-## Inherited follow-up fixes from previous session
-- [x] Replace PlanCanvas wall opening rendering with architectural SVG symbols for doors, windows, and cased openings
-- [x] Add bow window kind and preset to the door/window system
-- [x] Fix semi-circle bump-out width handling so the user can use the full wall width while keeping depth capped at 24 inches
-- [x] Audit Skyline for any remaining missing cabinet SKUs beyond the drawer bases (N/A: no Skyline distributor in DB — distributors are Madison, Ashford, Preston, Stone Creek)
-
-## CSV Catalog Import Feature
-- [x] Read existing schema and routers to understand current cabinet/product data model
-- [x] Create master_sku reference table (B12 → width/height/depth/category/name) in schema (cabinets table serves this role)
-- [x] Add catalog_import tRPC endpoint that parses CSV rows and upserts products (adminImport + importCommit)
-- [x] Build admin CSV Import page: template download, file upload, preview table, validation errors, import button (CabinetSpreadsheetAdmin + DistributorImport)
-- [x] Wire /admin/catalog-import route in App.tsx (wired via AdminGroupedTabs)
-- [x] Add single-item "Add Cabinet" form to admin panel (master SKU lookup, supplier SKU, door style, list price, cost)
-- [x] Add single-item "Add Cabinet" form to vendor/distributor panel
-- [x] Build CSV bulk-import component with template download, preview, and validation (DistributorImport)
-- [x] Wire both into Admin panel and Distributor panel
-- [x] Add inline "Add Item" button on storefront category sections (pre-fills category + door style)
-- [x] Fix approve/reject status to be reversible (rejected items can be re-approved) and clarify labels
-- [x] Enhance product download to include master SKU, cabinet name, category, width, height, depth
-- [x] Fix CSV round-trip bug: downloaded sheet cannot be re-uploaded without errors (column mismatch between export and import validator)
-- [x] Rewrite cabinetLineExport: import-compatible headers, brand+style filename, image URL from master cabinet, add listPrice and distributorSku columns
-- [x] Fix price display bug: uploaded list price ($138) shows wrong number on storefront (markup/margin formula being applied on top of uploaded price instead of displaying it directly)
-- [x] Add inline price edit pencil on cabinet cards/rows in admin panel and storefront (admin-only) to edit list price and cost directly without CSV upload
-- [x] Simplify storefront price: yourCost (or listPrice) × distributor costMultiplier only, no tier stacking
-- [x] Add skuAliases column to cabinets table + fuzzy SKU normalizer (strips dashes/spaces/dots, case-insensitive) [done via code_aliases table + shared/codeMatch.ts]
-- [x] Build smart CatalogUpload page: distributor picker/creator, door style picker/creator, door photo upload, spreadsheet drop with fuzzy match preview table
-- [x] Fix cabinetLineExport: import-compatible headers, real brand+style filename, image from master cabinet record
-- [x] Add inline pencil price editor on storefront cabinet cards (admin-only)
-- [x] Add inline edit button on featured door styles in admin panel to edit style specs (name, finish, wood species, construction, images) — changes apply to all cabinets in that style
-- [x] Set up PWA (Progressive Web App): manifest.json, service worker, install prompt button on homepage so users can install the app directly from the website
-- [x] Investigate and fix price display bug: list price was correct in DB but storefront was showing yourCost instead of listPrice on the front end
-- [x] Build SmartCatalogUpload page: vendor picker, door style picker, file drop, fuzzy SKU match preview table (green/yellow/red), search for equivalent master, assign new master for unmatched SKUs, commit import
-- [x] Upgrade importPreview: fuzzy SKU matching using normalizeCode + alias table, return confidence (exact/fuzzy/none) per row
-- [x] Upgrade importCommit: accept per-row masterCodeOverride for manually resolved matches
-- [x] Upgrade DistributorImport UI: minimal CSV (model + price only), add-new-vendor inline, add-new-style inline, green/yellow/red confidence rows, inline search for unmatched codes, assign-new-master option
-- [x] Add imageUrl column to master catalog export (catalogExport procedure) so the generic cabinet profile photo is included in the download and can be re-uploaded to attach to all door styles
-- [x] On importCommit: save every matched distributor SKU as a new codeAlias entry so future imports from any distributor using that format resolve automatically
-- [x] In import parser: treat NA, N/A, X, x, or blank price cell as "not available" — mark that SKU as isAvailable=false instead of saving a price
-
-## Site-wide Inline Admin Edit System
-
-- [x] Build InlineEditText component: pencil icon on hover, click to edit in place, save/cancel/reset, backed by adminUpdateCabinet or adminUpdateDoorStyle
-- [x] Build InlineEditImage component: camera icon on hover, file picker, upload to S3, save URL to record
-- [x] Build InlineEditDropdown component: pencil icon, opens popover with searchable list (e.g. pick a door style to feature)
-- [x] Build InlineEditPrice component: pencil icon, numeric input with $ prefix, saves listPrice/cost
-- [x] Build InlineEditToggle component: click to toggle boolean fields (isFeatured, isActive, showInCatalog)
-- [x] Wire inline edit to cabinet description on Family page cabinet cards (admin sees pencil on hover)
-- [x] Wire inline edit to cabinet description on Storefront cabinet cards
-- [x] Wire inline edit to cabinet category/subCategory on Family page
-- [x] Wire inline edit to cabinet image (catalogImageUrl) on Family page and Storefront cards
-- [x] Wire inline edit to cabinet price (listPrice) on Family page cards
-- [x] Wire inline edit to cabinet availability (isActive toggle) on Family page and Storefront
-- [x] Wire inline edit to door style name (ourName/featuredLabel) on DoorStyles page cards
-- [x] Wire inline edit to door style finish/woodSpecies on DoorStyles page
-- [x] Wire inline edit to door style images (thumbnail, room scene, door sample) on DoorStyles page
-- [x] Wire inline edit to door style isFeatured toggle on DoorStyles page (one-click feature/unfeature)
-- [x] Wire inline edit to homepage hero headline and subheadline (AdminEditField)
-- [x] Wire inline edit to homepage category card titles and descriptions (AdminEditField)
-- [x] Wire inline edit to homepage StyleShowcase featured styles order (drag-to-reorder for admins)
-- [x] Wire inline edit to homepage AffiliatePromo section headings and advantage card text
-- [x] Wire inline edit to homepage PlatformFeatures section headings and feature card text
-- [x] Wire inline edit to homepage JulyBanner text (seasonal banner)
-- [x] Wire inline edit to SiteFooter links and text
-- [x] Wire inline edit to TopNav links and labels
-- [x] Wire inline edit to static pages (Terms, Privacy, Shipping, Return policies) via AdminEditField
-- [x] Add "Feature this style" quick action on DoorStyles page: admin clicks star → dropdown picks style → saves isFeatured + featuredRank
-- [x] Add "Set as homepage featured" quick action on door style cards
-- [x] Ensure all inline edits invalidate the relevant tRPC query so the change appears immediately everywhere on the page without reload
-- [x] Add a floating "Admin Edit Mode" indicator bar at top of page (only visible to admins) so it's clear when edit controls are active
-
-## Cabinet Spreadsheet Upload — Column Mapping
-
-- [x] Add backend procedure cabinets.parseXlsxColumns: accepts base64 xlsx, returns sheet names + column headers for each sheet (no import yet)
-- [x] Add backend procedure cabinets.adminImportWithMapping: accepts base64 xlsx + column mapping object (field -> columnHeader) + optional sheetName, runs the import using the mapped columns
-- [x] Upgrade CabinetSpreadsheetAdmin UI: after file is chosen, show a "Map Columns" step before the Import button
-- [x] Column mapping UI: show a row per importable field (masterCode, description, category, subCategory, width, height, depth, isActive, etc.), each with a dropdown of detected column headers + "(skip)" option
-- [x] Auto-detect: if a detected column header exactly or fuzzily matches a known field name, pre-select it
-- [x] Show a preview of the first 3 data rows using the current mapping so admin can verify before committing
-- [x] Allow selecting which sheet to import from if the workbook has multiple sheets
-- [x] masterCode mapping is required — show validation error if not mapped before allowing import
-
-## Google Drive Import for Distributor Price Upload
-- [x] Add backend fetchFromDriveLink procedure (extracts file ID from any Drive URL format, downloads as base64)
-- [x] Add Google Drive share-link input to DistributorImport UI (paste link → Fetch → feeds into column-mapping flow)
-
-## Multi-Column Price Import (Milestone-style spreadsheets)
-- [x] Add distributorColumnMappings table to schema (distributorId, columnCode, doorStyleId, lastUsed)
-- [x] Add backend: parseXlsxAllColumns procedure — returns all non-SKU/Description columns + row count
-- [x] Add backend: getColumnMappings — returns saved mappings for a distributor
-- [x] Add backend: importAllColumns — accepts array of {columnCode, doorStyleId, priceType} + fileBase64, imports all in one transaction
-- [x] Build multi-column mapping UI: table of all price columns, auto-suggest door style from saved mappings, confirm and import all
-- [x] Remember mappings per distributor so next upload auto-fills the style assignments
-
-## Camera Tape Measure (/measure)
-- [x] Build MeasureTool page: camera/photo capture, reference calibration (tap 2 known points + enter length), multi-point measurement with real-world distance labels
-- [x] Wire /measure route in App.tsx
-- [x] Link /measure from MobileApp page (replace placeholder href)
-- [x] Add measurement history list (last 5 measurements, clearable)
-
-## Cart Pricing — Every SKU Must Show a Price
-- [x] Replace all "incl." / $0 / blank price displays in trim rows (toe kick, light rail, batten, crown, valance) with real price or ⚠ Price needed badge
-- [x] Ensure trim cart lines always include listPrice as a fallback in trimSkusForStyles
-- [x] Cabinet cart lines: if unitPrice is 0 or null, show ⚠ Price needed badge instead of $0.00
-- [x] Cart total must exclude $0 lines and show a warning if any line has no price
-
-## Skyline Distributor & Import UI Fix
-- [x] Create Skyline distributor in DB and add all 32 door styles (id=90001)
-- [x] Replace StyleCombobox popover with inline editable text input that filters as you type
-
-## Series Names & Distributor Merge
-- [x] seriesName column already existed in distributors table
-- [x] Set series names: US Cabinet Depot=Madison, Clark & Son=Ashford, Skyline(SK)=Preston, Pelican=Stone Creek
-- [x] Merge duplicate Skyline: moved 32 styles from id=90001 to id=3, deleted 90001
-- [x] Updated styleDisplayName utility to append (seriesName) — all public displays now show "Lumina White (Ashford)" format
-- [x] doorStyles.list query now joins distributors to return seriesName + displayMode
-
-## Featured Styles Admin — Distributor Assignment & New Style Creation
-- [x] Add distributor assignment dropdown to each style row in Featured Styles admin (change which distributor a style belongs to)
-- [x] Add series name editor inline on each style row (edit the distributor's seriesName without leaving the page)
-- [x] Add "Add New Style" form at the top of Featured Styles admin (create a new door style entry: name, code, distributor, series)
-- [x] Wire backend: adminUpdateDoorStyleDistributor procedure (update distributorId on a door style)
-- [x] Wire backend: adminUpdateDistributorSeriesName procedure (update seriesName on a distributor)
-- [x] Wire backend: adminCreateDoorStyle procedure (create a new door style row)
-
-## Import List Price Fix
-- [x] Fix import: store raw spreadsheet list price in listPrice column without adjustment override
-- [x] Fix display: show listPrice (not adjustedListPrice) as the primary price everywhere in cart/BOM
-
-## AR Tape Measure → Design Tool Sync
-- [x] Create measure_sessions DB table (token, userId, status, measurements JSON, expiresAt, completedAt)
-- [x] Apply Drizzle migration 0069 for measure_sessions table
-- [x] Build measureSessionsRouter: createSession, pollSession, consumeSession, saveMeasurements, cleanupExpired procedures
-- [x] Register measureSessionsRouter in server/routers.ts
-- [x] Add "Measure Room" toolbar button (Smartphone icon) to DesignTool.tsx next to RoomSizeControl
-- [x] Add measure session Dialog modal to DesignTool.tsx (QR code + direct link + polling indicator)
-- [x] Poll for measurements every 3s; auto-apply room dimensions when phone sends measurements
-- [x] Add Send to Designer button to WebXRMeasure component (appears when ?session= param present + measurements taken)
-- [x] Add Send to Designer button to PhotoMeasure component (appears when ?session= param present + measurements taken)
-- [x] TypeScript: 0 errors
-
-## AR Tape Measure — Window & Door Tagging
-- [x] Extend WallMeasurement type to include segmentType: "wall" | "window" | "door" and optional label
-- [x] Update saveMeasurements zod schema to accept segmentType per segment
-- [x] ARMeasure.tsx PhotoMeasure: after each measurement result, show tag buttons (Wall / Window / Door) so user can label the segment before measuring the next one
-- [x] ARMeasure.tsx WebXRMeasure: after each pair of points produces a measurement, show tag overlay buttons (Wall / Window / Door)
-- [x] "Send to Designer" sends all segments with their segmentType tags
-- [x] DesignTool.tsx: when consuming measurements, detect window/door segments and place WallOpenings on the appropriate room walls
-- [x] Map opening inch-position along the wall correctly (cumulative offset from wall start)
-- [x] TypeScript: 0 errors
-- [x] Save checkpoint
-
-## AR Tape Measure — Electrical Segment Type
-- [x] Add "electrical" to segmentType enum in measureSessions.ts
-- [x] Add Electrical tag button (⚡) to ARMeasure.tsx tag grid (both WebXR and Photo modes)
-- [x] DesignTool.tsx: place electrical annotations as opening markers on the room wall
-- [x] TypeScript: 0 errors
-- [x] Save checkpoint
-
-## AR Tape Measure — Plumbing/Electrical Note Input
-- [x] Add optional note field to WallMeasurement zod schema (max 120 chars)
-- [x] ARMeasure.tsx: after tapping Plumbing or Electrical, show a text input for notes (e.g. "sink", "110v outlet") with a Done/Skip button
-- [x] Pass note through sendToDesigner in both WebXR and Photo modes
-- [x] DesignTool.tsx: append note to the opening label (e.g. "🚰 Plumbing — sink")
-- [x] TypeScript: 0 errors
-- [x] Save checkpoint
-
-## Refrigerator Options Dialog
-- [x] Audit existing fridge placement code in DesignTool.tsx and design.ts
-- [x] Build RefrigeratorOptionsDialog: fridge size (width 24/27/30/33/36/42, height 66/70/72/78/84, depth 24/27/30/33/36)
-- [x] Over-fridge cabinet section: Add/No Cabinet toggle, width, height (12/18/24), depth (12"/24"), availability validation
-- [x] Fridge end panels: Left / Right / Both / None selector
-- [x] "Add to plan" places fridge + over-fridge cabinet + end panels on the active wall
-- [x] Replace/extend existing fridge placement flow in DesignTool.tsx
-- [x] TypeScript: 0 errors
-- [x] Save checkpoint
-
-## Fridge End Panel Width Fix
-- [x] Cap end panel width at 0.75" (hard-coded face thickness) in applyFridgeSurround — catalog depth field stores wall-projection depth, not face thickness
-- [x] TypeScript: 0 errors
-- [x] Save checkpoint
-
-## Fridge End Panel Thickness Selector
-- [x] Add panelThickness (0.75 / 1.5 / 3) to FridgeSurroundChoice type and dialog UI
-- [x] Pass panelThickness through applyFridgeSurround and use it as pThick
-- [x] TypeScript: 0 errors
-- [x] Save checkpoint
-
-## Vendor Door Styles — Disable/Delete Controls
-- [x] Audit vendor Door Styles admin page and door style schema
-- [x] isActive column already exists on door_styles table — no migration needed
-- [x] Add tRPC procedures: setDoorStyleActive, deleteDoorStyleLine
-- [x] Update vendor Door Styles UI: toggle switch (Active/Disabled) + Delete button per style line with confirmation
-- [x] Customer-facing queries already filter by isActive=true — no changes needed
-- [x] TypeScript: 0 errors
-- [x] Save checkpoint
-
-## Design Tool — Finish Color from Door Sample Photo
-
-- [x] Add `dominantColor` column (varchar 7, nullable) to `doorStyles` table in schema
-- [x] Run migration to add the column
-- [x] Build admin script to sample dominant color from doorSampleImageUrl (or roomSceneImageUrl) for each style using canvas color sampling
-- [x] Expose `dominantColor` in the doorStyles query returned to the design tool
-- [x] Update `finishColors` to use `dominantColor` as the primary source when available, falling back to keyword matching
-- [x] Update `finishById` map in DesignTool.tsx to pass `dominantColor` into the finish resolver
-- [x] Add admin UI button on FeaturedStylesAdmin to trigger re-sample of dominant color for all styles
-- [x] Fix slab door white-rendering bug: always apply face color as CSS background before layering door sample image
-- [x] TypeScript: 0 errors
-- [x] Save checkpoint
-
-## Design Tool — Door Style Switching & Mobile UX
-- [x] Fix: switching door style (Color 1 / Color 2) must re-render ALL placed cabinets in the new style immediately (update styleId on all placed items that used the old style)
-- [x] Fix: "Apply to all" option when changing door style so user can choose to update all cabinets or just new ones going forward
-- [x] Mobile: add prominent quick-access series/style switcher — series tabs (Madison, Ashford, etc.) at top, style swatches below, easy to reach without scrolling deep into the panel
-- [x] Mobile: style switcher should be accessible from the main design view toolbar (one tap), not buried in the panel
-
-## Bug: Wall cabinet vertical drag not working on mobile (regression)
-- [x] Fix vertical drag for wall cabinets on mobile — up/down repositioning broken again
-- [x] Ensure pointer capture is set on the wall container so both horizontal and vertical touch drag work
-
-## Bug: Bridge/wall cabinets should mount at 72" from floor
-- [x] All wall cabinets 12"–24" tall (bridge cabinets) should default to mountBottom = 72" (not 54")
-- [x] Wall cabinets 30"+ tall keep mountBottom = 54" (standard)
-- [x] Apply the 72" rule when auto-placing bridge cabinets above microwaves and windows
-
-## Feature: Mobile Series Switcher UX
-
-- [x] Redesign series tabs in ColorSlotButton with larger tap targets (min 52px height)
-- [x] Add door-sample thumbnail preview to each series tab chip
-- [x] Show style count subtitle on each tab
-- [x] Active tab: dark navy bg + gold checkmark; inactive: white border card
-- [x] Adjust style grid maxHeight to account for taller tabs
-
-## Feature: Blind Corner Conflict Fixes + Blind Man's Corner
-
-- [x] Fix false-positive: blind corner cabinet pulled away from wall (with filler/countertop covering gap) should not show conflict
-- [x] Fix false-positive: appliance adjacent to (touching) a cabinet should not show conflict — only actual footprint overlap should flag
-- [x] Add "Blind Man's Corner" dead-corner option: two 3" fillers in L-shape at corner, no cabinet, resolves corner conflict
-- [x] In missingCornerBaseViolations: if a corner has two fillers in L-shape (blind man's corner), do not flag it as needing a BBC
-
-## Feature: Island Zone Rotate
-- [x] Add rotate button to island zone that swaps width and depth (90° rotation)
-- [x] Add rotate button to island zone in plan canvas (swaps width/depth, keeps center)
-- [x] Enable Rotate button for cabinets placed on the island zone
-- [x] Enforce 36" (3 ft) minimum clearance between island zone and wall cabinets — flag as conflict if violated
-- [x] Show recommended max island dimensions based on 36" clearance rule from wall cabinets
+- [ ] Admin review queue: resolve conflict status for each group (assign to correct distributor, add placementType, or deactivate)

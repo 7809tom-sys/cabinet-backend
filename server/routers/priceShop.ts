@@ -128,7 +128,6 @@ export const priceShopRouter = router({
         color: doorStyles.color,
         thumbnailImageUrl: doorStyles.thumbnailImageUrl,
         doorSampleImageUrl: doorStyles.doorSampleImageUrl,
-        roomSceneImageUrl: doorStyles.roomSceneImageUrl,
       })
       .from(doorStyles)
       .where(and(inArray(doorStyles.id, allStyleIds), eq(doorStyles.isActive, true)));
@@ -157,7 +156,6 @@ export const priceShopRouter = router({
       color: string | null;
       thumbnailImageUrl: string | null;
       doorSampleImageUrl: string | null;
-      roomSceneImageUrl: string | null;
       totalPrice: string | null;
       totalCost: string | null; // admin only
       breakdown: BreakdownItem[];
@@ -278,7 +276,6 @@ export const priceShopRouter = router({
         color: style.color,
         thumbnailImageUrl: style.thumbnailImageUrl,
         doorSampleImageUrl: style.doorSampleImageUrl,
-        roomSceneImageUrl: style.roomSceneImageUrl,
         totalPrice: itemsAvailable > 0 ? total.toFixed(2) : null,
         totalCost: isAdmin && totalCost > 0 ? totalCost.toFixed(2) : null,
         breakdown,

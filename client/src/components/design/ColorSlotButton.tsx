@@ -7,7 +7,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-// Sheet removed — mobile picker is now inline to avoid nested-Sheet Chrome bug
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/useMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { styleDisplayName } from "@/lib/styleDisplayName";
@@ -67,103 +72,12 @@ interface ColorSlotButtonProps {
   disabled?: boolean;
   /** Tooltip shown when the user tries to open a disabled picker. */
   disabledReason?: string;
-  /** When set, the LineChooser shows a "Current series" badge on the locked distributor's row. */
-  lockedDistributorId?: number | null;
 }
 
 interface StyleGroup {
   distributorId: number | null;
   label: string;
   styles: StyleOption[];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SeriesSwitcher — compact single-row series selector for mobile.
-// Shows only the active series name as a pill. Tapping it opens an inline
-// dropdown of all series so the user can switch without losing grid space.
-// ─────────────────────────────────────────────────────────────────────────────
-function SeriesSwitcher({
-  groups,
-  effectiveGroup,
-  onChoose,
-  activeStyle,
-}: {
-  groups: StyleGroup[];
-  effectiveGroup: number | null | undefined;
-  onChoose: (distId: number | null) => void;
-  activeStyle: { id?: number } | null;
-}) {
-  const [open, setOpen] = useState(false);
-  const activeGroupItem = groups.find((g) => g.distributorId === effectiveGroup) ?? groups[0];
-  const previewStyle = activeGroupItem?.styles.find((s) => s.thumbnailImageUrl || s.doorSampleImageUrl);
-  const previewUrl = previewStyle?.thumbnailImageUrl || previewStyle?.doorSampleImageUrl;
-
-  return (
-    <div className="border-b border-border">
-      {/* Compact pill row — always visible, shows active series */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2 bg-muted/20 hover:bg-muted/40 transition-colors active:scale-[0.99]"
-      >
-        {previewUrl && (
-          <div className="h-7 w-5 shrink-0 overflow-hidden rounded border border-border">
-            <img src={previewUrl} alt="" className="h-full w-full object-cover" draggable={false} />
-          </div>
-        )}
-        <span className="flex-1 min-w-0 text-left">
-          <span className="text-[11px] text-muted-foreground font-medium">Series: </span>
-          <span className="text-[12px] font-bold text-foreground">{activeGroupItem?.label ?? "—"}</span>
-        </span>
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {/* Expandable series list — only visible when open */}
-      {open && (
-        <div className="border-t border-border bg-white">
-          {groups.map((g) => {
-            const isActive = effectiveGroup === g.distributorId;
-            const gPreviewStyle = g.styles.find((s) => s.thumbnailImageUrl || s.doorSampleImageUrl);
-            const gPreviewUrl = gPreviewStyle?.thumbnailImageUrl || gPreviewStyle?.doorSampleImageUrl;
-            const hasSelected = g.styles.some((s) => (activeStyle as { id?: number } | null)?.id === s.id);
-            return (
-              <button
-                key={String(g.distributorId)}
-                type="button"
-                onClick={() => { onChoose(g.distributorId); setOpen(false); }}
-                className={[
-                  "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
-                  isActive
-                    ? "bg-[#1a2744]/8 border-l-2 border-[#1a2744]"
-                    : "hover:bg-muted/40 border-l-2 border-transparent",
-                ].join(" ")}
-              >
-                {gPreviewUrl ? (
-                  <div className="h-8 w-6 shrink-0 overflow-hidden rounded border border-border">
-                    <img src={gPreviewUrl} alt="" className="h-full w-full object-cover" draggable={false} />
-                  </div>
-                ) : (
-                  <div className="h-8 w-6 shrink-0 rounded border border-border bg-muted/30" />
-                )}
-                <span className="flex-1 min-w-0">
-                  <span className={`block truncate text-[13px] font-semibold ${isActive ? "text-[#1a2744]" : "text-foreground"}`}>
-                    {g.label}
-                  </span>
-                  <span className="block text-[10px] text-muted-foreground">
-                    {g.styles.length} {g.styles.length === 1 ? "style" : "styles"}
-                  </span>
-                </span>
-                {(isActive || hasSelected) && (
-                  <Check className="h-4 w-4 shrink-0 text-[#d4a75a]" strokeWidth={3} />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function ColorSlotButton({
@@ -177,7 +91,6 @@ export function ColorSlotButton({
   onClear,
   disabled = false,
   disabledReason,
-  lockedDistributorId,
 }: ColorSlotButtonProps) {
   const { t } = useLanguage();
   const isMobile = useIsMobile(1024);
@@ -298,7 +211,6 @@ export function ColorSlotButton({
         const hasSelected = g.styles.some(
           (s) => (style as { id?: number } | null)?.id === s.id
         );
-        const isLocked = lockedDistributorId != null && g.distributorId === lockedDistributorId;
         return (
           <button
             key={String(g.distributorId)}
@@ -306,7 +218,7 @@ export function ColorSlotButton({
             onClick={() => setChosenGroup(g.distributorId)}
             className={[
               "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left transition-all active:scale-[0.99]",
-              hasSelected || isLocked
+              hasSelected
                 ? "border-[#d4a75a] bg-[#d4a75a]/10"
                 : "border-border bg-white hover:border-[#d4a75a]/60 hover:bg-accent/50",
             ].join(" ")}
@@ -316,12 +228,10 @@ export function ColorSlotButton({
               <span className="min-w-0">
                 <span className="block truncate text-[13px] font-semibold text-foreground">{g.label}</span>
                 <span className="block text-[10px] text-muted-foreground">
-                  {isLocked
-                    ? t("dt_cs_current_series")
-                    : t("dt_cs_group_count", { count: g.styles.length })}
+                  {t("dt_cs_group_count", { count: g.styles.length })}
                 </span>
               </span>
-              {(hasSelected || isLocked) && (
+              {hasSelected && (
                 <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#d4a75a] text-white">
                   <Check className="h-2 w-2" strokeWidth={3} />
                 </span>
@@ -334,14 +244,37 @@ export function ColorSlotButton({
     </div>
   );
 
-  // Flat picker: show all available styles directly with no supply-line drill-down.
+  // Distributor-first picker: step 1 = choose a supply line, step 2 = its styles.
+  // When only one line is in scope (slot B, or a locked design) we skip step 1.
   const StyleList = ({ cols = 2 }: { cols?: 2 | 3 }) =>
     styles.length === 0 ? (
       <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
         {t("dt_cs_none_available")}
       </div>
+    ) : onlyOneGroup ? (
+      <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} />
+    ) : activeGroup == null ? (
+      <LineChooser />
     ) : (
-      <StyleGrid list={styles} cols={cols} />
+      <div className="space-y-2">
+        {/* Back to supply-line list */}
+        <button
+          type="button"
+          onClick={() => setChosenGroup(null)}
+          className="flex items-center gap-1 rounded-md px-1 py-1 text-[11px] font-medium text-[#1a2744] hover:underline"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          {t("dt_cs_back_to_lines")}
+        </button>
+        <div className="flex items-center gap-1.5 px-1">
+          <Layers className="h-3.5 w-3.5 text-[#d4a75a]" />
+          <span className="truncate text-[12px] font-semibold text-foreground">{activeGroup.label}</span>
+          <span className="text-[10px] text-muted-foreground">
+            {t("dt_cs_group_count", { count: activeGroup.styles.length })}
+          </span>
+        </div>
+        <StyleGrid list={activeGroup.styles} cols={cols} />
+      </div>
     );
 
   return (
@@ -411,59 +344,38 @@ export function ColorSlotButton({
       {/* The trigger looks identical on desktop & mobile; only what it opens differs. */}
       {isMobile ? (
         <>
-          {/* On mobile we render the picker INLINE (no nested Sheet) to avoid
-              Chrome's nested-Sheet pointer-event capture bug where taps on
-              items inside a second Sheet opened from within a first Sheet are
-              silently swallowed. The inline accordion expands below the button
-              and collapses when a style is picked or the button is tapped again. */}
           <button
             type="button"
             onClick={() => {
               if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); return; }
-              setPickerOpen((prev) => !prev);
+              setPickerOpen(true);
             }}
             className={[
-              "mt-2 w-full flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors",
-              disabled
-                ? "border-border text-muted-foreground opacity-50 cursor-not-allowed bg-muted/30"
-                : hasStyle
-                  ? "border-[#d4a75a]/60 text-[#1a2744] bg-[#d4a75a]/10 hover:bg-[#d4a75a]/20"
-                  : "border-[#d4a75a] text-white bg-[#1a2744] hover:bg-[#1a2744]/90",
+              "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium hover:underline",
+              disabled ? "text-muted-foreground opacity-50 cursor-not-allowed" : "text-[#1a2744]",
             ].join(" ")}
           >
-            <Pencil className="h-3.5 w-3.5" />
-            {pickerOpen ? "Close" : hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
+            <Pencil className="h-3 w-3" />
+            {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
           </button>
-          {pickerOpen && (
-            <div
-              className="mt-2 rounded-lg border border-border bg-white overflow-hidden"
-              style={{ maxHeight: "60vh" }}
+          <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
+            <SheetContent
+              side="bottom"
+              className="flex max-h-[85vh] flex-col rounded-t-2xl p-0"
             >
-              {/* Series switcher — compact single-row pill showing only the active
-                  series. Tapping it expands a dropdown list so the user can switch.
-                  This keeps the style grid tall and visible by default. */}
-              {groups.length > 1 && (
-                <SeriesSwitcher
-                  groups={groups}
-                  effectiveGroup={effectiveGroup}
-                  onChoose={(distId) => setChosenGroup(distId)}
-                  activeStyle={style as { id?: number } | null}
-                />
-              )}
-              {/* Style grid for the active series */}
-              <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: groups.length > 1 ? "calc(60vh - 44px)" : "calc(60vh - 8px)", WebkitOverflowScrolling: "touch" }}>
-                {activeGroup ? (
-                  <div className="px-2 py-2">
-                    <StyleGrid list={activeGroup.styles} cols={3} />
-                  </div>
-                ) : (
-                  <div className="px-2 py-2">
-                    <LineChooser />
-                  </div>
-                )}
+              <SheetHeader className="border-b px-4 py-3">
+                <SheetTitle className="text-base">
+                  {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
+                </SheetTitle>
+              </SheetHeader>
+              <div
+                className="flex-1 overflow-y-auto overscroll-contain px-3 py-2"
+                style={{ WebkitOverflowScrolling: "touch" }}
+              >
+                <StyleList cols={3} />
               </div>
-            </div>
-          )}
+            </SheetContent>
+          </Sheet>
         </>
       ) : (
         <Popover open={disabled ? false : pickerOpen} onOpenChange={(o) => { if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); return; } setPickerOpen(o); }}>
@@ -472,15 +384,11 @@ export function ColorSlotButton({
               type="button"
               onClick={() => { if (disabled) { toast.info(disabledReason ?? "Set Color 1 first before choosing Color 2."); } }}
               className={[
-                "mt-2 w-full flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors",
-                disabled
-                  ? "border-border text-muted-foreground opacity-50 cursor-not-allowed bg-muted/30"
-                  : hasStyle
-                    ? "border-[#d4a75a]/60 text-[#1a2744] bg-[#d4a75a]/10 hover:bg-[#d4a75a]/20"
-                    : "border-[#d4a75a] text-white bg-[#1a2744] hover:bg-[#1a2744]/90",
+                "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium hover:underline",
+                disabled ? "text-muted-foreground opacity-50 cursor-not-allowed" : "text-[#1a2744]",
               ].join(" ")}
             >
-              <Pencil className="h-3.5 w-3.5" />
+              <Pencil className="h-3 w-3" />
               {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
             </button>
           </PopoverTrigger>

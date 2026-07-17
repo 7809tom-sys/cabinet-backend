@@ -8,7 +8,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { useReferral, setReferralCode } from "@/hooks/useReferral";
 import { useStorefrontLangGlobal as useStorefrontLang } from "@/contexts/LanguageContext";
 import { StorefrontShop } from "@/components/storefront/StorefrontShop";
-import { useStorefrontBranding } from "@/hooks/useStorefrontBranding";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import {
   ArrowRight, Phone, Mail, MapPin, Globe, Facebook, Instagram, Award,
@@ -59,7 +58,6 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
     }),
     [data?.primaryColor, data?.accentColor]
   );
-  const branding = useStorefrontBranding(slug);
 
   if (isLoading) {
     return (
@@ -149,25 +147,6 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* ─── Promo Banner Strip ───────────────────────────────────────────── */}
-{(() => {
-        const bannerActive = (data as Record<string, unknown>).promoBannerActive;
-        const bannerText = (data as Record<string, unknown>).promoBannerText as string | null | undefined;
-        return bannerActive && bannerText ? (
-          <div
-            className="relative overflow-hidden py-2 px-4 text-center text-sm font-semibold"
-            style={{ backgroundColor: brand.primary, color: brand.accent }}
-          >
-            <div className="animate-[marquee_25s_linear_infinite] whitespace-nowrap inline-block">
-              {bannerText}
-              &nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
-              {bannerText}
-              &nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;
-              {bannerText}
-            </div>
-          </div>
-        ) : null;
-      })()}
       {/* ─── Header + Hero (varies by template) ──────────────────────────── */}
       {template === "classic" && (
         <ClassicHeader {...{ data: localizedData, brand, t, withRef, headlineFont, LangToggle, Logo }} />
@@ -199,63 +178,6 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
             ))}
           </div>
         </section>
-
-        {/* ─── Featured Styles Spotlight ─────────────────────────────── */}
-        {branding.featuredStyles.length > 0 && (
-          <section className="py-12 md:py-16 border-b border-border">
-            <div className="container">
-              <div className="text-center mb-8">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <span className="inline-block h-px w-12 rounded" style={{ backgroundColor: brand.accent }} />
-                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: brand.accent }}>Featured Styles</span>
-                  <span className="inline-block h-px w-12 rounded" style={{ backgroundColor: brand.accent }} />
-                </div>
-                <h2 className={`${headlineFont} text-2xl md:text-3xl font-bold`}>Our Highlighted Collections</h2>
-              </div>
-              <div className={`grid gap-6 ${
-                branding.featuredStyles.length === 1 ? "grid-cols-1 max-w-sm mx-auto" :
-                branding.featuredStyles.length === 2 ? "sm:grid-cols-2 max-w-2xl mx-auto" :
-                branding.featuredStyles.length === 3 ? "sm:grid-cols-3" :
-                "sm:grid-cols-2 lg:grid-cols-4"
-              }`}>
-                {branding.featuredStyles.map((fs) => (
-                  <a
-                    key={fs.styleId}
-                    href="#shop"
-                    className="group block overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-lg transition-all"
-                  >
-                    <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                      {(fs.roomSceneUrl || fs.thumbnailUrl) ? (
-                        <img
-                          src={(fs.roomSceneUrl || fs.thumbnailUrl) as string}
-                          alt={fs.displayName}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center bg-muted">
-                          <span className="text-muted-foreground text-sm">No photo yet</span>
-                        </div>
-                      )}
-                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0" />
-                      <div className="absolute bottom-3 left-4">
-                        <p className="font-serif text-lg font-bold text-white drop-shadow">{fs.displayName}</p>
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <span
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white transition-transform group-active:scale-[0.98]"
-                        style={{ backgroundColor: brand.accent }}
-                      >
-                        Shop This Style <ArrowRight className="h-4 w-4" />
-                      </span>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
 
         {/* ─── Family-locked shop (shared across templates) ─────────────── */}
         <div id="shop">
@@ -321,167 +243,16 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
           </div>
         </section>
 
-        {/* ─── Photo → Cart AI tool ────────────────────────────────────── */}
-        <section className="py-14 md:py-16">
-          <div className="container">
-            <div className="rounded-2xl overflow-hidden border border-border bg-card flex flex-col md:flex-row">
-              <div className="flex-1 p-8 md:p-10 flex flex-col justify-center">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-2xl">📸</span>
-                  <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: brand.accent }}>AI-Powered</span>
-                </div>
-                <h2 className={`${headlineFont} text-2xl md:text-3xl font-bold mb-3`}>Photo → Cart</h2>
-                <p className="text-muted-foreground leading-relaxed mb-4">
-                  Snap a photo of any cabinet door and our AI instantly identifies the style, matches it to our catalog, and builds your cart — no measuring tape required.
-                </p>
-                <p className="text-muted-foreground leading-relaxed mb-6">
-                  Also works for fixtures: photograph a faucet, sink, or shower and we'll find the closest match in our inventory.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <Link href={withRef("/photo-to-cart")}>
-                    <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
-                      Try Photo → Cart <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href={withRef("/fixture-photo")}>
-                    <Button variant="outline" className="gap-2 font-semibold">
-                      Fixture Photo Match
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-              <div className="flex-1 bg-gradient-to-br from-muted/60 to-muted/30 flex items-center justify-center p-10 min-h-[200px]">
-                <div className="text-center">
-                  <div className="text-6xl mb-4">🤖</div>
-                  <p className="text-sm font-medium text-muted-foreground">AI image recognition</p>
-                  <p className="text-xs text-muted-foreground mt-1">Powered by Cabinet Dealz</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ─── Price Shop ──────────────────────────────────────────────────── */}
-        <section className="py-14 md:py-16 bg-muted/30">
-          <div className="container">
-            <div className="flex flex-col md:flex-row md:items-center gap-8">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-2xl">💰</span>
-                  <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: brand.accent }}>Transparent Pricing</span>
-                </div>
-                <h2 className={`${headlineFont} text-2xl md:text-3xl font-bold mb-3`}>Price Shop by Style</h2>
-                <p className="text-muted-foreground leading-relaxed mb-6">
-                  Compare cabinet prices across every door style side-by-side. See exactly what a full kitchen costs before you commit — no hidden fees, no surprises.
-                </p>
-                <Link href={withRef("/price-shop")}>
-                  <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
-                    Open Price Shop <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-              <div className="flex-1 grid grid-cols-2 gap-3">
-                {[
-                  { icon: "📋", label: "All door styles" },
-                  { icon: "⚖️", label: "Side-by-side compare" },
-                  { icon: "🏷️", label: "Real-time pricing" },
-                  { icon: "🛒", label: "Add to cart instantly" },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-                    <span className="text-2xl">{item.icon}</span>
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ─── StoneCreek Collection ───────────────────────────────────────── */}
-        <section className="py-14 md:py-16">
-          <div className="container">
-            <div
-              className="rounded-2xl overflow-hidden relative flex flex-col md:flex-row items-center gap-8 p-8 md:p-12"
-              style={{ background: `linear-gradient(135deg, ${brand.primary} 0%, #2d4a7a 100%)` }}
-            >
-              <div className="flex-1 text-white">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-2xl">🏔️</span>
-                  <span className="text-sm font-semibold uppercase tracking-wide opacity-80">Premium Collection</span>
-                </div>
-                <h2 className={`${headlineFont} text-2xl md:text-3xl font-bold mb-3`}>StoneCreek Collection</h2>
-                <p className="text-white/80 leading-relaxed mb-6">
-                  Our premium line of kitchen and bath cabinetry — elevated finishes, soft-close hardware, and dovetail drawer boxes standard. Where craftsmanship meets value.
-                </p>
-                <Link href={withRef("/stonecreek")}>
-                  <Button size="lg" className="gap-2 font-semibold" style={{ backgroundColor: brand.accent, color: "#fff" }}>
-                    Explore StoneCreek <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center text-white/60">
-                  <div className="text-7xl mb-3">🏔️</div>
-                  <p className="text-sm">Premium kitchen &amp; bath</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ─── Plumber's Choice ────────────────────────────────────────────── */}
-        <section className="py-14 md:py-16 bg-muted/30">
-          <div className="container">
-            <div className="flex flex-col md:flex-row md:items-center gap-8">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-2xl">🔧</span>
-                  <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: brand.accent }}>Complete Bath Kits</span>
-                </div>
-                <h2 className={`${headlineFont} text-2xl md:text-3xl font-bold mb-3`}>Plumber's Choice</h2>
-                <p className="text-muted-foreground leading-relaxed mb-6">
-                  Everything a plumber needs in one kit — showers, toilets, bidets, and complete bathroom install packages. Trade pricing, contractor-grade quality.
-                </p>
-                <Link href={withRef("/plumbers-choice")}>
-                  <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
-                    Shop Plumber's Choice <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-              <div className="flex-1 grid grid-cols-2 gap-3">
-                {[
-                  { icon: "🚿", label: "Shower kits" },
-                  { icon: "🚽", label: "Toilets & bidets" },
-                  { icon: "🛁", label: "Tub surrounds" },
-                  { icon: "📦", label: "Complete bath kits" },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-                    <span className="text-2xl">{item.icon}</span>
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* ─── Quote CTA band ──────────────────────────────────────────── */}
         <section className="py-16" style={{ backgroundColor: brand.primary }}>
           <div className="container text-center text-white">
             <h2 className={`${headlineFont} text-3xl md:text-4xl font-bold mb-3`}>{t("quote_title")}</h2>
             <p className="text-white/80 max-w-2xl mx-auto mb-8">{t("quote_sub")}</p>
-            <div className="flex flex-wrap gap-4 justify-center">
-              <Link href={withRef("/order/new")}>
-                <Button size="lg" className="font-semibold text-white gap-2" style={{ backgroundColor: brand.accent }}>
-                  {t("quote_btn")} <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href={withRef("/design")}>
-                <Button size="lg" variant="outline" className="font-semibold gap-2 border-white/40 text-white hover:bg-white/10">
-                  Design Your Kitchen <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
+            <Link href={withRef("/order/new")}>
+              <Button size="lg" className="font-semibold text-white gap-2" style={{ backgroundColor: brand.accent }}>
+                {t("quote_btn")} <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         </section>
       </main>
@@ -527,26 +298,6 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
                     <span>{data.serviceArea || data.location}</span>
                   </li>
                 )}
-{(() => {
-                  const addr = (data as Record<string, unknown>).address as string | null | undefined;
-                  const hours = (data as Record<string, unknown>).businessHours as string | null | undefined;
-                  return (
-                    <>
-                      {addr && (
-                        <li className="flex items-start gap-2">
-                          <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
-                          <span>{addr}</span>
-                        </li>
-                      )}
-                      {hours && (
-                        <li className="flex items-start gap-2">
-                          <Globe className="h-4 w-4 shrink-0 mt-0.5" />
-                          <span>{hours}</span>
-                        </li>
-                      )}
-                    </>
-                  );
-                })()}
                 {data.website && (
                   <li className="flex items-center gap-2">
                     <Globe className="h-4 w-4 shrink-0" />
@@ -606,23 +357,11 @@ function NavLinks({
   const { count: cartCount } = useCart();
   return (
     <>
-      <a href="#shop" className="hidden md:block">
+      <a href="#shop" className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("cat_shop")}</Button>
       </a>
-      <Link href={withRef("/design")} className="hidden md:block">
+      <Link href={withRef("/design")} className="hidden sm:block">
         <Button variant="ghost" size="sm" className={cls}>{t("nav_design")}</Button>
-      </Link>
-      <Link href={withRef("/photo-to-cart")} className="hidden md:block">
-        <Button variant="ghost" size="sm" className={cls}>Photo→Cart</Button>
-      </Link>
-      <Link href={withRef("/price-shop")} className="hidden md:block">
-        <Button variant="ghost" size="sm" className={cls}>Price Shop</Button>
-      </Link>
-      <Link href={withRef("/surfaces")} className="hidden lg:block">
-        <Button variant="ghost" size="sm" className={cls}>Surfaces</Button>
-      </Link>
-      <Link href={withRef("/plumbers-choice")} className="hidden lg:block">
-        <Button variant="ghost" size="sm" className={cls}>Plumber's Choice</Button>
       </Link>
       <Link href={withRef("/cart")} aria-label="Cart">
         <Button variant="ghost" size="sm" className={`relative ${cls}`}>
@@ -673,7 +412,7 @@ function ClassicHeader({ data, brand, t, withRef, headlineFont, LangToggle, Logo
                 </div>
               ) : null}
               <h1 className={`${headlineFont} text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6`}>
-                {(data as Record<string, unknown>).heroHeadline as string || data.tagline || (
+                {data.tagline || (
                   <>
                     Beautiful Kitchens,
                     <br />
@@ -752,7 +491,7 @@ function ShowcaseHero({ data, brand, t, withRef, headlineFont, heroImg, LangTogg
               </div>
             ) : null}
             <h1 className={`${headlineFont} text-4xl md:text-6xl lg:text-7xl font-bold leading-[1.05] mb-6 tracking-tight`}>
-              {(data as Record<string, unknown>).heroHeadline as string || data.tagline || "Beautiful Kitchens, Built Around You."}
+              {data.tagline || "Beautiful Kitchens, Built Around You."}
             </h1>
             <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed max-w-xl">
               {data.aboutText ||
@@ -805,7 +544,7 @@ function MinimalHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggl
               </div>
             ) : null}
             <h1 className={`${headlineFont} text-4xl md:text-6xl font-bold leading-[1.08] mb-6 tracking-tight text-foreground`}>
-              {(data as Record<string, unknown>).heroHeadline as string || data.tagline || "Beautiful Kitchens, Built Around You."}
+              {data.tagline || "Beautiful Kitchens, Built Around You."}
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl">
               {data.aboutText ||
@@ -876,7 +615,7 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
               className={`${headlineFont} text-5xl md:text-7xl font-black leading-[0.98] mb-6 uppercase tracking-tight`}
               style={{ color: brand.primary }}
             >
-              {(data as Record<string, unknown>).heroHeadline as string || data.tagline || "Beautiful Kitchens, Built To Last."}
+              {data.tagline || "Beautiful Kitchens, Built To Last."}
             </h1>
             <p className="text-lg md:text-xl mb-8 leading-relaxed max-w-2xl font-medium" style={{ color: brand.primary }}>
               {data.aboutText ||

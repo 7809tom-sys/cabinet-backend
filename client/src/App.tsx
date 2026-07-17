@@ -3,17 +3,13 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TopNav } from "@/components/TopNav";
 import { SiteFooter } from "@/components/SiteFooter";
+import ChatWidget from "@/components/ChatWidget";
+import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
-import { setReferralCode } from "@/hooks/useReferral";
-import { AdminEditModeBar } from "@/components/admin/AdminEditModeBar";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
-
-// Lazy-loaded shell components (not needed on first paint)
-const ChatWidget = lazy(() => import("@/components/ChatWidget"));
-const Home = lazy(() => import("@/pages/Home"));
 
 // Lazy-loaded pages
 const Catalog = lazy(() => import("@/pages/Catalog"));
@@ -27,7 +23,6 @@ const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
 const BecomeVendor = lazy(() => import("@/pages/BecomeVendor"));
 const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
 const Admin = lazy(() => import("@/pages/Admin"));
-const SmartCatalogUpload = lazy(() => import("@/pages/SmartCatalogUpload"));
 const Storefront = lazy(() => import("@/pages/Storefront"));
 const StorefrontPreview = lazy(() => import("@/pages/StorefrontPreview"));
 const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
@@ -55,8 +50,6 @@ const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
 const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const Terms = lazy(() => import("@/pages/Terms"));
-const MobileApp = lazy(() => import("@/pages/MobileApp"));
-const ARMeasure = lazy(() => import("@/pages/ARMeasure"));
 
 function PageLoader() {
   return (
@@ -79,16 +72,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  // Global referral capture — persist ?ref= on every page load so affiliate
-  // attribution is preserved even when customers land on non-storefront pages.
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get("ref");
-      if (ref) setReferralCode(ref);
-    } catch { /* ignore */ }
-  }, []);
-
   useEffect(() => {
     // Show a gentle, non-blocking refresh prompt when a newer build is deployed,
     // so users (and customers) never get stuck on a stale cached version.
@@ -106,11 +89,7 @@ export default function App() {
       <ThemeProvider defaultTheme="light">
       <Switch>
         {/* Home has its own footer, no AppLayout wrapper needed */}
-        <Route path="/">
-          <Suspense fallback={<PageLoader />}>
-            <Home />
-          </Suspense>
-        </Route>
+        <Route path="/" component={Home} />
 
         {/* Branded affiliate storefront — its own header/footer, no AppLayout */}
         <Route path="/store/:slug">
@@ -385,14 +364,6 @@ export default function App() {
           </Suspense>
         </Route>
 
-        <Route path="/admin/catalog-upload">
-          <AppLayout>
-            <Suspense fallback={<PageLoader />}>
-              <SmartCatalogUpload />
-            </Suspense>
-          </AppLayout>
-        </Route>
-
         {/* Admin-only Fee System reference sheet — print/PDF, no app chrome */}
         <Route path="/admin/fee-system">
           <Suspense fallback={<PageLoader />}>
@@ -440,30 +411,13 @@ export default function App() {
           </AppLayout>
         </Route>
 
-        <Route path="/app">
-          <AppLayout>
-            <Suspense fallback={<PageLoader />}>
-              <MobileApp />
-            </Suspense>
-          </AppLayout>
-        </Route>
-
-        <Route path="/measure">
-          <Suspense fallback={<PageLoader />}>
-            <ARMeasure />
-          </Suspense>
-        </Route>
-
         <Route>
           <AppLayout>
             <NotFound />
           </AppLayout>
         </Route>
       </Switch>
-      <AdminEditModeBar />
-      <Suspense fallback={null}>
-        <ChatWidget />
-      </Suspense>
+      <ChatWidget />
       <Toaster />
     </ThemeProvider>
   );

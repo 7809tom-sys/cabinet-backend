@@ -188,16 +188,11 @@ export function parseDistributorCsv(text: string): ParsedImport {
   return { columns, unknownHeaders, rows };
 }
 
-/** Sentinel value returned by parseMoney when the cell explicitly marks a cabinet as not available. */
-export const NOT_AVAILABLE = Symbol("NOT_AVAILABLE");
-
-/** A numeric parse that tolerates $, commas, and quotes.
- *  Returns null if blank, NOT_AVAILABLE if the cell is NA/N/A/X/x, or NaN if invalid. */
-export function parseMoney(v: string | undefined): number | null | typeof NOT_AVAILABLE {
+/** A numeric parse that tolerates $, commas, and quotes; returns null if blank. */
+export function parseMoney(v: string | undefined): number | null {
   if (v === undefined) return null;
   const cleaned = v.replace(/[$,"\s]/g, "");
   if (cleaned === "") return null;
-  if (/^(na|n\/a|x)$/i.test(cleaned)) return NOT_AVAILABLE;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : NaN;
 }
@@ -238,7 +233,7 @@ export function validateImport(parsed: ParsedImport): {
     parsed.columns.includes("yourCost");
   if (!hasContent) {
     fatalErrors.push(
-      'Provide at least a Price column (List Price or Cost) or a Description column so there is something to import.'
+      "Provide at least a Description or a Price column so there is something to import."
     );
   }
 
@@ -270,7 +265,7 @@ export function validateImport(parsed: ParsedImport): {
       ["your cost", row.cells.yourCost],
     ] as const) {
       const n = parseMoney(raw);
-      if (n !== null && n !== NOT_AVAILABLE && Number.isNaN(n as number))
+      if (n !== null && Number.isNaN(n))
         errors.push(`Invalid ${label} "${raw}".`);
       if (typeof n === "number" && n < 0)
         errors.push(`${label} cannot be negative.`);

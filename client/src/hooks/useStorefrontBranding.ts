@@ -40,16 +40,6 @@ export interface StorefrontBranding {
     dollars: unknown,
     opts?: { styleId?: number | null; category?: string | null },
   ) => number;
-  /** Style IDs the affiliate has hidden from their storefront. */
-  hiddenStyleIds: Set<number>;
-  /** Featured styles for the spotlight section (sorted by sortOrder). */
-  featuredStyles: Array<{
-    styleId: number;
-    displayName: string;
-    roomSceneUrl: string | null;
-    thumbnailUrl: string | null;
-    sortOrder: number;
-  }>;
 }
 
 export function useStorefrontBranding(slug: string | null | undefined): StorefrontBranding {
@@ -85,8 +75,6 @@ export function useStorefrontBranding(slug: string | null | undefined): Storefro
         const marked = cents + Math.round((cents * bps) / 10000);
         return marked / 100;
       },
-      hiddenStyleIds: new Set(data?.hiddenStyleIds ?? []),
-      featuredStyles: data?.featuredStyles ?? [],
     };
   }, [data]);
 }

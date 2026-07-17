@@ -95,11 +95,7 @@ export const designRouter = router({
       const isAccessory = (r: { category: string | null; placementType: string | null }) => {
         const pt = (r.placementType || "").toLowerCase();
         const cat = (r.category || "").toLowerCase();
-        // Items with a specific tall/wall/base placement type are real cabinets/panels
-        // that belong in the Tall/Wall/Base tab — NOT the Accessories tab — even if
-        // their category is "Accessory" (e.g. Decorative End Panels with placementType=tall).
-        if (pt === "tall" || pt === "wall" || pt === "base") return false;
-        return cat === "accessory" || cat === "accessories" || pt.includes("accessory") || pt.includes("trim");
+        return cat === "accessory" || pt.includes("accessory") || pt.includes("trim");
       };
 
       // Accessory tab: return ONLY accessory/trim items. These are added to the
@@ -313,16 +309,6 @@ export const designRouter = router({
         isCornerCabinet: cabinets.isCornerCabinet,
         catalogImageUrl: cabinets.catalogImageUrl,
       };
-      // Resolve the distributor that owns this door style so we can fall back
-      // to distributor-wide standard panels (S2496, REPV, etc.) that are shared
-      // across all lines from the same supplier.
-      const styleRow = await db
-        .select({ distributorId: doorStyles.distributorId })
-        .from(doorStyles)
-        .where(eq(doorStyles.id, input.styleId))
-        .limit(1);
-      const distributorId = styleRow[0]?.distributorId ?? null;
-
       const gate = and(
         eq(cabinets.isActive, true),
         notInConflict(),
@@ -330,17 +316,6 @@ export const designRouter = router({
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true)
       );
-      // Fallback gate: same distributor, any published+available SKU.
-      // Used for standard panels (S2496, REPV, TDEP) that are shared across all lines.
-      const distGate = distributorId
-        ? and(
-            eq(cabinets.isActive, true),
-            notInConflict(),
-            eq(distributorSkus.distributorId, distributorId),
-            eq(distributorSkus.isAvailable, true),
-            eq(distributorSkus.isPublished, true)
-          )
-        : gate;
       const sortByWidth = (rows: { width: unknown; masterCode: string }[]) =>
         [...rows].sort((a, b) => {
           const na = parseFloat(String(a.width ?? ""));
@@ -351,115 +326,31 @@ export const designRouter = router({
           return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
         });
 
-      // Deep refrigerator wall cabinets: 24" deep wall cabinets (e.g. SU-W301224, SU-W361224).
-      // Actual DB codes end with two-digit depth "24" as last segment, depth column = 24.
+      // Deep refrigerator wall cabinets end in "-24" (24" deep) e.g. W-30-12-24.
       const deepRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(
-          gate,
-          sql`CAST(${cabinets.depth} AS DECIMAL) = 24`,
-          sql`LOWER(${cabinets.description}) LIKE '%wall%'`
-        ));
-      // Bridge wall cabinets: short (≤ 24" tall) wall cabinets, 12" or 24" deep.
-      // Supports user-selectable heights of 12", 18", and 24" and depths of 12" (shallow) or 24" (full).
-      // SKU pattern: W[WW][HH][DD] e.g. W301212 = 30"W × 12"H × 12"D, W361224 = 36"W × 12"H × 24"D.
-      // Match by stored height/depth columns OR by parsing the SKU masterCode pattern.
-      const bridgeRowsStyle = await db
+        .where(and(gate, like(cabinets.masterCode, "W-%-24")));
+      // Shallow bridge wall cabinets: short W-* that are NOT the deep "-24" ones.
+      const wallRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(
-          gate,
-          sql`(
-            LOWER(${cabinets.description}) LIKE '%bridge%'
-            OR (
-              CAST(${cabinets.height} AS DECIMAL) <= 24
-              AND LOWER(${cabinets.description}) LIKE '%wall%'
-            )
-            OR (
-              ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
-              AND CAST(SUBSTR(${cabinets.masterCode}, LENGTH(${cabinets.masterCode})-3, 2) AS DECIMAL) <= 24
-            )
-            OR (
-              ${cabinets.masterCode} REGEXP '^W[0-9]{6}$'
-            )
-          )`,
-          sql`(
-            CAST(${cabinets.depth} AS DECIMAL) <= 24
-            OR ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
-          )`
-        ));
-      // Fallback: if no bridge cabinets found for this style, use any published SKU from same distributor.
-      let bridgeRows = bridgeRowsStyle;
-      if (bridgeRows.length === 0 && distGate !== gate) {
-        bridgeRows = await db
-          .select(cols)
-          .from(cabinets)
-          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-          .where(and(
-            distGate,
-            sql`(
-              LOWER(${cabinets.description}) LIKE '%bridge%'
-              OR (
-                CAST(${cabinets.height} AS DECIMAL) <= 24
-                AND LOWER(${cabinets.description}) LIKE '%wall%'
-              )
-              OR (
-                ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
-                AND CAST(SUBSTR(${cabinets.masterCode}, LENGTH(${cabinets.masterCode})-3, 2) AS DECIMAL) <= 24
-              )
-              OR (
-                ${cabinets.masterCode} REGEXP '^W[0-9]{6}$'
-              )
-            )`,
-            sql`(
-              CAST(${cabinets.depth} AS DECIMAL) <= 24
-              OR ${cabinets.masterCode} REGEXP '^[A-Z-]*W[0-9]{6}$'
-            )`
-          ));
-      }
-      // End panels: REPV*, TDEP*, and S2496/S3696 shelf boards (used as refrigerator side panels).
-      // These are standard across all US Cabinet Depot lines, so if the style-gated query
-      // returns nothing we fall back to any published SKU from the same distributor.
-      const panelCodeFilter = sql`(
-        ${cabinets.masterCode} LIKE '%REPV%'
-        OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%'
-        OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%'
-        OR ${cabinets.masterCode} LIKE '%S2496%'
-        OR ${cabinets.masterCode} LIKE '%S3696%'
-        OR LOWER(${cabinets.description}) LIKE '%shelf board%'
-      )`;
-      const panelWidthFilter = sql`(${cabinets.width} IS NULL OR CAST(${cabinets.width} AS DECIMAL) <= 200)`;
-      let endPanelRows = await db
+        .where(and(gate, like(cabinets.masterCode, "W-%")));
+      const bridgeRows = wallRows.filter((r) => {
+        const h = parseFloat(String(r.height ?? ""));
+        // A bridge is a short (≤ 18") wall cabinet, and NOT a deep 24" fridge box.
+        return !/-24$/.test(r.masterCode) && Number.isFinite(h) && h <= 18;
+      });
+      // Refrigerator end panels + smooth skin panels.
+      const panelRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, panelCodeFilter, panelWidthFilter));
-      // Fallback: if no panels found for this specific style, use any published SKU
-      // from the same distributor (S2496/REPV are standard across all their lines).
-      if (endPanelRows.length === 0 && distGate !== gate) {
-        endPanelRows = await db
-          .select(cols)
-          .from(cabinets)
-          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-          .where(and(distGate, panelCodeFilter, panelWidthFilter));
-      }
-      // Smooth skin panels: codes contain WSV, USV, or description contains "Skin" / "Veneer".
-      // Exclude REPV items (those are end panels, not smooth skins).
-      const skinRows = await db
-        .select(cols)
-        .from(cabinets)
-        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(
-          gate,
-          sql`(${cabinets.masterCode} LIKE '%WSV%' OR ${cabinets.masterCode} LIKE '%USV%' OR ${cabinets.masterCode} LIKE '%FPV%' OR LOWER(${cabinets.description}) LIKE '%skin%')`,
-          sql`${cabinets.masterCode} NOT LIKE '%REPV%'`,
-          sql`CAST(${cabinets.depth} AS DECIMAL) <= 1`
-        ));
-      const endPanels = endPanelRows;
-      const smoothPanels = skinRows;
+        .where(and(gate, sql`(${cabinets.masterCode} LIKE 'REPV-%' OR ${cabinets.masterCode} LIKE 'WSV-%')`));
+      const endPanels = panelRows.filter((r) => /^REPV-/.test(r.masterCode));
+      const smoothPanels = panelRows.filter((r) => /^WSV-/.test(r.masterCode));
 
       // Dedupe helper (a cabinet can join multiple SKU rows).
       const uniq = <T extends { id: number }>(rows: T[]) => {
@@ -530,41 +421,15 @@ export const designRouter = router({
           .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
           .where(and(gate, cond));
 
-      // Pantry: 96"-tall utility/pantry cabinet (U*9624, U*96). Fall back to any ≥ 84" tall.
-      let pantryRows = await db
-        .select(cols).from(cabinets)
-        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, sql`CAST(${cabinets.height} AS DECIMAL) = 96`, sql`LOWER(${cabinets.description}) LIKE '%pantry%'`));
-      if (pantryRows.length === 0) pantryRows = await db
-        .select(cols).from(cabinets)
-        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, sql`CAST(${cabinets.height} AS DECIMAL) >= 84`, sql`LOWER(${cabinets.description}) LIKE '%tall%'`));
-      // Deep 24" wall cabinets above fridge (e.g. SU-W301224, SU-W361224).
-      const deepRows = await db
-        .select(cols).from(cabinets)
-        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, sql`CAST(${cabinets.depth} AS DECIMAL) = 24`, sql`LOWER(${cabinets.description}) LIKE '%wall%'`));
-      // Refrigerator end panels: REPV*, TDEP*, and S2496/S3696 shelf boards.
-      const panelRows = await db
-        .select(cols).from(cabinets)
-        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-                .where(and(
-          gate,
-          sql`(
-            ${cabinets.masterCode} LIKE '%REPV%'
-            OR LOWER(${cabinets.description}) LIKE '%refrigerator end panel%'
-            OR LOWER(${cabinets.description}) LIKE '%tall decorative end panel%'
-            OR ${cabinets.masterCode} LIKE '%S2496%'
-            OR ${cabinets.masterCode} LIKE '%S3696%'
-            OR LOWER(${cabinets.description}) LIKE '%shelf board%'
-          )`,
-          sql`(${cabinets.width} IS NULL OR CAST(${cabinets.width} AS DECIMAL) <= 200)`
-        ));
-      // Standard wall cabinets (12" deep, not bridge, not deep fridge box).
-      const wallRows = await db
-        .select(cols).from(cabinets)
-        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, sql`LOWER(${cabinets.description}) LIKE '%wall%'`, sql`CAST(${cabinets.depth} AS DECIMAL) = 12`, sql`CAST(${cabinets.height} AS DECIMAL) > 18`));
+      // Pantry: 96"-tall utility (U-*-96-24). Fall back to any ≥ 84" utility.
+      let pantryRows = await run(like(cabinets.masterCode, "U-%-96-24"));
+      if (pantryRows.length === 0) pantryRows = await run(like(cabinets.masterCode, "UC%96"));
+      const deepRows = await run(like(cabinets.masterCode, "W-%-24"));
+      const panelRows = await run(like(cabinets.masterCode, "REPV-%"));
+      // Standard wall cabinets (short/tall boxes) minus the deep "-24" fridge box.
+      const wallRows = (await run(like(cabinets.masterCode, "W-%"))).filter(
+        (r) => !/-24$/.test(r.masterCode)
+      );
 
       return {
         pantry: sortByWidth(uniq(pantryRows)),

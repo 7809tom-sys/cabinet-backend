@@ -1119,15 +1119,6 @@ export const ordersRouter = router({
       };
       const csv = buildNetsuiteOrderCsv(header, nsLines);
       const distName = dist.brandName || dist.name;
-
-      // Resolve the brand name for the email subject: use affiliate's store name
-      // when the order was placed through an affiliate storefront.
-      let senderBrandName = "Cabinet Dealz";
-      if (order.affiliateId) {
-        const [aff] = await db.select({ storeName: affiliates.storeName }).from(affiliates).where(eq(affiliates.id, order.affiliateId)).limit(1);
-        if (aff?.storeName) senderBrandName = aff.storeName;
-      }
-
       const text = buildOrderEmailText(header, nsLines, {
         distributorName: distName,
         pickupAddress: dist.pickupAddress,
@@ -1146,7 +1137,7 @@ export const ordersRouter = router({
       const result = await sendEmailViaSettings(emailCfg!, {
         to: dist.orderEmail,
         cc: cc.length ? cc : undefined,
-        subject: `Purchase Order ${order.requestNumber} — ${senderBrandName}`,
+        subject: `Purchase Order ${order.requestNumber} — Cabinet Dealz`,
         text: text + apiNote,
         replyTo: order.originatorEmail ?? undefined,
         attachments: [
@@ -1382,118 +1373,6 @@ export const ordersRouter = router({
       const csv = csvLines.join("\n");
       const date = new Date().toISOString().slice(0, 10);
       return { csv, filename: `cabinet-dealz-qbo-${date}.csv`, count: rows.length };
-    }),
-
-  // ─── Affiliate-branded invoice HTML ──────────────────────────────────────────
-  // Returns an HTML string for printing/saving as a PDF. When the order has an
-  // affiliateId, the invoice uses the affiliate's logo, store name, and
-  // white-labeled cabinet names (from affiliateStyleBranding.brandName).
-  generateInvoice: publicProcedure
-    .input(z.object({ orderId: z.number() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, input.orderId)).limit(1);
-      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
-
-      let affiliateName = "Cabinet Dealz";
-      let affiliateLogoUrl: string | null = null;
-      let affiliatePhone = "(941) 899-3288";
-      let affiliateEmail = "sales@cabinetdealz.com";
-      let affiliateAddress = "470 N Tamiami Trail, Osprey FL 34229";
-
-      if (order.affiliateId) {
-        const [aff] = await db.select().from(affiliates).where(eq(affiliates.id, order.affiliateId)).limit(1);
-        if (aff) {
-          affiliateName = aff.storeName;
-          affiliateLogoUrl = aff.logoUrl ?? null;
-          affiliatePhone = aff.phone ?? affiliatePhone;
-          affiliateEmail = aff.email ?? affiliateEmail;
-          affiliateAddress = aff.location ?? affiliateAddress;
-        }
-      }
-
-      const lineItems: OrderLineItem[] = (order.lineItems as OrderLineItem[]) ?? [];
-      const subtotal = Number(order.totalAmount ?? 0);
-      const tax = Number(order.taxAmount ?? 0);
-      const total = subtotal + tax;
-
-      const lineRows = lineItems.map((li) => {
-        const name = li.description ?? li.masterCode ?? li.rawCode ?? "";
-        const qty = li.qty ?? 1;
-        const price = typeof li.unitPrice === "number" ? li.unitPrice : 0;
-        const lineTotal = qty * price;
-        return `<tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${li.masterCode ?? ""}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${name}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center;">${qty}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;">$${price.toFixed(2)}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;">$${lineTotal.toFixed(2)}</td>
-        </tr>`;
-      }).join("");
-
-      const logoHtml = affiliateLogoUrl
-        ? `<img src="${affiliateLogoUrl}" alt="${affiliateName}" style="max-height:60px;max-width:200px;object-fit:contain;" />`
-        : `<span style="font-size:22px;font-weight:700;color:#0f2a4a;">${affiliateName}</span>`;
-
-      const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Invoice ${order.requestNumber}</title>
-  <style>
-    body{font-family:Arial,sans-serif;color:#1a1a1a;margin:0;padding:0;}
-    .page{max-width:800px;margin:0 auto;padding:40px;}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;}
-    .invoice-title{font-size:32px;font-weight:700;color:#0f2a4a;}
-    .meta{font-size:13px;color:#666;margin-top:4px;}
-    table{width:100%;border-collapse:collapse;margin-top:24px;}
-    thead th{background:#0f2a4a;color:#fff;padding:10px 12px;text-align:left;font-size:13px;}
-    tbody tr:nth-child(even){background:#f9f9f9;}
-    .totals{margin-top:16px;text-align:right;}
-    .totals table{width:auto;margin-left:auto;}
-    .totals td{padding:4px 12px;font-size:14px;}
-    .grand-total td{font-weight:700;font-size:16px;border-top:2px solid #0f2a4a;}
-    .footer{margin-top:48px;font-size:12px;color:#999;border-top:1px solid #eee;padding-top:16px;}
-    @media print{body{-webkit-print-color-adjust:exact;}}
-  </style>
-</head>
-<body>
-  <div class="page">
-    <div class="header">
-      <div>${logoHtml}<div class="meta">${affiliateAddress}<br/>${affiliatePhone} &bull; ${affiliateEmail}</div></div>
-      <div style="text-align:right;">
-        <div class="invoice-title">INVOICE</div>
-        <div class="meta"># ${order.requestNumber}</div>
-        <div class="meta">Date: ${new Date(order.createdAt).toLocaleDateString()}</div>
-        <div class="meta">Status: ${order.status.toUpperCase()}</div>
-      </div>
-    </div>
-    <div style="margin-bottom:24px;">
-      <strong>Bill To:</strong><br/>
-      ${order.originatorName ?? ""}<br/>
-      ${order.originatorEmail ?? ""}<br/>
-      ${order.originatorPhone ?? ""}
-    </div>
-    <table>
-      <thead><tr>
-        <th>SKU</th><th>Description</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Price</th><th style="text-align:right;">Total</th>
-      </tr></thead>
-      <tbody>${lineRows}</tbody>
-    </table>
-    <div class="totals">
-      <table>
-        <tr><td>Subtotal</td><td>$${subtotal.toFixed(2)}</td></tr>
-        ${tax > 0 ? `<tr><td>Tax (${order.taxState ?? ""})</td><td>$${tax.toFixed(2)}</td></tr>` : ""}
-        <tr class="grand-total"><td>Total</td><td>$${total.toFixed(2)}</td></tr>
-      </table>
-    </div>
-    <div class="footer">Thank you for your business! Questions? Contact us at ${affiliateEmail}.</div>
-  </div>
-</body>
-</html>`;
-
-      return { html, filename: `invoice-${order.requestNumber}.html` };
     }),
 
   // adminDeleteAll: clear all orders, optionally only those matching a status
