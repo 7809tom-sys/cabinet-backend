@@ -99,7 +99,7 @@ export const designRouter = router({
         // that belong in the Tall/Wall/Base tab — NOT the Accessories tab — even if
         // their category is "Accessory" (e.g. Decorative End Panels with placementType=tall).
         if (pt === "tall" || pt === "wall" || pt === "base") return false;
-        return cat === "accessory" || pt.includes("accessory") || pt.includes("trim");
+        return cat === "accessory" || cat === "accessories" || pt.includes("accessory") || pt.includes("trim");
       };
 
       // Accessory tab: return ONLY accessory/trim items. These are added to the
