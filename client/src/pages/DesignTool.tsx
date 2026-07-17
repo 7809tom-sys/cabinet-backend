@@ -7304,17 +7304,31 @@ export default function DesignTool() {
                             {unique.map((corner) => {
                               const isSet = (room.blindManCorners ?? []).includes(corner.id);
                               return (
-                                <button
-                                  key={corner.id}
-                                  onClick={() => toggleBlindManCorner(corner.id)}
-                                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium border transition-colors ${
-                                    isSet
-                                      ? "bg-green-100 border-green-400 text-green-800"
-                                      : "bg-white border-red-300 text-red-700 hover:bg-red-50"
-                                  }`}
-                                >
-                                  {isSet ? "✓ " : ""}{corner.label}: Blind Man&apos;s Corner {isSet ? "(on)" : "(off)"}
-                                </button>
+                                <Tooltip key={corner.id} delayDuration={300}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={() => toggleBlindManCorner(corner.id)}
+                                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium border transition-colors ${
+                                        isSet
+                                          ? "bg-green-100 border-green-400 text-green-800"
+                                          : "bg-white border-red-300 text-red-700 hover:bg-red-50"
+                                      }`}
+                                    >
+                                      {isSet ? "✓ " : ""}{corner.label}: Blind Man&apos;s Corner {isSet ? "(on)" : "(off)"}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-[280px] p-3 space-y-1.5 text-xs">
+                                    <p className="font-semibold text-[11px]">Blind Man’s Corner — {corner.label}</p>
+                                    <p>No cabinet in the corner. Each wall side gets:</p>
+                                    <ul className="list-disc pl-3 space-y-0.5">
+                                      <li><strong>1× BF-6</strong> (6″ base filler, 96″ long)</li>
+                                      <li><strong>1× BF-3</strong> (3″ base filler, 96″ long)</li>
+                                    </ul>
+                                    <p>The 3″ filler overlaps 3″ into the perpendicular filler, leaving a <strong>3″×3″ exposed corner square</strong> set back 24″ from each wall.</p>
+                                    <p>The countertop extends over the entire 24″×24″ dead corner area.</p>
+                                    <p className="text-muted-foreground">{isSet ? "Click to remove this solution." : "Click to apply — 2× BF-6 + 2× BF-3 added to cart (if priced)."}</p>
+                                  </TooltipContent>
+                                </Tooltip>
                               );
                             })}
                           </span>
