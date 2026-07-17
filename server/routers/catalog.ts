@@ -1718,10 +1718,9 @@ export const cabinetsRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const [result] = await db.insert(cabinets).values({
         masterCode: input.masterCode,
-        ourName: input.ourName ?? input.masterCode,
         category: input.category,
         subCategory: input.subCategory ?? null,
-        description: input.description ?? null,
+        description: input.description ?? "",
         isActive: input.isActive ?? true,
       });
       const cabinetId = (result as any).insertId as number;
@@ -1730,8 +1729,9 @@ export const cabinetsRouter = router({
         const [skuResult] = await db.insert(distributorSkus).values({
           cabinetId,
           distributorId: input.distributorSku.distributorId,
-          doorStyleId: input.distributorSku.styleId,
+          styleId: input.distributorSku.styleId,
           distributorSku: input.distributorSku.distributorSku,
+          platformSku: `${input.masterCode}-${input.distributorSku.distributorSku}`,
           listPrice: input.distributorSku.listPrice != null ? String(input.distributorSku.listPrice) : null,
           yourCost: input.distributorSku.yourCost != null ? String(input.distributorSku.yourCost) : null,
           isAvailable: true,
@@ -1744,10 +1744,9 @@ export const cabinetsRouter = router({
 
   adminListFlaggedDescriptions: adminProcedure
     .input(z.object({ limit: z.number().optional(), offset: z.number().optional() }).optional())
-    .query(async () => ({
-      items: [] as Array<{ id: number; masterCode: string; ourName: string; description: string | null; flagReason: string }>,
-      total: 0,
-    })),
+    .query(async () =>
+      [] as Array<{ id: number; masterCode: string; original: string; suggested: string; matchedBrands: string[] }>
+    ),
 
   adminSaveCleanedDescriptions: adminProcedure
     .input(z.array(z.object({ id: z.number(), description: z.string() })))
@@ -1761,7 +1760,7 @@ export const cabinetsRouter = router({
     }),
 
   adminListMissingImages: adminProcedure
-    .input(z.object({ limit: z.number().optional(), offset: z.number().optional() }).optional())
+    .input(z.object({ page: z.number().optional(), pageSize: z.number().optional(), search: z.string().optional(), limit: z.number().optional(), offset: z.number().optional() }).optional())
     .query(async () => ({
       items: [] as Array<{
         id: number;
@@ -1776,23 +1775,23 @@ export const cabinetsRouter = router({
     })),
 
   adminFixCabinetImage: adminProcedure
-    .input(z.object({ cabinetId: z.number(), imageUrl: z.string() }))
+    .input(z.object({ id: z.number(), imageUrl: z.string() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.update(cabinets).set({ imageUrl: input.imageUrl }).where(eq(cabinets.id, input.cabinetId));
-      return { ok: true };
+      await db.update(cabinets).set({ catalogImageUrl: input.imageUrl }).where(eq(cabinets.id, input.id));
+      return { ok: true, conflictCleared: false };
     }),
 
   adminBulkFixCabinetImages: adminProcedure
-    .input(z.array(z.object({ cabinetId: z.number(), imageUrl: z.string() })))
+    .input(z.object({ ids: z.array(z.number()), imageUrl: z.string() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      for (const item of input) {
-        await db.update(cabinets).set({ imageUrl: item.imageUrl }).where(eq(cabinets.id, item.cabinetId));
+      for (const id of input.ids) {
+        await db.update(cabinets).set({ catalogImageUrl: input.imageUrl }).where(eq(cabinets.id, id));
       }
-      return { updated: input.length };
+      return { updated: input.ids.length, conflictsCleared: 0 };
     }),
 
 });

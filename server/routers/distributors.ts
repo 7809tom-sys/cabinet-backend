@@ -498,13 +498,16 @@ export const distributorImportRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const code = input.name.toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 8);
       const [result] = await db.insert(distributors).values({
         name: input.name,
+        code,
+        initials: code.slice(0, 2),
         brandName: input.brandName ?? input.name,
-        slug: input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        contactEmail: "",
+        costMultiplier: "0.30",
+        baseMultiplier: "0.30",
       });
-      return { id: (result as any).insertId as number, ok: true };
+      return { id: (result as any).insertId as number, name: input.name, brandName: input.brandName ?? input.name, ok: true };
     }),
 
   addDoorStyle: adminProcedure
@@ -519,21 +522,21 @@ export const distributorImportRouter = router({
         distributorName: input.distributorName ?? input.ourName,
         isActive: true,
       });
-      return { id: (result as any).insertId as number, ok: true };
+      return { id: (result as any).insertId as number, ourName: input.ourName, ok: true };
     }),
 
   // ─── XLSX column-mapping import (stub — full implementation pending) ──────────
   parseXlsxColumns: adminProcedure
     .input(z.object({ fileBase64: z.string(), filename: z.string() }))
     .mutation(async () => ({
-      columns: [] as string[],
-      sampleRows: [] as Record<string, string>[],
+      sheets: [] as Array<{ name: string; headers: string[] }>,
     })),
 
   importWithMapping: adminProcedure
     .input(z.object({
       fileBase64: z.string(),
       filename: z.string(),
+      sheetName: z.string().optional(),
       skuColumn: z.string(),
       priceColumn: z.string(),
       priceType: z.string(),
@@ -543,9 +546,10 @@ export const distributorImportRouter = router({
     }))
     .mutation(async () => ({
       matched: 0,
-      notFound: 0,
-      updated: 0,
-      errors: [] as string[],
-      preview: [] as Array<{ sku: string; price: string; found: boolean }>,
+      unmatched: 0,
+      priced: 0,
+      skipped: 0,
+      unmatchedCodes: [] as string[],
+      dryRun: true,
     })),
 });
