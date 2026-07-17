@@ -801,3 +801,17 @@
 - [x] Mapped images by category/subCategory/description patterns (Base, Wall, Tall, Vanity, Accessory)
 - [x] All 224 base cabinets returned by placeableCabinets API now have catalog images
 - [x] Designer palette shows correct images for all cabinet types
+
+## Feature: Room Scene Photos & Pantry Image Corrections (July 17, 2026)
+- [x] Extract room scene photos from Clark and Sons 2025 catalog (page 47) — 6 kitchen scenes
+- [x] Extract room scene photos from Skyline Builder Grade catalog — GR Shaker Gray
+- [x] Extract room scene photos from Milestone Slim Shaker 2026 catalog — SAO Slim Amber Oak
+- [x] Download room scene photos from Milestone gallery — SIB, SWO, SDW, SAG
+- [x] Generate AI room scene for Fresh Sage (FS) — sage green kitchen
+- [x] Generate AI room scene for Platinum Shaker (PS) — platinum gray kitchen
+- [x] Upload all Clark and Sons, Skyline, and Milestone room scene images to CDN
+- [x] Update roomSceneImageUrl for all 66 door styles in database (0 missing)
+- [x] Generate double-door tall pantry cabinet image for 24" and 30" utility pantry cabinets
+- [x] Fix U24xxxx and U30xxxx utility pantry cabinets to use double-door pantry image
+- [x] Verify U18xxxx uses single-door pantry image (correct)
+- [x] Verify UOC/O3xxxx oven pantry cabinets use oven cabinet image (correct)
