@@ -75,7 +75,16 @@ export const skuImagesRouter = router({
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
-        .orderBy(doorStyles.ourName, cabinets.category, cabinets.masterCode)
+        .orderBy(
+          doorStyles.ourName,
+          cabinets.category,
+          cabinets.subCategory,
+          // Wall cabinets: sort height-first (15", 18", 24", 30", 36", 42")
+          // Base/Tall/Vanity: sort width-first
+          sql`CASE WHEN ${cabinets.category} = 'Wall' THEN CAST(${cabinets.height} AS DECIMAL) ELSE CAST(${cabinets.width} AS DECIMAL) END`,
+          sql`CASE WHEN ${cabinets.category} = 'Wall' THEN CAST(${cabinets.width} AS DECIMAL) ELSE CAST(${cabinets.height} AS DECIMAL) END`,
+          cabinets.masterCode
+        )
         .limit(input.limit)
         .offset(input.offset);
 
@@ -160,6 +169,103 @@ export const skuImagesRouter = router({
           .where(inArray(distributorSkus.id, ids));
       }
       return { updated: ids.length };
+    }),
+
+  /**
+   * Master-code-level list: one row per cabinet, showing the shared image (if any),
+   * category, description, and how many distributor SKUs reference it.
+   * This is the primary view for the Product Images admin tab.
+   */
+  masterList: adminProcedure
+    .input(
+      z.object({
+        search: z.string().optional(),
+        category: z.string().optional(),
+        onlyMissing: z.boolean().optional(),
+        limit: z.number().min(1).max(200).default(60),
+        offset: z.number().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { items: [], total: 0 };
+
+      const conds: ReturnType<typeof eq>[] = [];
+      if (input.onlyMissing) conds.push(sql`c.catalogImageUrl IS NULL` as any);
+      if (input.category) conds.push(eq(cabinets.category, input.category) as any);
+      if (input.search) {
+        const s = `%${input.search}%`;
+        conds.push(
+          or(
+            like(cabinets.masterCode, s),
+            like(cabinets.description, s),
+            like(cabinets.category, s)
+          )! as any
+        );
+      }
+      const whereExpr = conds.length ? and(...conds) : undefined;
+
+      const baseQ = db
+        .select({
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          imageUrl: cabinets.catalogImageUrl,
+          skuCount: sql<number>`COUNT(DISTINCT ds.id)`,
+        })
+        .from(cabinets)
+        .leftJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .groupBy(cabinets.id)
+        .orderBy(cabinets.category, cabinets.masterCode);
+
+      const countQ = db
+        .select({ count: sql<number>`COUNT(DISTINCT c.id)` })
+        .from(cabinets);
+
+      const [items, countRes] = await Promise.all([
+        whereExpr ? (baseQ.where(whereExpr) as any).limit(input.limit).offset(input.offset) : baseQ.limit(input.limit).offset(input.offset),
+        whereExpr ? (countQ.where(whereExpr) as any) : countQ,
+      ]);
+
+      return { items, total: Number((countRes as any)[0]?.count ?? 0) };
+    }),
+
+  /**
+   * Set image on ALL distributor_skus that share a cabinetId (master code level).
+   * Also updates cabinets.catalogImageUrl for the master record.
+   */
+  setMasterImage: adminProcedure
+    .input(
+      z.object({
+        cabinetId: z.number(),
+        imageUrl: z.string().min(1),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { updated: 0 };
+
+      // Update the master cabinets record
+      await db
+        .update(cabinets)
+        .set({ catalogImageUrl: input.imageUrl })
+        .where(eq(cabinets.id, input.cabinetId));
+
+      // Propagate to all distributor SKUs
+      const siblings = await db
+        .select({ id: distributorSkus.id })
+        .from(distributorSkus)
+        .where(eq(distributorSkus.cabinetId, input.cabinetId));
+      const ids = siblings.map((s) => s.id);
+      if (ids.length) {
+        await db
+          .update(distributorSkus)
+          .set({ imageUrl: input.imageUrl })
+          .where(inArray(distributorSkus.id, ids));
+      }
+      return { updated: ids.length + 1 };
     }),
 
   /** Count how many SKUs an "apply to all cabinet" action would touch (for the confirm dialog). */

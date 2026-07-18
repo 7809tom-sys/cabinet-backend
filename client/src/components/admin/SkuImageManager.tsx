@@ -201,11 +201,37 @@ function EditDialog({
   const [applyAll, setApplyAll] = useState(true);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
+  // Sub-category editing
+  const [subCat, setSubCat] = useState(row.subCategory ?? "");
+  const [cat, setCat] = useState(row.category ?? "");
+  const metaQuery = trpc.genericCabinets.list.useQuery(
+    { page: 0, pageSize: 1 },
+    { staleTime: 60_000 }
+  );
+  const categories: string[] = (metaQuery.data?.categories ?? []) as string[];
+  const subCategories: string[] = (metaQuery.data?.subCategories ?? []) as string[];
+  const updateCabinet = trpc.genericCabinets.update.useMutation({
+    onSuccess: () => { utils.skuImages.list.invalidate(); utils.genericCabinets.list.invalidate(); },
+  });
+
   const siblingCount = trpc.skuImages.cabinetSiblingCount.useQuery({ skuId: row.skuId });
   const upload = trpc.skuImages.upload.useMutation();
   const setImage = trpc.skuImages.setImage.useMutation();
 
-  const busy = upload.isPending || setImage.isPending;
+  const busy = upload.isPending || setImage.isPending || updateCabinet.isPending;
+
+  // Save category/subCategory changes if they differ from original
+  const saveMetaIfChanged = async () => {
+    const catChanged = cat !== (row.category ?? "");
+    const subChanged = subCat !== (row.subCategory ?? "");
+    if ((catChanged || subChanged) && row.cabinetId) {
+      await updateCabinet.mutateAsync({
+        id: row.cabinetId,
+        ...(catChanged ? { category: cat } : {}),
+        ...(subChanged ? { subCategory: subCat || null } : {}),
+      });
+    }
+  };
 
   const doSave = async (dataUrl: string) => {
     try {
@@ -290,6 +316,49 @@ function EditDialog({
                 </span>
               </span>
             </label>
+
+            {/* Category / Sub-category quick-edit */}
+            <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Cabinet classification</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Category</label>
+                  <select
+                    className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+                    value={cat}
+                    onChange={(e) => setCat(e.target.value)}
+                  >
+                    <option value="">— none —</option>
+                    {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Sub-category</label>
+                  <select
+                    className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+                    value={subCat}
+                    onChange={(e) => setSubCat(e.target.value)}
+                  >
+                    <option value="">— none —</option>
+                    {subCategories.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              {(cat !== (row.category ?? "") || subCat !== (row.subCategory ?? "")) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full text-xs"
+                  disabled={updateCabinet.isPending}
+                  onClick={async () => {
+                    await saveMetaIfChanged();
+                    toast.success("Classification updated");
+                  }}
+                >
+                  {updateCabinet.isPending ? "Saving…" : "Save classification"}
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <ImageEditor
@@ -412,10 +481,13 @@ export default function SkuImageManager() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [styleId, setStyleId] = useState<number | undefined>(undefined);
+  const [category, setCategory] = useState<string | undefined>(undefined);
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [editRow, setEditRow] = useState<SkuRow | null>(null);
   const [showBatch, setShowBatch] = useState(false);
   const [page, setPage] = useState(0);
+
+  const CATEGORIES = ["Accessory", "Base", "Corners", "Panels & Fillers", "Tall", "Vanity", "Wall"];
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
@@ -423,29 +495,48 @@ export default function SkuImageManager() {
   }, [search]);
 
   // Reset to page 0 whenever filters change
-  useEffect(() => { setPage(0); }, [debounced, styleId, onlyMissing]);
+  useEffect(() => { setPage(0); }, [debounced, styleId, category, onlyMissing]);
 
   const styles = trpc.doorStyles.list.useQuery(undefined);
 
   // Stabilize query input with useMemo so React Query correctly detects changes
   const queryInput = useMemo(
-    () => ({ search: debounced || undefined, styleId, onlyMissing, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
-    [debounced, styleId, onlyMissing, page]
+    () => ({ search: debounced || undefined, styleId, category, onlyMissing, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
+    [debounced, styleId, category, onlyMissing, page]
   );
 
   const list = trpc.skuImages.list.useQuery(queryInput);
 
   const items = (list.data?.items ?? []) as SkuRow[];
 
-  // Group door-first: door style -> rows
+  // Group by category → subCategory, sorted by size within each sub-type
   const grouped = useMemo(() => {
-    const m = new Map<string, SkuRow[]>();
+    // Build: category -> subCategory -> rows[]
+    const catMap = new Map<string, Map<string, SkuRow[]>>();
     for (const r of items) {
-      const key = r.styleName || r.styleCode || "Unassigned";
-      if (!m.has(key)) m.set(key, []);
-      m.get(key)!.push(r);
+      const cat = r.category || "Unassigned";
+      const sub = r.subCategory || "General";
+      if (!catMap.has(cat)) catMap.set(cat, new Map());
+      const subMap = catMap.get(cat)!;
+      if (!subMap.has(sub)) subMap.set(sub, []);
+      subMap.get(sub)!.push(r);
     }
-    return Array.from(m.entries());
+    // Sort categories in a logical order
+    const catOrder = ["Base", "Wall", "Tall", "Vanity", "Corners", "Panels & Fillers", "Accessory", "Unassigned"];
+    const sortedCats = Array.from(catMap.entries()).sort(([a], [b]) => {
+      const ai = catOrder.indexOf(a) === -1 ? 99 : catOrder.indexOf(a);
+      const bi = catOrder.indexOf(b) === -1 ? 99 : catOrder.indexOf(b);
+      return ai - bi;
+    });
+    // Flatten to [{ cat, sub, rows }] array
+    const result: { cat: string; sub: string; rows: SkuRow[] }[] = [];
+    for (const [cat, subMap] of sortedCats) {
+      const sortedSubs = Array.from(subMap.entries()).sort(([a], [b]) => a.localeCompare(b));
+      for (const [sub, rows] of sortedSubs) {
+        result.push({ cat, sub, rows });
+      }
+    }
+    return result;
   }, [items]);
 
   return (
@@ -472,6 +563,16 @@ export default function SkuImageManager() {
             </option>
           ))}
         </select>
+        <select
+          className="h-9 rounded-md border bg-background px-2 text-sm"
+          value={category ?? ""}
+          onChange={(e) => setCategory(e.target.value || undefined)}
+        >
+          <option value="">All categories</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
         <label className="flex items-center gap-2 text-sm">
           <Checkbox checked={onlyMissing} onCheckedChange={(v) => setOnlyMissing(Boolean(v))} />
           Needs photo
@@ -491,13 +592,16 @@ export default function SkuImageManager() {
         <p className="py-10 text-center text-muted-foreground">No products match.</p>
       ) : (
         <div className="space-y-8">
-          {grouped.map(([styleName, rows]) => (
-            <div key={styleName}>
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {styleName} · {rows.length}
-              </h3>
+          {grouped.map(({ cat, sub, rows }) => (
+            <div key={`${cat}-${sub}`}>
+              <div className="mb-3 border-b pb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{cat}</span>
+                <h3 className="text-sm font-semibold text-foreground">
+                  {sub} <span className="font-normal text-xs text-muted-foreground">· {rows.length}</span>
+                </h3>
+              </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                {rows.map((r) => {
+                {rows.map((r: SkuRow) => {
                   const img = resolveImg(r);
                   return (
                     <button
@@ -520,8 +624,8 @@ export default function SkuImageManager() {
                         )}
                       </div>
                       <div className="p-2">
-                        <p className="truncate text-xs font-medium">{r.masterCode}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">{r.category}</p>
+                        <p className="truncate text-xs font-semibold">{r.masterCode}</p>
+                        <p className="truncate text-[11px] text-muted-foreground leading-tight">{r.cabinetDescription}</p>
                       </div>
                     </button>
                   );
