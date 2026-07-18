@@ -267,10 +267,10 @@ export default function DesignTool() {
   const isMobile = useIsMobile(1024);
   const [, navigate] = useLocation();
   const { addItem, clear: clearCart, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
-  const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart" | "style">(() => {
+  const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart" | "style" | "room">(() => {
     if (typeof window === "undefined") return null;
     const p = new URLSearchParams(window.location.search).get("panel");
-    return p === "catalog" || p === "cart" || p === "style" ? p : null;
+    return p === "catalog" || p === "cart" || p === "style" || p === "room" ? p : null;
   });
 
   // Room + placement state
@@ -7165,17 +7165,36 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-7 h-14">
+          <div className="grid grid-cols-10 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
-              onClick={() => setMobilePanel("catalog")}
+              active={mobilePanel === "catalog" && paletteType !== "surfaces"}
+              onClick={() => {
+                if (paletteType === "surfaces") setPaletteType("base");
+                setMobilePanel("catalog");
+              }}
             />
             <MobileBarButton
               icon={<Palette className="h-5 w-5" />}
               label="Style"
               active={mobilePanel === "style"}
               onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
+            />
+            <MobileBarButton
+              icon={<Waves className="h-5 w-5" />}
+              label="Palette"
+              active={mobilePanel === "catalog" && paletteType === "surfaces"}
+              onClick={() => {
+                setPaletteType("surfaces");
+                setMobilePanel("catalog");
+              }}
+            />
+            <MobileBarButton
+              icon={<Ruler className="h-5 w-5" />}
+              label="Room"
+              active={mobilePanel === "room"}
+              onClick={() => setMobilePanel((p) => p === "room" ? null : "room")}
             />
             <MobileBarButton
               icon={viewMode === "elevation" ? <LayoutGrid className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -7203,6 +7222,12 @@ export default function DesignTool() {
                 setCabinetsLocked((v) => !v);
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
               }}
+            />
+            <MobileBarButton
+              icon={<Save className="h-5 w-5" />}
+              label="Save"
+              disabled={placed.length === 0}
+              onClick={() => setSaveSignal((n) => n + 1)}
             />
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
@@ -7400,6 +7425,50 @@ export default function DesignTool() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Mobile room size editor sheet */}
+      {isMobile && (
+        <Sheet open={mobilePanel === "room"} onOpenChange={(o) => setMobilePanel(o ? "room" : null)}>
+          <SheetContent side="bottom" className="rounded-t-2xl p-0" style={{ maxHeight: "min(80vh, calc(100dvh - 4rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+            <SheetHeader className="border-b px-4 py-3">
+              <SheetTitle className="text-sm">Room Size</SheetTitle>
+            </SheetHeader>
+            <div className="overflow-y-auto px-4 py-4">
+              <div className={layoutLocked ? "pointer-events-none opacity-50" : undefined} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
+                <RoomSizeControl
+                  room={room}
+                  onChange={applyRoom}
+                  drawMode={drawMode}
+                  onToggleDraw={() => {
+                    if (layoutLocked) return;
+                    setDrawMode((d) => !d);
+                    setSelectedUid(null);
+                    setMeasureMode(false);
+                    setMobilePanel(null);
+                  }}
+                  isPolygon={isPolygonRoom}
+                  onTogglePolygon={() => {
+                    if (layoutLocked) return;
+                    if (!isPolygonRoom) {
+                      import("@/lib/polygonRoom").then(({ rectToPolygon }) => {
+                        const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
+                        setRoom((prev) => ({ ...prev, vertices, customWalls }));
+                      });
+                      setPolygonEditMode(true);
+                      setDrawMode(false);
+                      setMeasureMode(false);
+                      toast.success("Custom shape mode — split walls and drag vertices to create bump-outs");
+                    } else {
+                      setPolygonEditMode((v) => !v);
+                    }
+                    setMobilePanel(null);
+                  }}
+                />
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
 
       {/* Design Preview Modal */}
