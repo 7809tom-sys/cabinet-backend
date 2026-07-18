@@ -216,7 +216,7 @@ function FeaturedStyles() {
             <img
               src={(first as { roomSceneImageUrl?: string | null }).roomSceneImageUrl ?? KITCHEN_SCENES["shaker-white"]}
               alt={(first as { ourName?: string | null }).ourName ?? "Featured Style"}
-              className="h-72 w-full object-cover transition-transform duration-500 group-hover:scale-105 md:h-full"
+              className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48 md:h-full"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-6">
