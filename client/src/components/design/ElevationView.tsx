@@ -190,6 +190,10 @@ export function ElevationView({
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
     const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
+    // DEBUG: log over-fridge cabinets
+    if (p.mountBottom != null && p.placement === 'wall') {
+      console.log('[EV-DEBUG]', p.masterCode, '| placement:', p.placement, '| mountBottom:', p.mountBottom, '| resolvedCounts:', resolvedCounts, '| displayDrawerCount:', displayDrawerCount(p), '| cabType:', cabType, '| height:', height, '| bottom:', bottom);
+    }
     // For blind corner cabinets, determine which side the blind (corner) portion
     // is on. If the cabinet's start is near position 0 (wall start), the corner
     // is on the left. If its end is near planSpan (wall end), the corner is on
@@ -258,7 +262,7 @@ export function ElevationView({
               edge={edgeColor}
               face={cabFinish.face}
               doors={resolvedCounts.doors || doorCountForCabinet(p)}
-              drawers={resolvedCounts.drawers || displayDrawerCount(p)}
+              drawers={isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p))}
               isWall={isWall}
               doorSampleUrl={cabDoorSampleUrl}
               cabinetType={cabType}

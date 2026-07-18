@@ -837,3 +837,7 @@
 - [ ] Fix Clark & Sons WR-prefix SKU resolver: W361224 must map to WR3612 (WR{width}{height}, always 24 deep)
 - [ ] Restore all fridge popup options that were showing before (heights, depths, widths)
 - [ ] Verify Clark & Sons fridge bridge cabinets resolve correctly for all widths (30, 33, 36, etc.)
+
+## Bug: Over-fridge cabinet shows drawer band instead of two doors
+- [x] Fix ElevationView.tsx: wall-placement cabinets must never show a drawer band (drawers prop must be 0 for wall cabinets)
+- [x] Verify fix in browser: over-fridge cabinet shows only 2 doors, no drawer band
