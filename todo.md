@@ -932,17 +932,17 @@
 
 ## Import preview inline cell editing
 
-- [ ] Add `cellEdits` state to `DistributorImport` (rowNum+field → edited value)
-- [ ] Render red-highlighted price cells as clickable inputs (click to edit, Enter/blur to confirm)
-- [ ] Render red-highlighted dimension cells as clickable inputs
-- [ ] Pass `cellEdits` in the dry-run payload so the server re-validates with the corrected values
-- [ ] Server-side `importWithMapping` applies `cellEdits` overrides before validation/preview
-- [ ] After editing a cell, auto-trigger a re-validate (new dry-run) so the row severity updates
-- [ ] TypeScript check passes; checkpoint saved
+- [x] Add `cellEdits` state to `DistributorImport` (rowNum+field → edited value)
+- [x] Render red-highlighted price cells as clickable inputs (click to edit, Enter/blur to confirm)
+- [x] Render red-highlighted dimension cells as clickable inputs
+- [x] Pass `cellEdits` in the dry-run payload so the server re-validates with the corrected values
+- [x] Server-side `importWithMapping` applies `cellEdits` overrides before validation/preview
+- [x] After editing a cell, auto-trigger a re-validate (new dry-run) so the row severity updates
+- [x] TypeScript check passes; checkpoint saved
 
 ## Bug: Mobile toolbar missing Color Palette, Room Size, Save buttons
 
 - [x] Restore Color Palette button to mobile toolbar in DesignTool
 - [x] Restore Room Size button to mobile toolbar in DesignTool
 - [x] Restore Save button to mobile toolbar in DesignTool
-- [ ] TypeScript check passes; checkpoint saved
+- [x] TypeScript check passes; checkpoint saved

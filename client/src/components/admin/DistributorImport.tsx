@@ -288,6 +288,9 @@ export default function DistributorImport() {
   const [xlsxResult, setXlsxResult] = useState<ImportResult | null>(null);
   // Per-row cabinet match overrides: rowNum → cabinetId (admin-selected)
   const [matchOverrides, setMatchOverrides] = useState<Record<number, number>>({});
+  // Per-cell inline edits: "rowNum:field" → corrected string value
+  // field is one of: "dimensions", "price:<styleCode>"
+  const [cellEdits, setCellEdits] = useState<Record<string, string>>({});
   const xlsxFileRef = useRef<HTMLInputElement>(null);
 
   const parseMut = trpc.distributorAdmin.parseXlsxColumns.useMutation({
@@ -447,6 +450,7 @@ export default function DistributorImport() {
       distributorId: Number(distributorId),
       columnMapping: mappingInput,
       matchOverrides: overridesForPayload,
+      cellEdits: Object.keys(cellEdits).length > 0 ? cellEdits : undefined,
       dryRun,
     };
     if (dryRun) {
@@ -465,6 +469,7 @@ export default function DistributorImport() {
     setColumnMapping([]);
     setXlsxResult(null);
     setMatchOverrides({});
+    setCellEdits({});
     if (xlsxFileRef.current) xlsxFileRef.current.value = "";
   }
 
@@ -970,17 +975,68 @@ export default function DistributorImport() {
                                     <span className="ml-1 text-amber-500">({(r as any).missingPriceCount} missing)</span>
                                   )}
                                 </td>
-                                <td className="px-3 py-1.5 max-w-[200px]">
+                                <td className="px-3 py-1.5 max-w-[260px]">
                                   {issues && issues.length > 0 ? (
-                                    <ul className="space-y-0.5">
-                                      {issues.map((iss, i) => (
-                                        <li key={i} className={iss.severity === "error" ? "text-destructive" : "text-amber-600 dark:text-amber-400"}>
-                                          {iss.severity === "error" ? "✗" : "⚠"} {iss.message}
-                                        </li>
-                                      ))}
+                                    <ul className="space-y-1">
+                                      {issues.map((iss, i) => {
+                                        const editKey = `${r.rowNum}:${iss.field}`;
+                                        const isEditable = iss.field === "dimensions" || iss.field.startsWith("price:");
+                                        const currentVal = cellEdits[editKey] ?? "";
+                                        if (isEditable) {
+                                          return (
+                                            <li key={i} className="flex flex-col gap-0.5">
+                                              <span className={iss.severity === "error" ? "text-destructive text-xs" : "text-amber-600 dark:text-amber-400 text-xs"}>
+                                                {iss.severity === "error" ? "✗" : "⚠"} {iss.message}
+                                              </span>
+                                              <div className="flex items-center gap-1">
+                                                <input
+                                                  type="text"
+                                                  className="h-6 w-28 rounded border border-input bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                                                  placeholder={iss.field === "dimensions" ? "e.g. 12x30x12" : "e.g. 149.99"}
+                                                  value={currentVal}
+                                                  onChange={(e) =>
+                                                    setCellEdits((prev) => ({ ...prev, [editKey]: e.target.value }))
+                                                  }
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                      e.currentTarget.blur();
+                                                    }
+                                                  }}
+                                                  onBlur={() => {
+                                                    if (currentVal.trim()) {
+                                                      runXlsxImport(true);
+                                                    }
+                                                  }}
+                                                />
+                                                {currentVal && (
+                                                  <button
+                                                    type="button"
+                                                    className="text-muted-foreground hover:text-foreground"
+                                                    title="Clear edit"
+                                                    onClick={() => {
+                                                      setCellEdits((prev) => {
+                                                        const next = { ...prev };
+                                                        delete next[editKey];
+                                                        return next;
+                                                      });
+                                                    }}
+                                                  >
+                                                    <X className="h-3 w-3" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            </li>
+                                          );
+                                        }
+                                        return (
+                                          <li key={i} className={iss.severity === "error" ? "text-destructive text-xs" : "text-amber-600 dark:text-amber-400 text-xs"}>
+                                            {iss.severity === "error" ? "✗" : "⚠"} {iss.message}
+                                          </li>
+                                        );
+                                      })}
                                     </ul>
                                   ) : r.warnings.length > 0 ? (
-                                    <span className="text-amber-600 dark:text-amber-400">{r.warnings.join(" ")}</span>
+                                    <span className="text-amber-600 dark:text-amber-400 text-xs">{r.warnings.join(" ")}</span>
                                   ) : (
                                     <span className="text-muted-foreground">—</span>
                                   )}

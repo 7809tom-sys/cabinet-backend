@@ -847,6 +847,9 @@ export const distributorImportRouter = router({
       })),
       // Admin-selected cabinet overrides: rowNum (1-based, same as previewRows.rowNum) → cabinetId
       matchOverrides: z.record(z.string(), z.number()).optional(),
+      // Admin inline cell edits: "rowNum:field" → corrected string value
+      // field is one of: "dimensions", "price:<styleCode>"
+      cellEdits: z.record(z.string(), z.string()).optional(),
       dryRun: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
@@ -881,6 +884,11 @@ export const distributorImportRouter = router({
       const overrideMap = new Map<number, number>();
       for (const [k, v] of Object.entries(input.matchOverrides ?? {})) {
         overrideMap.set(Number(k), v);
+      }
+      // Build cell-edit map: "rowNum:field" → corrected string value
+      const cellEditMap = new Map<string, string>();
+      for (const [k, v] of Object.entries(input.cellEdits ?? {})) {
+        cellEditMap.set(k, v);
       }
 
       // SKU-prefix → category inference (used when no category column is present)
@@ -995,7 +1003,11 @@ export const distributorImportRouter = router({
         const category = normalCat(rawCat) ?? inferCategoryFromSku(code);
         const subCategory = subCatCol >= 0 ? String(row[subCatCol] ?? "").trim() || null : null;
         // Dimensions: explicit dim column first, then extract from description
-        const dims = dimCol >= 0
+        // Apply admin cell edit override for dimensions if present
+        const dimCellEdit = cellEditMap.get(`${rowNum}:dimensions`);
+        const dims = dimCellEdit
+          ? parseDims(dimCellEdit)
+          : dimCol >= 0
           ? parseDims(String(row[dimCol] ?? ""))
           : parseDimsFromDesc(description);
         // Assemble flag
@@ -1085,10 +1097,14 @@ export const distributorImportRouter = router({
         const stylePrices: Array<{ styleId: number; styleCode: string; price: number | null; raw: string; valid: boolean }> = [];
         for (const pc of priceCols) {
           const rawVal = row[pc.colIdx];
-          const strVal = String(rawVal ?? "").trim();
-          // Find the style code for display
-          const styleEntry = distStyles.find((s) => s.id === pc.styleId);
-          const styleCode = styleEntry?.styleCode ?? String(pc.styleId);
+          // Apply admin cell edit override for this price column if present
+          const styleEntry0 = distStyles.find((s) => s.id === pc.styleId);
+          const styleCode0 = styleEntry0?.styleCode ?? String(pc.styleId);
+          const priceCellEdit = cellEditMap.get(`${rowNum}:price:${styleCode0}`);
+          const strVal = priceCellEdit !== undefined ? priceCellEdit : String(rawVal ?? "").trim();
+          // Use the already-resolved style code for display
+          const styleEntry = styleEntry0;
+          const styleCode = styleCode0;
           if (!strVal || strVal.toUpperCase() === "N/A" || strVal === "-") {
             missingPriceCount++;
             stylePrices.push({ styleId: pc.styleId!, styleCode, price: null, raw: strVal, valid: false });
