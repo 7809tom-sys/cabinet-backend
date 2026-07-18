@@ -848,9 +848,9 @@ export default function GenericCabinetsAdmin() {
             <p>No cabinets found</p>
           </div>
         ) : viewMode === "table" ? (
-          <div className="border rounded-lg overflow-hidden overflow-x-auto">
+          <div className="border rounded-lg overflow-auto max-h-[calc(100vh-280px)]">
             <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b">
+              <thead className="bg-muted/50 border-b sticky top-0 z-10">
                 <tr>
                   <th className="pl-3 pr-1 py-2.5 w-8">
                     <button onClick={toggleSelectAll} className="text-muted-foreground hover:text-foreground">
