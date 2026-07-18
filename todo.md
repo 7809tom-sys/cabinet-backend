@@ -946,3 +946,16 @@
 - [x] Restore Room Size button to mobile toolbar in DesignTool
 - [x] Restore Save button to mobile toolbar in DesignTool
 - [x] TypeScript check passes; checkpoint saved
+
+## numberOfShelves on cabinet generic record
+
+- [x] Add `numberOfFixedShelves` and `numberOfAdjShelves` int columns to `cabinets` table in schema.ts
+- [x] Generate and apply migration SQL
+- [x] Expose both shelf fields + numberOfDoors + numberOfDrawers in `adminUpdateCabinet` input and patch
+- [x] Show Fixed Shelves, Adjustable Shelves, Doors, Drawers in the public Specifications card on CabinetDetail
+- [x] Add `numberOfFixedShelves` dropdown (0–6) to the admin edit form on CabinetDetail
+- [x] Add `numberOfAdjShelves` dropdown (0–6) to the admin edit form on CabinetDetail
+- [x] Add `numberOfDoors` dropdown (0–2) to the admin edit form on CabinetDetail
+- [x] Add `numberOfDrawers` dropdown (0–8) to the admin edit form on CabinetDetail
+- [x] Hide Doors and Drawers spec rows for accessory-strip (trim/moulding) items
+- [x] TypeScript check passes; checkpoint saved

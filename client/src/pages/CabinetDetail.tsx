@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -26,7 +27,7 @@ import {
   ownerCostBreakdown,
 } from "@shared/pricingTier";
 import { CabinetImage } from "@/components/CabinetImage";
-import { cabinetTypeLabel, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
+import { cabinetTypeLabel, resolveDoorDrawerCounts, cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto, realImageUrl } from "@/lib/doorFamilyPhotos";
 import { finishColors, finishColorsWithName } from "@/lib/design";
@@ -388,6 +389,10 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editPkgHeight, setEditPkgHeight] = useState("");
   const [editPkgWeight, setEditPkgWeight] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
+  const [editNumDoors, setEditNumDoors] = useState<string>("0");
+  const [editNumDrawers, setEditNumDrawers] = useState<string>("0");
+  const [editNumFixedShelves, setEditNumFixedShelves] = useState<string>("0");
+  const [editNumAdjShelves, setEditNumAdjShelves] = useState<string>("0");
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -409,6 +414,11 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditPkgHeight(String((cabinet as Record<string, unknown>).pkgHeight ?? ""));
       setEditPkgWeight(String((cabinet as Record<string, unknown>).pkgWeight ?? ""));
       setEditIsActive(cabinet.isActive ?? true);
+      const cab = cabinet as Record<string, unknown>;
+      setEditNumDoors(String(cab.numberOfDoors ?? 0));
+      setEditNumDrawers(String(cab.numberOfDrawers ?? 0));
+      setEditNumFixedShelves(String(cab.numberOfFixedShelves ?? 0));
+      setEditNumAdjShelves(String(cab.numberOfAdjShelves ?? 0));
     }
   }, [editOpen, cabinet]);
 
@@ -496,6 +506,10 @@ export default function CabinetDetail({ masterCode }: Props) {
       pkgWidth: editPkgWidth.trim() || null,
       pkgHeight: editPkgHeight.trim() || null,
       pkgWeight: editPkgWeight.trim() || null,
+      numberOfDoors: parseInt(editNumDoors) || 0,
+      numberOfDrawers: parseInt(editNumDrawers) || 0,
+      numberOfFixedShelves: parseInt(editNumFixedShelves) || 0,
+      numberOfAdjShelves: parseInt(editNumAdjShelves) || 0,
       isActive: editIsActive,
     });
   }
@@ -806,21 +820,35 @@ export default function CabinetDetail({ masterCode }: Props) {
               Specifications
             </h3>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              {[
-                { label: "Type", value: cabinetTypeLabel(cabinet) },
-                { label: "Width", value: cabinet.width ? `${cabinet.width}"` : null },
-                { label: "Height", value: cabinet.height ? `${cabinet.height}"` : null },
-                { label: "Depth", value: cabinet.depth ? `${cabinet.depth}"` : null },
-                { label: "Doors", value: resolveDoorDrawerCounts(cabinet).doors ? String(resolveDoorDrawerCounts(cabinet).doors) : null },
-                { label: "Drawers", value: resolveDoorDrawerCounts(cabinet).drawers ? String(resolveDoorDrawerCounts(cabinet).drawers) : null },
-              ]
-                .filter((item) => item.value)
-                .map((item) => (
-                  <div key={item.label}>
-                    <dt className="text-muted-foreground">{item.label}</dt>
-                    <dd className="font-medium text-foreground">{item.value}</dd>
-                  </div>
-                ))}
+              {(() => {
+                const drawingType = cabinetDrawingType(cabinet as Parameters<typeof cabinetDrawingType>[0]);
+                const isTrim = drawingType === "accessory-strip";
+                const { doors, drawers } = resolveDoorDrawerCounts(cabinet);
+                const rows: { label: string; value: string | null }[] = [
+                  { label: "Type", value: cabinetTypeLabel(cabinet) },
+                  { label: "Width", value: cabinet.width ? `${cabinet.width}"` : null },
+                  { label: "Height", value: cabinet.height ? `${cabinet.height}"` : null },
+                  { label: "Depth", value: cabinet.depth ? `${cabinet.depth}"` : null },
+                ];
+                if (!isTrim) {
+                  if (doors) rows.push({ label: "Doors", value: String(doors) });
+                  if (drawers) rows.push({ label: "Drawers", value: String(drawers) });
+                  const fixedShelves = (cabinet as Record<string, unknown>).numberOfFixedShelves;
+                  const adjShelves = (cabinet as Record<string, unknown>).numberOfAdjShelves;
+                  if (fixedShelves != null && Number(fixedShelves) > 0)
+                    rows.push({ label: "Fixed Shelves", value: String(fixedShelves) });
+                  if (adjShelves != null && Number(adjShelves) > 0)
+                    rows.push({ label: "Adj. Shelves", value: String(adjShelves) });
+                }
+                return rows
+                  .filter((item) => item.value)
+                  .map((item) => (
+                    <div key={item.label}>
+                      <dt className="text-muted-foreground">{item.label}</dt>
+                      <dd className="font-medium text-foreground">{item.value}</dd>
+                    </div>
+                  ));
+              })()}
             </dl>
           </div>
         </div>
@@ -1214,6 +1242,50 @@ export default function CabinetDetail({ masterCode }: Props) {
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">Shipping box dimensions. Leave blank to keep current value.</p>
+              </div>
+
+              {/* Doors / Drawers / Shelves */}
+              <div className="space-y-2">
+                <Label>Interior Configuration</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Doors</Label>
+                    <Select value={editNumDoors} onValueChange={setEditNumDoors}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[0,1,2].map(n => <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Drawers</Label>
+                    <Select value={editNumDrawers} onValueChange={setEditNumDrawers}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[0,1,2,3,4,5,6,7,8].map(n => <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Fixed Shelves</Label>
+                    <Select value={editNumFixedShelves} onValueChange={setEditNumFixedShelves}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[0,1,2,3,4,5,6].map(n => <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Adjustable Shelves</Label>
+                    <Select value={editNumAdjShelves} onValueChange={setEditNumAdjShelves}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[0,1,2,3,4,5,6].map(n => <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Interior configuration for this cabinet. Used in specs and future catalog illustrations.</p>
               </div>
 
               {/* Catalog image */}

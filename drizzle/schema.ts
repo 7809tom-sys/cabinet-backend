@@ -155,6 +155,8 @@ export const cabinets = mysqlTable("cabinets", {
   placementType: varchar("placementType", { length: 32 }), // base, wall, tall, island
   numberOfDoors: int("numberOfDoors").default(0),
   numberOfDrawers: int("numberOfDrawers").default(0),
+  numberOfFixedShelves: int("numberOfFixedShelves"),
+  numberOfAdjShelves: int("numberOfAdjShelves"),
   hingeSide: varchar("hingeSide", { length: 16 }), // left, right, both, none
   doorSwingClearance: decimal("doorSwingClearance", { precision: 5, scale: 2 }),
   toeKickHeight: decimal("toeKickHeight", { precision: 5, scale: 2 }),

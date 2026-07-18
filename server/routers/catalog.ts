@@ -1368,6 +1368,11 @@ export const cabinetsRouter = router({
         pkgWidth: z.string().nullable().optional(),
         pkgHeight: z.string().nullable().optional(),
         pkgWeight: z.string().nullable().optional(),
+        // Door / drawer / shelf counts
+        numberOfDoors: z.number().int().min(0).max(2).nullable().optional(),
+        numberOfDrawers: z.number().int().min(0).max(8).nullable().optional(),
+        numberOfFixedShelves: z.number().int().min(0).max(8).nullable().optional(),
+        numberOfAdjShelves: z.number().int().min(0).max(8).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1390,6 +1395,10 @@ export const cabinetsRouter = router({
       if (input.pkgWidth !== undefined) patch.pkgWidth = input.pkgWidth;
       if (input.pkgHeight !== undefined) patch.pkgHeight = input.pkgHeight;
       if (input.pkgWeight !== undefined) patch.pkgWeight = input.pkgWeight;
+      if (input.numberOfDoors !== undefined) patch.numberOfDoors = input.numberOfDoors;
+      if (input.numberOfDrawers !== undefined) patch.numberOfDrawers = input.numberOfDrawers;
+      if (input.numberOfFixedShelves !== undefined) patch.numberOfFixedShelves = input.numberOfFixedShelves;
+      if (input.numberOfAdjShelves !== undefined) patch.numberOfAdjShelves = input.numberOfAdjShelves;
       if (input.isActive !== undefined) patch.isActive = input.isActive;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
