@@ -4426,8 +4426,16 @@ export default function DesignTool() {
             </button>
           )}
         </div>
-        <div className="hidden lg:block h-5 w-px bg-border" />
-
+                <div className="hidden lg:block h-5 w-px bg-border" />
+        {/* Save Design — desktop only */}
+        <button
+          type="button"
+          className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          title="Save design"
+          onClick={() => setSaveSignal((n) => n + 1)}
+        >
+          <Save className="h-3.5 w-3.5" />
+        </button>
         {/* Start New / Clear Design — desktop only */}
         <button
           type="button"
