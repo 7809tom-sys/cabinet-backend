@@ -1070,7 +1070,7 @@ export function ElevationView({
         })}
 
         {/* Crown molding: band across the top of each wall cabinet */}
-        {crown && sorted.filter((p) => p.placement === "wall").map((p) => {
+        {crown && sorted.filter((p) => p.placement === "wall" && p.mountBottom == null).map((p) => {
           const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const { bottom, height } = elevationBox(p, room);
@@ -1096,7 +1096,7 @@ export function ElevationView({
 
         {/* Light rail: slim valance strip under the bottom edge of each wall
             cabinet (hides under-cabinet lighting). */}
-        {lightRail && sorted.filter((p) => p.placement === "wall").map((p) => {
+        {lightRail && sorted.filter((p) => p.placement === "wall" && p.mountBottom == null).map((p) => {
           const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const { bottom } = elevationBox(p, room);

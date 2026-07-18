@@ -841,3 +841,4 @@
 ## Bug: Over-fridge cabinet shows drawer band instead of two doors
 - [x] Fix ElevationView.tsx: wall-placement cabinets must never show a drawer band (drawers prop must be 0 for wall cabinets)
 - [x] Verify fix in browser: over-fridge cabinet shows only 2 doors, no drawer band
+- [x] Restore color picker to mobile toolbar in DesignTool.tsx

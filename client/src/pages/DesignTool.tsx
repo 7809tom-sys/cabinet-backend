@@ -267,10 +267,10 @@ export default function DesignTool() {
   const isMobile = useIsMobile(1024);
   const [, navigate] = useLocation();
   const { addItem, clear: clearCart, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
-  const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart">(() => {
+  const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart" | "style">(() => {
     if (typeof window === "undefined") return null;
     const p = new URLSearchParams(window.location.search).get("panel");
-    return p === "catalog" || p === "cart" ? p : null;
+    return p === "catalog" || p === "cart" || p === "style" ? p : null;
   });
 
   // Room + placement state
@@ -7150,11 +7150,17 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-6 h-14">
+          <div className="grid grid-cols-7 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
               onClick={() => setMobilePanel("catalog")}
+            />
+            <MobileBarButton
+              icon={<Palette className="h-5 w-5" />}
+              label="Style"
+              active={mobilePanel === "style"}
+              onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
             />
             <MobileBarButton
               icon={viewMode === "elevation" ? <LayoutGrid className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -7183,7 +7189,6 @@ export default function DesignTool() {
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
               }}
             />
-
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
               label="Cart"
@@ -7192,6 +7197,73 @@ export default function DesignTool() {
             />
           </div>
         </div>
+      )}
+      {/* Mobile style / color picker sheet */}
+      {isMobile && (
+        <Sheet open={mobilePanel === "style"} onOpenChange={(o) => setMobilePanel(o ? "style" : null)}>
+          <SheetContent side="bottom" className="rounded-t-2xl p-0" style={{ maxHeight: "min(70vh, calc(100dvh - 4rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+            <SheetHeader className="border-b px-4 py-3">
+              <SheetTitle className="text-sm">Door Style &amp; Color</SheetTitle>
+            </SheetHeader>
+            <div className="px-4 py-4 space-y-3 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <ColorSlotButton
+                  label={t("dt_bs_color_1")}
+                  slot="A"
+                  active={activeSlot === "A"}
+                  style={styleA != null ? (doorStyles?.find((d) => d.id === styleA) ?? null) : null}
+                  styles={uniqueDoorStyles}
+                  distributors={distributorLabels ?? []}
+                  onSelect={() => {
+                    if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
+                    selectColorSlot("A");
+                  }}
+                  onPick={(id) => {
+                    if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
+                    setSlotStyle("A", id);
+                  }}
+                  onClear={undefined}
+                />
+                <ColorSlotButton
+                  label={t("dt_bs_color_2")}
+                  slot="B"
+                  active={activeSlot === "B"}
+                  style={styleB != null ? (doorStyles?.find((d) => d.id === styleB) ?? null) : null}
+                  styles={slotBStyles}
+                  distributors={distributorLabels ?? []}
+                  disabled={cabinetsLocked || styleA == null}
+                  disabledReason={cabinetsLocked ? "Cabinets are locked — unlock to change door style" : "Set Color 1 first before choosing Color 2"}
+                  onSelect={() => {
+                    if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
+                    if (styleB != null) selectColorSlot("B"); else toast.info(t("dt_t_second_style_first"));
+                  }}
+                  onPick={(id) => {
+                    if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change door style"); return; }
+                    setSlotStyle("B", id);
+                  }}
+                  onClear={styleB != null && !cabinetsLocked ? () => {
+                    setPlaced((prev) => prev.map((p) => (p.styleId === styleB ? { ...p, styleId: null } : p)));
+                    setStyleB(null);
+                    if (activeSlot === "B") { setActiveSlot("A"); if (styleA != null) setStyleId(styleA); }
+                    toast.success(t("dt_t_second_color_removed"));
+                  } : undefined}
+                />
+              </div>
+              <p className="text-[10px] leading-snug text-muted-foreground">{t("dt_bs_two_tone_help")}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-foreground shrink-0">{t("dt_bs_pricing")}</span>
+                <Select value={tier} disabled={cabinetsLocked} onValueChange={(v) => { if (cabinetsLocked) { toast.info("Cabinets are locked — unlock to change pricing tier"); return; } setTier(v as PricingTier); }}>
+                  <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Wholesale">{t("dt_bs_wholesale")}</SelectItem>
+                    <SelectItem value="Contractor">{t("dt_bs_contractor")}</SelectItem>
+                    <SelectItem value="Homeowner">{t("dt_bs_homeowner")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
 
 
