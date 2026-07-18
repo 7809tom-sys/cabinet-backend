@@ -4366,13 +4366,13 @@ export default function DesignTool() {
 
         <div className="hidden lg:block h-5 w-px bg-border" />
 
-        {/* View toggle — individual separated buttons */}
-        <div className="flex items-center gap-1">
+        {/* View toggle — grouped pill with subtle background */}
+        <div className="hidden lg:flex items-center rounded-md border border-border bg-muted/30 p-0.5 gap-0.5">
           <button
             onClick={() => setViewMode("plan")}
             title={t("dt_sh_birdseye")}
-            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
-              viewMode === "plan" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
+              viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             }`}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
@@ -4380,8 +4380,8 @@ export default function DesignTool() {
           <button
             onClick={() => setViewMode("elevation")}
             title={t("dt_sh_front_view")}
-            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
-              viewMode === "elevation" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
+              viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             }`}
           >
             <Eye className="h-3.5 w-3.5" />
@@ -4389,8 +4389,8 @@ export default function DesignTool() {
           <button
             onClick={() => setViewMode("split")}
             title={t("dt_sh_split")}
-            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
-              viewMode === "split" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
+              viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             }`}
           >
             <Columns3 className="h-3.5 w-3.5" />
@@ -4398,8 +4398,8 @@ export default function DesignTool() {
           <button
             onClick={() => setViewMode("corner")}
             title={t("dt_sh_corner_title")}
-            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
-              viewMode === "corner" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
+              viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             }`}
           >
             <ScanLine className="h-3.5 w-3.5" />
@@ -4408,8 +4408,8 @@ export default function DesignTool() {
             <button
               onClick={() => setViewMode("island")}
               title="Island elevation preview"
-              className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
-                viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
+              className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
+                viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               }`}
             >
               <Square className="h-3.5 w-3.5" />
