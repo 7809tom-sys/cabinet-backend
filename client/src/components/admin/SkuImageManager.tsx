@@ -426,13 +426,14 @@ export default function SkuImageManager() {
   useEffect(() => { setPage(0); }, [debounced, styleId, onlyMissing]);
 
   const styles = trpc.doorStyles.list.useQuery(undefined);
-  const list = trpc.skuImages.list.useQuery({
-    search: debounced || undefined,
-    styleId,
-    onlyMissing,
-    limit: PAGE_SIZE,
-    offset: page * PAGE_SIZE,
-  });
+
+  // Stabilize query input with useMemo so React Query correctly detects changes
+  const queryInput = useMemo(
+    () => ({ search: debounced || undefined, styleId, onlyMissing, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
+    [debounced, styleId, onlyMissing, page]
+  );
+
+  const list = trpc.skuImages.list.useQuery(queryInput);
 
   const items = (list.data?.items ?? []) as SkuRow[];
 
