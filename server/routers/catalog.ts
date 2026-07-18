@@ -18,6 +18,7 @@ import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { sellPriceForTier } from "@shared/margins";
 import { invokeLLM } from "../_core/llm";
+import { generateImage } from "../_core/imageGeneration";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
@@ -1424,6 +1425,91 @@ export const cabinetsRouter = router({
       const buf = Buffer.from(raw, "base64");
       const safe = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
       const { url } = await storagePut(`catalog-images/${Date.now()}_${safe}`, buf, input.contentType);
+      return { url };
+    }),
+
+  // ── AI Catalog Image Generation ─────────────────────────────────────────────
+  // Generates a clean catalog illustration for a generic cabinet based on its
+  // configuration (type, dimensions, doors, drawers, shelves), uploads the
+  // result to S3, saves the URL on the cabinet record, and returns the URL.
+  adminGenerateCatalogImage: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      const [cab] = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          numberOfDoors: cabinets.numberOfDoors,
+          numberOfDrawers: cabinets.numberOfDrawers,
+          numberOfFixedShelves: cabinets.numberOfFixedShelves,
+          numberOfAdjShelves: cabinets.numberOfAdjShelves,
+        })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.id))
+        .limit(1);
+
+      if (!cab) throw new TRPCError({ code: "NOT_FOUND", message: "Cabinet not found" });
+
+      // Build a detailed prompt for a clean catalog-style illustration
+      const parts: string[] = [];
+      parts.push(`Clean technical catalog illustration of a kitchen cabinet.`);
+      if (cab.category) parts.push(`Cabinet type: ${cab.category}.`);
+      if (cab.description) parts.push(`Description: ${cab.description}.`);
+
+      const dims: string[] = [];
+      if (cab.width) dims.push(`${parseFloat(cab.width)}" wide`);
+      if (cab.height) dims.push(`${parseFloat(cab.height)}" tall`);
+      if (cab.depth) dims.push(`${parseFloat(cab.depth)}" deep`);
+      if (dims.length) parts.push(`Dimensions: ${dims.join(", ")}.`);
+
+      if (cab.numberOfDoors != null) {
+        parts.push(cab.numberOfDoors === 0 ? "No doors (open cabinet)." : `${cab.numberOfDoors} door${cab.numberOfDoors > 1 ? "s" : ""}.`);
+      }
+      if (cab.numberOfDrawers != null && cab.numberOfDrawers > 0) {
+        parts.push(`${cab.numberOfDrawers} drawer${cab.numberOfDrawers > 1 ? "s" : ""}.`);
+      }
+      const shelves: string[] = [];
+      if (cab.numberOfFixedShelves != null && cab.numberOfFixedShelves > 0)
+        shelves.push(`${cab.numberOfFixedShelves} fixed shelf${cab.numberOfFixedShelves > 1 ? "ves" : ""}`);
+      if (cab.numberOfAdjShelves != null && cab.numberOfAdjShelves > 0)
+        shelves.push(`${cab.numberOfAdjShelves} adjustable shelf${cab.numberOfAdjShelves > 1 ? "ves" : ""}`);
+      if (shelves.length) parts.push(`Interior: ${shelves.join(" and ")}.`);
+
+      parts.push(
+        "Style: white Shaker door panels with simple recessed center panel.",
+        "View: straight-on front elevation, centered, no perspective distortion.",
+        "Background: pure white (#FFFFFF). No shadows, no room context, no countertop.",
+        "Line weight: thin clean black outlines. Photorealistic finish, product-catalog quality.",
+        "Square image, cabinet fills 80% of the frame."
+      );
+
+      const prompt = parts.join(" ");
+
+      const result = await generateImage({ prompt });
+      const generatedUrl = result.url;
+      if (!generatedUrl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Image generation returned no URL" });
+
+      // Fetch the generated image and re-upload to our own S3 bucket
+      const imgResp = await fetch(generatedUrl);
+      if (!imgResp.ok) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch generated image" });
+      const imgBuf = Buffer.from(await imgResp.arrayBuffer());
+      const key = `catalog-images/ai_${cab.masterCode ?? cab.id}_${Date.now()}.png`;
+      const { url } = await storagePut(key, imgBuf, "image/png");
+
+      // Persist on the cabinet record
+      await db.update(cabinets).set({ catalogImageUrl: url }).where(eq(cabinets.id, input.id));
+
       return { url };
     }),
 

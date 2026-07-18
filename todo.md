@@ -981,3 +981,11 @@
 - [x] Clicking the thumbnail or upload button opens a file picker; selected image uploads via adminUploadCatalogImage then saves via adminUpdateCabinet
 - [x] Show upload progress spinner on the row while uploading
 - [x] TypeScript check passes; checkpoint saved
+
+## AI Cabinet Image Generation Button
+
+- [x] Add `adminGenerateCatalogImage` server procedure: build prompt from cabinet config, call image gen API, upload result, save URL
+- [x] Add "Generate with AI" (sparkle) button to ImageCell in CabinetConfigAdmin
+- [x] Show spinner on the row while generating; disable button during generation
+- [x] On success, update the row thumbnail immediately; show success toast
+- [x] TypeScript check passes; checkpoint saved

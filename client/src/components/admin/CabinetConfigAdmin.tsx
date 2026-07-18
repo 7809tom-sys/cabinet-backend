@@ -8,7 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, X } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, X, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -95,11 +95,14 @@ function CountCell({
 function ImageCell({
   row,
   onUploaded,
+  onGenerated,
 }: {
   row: CabinetRow;
   onUploaded: (id: number, url: string | null) => void;
+  onGenerated: (id: number, url: string) => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const uploadMutation = trpc.cabinets.adminUploadCatalogImage.useMutation({
@@ -111,6 +114,18 @@ function ImageCell({
     onError: (e) => {
       setUploading(false);
       toast.error(`Upload failed: ${e.message}`);
+    },
+  });
+
+  const generateMutation = trpc.cabinets.adminGenerateCatalogImage.useMutation({
+    onSuccess: (data) => {
+      onGenerated(row.id, data.url);
+      setGenerating(false);
+      toast.success("AI image generated and saved");
+    },
+    onError: (e) => {
+      setGenerating(false);
+      toast.error(`Generation failed: ${e.message}`);
     },
   });
 
@@ -128,10 +143,15 @@ function ImageCell({
       });
     };
     reader.readAsDataURL(file);
-    // Reset input so same file can be re-selected
     e.target.value = "";
   };
 
+  const handleGenerate = () => {
+    setGenerating(true);
+    generateMutation.mutate({ id: row.id });
+  };
+
+  const busy = uploading || generating;
   const imageUrl = row.catalogImageUrl;
 
   return (
@@ -143,7 +163,7 @@ function ImageCell({
             src={imageUrl}
             alt="catalog"
             className="h-10 w-10 rounded border border-border object-contain bg-muted/30 cursor-pointer"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => !busy && fileRef.current?.click()}
             title="Click to replace image"
           />
           {/* Remove button */}
@@ -158,10 +178,10 @@ function ImageCell({
       ) : (
         <div
           className="h-10 w-10 rounded border border-dashed border-border bg-muted/20 flex items-center justify-center cursor-pointer hover:bg-muted/40 transition-colors"
-          onClick={() => fileRef.current?.click()}
+          onClick={() => !busy && fileRef.current?.click()}
           title="Upload image"
         >
-          {uploading ? (
+          {busy ? (
             <Spinner className="h-4 w-4" />
           ) : (
             <ImageIcon className="h-4 w-4 text-muted-foreground" />
@@ -170,7 +190,7 @@ function ImageCell({
       )}
 
       {/* Upload button */}
-      {!uploading && (
+      {!busy && (
         <button
           className="h-6 w-6 flex items-center justify-center rounded border border-border bg-background hover:bg-muted/50 transition-colors"
           onClick={() => fileRef.current?.click()}
@@ -179,6 +199,25 @@ function ImageCell({
           <Upload className="h-3 w-3 text-muted-foreground" />
         </button>
       )}
+
+      {/* AI generate button */}
+      <button
+        className={cn(
+          "h-6 w-6 flex items-center justify-center rounded border transition-colors",
+          busy
+            ? "border-border bg-muted/30 cursor-not-allowed opacity-50"
+            : "border-amber-400/60 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40"
+        )}
+        onClick={!busy ? handleGenerate : undefined}
+        title="Generate image with AI"
+        disabled={busy}
+      >
+        {generating ? (
+          <Spinner className="h-3 w-3" />
+        ) : (
+          <Sparkles className="h-3 w-3 text-amber-500" />
+        )}
+      </button>
 
       <input
         ref={fileRef}
@@ -434,6 +473,7 @@ export function CabinetConfigAdmin() {
                       <ImageCell
                         row={row as CabinetRow}
                         onUploaded={handleImageUploaded}
+                        onGenerated={(id, url) => handleImageUploaded(id, url)}
                       />
                     </td>
                     <td className="px-3 py-1.5">
