@@ -926,6 +926,22 @@ export const designRouter = router({
       return { id: insertId };
     }),
 
+  rename: protectedProcedure
+    .input(z.object({ id: z.number(), name: z.string().min(1).max(255) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Ensure the design belongs to the requesting user
+      const rows = await db
+        .select({ id: kitchenDesigns.id })
+        .from(kitchenDesigns)
+        .where(and(eq(kitchenDesigns.id, input.id), eq(kitchenDesigns.userId, ctx.user.id)))
+        .limit(1);
+      if (!rows.length) throw new TRPCError({ code: "NOT_FOUND" });
+      await db.update(kitchenDesigns).set({ name: input.name }).where(eq(kitchenDesigns.id, input.id));
+      return { ok: true };
+    }),
+
   myDesigns: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) return [];

@@ -20,6 +20,9 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
 import {
@@ -4217,6 +4220,17 @@ export default function DesignTool() {
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
   // (the DesignActions toolbar itself is desktop-only / hidden on phones).
   const [saveSignal, setSaveSignal] = useState(0);
+  // Rename dialog (opened from the mobile save success toast)
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameDesignId, setRenameDesignId] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameMut = trpc.design.rename.useMutation({
+    onSuccess: () => {
+      toast.success("Design renamed", { description: renameValue });
+      setRenameDialogOpen(false);
+    },
+    onError: (e) => toast.error("Rename failed", { description: e.message }),
+  });
   const [loadSignal, setLoadSignal] = useState(0);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   // (Generic flooring/backsplash swatch sheets removed — surfaces now come from
@@ -5082,9 +5096,19 @@ export default function DesignTool() {
             contactEmail={verifiedEmail}
             openSaveSignal={saveSignal}
             openLoadSignal={loadSignal}
-            onSaveSuccess={(designName) => {
+            onSaveSuccess={(designName, designId) => {
               if (isMobile) {
-                toast.success("Design saved", { description: designName });
+                toast.success("Design saved", {
+                  description: designName,
+                  action: {
+                    label: "Edit name",
+                    onClick: () => {
+                      setRenameDesignId(designId);
+                      setRenameValue(designName);
+                      setRenameDialogOpen(true);
+                    },
+                  },
+                });
               }
             }}
             onLoad={(d) =>
@@ -7475,6 +7499,39 @@ export default function DesignTool() {
           </SheetContent>
         </Sheet>
       )}
+
+      {/* Rename design dialog (opened from mobile save success toast) */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Rename design</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && renameValue.trim() && renameDesignId) {
+                renameMut.mutate({ id: renameDesignId, name: renameValue.trim() });
+              }
+            }}
+            placeholder="Design name"
+            autoFocus
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (renameValue.trim() && renameDesignId) {
+                  renameMut.mutate({ id: renameDesignId, name: renameValue.trim() });
+                }
+              }}
+              disabled={!renameValue.trim() || renameMut.isPending}
+            >
+              {renameMut.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Design Preview Modal */}
       <DesignPreviewModal

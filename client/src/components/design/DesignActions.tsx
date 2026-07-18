@@ -87,7 +87,7 @@ interface Props {
   openSaveSignal?: number;
   openLoadSignal?: number;
   /** Called after a design is successfully saved (after the user confirms in the dialog). */
-  onSaveSuccess?: (designName: string) => void;
+  onSaveSuccess?: (designName: string, designId: number) => void;
   onLoad: (d: {
     room: RoomData;
     placed: PlacedCabinet[];
@@ -351,7 +351,7 @@ export function DesignActions({
     onSuccess: (res) => {
       const savedName = name || t("dt_act_saved_untitled");
       toast.success(t("dt_act_saved"), { description: savedName });
-      onSaveSuccess?.(savedName);
+      onSaveSuccess?.(savedName, res?.id ?? 0);
       setSaveOpen(false);
       setName("");
       utils.design.myDesigns.invalidate();
