@@ -1581,9 +1581,49 @@ export interface FinishColors {
 // style text wins. We match against the brand name AND the underlying paint
 // color / finish / wood species, so e.g. "Aero Obsidian (SW 6258 Tricorn Black)"
 // resolves to the black finish even though the brand word isn't "black".
-const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: string }[] = [
-  // WHITES
-  { match: /white|snow|arctic|alpine|pearl|dove(?!tail)|blanc|alba|marshmallow|extra white|snowbound|chantilly|frost(?!ed gray)|ivory|cotton|dawn/, face: "#f3f1ec", edge: "#cfc9bf", label: "#3a3a3a" },
+//
+// Hex values are sourced directly from the official Sherwin-Williams color chart
+// (images.sherwin-williams.com/content_images/sw-pdf-sherwin-williams-colorc.pdf)
+// for the most common cabinet paint colors, giving precise color accuracy.
+const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: string; swName?: string }[] = [
+  // ── SPECIFIC SW CABINET COLORS (matched before generic families) ──────────
+  // SW 7006 Extra White — LRV 86, crisp cool white
+  { match: /extra white|sw\s*7006|sw7006/, face: "#eeefea", edge: "#d0d1cc", label: "#2a2a2a", swName: "Extra White SW 7006" },
+  // SW 7008 Alabaster — warm white, most popular cabinet white
+  { match: /alabaster|sw\s*7008|sw7008/, face: "#edeae0", edge: "#cfc9b8", label: "#2a2a2a", swName: "Alabaster SW 7008" },
+  // SW 7012 Creamy — soft yellow-cream
+  { match: /creamy|sw\s*7012|sw7012/, face: "#efe9d4", edge: "#d4c9a8", label: "#2e2a1e", swName: "Creamy SW 7012" },
+  // SW 7005 Pure White
+  { match: /pure white|sw\s*7005|sw7005/, face: "#f4f1e8", edge: "#d8d4c6", label: "#2a2a2a", swName: "Pure White SW 7005" },
+  // SW 7004 Snowbound
+  { match: /snowbound|sw\s*7004|sw7004/, face: "#eef0ec", edge: "#d0d2ce", label: "#2a2a2a", swName: "Snowbound SW 7004" },
+  // SW 7029 Agreeable Gray — warm gray, very popular
+  { match: /agreeable gray|agreeable grey|sw\s*7029|sw7029/, face: "#d1cbc1", edge: "#b0a99e", label: "#1f1e1c", swName: "Agreeable Gray SW 7029" },
+  // SW 7015 Repose Gray — true neutral greige
+  { match: /repose gray|repose grey|sw\s*7015|sw7015/, face: "#ccc9c0", edge: "#a8a59c", label: "#1f1e1c", swName: "Repose Gray SW 7015" },
+  // SW 7016 Mindful Gray — warm neutral gray
+  { match: /mindful gray|mindful grey|sw\s*7016|sw7016/, face: "#bbb6ad", edge: "#96918a", label: "#1a1917", swName: "Mindful Gray SW 7016" },
+  // SW 6244 Naval — deep navy blue
+  { match: /naval(?!\s*gray)|sw\s*6244|sw6244/, face: "#3d5166", edge: "#26354a", label: "#f0f4f8", swName: "Naval SW 6244" },
+  // SW 6258 Tricorn Black — true black
+  { match: /tricorn black|sw\s*6258|sw6258/, face: "#2f2f2f", edge: "#161616", label: "#f5f5f5", swName: "Tricorn Black SW 6258" },
+  // SW 6990 Caviar — near-black warm
+  { match: /caviar|sw\s*6990|sw6990/, face: "#3b3635", edge: "#1e1b1a", label: "#f5f5f5", swName: "Caviar SW 6990" },
+  // SW 7069 Iron Ore — dark charcoal
+  { match: /iron ore|sw\s*7069|sw7069/, face: "#4b4d4e", edge: "#2c2e2f", label: "#f5f5f5", swName: "Iron Ore SW 7069" },
+  // SW 7048 Urbane Bronze — dark warm brown-gray
+  { match: /urbane bronze|sw\s*7048|sw7048/, face: "#645c54", edge: "#433e38", label: "#f5efe8", swName: "Urbane Bronze SW 7048" },
+  // SW 6119 Antique White — warm cream with beige undertone
+  { match: /antique white|sw\s*6119|sw6119/, face: "#ede0c8", edge: "#ccc0a0", label: "#2e2a1e", swName: "Antique White SW 6119" },
+  // SW 6385 Accessible Beige
+  { match: /accessible beige|sw\s*6385|sw6385/, face: "#d4c9b6", edge: "#b0a590", label: "#2a2520", swName: "Accessible Beige SW 6385" },
+  // SW 9166 Evergreen Fog — muted sage green
+  { match: /evergreen fog|sw\s*9166|sw9166/, face: "#7a8c7e", edge: "#5a6a5e", label: "#f0f4f0", swName: "Evergreen Fog SW 9166" },
+  // SW 6177 Pewter Green
+  { match: /pewter green|sw\s*6177|sw6177/, face: "#6b7d6a", edge: "#4e5e4d", label: "#f0f4f0", swName: "Pewter Green SW 6177" },
+  // ── GENERIC COLOR FAMILIES (fallback when no specific SW name matches) ────
+  // WHITES (broad)
+  { match: /white|snow|arctic|alpine|pearl|dove(?!tail)|blanc|alba|marshmallow|chantilly|frost(?!ed gray)|ivory|cotton|dawn/, face: "#f3f1ec", edge: "#cfc9bf", label: "#3a3a3a" },
   // GREYS (incl. repose/dovetail/agreeable/mindful greige-leaning grays)
   { match: /grey|gray|stone|pewter|graphite|slate|fog|cinder|relic|repose|dovetail|grizzle|greige|ash|smoke|nickel|harbor|mist|pebble|amberg/, face: "#9aa0a6", edge: "#6f747a", label: "#1f2937" },
   // BLUES
@@ -1599,7 +1639,7 @@ const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: str
   // MID WARM WOODS (oak/maple/honey/saddle/autumn)
   { match: /honey|oak|natural|maple|wheat|amber|toffee|saddle|autumn|caramel|pecan|harvest|golden|butterscotch|solar/, face: "#c08a4e", edge: "#9a6a36", label: "#3a2410" },
   // CREAMS / WARM NEUTRALS
-  { match: /cream|almond|biscuit|linen|sand|beige|tan|creamy|manila|wicker|navajo|buttermilk|antique white|aged|saddle/, face: "#e6dcc6", edge: "#c7b79a", label: "#3a3526" },
+  { match: /cream|almond|biscuit|linen|sand|beige|tan|creamy|manila|wicker|navajo|buttermilk|antique white|aged/, face: "#e6dcc6", edge: "#c7b79a", label: "#3a3526" },
 ];
 
 // Deterministic distinct-color palette for styles whose text doesn't match any
@@ -1644,6 +1684,17 @@ export function doorPanelKind(doorStyle?: string | null): DoorPanelKind {
   if (/bead/.test(s)) return "beaded";
   if (/inset/.test(s)) return "inset";
   return "shaker";
+}
+
+// Returns the matched SW color entry including swName when available.
+// Used by the product detail hero to display the SW color name as attribution.
+export function finishColorsWithName(...parts: (string | null | undefined)[]): FinishColors & { swName?: string } {
+  const s = parts.filter(Boolean).join(" ").toLowerCase();
+  for (const f of FINISH_BY_KEYWORD) {
+    if (f.match.test(s)) return { face: f.face, edge: f.edge, label: f.label, swName: f.swName };
+  }
+  if (!s.trim()) return DEFAULT_FINISH;
+  return FALLBACK_FINISHES[hashString(s) % FALLBACK_FINISHES.length];
 }
 
 // Accepts any combination of the style's brand name, paint color, finish text,

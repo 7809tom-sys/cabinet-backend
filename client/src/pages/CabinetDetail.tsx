@@ -29,7 +29,7 @@ import { CabinetImage } from "@/components/CabinetImage";
 import { cabinetTypeLabel, resolveDoorDrawerCounts } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto, realImageUrl } from "@/lib/doorFamilyPhotos";
-import { finishColors } from "@/lib/design";
+import { finishColors, finishColorsWithName } from "@/lib/design";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
@@ -75,6 +75,8 @@ interface StyleRow {
   platformSku: string;
   leadTimeDays: number | null;
   distributorId: number | null;
+  // Image assigned in the Product Images admin tab for this specific SKU/cabinet.
+  skuImageUrl?: string | null;
 }
 
 function priceNumberForTier(row: StyleRow, tier: PricingTier): number | null {
@@ -336,12 +338,14 @@ export default function CabinetDetail({ masterCode }: Props) {
   }, [selectedRow, activePromos, cabinet?.category]);
 
   // Recolor the to-scale drawing to the selected door style's real finish.
-  const finishFace = finishColors(
+  const finishResult = finishColorsWithName(
     selectedRow?.name,
     selectedRow?.color,
     selectedRow?.finish,
     selectedRow?.styleCode
-  ).face;
+  );
+  const finishFace = finishResult.face;
+  const swColorName = finishResult.swName ?? null; // e.g. "Alabaster SW 7008"
 
   const { addItem, lockedDistributorId, lockedStyleLabel, clear } = useCart();
 
@@ -563,42 +567,127 @@ export default function CabinetDetail({ masterCode }: Props) {
         <span className="text-foreground font-medium">{masterCode}</span>
       </nav>
 
-      {/* Kitchen-scene lead-in: sell the finished kitchen first.
-          STRICT one-family-one-color: use THIS style's own verified room scene
-          when present; otherwise render a clean color-accurate band in the
-          style's exact finish (NEVER a keyword-guessed stock kitchen that could
-          show, e.g., a cherry room for a white finish). */}
+      {/* ── Hero block: room-scene photo (primary) + door thumbnail strip (secondary) ──
+          Layout:
+          1. Full-width lifestyle room-scene photo — tall, immersive, promoted first.
+             When no photo exists: SW-accurate color wash + door photo on the right.
+          2. Compact door-photo thumbnail strip below the hero — real photo of the
+             door panel (not a drawing), tappable to jump to the pricing/specs section. */}
       {(() => {
         const realScene = realImageUrl(selectedRow?.roomSceneImageUrl);
+        const doorPhoto = doorFamilyPhoto(selectedRow ?? {});
         const styleLabel = selectedRow?.name || selectedRow?.doorStyle || "your finish";
+        const hasScene = !!realScene;
         return (
-          <div className="relative overflow-hidden rounded-2xl border border-border mb-8">
-            {realScene ? (
-              <img
-                src={realScene}
-                alt={`${styleLabel} kitchen`}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
+          <>
+            {/* ── 1. Hero image ────────────────────────────────────────── */}
+            <div
+              className="relative overflow-hidden rounded-2xl border border-border mb-4"
+              style={{ minHeight: hasScene ? 360 : 200 }}
+            >
+              {/* Background: room scene photo OR finish color swatch */}
+              {hasScene ? (
+                <img
+                  src={realScene!}
+                  alt={`${styleLabel} kitchen`}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{ objectPosition: "center 30%" }}
+                />
+              ) : (
+                <>
+                  {/* Solid SW-accurate color fills the left 60% */}
+                  <div
+                    className="absolute inset-0"
+                    style={{ backgroundColor: finishFace }}
+                    aria-hidden
+                  />
+                  {/* Door photo floated to the right when available */}
+                  {doorPhoto && (
+                    <div
+                      className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden"
+                      style={{ maskImage: "linear-gradient(to right, transparent 0%, black 30%)" }}
+                    >
+                      <img
+                        src={doorPhoto}
+                        alt={`${styleLabel} door panel`}
+                        className="h-full w-full object-cover"
+                        style={{ objectPosition: "center" }}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Gradient overlay — text legibility */}
               <div
                 className="absolute inset-0"
-                style={{ backgroundColor: finishFace }}
-                aria-hidden
+                style={{
+                  background: hasScene
+                    ? "linear-gradient(to right, rgba(13,27,55,0.82) 0%, rgba(13,27,55,0.45) 55%, transparent 100%)"
+                    : "linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.30) 60%, transparent 100%)",
+                }}
               />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-navy)]/90 via-[var(--color-navy)]/65 to-transparent" />
-            <div className="relative px-6 py-7 md:px-10 md:py-9 max-w-2xl">
-              <p className="text-[var(--color-gold,#c9a14a)] text-xs font-semibold uppercase tracking-wider mb-1">
-                Build this look
-              </p>
-              <h2 className="font-serif text-xl md:text-2xl font-bold text-white">
-                Design your kitchen in {styleLabel}
-              </h2>
-              <p className="text-white/85 text-sm mt-2">
-                Shop this cabinet and the full matching line — base, wall, tall, vanity and trim — all in this one finish, with member trade pricing built in.
-              </p>
+
+              {/* Text overlay */}
+              <div className="relative px-6 py-8 md:px-10 md:py-12 max-w-2xl">
+                <p className="text-[var(--color-gold,#c9a14a)] text-xs font-semibold uppercase tracking-wider mb-1">
+                  Build this look
+                </p>
+                <h2 className="font-serif text-xl md:text-3xl font-bold text-white leading-tight">
+                  Design your kitchen in {styleLabel}
+                </h2>
+                <p className="text-white/85 text-sm mt-2 max-w-lg">
+                  Shop this cabinet and the full matching line — base, wall, tall, vanity and trim — all in this one finish, with member trade pricing built in.
+                </p>
+                {/* SW color attribution when no room scene */}
+                {!hasScene && swColorName && (
+                  <p className="text-white/60 text-xs mt-3">
+                    Finish color: <span className="font-medium text-white/80">{swColorName}</span>
+                  </p>
+                )}
+                {!hasScene && !swColorName && (
+                  <p className="text-white/50 text-xs mt-3 italic">
+                    Room scene photo coming soon for this finish.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+
+            {/* ── 2. Door photo thumbnail strip ─────────────────────────── */}
+            {doorPhoto && (
+              <a
+                href="#pricing"
+                className="flex items-center gap-4 rounded-xl border border-border bg-card p-3 mb-6 hover:border-primary/50 hover:bg-muted/40 transition-colors group"
+                title="View pricing & specs"
+              >
+                {/* Real door photo */}
+                <div className="h-16 w-14 rounded-lg overflow-hidden shrink-0 border border-border shadow-sm">
+                  <img
+                    src={doorPhoto}
+                    alt={`${styleLabel} door`}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                {/* Color swatch */}
+                <div
+                  className="h-16 w-6 rounded shrink-0 border border-border/60"
+                  style={{ backgroundColor: finishFace }}
+                  title={swColorName ?? styleLabel}
+                />
+                {/* Label */}
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm text-foreground truncate">{styleLabel}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {selectedRow?.doorStyle ? `${selectedRow.doorStyle} profile` : "Door style"}
+                    {swColorName ? ` · ${swColorName}` : " · true color"}
+                  </div>
+                  <div className="text-xs text-primary/80 mt-1 group-hover:text-primary transition-colors">
+                    Tap to view specs &amp; pricing →
+                  </div>
+                </div>
+              </a>
+            )}
+          </>
         );
       })()}
 
@@ -608,7 +697,9 @@ export default function CabinetDetail({ masterCode }: Props) {
           {/* Product image: an accurate, to-scale drawing of THIS exact item,
               recolored to the selected door-style finish. The drawing is driven
               by the cabinet's real type + dimensions + door/drawer counts, so it
-              always matches the actual item (no generic/wrong renders). */}
+              always matches the actual item (no generic/wrong renders).
+              Once generic catalog images are uploaded via the Generic Catalog admin
+              tab, catalogImageUrl will be populated and CabinetImage will show it. */}
           <div className="mb-2">
             <div className="rounded-xl border border-border bg-gradient-to-b from-white to-muted/30 h-64 flex items-center justify-center overflow-hidden p-4">
               <CabinetImage
@@ -623,28 +714,18 @@ export default function CabinetDetail({ masterCode }: Props) {
                 : `Drawn to scale${selectedRow ? ` in ${selectedRow.name}` : ""} — front elevation`}
             </p>
           </div>
-          {selectedRow ? (
-            <div className="flex items-center gap-3 mb-6 rounded-lg border border-border p-2.5">
-              {doorFamilyPhoto(selectedRow) ? (
-                <div className="h-12 w-10 rounded bg-muted/40 shrink-0 overflow-hidden">
-                  <img
-                    src={doorFamilyPhoto(selectedRow)!}
-                    alt={`${selectedRow.doorStyle || "Door"} panel profile`}
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ) : null}
-              <div className="h-12 w-12 rounded bg-muted/40 shrink-0 flex items-center justify-center p-1 overflow-hidden">
+          {/* Door style swatch (compact, below drawing) */}
+          {selectedRow && (
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-8 w-8 rounded border border-border shrink-0 overflow-hidden">
                 <DoorStyleSwatch style={selectedRow} className="h-full w-auto" />
               </div>
-              <div className="text-xs text-muted-foreground leading-tight">
-                <div className="font-medium text-foreground">{selectedRow.name}</div>
-                <div>{selectedRow.doorStyle ? `${selectedRow.doorStyle} profile · true color` : "Selected door style"} · drawing to scale</div>
+              <div className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{selectedRow.name}</span>
+                {selectedRow.doorStyle ? ` · ${selectedRow.doorStyle}` : ""}
+                {swColorName ? ` · ${swColorName}` : " · true color"}
               </div>
             </div>
-          ) : (
-            <div className="mb-6" />
           )}
 
           {/* Blind corner details */}
@@ -702,7 +783,7 @@ export default function CabinetDetail({ masterCode }: Props) {
         </div>
 
         {/* Right: Pricing selector */}
-        <div>
+        <div id="pricing">
           <div className="mb-1">
             <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
               {masterCode}
