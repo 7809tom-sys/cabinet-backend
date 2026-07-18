@@ -76,8 +76,9 @@ export const distributorPortalRouter = router({
         .from(distributorSkus)
         .where(eq(distributorSkus.distributorId, lineId));
 
-      // Door styles carried by this line.
-      const styles = await db
+      // Door styles carried by this line — deduplicated by ourName so that
+      // rows with the same display name (e.g. from a re-import) only appear once.
+      const rawStyles = await db
         .select({
           id: doorStyles.id,
           ourName: doorStyles.ourName,
@@ -89,6 +90,13 @@ export const distributorPortalRouter = router({
         .from(doorStyles)
         .where(and(eq(doorStyles.distributorId, lineId), eq(doorStyles.isActive, true)))
         .orderBy(doorStyles.ourName);
+      // Keep only the first occurrence of each ourName (lowest id wins).
+      const seenNames = new Set<string>();
+      const styles = rawStyles.filter((s) => {
+        if (seenNames.has(s.ourName)) return false;
+        seenNames.add(s.ourName);
+        return true;
+      });
 
       return {
         line,
