@@ -463,6 +463,13 @@
       "when": 1784352102543,
       "tag": "0065_superb_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "5",
+      "when": 1784412202401,
+      "tag": "0066_ordinary_quasar",
+      "breakpoints": true
     }
   ]
 }

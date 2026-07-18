@@ -128,6 +128,99 @@ function MatchDropdown({
   );
 }
 
+// ─── StyleSearchDropdown: global style search for column mapping ───────────────
+
+const PLATFORM_CATEGORIES = ["Base", "Wall", "Tall", "ADA", "Vanity", "Accessory", "Corner", "Specialty"] as const;
+
+function StyleSearchDropdown({
+  distributorId,
+  value,
+  onSelect,
+}: {
+  distributorId: number;
+  value: { id: number; styleCode: string; ourName: string } | null;
+  onSelect: (style: { id: number; styleCode: string; ourName: string; isNew: boolean }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const createStyleMut = trpc.distributorAdmin.adminCreateStyleForDistributor.useMutation();
+  const { data: allStyles, isFetching } = trpc.distributorAdmin.adminAllStyles.useQuery(
+    undefined,
+    { enabled: open }
+  );
+  const filtered = allStyles?.filter((s) => {
+    if (!q) return true;
+    const lq = q.toLowerCase();
+    return s.styleCode.toLowerCase().includes(lq) || s.ourName.toLowerCase().includes(lq);
+  }) ?? [];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium border transition-colors hover:bg-accent ${
+            value ? "border-emerald-400 bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300" : "border-dashed border-muted-foreground/40 text-muted-foreground"
+          }`}
+        >
+          {value ? (
+            <span className="max-w-[160px] truncate">{value.styleCode} — {value.ourName}</span>
+          ) : (
+            <span>Assign style…</span>
+          )}
+          <Search className="h-2.5 w-2.5 shrink-0 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-2" align="start">
+        <Input
+          autoFocus
+          placeholder="Search all styles…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="h-7 text-xs mb-1.5"
+        />
+        {isFetching && <p className="py-2 text-center text-xs text-muted-foreground">Loading…</p>}
+        <ul className="max-h-52 overflow-auto space-y-0.5">
+          {filtered.map((s) => (
+            <li key={s.id}>
+              <button
+                type="button"
+                className={`w-full rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground ${
+                  value?.id === s.id ? "bg-accent text-accent-foreground font-medium" : ""
+                }`}
+                onClick={async () => {
+                  setOpen(false);
+                  setQ("");
+                  if (s.distributorId === distributorId) {
+                    onSelect({ id: s.id, styleCode: s.styleCode, ourName: s.ourName, isNew: false });
+                  } else {
+                    // Clone style for this distributor
+                    try {
+                      const res = await createStyleMut.mutateAsync({ sourceStyleId: s.id, distributorId });
+                      onSelect({ id: res.id, styleCode: s.styleCode, ourName: s.ourName, isNew: res.created });
+                    } catch {
+                      onSelect({ id: s.id, styleCode: s.styleCode, ourName: s.ourName, isNew: false });
+                    }
+                  }
+                }}
+              >
+                <span className="font-mono">{s.styleCode}</span>
+                <span className="ml-1.5 text-muted-foreground">{s.ourName}</span>
+                {s.distributorId !== distributorId && (
+                  <span className="ml-1.5 text-xs text-blue-500 dark:text-blue-400">(from {s.distributorName ?? "other"})</span>
+                )}
+              </button>
+            </li>
+          ))}
+          {!isFetching && filtered.length === 0 && (
+            <li className="py-2 text-center text-xs text-muted-foreground">No styles found</li>
+          )}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── CSV import helpers ────────────────────────────────────────────────────────
 
 const ACTION_LABEL: Record<string, string> = {
@@ -750,35 +843,21 @@ export default function DistributorImport() {
                               </td>
                               <td className="px-3 py-1.5">
                                 {col.role === "priceStyle" ? (
-                                  <Select
-                                    value={
-                                      col.styleId ? String(col.styleId) : ""
-                                    }
-                                    onValueChange={(v) =>
-                                      updateColStyle(col.colIdx, v)
-                                    }
-                                  >
-                                    <SelectTrigger className="h-7 text-xs w-44">
-                                      <SelectValue placeholder="Assign style…" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {(
-                                        parseResult?.distributorStyles ?? []
-                                      ).map((s) => (
-                                        <SelectItem
-                                          key={s.id}
-                                          value={String(s.id)}
-                                          className="text-xs"
-                                        >
-                                          {s.styleCode} — {s.ourName}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                  <StyleSearchDropdown
+                                    distributorId={Number(distributorId)}
+                                    value={col.styleId ? { id: col.styleId, styleCode: col.styleCode ?? "", ourName: col.styleLabel ?? "" } : null}
+                                    onSelect={(s) => {
+                                      setColumnMapping((prev) =>
+                                        prev.map((c) =>
+                                          c.colIdx === col.colIdx
+                                            ? { ...c, role: "priceStyle", styleId: s.id, styleCode: s.styleCode, styleLabel: s.ourName }
+                                            : c
+                                        )
+                                      );
+                                    }}
+                                  />
                                 ) : (
-                                  <span className="text-xs text-muted-foreground">
-                                    —
-                                  </span>
+                                  <span className="text-xs text-muted-foreground">—</span>
                                 )}
                               </td>
                               <td className="px-3 py-1.5 text-xs text-muted-foreground max-w-[160px] truncate">
@@ -880,15 +959,37 @@ export default function DistributorImport() {
                     </div>
                   )}
 
-                  {/* Validation summary banner */}
-                  {("errorCount" in xlsxResult && (xlsxResult as any).errorCount > 0) && (
-                    <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive space-y-1">
-                      <p className="font-semibold flex items-center gap-1.5">
-                        <AlertTriangle className="h-4 w-4" />
-                        {(xlsxResult as any).errorCount} row{(xlsxResult as any).errorCount !== 1 ? "s" : ""} have errors — fix the source file before committing.
-                      </p>
-                    </div>
-                  )}
+                  {/* Validation summary banner — live count subtracts rows resolved via MatchDropdown */}
+                  {(() => {
+                    const totalErrors: number = ("errorCount" in xlsxResult ? (xlsxResult as any).errorCount : 0) as number;
+                    const errorRows = xlsxResult.previewRows.filter((r) => (r as any).severity === "error");
+                    const resolvedErrors = errorRows.filter((r) => matchOverrides[r.rowNum] != null).length;
+                    const remaining = Math.max(0, totalErrors - resolvedErrors);
+                    if (remaining === 0 && totalErrors > 0) {
+                      return (
+                        <div className="rounded-md border border-emerald-400/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-3 text-sm text-emerald-700 dark:text-emerald-300">
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <CheckCircle2 className="h-4 w-4" />
+                            All {totalErrors} unmatched row{totalErrors !== 1 ? "s" : ""} resolved — ready to commit.
+                          </p>
+                        </div>
+                      );
+                    }
+                    if (remaining > 0) {
+                      return (
+                        <div className="rounded-md border border-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 p-3 text-sm text-amber-700 dark:text-amber-300 space-y-1">
+                          <p className="font-semibold flex items-center gap-1.5">
+                            <AlertTriangle className="h-4 w-4" />
+                            {remaining} unmatched row{remaining !== 1 ? "s" : ""} need to be resolved — use the search boxes below to assign each code to a cabinet.
+                          </p>
+                          {resolvedErrors > 0 && (
+                            <p className="text-xs opacity-75">{resolvedErrors} of {totalErrors} resolved so far.</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                   {("warningCount" in xlsxResult && (xlsxResult as any).warningCount > 0 && !((xlsxResult as any).errorCount > 0)) && (
                     <div className="rounded-md border border-amber-400/40 bg-amber-50/40 dark:bg-amber-950/20 p-3 text-sm text-amber-700 dark:text-amber-300 space-y-1">
                       <p className="font-semibold flex items-center gap-1.5">
@@ -1050,10 +1151,17 @@ export default function DistributorImport() {
                   )}
 
                   <div className="flex gap-2">
+                    {(() => {
+                      const totalErrors: number = ("errorCount" in xlsxResult ? (xlsxResult as any).errorCount : 0) as number;
+                      const errorRows = xlsxResult.previewRows.filter((r) => (r as any).severity === "error");
+                      const resolvedErrors = errorRows.filter((r) => matchOverrides[r.rowNum] != null).length;
+                      const remaining = Math.max(0, totalErrors - resolvedErrors);
+                      return (
+                        <>
                     <Button
                       className="bg-emerald-600 hover:bg-emerald-700"
-                      disabled={xlsxCommitMut.isPending || (("errorCount" in xlsxResult) && (xlsxResult as any).errorCount > 0)}
-                      title={("errorCount" in xlsxResult && (xlsxResult as any).errorCount > 0) ? "Fix errors before committing" : ""}
+                      disabled={xlsxCommitMut.isPending || remaining > 0}
+                      title={remaining > 0 ? `Resolve ${remaining} unmatched row${remaining !== 1 ? "s" : ""} before committing` : ""}
                       onClick={() => runXlsxImport(false)}
                     >
                       {xlsxCommitMut.isPending ? (
@@ -1069,6 +1177,9 @@ export default function DistributorImport() {
                     >
                       Back to mapping
                     </Button>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

@@ -1,82 +1,9 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "2bc48e13-1378-4014-8153-4b2163eed082",
-  "prevId": "3cf9ef91-a3a8-445e-bb7d-e13928a5c0ca",
+  "id": "6f11ea22-3739-46d8-9699-90310135a6af",
+  "prevId": "d6e9df37-4d8b-40d5-8d54-1c03de3e11dc",
   "tables": {
-    "affiliate_banner_schedules": {
-      "name": "affiliate_banner_schedules",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "affiliate_id": {
-          "name": "affiliate_id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "message": {
-          "name": "message",
-          "type": "varchar(500)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "holiday_key": {
-          "name": "holiday_key",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "start_date": {
-          "name": "start_date",
-          "type": "varchar(10)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "end_date": {
-          "name": "end_date",
-          "type": "varchar(10)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "affiliate_banner_schedules_id": {
-          "name": "affiliate_banner_schedules_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
     "affiliate_invoices": {
       "name": "affiliate_invoices",
       "columns": {
@@ -334,166 +261,6 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "affiliate_promo_discounts": {
-      "name": "affiliate_promo_discounts",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "affiliateId": {
-          "name": "affiliateId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "label": {
-          "name": "label",
-          "type": "varchar(256)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "targetType": {
-          "name": "targetType",
-          "type": "enum('all','category','style')",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'all'"
-        },
-        "targetId": {
-          "name": "targetId",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "discountBps": {
-          "name": "discountBps",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "startsAt": {
-          "name": "startsAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "endsAt": {
-          "name": "endsAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": true
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "onUpdate": true,
-          "default": "(now())"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "affiliate_promo_discounts_id": {
-          "name": "affiliate_promo_discounts_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "affiliate_room_scene_gallery": {
-      "name": "affiliate_room_scene_gallery",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "affiliateId": {
-          "name": "affiliateId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "styleId": {
-          "name": "styleId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "imageUrl": {
-          "name": "imageUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sortOrder": {
-          "name": "sortOrder",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "affiliate_room_scene_gallery_id": {
-          "name": "affiliate_room_scene_gallery_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
     "affiliate_style_branding": {
       "name": "affiliate_style_branding",
       "columns": {
@@ -554,14 +321,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "hidden": {
-          "name": "hidden",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         },
         "createdAt": {
           "name": "createdAt",
@@ -767,49 +526,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "heroHeadline": {
-          "name": "heroHeadline",
-          "type": "varchar(256)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "promoBannerText": {
-          "name": "promoBannerText",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "promoBannerActive": {
-          "name": "promoBannerActive",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "promoBannerImageUrl": {
-          "name": "promoBannerImageUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "address": {
-          "name": "address",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "businessHours": {
-          "name": "businessHours",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "storefrontEnabled": {
           "name": "storefrontEnabled",
           "type": "boolean",
@@ -973,143 +689,6 @@
         "w9AdminNotes": {
           "name": "w9AdminNotes",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bankName": {
-          "name": "bankName",
-          "type": "varchar(256)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bankRoutingNumber": {
-          "name": "bankRoutingNumber",
-          "type": "varchar(9)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bankAccountNumber": {
-          "name": "bankAccountNumber",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bankAccountType": {
-          "name": "bankAccountType",
-          "type": "enum('checking','savings')",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bankVerified": {
-          "name": "bankVerified",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "bankVerifiedAt": {
-          "name": "bankVerifiedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bankAdminNotes": {
-          "name": "bankAdminNotes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ssnCardUrl": {
-          "name": "ssnCardUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "dlFrontUrl": {
-          "name": "dlFrontUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "dlBackUrl": {
-          "name": "dlBackUrl",
-          "type": "varchar(512)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "idVerified": {
-          "name": "idVerified",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "idVerifiedAt": {
-          "name": "idVerifiedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "idAdminNotes": {
-          "name": "idAdminNotes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payoutConsentSigned": {
-          "name": "payoutConsentSigned",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "payoutConsentSignedAt": {
-          "name": "payoutConsentSignedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payoutConsentIp": {
-          "name": "payoutConsentIp",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payoutConsentName": {
-          "name": "payoutConsentName",
-          "type": "varchar(256)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "payoutReady": {
-          "name": "payoutReady",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "payoutReadyAt": {
-          "name": "payoutReadyAt",
-          "type": "timestamp",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -1586,6 +1165,28 @@
           "autoincrement": false,
           "default": 0
         },
+        "numberOfFixedShelves": {
+          "name": "numberOfFixedShelves",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "numberOfAdjShelves": {
+          "name": "numberOfAdjShelves",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isNotCabinet": {
+          "name": "isNotCabinet",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
         "hingeSide": {
           "name": "hingeSide",
           "type": "varchar(16)",
@@ -1666,8 +1267,64 @@
           "notNull": false,
           "autoincrement": false
         },
+        "sku": {
+          "name": "sku",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "vendorSku": {
+          "name": "vendorSku",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "altSku1": {
+          "name": "altSku1",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "altSku2": {
+          "name": "altSku2",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "altSku3": {
+          "name": "altSku3",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "stainColor": {
+          "name": "stainColor",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "constructionMethod": {
+          "name": "constructionMethod",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "catalogImageUrl": {
           "name": "catalogImageUrl",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "roomSceneUrl": {
+          "name": "roomSceneUrl",
           "type": "varchar(512)",
           "primaryKey": false,
           "notNull": false,
@@ -1989,6 +1646,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "createdByUserId": {
           "name": "createdByUserId",
           "type": "int",
@@ -2013,7 +1677,16 @@
           "default": "(now())"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "code_aliases_raw_user_uidx": {
+          "name": "code_aliases_raw_user_uidx",
+          "columns": [
+            "rawCodeCanon",
+            "userId"
+          ],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "code_aliases_id": {
@@ -2023,14 +1696,7 @@
           ]
         }
       },
-      "uniqueConstraints": {
-        "code_aliases_rawCodeCanon_unique": {
-          "name": "code_aliases_rawCodeCanon_unique",
-          "columns": [
-            "rawCodeCanon"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "checkConstraint": {}
     },
     "cost_change_log": {
@@ -3167,8 +2833,8 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "distributor_column_mappings": {
-      "name": "distributor_column_mappings",
+    "distributor_cabinet_overrides": {
+      "name": "distributor_cabinet_overrides",
       "columns": {
         "id": {
           "name": "id",
@@ -3184,30 +2850,92 @@
           "notNull": true,
           "autoincrement": false
         },
-        "columnCode": {
-          "name": "columnCode",
-          "type": "varchar(32)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "doorStyleId": {
-          "name": "doorStyleId",
+        "cabinetId": {
+          "name": "cabinetId",
           "type": "int",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "priceType": {
-          "name": "priceType",
-          "type": "enum('list','cost')",
+        "width": {
+          "name": "width",
+          "type": "decimal(6,2)",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'list'"
+          "notNull": false,
+          "autoincrement": false
         },
-        "lastUsedAt": {
-          "name": "lastUsedAt",
+        "height": {
+          "name": "height",
+          "type": "decimal(6,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "depth": {
+          "name": "depth",
+          "type": "decimal(6,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "physicalWidth": {
+          "name": "physicalWidth",
+          "type": "decimal(6,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "weight": {
+          "name": "weight",
+          "type": "decimal(8,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pkgLength": {
+          "name": "pkgLength",
+          "type": "decimal(6,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pkgWidth": {
+          "name": "pkgWidth",
+          "type": "decimal(6,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pkgHeight": {
+          "name": "pkgHeight",
+          "type": "decimal(6,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pkgWeight": {
+          "name": "pkgWeight",
+          "type": "decimal(8,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedBy": {
+          "name": "updatedBy",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
@@ -3227,14 +2955,22 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "distributor_column_mappings_id": {
-          "name": "distributor_column_mappings_id",
+        "distributor_cabinet_overrides_id": {
+          "name": "distributor_cabinet_overrides_id",
           "columns": [
             "id"
           ]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "distributor_cabinet_overrides_distributorId_cabinetId_unique": {
+          "name": "distributor_cabinet_overrides_distributorId_cabinetId_unique",
+          "columns": [
+            "distributorId",
+            "cabinetId"
+          ]
+        }
+      },
       "checkConstraint": {}
     },
     "distributor_skus": {
@@ -3358,13 +3094,6 @@
         "supplierCabinetName": {
           "name": "supplierCabinetName",
           "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "availableWarehouses": {
-          "name": "availableWarehouses",
-          "type": "json",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -4229,6 +3958,162 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+    "measure_sessions": {
+      "name": "measure_sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "token": {
+          "name": "token",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "enum('pending','completed','consumed')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "measurements": {
+          "name": "measurements",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "completedAt": {
+          "name": "completedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "measure_sessions_id": {
+          "name": "measure_sessions_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "measure_sessions_token_unique": {
+          "name": "measure_sessions_token_unique",
+          "columns": [
+            "token"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "media_library": {
+      "name": "media_library",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "fileKey": {
+          "name": "fileKey",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "url": {
+          "name": "url",
+          "type": "varchar(1024)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "filename": {
+          "name": "filename",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mimeType": {
+          "name": "mimeType",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sizeBytes": {
+          "name": "sizeBytes",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "uploadedBy": {
+          "name": "uploadedBy",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "media_library_id": {
+          "name": "media_library_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "notification_settings": {
       "name": "notification_settings",
       "columns": {
@@ -4737,6 +4622,35 @@
           "autoincrement": false,
           "default": "'manual'"
         },
+        "stripeSessionId": {
+          "name": "stripeSessionId",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "stripePaymentIntentId": {
+          "name": "stripePaymentIntentId",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "paymentStatus": {
+          "name": "paymentStatus",
+          "type": "enum('pending','paid','failed','refunded')",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "paidAt": {
+          "name": "paidAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "createdAt": {
           "name": "createdAt",
           "type": "timestamp",
@@ -4787,7 +4701,7 @@
         },
         "pageKey": {
           "name": "pageKey",
-          "type": "varchar(64)",
+          "type": "varchar(128)",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -4803,7 +4717,14 @@
           "name": "value",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedBy": {
+          "name": "updatedBy",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "updatedAt": {
@@ -4814,13 +4735,6 @@
           "autoincrement": false,
           "onUpdate": true,
           "default": "(now())"
-        },
-        "updatedBy": {
-          "name": "updatedBy",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {},

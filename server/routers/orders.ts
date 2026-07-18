@@ -95,32 +95,49 @@ function toExtractedLine(match: CodeMatch, qty: number): ExtractedLine {
 }
 
 // Load persisted manual-fix aliases as a canonical-raw-code -> cabinet record map.
+// Two-tier: global aliases (userId=NULL, set by admin) apply to everyone;
+// per-user aliases (userId=<id>) override globals for that specific user.
 // Only aliases whose target cabinet is still active are included.
 async function loadAliasMap(
-  records: CabinetCodeRecord[]
+  records: CabinetCodeRecord[],
+  userId?: number | null
 ): Promise<Map<string, CabinetCodeRecord>> {
   const db = await getDb();
   const map = new Map<string, CabinetCodeRecord>();
   if (!db) return map;
   const byId = new Map(records.map((r) => [r.id, r]));
-  const rows = await db
+  // Load global aliases first (userId IS NULL)
+  const globalRows = await db
     .select({ rawCodeCanon: codeAliases.rawCodeCanon, cabinetId: codeAliases.cabinetId })
-    .from(codeAliases);
-  for (const a of rows) {
+    .from(codeAliases)
+    .where(sql`${codeAliases.userId} IS NULL`);
+  for (const a of globalRows) {
     const rec = byId.get(a.cabinetId);
     if (rec) map.set(a.rawCodeCanon, rec);
+  }
+  // If a user is logged in, load their private aliases and let them override globals
+  if (userId) {
+    const userRows = await db
+      .select({ rawCodeCanon: codeAliases.rawCodeCanon, cabinetId: codeAliases.cabinetId })
+      .from(codeAliases)
+      .where(eq(codeAliases.userId, userId));
+    for (const a of userRows) {
+      const rec = byId.get(a.cabinetId);
+      if (rec) map.set(a.rawCodeCanon, rec); // overrides global if same key
+    }
   }
   return map;
 }
 
 // Match a list of {code, qty} pairs against the master catalog, honoring any
-// persisted manual-fix aliases first.
+// persisted manual-fix aliases first. Pass userId to include that user's private aliases.
 async function matchPairs(
-  pairs: { code: string; qty: number }[]
+  pairs: { code: string; qty: number }[],
+  userId?: number | null
 ): Promise<ExtractedLine[]> {
   const records = await loadCodeRecords();
   const index = buildCodeIndex(records);
-  const aliasMap = await loadAliasMap(records);
+  const aliasMap = await loadAliasMap(records, userId);
   return pairs.map((p) => toExtractedLine(matchCode(p.code, index, aliasMap), p.qty));
 }
 
@@ -160,7 +177,8 @@ export const ordersRouter = router({
         imageUrl: z.string().min(1), // data URL or https URL
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      const userId = (ctx as { user?: { id?: number } }).user?.id ?? null;
       let lines: { code: string; qty: number }[] = [];
       try {
         const result = await invokeLLM({
@@ -226,7 +244,7 @@ export const ordersRouter = router({
         });
       }
 
-      const extracted = await matchPairs(lines);
+      const extracted = await matchPairs(lines, userId);
       return {
         lines: extracted,
         matchedCount: extracted.filter((l) => l.matched).length,
@@ -237,7 +255,8 @@ export const ordersRouter = router({
   // ─── CSV bulk import: "code,qty" rows → matched lines ──────────────────────
   extractFromCsv: publicProcedure
     .input(z.object({ csv: z.string().min(1).max(200_000) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      const userId = (ctx as { user?: { id?: number } }).user?.id ?? null;
       const rows = parseOrderCsv(input.csv);
       if (rows.length === 0) {
         throw new TRPCError({
@@ -1182,6 +1201,9 @@ export const ordersRouter = router({
       z.object({
         rawCode: z.string().min(1).max(128),
         cabinetId: z.number().int().positive(),
+        // global=true: admin saves a global alias (userId=NULL) that applies to everyone.
+        // global=false/omitted: saves as a per-user private alias.
+        global: z.boolean().optional().default(false),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -1198,14 +1220,20 @@ export const ordersRouter = router({
         .limit(1);
       if (cab.length === 0)
         throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown cabinet" });
-      const userId = (ctx as { user?: { id?: number } }).user?.id ?? null;
-      // Upsert on the unique canonical key.
+      const ctxUser = (ctx as { user?: { id?: number; role?: string } }).user;
+      const userId = ctxUser?.id ?? null;
+      // Admins saving from the import preview use global=true to create a global alias (userId=NULL).
+      // Regular customers always save under their own userId (private alias).
+      const isAdmin = ctxUser?.role === "admin";
+      const aliasUserId = (isAdmin && input.global) ? null : userId;
+      // Upsert on the composite unique key (rawCodeCanon, userId).
       await db
         .insert(codeAliases)
         .values({
           rawCodeCanon: canon,
           rawCodeSample: input.rawCode.trim().slice(0, 128),
           cabinetId: input.cabinetId,
+          userId: aliasUserId,
           createdByUserId: userId,
         })
         .onDuplicateKeyUpdate({
@@ -1215,7 +1243,7 @@ export const ordersRouter = router({
             updatedAt: new Date(),
           },
         });
-      return { ok: true, rawCodeCanon: canon };
+      return { ok: true, rawCodeCanon: canon, global: aliasUserId === null };
     }),
 
   // List saved aliases (admin-only) for review/management.

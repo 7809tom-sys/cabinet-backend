@@ -10,6 +10,7 @@ import {
   boolean,
   json,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/mysql-core";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -744,17 +745,30 @@ export type InsertCrmEmailLog = typeof crmEmailLog.$inferInsert;
 // Remembers a human's manual "Fix"/swap choice so an unrecognized order code
 // resolves automatically next time. Keyed by the CANONICALIZED raw code (uppercase
 // alphanumerics only) so spacing/dash/case variants of the same token collapse to
-// one entry. The mapping always points at a real cabinet; the admin retains the
-// ability to override or re-point it later.
-export const codeAliases = mysqlTable("code_aliases", {
-  id: int("id").autoincrement().primaryKey(),
-  rawCodeCanon: varchar("rawCodeCanon", { length: 128 }).notNull().unique(),
-  rawCodeSample: varchar("rawCodeSample", { length: 128 }).notNull(),
-  cabinetId: int("cabinetId").notNull(),
-  createdByUserId: int("createdByUserId"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-});
+// one entry. The mapping always points at a real cabinet.
+//
+// Two-tier alias system:
+//   userId = NULL  → global alias (set by admin via import preview); applies to everyone
+//   userId = <id>  → per-customer alias (set by customer via OCR/order review); applies only to that user
+// Customer aliases take priority over global aliases during matching.
+export const codeAliases = mysqlTable(
+  "code_aliases",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    rawCodeCanon: varchar("rawCodeCanon", { length: 128 }).notNull(),
+    rawCodeSample: varchar("rawCodeSample", { length: 128 }).notNull(),
+    cabinetId: int("cabinetId").notNull(),
+    // NULL = global (admin); non-null = per-customer private alias
+    userId: int("userId"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  (t) => ({
+    // Composite unique: same raw code can exist once globally (userId=NULL) and once per user
+    uniqCodeUser: uniqueIndex("code_aliases_raw_user_uidx").on(t.rawCodeCanon, t.userId),
+  })
+);
 
 export type CodeAlias = typeof codeAliases.$inferSelect;
 export type InsertCodeAlias = typeof codeAliases.$inferInsert;
@@ -1509,3 +1523,28 @@ export const distributorCabinetOverrides = mysqlTable(
 );
 export type DistributorCabinetOverride = typeof distributorCabinetOverrides.$inferSelect;
 export type InsertDistributorCabinetOverride = typeof distributorCabinetOverrides.$inferInsert;
+
+// ─── Category Aliases ─────────────────────────────────────────────────────────
+// Maps raw distributor category strings to universal platform categories.
+// Used during XLSX import to normalize distributor-specific names.
+// distributorId = null means the alias applies globally (all distributors).
+
+export const categoryAliases = mysqlTable(
+  "category_aliases",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    // The raw string from the distributor spreadsheet (case-insensitive match)
+    rawCategory: varchar("rawCategory", { length: 128 }).notNull(),
+    // The normalized platform category (Base, Wall, Tall, Vanity, ADA, Accessory, Corner, Specialty)
+    platformCategory: varchar("platformCategory", { length: 64 }).notNull(),
+    // Optional: scope to a specific distributor. NULL = global (applies to all).
+    distributorId: int("distributorId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniq: uniqueIndex("category_aliases_raw_dist_uniq").on(t.rawCategory, t.distributorId),
+  })
+);
+
+export type CategoryAlias = typeof categoryAliases.$inferSelect;
+export type InsertCategoryAlias = typeof categoryAliases.$inferInsert;

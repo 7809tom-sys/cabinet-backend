@@ -1209,6 +1209,14 @@ export const cabinetsRouter = router({
         cornerSide: cabinets.cornerSide,
         graphicType: cabinets.graphicType,
         isActive: cabinets.isActive,
+        // Alias columns
+        sku: cabinets.sku,
+        vendorSku: cabinets.vendorSku,
+        altSku1: cabinets.altSku1,
+        altSku2: cabinets.altSku2,
+        altSku3: cabinets.altSku3,
+        stainColor: cabinets.stainColor,
+        constructionMethod: cabinets.constructionMethod,
       })
       .from(cabinets)
       .orderBy(asc(cabinets.category), asc(cabinets.masterCode));
@@ -1218,6 +1226,8 @@ export const cabinetsRouter = router({
         "masterCode", "description", "category", "subCategory", "placementType",
         "width", "height", "depth", "numberOfDoors", "numberOfDrawers",
         "hingeSide", "isCornerCabinet", "cornerSide", "graphicType", "isActive",
+        "sku", "vendorSku", "altSku1", "altSku2", "altSku3",
+        "stainColor", "constructionMethod",
       ],
       ...rows.map((r) => [
         r.masterCode,
@@ -1235,6 +1245,13 @@ export const cabinetsRouter = router({
         r.cornerSide ?? "",
         r.graphicType ?? "",
         r.isActive ? "TRUE" : "FALSE",
+        r.sku ?? "",
+        r.vendorSku ?? "",
+        r.altSku1 ?? "",
+        r.altSku2 ?? "",
+        r.altSku3 ?? "",
+        r.stainColor ?? "",
+        r.constructionMethod ?? "",
       ]),
     ];
 
@@ -1325,6 +1342,15 @@ export const cabinetsRouter = router({
         const activeRaw = String(row["isActive"] ?? "").trim().toUpperCase();
         if (activeRaw === "TRUE" || activeRaw === "1") patch.isActive = true;
         else if (activeRaw === "FALSE" || activeRaw === "0") patch.isActive = false;
+
+        // Alias columns — empty string clears the field (sets to null)
+        if ("sku" in row) patch.sku = String(row["sku"] ?? "").trim() || null;
+        if ("vendorSku" in row) patch.vendorSku = String(row["vendorSku"] ?? "").trim() || null;
+        if ("altSku1" in row) patch.altSku1 = String(row["altSku1"] ?? "").trim() || null;
+        if ("altSku2" in row) patch.altSku2 = String(row["altSku2"] ?? "").trim() || null;
+        if ("altSku3" in row) patch.altSku3 = String(row["altSku3"] ?? "").trim() || null;
+        if ("stainColor" in row) patch.stainColor = String(row["stainColor"] ?? "").trim() || null;
+        if ("constructionMethod" in row) patch.constructionMethod = String(row["constructionMethod"] ?? "").trim() || null;
 
         if (Object.keys(patch).length === 0) { skipped++; continue; }
 

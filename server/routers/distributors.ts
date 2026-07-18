@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { distributors, cabinets, distributorSkus, doorStyles } from "../../drizzle/schema";
+import { distributors, cabinets, distributorSkus, doorStyles, categoryAliases } from "../../drizzle/schema";
 import {
   parseDistributorCsv,
   validateImport,
@@ -913,24 +913,61 @@ export const distributorImportRouter = router({
 
       if (skuCol === -1) throw new TRPCError({ code: "BAD_REQUEST", message: "No SKU column mapped." });
 
-      // Category normalisation: map distributor category names → platform categories
-      const CAT_MAP: Record<string, string> = {
+      // Category normalisation: built-in map + DB aliases (distributor-specific overrides global)
+      const BUILTIN_CAT_MAP: Record<string, string> = {
         "wall cabinets": "Wall",
         "wall": "Wall",
+        "upper cabinets": "Wall",
+        "upper": "Wall",
+        "uppers": "Wall",
         "base cabinets": "Base",
         "base": "Base",
+        "lower cabinets": "Base",
+        "lower": "Base",
+        "lowers": "Base",
         "tall cabinets": "Tall",
         "tall": "Tall",
         "pantry": "Tall",
+        "pantry cabinets": "Tall",
         "utility": "Tall",
+        "utility cabinets": "Tall",
+        "oven cabinets": "Tall",
         "vanity": "Vanity",
+        "vanity cabinets": "Vanity",
+        "bathroom": "Vanity",
         "ada": "ADA",
+        "ada cabinets": "ADA",
         "accessory": "Accessory",
         "accessories": "Accessory",
+        "trim": "Accessory",
+        "molding": "Accessory",
+        "moulding": "Accessory",
+        "corner": "Corner",
+        "corner cabinets": "Corner",
+        "specialty": "Specialty",
+        "glass door": "Accessory",
+        "glass doors": "Accessory",
       };
+      // Load DB aliases (global ones where distributorId IS NULL, plus distributor-specific)
+      const dbAliasRows = await db
+        .select({ rawCategory: categoryAliases.rawCategory, platformCategory: categoryAliases.platformCategory, distributorId: categoryAliases.distributorId })
+        .from(categoryAliases);
+      // Build merged map: built-in first, then global DB aliases, then distributor-specific (highest priority)
+      const CAT_MAP: Record<string, string> = { ...BUILTIN_CAT_MAP };
+      for (const row of dbAliasRows.filter((r) => r.distributorId === null)) {
+        CAT_MAP[row.rawCategory.toLowerCase().trim()] = row.platformCategory;
+      }
+      for (const row of dbAliasRows.filter((r) => r.distributorId === input.distributorId)) {
+        CAT_MAP[row.rawCategory.toLowerCase().trim()] = row.platformCategory;
+      }
+      // Track which raw category strings couldn't be normalised (for preview UI)
+      const unknownCategories = new Set<string>();
       function normalCat(raw: string | null | undefined): string | null {
         if (!raw) return null;
-        return CAT_MAP[raw.toLowerCase().trim()] ?? null;
+        const key = raw.toLowerCase().trim();
+        const mapped = CAT_MAP[key] ?? null;
+        if (!mapped && raw.trim()) unknownCategories.add(raw.trim());
+        return mapped;
       }
 
       // Parse "9x30x12" or "9 x 30 x 12" → { width, height, depth }
@@ -1195,6 +1232,7 @@ export const distributorImportRouter = router({
         errorCount,
         warningCount,
         previewRows: input.dryRun ? previewRows.slice(0, 200) : [],
+        unknownCategories: Array.from(unknownCategories),
       };
     }),
 
@@ -1256,5 +1294,141 @@ export const distributorImportRouter = router({
         try { fs.unlinkSync(pdfPath); } catch {}
         try { fs.unlinkSync(xlsxPath); } catch {}
       }
+    }),
+
+  /**
+   * Returns ALL door styles across all distributors — used by the column
+   * mapping UI so admins can assign a price column to a style that doesn't
+   * yet exist for the current distributor.
+   */
+  adminAllStyles: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select({
+        id: doorStyles.id,
+        styleCode: doorStyles.styleCode,
+        ourName: doorStyles.ourName,
+        distributorName: doorStyles.distributorName,
+        distributorId: doorStyles.distributorId,
+      })
+      .from(doorStyles)
+      .where(eq(doorStyles.isActive, true))
+      .orderBy(doorStyles.ourName);
+  }),
+
+  /**
+   * Copy an existing door style into a new distributor's style list.
+   * Used when the admin picks a style from another distributor during column
+   * mapping — the style is cloned with the same name/code for the target
+   * distributor and the new ID is returned so the column mapping can use it.
+   *
+   * If the style already exists for this distributor (same styleCode), returns
+   * the existing ID instead of creating a duplicate.
+   */
+  adminCreateStyleForDistributor: adminProcedure
+    .input(
+      z.object({
+        /** The source style to clone. */
+        sourceStyleId: z.number(),
+        /** The distributor to create the style for. */
+        distributorId: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Load source style
+      const [src] = await db
+        .select()
+        .from(doorStyles)
+        .where(eq(doorStyles.id, input.sourceStyleId))
+        .limit(1);
+      if (!src) throw new TRPCError({ code: "NOT_FOUND", message: "Source style not found." });
+
+      // Check if a style with the same styleCode already exists for this distributor
+      const existing = await db
+        .select({ id: doorStyles.id })
+        .from(doorStyles)
+        .where(
+          and(
+            eq(doorStyles.distributorId, input.distributorId),
+            eq(doorStyles.styleCode, src.styleCode)
+          )
+        )
+        .limit(1);
+      if (existing.length > 0) {
+        return { id: existing[0].id, created: false };
+      }
+
+      // Clone the style for the new distributor
+      const res = await db.insert(doorStyles).values({
+        distributorId: input.distributorId,
+        styleCode: src.styleCode,
+        ourName: src.ourName,
+        aliasName: src.aliasName,
+        distributorName: src.distributorName,
+        doorStyle: src.doorStyle,
+        woodSpecies: src.woodSpecies,
+        finish: src.finish,
+        color: src.color,
+        doorSampleImageUrl: src.doorSampleImageUrl,
+        roomSceneImageUrl: src.roomSceneImageUrl,
+        thumbnailImageUrl: src.thumbnailImageUrl,
+        isActive: true,
+        isFeatured: false,
+        featuredRank: 0,
+        isBuilderGrade: src.isBuilderGrade,
+      });
+      const insertResult = res as unknown as { insertId: number };
+      return { id: Number(insertResult.insertId), created: true };
+    }),
+
+  // ── Category alias management ────────────────────────────────────────────
+
+  /** List all category aliases (optionally filtered to a distributor). */
+  adminListCategoryAliases: adminProcedure
+    .input(z.object({ distributorId: z.number().optional() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const rows = await db.select().from(categoryAliases).orderBy(categoryAliases.rawCategory);
+      return rows.filter((r) =>
+        input.distributorId == null ? true : r.distributorId === null || r.distributorId === input.distributorId
+      );
+    }),
+
+  /** Upsert a category alias. distributorId=null means global (applies to all distributors). */
+  adminSaveCategoryAlias: adminProcedure
+    .input(
+      z.object({
+        rawCategory: z.string().min(1),
+        platformCategory: z.string().min(1),
+        distributorId: z.number().nullable().default(null),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db
+        .insert(categoryAliases)
+        .values({
+          rawCategory: input.rawCategory,
+          platformCategory: input.platformCategory,
+          distributorId: input.distributorId ?? undefined,
+        })
+        .onDuplicateKeyUpdate({ set: { platformCategory: input.platformCategory } });
+      return { ok: true };
+    }),
+
+  /** Delete a category alias by id. */
+  adminDeleteCategoryAlias: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(categoryAliases).where(eq(categoryAliases.id, input.id));
+      return { ok: true };
     }),
 });
