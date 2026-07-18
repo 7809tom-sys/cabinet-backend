@@ -4457,18 +4457,19 @@ export default function DesignTool() {
           target="_blank"
           rel="noopener noreferrer"
           title={t("dt_sh_print_title")}
-          className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
         >
-                    <Printer className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_print_sheet")}</span>
+          <Printer className="h-3.5 w-3.5" />
         </a>
         {/* Preview modes — desktop toolbar button */}
         {placed.length > 0 && (
           <button
             type="button"
             onClick={() => setPreviewModalOpen(true)}
-            className="hidden lg:flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+            title="Preview design"
+            className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
           >
-            <Eye className="h-3.5 w-3.5" /> Preview
+            <Eye className="h-3.5 w-3.5" />
           </button>
         )}
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
