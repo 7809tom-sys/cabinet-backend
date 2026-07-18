@@ -4432,6 +4432,7 @@ export default function DesignTool() {
         <button
           type="button"
           className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-destructive/40 text-destructive transition-colors hover:bg-destructive/10"
+          title="Start new design (clears all cabinets)"
           onClick={() => {
             if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
             setPlaced([]);
