@@ -717,6 +717,7 @@ export const distributorImportRouter = router({
       const DESC_PATTERNS = /description|^desc$|^name$/i;
       const DIM_PATTERNS = /dimension|^dim$|^size$|w.?h.?d/i;
       const ASSEMBLE_PATTERNS = /^assemble$|^assembled$|^assembly$/i;
+      const WEIGHT_PATTERNS = /^weight$|^wt$|^lbs?$|^weight.?lbs?$/i;
 
       const sheets = wb.SheetNames.map((sheetName) => {
         const ws = wb.Sheets[sheetName];
@@ -751,6 +752,8 @@ export const distributorImportRouter = router({
             role = "dimensions";
           } else if (ASSEMBLE_PATTERNS.test(normalized)) {
             role = "assemble";
+          } else if (WEIGHT_PATTERNS.test(normalized)) {
+            role = "weight";
           } else {
             // Check if this header contains a known style code
             // Header format: "ASP\nAspen White" or "ASP - Aspen White" or just "ASP"
@@ -839,9 +842,11 @@ export const distributorImportRouter = router({
       distributorId: z.number(),
       columnMapping: z.array(z.object({
         colIdx: z.number(),
-        role: z.enum(["sku", "category", "subCategory", "description", "dimensions", "priceStyle", "assemble", "ignore"]),
+        role: z.enum(["sku", "category", "subCategory", "description", "dimensions", "priceStyle", "assemble", "weight", "ignore"]),
         styleId: z.number().optional(),
       })),
+      // Admin-selected cabinet overrides: rowNum (1-based, same as previewRows.rowNum) → cabinetId
+      matchOverrides: z.record(z.string(), z.number()).optional(),
       dryRun: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
@@ -870,7 +875,13 @@ export const distributorImportRouter = router({
       const descCol = input.columnMapping.find((c) => c.role === "description")?.colIdx ?? -1;
       const dimCol = input.columnMapping.find((c) => c.role === "dimensions")?.colIdx ?? -1;
       const assembleCol = input.columnMapping.find((c) => c.role === "assemble")?.colIdx ?? -1;
+      const weightCol = input.columnMapping.find((c) => c.role === "weight")?.colIdx ?? -1;
       const priceCols = input.columnMapping.filter((c) => c.role === "priceStyle" && c.styleId != null);
+      // Build override map: rowNum (string key from z.record) → cabinetId
+      const overrideMap = new Map<number, number>();
+      for (const [k, v] of Object.entries(input.matchOverrides ?? {})) {
+        overrideMap.set(Number(k), v);
+      }
 
       // SKU-prefix → category inference (used when no category column is present)
       function inferCategoryFromSku(sku: string): string | null {
@@ -959,8 +970,23 @@ export const distributorImportRouter = router({
         const code = String(row[skuCol] ?? "").trim();
         if (!code) { skipped++; continue; }
 
-        const found = aliasMap.get(code.toUpperCase());
-        const matchHow = !found ? "none" : found.masterCode.toUpperCase() === code.toUpperCase() ? "exact" : "alias";
+        // Check for admin override first
+        const rowNum = i + 2;
+        const overrideCabinetId = overrideMap.get(rowNum);
+        let found = aliasMap.get(code.toUpperCase());
+        let matchHow: string;
+        if (overrideCabinetId != null) {
+          // Admin manually selected a cabinet — look it up
+          const overrideRow = await db.select({ id: cabinets.id, masterCode: cabinets.masterCode, description: cabinets.description, category: cabinets.category }).from(cabinets).where(eq(cabinets.id, overrideCabinetId)).limit(1);
+          if (overrideRow.length > 0) {
+            found = overrideRow[0] as typeof found;
+            matchHow = "override";
+          } else {
+            matchHow = !found ? "none" : found.masterCode.toUpperCase() === code.toUpperCase() ? "exact" : "alias";
+          }
+        } else {
+          matchHow = !found ? "none" : found.masterCode.toUpperCase() === code.toUpperCase() ? "exact" : "alias";
+        }
         if (matchHow === "alias") aliasMatched++;
 
         const rawCat = catCol >= 0 ? String(row[catCol] ?? "").trim() : null;
@@ -975,6 +1001,8 @@ export const distributorImportRouter = router({
         // Assemble flag
         const assembleVal = assembleCol >= 0 ? String(row[assembleCol] ?? "").trim() : null;
         const isAssembled = assembleVal === "1" || /^(yes|true|y)$/i.test(assembleVal ?? "");
+        const weightRaw = weightCol >= 0 ? String(row[weightCol] ?? "").trim() : null;
+        const weightParsed = weightRaw ? parseFloat(weightRaw) : null;
 
         const warnings: string[] = [];
         const issues: Array<{ field: string; message: string; severity: "warning" | "error" }> = [];
@@ -1008,6 +1036,7 @@ export const distributorImportRouter = router({
               width: dims.width,
               height: dims.height,
               depth: dims.depth,
+              sku: code, // store the distributor's item code as the primary SKU alias
               isActive: true,
               ...(assembleCol >= 0 ? { isAssembled } : {}),
             });
@@ -1020,15 +1049,28 @@ export const distributorImportRouter = router({
         } else {
           cabinetId = found.id;
           const patch: Record<string, unknown> = {};
-          if (description) patch.description = description;
-          if (category) patch.category = category;
+          // Only fill empty fields — never overwrite existing data
+          if (description && !found.description) patch.description = description;
+          if (category && !found.category) patch.category = category;
           if (subCategory) patch.subCategory = subCategory;
           if (dims.width) patch.width = dims.width;
           if (dims.height) patch.height = dims.height;
           if (dims.depth) patch.depth = dims.depth;
           if (assembleCol >= 0) patch.isAssembled = isAssembled;
+          if (weightParsed != null && !isNaN(weightParsed)) patch.weight = String(weightParsed);
+          // Backfill alias: if the import code is not already stored in any alias slot, write it to the first empty slot
+          const aliasFields = ["sku", "vendorSku", "altSku1", "altSku2", "altSku3"] as const;
+          const codeUpper = code.toUpperCase();
+          const alreadyStored = aliasFields.some((f) => {
+            const v = (found as Record<string, unknown>)[f];
+            return typeof v === "string" && v.toUpperCase() === codeUpper;
+          });
+          if (!alreadyStored && code.toUpperCase() !== found.masterCode.toUpperCase()) {
+            const emptySlot = aliasFields.find((f) => !(found as Record<string, unknown>)[f]);
+            if (emptySlot) patch[emptySlot] = code;
+          }
           if (Object.keys(patch).length > 0) {
-            action = "update";
+            if (action !== "create") action = "update";
             if (!input.dryRun) {
               await db.update(cabinets).set(patch).where(eq(cabinets.id, cabinetId));
               updated++;

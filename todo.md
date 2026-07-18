@@ -917,3 +917,15 @@
 - [x] Skip section-header rows (rows where SKU column looks like a category label, not a SKU code)
 - [x] Build PDF converter UI tab in admin import panel (upload PDF → preview extracted table → download XLSX)
 - [x] Add "Open in Import" shortcut to feed the converted XLSX directly into the XLSX import flow
+
+## Import preview per-row match dropdown
+
+- [x] Add `searchForMatch` admin procedure to `genericCabinets` router (search by masterCode/sku/vendorSku/altSku1-3/description)
+- [x] Add `matchOverrides` state to `DistributorImport` (rowNum → cabinetId)
+- [x] Add `MatchDropdown` component: popover with search input, shows top results, click to select, X to clear
+- [x] Wire `MatchDropdown` into every XLSX preview table row (replaces static Badge)
+- [x] Color-coded match badge: green=exact, blue=alias, violet=override, red=no match
+- [x] Pass `matchOverrides` in both dry-run and commit payloads
+- [x] Server-side `importWithMapping` respects `matchOverrides` (uses specified cabinetId instead of alias lookup)
+- [x] Add `weight` and `assemble` to `ROLE_LABELS` and column detection
+- [x] Add validation highlighting to preview table (red/orange rows, summary banner, disable Commit on errors)

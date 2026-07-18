@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../server/routers";
 import { trpc } from "@/lib/trpc";
@@ -25,7 +25,108 @@ import {
   Link2,
   ArrowRight,
   RefreshCw,
+  Search,
+  X,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
+
+// ─── MatchDropdown: per-row cabinet search/override ─────────────────────────
+
+function MatchDropdown({
+  rowNum,
+  defaultCode,
+  defaultLabel,
+  matchHow,
+  overrideCabinetId,
+  onSelect,
+  onClear,
+}: {
+  rowNum: number;
+  defaultCode: string;
+  defaultLabel: string | null;
+  matchHow: string;
+  overrideCabinetId: number | undefined;
+  onSelect: (cabinetId: number, label: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const debouncedQ = useMemo(() => q, [q]);
+  const { data: results, isFetching } = trpc.genericCabinets.searchForMatch.useQuery(
+    { q: debouncedQ || defaultCode },
+    { enabled: open }
+  );
+
+  const isOverridden = overrideCabinetId != null;
+  const label = isOverridden
+    ? results?.find((r) => r.id === overrideCabinetId)?.masterCode ?? `Cabinet #${overrideCabinetId}`
+    : defaultLabel ?? defaultCode;
+
+  const badgeClass =
+    matchHow === "exact" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+    : matchHow === "alias" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+    : matchHow === "override" ? "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
+    : "bg-destructive/10 text-destructive";
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium transition-colors hover:opacity-80 ${badgeClass}`}
+          title="Click to change cabinet match"
+        >
+          <span className="max-w-[120px] truncate">{label}</span>
+          <Search className="h-2.5 w-2.5 shrink-0 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-2" align="start">
+        <div className="mb-1.5 flex items-center gap-1">
+          <Input
+            autoFocus
+            placeholder="Search cabinets…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-7 text-xs"
+          />
+          {isOverridden && (
+            <button
+              type="button"
+              className="ml-1 text-muted-foreground hover:text-foreground"
+              title="Clear override"
+              onClick={() => { onClear(); setOpen(false); }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {isFetching && <p className="py-2 text-center text-xs text-muted-foreground">Searching…</p>}
+        {!isFetching && results && results.length === 0 && (
+          <p className="py-2 text-center text-xs text-muted-foreground">No results</p>
+        )}
+        <ul className="max-h-48 overflow-auto space-y-0.5">
+          {results?.map((cab) => (
+            <li key={cab.id}>
+              <button
+                type="button"
+                className={`w-full rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground ${
+                  (isOverridden ? overrideCabinetId : undefined) === cab.id ? "bg-accent text-accent-foreground font-medium" : ""
+                }`}
+                onClick={() => { onSelect(cab.id, cab.masterCode); setOpen(false); setQ(""); }}
+              >
+                <span className="font-mono">{cab.masterCode}</span>
+                {cab.description && (
+                  <span className="ml-1.5 text-muted-foreground truncate">{cab.description}</span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ─── CSV import helpers ────────────────────────────────────────────────────────
 
@@ -67,6 +168,8 @@ const ROLE_LABELS: Record<string, string> = {
   subCategory: "Sub-Category",
   description: "Description",
   dimensions: "Dimensions",
+  weight: "Weight (lbs)",
+  assemble: "Assembled (0/1)",
   priceStyle: "Price (door style)",
   ignore: "Ignore",
 };
@@ -183,6 +286,8 @@ export default function DistributorImport() {
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [columnMapping, setColumnMapping] = useState<ParsedColumn[]>([]);
   const [xlsxResult, setXlsxResult] = useState<ImportResult | null>(null);
+  // Per-row cabinet match overrides: rowNum → cabinetId (admin-selected)
+  const [matchOverrides, setMatchOverrides] = useState<Record<number, number>>({});
   const xlsxFileRef = useRef<HTMLInputElement>(null);
 
   const parseMut = trpc.distributorAdmin.parseXlsxColumns.useMutation({
@@ -325,15 +430,23 @@ export default function DistributorImport() {
         | "description"
         | "dimensions"
         | "priceStyle"
+        | "assemble"
+        | "weight"
         | "ignore",
       styleId: c.styleId ?? undefined,
     }));
+    // Convert matchOverrides keys to strings for z.record
+    const overridesForPayload: Record<string, number> = {};
+    for (const [k, v] of Object.entries(matchOverrides)) {
+      overridesForPayload[String(k)] = v;
+    }
     const payload = {
       fileBase64: xlsxFileBase64,
       filename: xlsxFilename,
       sheetName: xlsxSheetName,
       distributorId: Number(distributorId),
       columnMapping: mappingInput,
+      matchOverrides: overridesForPayload,
       dryRun,
     };
     if (dryRun) {
@@ -351,6 +464,7 @@ export default function DistributorImport() {
     setParseResult(null);
     setColumnMapping([]);
     setXlsxResult(null);
+    setMatchOverrides({});
     if (xlsxFileRef.current) xlsxFileRef.current.value = "";
   }
 
@@ -761,6 +875,24 @@ export default function DistributorImport() {
                     </div>
                   )}
 
+                  {/* Validation summary banner */}
+                  {("errorCount" in xlsxResult && (xlsxResult as any).errorCount > 0) && (
+                    <div className="rounded-md border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive space-y-1">
+                      <p className="font-semibold flex items-center gap-1.5">
+                        <AlertTriangle className="h-4 w-4" />
+                        {(xlsxResult as any).errorCount} row{(xlsxResult as any).errorCount !== 1 ? "s" : ""} have errors — fix the source file before committing.
+                      </p>
+                    </div>
+                  )}
+                  {("warningCount" in xlsxResult && (xlsxResult as any).warningCount > 0 && !((xlsxResult as any).errorCount > 0)) && (
+                    <div className="rounded-md border border-amber-400/40 bg-amber-50/40 dark:bg-amber-950/20 p-3 text-sm text-amber-700 dark:text-amber-300 space-y-1">
+                      <p className="font-semibold flex items-center gap-1.5">
+                        <AlertTriangle className="h-4 w-4" />
+                        {(xlsxResult as any).warningCount} row{(xlsxResult as any).warningCount !== 1 ? "s" : ""} have warnings — review before committing.
+                      </p>
+                    </div>
+                  )}
+
                   {xlsxResult.previewRows.length > 0 && (
                     <div className="max-h-72 overflow-auto rounded-md border">
                       <table className="w-full text-left text-xs">
@@ -771,68 +903,91 @@ export default function DistributorImport() {
                             <th className="px-3 py-2">Match</th>
                             <th className="px-3 py-2">Action</th>
                             <th className="px-3 py-2">Styles priced</th>
-                            <th className="px-3 py-2">Notes</th>
+                            <th className="px-3 py-2">Issues</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {xlsxResult.previewRows.map((r) => (
-                            <tr key={r.rowNum} className="border-t">
-                              <td className="px-3 py-1.5 text-muted-foreground">
-                                {r.rowNum}
-                              </td>
-                              <td className="px-3 py-1.5 font-mono">
-                                {r.code}
-                                {r.matchHow === "alias" &&
-                                  r.resolvedCode && (
-                                    <span className="ml-1.5 text-blue-600 dark:text-blue-400">
-                                      → {r.resolvedCode}
-                                    </span>
+                          {xlsxResult.previewRows.map((r) => {
+                            const severity = (r as any).severity as "ok" | "warning" | "error" | undefined;
+                            const issues = (r as any).issues as Array<{ field: string; message: string; severity: string }> | undefined;
+                            const rowClass =
+                              severity === "error"
+                                ? "border-t bg-destructive/5 text-destructive"
+                                : severity === "warning"
+                                ? "border-t bg-amber-50/40 dark:bg-amber-950/10"
+                                : "border-t";
+                            return (
+                              <tr key={r.rowNum} className={rowClass}>
+                                <td className="px-3 py-1.5 text-muted-foreground">
+                                  {severity === "error" && <AlertTriangle className="inline mr-1 h-3 w-3 text-destructive" />}
+                                  {severity === "warning" && <AlertTriangle className="inline mr-1 h-3 w-3 text-amber-500" />}
+                                  {r.rowNum}
+                                </td>
+                                <td className="px-3 py-1.5 font-mono">
+                                  {r.code}
+                                  {r.matchHow === "alias" && r.resolvedCode && (
+                                    <span className="ml-1.5 text-blue-600 dark:text-blue-400">→ {r.resolvedCode}</span>
                                   )}
-                              </td>
-                              <td className="px-3 py-1.5">
-                                <Badge
-                                  variant={
-                                    r.matchHow === "exact"
-                                      ? "default"
-                                      : r.matchHow === "alias"
-                                      ? "outline"
-                                      : "destructive"
-                                  }
-                                  className="text-xs"
-                                >
-                                  {r.matchHow === "exact"
-                                    ? "Exact"
-                                    : r.matchHow === "alias"
-                                    ? "Alias"
-                                    : r.action === "create"
-                                    ? "New"
-                                    : "No match"}
-                                </Badge>
-                              </td>
-                              <td className="px-3 py-1.5">
-                                <Badge
-                                  variant={
-                                    r.action === "error"
-                                      ? "destructive"
-                                      : r.action === "create"
-                                      ? "default"
-                                      : r.action === "update"
-                                      ? "secondary"
-                                      : "outline"
-                                  }
-                                  className="text-xs"
-                                >
-                                  {r.action}
-                                </Badge>
-                              </td>
-                              <td className="px-3 py-1.5 text-muted-foreground">
-                                {r.stylesPriced}
-                              </td>
-                              <td className="px-3 py-1.5 text-amber-600 dark:text-amber-400">
-                                {r.warnings.join(" ")}
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="px-3 py-1.5">
+                                  <MatchDropdown
+                                    rowNum={r.rowNum}
+                                    defaultCode={r.resolvedCode ?? r.code}
+                                    defaultLabel={r.resolvedCode}
+                                    matchHow={matchOverrides[r.rowNum] != null ? "override" : r.matchHow}
+                                    overrideCabinetId={matchOverrides[r.rowNum]}
+                                    onSelect={(cabinetId) => {
+                                      setMatchOverrides((prev) => ({ ...prev, [r.rowNum]: cabinetId }));
+                                    }}
+                                    onClear={() => {
+                                      setMatchOverrides((prev) => {
+                                        const next = { ...prev };
+                                        delete next[r.rowNum];
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                </td>
+                                <td className="px-3 py-1.5">
+                                  <Badge
+                                    variant={
+                                      r.action === "error"
+                                        ? "destructive"
+                                        : r.action === "create"
+                                        ? "default"
+                                        : r.action === "update"
+                                        ? "secondary"
+                                        : "outline"
+                                    }
+                                    className="text-xs"
+                                  >
+                                    {r.action}
+                                  </Badge>
+                                </td>
+                                <td className="px-3 py-1.5 text-muted-foreground">
+                                  {r.stylesPriced}
+                                  {(r as any).missingPriceCount > 0 && (
+                                    <span className="ml-1 text-amber-500">({(r as any).missingPriceCount} missing)</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-1.5 max-w-[200px]">
+                                  {issues && issues.length > 0 ? (
+                                    <ul className="space-y-0.5">
+                                      {issues.map((iss, i) => (
+                                        <li key={i} className={iss.severity === "error" ? "text-destructive" : "text-amber-600 dark:text-amber-400"}>
+                                          {iss.severity === "error" ? "✗" : "⚠"} {iss.message}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : r.warnings.length > 0 ? (
+                                    <span className="text-amber-600 dark:text-amber-400">{r.warnings.join(" ")}</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -841,7 +996,8 @@ export default function DistributorImport() {
                   <div className="flex gap-2">
                     <Button
                       className="bg-emerald-600 hover:bg-emerald-700"
-                      disabled={xlsxCommitMut.isPending}
+                      disabled={xlsxCommitMut.isPending || (("errorCount" in xlsxResult) && (xlsxResult as any).errorCount > 0)}
+                      title={("errorCount" in xlsxResult && (xlsxResult as any).errorCount > 0) ? "Fix errors before committing" : ""}
                       onClick={() => runXlsxImport(false)}
                     >
                       {xlsxCommitMut.isPending ? (

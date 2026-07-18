@@ -369,6 +369,51 @@ export const genericCabinetsRouter = router({
     }),
 
   /**
+   * Fast cabinet search for the import match dropdown.
+   * Returns up to 20 cabinets matching the query string against masterCode, description, and all alias fields.
+   */
+  searchForMatch: adminProcedure
+    .input(z.object({ q: z.string().min(1).max(100) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const like_ = `%${input.q.trim()}%`;
+      const rows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          sku: cabinets.sku,
+          vendorSku: cabinets.vendorSku,
+          altSku1: cabinets.altSku1,
+          altSku2: cabinets.altSku2,
+          altSku3: cabinets.altSku3,
+        })
+        .from(cabinets)
+        .where(
+          or(
+            like(cabinets.masterCode, like_),
+            like(cabinets.description, like_),
+            like(cabinets.sku, like_),
+            like(cabinets.vendorSku, like_),
+            like(cabinets.altSku1, like_),
+            like(cabinets.altSku2, like_),
+            like(cabinets.altSku3, like_)
+          )
+        )
+        .orderBy(asc(cabinets.masterCode))
+        .limit(20);
+      return rows.map((r) => ({
+        id: r.id,
+        masterCode: r.masterCode,
+        description: r.description ?? null,
+        category: r.category ?? null,
+        aliases: [r.sku, r.vendorSku, r.altSku1, r.altSku2, r.altSku3].filter(Boolean) as string[],
+      }));
+    }),
+
+  /**
    * Get distinct categories and sub-categories for filter dropdowns.
    */
   categories: adminProcedure.query(async () => {
