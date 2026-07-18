@@ -267,7 +267,7 @@ function DistributorZipManagerDialog({ onClose }: { onClose: () => void }) {
 }
 
 // ─── Detail Edit Panel ────────────────────────────────────────────────────────
-function EditPanel({
+function EditDialog({
   cabinet,
   onClose,
   onSaved,
@@ -283,7 +283,6 @@ function EditPanel({
   const fileRef = useRef<HTMLInputElement>(null);
   const dirty = isDirty(cabinet, draft);
 
-  // Reset draft when cabinet changes
   useEffect(() => { setDraft(toDraft(cabinet)); }, [cabinet.id]);
 
   const updateMut = trpc.genericCabinets.update.useMutation({
@@ -308,12 +307,12 @@ function EditPanel({
     try {
       await updateMut.mutateAsync({ id: cabinet.id, ...draft });
       toast.success("Cabinet saved");
+      onClose();
     } finally {
       setSaving(false);
     }
   };
 
-  // Auto-save toggles immediately
   const saveToggle = (key: "isActive" | "showInDesigner" | "showInCatalog", value: boolean) => {
     set(key, value);
     updateMut.mutate({ id: cabinet.id, [key]: value });
@@ -337,240 +336,232 @@ function EditPanel({
     <>
       {showCoverage && <DistributorCoverageDialog cabinet={cabinet} onClose={() => setShowCoverage(false)} />}
 
-      <div className="flex flex-col h-full">
-        {/* Panel header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b shrink-0">
-          <div className="min-w-0">
-            <div className="font-mono font-bold text-lg leading-tight">{cabinet.masterCode}</div>
-            <div className="text-xs text-muted-foreground truncate">{cabinet.category}{cabinet.subCategory ? ` › ${cabinet.subCategory}` : ""}</div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+      <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+        <DialogContent className="max-w-3xl w-full max-h-[90vh] flex flex-col p-0 gap-0">
+          {/* Header */}
+          <DialogHeader className="flex flex-row items-center justify-between px-6 py-4 border-b shrink-0">
+            <div className="min-w-0">
+              <DialogTitle className="font-mono font-bold text-lg leading-tight">{cabinet.masterCode}</DialogTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">{cabinet.category}{cabinet.subCategory ? ` › ${cabinet.subCategory}` : ""}</p>
+            </div>
             {dirty && (
-              <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
+              <span className="flex items-center gap-1 text-xs text-amber-600 font-medium mr-2">
                 <AlertCircle className="h-3.5 w-3.5" />Unsaved
               </span>
             )}
-            <Button size="sm" onClick={saveAll} disabled={!dirty || saving}>
-              {saving ? <Spinner className="h-4 w-4 mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-              Save
-            </Button>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
+          </DialogHeader>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 sm:divide-x">
 
-          {/* Catalog image */}
-          <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Catalog Illustration</Label>
-            <div
-              className="relative bg-muted/30 rounded-lg border flex items-center justify-center h-40 cursor-pointer group overflow-hidden"
-              onClick={() => fileRef.current?.click()}
-            >
-              {draft.catalogImageUrl ? (
-                <img src={draft.catalogImageUrl} alt={cabinet.masterCode} className="max-h-full max-w-full object-contain p-2" />
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Package className="h-10 w-10 opacity-30" />
-                  <span className="text-xs">Click to upload illustration</span>
+              {/* ── Left column: image + visibility ── */}
+              <div className="px-6 py-5 space-y-5">
+
+                {/* Catalog image */}
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Catalog Illustration</Label>
+                  <div
+                    className="relative bg-muted/30 rounded-lg border flex items-center justify-center h-44 cursor-pointer group overflow-hidden"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    {draft.catalogImageUrl ? (
+                      <img src={draft.catalogImageUrl} alt={cabinet.masterCode} className="max-h-full max-w-full object-contain p-2" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <Package className="h-10 w-10 opacity-30" />
+                        <span className="text-xs">Click to upload image</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-white text-sm flex items-center gap-2"><Upload className="h-4 w-4" />Upload image</span>
+                    </div>
+                  </div>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                  {draft.catalogImageUrl && (
+                    <button
+                      className="text-xs text-muted-foreground hover:text-red-500 mt-1 flex items-center gap-1"
+                      onClick={() => set("catalogImageUrl", null)}
+                    >
+                      <X className="h-3 w-3" />Remove image
+                    </button>
+                  )}
                 </div>
-              )}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="text-white text-sm flex items-center gap-2"><Upload className="h-4 w-4" />Upload image</span>
+
+                <Separator />
+
+                {/* Visibility toggles */}
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-3 block">Visibility</Label>
+                  <div className="space-y-3">
+                    {([
+                      ["isActive", "Active", "Available for use"],
+                      ["showInDesigner", "Show in Designer", "Appears in 2D design tool"],
+                      ["showInCatalog", "Show in Catalog", "Appears in public catalog"],
+                    ] as [keyof DraftState, string, string][]).map(([key, label, desc]) => (
+                      <div key={key} className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground">{desc}</div>
+                        </div>
+                        <Switch
+                          checked={draft[key] as boolean}
+                          onCheckedChange={(v) => saveToggle(key as "isActive" | "showInDesigner" | "showInCatalog", v)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Distributor coverage */}
+                <button
+                  onClick={() => setShowCoverage(true)}
+                  className="w-full flex items-center justify-between text-sm border rounded-lg px-4 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <span className="flex items-center gap-2 font-medium">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    Distributor Coverage
+                  </span>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+
+              {/* ── Right column: all text fields ── */}
+              <div className="px-6 py-5 space-y-4">
+
+                {/* Description */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground">Description</Label>
+                  <Textarea
+                    value={draft.description}
+                    onChange={e => set("description", e.target.value)}
+                    rows={3}
+                    className="resize-none text-sm"
+                    placeholder="Cabinet description…"
+                  />
+                </div>
+
+                {/* Category */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Category</Label>
+                    <Input value={draft.category} onChange={e => set("category", e.target.value)} className="text-sm" placeholder="e.g. Base" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Sub-Category</Label>
+                    <Input value={draft.subCategory ?? ""} onChange={e => set("subCategory", e.target.value || null)} className="text-sm" placeholder="e.g. Corner" />
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Cabinet Dimensions */}
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Cabinet Dimensions & Weight</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {([
+                      ["width", 'W"'],
+                      ["height", 'H"'],
+                      ["depth", 'D"'],
+                      ["weight", "Wt lb"],
+                    ] as [keyof DraftState, string][]).map(([key, label]) => (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">{label}</Label>
+                        <Input
+                          value={(draft[key] as string | null) ?? ""}
+                          onChange={e => set(key, e.target.value || null)}
+                          className="text-sm font-mono px-2"
+                          placeholder="—"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Package Dimensions */}
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Package / Shipping Dims</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {([
+                      ["pkgLength", 'L"'],
+                      ["pkgWidth", 'W"'],
+                      ["pkgHeight", 'H"'],
+                      ["pkgWeight", "Wt lb"],
+                    ] as [keyof DraftState, string][]).map(([key, label]) => (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">{label}</Label>
+                        <Input
+                          value={(draft[key] as string | null) ?? ""}
+                          onChange={e => set(key, e.target.value || null)}
+                          className="text-sm font-mono px-2"
+                          placeholder="—"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* SKU Aliases */}
+                <div>
+                  <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">SKU Aliases</Label>
+                  <div className="space-y-2">
+                    {([
+                      ["sku", "Primary SKU"],
+                      ["vendorSku", "Vendor SKU"],
+                      ["altSku1", "Alt SKU 1"],
+                      ["altSku2", "Alt SKU 2"],
+                      ["altSku3", "Alt SKU 3"],
+                    ] as [keyof DraftState, string][]).map(([key, label]) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-20 shrink-0">{label}</span>
+                        <Input
+                          value={(draft[key] as string | null) ?? ""}
+                          onChange={e => set(key, e.target.value || null)}
+                          className="text-xs font-mono h-8"
+                          placeholder="—"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Stain + construction */}
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Stain Color (Sherwin-Williams)</Label>
+                    <Input value={draft.stainColor ?? ""} onChange={e => set("stainColor", e.target.value || null)} className="text-sm" placeholder="e.g. SW 7015 Repose Gray" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Construction Method</Label>
+                    <Input value={draft.constructionMethod ?? ""} onChange={e => set("constructionMethod", e.target.value || null)} className="text-sm" placeholder="e.g. Framed, plywood box, dovetail drawer" />
+                  </div>
+                </div>
+
               </div>
             </div>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-            {draft.catalogImageUrl && (
-              <button
-                className="text-xs text-muted-foreground hover:text-red-500 mt-1 flex items-center gap-1"
-                onClick={() => set("catalogImageUrl", null)}
-              >
-                <X className="h-3 w-3" />Remove image
-              </button>
-            )}
           </div>
 
-          <Separator />
-
-          {/* Visibility toggles */}
-          <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-3 block">Visibility</Label>
-            <div className="space-y-3">
-              {([
-                ["isActive", "Active", "Cabinet is available for use"],
-                ["showInDesigner", "Show in Designer", "Appears in the 2D design tool catalog"],
-                ["showInCatalog", "Show in Catalog", "Appears in the public product catalog"],
-              ] as [keyof DraftState, string, string][]).map(([key, label, desc]) => (
-                <div key={key} className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">{label}</div>
-                    <div className="text-xs text-muted-foreground">{desc}</div>
-                  </div>
-                  <Switch
-                    checked={draft[key] as boolean}
-                    onCheckedChange={(v) => saveToggle(key as "isActive" | "showInDesigner" | "showInCatalog", v)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Description */}
-          <div className="space-y-1.5">
-            <Label htmlFor="desc" className="text-xs uppercase tracking-wide text-muted-foreground">Description</Label>
-            <Textarea
-              id="desc"
-              value={draft.description}
-              onChange={e => set("description", e.target.value)}
-              rows={3}
-              className="resize-none text-sm"
-              placeholder="Cabinet description…"
-            />
-          </div>
-
-          {/* Category */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Category</Label>
-              <Input value={draft.category} onChange={e => set("category", e.target.value)} className="text-sm" placeholder="e.g. Base" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Sub-Category</Label>
-              <Input value={draft.subCategory ?? ""} onChange={e => set("subCategory", e.target.value || null)} className="text-sm" placeholder="e.g. Corner" />
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Cabinet Dimensions */}
-          <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Cabinet Dimensions & Weight</Label>
-            <div className="grid grid-cols-4 gap-2">
-              {([
-                ["width", 'W"'],
-                ["height", 'H"'],
-                ["depth", 'D"'],
-                ["weight", "Wt lb"],
-              ] as [keyof DraftState, string][]).map(([key, label]) => (
-                <div key={key} className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{label}</Label>
-                  <Input
-                    value={(draft[key] as string | null) ?? ""}
-                    onChange={e => set(key, e.target.value || null)}
-                    className="text-sm font-mono px-2"
-                    placeholder="—"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Package / Shipping Dimensions */}
-          <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Package / Shipping Dimensions</Label>
-            <div className="grid grid-cols-4 gap-2">
-              {([
-                ["pkgLength", 'L"'],
-                ["pkgWidth", 'W"'],
-                ["pkgHeight", 'H"'],
-                ["pkgWeight", "Wt lb"],
-              ] as [keyof DraftState, string][]).map(([key, label]) => (
-                <div key={key} className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">{label}</Label>
-                  <Input
-                    value={(draft[key] as string | null) ?? ""}
-                    onChange={e => set(key, e.target.value || null)}
-                    className="text-sm font-mono px-2"
-                    placeholder="—"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Stain + construction */}
-          <div className="grid grid-cols-1 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Stain Color (Sherwin-Williams)</Label>
-              <Input value={draft.stainColor ?? ""} onChange={e => set("stainColor", e.target.value || null)} className="text-sm" placeholder="e.g. SW 7015 Repose Gray" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Construction Method</Label>
-              <Input value={draft.constructionMethod ?? ""} onChange={e => set("constructionMethod", e.target.value || null)} className="text-sm" placeholder="e.g. Framed, plywood box, dovetail drawer" />
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Aliases */}
-          <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">SKU Aliases</Label>
-            <div className="space-y-2">
-              {([
-                ["sku", "Primary SKU"],
-                ["vendorSku", "Vendor SKU"],
-                ["altSku1", "Alt SKU 1"],
-                ["altSku2", "Alt SKU 2"],
-                ["altSku3", "Alt SKU 3"],
-              ] as [keyof DraftState, string][]).map(([key, label]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-20 shrink-0">{label}</span>
-                  <Input
-                    value={(draft[key] as string | null) ?? ""}
-                    onChange={e => set(key, e.target.value || null)}
-                    className="text-xs font-mono h-8"
-                    placeholder="—"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Distributor coverage */}
-          <div>
-            <button
-              onClick={() => setShowCoverage(true)}
-              className="w-full flex items-center justify-between text-sm border rounded-lg px-4 py-3 hover:bg-muted/50 transition-colors"
-            >
-              <span className="flex items-center gap-2 font-medium">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                View Distributor Coverage
-              </span>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
-
-          {/* Bottom spacer */}
-          <div className="h-4" />
-        </div>
-
-        {/* Sticky save footer */}
-        {dirty && (
-          <div className="border-t px-5 py-3 bg-background shrink-0 flex items-center justify-between gap-3">
-            <span className="text-sm text-amber-600 flex items-center gap-1.5">
-              <AlertCircle className="h-4 w-4" />You have unsaved changes
-            </span>
+          {/* Footer */}
+          <div className="border-t px-6 py-4 bg-background shrink-0 flex items-center justify-between gap-3">
+            <Button variant="outline" onClick={() => setDraft(toDraft(cabinet))} disabled={!dirty}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1" />Revert
+            </Button>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setDraft(toDraft(cabinet))}>
-                <RefreshCw className="h-3.5 w-3.5 mr-1" />Revert
-              </Button>
-              <Button size="sm" onClick={saveAll} disabled={saving}>
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button onClick={saveAll} disabled={!dirty || saving}>
                 {saving ? <Spinner className="h-4 w-4 mr-1" /> : <Save className="h-4 w-4 mr-1" />}
                 Save Changes
               </Button>
             </div>
           </div>
-        )}
-      </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -751,7 +742,7 @@ export default function GenericCabinetsAdmin() {
       {showZipManager && <DistributorZipManagerDialog onClose={() => setShowZipManager(false)} />}
 
       {/* ── Left: list/table ── */}
-      <div className={cn("flex flex-col min-w-0 transition-all duration-200", selectedCabinet ? "w-[55%]" : "w-full")}>
+      <div className="flex flex-col min-w-0 w-full">
 
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
@@ -926,15 +917,14 @@ export default function GenericCabinetsAdmin() {
         )}
       </div>
 
-      {/* ── Right: edit panel ── */}
+      {/* ── Cabinet edit dialog (modal) ── */}
       {selectedCabinet && (
-        <div className="w-[45%] border-l flex flex-col ml-0 min-h-0 max-h-[calc(100vh-200px)] sticky top-4">
-          <EditPanel
-            cabinet={selectedCabinet}
-            onClose={() => setSelectedCabinet(null)}
-            onSaved={() => utils.genericCabinets.list.invalidate()}
-          />
-        </div>
+        <EditDialog
+          key={selectedCabinet.id}
+          cabinet={selectedCabinet}
+          onClose={() => setSelectedCabinet(null)}
+          onSaved={() => utils.genericCabinets.list.invalidate()}
+        />
       )}
     </div>
   );
