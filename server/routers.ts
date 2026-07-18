@@ -30,6 +30,7 @@ import { consultationsRouter } from "./routers/consultations";
 import { affiliateMembershipRouter } from "./routers/affiliateMembership";
 import { siteSettingsRouter } from "./routers/siteSettings";
 import { skuAdminRouter } from "./routers/skuAdmin";
+import { genericCabinetsRouter } from "./routers/genericCabinets";
 import { emailSettingsRouter } from "./routers/emailSettings";
 import { pelicanRouter } from "./routers/pelican";
 import { vendorsRouter } from "./routers/vendors";
@@ -83,6 +84,7 @@ export const appRouter = router({
   affiliateMembership: affiliateMembershipRouter,
   siteSettings: siteSettingsRouter,
   skuAdmin: skuAdminRouter,
+  genericCabinets: genericCabinetsRouter,
   emailSettings: emailSettingsRouter,
   pelican: pelicanRouter,
   vendors: vendorsRouter,

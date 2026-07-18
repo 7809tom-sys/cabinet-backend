@@ -3700,8 +3700,15 @@ export default function DesignTool() {
   const selectColorSlot = useCallback((slot: "A" | "B") => {
     setActiveSlot(slot);
     const target = slot === "A" ? styleA : styleB;
-    if (target != null) setStyleId(target);
-  }, [styleA, styleB]);
+    if (target != null) {
+      setStyleId(target);
+      // Keep lockedDistributorId in sync with the active slot's distributor
+      // so the catalog query doesn't produce a cross-distributor mismatch.
+      const source = (doorStyles ?? []) as Array<{ id: number; distributorId?: number }>;
+      const distForSlot = source.find((d) => d.id === target)?.distributorId ?? null;
+      if (distForSlot != null) setLockedDistributorId(distForSlot);
+    }
+  }, [styleA, styleB, doorStyles]);
 
   // Assign a door style to a slot (from the picker). Setting the active slot's
   // style also updates styleId. Slot B is the two-tone second color.

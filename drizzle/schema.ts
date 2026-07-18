@@ -167,6 +167,15 @@ export const cabinets = mysqlTable("cabinets", {
   maxPull: decimal("maxPull", { precision: 5, scale: 2 }),
   // 2D graphic
   graphicType: varchar("graphicType", { length: 64 }), // base_1door, wall_2door, etc.
+  // Generic tab aliases — alternative codes this cabinet is known by across distributors
+  sku: varchar("sku", { length: 128 }),         // Primary SKU (col B in Generic tab)
+  vendorSku: varchar("vendorSku", { length: 128 }), // Vendor SKU (col C)
+  altSku1: varchar("altSku1", { length: 128 }), // Alt SKU 1 (col D)
+  altSku2: varchar("altSku2", { length: 128 }), // Alt SKU 2 (col E)
+  altSku3: varchar("altSku3", { length: 128 }), // Alt SKU 3 (col F)
+  // Finish & construction
+  stainColor: varchar("stainColor", { length: 128 }), // Sherwin-Williams stain color name
+  constructionMethod: varchar("constructionMethod", { length: 256 }), // e.g. "Framed, plywood box, dovetail drawer"
   // Catalog line-art image (20/20 catalog renders, keyed by code). Falls back to code-drawn SVG.
   catalogImageUrl: varchar("catalogImageUrl", { length: 512 }),
   roomSceneUrl: varchar("roomSceneUrl", { length: 512 }),

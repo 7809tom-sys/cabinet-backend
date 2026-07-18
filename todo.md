@@ -846,3 +846,21 @@
 ## Bug: US Cabinet Depot door style shows "No cabinets available for this door style"
 - [ ] Investigate why selecting a US Cabinet Depot door style shows no cabinets in the design tool catalog
 - [ ] Fix the catalog query/filtering so USCD cabinets appear when a USCD door style is selected
+
+## Feature: Generic Cabinets Admin Screen
+- [x] Admin page /admin/generic-cabinets — table of all master cabinet codes
+- [x] Columns: masterCode, description, category, subCategory, width, height, depth, weight, catalogImageUrl
+- [x] Inline editing for all fields (description, category, subCategory, dimensions, weight)
+- [x] Category/subCategory filter dropdowns
+- [x] Search by code or description
+- [x] Photo upload/change per cabinet (catalogImageUrl)
+- [ ] Sync from Generic tab (import from Google Sheet)
+- [x] Save changes to cabinets table in DB
+- [x] Added alias columns to cabinets table: sku, vendorSku, altSku1, altSku2, altSku3
+- [x] Added stainColor and constructionMethod columns to cabinets table
+- [x] Added catalogImageUrl column to cabinets table
+- [x] Backend router: genericCabinets (list, update, uploadCatalogImage, distributorCoverage, distributorZips, updateDistributorZips, bulkUpdateAliases, categories)
+- [x] Frontend: GenericCabinetsAdmin card grid with inline editing, alias display, distributor coverage dialog, zip manager
+- [x] Wired into AdminGroupedTabs under Products & Catalog → Generic Catalog tab
+- [x] Image upload uses tRPC uploadCatalogImage mutation (base64 → S3)
+- [x] TypeScript clean; checkpoint saved
