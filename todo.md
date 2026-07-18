@@ -864,3 +864,15 @@
 - [x] Wired into AdminGroupedTabs under Products & Catalog → Generic Catalog tab
 - [x] Image upload uses tRPC uploadCatalogImage mutation (base64 → S3)
 - [x] TypeScript clean; checkpoint saved
+
+## Enhancement: Generic Cabinets Admin inline editing UX
+- [x] Table view with sortable columns: thumbnail, code, description, category, dims, aliases, status icons
+- [x] Grid view toggle (table ↔ card grid)
+- [x] Slide-out detail panel: opens on row click, shows all editable fields side-by-side
+- [x] Toggle switches for isActive / showInDesigner / showInCatalog (auto-save on toggle)
+- [x] Unsaved-changes indicator + Revert button + sticky Save footer in panel
+- [x] Bulk-select rows with checkbox column + select-all header checkbox
+- [x] Bulk action bar: Activate, Deactivate, Show in Designer, Hide from Designer
+- [x] Catalog image upload in panel (hover overlay, click to upload)
+- [x] Distributor coverage button in panel opens coverage dialog
+- [x] TypeScript clean; checkpoint saved
