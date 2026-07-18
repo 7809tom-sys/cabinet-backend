@@ -277,23 +277,23 @@ function Step2DoorStyle({
 }
 
 // ─── Step 3: Spreadsheet ──────────────────────────────────────────────────────
-type DryRunResult = { matched: number; unmatched: number; priced: number; skipped: number; unmatchedCodes: string[]; dryRun: boolean };
+type DryRunResult = { created: number; updated: number; priced: number; skipped: number; aliasMatched: number; unmatchedCount: number; unmatchedCodes: string[]; previewRows: unknown[]; dryRun: boolean };
 
 function Step3Spreadsheet({
   distributorId, styleId, styleCode,
   onNext, onBack,
 }: {
   distributorId: number; styleId: number; styleCode: string;
-  onNext: (fileBase64: string, filename: string, skuCol: string, priceCol: string, priceType: "listPrice" | "yourCost", dryResult: DryRunResult) => void;
+  onNext: (fileBase64: string, filename: string, sheetName: string, skuColIdx: number, priceColIdx: number, styleId: number, dryResult: DryRunResult) => void;
   onBack: () => void;
 }) {
   const [fileBase64, setFileBase64] = useState<string | null>(null);
   const [filename, setFilename] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
-  const [sheetName, setSheetName] = useState<string | undefined>();
-  const [skuCol, setSkuCol] = useState("");
-  const [priceCol, setPriceCol] = useState("");
-  const [priceType, setPriceType] = useState<"listPrice" | "yourCost">("listPrice");
+  const [sheetName, setSheetName] = useState<string>("");
+  const [skuColIdx, setSkuColIdx] = useState<number>(-1);
+  const [priceColIdx, setPriceColIdx] = useState<number>(-1);
+  const [colHeaders, setColHeaders] = useState<string[]>([]);
   const [dryResult, setDryResult] = useState<DryRunResult | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -303,13 +303,14 @@ function Step3Spreadsheet({
       const sheet = d.sheets[0];
       if (!sheet) return;
       setSheetName(sheet.name);
-      setHeaders(sheet.headers);
-      // Auto-detect SKU and price columns by common names
-      const h = sheet.headers;
-      const skuGuess = h.find((c) => /sku|model|code|item/i.test(c)) ?? h[0] ?? "";
-      const priceGuess = h.find((c) => /list.*price|price/i.test(c)) ?? h.find((c) => /cost/i.test(c)) ?? "";
-      setSkuCol(skuGuess);
-      setPriceCol(priceGuess);
+      const hdrs = sheet.columns.map((c: { label: string }) => c.label);
+      setColHeaders(hdrs);
+      setHeaders(hdrs);
+      // Auto-detect SKU and price columns by role
+      const skuIdx = sheet.columns.findIndex((c: { role: string }) => c.role === "sku");
+      const priceIdx = sheet.columns.findIndex((c: { role: string }) => c.role === "priceStyle");
+      setSkuColIdx(skuIdx >= 0 ? skuIdx : 0);
+      setPriceColIdx(priceIdx >= 0 ? priceIdx : -1);
       setDryResult(null);
     },
     onError: (e) => toast.error(e.message),
@@ -328,7 +329,7 @@ function Step3Spreadsheet({
     reader.onload = (ev) => {
       const b64 = (ev.target?.result as string).split(",")[1];
       setFileBase64(b64);
-      parseMut.mutate({ fileBase64: b64, filename: file.name });
+      parseMut.mutate({ fileBase64: b64, filename: file.name, distributorId });
     };
     reader.readAsDataURL(file);
   }
@@ -341,11 +342,14 @@ function Step3Spreadsheet({
   }, []);
 
   function runPreview() {
-    if (!fileBase64 || !skuCol || !priceCol) return;
+    if (!fileBase64 || skuColIdx < 0 || priceColIdx < 0) return;
+    const mapping = [
+      { colIdx: skuColIdx, role: "sku" as const },
+      { colIdx: priceColIdx, role: "priceStyle" as const, styleId },
+    ];
     previewMut.mutate({
-      fileBase64, filename, sheetName,
-      skuColumn: skuCol, priceColumn: priceCol, priceType,
-      distributorId, styleId, dryRun: true,
+      fileBase64, filename, sheetName: sheetName || "",
+      distributorId, columnMapping: mapping, dryRun: true,
     });
   }
 
@@ -376,7 +380,7 @@ function Step3Spreadsheet({
           <div className="flex flex-col items-center gap-2">
             <FileSpreadsheet className="h-10 w-10 text-primary" />
             <p className="font-medium text-sm">{filename}</p>
-            <p className="text-xs text-muted-foreground">{headers.length} columns detected · Click to replace</p>
+            <p className="text-xs text-muted-foreground">{colHeaders.length || headers.length} columns detected · Click to replace</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -393,30 +397,20 @@ function Step3Spreadsheet({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground">SKU / Model Code *</Label>
-              <Select value={skuCol} onValueChange={setSkuCol}>
+              <Select value={skuColIdx >= 0 ? String(skuColIdx) : ""} onValueChange={(v) => setSkuColIdx(Number(v))}>
                 <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>{headers.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
+                <SelectContent>{headers.map((h, i) => <SelectItem key={i} value={String(i)}>{h}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Price Column *</Label>
-              <Select value={priceCol} onValueChange={setPriceCol}>
+              <Select value={priceColIdx >= 0 ? String(priceColIdx) : ""} onValueChange={(v) => setPriceColIdx(Number(v))}>
                 <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>{headers.map((h) => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Price Type</Label>
-              <Select value={priceType} onValueChange={(v) => setPriceType(v as "listPrice" | "yourCost")}>
-                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="listPrice">List Price</SelectItem>
-                  <SelectItem value="yourCost">Your Cost</SelectItem>
-                </SelectContent>
+                <SelectContent>{headers.map((h, i) => <SelectItem key={i} value={String(i)}>{h}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           </div>
-          <Button size="sm" onClick={runPreview} disabled={!skuCol || !priceCol || previewMut.isPending}>
+          <Button size="sm" onClick={runPreview} disabled={skuColIdx < 0 || priceColIdx < 0 || previewMut.isPending}>
             {previewMut.isPending ? <Spinner className="h-3.5 w-3.5 mr-1" /> : null}
             Preview Import
           </Button>
@@ -429,7 +423,7 @@ function Step3Spreadsheet({
           <h3 className="font-medium text-sm">Preview Results</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3">
-              <div className="text-2xl font-bold text-emerald-600">{dryResult.matched}</div>
+              <div className="text-2xl font-bold text-emerald-600">{dryResult.aliasMatched + dryResult.created + dryResult.updated}</div>
               <div className="text-xs text-muted-foreground">Matched</div>
             </div>
             <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3">
@@ -437,7 +431,7 @@ function Step3Spreadsheet({
               <div className="text-xs text-muted-foreground">Prices</div>
             </div>
             <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-3">
-              <div className="text-2xl font-bold text-red-600">{dryResult.unmatched}</div>
+              <div className="text-2xl font-bold text-red-600">{dryResult.unmatchedCount}</div>
               <div className="text-xs text-muted-foreground">Unmatched</div>
             </div>
             <div className="bg-muted rounded-lg p-3">
@@ -457,8 +451,8 @@ function Step3Spreadsheet({
       <div className="flex justify-between pt-2">
         <Button variant="outline" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
         <Button
-          disabled={!dryResult || dryResult.matched === 0}
-          onClick={() => { if (fileBase64 && dryResult) onNext(fileBase64, filename, skuCol, priceCol, priceType, dryResult); }}
+          disabled={!dryResult || (dryResult.aliasMatched + dryResult.created + dryResult.updated) === 0}
+          onClick={() => { if (fileBase64 && dryResult) onNext(fileBase64, filename, sheetName, skuColIdx, priceColIdx, styleId, dryResult); }}
         >
           Next: Confirm <ArrowRight className="h-4 w-4 ml-1" />
         </Button>
@@ -470,13 +464,13 @@ function Step3Spreadsheet({
 // ─── Step 4: Confirm & Commit ─────────────────────────────────────────────────
 function Step4Confirm({
   distributorId, styleId, distributorName, styleName,
-  fileBase64, filename, skuCol, priceCol, priceType, dryResult,
+  fileBase64, filename, sheetName, skuColIdx, priceColIdx, dryResult,
   onBack,
 }: {
   distributorId: number; styleId: number;
   distributorName: string; styleName: string;
-  fileBase64: string; filename: string;
-  skuCol: string; priceCol: string; priceType: "listPrice" | "yourCost";
+  fileBase64: string; filename: string; sheetName: string;
+  skuColIdx: number; priceColIdx: number;
   dryResult: DryRunResult;
   onBack: () => void;
 }) {
@@ -499,9 +493,9 @@ function Step4Confirm({
           </p>
         </div>
         <div className="flex justify-center gap-6 text-sm">
-          <div className="text-center"><div className="text-2xl font-bold text-emerald-600">{result.matched}</div><div className="text-muted-foreground">Matched</div></div>
+          <div className="text-center"><div className="text-2xl font-bold text-emerald-600">{result.created + result.updated + result.aliasMatched}</div><div className="text-muted-foreground">Matched</div></div>
           <div className="text-center"><div className="text-2xl font-bold text-blue-600">{result.priced}</div><div className="text-muted-foreground">Priced</div></div>
-          <div className="text-center"><div className="text-2xl font-bold text-muted-foreground">{result.unmatched}</div><div className="text-muted-foreground">Unmatched</div></div>
+          <div className="text-center"><div className="text-2xl font-bold text-muted-foreground">{result.unmatchedCount}</div><div className="text-muted-foreground">Unmatched</div></div>
         </div>
         <div className="flex justify-center gap-3">
           <Link href="/admin"><Button variant="outline">Back to Admin</Button></Link>
@@ -523,25 +517,24 @@ function Step4Confirm({
           <div><div className="text-xs text-muted-foreground mb-1">Distributor</div><div className="font-medium">{distributorName}</div></div>
           <div><div className="text-xs text-muted-foreground mb-1">Door Style</div><div className="font-medium">{styleName}</div></div>
           <div><div className="text-xs text-muted-foreground mb-1">File</div><div className="font-medium">{filename}</div></div>
-          <div><div className="text-xs text-muted-foreground mb-1">SKU Column</div><div className="font-medium">{skuCol}</div></div>
-          <div><div className="text-xs text-muted-foreground mb-1">Price Column</div><div className="font-medium">{priceCol}</div></div>
-          <div><div className="text-xs text-muted-foreground mb-1">Price Type</div><div className="font-medium">{priceType === "listPrice" ? "List Price" : "Your Cost"}</div></div>
+          <div><div className="text-xs text-muted-foreground mb-1">SKU Column</div><div className="font-medium">Col {skuColIdx + 1}</div></div>
+          <div><div className="text-xs text-muted-foreground mb-1">Price Column</div><div className="font-medium">Col {priceColIdx + 1}</div></div>
         </div>
         <div className="flex gap-4 pt-2 border-t border-border text-sm">
-          <span className="text-emerald-600 font-medium">{dryResult.matched} matched</span>
+          <span className="text-emerald-600 font-medium">{dryResult.created + dryResult.updated + dryResult.aliasMatched} matched</span>
           <span className="text-blue-600 font-medium">{dryResult.priced} prices</span>
-          {dryResult.unmatched > 0 && <span className="text-amber-600 font-medium">{dryResult.unmatched} unmatched (skipped)</span>}
+          {dryResult.unmatchedCount > 0 && <span className="text-amber-600 font-medium">{dryResult.unmatchedCount} unmatched (skipped)</span>}
         </div>
       </div>
 
       <div className="flex justify-between pt-2">
         <Button variant="outline" onClick={onBack} disabled={commitMut.isPending}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
         <Button
-          disabled={dryResult.matched === 0 || commitMut.isPending}
-          onClick={() => commitMut.mutate({ fileBase64, filename, skuColumn: skuCol, priceColumn: priceCol, priceType, distributorId, styleId, dryRun: false })}
+          disabled={(dryResult.created + dryResult.updated + dryResult.aliasMatched) === 0 || commitMut.isPending}
+          onClick={() => commitMut.mutate({ fileBase64, filename, sheetName, distributorId, columnMapping: [{ colIdx: skuColIdx, role: "sku" }, { colIdx: priceColIdx, role: "priceStyle", styleId }], dryRun: false })}
         >
           {commitMut.isPending ? <Spinner className="h-4 w-4 mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
-          Commit {dryResult.matched} rows
+          Commit {dryResult.created + dryResult.updated + dryResult.aliasMatched} rows
         </Button>
       </div>
     </div>
@@ -558,9 +551,9 @@ export default function SmartCatalogUpload() {
   const [styleName, setStyleName] = useState("");
   const [fileBase64, setFileBase64] = useState("");
   const [filename, setFilename] = useState("");
-  const [skuCol, setSkuCol] = useState("");
-  const [priceCol, setPriceCol] = useState("");
-  const [priceType, setPriceType] = useState<"listPrice" | "yourCost">("listPrice");
+  const [sheetName, setSheetName] = useState("");
+  const [skuColIdx, setSkuColIdx] = useState(-1);
+  const [priceColIdx, setPriceColIdx] = useState(-1);
   const [dryResult, setDryResult] = useState<DryRunResult | null>(null);
 
   return (
@@ -592,9 +585,9 @@ export default function SmartCatalogUpload() {
           <Step3Spreadsheet
             distributorId={distributorId} styleId={styleId} styleCode={styleCode}
             onBack={() => setStep(2)}
-            onNext={(b64, fname, sku, price, pt, dr) => {
+            onNext={(b64, fname, sname, skuIdx, priceIdx, _sid, dr) => {
               setFileBase64(b64); setFilename(fname);
-              setSkuCol(sku); setPriceCol(price); setPriceType(pt);
+              setSheetName(sname); setSkuColIdx(skuIdx); setPriceColIdx(priceIdx);
               setDryResult(dr); setStep(4);
             }}
           />
@@ -603,8 +596,8 @@ export default function SmartCatalogUpload() {
           <Step4Confirm
             distributorId={distributorId} styleId={styleId}
             distributorName={distributorName} styleName={styleName}
-            fileBase64={fileBase64} filename={filename}
-            skuCol={skuCol} priceCol={priceCol} priceType={priceType}
+            fileBase64={fileBase64} filename={filename} sheetName={sheetName}
+            skuColIdx={skuColIdx} priceColIdx={priceColIdx}
             dryResult={dryResult}
             onBack={() => setStep(3)}
           />

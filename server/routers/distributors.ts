@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
+import * as XLSX from "xlsx";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -663,31 +664,418 @@ export const distributorImportRouter = router({
       return { id: (result as any).insertId as number, ourName: input.ourName, ok: true };
     }),
 
-  // ─── XLSX column-mapping import (stub — full implementation pending) ──────────
-  parseXlsxColumns: adminProcedure
-    .input(z.object({ fileBase64: z.string(), filename: z.string() }))
-    .mutation(async () => ({
-      sheets: [] as Array<{ name: string; headers: string[] }>,
-    })),
+  // ─── XLSX column-mapping import ─────────────────────────────────────────────
 
+  /**
+   * Step 1: Parse an uploaded XLSX/CSV file and return sheet names + detected
+   * column headers with auto-suggested roles.
+   *
+   * Role detection heuristics (case-insensitive):
+   *   sku       → Item Code, SKU, Code, Part #, Model, Item
+   *   category  → Category
+   *   subCat    → Sub-Category, Sub Category, SubCategory
+   *   description → Description, Desc, Name
+   *   dimensions  → Dimensions, Dim, Size, W×H×D
+   *   priceStyle  → any column whose header contains a style code fragment
+   *                 (e.g. "ASP\nAspen White" → styleCode=ASP, label=Aspen White)
+   *   ignore    → #, Min Price, Max Price, Available Styles, Notes
+   */
+  parseXlsxColumns: adminProcedure
+    .input(z.object({
+      fileBase64: z.string(),
+      filename: z.string(),
+      distributorId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Decode base64 → buffer → workbook
+      const buf = Buffer.from(input.fileBase64, "base64");
+      const wb = XLSX.read(buf, { type: "buffer" });
+
+      // Load this distributor's door styles for style-column matching
+      const distStyles = await db
+        .select({ id: doorStyles.id, styleCode: doorStyles.styleCode, ourName: doorStyles.ourName, distributorName: doorStyles.distributorName })
+        .from(doorStyles)
+        .where(eq(doorStyles.distributorId, input.distributorId));
+
+      // Build a set of known style codes (upper) for quick lookup
+      const styleCodeSet = new Set(distStyles.map((s) => s.styleCode.toUpperCase()));
+
+      const IGNORE_PATTERNS = /^(#|min price|max price|available styles|notes?)$/i;
+      const SKU_PATTERNS = /item.?code|sku|part.?#|model|^item$|^code$|^sku$/i;
+      const CAT_PATTERNS = /^category$/i;
+      const SUBCAT_PATTERNS = /sub.?cat/i;
+      const DESC_PATTERNS = /description|^desc$|^name$/i;
+      const DIM_PATTERNS = /dimension|^dim$|^size$|w.?h.?d/i;
+      const ASSEMBLE_PATTERNS = /^assemble$|^assembled$|^assembly$/i;
+
+      const sheets = wb.SheetNames.map((sheetName) => {
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: "" }) as string[][];
+        if (rows.length === 0) return { name: sheetName, headers: [], columns: [] };
+
+        const rawHeaders = rows[0].map((h) => String(h ?? ""));
+        const sampleRows = rows.slice(1, 4);
+
+        const columns = rawHeaders.map((rawHeader, colIdx) => {
+          // Normalize: strip newlines, trim
+          const normalized = rawHeader.replace(/\n/g, " ").trim();
+          const upper = normalized.toUpperCase();
+
+          // Detect role
+          let role: string = "ignore";
+          let styleId: number | null = null;
+          let styleCode: string | null = null;
+          let styleLabel: string | null = null;
+
+          if (IGNORE_PATTERNS.test(normalized)) {
+            role = "ignore";
+          } else if (SKU_PATTERNS.test(normalized)) {
+            role = "sku";
+          } else if (CAT_PATTERNS.test(normalized)) {
+            role = "category";
+          } else if (SUBCAT_PATTERNS.test(normalized)) {
+            role = "subCategory";
+          } else if (DESC_PATTERNS.test(normalized)) {
+            role = "description";
+          } else if (DIM_PATTERNS.test(normalized)) {
+            role = "dimensions";
+          } else if (ASSEMBLE_PATTERNS.test(normalized)) {
+            role = "assemble";
+          } else {
+            // Check if this header contains a known style code
+            // Header format: "ASP\nAspen White" or "ASP - Aspen White" or just "ASP"
+            const parts = rawHeader.split(/\n|\s*[-–]\s*/);
+            const firstPart = (parts[0] ?? "").trim().toUpperCase();
+            const restPart = parts.slice(1).join(" ").trim();
+
+            if (styleCodeSet.has(firstPart)) {
+              const match = distStyles.find((s) => s.styleCode.toUpperCase() === firstPart);
+              if (match) {
+                role = "priceStyle";
+                styleId = match.id;
+                styleCode = match.styleCode;
+                styleLabel = match.ourName || match.distributorName;
+              }
+            } else {
+              // Try matching against distributorName
+              const nameMatch = distStyles.find(
+                (s) =>
+                  s.distributorName.toUpperCase() === upper ||
+                  s.ourName.toUpperCase() === upper
+              );
+              if (nameMatch) {
+                role = "priceStyle";
+                styleId = nameMatch.id;
+                styleCode = nameMatch.styleCode;
+                styleLabel = nameMatch.ourName || nameMatch.distributorName;
+              }
+            }
+          }
+
+          // Sample values from first 3 data rows
+          const sampleValues = sampleRows
+            .map((r) => String(r[colIdx] ?? "").trim())
+            .filter(Boolean)
+            .slice(0, 3);
+
+          return {
+            colIdx,
+            rawHeader,
+            label: normalized,
+            role,
+            styleId,
+            styleCode,
+            styleLabel,
+            sampleValues,
+          };
+        });
+
+        return { name: sheetName, headers: rawHeaders, columns };
+      });
+
+      // Also return the list of distributor styles so the UI can let admin
+      // manually assign unmatched columns to a style.
+      return {
+        sheets,
+        distributorStyles: distStyles.map((s) => ({
+          id: s.id,
+          styleCode: s.styleCode,
+          ourName: s.ourName,
+          distributorName: s.distributorName,
+        })),
+      };
+    }),
+
+  /**
+   * Step 2: Commit the XLSX import using the admin-confirmed column mapping.
+   *
+   * columnMapping is an array of { colIdx, role, styleId? } objects.
+   * Roles: "sku" | "category" | "subCategory" | "description" | "dimensions" | "priceStyle" | "ignore"
+   *
+   * For each data row:
+   *   1. Extract the SKU from the sku column.
+   *   2. Resolve the cabinet via alias map (masterCode, sku, vendorSku, altSku1-3).
+   *   3. If not found and description+category present → create new cabinet.
+   *   4. For each priceStyle column with a non-null, non-N/A value → upsert distributor_skus row.
+   *      Upsert = update if (cabinetId, distributorId, styleId) exists, else insert.
+   *
+   * dryRun=true returns a preview without writing to DB.
+   */
   importWithMapping: adminProcedure
     .input(z.object({
       fileBase64: z.string(),
       filename: z.string(),
-      sheetName: z.string().optional(),
-      skuColumn: z.string(),
-      priceColumn: z.string(),
-      priceType: z.string(),
+      sheetName: z.string(),
       distributorId: z.number(),
-      styleId: z.number(),
+      columnMapping: z.array(z.object({
+        colIdx: z.number(),
+        role: z.enum(["sku", "category", "subCategory", "description", "dimensions", "priceStyle", "assemble", "ignore"]),
+        styleId: z.number().optional(),
+      })),
       dryRun: z.boolean().optional(),
     }))
-    .mutation(async () => ({
-      matched: 0,
-      unmatched: 0,
-      priced: 0,
-      skipped: 0,
-      unmatchedCodes: [] as string[],
-      dryRun: true,
-    })),
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Decode and parse XLSX
+      const buf = Buffer.from(input.fileBase64, "base64");
+      const wb = XLSX.read(buf, { type: "buffer" });
+      const ws = wb.Sheets[input.sheetName];
+      if (!ws) throw new TRPCError({ code: "BAD_REQUEST", message: `Sheet "${input.sheetName}" not found.` });
+
+      const allRows = XLSX.utils.sheet_to_json<(string | number | null)[]>(ws, { header: 1, defval: null }) as (string | number | null)[][];
+      const dataRows = allRows.slice(1).filter((r) => r.some((c) => c != null && String(c).trim() !== ""));
+
+      // Build column index maps
+      const skuCol = input.columnMapping.find((c) => c.role === "sku")?.colIdx ?? -1;
+      const catCol = input.columnMapping.find((c) => c.role === "category")?.colIdx ?? -1;
+      const subCatCol = input.columnMapping.find((c) => c.role === "subCategory")?.colIdx ?? -1;
+      const descCol = input.columnMapping.find((c) => c.role === "description")?.colIdx ?? -1;
+      const dimCol = input.columnMapping.find((c) => c.role === "dimensions")?.colIdx ?? -1;
+      const assembleCol = input.columnMapping.find((c) => c.role === "assemble")?.colIdx ?? -1;
+      const priceCols = input.columnMapping.filter((c) => c.role === "priceStyle" && c.styleId != null);
+
+      // SKU-prefix → category inference (used when no category column is present)
+      function inferCategoryFromSku(sku: string): string | null {
+        const u = sku.toUpperCase();
+        if (u.startsWith("ADA-")) return "ADA";
+        if (u.startsWith("3VDB") || u.startsWith("2VDB") || u.startsWith("VDB") || u.startsWith("VS") || u.startsWith("VSD") || u.startsWith("WD")) return "Vanity";
+        if (/^(W|AW|BW|EW|OW|UW)\d/.test(u)) return "Wall";
+        if (/^(T|P|U|TP)\d/.test(u) || u.startsWith("TALL") || u.startsWith("PANTRY") || u.startsWith("UTIL")) return "Tall";
+        if (/^(B|DB|BBC|BEC|BES|BFH|BT|SB|SINK|CB|FB|LB|RB|OB|UB)\d/.test(u) || /^(2DB|3DB|4DB)/.test(u)) return "Base";
+        return null;
+      }
+
+      // Extract dimensions embedded in description: "12"W x 34-1/2"H x 24"D"
+      function parseDimsFromDesc(desc: string | null | undefined): { width: string | null; height: string | null; depth: string | null } {
+        if (!desc) return { width: null, height: null, depth: null };
+        // Match patterns like: 12"W x 34-1/2"H x 24"D  or  12W x 34.5H x 24D
+        const m = desc.match(/(\d[\d\s\-\/\.]*?)(?:")?\s*W\s*[xX×]\s*(\d[\d\s\-\/\.]*?)(?:")?\s*H\s*[xX×]\s*(\d[\d\s\-\/\.]*?)(?:")?\s*D/i);
+        if (m) return { width: m[1].trim(), height: m[2].trim(), depth: m[3].trim() };
+        return { width: null, height: null, depth: null };
+      }
+
+      if (skuCol === -1) throw new TRPCError({ code: "BAD_REQUEST", message: "No SKU column mapped." });
+
+      // Category normalisation: map distributor category names → platform categories
+      const CAT_MAP: Record<string, string> = {
+        "wall cabinets": "Wall",
+        "wall": "Wall",
+        "base cabinets": "Base",
+        "base": "Base",
+        "tall cabinets": "Tall",
+        "tall": "Tall",
+        "pantry": "Tall",
+        "utility": "Tall",
+        "vanity": "Vanity",
+        "ada": "ADA",
+        "accessory": "Accessory",
+        "accessories": "Accessory",
+      };
+      function normalCat(raw: string | null | undefined): string | null {
+        if (!raw) return null;
+        return CAT_MAP[raw.toLowerCase().trim()] ?? null;
+      }
+
+      // Parse "9x30x12" or "9 x 30 x 12" → { width, height, depth }
+      function parseDims(raw: string | null | undefined): { width: string | null; height: string | null; depth: string | null } {
+        if (!raw) return { width: null, height: null, depth: null };
+        const parts = String(raw).split(/[x×\s]+/).map((p) => p.trim()).filter(Boolean);
+        return {
+          width: parts[0] ?? null,
+          height: parts[1] ?? null,
+          depth: parts[2] ?? null,
+        };
+      }
+
+      // Collect all SKU codes to build alias map
+      const codes = dataRows
+        .map((r) => String(r[skuCol] ?? "").trim())
+        .filter(Boolean);
+      const aliasMap = await buildAliasMap(db, codes);
+
+      let created = 0;
+      let updated = 0;
+      let priced = 0;
+      let skipped = 0;
+      let aliasMatched = 0;
+      const unmatchedCodes: string[] = [];
+      const previewRows: Array<{
+        rowNum: number;
+        code: string;
+        resolvedCode: string | null;
+        matchHow: string;
+        action: string;
+        stylesPriced: number;
+        warnings: string[];
+      }> = [];
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const code = String(row[skuCol] ?? "").trim();
+        if (!code) { skipped++; continue; }
+
+        const found = aliasMap.get(code.toUpperCase());
+        const matchHow = !found ? "none" : found.masterCode.toUpperCase() === code.toUpperCase() ? "exact" : "alias";
+        if (matchHow === "alias") aliasMatched++;
+
+        const rawCat = catCol >= 0 ? String(row[catCol] ?? "").trim() : null;
+        const description = descCol >= 0 ? String(row[descCol] ?? "").trim() || null : null;
+        // Category: explicit column first, then SKU-prefix inference
+        const category = normalCat(rawCat) ?? inferCategoryFromSku(code);
+        const subCategory = subCatCol >= 0 ? String(row[subCatCol] ?? "").trim() || null : null;
+        // Dimensions: explicit dim column first, then extract from description
+        const dims = dimCol >= 0
+          ? parseDims(String(row[dimCol] ?? ""))
+          : parseDimsFromDesc(description);
+        // Assemble flag
+        const assembleVal = assembleCol >= 0 ? String(row[assembleCol] ?? "").trim() : null;
+        const isAssembled = assembleVal === "1" || /^(yes|true|y)$/i.test(assembleVal ?? "");
+
+        const warnings: string[] = [];
+        let cabinetId: number;
+        let action = "price-only";
+
+        if (!found) {
+          if (!description || !category) {
+            unmatchedCodes.push(code);
+            warnings.push("No match — needs Description + Category to create");
+            if (!input.dryRun) { skipped++; }
+            previewRows.push({ rowNum: i + 2, code, resolvedCode: null, matchHow: "none", action: "error", stylesPriced: 0, warnings });
+            continue;
+          }
+          action = "create";
+          if (!input.dryRun) {
+            const res = await db.insert(cabinets).values({
+              masterCode: code,
+              description,
+              descriptionSource: "Distributor Import",
+              category,
+              subCategory,
+              width: dims.width,
+              height: dims.height,
+              depth: dims.depth,
+              isActive: true,
+              ...(assembleCol >= 0 ? { isAssembled } : {}),
+            });
+            cabinetId = (res as unknown as [{ insertId: number }])[0].insertId;
+            aliasMap.set(code.toUpperCase(), { id: cabinetId, masterCode: code, description, category });
+            created++;
+          } else {
+            cabinetId = -1;
+          }
+        } else {
+          cabinetId = found.id;
+          const patch: Record<string, unknown> = {};
+          if (description) patch.description = description;
+          if (category) patch.category = category;
+          if (subCategory) patch.subCategory = subCategory;
+          if (dims.width) patch.width = dims.width;
+          if (dims.height) patch.height = dims.height;
+          if (dims.depth) patch.depth = dims.depth;
+          if (assembleCol >= 0) patch.isAssembled = isAssembled;
+          if (Object.keys(patch).length > 0) {
+            action = "update";
+            if (!input.dryRun) {
+              await db.update(cabinets).set(patch).where(eq(cabinets.id, cabinetId));
+              updated++;
+            }
+          }
+        }
+
+        // Price columns — one upsert per style column
+        let stylesPriced = 0;
+        for (const pc of priceCols) {
+          const rawVal = row[pc.colIdx];
+          const strVal = String(rawVal ?? "").trim();
+          if (!strVal || strVal.toUpperCase() === "N/A" || strVal === "-") continue;
+          const price = parseFloat(strVal);
+          if (isNaN(price) || price <= 0) continue;
+
+          stylesPriced++;
+          if (!input.dryRun && cabinetId > 0) {
+            // Check for existing row
+            const existing = await db
+              .select({ id: distributorSkus.id })
+              .from(distributorSkus)
+              .where(
+                and(
+                  eq(distributorSkus.cabinetId, cabinetId),
+                  eq(distributorSkus.distributorId, input.distributorId),
+                  eq(distributorSkus.styleId, pc.styleId!)
+                )
+              )
+              .limit(1);
+
+            if (existing.length > 0) {
+              // Update — only update listPrice (preserve yourCost if already set)
+              await db
+                .update(distributorSkus)
+                .set({ listPrice: String(price) })
+                .where(eq(distributorSkus.id, existing[0].id));
+            } else {
+              // Insert new SKU row
+              const platformSku = `${found?.masterCode ?? code}-S${pc.styleId}-D${input.distributorId}`;
+              await db.insert(distributorSkus).values({
+                cabinetId,
+                distributorId: input.distributorId,
+                styleId: pc.styleId!,
+                platformSku,
+                distributorSku: code,
+                listPrice: String(price),
+                isAvailable: true,
+                isPublished: false, // start unpublished for review
+              });
+            }
+            priced++;
+          }
+        }
+
+        previewRows.push({
+          rowNum: i + 2,
+          code,
+          resolvedCode: found?.masterCode ?? null,
+          matchHow,
+          action,
+          stylesPriced,
+          warnings,
+        });
+      }
+
+      return {
+        dryRun: input.dryRun ?? false,
+        created,
+        updated,
+        priced,
+        skipped,
+        aliasMatched,
+        unmatchedCount: unmatchedCodes.length,
+        unmatchedCodes: unmatchedCodes.slice(0, 50),
+        previewRows: input.dryRun ? previewRows.slice(0, 200) : [],
+      };
+    }),
 });

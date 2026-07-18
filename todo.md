@@ -891,3 +891,12 @@
 - [x] Rewrite distributors.ts importPreview/importCommit with alias map + style map
 - [x] Update DistributorImport UI: improved column guidance, alias match indicators, optional style override dropdown
 - [x] TypeScript clean (0 errors)
+
+## XLSX import engine enhancements (second spreadsheet format support)
+- [x] Fix SmartCatalogUpload.tsx TypeScript errors — adapt to new importWithMapping API shape
+- [x] Add Assemble column detection in parseXlsxColumns (role: "assemble")
+- [x] Add assemble role to importWithMapping input schema
+- [x] Add SKU-prefix category inference (ADA-, VDB, W*, B*, T* prefixes → platform categories)
+- [x] Add dimension extraction from description field (parseDimsFromDesc) as fallback when no dim column
+- [x] Pass isAssembled flag to cabinet insert/update when Assemble column is present
+- [x] TypeScript: 0 errors after all enhancements
