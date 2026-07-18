@@ -27,9 +27,99 @@ import {
   RefreshCw,
   Search,
   X,
+  Layers,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+
+// ─── BulkAssignBar: floating action bar for multi-row cabinet assignment ───────
+
+function BulkAssignBar({
+  selectedCount,
+  onAssign,
+  onClear,
+}: {
+  selectedCount: number;
+  onAssign: (cabinetId: number, label: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const { data: results, isFetching } = trpc.genericCabinets.searchForMatch.useQuery(
+    { q: q || "" },
+    { enabled: open && q.length > 0 }
+  );
+
+  if (selectedCount === 0) return null;
+
+  return (
+    <div className="sticky top-0 z-20 flex items-center gap-3 rounded-lg border border-violet-300 bg-violet-50 dark:bg-violet-950/30 dark:border-violet-700 px-4 py-2.5 shadow-sm mb-2">
+      <Layers className="h-4 w-4 text-violet-700 dark:text-violet-300 shrink-0" />
+      <span className="text-sm font-medium text-violet-900 dark:text-violet-200">
+        {selectedCount} row{selectedCount !== 1 ? "s" : ""} selected
+      </span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button size="sm" className="ml-auto gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
+            <Search className="h-3.5 w-3.5" />
+            Assign Cabinet to All Selected
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-2" align="end">
+          <p className="text-xs text-muted-foreground mb-2 font-medium">
+            Search and pick a cabinet — it will be assigned to all {selectedCount} selected row{selectedCount !== 1 ? "s" : ""}.
+          </p>
+          <Input
+            autoFocus
+            placeholder="Search cabinets…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-7 text-xs mb-1.5"
+          />
+          {q.length === 0 && (
+            <p className="py-2 text-center text-xs text-muted-foreground">Type to search…</p>
+          )}
+          {q.length > 0 && isFetching && (
+            <p className="py-2 text-center text-xs text-muted-foreground">Searching…</p>
+          )}
+          {q.length > 0 && !isFetching && results && results.length === 0 && (
+            <p className="py-2 text-center text-xs text-muted-foreground">No results</p>
+          )}
+          <ul className="max-h-52 overflow-auto space-y-0.5">
+            {results?.map((cab) => (
+              <li key={cab.id}>
+                <button
+                  type="button"
+                  className="w-full rounded px-2 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => {
+                    onAssign(cab.id, cab.masterCode);
+                    setOpen(false);
+                    setQ("");
+                  }}
+                >
+                  <span className="font-mono font-medium">{cab.masterCode}</span>
+                  {cab.description && (
+                    <span className="ml-1.5 text-muted-foreground">{cab.description}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </PopoverContent>
+      </Popover>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1 text-violet-700 dark:text-violet-300 hover:text-violet-900"
+        onClick={onClear}
+      >
+        <X className="h-3.5 w-3.5" />
+        Clear
+      </Button>
+    </div>
+  );
+}
 
 // ─── MatchDropdown: per-row cabinet search/override ─────────────────────────
 
@@ -384,6 +474,8 @@ export default function DistributorImport() {
   // Per-cell inline edits: "rowNum:field" → corrected string value
   // field is one of: "dimensions", "price:<styleCode>"
   const [cellEdits, setCellEdits] = useState<Record<string, string>>({});
+  // Bulk-assign: set of selected rowNums (only error rows are selectable)
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const xlsxFileRef = useRef<HTMLInputElement>(null);
 
   const parseMut = trpc.distributorAdmin.parseXlsxColumns.useMutation({
@@ -563,6 +655,7 @@ export default function DistributorImport() {
     setXlsxResult(null);
     setMatchOverrides({});
     setCellEdits({});
+    setSelectedRows(new Set());
     if (xlsxFileRef.current) xlsxFileRef.current.value = "";
   }
 
@@ -571,6 +664,19 @@ export default function DistributorImport() {
     (c) => c.role === "priceStyle" && c.styleId != null
   );
   const skuCol = columnMapping.find((c) => c.role === "sku");
+
+  // Bulk-assign derived helpers
+  const errorRowNums = (xlsxResult?.previewRows ?? []).filter((r) => {
+    const issues = (r as any).issues as Array<{ severity: string }> | undefined;
+    return issues ? issues.some((i) => i.severity === "error") : (r as any).severity === "error";
+  }).map((r) => r.rowNum);
+  const allErrorRowsSelected =
+    errorRowNums.length > 0 && errorRowNums.every((n) => selectedRows.has(n));
+  const someErrorRowsSelected = errorRowNums.some((n) => selectedRows.has(n));
+  function toggleAllErrorRows() {
+    if (allErrorRowsSelected) setSelectedRows(new Set());
+    else setSelectedRows(new Set(errorRowNums));
+  }
 
   // ── render ────────────────────────────────────────────────────────────────
 
@@ -999,11 +1105,36 @@ export default function DistributorImport() {
                     </div>
                   )}
 
+                  {/* Bulk-assign action bar — shown when rows are selected */}
+                  <BulkAssignBar
+                    selectedCount={selectedRows.size}
+                    onAssign={(cabinetId, label) => {
+                      setMatchOverrides((prev) => {
+                        const next = { ...prev };
+                        selectedRows.forEach((rowNum) => {
+                          next[rowNum] = cabinetId;
+                        });
+                        return next;
+                      });
+                      toast.success(`Assigned "${label}" to ${selectedRows.size} row${selectedRows.size !== 1 ? "s" : ""}`);
+                      setSelectedRows(new Set());
+                    }}
+                    onClear={() => setSelectedRows(new Set())}
+                  />
+
                   {xlsxResult.previewRows.length > 0 && (
                     <div className="max-h-72 overflow-auto rounded-md border">
                       <table className="w-full text-left text-xs">
                         <thead className="sticky top-0 bg-muted/80 uppercase text-muted-foreground">
                           <tr>
+                            <th className="w-10 px-3 py-2">
+                              <Checkbox
+                                checked={allErrorRowsSelected}
+                                data-state={someErrorRowsSelected && !allErrorRowsSelected ? "indeterminate" : undefined}
+                                onCheckedChange={toggleAllErrorRows}
+                                aria-label="Select all unmatched rows"
+                              />
+                            </th>
                             <th className="px-3 py-2">Row</th>
                             <th className="px-3 py-2">Code</th>
                             <th className="px-3 py-2">Match</th>
@@ -1016,14 +1147,38 @@ export default function DistributorImport() {
                           {xlsxResult.previewRows.map((r) => {
                             const severity = (r as any).severity as "ok" | "warning" | "error" | undefined;
                             const issues = (r as any).issues as Array<{ field: string; message: string; severity: string }> | undefined;
-                            const rowClass =
-                              severity === "error"
-                                ? "border-t bg-destructive/5 text-destructive"
+                            const isErrorRow = issues
+                              ? issues.some((i) => i.severity === "error")
+                              : severity === "error";
+                            const isSelected = selectedRows.has(r.rowNum);
+                            const rowClass = [
+                              "border-t",
+                              isSelected
+                                ? "bg-violet-50 dark:bg-violet-950/20"
+                                : severity === "error"
+                                ? "bg-destructive/5 text-destructive"
                                 : severity === "warning"
-                                ? "border-t bg-amber-50/40 dark:bg-amber-950/10"
-                                : "border-t";
+                                ? "bg-amber-50/40 dark:bg-amber-950/10"
+                                : "",
+                            ].filter(Boolean).join(" ");
                             return (
                               <tr key={r.rowNum} className={rowClass}>
+                                <td className="px-3 py-1.5">
+                                  {isErrorRow ? (
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={(checked) => {
+                                        setSelectedRows((prev) => {
+                                          const next = new Set(prev);
+                                          if (checked) next.add(r.rowNum);
+                                          else next.delete(r.rowNum);
+                                          return next;
+                                        });
+                                      }}
+                                      aria-label={`Select row ${r.rowNum}`}
+                                    />
+                                  ) : null}
+                                </td>
                                 <td className="px-3 py-1.5 text-muted-foreground">
                                   {severity === "error" && <AlertTriangle className="inline mr-1 h-3 w-3 text-destructive" />}
                                   {severity === "warning" && <AlertTriangle className="inline mr-1 h-3 w-3 text-amber-500" />}
