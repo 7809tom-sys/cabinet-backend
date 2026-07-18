@@ -8,7 +8,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, X, Sparkles } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, X, Sparkles, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -35,100 +36,57 @@ type CabinetRow = {
   catalogImageUrl: string | null;
 };
 
-// ─── Inline cell editors ──────────────────────────────────────────────────────
-function DepthCell({ row, onSave }: { row: CabinetRow; onSave: (id: number, depth: string | null) => void }) {
-  const current = row.depth ? String(parseFloat(row.depth)) : "";
-  const isStandard = STANDARD_DEPTHS.includes(current);
-  return (
-    <Select
-      value={current || "__none__"}
-      onValueChange={(v) => onSave(row.id, v === "__none__" ? null : v)}
-    >
-      <SelectTrigger className={cn("h-7 text-xs w-20", !current && "text-muted-foreground")}>
-        <SelectValue placeholder="—" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="__none__">—</SelectItem>
-        {STANDARD_DEPTHS.map((d) => (
-          <SelectItem key={d} value={d}>{d}"</SelectItem>
-        ))}
-        {current && !isStandard && (
-          <SelectItem value={current}>{current}" (custom)</SelectItem>
-        )}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function CountCell({
-  value,
-  options,
-  onSave,
-}: {
-  value: number | null;
-  options: readonly (number | null)[];
-  onSave: (v: number | null) => void;
-  label: string;
-}) {
-  return (
-    <Select
-      value={value === null ? "__none__" : String(value)}
-      onValueChange={(v) => onSave(v === "__none__" ? null : parseInt(v))}
-    >
-      <SelectTrigger className={cn("h-7 text-xs w-16", value === null && "text-muted-foreground")}>
-        <SelectValue placeholder="—" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="__none__">—</SelectItem>
-        {options
-          .filter((o): o is number => o !== null)
-          .map((n) => (
-            <SelectItem key={n} value={String(n)}>
-              {n === 0 ? "None" : n}
-            </SelectItem>
-          ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-// ─── Image upload cell ────────────────────────────────────────────────────────
-function ImageCell({
+// ─── Edit Modal ───────────────────────────────────────────────────────────────
+function EditModal({
   row,
-  onUploaded,
-  onGenerated,
+  open,
+  onClose,
+  onSaved,
 }: {
   row: CabinetRow;
-  onUploaded: (id: number, url: string | null) => void;
-  onGenerated: (id: number, url: string) => void;
+  open: boolean;
+  onClose: () => void;
+  onSaved: (updated: Partial<CabinetRow>) => void;
 }) {
+  const [draft, setDraft] = useState<Partial<CabinetRow>>({});
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<"3d" | "2d">("3d");
   const fileRef = useRef<HTMLInputElement>(null);
+  const utils = trpc.useUtils();
+
+  const merged: CabinetRow = { ...row, ...draft };
+
+  const set = (field: keyof CabinetRow, value: unknown) =>
+    setDraft((d) => ({ ...d, [field]: value }));
+
+  const updateMutation = trpc.cabinets.adminUpdateCabinet.useMutation({
+    onSuccess: () => {
+      utils.cabinets.adminListCabinetConfig.invalidate();
+      toast.success("Saved");
+      onSaved(draft);
+      setDraft({});
+      onClose();
+    },
+    onError: (e) => toast.error(`Save failed: ${e.message}`),
+  });
 
   const uploadMutation = trpc.cabinets.adminUploadCatalogImage.useMutation({
     onSuccess: (data) => {
-      onUploaded(row.id, data.url);
+      set("catalogImageUrl", data.url);
       setUploading(false);
       toast.success("Image uploaded");
     },
-    onError: (e) => {
-      setUploading(false);
-      toast.error(`Upload failed: ${e.message}`);
-    },
+    onError: (e) => { setUploading(false); toast.error(`Upload failed: ${e.message}`); },
   });
 
   const generateMutation = trpc.cabinets.adminGenerateCatalogImage.useMutation({
     onSuccess: (data) => {
-      onGenerated(row.id, data.url);
+      set("catalogImageUrl", data.url);
       setGenerating(false);
-      toast.success("AI image generated and saved");
+      toast.success("AI image generated");
     },
-    onError: (e) => {
-      setGenerating(false);
-      toast.error(`Generation failed: ${e.message}`);
-    },
+    onError: (e) => { setGenerating(false); toast.error(`Generation failed: ${e.message}`); },
   });
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,10 +95,9 @@ function ImageCell({
     setUploading(true);
     const reader = new FileReader();
     reader.onload = () => {
-      const dataBase64 = reader.result as string;
       uploadMutation.mutate({
         filename: file.name,
-        dataBase64,
+        dataBase64: reader.result as string,
         contentType: file.type || "image/jpeg",
       });
     };
@@ -148,145 +105,266 @@ function ImageCell({
     e.target.value = "";
   };
 
-  const handleGenerate = () => {
-    setGenerating(true);
-    generateMutation.mutate({ id: row.id, viewMode });
+  const handleSave = () => {
+    if (Object.keys(draft).length === 0) { onClose(); return; }
+    updateMutation.mutate({
+      id: row.id,
+      depth: merged.depth ?? null,
+      numberOfDoors: merged.numberOfDoors ?? null,
+      numberOfDrawers: merged.numberOfDrawers ?? null,
+      numberOfFixedShelves: merged.numberOfFixedShelves ?? null,
+      numberOfAdjShelves: merged.numberOfAdjShelves ?? null,
+      isNotCabinet: merged.isNotCabinet ?? undefined,
+      catalogImageUrl: merged.catalogImageUrl ?? null,
+    });
   };
 
-  const busy = uploading || generating;
-  const imageUrl = row.catalogImageUrl;
-
-  // Status message shown during generation
-  const statusLabel = generating
-    ? `Generating ${viewMode === "2d" ? "2D elevation" : "3D drawing"}…`
-    : uploading
-    ? "Uploading…"
-    : null;
+  const busy = uploading || generating || updateMutation.isPending;
+  const depthVal = merged.depth ? String(parseFloat(merged.depth)) : "";
+  const isStandardDepth = STANDARD_DEPTHS.includes(depthVal);
 
   return (
-    <div className="flex items-center gap-1.5">
-      {/* Thumbnail or placeholder — with generation overlay */}
-      <div className="relative">
-        {imageUrl && !generating ? (
-          <div className="relative group">
-            <img
-              src={imageUrl}
-              alt="catalog"
-              className="h-10 w-10 rounded border border-border object-contain bg-muted/30 cursor-pointer"
-              onClick={() => !busy && fileRef.current?.click()}
-              title="Click to replace image"
+    <Dialog open={open} onOpenChange={(v) => { if (!v && !busy) { setDraft({}); onClose(); } }}>
+      <DialogContent className="max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Settings2 className="h-4 w-4 text-primary shrink-0" />
+            <span className="font-mono font-bold text-primary">{row.masterCode}</span>
+            <span className="font-normal text-muted-foreground text-sm truncate">{row.description}</span>
+          </DialogTitle>
+          {row.category && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {row.category}{row.subCategory ? ` › ${row.subCategory}` : ""}
+              {(row.width || row.height) && (
+                <span className="ml-2">
+                  {row.width ? `${parseFloat(row.width)}"` : "—"} × {row.height ? `${parseFloat(row.height)}"` : "—"}
+                </span>
+              )}
+            </p>
+          )}
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          {/* Not a cabinet */}
+          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 bg-muted/30">
+            <div>
+              <p className="text-sm font-medium">Not a Cabinet</p>
+              <p className="text-xs text-muted-foreground">Trim, panel, moulding, or accessory — hides cabinet-only fields</p>
+            </div>
+            <Switch
+              checked={merged.isNotCabinet === true}
+              onCheckedChange={(v) => set("isNotCabinet", v)}
+              disabled={busy}
             />
-            {/* Remove button */}
-            <button
-              className="absolute -top-1 -right-1 hidden group-hover:flex items-center justify-center h-4 w-4 rounded-full bg-destructive text-destructive-foreground"
-              onClick={() => onUploaded(row.id, null)}
-              title="Remove image"
-            >
-              <X className="h-2.5 w-2.5" />
-            </button>
           </div>
-        ) : (
-          <div
-            className={cn(
-              "h-10 w-10 rounded border flex items-center justify-center transition-colors",
-              generating
-                ? "border-amber-400/60 bg-amber-50 dark:bg-amber-900/20"
-                : "border-dashed border-border bg-muted/20 cursor-pointer hover:bg-muted/40"
-            )}
-            onClick={() => !busy && fileRef.current?.click()}
-            title={generating ? statusLabel ?? undefined : "Upload image"}
-          >
-            {busy ? (
-              <Spinner className="h-4 w-4 text-amber-500" />
-            ) : (
-              <ImageIcon className="h-4 w-4 text-muted-foreground" />
-            )}
-          </div>
-        )}
 
-        {/* Generation overlay on existing image */}
-        {generating && imageUrl && (
-          <div className="absolute inset-0 rounded border border-amber-400/60 bg-amber-50/80 dark:bg-amber-900/60 flex items-center justify-center">
-            <Spinner className="h-4 w-4 text-amber-600" />
-          </div>
-        )}
-      </div>
+          {!merged.isNotCabinet && (
+            <>
+              {/* Depth */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Standard Depth</Label>
+                <Select
+                  value={depthVal || "__none__"}
+                  onValueChange={(v) => set("depth", v === "__none__" ? null : v)}
+                  disabled={busy}
+                >
+                  <SelectTrigger className={cn("w-full", !depthVal && "text-muted-foreground")}>
+                    <SelectValue placeholder="— not set —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— not set —</SelectItem>
+                    {STANDARD_DEPTHS.map((d) => (
+                      <SelectItem key={d} value={d}>{d}"</SelectItem>
+                    ))}
+                    {depthVal && !isStandardDepth && (
+                      <SelectItem value={depthVal}>{depthVal}" (custom)</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
 
-      {/* Status message shown while generating */}
-      {statusLabel && (
-        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap animate-pulse">
-          {statusLabel}
-        </span>
-      )}
+              {/* Doors / Drawers */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Number of Doors</Label>
+                  <Select
+                    value={merged.numberOfDoors === null ? "__none__" : String(merged.numberOfDoors)}
+                    onValueChange={(v) => set("numberOfDoors", v === "__none__" ? null : parseInt(v))}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className={cn("w-full", merged.numberOfDoors === null && "text-muted-foreground")}>
+                      <SelectValue placeholder="— not set —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— not set —</SelectItem>
+                      {(DOOR_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Number of Drawers</Label>
+                  <Select
+                    value={merged.numberOfDrawers === null ? "__none__" : String(merged.numberOfDrawers)}
+                    onValueChange={(v) => set("numberOfDrawers", v === "__none__" ? null : parseInt(v))}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className={cn("w-full", merged.numberOfDrawers === null && "text-muted-foreground")}>
+                      <SelectValue placeholder="— not set —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— not set —</SelectItem>
+                      {(DRAWER_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-      {/* Upload button */}
-      {!busy && (
-        <button
-          className="h-6 w-6 flex items-center justify-center rounded border border-border bg-background hover:bg-muted/50 transition-colors"
-          onClick={() => fileRef.current?.click()}
-          title="Upload image"
-        >
-          <Upload className="h-3 w-3 text-muted-foreground" />
-        </button>
-      )}
-
-      {/* 2D / 3D view toggle */}
-      <div className="flex rounded border border-border overflow-hidden">
-        <button
-          className={cn(
-            "px-1.5 py-0.5 text-[10px] font-medium transition-colors",
-            viewMode === "3d"
-              ? "bg-amber-500 text-white"
-              : "bg-background text-muted-foreground hover:bg-muted/50"
+              {/* Fixed / Adj Shelves */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Fixed Shelves</Label>
+                  <Select
+                    value={merged.numberOfFixedShelves === null ? "__none__" : String(merged.numberOfFixedShelves)}
+                    onValueChange={(v) => set("numberOfFixedShelves", v === "__none__" ? null : parseInt(v))}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className={cn("w-full", merged.numberOfFixedShelves === null && "text-muted-foreground")}>
+                      <SelectValue placeholder="— not set —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— not set —</SelectItem>
+                      {(SHELF_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Adjustable Shelves</Label>
+                  <Select
+                    value={merged.numberOfAdjShelves === null ? "__none__" : String(merged.numberOfAdjShelves)}
+                    onValueChange={(v) => set("numberOfAdjShelves", v === "__none__" ? null : parseInt(v))}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className={cn("w-full", merged.numberOfAdjShelves === null && "text-muted-foreground")}>
+                      <SelectValue placeholder="— not set —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— not set —</SelectItem>
+                      {(SHELF_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </>
           )}
-          onClick={() => setViewMode("3d")}
-          title="Isometric 3D view"
-          disabled={busy}
-        >
-          3D
-        </button>
-        <button
-          className={cn(
-            "px-1.5 py-0.5 text-[10px] font-medium transition-colors border-l border-border",
-            viewMode === "2d"
-              ? "bg-amber-500 text-white"
-              : "bg-background text-muted-foreground hover:bg-muted/50"
-          )}
-          onClick={() => setViewMode("2d")}
-          title="Flat 2D front view"
-          disabled={busy}
-        >
-          2D
-        </button>
-      </div>
 
-      {/* AI generate button */}
-      <button
-        className={cn(
-          "h-6 w-6 flex items-center justify-center rounded border transition-colors",
-          busy
-            ? "border-border bg-muted/30 cursor-not-allowed opacity-50"
-            : "border-amber-400/60 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40"
-        )}
-        onClick={!busy ? handleGenerate : undefined}
-        title={`Generate ${viewMode === "2d" ? "flat 2D front elevation" : "isometric 3D"} drawing with AI`}
-        disabled={busy}
-      >
-        {generating ? (
-          <Spinner className="h-3 w-3" />
-        ) : (
-          <Sparkles className="h-3 w-3 text-amber-500" />
-        )}
-      </button>
+          {/* Catalog Image */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Catalog Image</Label>
+            <div className="flex items-start gap-3">
+              {/* Thumbnail */}
+              <div
+                className={cn(
+                  "h-20 w-20 rounded-lg border flex items-center justify-center shrink-0 overflow-hidden",
+                  merged.catalogImageUrl
+                    ? "border-border bg-muted/20"
+                    : "border-dashed border-border bg-muted/20 cursor-pointer hover:bg-muted/40"
+                )}
+                onClick={() => !busy && !merged.catalogImageUrl && fileRef.current?.click()}
+              >
+                {generating ? (
+                  <div className="flex flex-col items-center gap-1">
+                    <Spinner className="h-5 w-5 text-amber-500" />
+                    <span className="text-[9px] text-amber-600 text-center px-1">Generating…</span>
+                  </div>
+                ) : uploading ? (
+                  <Spinner className="h-5 w-5 text-primary" />
+                ) : merged.catalogImageUrl ? (
+                  <img src={merged.catalogImageUrl} alt="catalog" className="h-full w-full object-contain" />
+                ) : (
+                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                )}
+              </div>
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        className="sr-only"
-        onChange={handleFile}
-      />
-    </div>
+              {/* Controls */}
+              <div className="flex flex-col gap-2 flex-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 justify-start"
+                  disabled={busy}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {merged.catalogImageUrl ? "Replace image" : "Upload image"}
+                </Button>
+
+                {/* 2D / 3D toggle + generate */}
+                <div className="flex gap-2 items-center">
+                  <div className="flex rounded border border-border overflow-hidden">
+                    {(["3d", "2d"] as const).map((m) => (
+                      <button
+                        key={m}
+                        className={cn(
+                          "px-2 py-1 text-xs font-medium transition-colors",
+                          m === "2d" && "border-l border-border",
+                          viewMode === m
+                            ? "bg-amber-500 text-white"
+                            : "bg-background text-muted-foreground hover:bg-muted/50"
+                        )}
+                        onClick={() => setViewMode(m)}
+                        disabled={busy}
+                      >
+                        {m.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5 border-amber-400/60 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                    disabled={busy}
+                    onClick={() => { setGenerating(true); generateMutation.mutate({ id: row.id, viewMode }); }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    AI Generate
+                  </Button>
+                </div>
+
+                {/* Remove */}
+                {merged.catalogImageUrl && (
+                  <button
+                    className="text-xs text-destructive hover:underline text-left"
+                    disabled={busy}
+                    onClick={() => set("catalogImageUrl", null)}
+                  >
+                    Remove image
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 flex-row justify-end">
+          <Button variant="outline" onClick={() => { setDraft({}); onClose(); }} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={busy} className="min-w-20">
+            {updateMutation.isPending ? <Spinner className="h-4 w-4" /> : "Save"}
+          </Button>
+        </DialogFooter>
+
+        <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={handleFile} />
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -297,10 +375,7 @@ export function CabinetConfigAdmin() {
   const [category, setCategory] = useState("");
   const [unconfiguredOnly, setUnconfiguredOnly] = useState(false);
   const [page, setPage] = useState(0);
-
-  // Pending local edits: cabinetId → patch object
-  const [pending, setPending] = useState<Record<number, Partial<CabinetRow>>>({});
-  const [saving, setSaving] = useState<Set<number>>(new Set());
+  const [editRow, setEditRow] = useState<CabinetRow | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -313,87 +388,6 @@ export function CabinetConfigAdmin() {
   });
 
   const categories = ["Base","Wall","Tall","Corner","Drawer","Specialty","Vanity","Pantry","Island","Filler","Molding","Accessory"];
-
-  const updateMutation = trpc.cabinets.adminUpdateCabinet.useMutation({
-    onSuccess: (_, vars) => {
-      setSaving((s) => { const n = new Set(s); n.delete(vars.id); return n; });
-      setPending((p) => { const n = { ...p }; delete n[vars.id]; return n; });
-      utils.cabinets.adminListCabinetConfig.invalidate();
-    },
-    onError: (e, vars) => {
-      setSaving((s) => { const n = new Set(s); n.delete(vars.id); return n; });
-      toast.error(`Save failed: ${e.message}`);
-    },
-  });
-
-  const applyEdit = useCallback(
-    (id: number, field: keyof CabinetRow, value: unknown) => {
-      setPending((p) => ({ ...p, [id]: { ...p[id], [field]: value } }));
-    },
-    []
-  );
-
-  // isNotCabinet toggled — save immediately
-  const handleNotCabinetToggle = useCallback(
-    (id: number, value: boolean) => {
-      setSaving((s) => new Set(s).add(id));
-      updateMutation.mutate(
-        { id, isNotCabinet: value },
-        {
-          onSuccess: () => {
-            setSaving((s) => { const n = new Set(s); n.delete(id); return n; });
-            utils.cabinets.adminListCabinetConfig.invalidate();
-          },
-          onError: (e) => {
-            setSaving((s) => { const n = new Set(s); n.delete(id); return n; });
-            toast.error(`Save failed: ${e.message}`);
-          },
-        }
-      );
-    },
-    [updateMutation, utils]
-  );
-
-  // Image uploaded — save immediately (no pending queue needed)
-  const handleImageUploaded = useCallback(
-    (id: number, url: string | null) => {
-      setSaving((s) => new Set(s).add(id));
-      updateMutation.mutate(
-        { id, catalogImageUrl: url },
-        {
-          onSuccess: () => {
-            setSaving((s) => { const n = new Set(s); n.delete(id); return n; });
-            utils.cabinets.adminListCabinetConfig.invalidate();
-            if (url) toast.success("Catalog image saved");
-            else toast.success("Image removed");
-          },
-          onError: (e) => {
-            setSaving((s) => { const n = new Set(s); n.delete(id); return n; });
-            toast.error(`Save failed: ${e.message}`);
-          },
-        }
-      );
-    },
-    [updateMutation, utils]
-  );
-
-  const saveRow = useCallback(
-    (row: CabinetRow) => {
-      const patch = pending[row.id];
-      if (!patch || Object.keys(patch).length === 0) return;
-      setSaving((s) => new Set(s).add(row.id));
-      const merged = { ...row, ...patch };
-      updateMutation.mutate({
-        id: row.id,
-        depth: merged.depth ?? null,
-        numberOfDoors: merged.numberOfDoors ?? null,
-        numberOfDrawers: merged.numberOfDrawers ?? null,
-        numberOfFixedShelves: merged.numberOfFixedShelves ?? null,
-        numberOfAdjShelves: merged.numberOfAdjShelves ?? null,
-      });
-    },
-    [pending, updateMutation]
-  );
 
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
@@ -408,6 +402,15 @@ export function CabinetConfigAdmin() {
       r.numberOfAdjShelves != null
   ).length;
 
+  const handleSaved = useCallback(
+    (updated: Partial<CabinetRow>) => {
+      // Optimistically update the editRow so if they reopen it shows fresh data
+      setEditRow((prev) => prev ? { ...prev, ...updated } : null);
+      utils.cabinets.adminListCabinetConfig.invalidate();
+    },
+    [utils]
+  );
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -419,6 +422,7 @@ export function CabinetConfigAdmin() {
       <p className="text-sm text-muted-foreground">
         Set the standard depth, door count, drawer count, shelf counts, and catalog image for each generic cabinet.
         These values appear in the public Specifications card and drive catalog illustrations.
+        <strong className="text-foreground"> Tap any row to edit.</strong>
       </p>
 
       {/* Filters */}
@@ -475,121 +479,62 @@ export function CabinetConfigAdmin() {
               <tr>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-28">Code</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs">Description</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20">W×H</th>
-                <th className="text-center px-3 py-2 font-medium text-muted-foreground text-xs w-20" title="Check if this item is NOT a cabinet (trim, panel, moulding, etc.) — hides cabinet-only fields">Not Cab.</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24">Depth</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20">Doors</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20">Drawers</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24">Fixed Sh.</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24">Adj. Sh.</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-28">Image</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-16"></th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20 hidden sm:table-cell">W×H</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-32 hidden md:table-cell">Config</th>
+                <th className="text-center px-3 py-2 font-medium text-muted-foreground text-xs w-12">
+                  <Pencil className="h-3.5 w-3.5 mx-auto" />
+                </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row, i) => {
-                const patch = pending[row.id] ?? {};
-                const merged = { ...row, ...patch };
-                const isDirty = Object.keys(patch).length > 0;
-                const isSaving = saving.has(row.id);
+                const isConfigured =
+                  row.depth != null ||
+                  row.numberOfDoors != null ||
+                  row.numberOfDrawers != null ||
+                  row.numberOfFixedShelves != null ||
+                  row.numberOfAdjShelves != null;
                 return (
                   <tr
                     key={row.id}
                     className={cn(
-                      "border-b border-border last:border-0 transition-colors",
+                      "border-b border-border last:border-0 transition-colors cursor-pointer group",
                       i % 2 === 0 ? "bg-background" : "bg-muted/20",
-                      isDirty && "bg-amber-50/60 dark:bg-amber-900/10"
+                      "hover:bg-primary/5 active:bg-primary/10"
                     )}
+                    onClick={() => setEditRow(row as CabinetRow)}
                   >
-                    <td className="px-3 py-1.5">
+                    <td className="px-3 py-2.5">
                       <span className="font-mono text-xs font-semibold text-primary">{row.masterCode}</span>
                     </td>
-                    <td className="px-3 py-1.5">
+                    <td className="px-3 py-2.5">
                       <span className="text-xs text-foreground line-clamp-1">{row.description}</span>
                       {row.category && (
                         <span className="text-[10px] text-muted-foreground block">{row.category}{row.subCategory ? ` › ${row.subCategory}` : ""}</span>
                       )}
                     </td>
-                    <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap hidden sm:table-cell">
                       {row.width ? `${parseFloat(row.width)}"` : "—"}×{row.height ? `${parseFloat(row.height)}"` : "—"}
                     </td>
-                    {/* Not a cabinet toggle */}
-                    <td className="px-3 py-1.5 text-center">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-amber-500 cursor-pointer"
-                        checked={!!merged.isNotCabinet}
-                        disabled={saving.has(row.id)}
-                        title={merged.isNotCabinet ? "Marked as non-cabinet (trim/panel/moulding)" : "Mark as non-cabinet to hide cabinet-only fields"}
-                        onChange={(e) => handleNotCabinetToggle(row.id, e.target.checked)}
-                      />
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {!merged.isNotCabinet ? (
-                        <DepthCell
-                          row={merged as CabinetRow}
-                          onSave={(id, depth) => applyEdit(id, "depth", depth)}
-                        />
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {!merged.isNotCabinet ? (
-                        <CountCell
-                          value={merged.numberOfDoors}
-                          options={DOOR_OPTIONS}
-                          label="Doors"
-                          onSave={(v) => applyEdit(row.id, "numberOfDoors", v)}
-                        />
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {!merged.isNotCabinet ? (
-                        <CountCell
-                          value={merged.numberOfDrawers}
-                          options={DRAWER_OPTIONS}
-                          label="Drawers"
-                          onSave={(v) => applyEdit(row.id, "numberOfDrawers", v)}
-                        />
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {!merged.isNotCabinet ? (
-                        <CountCell
-                          value={merged.numberOfFixedShelves}
-                          options={SHELF_OPTIONS}
-                          label="Fixed Shelves"
-                          onSave={(v) => applyEdit(row.id, "numberOfFixedShelves", v)}
-                        />
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {!merged.isNotCabinet ? (
-                        <CountCell
-                          value={merged.numberOfAdjShelves}
-                          options={SHELF_OPTIONS}
-                          label="Adj. Shelves"
-                          onSave={(v) => applyEdit(row.id, "numberOfAdjShelves", v)}
-                        />
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      <ImageCell
-                        row={row as CabinetRow}
-                        onUploaded={handleImageUploaded}
-                        onGenerated={(id, url) => handleImageUploaded(id, url)}
-                      />
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {isDirty && (
-                        <Button
-                          size="sm"
-                          className="h-6 text-xs px-2"
-                          disabled={isSaving}
-                          onClick={() => saveRow(row as CabinetRow)}
-                        >
-                          {isSaving ? <Spinner className="h-3 w-3" /> : "Save"}
-                        </Button>
+                    <td className="px-3 py-2.5 hidden md:table-cell">
+                      {isConfigured ? (
+                        <div className="flex flex-wrap gap-1">
+                          {row.depth && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.depth}"D</Badge>}
+                          {row.numberOfDoors != null && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.numberOfDoors}dr</Badge>}
+                          {row.numberOfDrawers != null && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{row.numberOfDrawers}dw</Badge>}
+                          {(row.numberOfFixedShelves != null || row.numberOfAdjShelves != null) && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              {row.numberOfFixedShelves ?? "?"}f/{row.numberOfAdjShelves ?? "?"}a sh
+                            </Badge>
+                          )}
+                          {row.catalogImageUrl && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-green-600 border-green-300">img</Badge>}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">not configured</span>
                       )}
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors mx-auto" />
                     </td>
                   </tr>
                 );
@@ -612,6 +557,16 @@ export function CabinetConfigAdmin() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Edit modal */}
+      {editRow && (
+        <EditModal
+          row={editRow}
+          open={!!editRow}
+          onClose={() => setEditRow(null)}
+          onSaved={handleSaved}
+        />
       )}
     </div>
   );
