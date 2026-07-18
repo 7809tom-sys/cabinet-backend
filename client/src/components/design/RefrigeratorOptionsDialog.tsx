@@ -225,10 +225,11 @@ export function RefrigeratorOptionsDialog({
   const [smooth, setSmooth] = useState(false);
 
   // ── SKU dimension parser ──────────────────────────────────────────
-  // Handles three over-fridge cabinet SKU formats:
-  //  1. Clark & Sons 12" deep:  W-WW-HH  e.g. W-36-18 → {w:36,h:18,d:12}
-  //  2. Clark & Sons 24" deep:  WRWWHH   e.g. WR3615  → {w:36,h:15,d:24}
-  //  3. Skyline/USCD 24" deep:  W[WW][HH]24 (8 chars) e.g. W361524 → {w:36,h:15,d:24}
+  // Handles four over-fridge cabinet SKU formats:
+  //  1. Clark & Sons 12" deep:     W-WW-HH      e.g. W-36-18   → {w:36,h:18,d:12}
+  //  2. Clark & Sons 24" deep:     WRWWHH        e.g. WR3615    → {w:36,h:15,d:24}
+  //  3. Skyline/USCD 24" deep:     W[WW][HH]24   e.g. W361524   → {w:36,h:15,d:24}
+  //  4. Skyline/Milestone 12" deep: W[WW][HH]    e.g. W3615     → {w:36,h:15,d:12}
   const parseSkuDims = (code: string) => {
     const c = code.replace(/^[^W]*W/, "W");
     // Format 1: Clark & Sons 12" deep  W-WW-HH
@@ -237,9 +238,12 @@ export function RefrigeratorOptionsDialog({
     // Format 2: Clark & Sons 24" deep  WRWWHH
     const mR = c.match(/^WR(\d{2})(\d{2})$/);
     if (mR) return { w: parseInt(mR[1], 10), h: parseInt(mR[2], 10), d: 24 };
-    // Format 3: Skyline/USCD 24" deep  W[WW][HH]24 (8 chars)
+    // Format 3: Skyline/USCD 24" deep  W[WW][HH]24 (8 chars, last 2 = depth)
     const m8 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
     if (m8) return { w: parseInt(m8[1], 10), h: parseInt(m8[2], 10), d: parseInt(m8[3], 10) };
+    // Format 4: Skyline/Milestone 12" deep  W[WW][HH] (4 chars)
+    const m4 = c.match(/^W(\d{2})(\d{2})$/);
+    if (m4) return { w: parseInt(m4[1], 10), h: parseInt(m4[2], 10), d: 12 };
     return null;
   };
 

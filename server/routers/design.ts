@@ -332,6 +332,7 @@ export const designRouter = router({
       //    Note: WRC% = wine rack wall cabinets — excluded
       //  - Skyline/USCD/Milestone 24" deep: 8-char W[WW][HH]24 e.g. W361224, W362424
       //    (depth encoded as last 2 digits = 24; width 30/33/36; height 12/15/18/24)
+      //  - Skyline/Milestone 12" deep: 4-char W[WW][HH] e.g. W3012, W3315, W3618, W3624
       const deepRows = await db
         .select(cols)
         .from(cabinets)
@@ -342,7 +343,9 @@ export const designRouter = router({
           // Clark & Sons 24" deep fridge cabs: WR prefix (not wine rack WRC)
           and(like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`),
           // Skyline/USCD/Milestone 24" deep: 8-char W[WW][HH]24 ending in 24
-          sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|21|24)24$'`
+          sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|21|24)24$'`,
+          // Skyline/Milestone 12" deep: 4-char W[WW][HH] e.g. W3012, W3315, W3618, W3624
+          sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|24)$'`
         )));
       // Shallow bridge wall cabinets: short W-* that are NOT the deep "-24" or WR fridge boxes.
       const wallRows = await db
