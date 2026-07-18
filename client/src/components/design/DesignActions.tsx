@@ -597,17 +597,17 @@ export function DesignActions({
         </DialogContent>
       </Dialog>
 
-      {/* Export build sheet — replaces the placeholder cart action */}
-      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExport}>
-        <Download className="h-3.5 w-3.5" /> {t("dt_act_export_btn")}
+      {/* Export build sheet */}
+      <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleExport} title={t("dt_act_export_btn")}>
+        <Download className="h-3.5 w-3.5" />
       </Button>
-      {/* Print Presentation — opens a print-optimized page with floor plan, elevations, and BOM */}
-      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => window.open("/design/presentation", "_blank")}>
-        <Printer className="h-3.5 w-3.5" /> {t("dt_act_presentation_btn")}
+      {/* Print Presentation */}
+      <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => window.open("/design/presentation", "_blank")} title={t("dt_act_presentation_btn")}>
+        <Printer className="h-3.5 w-3.5" />
       </Button>
-      {/* Fabricator Countertop Sheet — dimensioned drawing for countertop fabricators */}
-      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => window.open("/design/fabricator-sheet", "_blank")}>
-        <Ruler className="h-3.5 w-3.5" /> {t("dt_act_fabricator_btn")}
+      {/* Fabricator Countertop Sheet */}
+      <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => window.open("/design/fabricator-sheet", "_blank")} title={t("dt_act_fabricator_btn")}>
+        <Ruler className="h-3.5 w-3.5" />
       </Button>
     </>
   );

@@ -4283,25 +4283,7 @@ export default function DesignTool() {
           <span>{placed.length} items</span>
         </button>
 
-        {/* Wall cabinet height selector: 30/36/42 toggle */}
-        <div className="hidden lg:flex items-center gap-1.5">
-          <span className="text-[11px] font-medium text-muted-foreground">{t("dt_wall_height_label")}</span>
-          <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
-            {([30, 36, 42] as const).map((h) => (
-              <button
-                key={h}
-                onClick={() => { setWallCabHeight(h); wallCabHeightRef.current = h; wallCabHeightPromptedRef.current = true; }}
-                className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
-                  wallCabHeight === h ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {h}"
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="hidden lg:block h-5 w-px bg-border" />
+        
 
         {/* Active wall selector: highlights a wall; new items drop on it and it
             can be dragged on the canvas to resize the room on that side.
@@ -4386,13 +4368,13 @@ export default function DesignTool() {
 
         <div className="hidden lg:block h-5 w-px bg-border" />
 
-        {/* View toggle — ONE CLICK */}
-        <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30">
+        {/* View toggle — individual separated buttons */}
+        <div className="flex items-center gap-1">
           <button
             onClick={() => setViewMode("plan")}
             title={t("dt_sh_birdseye")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+              viewMode === "plan" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
             <LayoutGrid className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_birdseye")}</span>
@@ -4400,8 +4382,8 @@ export default function DesignTool() {
           <button
             onClick={() => setViewMode("elevation")}
             title={t("dt_sh_front_view")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+              viewMode === "elevation" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
             <Eye className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_front_view")}</span>
@@ -4409,8 +4391,8 @@ export default function DesignTool() {
           <button
             onClick={() => setViewMode("split")}
             title={t("dt_sh_split")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+              viewMode === "split" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
             <Columns3 className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_split")}</span>
@@ -4418,8 +4400,8 @@ export default function DesignTool() {
           <button
             onClick={() => setViewMode("corner")}
             title={t("dt_sh_corner_title")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              viewMode === "corner" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+              viewMode === "corner" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
             <ScanLine className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_corner")}</span>
@@ -4428,14 +4410,15 @@ export default function DesignTool() {
             <button
               onClick={() => setViewMode("island")}
               title="Island elevation preview"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+                viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
               }`}
             >
               <Square className="h-3.5 w-3.5" /> Island
             </button>
           )}
         </div>
+        <div className="hidden lg:block h-5 w-px bg-border" />
 
         {/* Start New / Clear Design — desktop only */}
         <button

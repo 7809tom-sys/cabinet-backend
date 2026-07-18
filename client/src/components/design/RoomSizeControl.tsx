@@ -261,27 +261,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw, isPoly
         </PopoverContent>
       </Popover>
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onToggleDraw}
-        title={t("dt_rs_draw_title")}
-        className={`h-8 gap-1.5 ${drawMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
-      >
-        <Pencil className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_rs_draw_room")}</span>
-      </Button>
 
-      {onTogglePolygon && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onTogglePolygon}
-          title="Custom room shape — add bump-outs, bay windows, chimney recesses"
-          className={`h-8 gap-1.5 ${isPolygon ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
-        >
-          <Pentagon className="h-3.5 w-3.5" /> <span className="hidden xl:inline">Custom Shape</span>
-        </Button>
-      )}
     </div>
   );
 }
