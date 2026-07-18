@@ -191,9 +191,9 @@ function FeaturedStyles() {
   const [first, ...rest] = uniqueFeatured;
 
   return (
-    <section className="py-16 md:py-20">
+    <section className="py-10 md:py-20">
       <div className="container">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8 md:mb-12">
           <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
             <span className="h-px w-8 bg-[var(--color-wood)]" />
             Featured Door Styles
@@ -207,11 +207,11 @@ function FeaturedStyles() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-4 md:gap-6">
           {/* Hero style — large card */}
           <Link
             href={`/family/${encodeURIComponent((first as { styleCode?: string | null }).styleCode ?? String(first.id))}`}
-            className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 md:row-span-2"
+            className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 md:row-span-2 mt-2 md:mt-0"
           >
             <img
               src={(first as { roomSceneImageUrl?: string | null }).roomSceneImageUrl ?? KITCHEN_SCENES["shaker-white"]}
@@ -219,16 +219,16 @@ function FeaturedStyles() {
               className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48 md:h-full"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-6">
+            <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6">
               {(first as { featuredLabel?: string | null }).featuredLabel && (
                 <span className="inline-block text-xs font-bold uppercase tracking-wider text-[var(--color-gold)] bg-[var(--color-gold)]/15 border border-[var(--color-gold)]/30 rounded-full px-3 py-0.5 mb-2">
                   {(first as { featuredLabel?: string | null }).featuredLabel}
                 </span>
               )}
-              <h3 className="font-serif text-2xl font-bold text-white mb-1">
+              <h3 className="font-serif text-lg md:text-2xl font-bold text-white mb-0.5 md:mb-1">
                 {(first as { ourName?: string | null }).ourName ?? (first as { styleCode?: string | null }).styleCode}
               </h3>
-              <p className="text-sm text-white/75 mb-4">
+              <p className="text-xs md:text-sm text-white/75 mb-2 md:mb-4">
                 {[(first as { doorStyle?: string | null }).doorStyle, (first as { woodSpecies?: string | null }).woodSpecies].filter(Boolean).join(" · ") || "Premium cabinet door style"}
               </p>
               <div className="flex flex-wrap gap-2">
@@ -248,7 +248,7 @@ function FeaturedStyles() {
           </Link>
 
           {/* Remaining featured styles — smaller cards */}
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-4 md:gap-6">
             {rest.slice(0, 4).map((style) => (
               <div key={style.id} className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300">
                 <Link href={`/family/${encodeURIComponent((style as { styleCode?: string | null }).styleCode ?? String(style.id))}`}>
