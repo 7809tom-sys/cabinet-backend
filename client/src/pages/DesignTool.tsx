@@ -5082,6 +5082,11 @@ export default function DesignTool() {
             contactEmail={verifiedEmail}
             openSaveSignal={saveSignal}
             openLoadSignal={loadSignal}
+            onSaveSuccess={(designName) => {
+              if (isMobile) {
+                toast.success("Design saved", { description: designName });
+              }
+            }}
             onLoad={(d) =>
               loadSavedDesign({
                 ...d,

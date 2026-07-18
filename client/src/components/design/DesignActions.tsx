@@ -86,6 +86,8 @@ interface Props {
   // Save / My Plans dialogs without the parent needing access to internal state.
   openSaveSignal?: number;
   openLoadSignal?: number;
+  /** Called after a design is successfully saved (after the user confirms in the dialog). */
+  onSaveSuccess?: (designName: string) => void;
   onLoad: (d: {
     room: RoomData;
     placed: PlacedCabinet[];
@@ -314,7 +316,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, selectedSurfaces, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, openSaveSignal, openLoadSignal, onLoad,
+  room, placed, selectedSurfaces, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, openSaveSignal, openLoadSignal, onSaveSuccess, onLoad,
 }: Props) {
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
@@ -347,7 +349,9 @@ export function DesignActions({
 
   const saveMutation = trpc.design.save.useMutation({
     onSuccess: (res) => {
-      toast.success(t("dt_act_saved"), { description: name || t("dt_act_saved_untitled") });
+      const savedName = name || t("dt_act_saved_untitled");
+      toast.success(t("dt_act_saved"), { description: savedName });
+      onSaveSuccess?.(savedName);
       setSaveOpen(false);
       setName("");
       utils.design.myDesigns.invalidate();
