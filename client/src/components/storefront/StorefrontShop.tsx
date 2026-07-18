@@ -378,7 +378,7 @@ function LockedCatalog({
         >
           <div className="flex items-center gap-3">
             <FamilyCardImage
-              src={family.thumbnailImageUrl || family.roomSceneImageUrl}
+              src={family.roomSceneImageUrl || family.thumbnailImageUrl}
               alt={displayName}
               style={{
                 ourName: displayName,

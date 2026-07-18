@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Palette, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { Palette, ArrowRight, ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,11 +42,14 @@ function displayName(style: DoorStyle): string {
 
 function StyleCard({ style }: { style: DoorStyle }) {
   const { t } = useLanguage();
-  // STRICT ONE-FAMILY-ONE-COLOR: use ONLY this style's own verified photo.
-  // When there's no real photo, fall back to the color-accurate swatch/preview
-  // (recolored to THIS style's exact finish) — never a generic stock door or
-  // another family's scene.
-  const realDoor = style.doorSampleImageUrl || null;
+  const [showDoor, setShowDoor] = useState(false);
+  // Room scene is the featured image; door sample is the secondary toggle view
+  const roomScene = style.roomSceneImageUrl || null;
+  const doorSample = style.doorSampleImageUrl || null;
+  // Hero: room scene first, fall back to door sample
+  const heroSrc = showDoor ? (doorSample || roomScene) : (roomScene || doorSample);
+  const canToggle = !!(roomScene && doorSample); // only show toggle when both exist
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -54,12 +57,12 @@ function StyleCard({ style }: { style: DoorStyle }) {
           type="button"
           className="cabinet-card group relative rounded-xl border border-border bg-card overflow-hidden text-left w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          {/* Clean studio door sample as the primary visual on a neutral ground */}
+          {/* Room scene as the primary visual — door sample available via toggle */}
           <div className="h-48 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
-            {realDoor ? (
+            {heroSrc ? (
               <img
-                src={realDoor}
-                alt={`${style.ourName || style.styleCode} door sample`}
+                src={heroSrc}
+                alt={showDoor ? `${style.ourName || style.styleCode} door sample` : `${style.ourName || style.styleCode} kitchen`}
                 loading="lazy"
                 decoding="async"
                 className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -70,8 +73,19 @@ function StyleCard({ style }: { style: DoorStyle }) {
                 className="relative h-32 w-auto drop-shadow-lg group-hover:scale-105 transition-transform duration-300"
               />
             )}
-            <span className="absolute bottom-2 right-2 text-[10px] font-medium text-white bg-black/55 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-              {t("ds_view_details")}
+            {/* Door/scene toggle button */}
+            {canToggle && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowDoor(v => !v); }}
+                className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white/80 bg-black/40 text-white hover:bg-black/60 transition-colors"
+                aria-label={showDoor ? "Show room scene" : "Show door close-up"}
+              >
+                <ImageIcon className="h-3 w-3" />
+              </button>
+            )}
+            <span className="absolute bottom-2 left-2 text-[10px] font-medium text-white bg-black/55 px-2 py-0.5 rounded-full">
+              {showDoor ? "Door sample" : "Room scene"}
             </span>
           </div>
 
@@ -120,16 +134,29 @@ function StyleCard({ style }: { style: DoorStyle }) {
           </DialogTitle>
         </DialogHeader>
 
-        {/* Primary: the clean studio door sample for this finish */}
-        <div className="rounded-lg overflow-hidden border border-border bg-gradient-to-b from-muted/40 to-muted/70">
-          {realDoor ? (
+        {/* Primary: room scene (full-width hero), then door sample thumbnail below */}
+        {roomScene && (
+          <div className="rounded-lg overflow-hidden border border-border">
             <img
-              src={realDoor}
-              alt={`${style.ourName || style.styleCode} door sample`}
+              src={roomScene}
+              alt={`${style.ourName || style.styleCode} kitchen`}
               className="w-full h-auto block"
             />
+          </div>
+        )}
+        {/* Door sample — shown as secondary if room scene is present, or primary if not */}
+        <div className={`rounded-lg overflow-hidden border border-border bg-gradient-to-b from-muted/40 to-muted/70 ${roomScene ? "flex items-center gap-3 p-3" : ""}`}>
+          {doorSample ? (
+            <img
+              src={doorSample}
+              alt={`${style.ourName || style.styleCode} door sample`}
+              className={roomScene ? "h-24 w-auto rounded object-contain" : "w-full h-auto block"}
+            />
           ) : (
-            <DoorStyleSwatch style={style} className="w-full h-auto block" />
+            <DoorStyleSwatch style={style} className={roomScene ? "h-24 w-auto" : "w-full h-auto block"} />
+          )}
+          {roomScene && (
+            <div className="text-xs text-muted-foreground">Door close-up</div>
           )}
         </div>
 

@@ -40,7 +40,7 @@ interface AdminStyle {
 }
 
 function thumb(s: AdminStyle): string | null {
-  return s.thumbnailImageUrl || s.doorSampleImageUrl || s.roomSceneImageUrl || null;
+  return s.roomSceneImageUrl || s.doorSampleImageUrl || s.thumbnailImageUrl || null;
 }
 
 // ── Reusable image field: paste a URL OR upload from device, with live preview ──

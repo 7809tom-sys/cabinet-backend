@@ -89,14 +89,16 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
   }
 
   const roomScene = style.override?.roomSceneUrl;
+  // Card thumbnail: custom affiliate room scene → global room scene → thumbnail
+  const cardImg = roomScene || (style as StyleRow & { roomSceneImageUrl?: string | null }).roomSceneImageUrl || style.thumbnailImageUrl;
 
   return (
     <div className={`rounded-lg border transition-colors ${featured ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
       {/* Thumbnail row */}
       <div className="flex gap-3 p-3">
         <div className="w-16 h-16 rounded-md overflow-hidden bg-muted shrink-0">
-          {style.thumbnailImageUrl ? (
-            <img src={style.thumbnailImageUrl} alt={displayName} className="w-full h-full object-cover" />
+          {cardImg ? (
+            <img src={cardImg} alt={displayName} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No img</div>
           )}
