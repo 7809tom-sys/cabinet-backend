@@ -14,6 +14,13 @@ import {
   IMPORT_TEMPLATE_CSV,
 } from "@shared/distributorImport";
 import { buildCatalogCsv, type CatalogExportRow } from "@shared/catalogExport";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+
+const execFileAsync = promisify(execFile);
 
 /** Per-row plan describing what the commit will do (no writes during preview). */
 interface PreviewRow {
@@ -850,6 +857,12 @@ export const distributorImportRouter = router({
       const allRows = XLSX.utils.sheet_to_json<(string | number | null)[]>(ws, { header: 1, defval: null }) as (string | number | null)[][];
       const dataRows = allRows.slice(1).filter((r) => r.some((c) => c != null && String(c).trim() !== ""));
 
+      // Load this distributor's door styles for display labels in preview rows
+      const distStyles = await db
+        .select({ id: doorStyles.id, styleCode: doorStyles.styleCode, ourName: doorStyles.ourName })
+        .from(doorStyles)
+        .where(eq(doorStyles.distributorId, input.distributorId));
+
       // Build column index maps
       const skuCol = input.columnMapping.find((c) => c.role === "sku")?.colIdx ?? -1;
       const catCol = input.columnMapping.find((c) => c.role === "category")?.colIdx ?? -1;
@@ -932,6 +945,13 @@ export const distributorImportRouter = router({
         action: string;
         stylesPriced: number;
         warnings: string[];
+        // Validation fields
+        severity: "ok" | "warning" | "error";
+        issues: Array<{ field: string; message: string; severity: "warning" | "error" }>;
+        dimsParsed: boolean;
+        missingPriceCount: number;
+        invalidPriceCount: number;
+        stylePrices: Array<{ styleId: number; styleCode: string; price: number | null; raw: string; valid: boolean }>;
       }> = [];
 
       for (let i = 0; i < dataRows.length; i++) {
@@ -957,15 +977,24 @@ export const distributorImportRouter = router({
         const isAssembled = assembleVal === "1" || /^(yes|true|y)$/i.test(assembleVal ?? "");
 
         const warnings: string[] = [];
+        const issues: Array<{ field: string; message: string; severity: "warning" | "error" }> = [];
         let cabinetId: number;
         let action = "price-only";
+
+        // Validate dimensions
+        const dimsParsed = !!(dims.width || dims.height || dims.depth);
+        const hasDimSource = dimCol >= 0 || descCol >= 0;
+        if (hasDimSource && !dimsParsed) {
+          issues.push({ field: "dimensions", message: "Dimensions could not be parsed", severity: "warning" });
+        }
 
         if (!found) {
           if (!description || !category) {
             unmatchedCodes.push(code);
             warnings.push("No match — needs Description + Category to create");
             if (!input.dryRun) { skipped++; }
-            previewRows.push({ rowNum: i + 2, code, resolvedCode: null, matchHow: "none", action: "error", stylesPriced: 0, warnings });
+            issues.push({ field: "sku", message: `SKU "${code}" not found — needs Description + Category to create new cabinet`, severity: "error" });
+            previewRows.push({ rowNum: i + 2, code, resolvedCode: null, matchHow: "none", action: "error", stylesPriced: 0, warnings, severity: "error", issues, dimsParsed: false, missingPriceCount: priceCols.length, invalidPriceCount: 0, stylePrices: [] });
             continue;
           }
           action = "create";
@@ -1009,12 +1038,28 @@ export const distributorImportRouter = router({
 
         // Price columns — one upsert per style column
         let stylesPriced = 0;
+        let missingPriceCount = 0;
+        let invalidPriceCount = 0;
+        const stylePrices: Array<{ styleId: number; styleCode: string; price: number | null; raw: string; valid: boolean }> = [];
         for (const pc of priceCols) {
           const rawVal = row[pc.colIdx];
           const strVal = String(rawVal ?? "").trim();
-          if (!strVal || strVal.toUpperCase() === "N/A" || strVal === "-") continue;
+          // Find the style code for display
+          const styleEntry = distStyles.find((s) => s.id === pc.styleId);
+          const styleCode = styleEntry?.styleCode ?? String(pc.styleId);
+          if (!strVal || strVal.toUpperCase() === "N/A" || strVal === "-") {
+            missingPriceCount++;
+            stylePrices.push({ styleId: pc.styleId!, styleCode, price: null, raw: strVal, valid: false });
+            continue;
+          }
           const price = parseFloat(strVal);
-          if (isNaN(price) || price <= 0) continue;
+          if (isNaN(price) || price <= 0) {
+            invalidPriceCount++;
+            issues.push({ field: `price:${styleCode}`, message: `Invalid price "${strVal}" for style ${styleCode}`, severity: "error" });
+            stylePrices.push({ styleId: pc.styleId!, styleCode, price: null, raw: strVal, valid: false });
+            continue;
+          }
+          stylePrices.push({ styleId: pc.styleId!, styleCode, price, raw: strVal, valid: true });
 
           stylesPriced++;
           if (!input.dryRun && cabinetId > 0) {
@@ -1055,6 +1100,11 @@ export const distributorImportRouter = router({
           }
         }
 
+        // Determine overall row severity
+        const hasErrors = issues.some((i) => i.severity === "error") || matchHow === "none";
+        const hasWarnings = issues.some((i) => i.severity === "warning") || missingPriceCount > 0;
+        const severity: "ok" | "warning" | "error" = hasErrors ? "error" : hasWarnings ? "warning" : "ok";
+
         previewRows.push({
           rowNum: i + 2,
           code,
@@ -1063,8 +1113,17 @@ export const distributorImportRouter = router({
           action,
           stylesPriced,
           warnings,
+          severity,
+          issues,
+          dimsParsed,
+          missingPriceCount,
+          invalidPriceCount,
+          stylePrices,
         });
       }
+
+      const errorCount = previewRows.filter((r) => r.severity === "error").length;
+      const warningCount = previewRows.filter((r) => r.severity === "warning").length;
 
       return {
         dryRun: input.dryRun ?? false,
@@ -1075,7 +1134,69 @@ export const distributorImportRouter = router({
         aliasMatched,
         unmatchedCount: unmatchedCodes.length,
         unmatchedCodes: unmatchedCodes.slice(0, 50),
+        errorCount,
+        warningCount,
         previewRows: input.dryRun ? previewRows.slice(0, 200) : [],
       };
+    }),
+
+  /**
+   * Convert a PDF pricing sheet (base64-encoded) to an XLSX file.
+   * Uses the server/scripts/pdf_to_xlsx.py script via child_process.
+   * Returns the XLSX as a base64 string plus metadata about what was extracted.
+   */
+  pdfToXlsx: adminProcedure
+    .input(
+      z.object({
+        fileBase64: z.string().min(1),
+        filename: z.string().min(1),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Write PDF to a temp file
+      const tmpDir = os.tmpdir();
+      const pdfPath = path.join(tmpDir, `cabinet_pdf_${Date.now()}.pdf`);
+      const xlsxPath = path.join(tmpDir, `cabinet_pdf_${Date.now()}_out.xlsx`);
+
+      try {
+        const pdfBuffer = Buffer.from(input.fileBase64, "base64");
+        fs.writeFileSync(pdfPath, pdfBuffer);
+
+        // Run the Python extraction script
+        const scriptPath = path.join(__dirname, "../scripts/pdf_to_xlsx.py");
+        const { stdout, stderr } = await execFileAsync("python3", [scriptPath, pdfPath, xlsxPath], {
+          timeout: 60_000,
+        });
+
+        if (!fs.existsSync(xlsxPath)) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `PDF conversion failed: ${stderr || stdout || "no output"}`,
+          });
+        }
+
+        // Parse stdout for metadata: "Converted N rows, M style codes: [...]"
+        const rowsMatch = stdout.match(/(\d+) rows/);
+        const stylesMatch = stdout.match(/style codes: \[([^\]]+)\]/);
+        const rowCount = rowsMatch ? parseInt(rowsMatch[1], 10) : 0;
+        const styleCodes = stylesMatch
+          ? stylesMatch[1].split(",").map((s) => s.trim().replace(/'/g, ""))
+          : [];
+
+        // Read the XLSX and return as base64
+        const xlsxBuffer = fs.readFileSync(xlsxPath);
+        const xlsxBase64 = xlsxBuffer.toString("base64");
+
+        return {
+          xlsxBase64,
+          filename: input.filename.replace(/\.pdf$/i, ".xlsx"),
+          rowCount,
+          styleCodes,
+        };
+      } finally {
+        // Clean up temp files
+        try { fs.unlinkSync(pdfPath); } catch {}
+        try { fs.unlinkSync(xlsxPath); } catch {}
+      }
     }),
 });

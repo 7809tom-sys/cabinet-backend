@@ -900,3 +900,20 @@
 - [x] Add dimension extraction from description field (parseDimsFromDesc) as fallback when no dim column
 - [x] Pass isAssembled flag to cabinet insert/update when Assemble column is present
 - [x] TypeScript: 0 errors after all enhancements
+
+## XLSX import preview validation highlighting
+- [ ] Extend importWithMapping dry-run to return per-row issues: unrecognized SKU, missing prices, invalid dimensions
+- [ ] Add validation severity field (error/warning) to each preview row
+- [ ] Update DistributorImport preview table to highlight rows red (error) or orange (warning)
+- [ ] Show a summary banner: "X errors, Y warnings — fix before committing"
+- [ ] Disable Commit button when any error-severity rows exist
+- [ ] TypeScript clean and checkpoint
+
+## PDF-to-Excel converter (admin)
+- [x] Install pdfplumber Python package on server (via child_process spawn)
+- [x] Build server-side pdfToXlsx tRPC procedure: accept base64 PDF, extract tables, return base64 XLSX
+- [x] Handle multi-style column headers (e.g. "SW/SA/SD/SG" → split into separate columns in output)
+- [x] Strip footnote markers (†, *, **) from price cells before output
+- [x] Skip section-header rows (rows where SKU column looks like a category label, not a SKU code)
+- [x] Build PDF converter UI tab in admin import panel (upload PDF → preview extracted table → download XLSX)
+- [x] Add "Open in Import" shortcut to feed the converted XLSX directly into the XLSX import flow

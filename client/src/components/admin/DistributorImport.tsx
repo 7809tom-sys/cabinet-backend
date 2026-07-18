@@ -79,6 +79,76 @@ export default function DistributorImport() {
   const utils = trpc.useUtils();
   const { data: dists } = trpc.distributorAdmin.adminList.useQuery();
 
+  // ── PDF converter state ────────────────────────────────────────────────────
+  type PdfStep = "upload" | "converting" | "done";
+  const [pdfStep, setPdfStep] = useState<PdfStep>("upload");
+  const [pdfFilename, setPdfFilename] = useState<string>("");
+  const [pdfResult, setPdfResult] = useState<{ xlsxBase64: string; filename: string; rowCount: number; styleCodes: string[] } | null>(null);
+  const pdfFileRef = useRef<HTMLInputElement>(null);
+
+  const pdfConvertMut = trpc.distributorAdmin.pdfToXlsx.useMutation({
+    onSuccess: (data) => {
+      setPdfResult(data);
+      setPdfStep("done");
+    },
+    onError: (e) => {
+      toast.error(`PDF conversion failed: ${e.message}`);
+      setPdfStep("upload");
+    },
+  });
+
+  function onPdfFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("Please select a PDF file.");
+      return;
+    }
+    setPdfFilename(f.name);
+    setPdfStep("converting");
+    setPdfResult(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const b64 = (reader.result as string).split(",")[1] ?? "";
+      pdfConvertMut.mutate({ fileBase64: b64, filename: f.name });
+    };
+    reader.readAsDataURL(f);
+  }
+
+  function downloadPdfXlsx() {
+    if (!pdfResult) return;
+    const bytes = Uint8Array.from(atob(pdfResult.xlsxBase64), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = pdfResult.filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${pdfResult.filename}`);
+  }
+
+  function loadPdfXlsxIntoImport() {
+    if (!pdfResult || !distributorId) {
+      toast.error("Select a distributor first, then use \"Open in Import\" again.");
+      return;
+    }
+    setXlsxFilename(pdfResult.filename);
+    setXlsxFileBase64(pdfResult.xlsxBase64);
+    setXlsxStep("upload");
+    setParseResult(null);
+    setXlsxResult(null);
+    parseMut.mutate({
+      fileBase64: pdfResult.xlsxBase64,
+      filename: pdfResult.filename,
+      distributorId: Number(distributorId),
+    });
+    // Switch to xlsx tab
+    const xlsxTrigger = document.querySelector<HTMLButtonElement>('[data-value="xlsx"]');
+    xlsxTrigger?.click();
+    toast.info("PDF converted — review column mapping before committing.");
+  }
+
   // ── CSV import state ──────────────────────────────────────────────────────
   const [styleId, setStyleId] = useState<string>("");
   const [csv, setCsv] = useState<string>("");
@@ -365,6 +435,9 @@ export default function DistributorImport() {
                 <FileSpreadsheet className="mr-1.5 h-4 w-4" /> XLSX / Excel
               </TabsTrigger>
               <TabsTrigger value="csv">CSV / paste</TabsTrigger>
+              <TabsTrigger value="pdf">
+                <Upload className="mr-1.5 h-4 w-4" /> PDF → Excel
+              </TabsTrigger>
             </TabsList>
 
             {/* ── XLSX tab ─────────────────────────────────────────────────── */}
@@ -812,6 +885,97 @@ export default function DistributorImport() {
                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Import
                     another file
                   </Button>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ── PDF converter tab ─────────────────────────────────────── */}
+            <TabsContent value="pdf" className="space-y-5 pt-2">
+              <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-3 text-sm text-blue-800 dark:text-blue-300 space-y-1">
+                <p className="font-medium">PDF Pricing Sheet Converter</p>
+                <p className="text-xs">
+                  Upload a distributor pricing PDF (e.g. US Cabinet Depot format). The system will extract the pricing table and produce a downloadable Excel file that you can then import using the XLSX tab.
+                </p>
+              </div>
+
+              {/* Upload area */}
+              {pdfStep === "upload" && (
+                <div
+                  className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/30 p-10 cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => pdfFileRef.current?.click()}
+                >
+                  <input
+                    ref={pdfFileRef}
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={onPdfFile}
+                  />
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <div className="text-center">
+                    <p className="font-medium">Click to upload a PDF pricing sheet</p>
+                    <p className="text-xs text-muted-foreground mt-1">Supports the US Cabinet Depot / Capital Collection multi-style column format</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Converting */}
+              {pdfStep === "converting" && (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <Spinner className="h-8 w-8" />
+                  <p className="text-sm text-muted-foreground">Extracting table from <span className="font-mono">{pdfFilename}</span>…</p>
+                  <p className="text-xs text-muted-foreground">This may take 10–30 seconds for large PDFs.</p>
+                </div>
+              )}
+
+              {/* Done */}
+              {pdfStep === "done" && pdfResult && (
+                <div className="space-y-4">
+                  <div className="rounded-md border border-emerald-400/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-semibold">
+                      <CheckCircle2 className="h-5 w-5" /> Conversion complete
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <Badge variant="default">{pdfResult.rowCount} cabinet rows</Badge>
+                      <Badge variant="secondary">{pdfResult.styleCodes.length} style codes</Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {pdfResult.styleCodes.map((c) => (
+                        <Badge key={c} variant="outline" className="font-mono text-xs">{c}</Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Output file: <span className="font-mono">{pdfResult.filename}</span>
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={downloadPdfXlsx}>
+                      <Download className="mr-1.5 h-4 w-4" /> Download Excel
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={loadPdfXlsxIntoImport}
+                      disabled={!distributorId}
+                      title={!distributorId ? "Select a distributor first" : ""}
+                    >
+                      <ArrowRight className="mr-1.5 h-4 w-4" /> Open in Import
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setPdfStep("upload"); setPdfResult(null); if (pdfFileRef.current) pdfFileRef.current.value = ""; }}
+                    >
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Convert another
+                    </Button>
+                  </div>
+
+                  {!distributorId && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="inline h-3.5 w-3.5 mr-1" />
+                      Select a distributor above to use "Open in Import" and feed this file directly into the XLSX import flow.
+                    </p>
+                  )}
                 </div>
               )}
             </TabsContent>
