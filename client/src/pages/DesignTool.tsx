@@ -4229,13 +4229,13 @@ export default function DesignTool() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="border-b border-border bg-card px-4 py-2.5 flex items-center gap-3 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Title + badge — desktop only */}
         <div className="hidden lg:flex items-center gap-2">
-          <h1 className="font-serif text-base lg:text-lg font-bold text-foreground">
+          <h1 className="font-serif text-sm font-bold text-foreground whitespace-nowrap">
             {t("dt_sh_title_desktop")}
           </h1>
-          <Badge variant="secondary" className="text-xs">{t("dt_sh_items", { n: placed.length })}</Badge>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{t("dt_sh_items", { n: placed.length })}</Badge>
         </div>
 
         <div className="hidden lg:block h-5 w-px bg-border" />
@@ -4289,15 +4289,15 @@ export default function DesignTool() {
             can be dragged on the canvas to resize the room on that side.
             Desktop-only — on mobile these live in the "More" menu to save space. */}
         <div className="hidden lg:flex items-center gap-1.5">
-          <span className="text-[11px] font-medium text-muted-foreground">{t("dt_sh_wall")}</span>
-          <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/30 overflow-x-auto">
+          <span className="text-[10px] font-medium text-muted-foreground">{t("dt_sh_wall")}</span>
+          <div className="flex items-center rounded-md border border-border p-0.5 bg-muted/30 overflow-x-auto">
             {isPolygonRoom && room.customWalls ? (
               // Polygon mode: show custom wall segment tabs
               room.customWalls.map((cw) => (
                 <button
                   key={cw.id}
                   onClick={() => { setActiveWall(cw.id as any); setDrawMode(false); }}
-                  className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${
                     activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -4313,7 +4313,7 @@ export default function DesignTool() {
                     <button
                       onClick={() => { setActiveWall(w); setDrawMode(false); }}
                       title={t("dt_sh_wall_highlight", { wall: wallLabel[w] })}
-                      className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
                         activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
@@ -4347,21 +4347,19 @@ export default function DesignTool() {
               toast.success(!layoutLocked ? t("dt_sh_layout_locked_toast") : t("dt_sh_layout_unlocked_toast"));
             }}
             title={layoutLocked ? t("dt_sh_unlock_plan") : t("dt_sh_lock_plan")}
-            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
               layoutLocked ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >
             {layoutLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
-            <span className="hidden xl:inline">{layoutLocked ? t("dt_sh_locked") : t("dt_sh_lock_layout")}</span>
           </button>
           <button
             onClick={autoFillActiveWall}
             disabled={layoutLocked}
             title={t("dt_sh_autofill_title", { wall: wallLabel[activeWall] })}
-            className="flex items-center gap-1.5 rounded-lg border border-[#d4a75a]/60 bg-[#d4a75a]/10 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
+            className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-[#d4a75a]/60 bg-[#d4a75a]/10 text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
           >
             <Wand2 className="h-3.5 w-3.5" />
-            <span className="hidden xl:inline">{t("dt_sh_autofill_wall")}</span>
           </button>
 
         </div>
@@ -4373,48 +4371,48 @@ export default function DesignTool() {
           <button
             onClick={() => setViewMode("plan")}
             title={t("dt_sh_birdseye")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
               viewMode === "plan" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <LayoutGrid className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_birdseye")}</span>
+            <LayoutGrid className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setViewMode("elevation")}
             title={t("dt_sh_front_view")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
               viewMode === "elevation" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <Eye className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_front_view")}</span>
+            <Eye className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setViewMode("split")}
             title={t("dt_sh_split")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
               viewMode === "split" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <Columns3 className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_split")}</span>
+            <Columns3 className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setViewMode("corner")}
             title={t("dt_sh_corner_title")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
               viewMode === "corner" ? "bg-[#1a2744] text-white border-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
             }`}
           >
-            <ScanLine className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_corner")}</span>
+            <ScanLine className="h-3.5 w-3.5" />
           </button>
           {island && (
             <button
               onClick={() => setViewMode("island")}
               title="Island elevation preview"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+              className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
                 viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
               }`}
             >
-              <Square className="h-3.5 w-3.5" /> Island
+              <Square className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
@@ -4423,7 +4421,7 @@ export default function DesignTool() {
         {/* Start New / Clear Design — desktop only */}
         <button
           type="button"
-          className="hidden lg:flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+          className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-destructive/40 text-destructive transition-colors hover:bg-destructive/10"
           onClick={() => {
             if (placed.length > 0 && !window.confirm(t("dt_sh_start_new_confirm"))) return;
             setPlaced([]);
@@ -4448,7 +4446,7 @@ export default function DesignTool() {
             toast.success(t("dt_sh_started_new"));
           }}
         >
-          <Trash2 className="h-3.5 w-3.5" /> <span className="hidden xl:inline">{t("dt_sh_start_new")}</span>
+          <Trash2 className="h-3.5 w-3.5" />
         </button>
 
         {/* Printable graph-paper worksheet */}
