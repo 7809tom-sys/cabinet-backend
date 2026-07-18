@@ -1178,7 +1178,15 @@ export function elevationBox(
   const topLine = wallCabinetTopLine(room);
   if (p.placement === "appliance") {
     const def = APPLIANCES.find((a) => a.masterCode === p.masterCode);
-    if (def) return { bottom: def.elevBottom, height: def.elevHeight };
+    // Use the stored height when the user has resized the appliance (e.g. fridge height set to 72").
+    // Fall back to the catalog elevHeight when no custom height is stored.
+    const storedH = typeof p.height === "number" && p.height > 0 ? p.height : null;
+    if (def) {
+      return { bottom: def.elevBottom, height: storedH ?? def.elevHeight };
+    }
+    // Unknown appliance code (e.g. FRIDGE-33 after resize): use stored height if available,
+    // otherwise fall back to countertop height as a safe default.
+    if (storedH) return { bottom: 0, height: storedH };
     return { bottom: 0, height: STD.COUNTERTOP_HEIGHT };
   }
   if (p.placement === "wall") {

@@ -292,9 +292,9 @@ export function RefrigeratorOptionsDialog({
 
   const chosenBridge = above === "bridge" ? bridgeByDims[bridgeHeightChoice][bridgeDepthChoice] : null;
 
-  // Auto-calculated panel height
+  // Auto-calculated panel height: use the actual fridgeH the user selected, not a hardcoded constant.
   const panelHeight = above === "bridge" && panels !== "none"
-    ? calcPanelHeight(bridgeHeightChoice)
+    ? fridgeH + bridgeHeightChoice
     : null;
 
   // Best-match end panel

@@ -2676,11 +2676,17 @@ export default function DesignTool() {
           // Hang so its TOP finishes at the wall-cabinet top line (flush with a
           // pantry/tall run cap); a taller stepped box hangs lower at the bottom
           // while sharing that top line. mountBottom = topLine - height.
+          // Determine the actual fridge height for mountBottom:
+          // use opts.fridgeHeight if the user changed it, otherwise use the
+          // stored fridge height, falling back to the standard 70" catalog height.
+          const actualFridgeH = opts.fridgeHeight ?? (typeof fridge.height === "number" && fridge.height > 0 ? fridge.height : 70);
           toPlace.push({
             uid: makeUid(),
             cabinetId: chosen.id,
             masterCode: chosen.masterCode,
             description: chosen.description,
+            category: chosen.category ?? null,
+            subCategory: chosen.subCategory ?? null,
             placement: "wall",
             x: spot.x,
             y: spot.y,
@@ -2689,10 +2695,11 @@ export default function DesignTool() {
             height: aHeight,
             rotation: spot.rotation,
             numberOfDoors: chosen.numberOfDoors ?? undefined,
+            numberOfDrawers: chosen.numberOfDrawers ?? undefined,
             catalogImageUrl: chosen.catalogImageUrl ?? null,
             styleId: styleIdRef.current ?? null,
-            // Bridge cabinets above fridge/range always mount at 72" from the floor.
-            mountBottom: 72,
+            // Mount the bridge cabinet directly on top of the fridge.
+            mountBottom: actualFridgeH,
           });
         }
       }
