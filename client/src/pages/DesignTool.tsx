@@ -2514,21 +2514,31 @@ export default function DesignTool() {
     () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
     [fridgeDialog, placed]
   );
-  const { data: fridgeSurround, isLoading: fridgeSurroundLoading } = trpc.design.surroundForFridge.useQuery(
+  const { data: fridgeSurround } = trpc.design.surroundForFridge.useQuery(
     { styleId: styleId ?? 0, fridgeWidth: fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined },
     { enabled: !!fridgeDialog && !!styleId }
   );
-  // Open the dialog immediately when a fridge is dropped — all options are always
-  // shown as enabled. applyFridgeSurround handles missing cabinets gracefully
-  // (skips pieces that aren't available in the selected style).
-  const fridgeDialogReady = !!fridgeDialog;
-
   // Place the chosen refrigerator surround pieces flush to the seeded fridge.
   const applyFridgeSurround = useCallback(
     (opts: {
       above: "deep" | "bridge" | "none";
+      bridgeCabinetId?: number | null;
+      /** The chosen bridge height in inches (12, 18, or 24). Used to auto-select catalog cabinet. */
+      bridgeHeight?: number | null;
+      /** The chosen bridge depth in inches (12 or 24). Defaults to 12 (standard wall depth) when not provided. */
+      bridgeDepth?: number | null;
+      /** The chosen bridge width in inches. When provided, overrides fp.w for the cabinet above. */
+      bridgeWidth?: number | null;
       panels: "left" | "right" | "both" | "none";
+      endPanelId?: number | null;
+      /** The chosen end panel depth in inches (24-36). When provided, overrides the fridge depth for panel placement. */
+      panelDepth?: number | null;
+      /** Pre-calculated panel height (fridge H + bridge H). When provided, overrides the auto-calc. */
+      panelHeight?: number | null;
       smooth: boolean;
+      fridgeWidth?: number;
+      fridgeHeight?: number;
+      fridgeDepth?: number;
     }) => {
       const fridge = fridgeForDialog;
       const surround = fridgeSurround as
@@ -2541,36 +2551,121 @@ export default function DesignTool() {
       const fw = fp.w; // width along the wall run
       const fd = fp.d; // depth into the room
 
-      // Pick the surround row whose width best matches the fridge width.
+      // Pick the surround row whose width best matches the fridge width (fallback).
       const pickByWidth = (rows: DesignCabinet[] | undefined, target: number): DesignCabinet | undefined => {
         if (!rows || rows.length === 0) return undefined;
         return [...rows].sort(
           (a, b) => Math.abs(parseFloat(String(a.width ?? "999")) - target) - Math.abs(parseFloat(String(b.width ?? "999")) - target)
         )[0];
       };
+      // Pick a specific cabinet by id, falling back to pickByWidth.
+      const pickById = (rows: DesignCabinet[] | undefined, id: number | null | undefined, fallbackTarget: number): DesignCabinet | undefined => {
+        if (id && rows) {
+          const found = rows.find((r) => r.id === id);
+          if (found) return found;
+        }
+        return pickByWidth(rows, fallbackTarget);
+      };
+
+      // 0) Resize the fridge itself if the user changed its dimensions.
+      if (opts.fridgeWidth || opts.fridgeHeight || opts.fridgeDepth) {
+        setPlaced((prev) =>
+          prev.map((p) => {
+            if (p.uid !== fridge.uid) return p;
+            const newW = opts.fridgeWidth ?? p.width;
+            const newH = opts.fridgeHeight ?? p.height;
+            const newD = opts.fridgeDepth ?? p.depth;
+            return {
+              ...p,
+              width: newW,
+              nominalWidth: newW,
+              height: newH,
+              nominalHeight: newH,
+              depth: newD,
+              nominalDepth: newD,
+              masterCode: `FRIDGE-${newW}`,
+              description: `Refrigerator ${newW}"`,
+            };
+          })
+        );
+        // Re-derive fp/fw/fd from the new dimensions so surround pieces align.
+        const newW = opts.fridgeWidth ?? fw;
+        const newD = opts.fridgeDepth ?? fd;
+        Object.assign(fp, { w: newW, d: newD });
+      }
 
       const toPlace: PlacedCabinet[] = [];
+      // Track the bridge height so end panels can be sized to fridge + bridge combined.
+      let bridgeHeightPlaced = 0;
 
       // 1) Cabinet ABOVE the fridge (upper zone → exempt from appliance collision).
       if (opts.above !== "none") {
         const src = opts.above === "deep" ? surround.deepAbove : surround.bridgeAbove;
-        const chosen = pickByWidth(src, rotatedSize(fridge).w);
+        // Use fp.w (updated fridge width) — rotatedSize(fridge).w is the stale pre-resize value.
+        // For bridge mode: filter candidates by the chosen bridge height, then pick best width match.
+        let chosen: DesignCabinet | undefined;
+        if (opts.above === "bridge" && opts.bridgeHeight) {
+          const targetH = opts.bridgeHeight;
+          const targetD = opts.bridgeDepth ?? 12;
+          // Parse dimensions from SKU masterCode when stored columns are null.
+          // Supports W[WW][HH][DD] (e.g. W362424) and WR[WW][HH] (depth always 24).
+          const parseCabDims = (code: string) => {
+            const c = code.replace(/^[^W]*W/, "W");
+            const m6 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
+            if (m6) return { w: parseInt(m6[1], 10), h: parseInt(m6[2], 10), d: parseInt(m6[3], 10) };
+            const mR = c.match(/^WR(\d{2})(\d{2})$/);
+            if (mR) return { w: parseInt(mR[1], 10), h: parseInt(mR[2], 10), d: 24 };
+            return null;
+          };
+          const heightFiltered = src.filter((c) => {
+            const sku = parseCabDims(c.masterCode);
+            const h = parseFloat(String(c.height ?? "")) || (sku ? sku.h : 0);
+            const d = parseFloat(String(c.depth ?? "")) || (sku ? sku.d : 0);
+            const heightOk = Math.abs(h - targetH) < 1.5;
+            const depthOk = d === 0 || Math.abs(d - targetD) < 1.5;
+            return heightOk && depthOk;
+          });
+          // Fall back to height-only match if no depth-matched candidates exist.
+          const fallback = src.filter((c) => {
+            const sku = parseCabDims(c.masterCode);
+            const h = parseFloat(String(c.height ?? "")) || (sku ? sku.h : 0);
+            return Math.abs(h - targetH) < 1.5;
+          });
+          chosen = pickByWidth(
+            heightFiltered.length > 0 ? heightFiltered : fallback.length > 0 ? fallback : src,
+            fp.w
+          );
+        } else {
+          chosen = opts.above === "bridge"
+            ? pickById(src, opts.bridgeCabinetId, fp.w)
+            : pickByWidth(src, fp.w);
+        }
         if (chosen) {
-          const aWidth = parseFloat(String(chosen.width ?? rotatedSize(fridge).w)) || rotatedSize(fridge).w;
+          // Use the user-chosen bridge width when provided; otherwise fall back to fridge width.
+          const aWidth = (opts.bridgeWidth && opts.bridgeWidth > 0) ? opts.bridgeWidth : fp.w;
           const isDeep = opts.above === "deep";
           // Deep refrigerator/corner upper: project 27" and step UP 6" taller
           // than a standard wall cabinet for the staggered built-in look. The
           // shallow bridge stays a normal-height, 12"-deep upper.
-          const aDepth = isDeep ? fridgeCornerUpperDepth() : STD.WALL_DEPTH;
-          const catalogH = parseFloat(String(chosen.height ?? STD.WALL_HEIGHT)) || STD.WALL_HEIGHT;
-          const aHeight = catalogH;
+          // For bridge cabinets, use the user-chosen depth (12" shallow or 24" full depth).
+          // Deep/corner uppers always project to fridgeCornerUpperDepth().
+          const aDepth = isDeep
+            ? fridgeCornerUpperDepth()
+            : (opts.above === "bridge" && opts.bridgeDepth)
+              ? opts.bridgeDepth
+              : STD.WALL_DEPTH;
+          // Use the user-chosen bridge height directly (12/18/24) so the placed cabinet
+          // always has the exact height the user selected, even if the catalog entry differs.
+          const catalogH = parseFloat(String((chosen.height ?? STD.WALL_HEIGHT))) || STD.WALL_HEIGHT;
+          const aHeight = (opts.above === "bridge" && opts.bridgeHeight) ? opts.bridgeHeight : catalogH;
+          bridgeHeightPlaced = aHeight;
           // Center the upper over the fridge run, flush to the same wall.
-          const along = horizontal ? fridge.x + fw / 2 - aWidth / 2 : fridge.y + fw / 2 - aWidth / 2;
+          const fridgeCenterAlong = horizontal ? fridge.x + fw / 2 : fridge.y + fw / 2;
+          const along = fridgeCenterAlong - aWidth / 2;
           const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
           // Hang so its TOP finishes at the wall-cabinet top line (flush with a
           // pantry/tall run cap); a taller stepped box hangs lower at the bottom
           // while sharing that top line. mountBottom = topLine - height.
-          const topLine = wallCabinetTopLine(room);
           toPlace.push({
             uid: makeUid(),
             cabinetId: chosen.id,
@@ -2586,18 +2681,56 @@ export default function DesignTool() {
             numberOfDoors: chosen.numberOfDoors ?? undefined,
             catalogImageUrl: chosen.catalogImageUrl ?? null,
             styleId: styleIdRef.current ?? null,
-            mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, aHeight)),
+            // Bridge cabinets above fridge/range always mount at 72" from the floor.
+            mountBottom: 72,
           });
         }
       }
 
       // 2) Refrigerator END PANELS: tall/deep panels flush to the fridge L/R edge.
-      const panelRow = pickByWidth(surround.endPanels, fd) ?? surround.endPanels?.[0];
+      // Use the user-selected panel id if provided, otherwise fall back to best-width match.
+      // If the catalog has no matching panel, create a synthetic placeholder so the panel
+      // always appears in the drawing with the correct dimensions.
+      const rawFridgeHForPanel = parseFloat(String(fridge.height ?? "72")) || 72;
+      const fridgeHForPanel = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeHForPanel;
+      const syntheticPanelHeight = opts.panelHeight && opts.panelHeight > 0
+        ? opts.panelHeight
+        : fridgeHForPanel + (bridgeHeightPlaced > 0 ? bridgeHeightPlaced : 0);
+      const panelRow: DesignCabinet = pickById(surround.endPanels, opts.endPanelId, fd) ?? surround.endPanels?.[0] ?? {
+        id: 0,
+        masterCode: `PANEL-${syntheticPanelHeight}`,
+        description: `Refrigerator End Panel ${syntheticPanelHeight}"H`,
+        category: "Panel",
+        subCategory: null,
+        width: "0.75",
+        height: String(syntheticPanelHeight),
+        depth: "0.75",
+        numberOfDoors: null,
+        numberOfDrawers: null,
+        isCornerCabinet: false,
+        catalogImageUrl: null,
+      };
       const placePanel = (leftEdge: boolean) => {
-        if (!panelRow) return;
-        const pDepth = parseFloat(String(panelRow.width ?? fd)) || fd; // panel spans the fridge depth
-        const pThick = 1; // REPV panels are ~1" thick flat stock
-        const pHeight = parseFloat(String(panelRow.height ?? 96)) || 96;
+        // pDepth: use user-chosen panel depth when provided; otherwise match the fridge depth.
+        const pDepth = (opts.panelDepth && opts.panelDepth > 0) ? opts.panelDepth : fd;
+        // Infer dimensions from masterCode when catalog values are null
+        // (style-prefixed variants like "ANTIQUE WHITE-S2496" often lack stored dims).
+        const code = (panelRow.masterCode ?? "").toUpperCase();
+        const inferredHeight = code.includes("S2496") || code.includes("REPV") || code.includes("TDEP") ? 96
+          : code.includes("S3696") ? 96 : 96;
+        const inferredDepth = (code.includes("REPV") || code.includes("S2496") || code.includes("S3696")) ? 0.75 : 0.75;
+        // pThick: the panel's face thickness (3/4" for S2496/REPV flat stock).
+        const pThick = parseFloat(String(panelRow.depth ?? "")) || inferredDepth;
+        // Panel height = fridge height + bridge height (if any), so the panel covers
+        // the full built-in column: 72" fridge + 12" bridge → 84", + 18" → 90", + 24" → 96".
+        const rawFridgeH = parseFloat(String(fridge.height ?? "72")) || 72;
+        const fridgeH = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeH;
+        // Use pre-calculated panelHeight from dialog when provided; otherwise auto-calculate.
+        const pHeight = opts.panelHeight && opts.panelHeight > 0
+          ? opts.panelHeight
+          : opts.above !== "none" && bridgeHeightPlaced > 0
+            ? fridgeH + bridgeHeightPlaced
+            : (parseFloat(String(panelRow.height ?? "")) || inferredHeight);
         // Along-wall position: just outside the fridge edge on the chosen side.
         let along: number;
         if (horizontal) {
@@ -7098,15 +7231,13 @@ export default function DesignTool() {
         onSetWaterfall={(uid, side, enabled) => setCabAttr(uid, side === "left" ? { waterfallLeft: enabled } : { waterfallRight: enabled })}
       />
 
-      {/* Refrigerator Options: opens right after a fridge is dropped.
-           Wait for surroundForFridge to load so hasDeepAbove/hasBridgeAbove
-           are correctly set from the moment the dialog first opens. */}
+      {/* Refrigerator Options: opens right after a fridge is dropped */}
       <RefrigeratorOptionsDialog
-        open={fridgeDialogReady}
+        open={!!fridgeDialog}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
-        hasDeepAbove={((fridgeSurround as { deepAbove?: unknown[] } | undefined)?.deepAbove?.length ?? 0) > 0}
-        hasBridgeAbove={((fridgeSurround as { bridgeAbove?: unknown[] } | undefined)?.bridgeAbove?.length ?? 0) > 0}
-        hasEndPanels={((fridgeSurround as { endPanels?: unknown[] } | undefined)?.endPanels?.length ?? 0) > 0}
+        fridgeWidthInches={fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined}
+        bridgeAbove={(fridgeSurround as { bridgeAbove?: DesignCabinet[] } | undefined)?.bridgeAbove ?? []}
+        endPanels={(fridgeSurround as { endPanels?: DesignCabinet[] } | undefined)?.endPanels ?? []}
         hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
         onApply={applyFridgeSurround}
         onSkip={() => setFridgeDialog(null)}
