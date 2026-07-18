@@ -966,3 +966,11 @@
 - [x] In `cabinets.byCode` (or a shared helper), apply fallback: if distributor override has pkg fields use those, else fall back to master cabinet pkg fields
 - [x] Display resolved pkg fields (L×W×H, weight) in the public Specifications card on CabinetDetail
 - [x] TypeScript check passes; checkpoint saved
+
+## Generic Cabinet Configuration Area
+
+- [x] Add Depth dropdown (9, 12, 15, 18, 21, 24, 27, 30, 33, 36") to admin edit dialog on CabinetDetail
+- [x] Ensure Fixed Shelves (0-6), Adjustable Shelves (0-6), Doors (0-2), Drawers (0-8) dropdowns are in a clearly labeled "Interior Configuration" section
+- [x] Build a standalone admin page /admin/cabinet-config for bulk-editing depth/doors/drawers/shelves across all generic cabinets
+- [x] Add route and nav link to the admin cabinet-config page
+- [x] TypeScript check passes; checkpoint saved

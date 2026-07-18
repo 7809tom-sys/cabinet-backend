@@ -64,6 +64,7 @@ import PelicanCatalogAdmin from "@/components/admin/PelicanCatalogAdmin";
 import { AnalyticsAdmin } from "@/components/admin/AnalyticsAdmin";
 import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
 import GenericCabinetsAdmin from "@/components/admin/GenericCabinetsAdmin";
+import { CabinetConfigAdmin } from "@/components/admin/CabinetConfigAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -109,6 +110,7 @@ const GROUPS = [
       { value: "pelican-catalog", label: "Pelican Catalog" },
       { value: "conflicts", label: "Conflicts" },
       { value: "generic-catalog", label: "Generic Catalog" },
+      { value: "cabinet-config", label: "Cabinet Config" },
     ],
   },
   {
@@ -457,6 +459,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="pelican-catalog" className="mt-6"><PelicanCatalogAdmin /></TabsContent>
         <TabsContent value="conflicts" className="mt-6"><AdminTabHelp tab="conflicts" /><ConflictsAdmin /></TabsContent>
         <TabsContent value="generic-catalog" className="mt-6"><GenericCabinetsAdmin /></TabsContent>
+        <TabsContent value="cabinet-config" className="mt-6"><CabinetConfigAdmin /></TabsContent>
 
         {/* Pricing */}
         <TabsContent value="multipliers" className="mt-6"><DistributorMultipliersAdmin /></TabsContent>

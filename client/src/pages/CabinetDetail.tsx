@@ -1194,13 +1194,18 @@ export default function CabinetDetail({ masterCode }: Props) {
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="edit-depth" className="text-xs text-muted-foreground">Depth (in)</Label>
-                    <Input
-                      id="edit-depth"
-                      value={editDepth}
-                      onChange={(e) => setEditDepth(e.target.value)}
-                      placeholder="e.g. 24"
-                      className="h-8 text-sm"
-                    />
+                    <Select value={editDepth} onValueChange={setEditDepth}>
+                      <SelectTrigger id="edit-depth" className="h-8 text-sm"><SelectValue placeholder="Select depth" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">— custom —</SelectItem>
+                        {["9","12","15","18","21","24","27","30","33","36"].map(d => (
+                          <SelectItem key={d} value={d}>{d}"</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {editDepth && !["9","12","15","18","21","24","27","30","33","36",""].includes(editDepth) && (
+                      <p className="text-[10px] text-amber-600">Custom: {editDepth}" — not a standard depth</p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="edit-physical-width" className="text-xs text-muted-foreground">Physical Width (in)</Label>

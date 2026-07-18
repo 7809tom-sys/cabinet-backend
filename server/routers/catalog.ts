@@ -1600,6 +1600,63 @@ export const cabinetsRouter = router({
       return { rows: enriched, total: Number(countRows[0]?.count ?? 0) };
     }),
 
+  // ── Admin: Cabinet Configuration editor ─────────────────────────────────
+  // Returns all cabinets with their depth, door, drawer, and shelf counts for
+  // bulk editing in the /admin/cabinet-config page.
+  adminListCabinetConfig: adminProcedure
+    .input(
+      z.object({
+        page: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(200).default(100),
+        search: z.string().optional(),
+        category: z.string().optional(),
+        unconfiguredOnly: z.boolean().default(false),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [], total: 0 };
+      const conditions: SQL[] = [eq(cabinets.isActive, true)];
+      if (input.unconfiguredOnly) {
+        conditions.push(
+          sql`(${cabinets.numberOfDoors} IS NULL AND ${cabinets.numberOfDrawers} IS NULL AND ${cabinets.numberOfFixedShelves} IS NULL AND ${cabinets.numberOfAdjShelves} IS NULL)`
+        );
+      }
+      if (input.search) {
+        const like = `%${input.search}%`;
+        conditions.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like})`);
+      }
+      if (input.category) {
+        conditions.push(eq(cabinets.category, input.category));
+      }
+      const where = and(...conditions);
+      const [rows, countRows] = await Promise.all([
+        db
+          .select({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            numberOfDoors: cabinets.numberOfDoors,
+            numberOfDrawers: cabinets.numberOfDrawers,
+            numberOfFixedShelves: cabinets.numberOfFixedShelves,
+            numberOfAdjShelves: cabinets.numberOfAdjShelves,
+            catalogImageUrl: cabinets.catalogImageUrl,
+          })
+          .from(cabinets)
+          .where(where)
+          .orderBy(asc(cabinets.category), asc(cabinets.masterCode))
+          .limit(input.limit)
+          .offset(input.page * input.limit),
+        db.select({ count: sql<number>`count(*)` }).from(cabinets).where(where),
+      ]);
+      return { rows, total: Number(countRows[0]?.count ?? 0) };
+    }),
+
   // Returns a coverage matrix: for each cabinet, which door styles have at least
   // one published+available SKU, and which are missing. Used in the Designer
   // Coverage admin view to spot gaps.
