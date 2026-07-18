@@ -87,7 +87,7 @@ const BRIDGE_DEPTH_OPTIONS = [12, 24] as const;
 type BridgeDepth = typeof BRIDGE_DEPTH_OPTIONS[number];
 
 // Standard bridge widths — same as fridge widths
-const BRIDGE_WIDTH_OPTIONS = [24, 27, 30, 33, 36, 42];
+const BRIDGE_WIDTH_OPTIONS = [30, 33, 36];
 
 // End panel depth options (inches)
 const PANEL_DEPTH_OPTIONS = [24, 26, 28, 30, 32, 34, 36];
@@ -290,12 +290,16 @@ export function RefrigeratorOptionsDialog({
   useEffect(() => {
     if (open) {
       const w = fridgeWidthInches ?? 36;
+      // Clamp bridge width to nearest valid option (30/33/36)
+      const bw = BRIDGE_WIDTH_OPTIONS.reduce((prev, cur) =>
+        Math.abs(cur - w) < Math.abs(prev - w) ? cur : prev
+      );
       setFridgeW(w);
       setFridgeH(70);
       setFridgeD(30);
       setBridgeHeightChoice(12);
       setBridgeDepthChoice(12);
-      setBridgeWidthChoice(w);
+      setBridgeWidthChoice(bw);
       setAbove("none");
       setPanels("none");
       setPanelDepth(24);
@@ -344,7 +348,14 @@ export function RefrigeratorOptionsDialog({
 
           {/* ── 1. Refrigerator Size ─────────────────────────────────────── */}
           <Section title="Refrigerator Size">
-            <DimSelector label="Width" value={fridgeW} options={FRIDGE_WIDTHS} onChange={(v) => { setFridgeW(v); setBridgeWidthChoice(v); }} />
+            <DimSelector label="Width" value={fridgeW} options={FRIDGE_WIDTHS} onChange={(v) => {
+              setFridgeW(v);
+              // Snap bridge width to nearest valid option (30/33/36)
+              const bw = BRIDGE_WIDTH_OPTIONS.reduce((prev, cur) =>
+                Math.abs(cur - v) < Math.abs(prev - v) ? cur : prev
+              );
+              setBridgeWidthChoice(bw);
+            }} />
             <DimSelector label="Height" value={fridgeH} options={FRIDGE_HEIGHTS} onChange={setFridgeH} />
             <DimSelector label="Depth" value={fridgeD} options={FRIDGE_DEPTHS} onChange={setFridgeD} />
           </Section>
@@ -357,7 +368,21 @@ export function RefrigeratorOptionsDialog({
               </p>
               <OptionPills<FridgeAbove>
                 value={above}
-                onChange={setAbove}
+                onChange={(v) => {
+                  setAbove(v);
+                  // Auto-select first available height+depth so user never opens to an error
+                  if (v === "bridge") {
+                    for (const h of BRIDGE_HEIGHT_OPTIONS) {
+                      for (const d of BRIDGE_DEPTH_OPTIONS) {
+                        if (bridgeByDims[h as BridgeHeight][d as BridgeDepth]) {
+                          setBridgeHeightChoice(h as BridgeHeight);
+                          setBridgeDepthChoice(d as BridgeDepth);
+                          return;
+                        }
+                      }
+                    }
+                  }
+                }}
                 options={[
                   {
                     value: "bridge",
@@ -387,16 +412,20 @@ export function RefrigeratorOptionsDialog({
                   <div className="flex gap-2">
                     {BRIDGE_HEIGHT_OPTIONS.map((h) => {
                       const active = bridgeHeightChoice === h;
+                      const hasAny = BRIDGE_DEPTH_OPTIONS.some((d) => bridgeByDims[h as BridgeHeight][d as BridgeDepth] != null);
                       return (
                         <button
                           key={h}
                           type="button"
                           onClick={() => setBridgeHeightChoice(h)}
+                          title={!hasAny ? `No ${h}" cabinet available for this style` : undefined}
                           className={cn(
                             "flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
                             active
                               ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                              : !hasAny
+                                ? "border-border bg-background text-muted-foreground/40 line-through"
+                                : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
                           )}
                           aria-pressed={active}
                         >
@@ -416,16 +445,20 @@ export function RefrigeratorOptionsDialog({
                       { value: 24 as BridgeDepth, label: '24″ Deep' },
                     ]).map((o) => {
                       const active = bridgeDepthChoice === o.value;
+                      const hasDepth = bridgeByDims[bridgeHeightChoice][o.value] != null;
                       return (
                         <button
                           key={o.value}
                           type="button"
                           onClick={() => setBridgeDepthChoice(o.value)}
+                          title={!hasDepth ? `No ${o.value}" deep cabinet available for this height` : undefined}
                           className={cn(
                             "flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
                             active
                               ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                              : !hasDepth
+                                ? "border-border bg-background text-muted-foreground/40 line-through"
+                                : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
                           )}
                           aria-pressed={active}
                         >
