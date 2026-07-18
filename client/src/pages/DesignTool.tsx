@@ -2719,8 +2719,14 @@ export default function DesignTool() {
         const inferredHeight = code.includes("S2496") || code.includes("REPV") || code.includes("TDEP") ? 96
           : code.includes("S3696") ? 96 : 96;
         const inferredDepth = (code.includes("REPV") || code.includes("S2496") || code.includes("S3696")) ? 0.75 : 0.75;
-        // pThick: the panel's face thickness (3/4" for S2496/REPV flat stock).
-        const pThick = parseFloat(String(panelRow.depth ?? "")) || inferredDepth;
+        // pThick: the panel's face THICKNESS (the narrow face dimension — panelRow.width for REPV/TDEP
+        // panels where width=1.5" is the thickness and depth=24" is the floor depth).
+        // For REPV/TDEP/S-series panels: width column = face thickness (1.5" or 0.75").
+        // Fall back to inferredDepth (0.75") if width is missing or implausibly large.
+        const rawPanelW = parseFloat(String(panelRow.width ?? ""));
+        const pThick = (Number.isFinite(rawPanelW) && rawPanelW > 0 && rawPanelW <= 3)
+          ? rawPanelW
+          : inferredDepth;
         // Panel height = fridge height + bridge height (if any), so the panel covers
         // the full built-in column: 72" fridge + 12" bridge → 84", + 18" → 90", + 24" → 96".
         const rawFridgeH = parseFloat(String(fridge.height ?? "72")) || 72;
@@ -2732,11 +2738,14 @@ export default function DesignTool() {
             ? fridgeH + bridgeHeightPlaced
             : (parseFloat(String(panelRow.height ?? "")) || inferredHeight);
         // Along-wall position: just outside the fridge edge on the chosen side.
+        // Clamp to room bounds so the panel never lands outside the room.
         let along: number;
         if (horizontal) {
           along = leftEdge ? fridge.x - pThick : fridge.x + fw;
+          along = Math.max(0, Math.min(along, room.width - pThick));
         } else {
           along = leftEdge ? fridge.y - pThick : fridge.y + fw;
+          along = Math.max(0, Math.min(along, room.depth - pThick));
         }
         const spot = wallPlacementAt(along, pThick, pDepth, side, room);
         toPlace.push({
