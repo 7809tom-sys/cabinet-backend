@@ -12,6 +12,7 @@ import {
   distributorSkus,
   costChangeLog,
   doorStyleCorrections,
+  distributorCabinetOverrides,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
@@ -1847,11 +1848,23 @@ export const pricingRouter = router({
           skuImageUrl: distributorSkus.imageUrl,
           leadTimeDays: distributors.leadTimeDays,
           distributorId: distributorSkus.distributorId,
+          // Shipping pkg dims: distributor override first, fall back to master cabinet
+          pkgLength: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgLength}, ${cabinets.pkgLength})`,
+          pkgWidth: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgWidth}, ${cabinets.pkgWidth})`,
+          pkgHeight: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgHeight}, ${cabinets.pkgHeight})`,
+          pkgWeight: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgWeight}, ${cabinets.pkgWeight})`,
         })
         .from(distributorSkus)
         .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
         .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .leftJoin(
+          distributorCabinetOverrides,
+          and(
+            eq(distributorCabinetOverrides.distributorId, distributorSkus.distributorId),
+            eq(distributorCabinetOverrides.cabinetId, distributorSkus.cabinetId)
+          )
+        )
         .where(
           and(
             eq(distributorSkus.cabinetId, input.cabinetId),
@@ -1928,6 +1941,11 @@ export const pricingRouter = router({
             skuImageUrl: r.skuImageUrl,
             leadTimeDays: r.leadTimeDays,
             distributorId: r.distributorId,
+            // Resolved pkg dims (override ?? master fallback)
+            pkgLength: r.pkgLength ?? null,
+            pkgWidth: r.pkgWidth ?? null,
+            pkgHeight: r.pkgHeight ?? null,
+            pkgWeight: r.pkgWeight ?? null,
           };
         })
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""));

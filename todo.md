@@ -959,3 +959,10 @@
 - [x] Add `numberOfDrawers` dropdown (0–8) to the admin edit form on CabinetDetail
 - [x] Hide Doors and Drawers spec rows for accessory-strip (trim/moulding) items
 - [x] TypeScript check passes; checkpoint saved
+
+## Shipping packaging fallback
+
+- [x] Identify where pkg fields are shown to users (CabinetDetail public specs, BulkDimensions admin, order/cart)
+- [x] In `cabinets.byCode` (or a shared helper), apply fallback: if distributor override has pkg fields use those, else fall back to master cabinet pkg fields
+- [x] Display resolved pkg fields (L×W×H, weight) in the public Specifications card on CabinetDetail
+- [x] TypeScript check passes; checkpoint saved
