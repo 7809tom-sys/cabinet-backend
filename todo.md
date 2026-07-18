@@ -996,3 +996,14 @@
 - [x] Render a small toggle/button group next to the sparkle button to switch between Isometric 3D and Flat 2D
 - [x] Pass `viewMode` to `adminGenerateCatalogImage` input; server adjusts prompt based on view mode
 - [x] TypeScript check passes; checkpoint saved
+
+## Merge Generic Catalog + Cabinet Config & isNotCabinet toggle
+
+- [x] Add `isNotCabinet` boolean column (default false) to `cabinets` table in schema.ts
+- [x] Apply migration SQL via webdev_execute_sql
+- [x] Expose `isNotCabinet` in `adminUpdateCabinet` input and patch
+- [x] Add `isNotCabinet` to `adminListCabinetConfig` return shape
+- [x] Remove the separate "Generic Catalog" tab from AdminGroupedTabs; merge its content into "Cabinet Config" tab
+- [x] Add "Not a cabinet" checkbox/toggle per row in CabinetConfigAdmin; when checked, hide Depth/Doors/Drawers/Fixed Shelves/Adj Shelves dropdowns and dim the row
+- [x] Save `isNotCabinet` immediately on toggle (no separate Save button needed)
+- [x] TypeScript check passes; checkpoint saved

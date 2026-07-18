@@ -31,6 +31,7 @@ type CabinetRow = {
   numberOfDrawers: number | null;
   numberOfFixedShelves: number | null;
   numberOfAdjShelves: number | null;
+  isNotCabinet: boolean | null;
   catalogImageUrl: string | null;
 };
 
@@ -332,6 +333,27 @@ export function CabinetConfigAdmin() {
     []
   );
 
+  // isNotCabinet toggled — save immediately
+  const handleNotCabinetToggle = useCallback(
+    (id: number, value: boolean) => {
+      setSaving((s) => new Set(s).add(id));
+      updateMutation.mutate(
+        { id, isNotCabinet: value },
+        {
+          onSuccess: () => {
+            setSaving((s) => { const n = new Set(s); n.delete(id); return n; });
+            utils.cabinets.adminListCabinetConfig.invalidate();
+          },
+          onError: (e) => {
+            setSaving((s) => { const n = new Set(s); n.delete(id); return n; });
+            toast.error(`Save failed: ${e.message}`);
+          },
+        }
+      );
+    },
+    [updateMutation, utils]
+  );
+
   // Image uploaded — save immediately (no pending queue needed)
   const handleImageUploaded = useCallback(
     (id: number, url: string | null) => {
@@ -454,6 +476,7 @@ export function CabinetConfigAdmin() {
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-28">Code</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs">Description</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20">W×H</th>
+                <th className="text-center px-3 py-2 font-medium text-muted-foreground text-xs w-20" title="Check if this item is NOT a cabinet (trim, panel, moulding, etc.) — hides cabinet-only fields">Not Cab.</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24">Depth</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20">Doors</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20">Drawers</th>
@@ -490,43 +513,64 @@ export function CabinetConfigAdmin() {
                     <td className="px-3 py-1.5 text-xs text-muted-foreground whitespace-nowrap">
                       {row.width ? `${parseFloat(row.width)}"` : "—"}×{row.height ? `${parseFloat(row.height)}"` : "—"}
                     </td>
-                    <td className="px-3 py-1.5">
-                      <DepthCell
-                        row={merged as CabinetRow}
-                        onSave={(id, depth) => applyEdit(id, "depth", depth)}
+                    {/* Not a cabinet toggle */}
+                    <td className="px-3 py-1.5 text-center">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-amber-500 cursor-pointer"
+                        checked={!!merged.isNotCabinet}
+                        disabled={saving.has(row.id)}
+                        title={merged.isNotCabinet ? "Marked as non-cabinet (trim/panel/moulding)" : "Mark as non-cabinet to hide cabinet-only fields"}
+                        onChange={(e) => handleNotCabinetToggle(row.id, e.target.checked)}
                       />
                     </td>
                     <td className="px-3 py-1.5">
-                      <CountCell
-                        value={merged.numberOfDoors}
-                        options={DOOR_OPTIONS}
-                        label="Doors"
-                        onSave={(v) => applyEdit(row.id, "numberOfDoors", v)}
-                      />
+                      {!merged.isNotCabinet ? (
+                        <DepthCell
+                          row={merged as CabinetRow}
+                          onSave={(id, depth) => applyEdit(id, "depth", depth)}
+                        />
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
                     </td>
                     <td className="px-3 py-1.5">
-                      <CountCell
-                        value={merged.numberOfDrawers}
-                        options={DRAWER_OPTIONS}
-                        label="Drawers"
-                        onSave={(v) => applyEdit(row.id, "numberOfDrawers", v)}
-                      />
+                      {!merged.isNotCabinet ? (
+                        <CountCell
+                          value={merged.numberOfDoors}
+                          options={DOOR_OPTIONS}
+                          label="Doors"
+                          onSave={(v) => applyEdit(row.id, "numberOfDoors", v)}
+                        />
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
                     </td>
                     <td className="px-3 py-1.5">
-                      <CountCell
-                        value={merged.numberOfFixedShelves}
-                        options={SHELF_OPTIONS}
-                        label="Fixed Shelves"
-                        onSave={(v) => applyEdit(row.id, "numberOfFixedShelves", v)}
-                      />
+                      {!merged.isNotCabinet ? (
+                        <CountCell
+                          value={merged.numberOfDrawers}
+                          options={DRAWER_OPTIONS}
+                          label="Drawers"
+                          onSave={(v) => applyEdit(row.id, "numberOfDrawers", v)}
+                        />
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
                     </td>
                     <td className="px-3 py-1.5">
-                      <CountCell
-                        value={merged.numberOfAdjShelves}
-                        options={SHELF_OPTIONS}
-                        label="Adj. Shelves"
-                        onSave={(v) => applyEdit(row.id, "numberOfAdjShelves", v)}
-                      />
+                      {!merged.isNotCabinet ? (
+                        <CountCell
+                          value={merged.numberOfFixedShelves}
+                          options={SHELF_OPTIONS}
+                          label="Fixed Shelves"
+                          onSave={(v) => applyEdit(row.id, "numberOfFixedShelves", v)}
+                        />
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      {!merged.isNotCabinet ? (
+                        <CountCell
+                          value={merged.numberOfAdjShelves}
+                          options={SHELF_OPTIONS}
+                          label="Adj. Shelves"
+                          onSave={(v) => applyEdit(row.id, "numberOfAdjShelves", v)}
+                        />
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
                     </td>
                     <td className="px-3 py-2">
                       <ImageCell

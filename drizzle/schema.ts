@@ -157,6 +157,7 @@ export const cabinets = mysqlTable("cabinets", {
   numberOfDrawers: int("numberOfDrawers").default(0),
   numberOfFixedShelves: int("numberOfFixedShelves"),
   numberOfAdjShelves: int("numberOfAdjShelves"),
+  isNotCabinet: boolean("isNotCabinet").default(false),
   hingeSide: varchar("hingeSide", { length: 16 }), // left, right, both, none
   doorSwingClearance: decimal("doorSwingClearance", { precision: 5, scale: 2 }),
   toeKickHeight: decimal("toeKickHeight", { precision: 5, scale: 2 }),

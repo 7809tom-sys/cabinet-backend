@@ -1375,6 +1375,7 @@ export const cabinetsRouter = router({
         numberOfDrawers: z.number().int().min(0).max(8).nullable().optional(),
         numberOfFixedShelves: z.number().int().min(0).max(8).nullable().optional(),
         numberOfAdjShelves: z.number().int().min(0).max(8).nullable().optional(),
+        isNotCabinet: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1401,6 +1402,7 @@ export const cabinetsRouter = router({
       if (input.numberOfDrawers !== undefined) patch.numberOfDrawers = input.numberOfDrawers;
       if (input.numberOfFixedShelves !== undefined) patch.numberOfFixedShelves = input.numberOfFixedShelves;
       if (input.numberOfAdjShelves !== undefined) patch.numberOfAdjShelves = input.numberOfAdjShelves;
+      if (input.isNotCabinet !== undefined) patch.isNotCabinet = input.isNotCabinet;
       if (input.isActive !== undefined) patch.isActive = input.isActive;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
@@ -1745,6 +1747,7 @@ export const cabinetsRouter = router({
             numberOfDrawers: cabinets.numberOfDrawers,
             numberOfFixedShelves: cabinets.numberOfFixedShelves,
             numberOfAdjShelves: cabinets.numberOfAdjShelves,
+            isNotCabinet: cabinets.isNotCabinet,
             catalogImageUrl: cabinets.catalogImageUrl,
           })
           .from(cabinets)
