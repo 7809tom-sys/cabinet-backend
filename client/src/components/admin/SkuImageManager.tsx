@@ -406,6 +406,8 @@ function BatchUploader({ onDone }: { onDone: () => void }) {
   );
 }
 
+const PAGE_SIZE = 60;
+
 export default function SkuImageManager() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -413,19 +415,23 @@ export default function SkuImageManager() {
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [editRow, setEditRow] = useState<SkuRow | null>(null);
   const [showBatch, setShowBatch] = useState(false);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
     return () => clearTimeout(t);
   }, [search]);
 
+  // Reset to page 0 whenever filters change
+  useEffect(() => { setPage(0); }, [debounced, styleId, onlyMissing]);
+
   const styles = trpc.doorStyles.list.useQuery(undefined);
   const list = trpc.skuImages.list.useQuery({
     search: debounced || undefined,
     styleId,
     onlyMissing,
-    limit: 60,
-    offset: 0,
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
   });
 
   const items = (list.data?.items ?? []) as SkuRow[];
@@ -522,10 +528,33 @@ export default function SkuImageManager() {
               </div>
             </div>
           ))}
-          {list.data && list.data.total > items.length && (
-            <p className="text-center text-xs text-muted-foreground">
-              Showing {items.length} of {list.data.total}. Refine with search or a door style.
-            </p>
+          {list.data && list.data.total > PAGE_SIZE && (
+            <div className="flex items-center justify-between border-t pt-4">
+              <p className="text-xs text-muted-foreground">
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, list.data.total)} of {list.data.total}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 0}
+                  onClick={() => { setPage((p) => p - 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                >
+                  ← Previous
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Page {page + 1} of {Math.ceil(list.data.total / PAGE_SIZE)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={(page + 1) * PAGE_SIZE >= list.data.total}
+                  onClick={() => { setPage((p) => p + 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                >
+                  Next →
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       )}
