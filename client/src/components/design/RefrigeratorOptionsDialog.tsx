@@ -86,9 +86,6 @@ type BridgeHeight = typeof BRIDGE_HEIGHT_OPTIONS[number];
 const BRIDGE_DEPTH_OPTIONS = [12, 24] as const;
 type BridgeDepth = typeof BRIDGE_DEPTH_OPTIONS[number];
 
-// Standard bridge widths — same as fridge widths
-const BRIDGE_WIDTH_OPTIONS = [30, 33, 36];
-
 // End panel depth options (inches)
 const PANEL_DEPTH_OPTIONS = [24, 26, 28, 30, 32, 34, 36];
 
@@ -213,7 +210,8 @@ export function RefrigeratorOptionsDialog({
   const [above, setAbove] = useState<FridgeAbove>("none");
   const [bridgeHeightChoice, setBridgeHeightChoice] = useState<BridgeHeight>(12);
   const [bridgeDepthChoice, setBridgeDepthChoice] = useState<BridgeDepth>(12);
-  const [bridgeWidthChoice, setBridgeWidthChoice] = useState<number>(fridgeWidthInches ?? 36);
+  // Bridge width always matches fridge width
+  const bridgeWidthChoice = fridgeW;
 
   // ── End panels ─────────────────────────────────────────────────────────────
   const [panels, setPanels] = useState<FridgePanels>("none");
@@ -290,16 +288,11 @@ export function RefrigeratorOptionsDialog({
   useEffect(() => {
     if (open) {
       const w = fridgeWidthInches ?? 36;
-      // Clamp bridge width to nearest valid option (30/33/36)
-      const bw = BRIDGE_WIDTH_OPTIONS.reduce((prev, cur) =>
-        Math.abs(cur - w) < Math.abs(prev - w) ? cur : prev
-      );
       setFridgeW(w);
       setFridgeH(70);
       setFridgeD(30);
       setBridgeHeightChoice(12);
       setBridgeDepthChoice(12);
-      setBridgeWidthChoice(bw);
       setAbove("none");
       setPanels("none");
       setPanelDepth(24);
@@ -348,14 +341,7 @@ export function RefrigeratorOptionsDialog({
 
           {/* ── 1. Refrigerator Size ─────────────────────────────────────── */}
           <Section title="Refrigerator Size">
-            <DimSelector label="Width" value={fridgeW} options={FRIDGE_WIDTHS} onChange={(v) => {
-              setFridgeW(v);
-              // Snap bridge width to nearest valid option (30/33/36)
-              const bw = BRIDGE_WIDTH_OPTIONS.reduce((prev, cur) =>
-                Math.abs(cur - v) < Math.abs(prev - v) ? cur : prev
-              );
-              setBridgeWidthChoice(bw);
-            }} />
+            <DimSelector label="Width" value={fridgeW} options={FRIDGE_WIDTHS} onChange={setFridgeW} />
             <DimSelector label="Height" value={fridgeH} options={FRIDGE_HEIGHTS} onChange={setFridgeH} />
             <DimSelector label="Depth" value={fridgeD} options={FRIDGE_DEPTHS} onChange={setFridgeD} />
           </Section>
@@ -396,15 +382,6 @@ export function RefrigeratorOptionsDialog({
 
             {above === "bridge" && (
               <div className="space-y-3 pt-1">
-
-                {/* Cabinet Width */}
-                <DimSelector
-                  label="Width"
-                  value={bridgeWidthChoice}
-                  options={BRIDGE_WIDTH_OPTIONS}
-                  onChange={setBridgeWidthChoice}
-                  note="(cabinet width above fridge)"
-                />
 
                 {/* Cabinet Height */}
                 <div className="space-y-1.5">
