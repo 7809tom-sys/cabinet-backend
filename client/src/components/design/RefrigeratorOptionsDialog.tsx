@@ -358,7 +358,20 @@ export function RefrigeratorOptionsDialog({
 
           {/* ── 1. Refrigerator Size ─────────────────────────────────────── */}
           <Section title="Refrigerator Size">
-            <DimSelector label="Width" value={fridgeW} options={FRIDGE_WIDTHS} onChange={setFridgeW} />
+            <DimSelector
+              label="Width"
+              value={fridgeW}
+              options={FRIDGE_WIDTHS}
+              onChange={(w) => {
+                setFridgeW(w);
+                // Auto-snap bridge cabinet width to the closest available option (30/33/36)
+                const snapped = BRIDGE_WIDTH_OPTIONS.reduce((best, opt) =>
+                  Math.abs(opt - w) < Math.abs(best - w) ? opt : best,
+                  BRIDGE_WIDTH_OPTIONS[0]
+                );
+                setBridgeWidthChoice(snapped);
+              }}
+            />
             <DimSelector label="Height" value={fridgeH} options={FRIDGE_HEIGHTS} onChange={setFridgeH} />
             <DimSelector label="Depth" value={fridgeD} options={FRIDGE_DEPTHS} onChange={setFridgeD} />
           </Section>
