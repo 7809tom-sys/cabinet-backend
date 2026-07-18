@@ -103,6 +103,7 @@ function ImageCell({
 }) {
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [viewMode, setViewMode] = useState<"3d" | "2d">("3d");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const uploadMutation = trpc.cabinets.adminUploadCatalogImage.useMutation({
@@ -148,7 +149,7 @@ function ImageCell({
 
   const handleGenerate = () => {
     setGenerating(true);
-    generateMutation.mutate({ id: row.id });
+    generateMutation.mutate({ id: row.id, viewMode });
   };
 
   const busy = uploading || generating;
@@ -200,6 +201,36 @@ function ImageCell({
         </button>
       )}
 
+      {/* 2D / 3D view toggle */}
+      <div className="flex rounded border border-border overflow-hidden">
+        <button
+          className={cn(
+            "px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+            viewMode === "3d"
+              ? "bg-amber-500 text-white"
+              : "bg-background text-muted-foreground hover:bg-muted/50"
+          )}
+          onClick={() => setViewMode("3d")}
+          title="Isometric 3D view"
+          disabled={busy}
+        >
+          3D
+        </button>
+        <button
+          className={cn(
+            "px-1.5 py-0.5 text-[10px] font-medium transition-colors border-l border-border",
+            viewMode === "2d"
+              ? "bg-amber-500 text-white"
+              : "bg-background text-muted-foreground hover:bg-muted/50"
+          )}
+          onClick={() => setViewMode("2d")}
+          title="Flat 2D front view"
+          disabled={busy}
+        >
+          2D
+        </button>
+      </div>
+
       {/* AI generate button */}
       <button
         className={cn(
@@ -209,7 +240,7 @@ function ImageCell({
             : "border-amber-400/60 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/40"
         )}
         onClick={!busy ? handleGenerate : undefined}
-        title="Generate image with AI"
+        title={`Generate ${viewMode === "2d" ? "flat 2D front elevation" : "isometric 3D"} drawing with AI`}
         disabled={busy}
       >
         {generating ? (

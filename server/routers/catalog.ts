@@ -1436,6 +1436,7 @@ export const cabinetsRouter = router({
     .input(
       z.object({
         id: z.number(),
+        viewMode: z.enum(["3d", "2d"]).default("3d"),
       })
     )
     .mutation(async ({ input }) => {
@@ -1486,15 +1487,26 @@ export const cabinetsRouter = router({
         shelves.push(`${cab.numberOfAdjShelves} adjustable shelf${cab.numberOfAdjShelves > 1 ? "ves" : ""}`);
       if (shelves.length) parts.push(`Interior: ${shelves.join(" and ")}.`);
 
-      parts.push(
-        "Style: technical architectural line drawing, like a cabinet manufacturer's catalog illustration.",
-        "View: isometric 3D perspective view from slightly above and to the right, showing front face and right side.",
-        "Rendering: thin clean black outlines only, no fill, no shading, no color, no gradients, no shadows, no textures.",
-        "Background: pure white (#FFFFFF).",
-        "Dimension annotations: red dimension lines with arrows and measurements in inches (e.g. '34 1/2', '24') on the left side and top, matching standard cabinet shop drawing style.",
-        "One door shown open on the right side to reveal interior.",
-        "Square image, cabinet fills 80% of the frame. No room context, no countertop, no decorative elements."
-      );
+      if (input.viewMode === "2d") {
+        parts.push(
+          "Style: technical architectural line drawing, like a cabinet manufacturer's catalog illustration.",
+          "View: flat 2D front-facing elevation, perfectly straight-on, no perspective or depth.",
+          "Rendering: thin clean black outlines only, no fill, no shading, no color, no gradients, no shadows, no textures.",
+          "Background: pure white (#FFFFFF).",
+          "Dimension annotations: red dimension lines with arrows and measurements in inches on the left side and top, matching standard cabinet shop drawing style.",
+          "Square image, cabinet fills 80% of the frame. No room context, no countertop, no decorative elements."
+        );
+      } else {
+        parts.push(
+          "Style: technical architectural line drawing, like a cabinet manufacturer's catalog illustration.",
+          "View: isometric 3D perspective view from slightly above and to the right, showing front face and right side.",
+          "Rendering: thin clean black outlines only, no fill, no shading, no color, no gradients, no shadows, no textures.",
+          "Background: pure white (#FFFFFF).",
+          "Dimension annotations: red dimension lines with arrows and measurements in inches (e.g. '34 1/2', '24') on the left side and top, matching standard cabinet shop drawing style.",
+          "One door shown open on the right side to reveal interior.",
+          "Square image, cabinet fills 80% of the frame. No room context, no countertop, no decorative elements."
+        );
+      }
 
       const prompt = parts.join(" ");
 

@@ -989,3 +989,10 @@
 - [x] Show spinner on the row while generating; disable button during generation
 - [x] On success, update the row thumbnail immediately; show success toast
 - [x] TypeScript check passes; checkpoint saved
+
+## AI Image View Toggle
+
+- [x] Add a per-row `viewMode` state (\"3d\" | \"2d\") in ImageCell, defaulting to \"3d\"
+- [x] Render a small toggle/button group next to the sparkle button to switch between Isometric 3D and Flat 2D
+- [x] Pass `viewMode` to `adminGenerateCatalogImage` input; server adjusts prompt based on view mode
+- [x] TypeScript check passes; checkpoint saved
