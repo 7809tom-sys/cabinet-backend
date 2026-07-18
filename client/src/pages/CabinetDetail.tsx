@@ -368,6 +368,8 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   // ── Admin inline edit ────────────────────────────────────────────────────────
   const [editOpen, setEditOpen] = useState(false);
+  const [overrideDistId, setOverrideDistId] = useState<number | null>(null);
+  const [overrideFields, setOverrideFields] = useState<Record<string, string>>({});
   const [editDescription, setEditDescription] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editSubCategory, setEditSubCategory] = useState("");
@@ -379,7 +381,12 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editWidth, setEditWidth] = useState("");
   const [editHeight, setEditHeight] = useState("");
   const [editDepth, setEditDepth] = useState("");
+  const [editPhysicalWidth, setEditPhysicalWidth] = useState("");
   const [editWeight, setEditWeight] = useState("");
+  const [editPkgLength, setEditPkgLength] = useState("");
+  const [editPkgWidth, setEditPkgWidth] = useState("");
+  const [editPkgHeight, setEditPkgHeight] = useState("");
+  const [editPkgWeight, setEditPkgWeight] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
 
   // Pre-fill form when dialog opens
@@ -395,10 +402,41 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditWidth(cabinet.width ?? "");
       setEditHeight(cabinet.height ?? "");
       setEditDepth(cabinet.depth ?? "");
+      setEditPhysicalWidth(String((cabinet as Record<string, unknown>).physicalWidth ?? ""));
       setEditWeight(cabinet.weight ?? "");
+      setEditPkgLength(String((cabinet as Record<string, unknown>).pkgLength ?? ""));
+      setEditPkgWidth(String((cabinet as Record<string, unknown>).pkgWidth ?? ""));
+      setEditPkgHeight(String((cabinet as Record<string, unknown>).pkgHeight ?? ""));
+      setEditPkgWeight(String((cabinet as Record<string, unknown>).pkgWeight ?? ""));
       setEditIsActive(cabinet.isActive ?? true);
     }
   }, [editOpen, cabinet]);
+
+  // Distributor coverage + existing overrides for this cabinet (admin only)
+  const { data: distCoverage } = trpc.genericCabinets.distributorCoverage.useQuery(
+    { cabinetId: cabinet?.id ?? 0 },
+    { enabled: !!cabinet?.id && isOwner }
+  );
+  const { data: existingOverrides, refetch: refetchOverrides } = trpc.cabinetOverrides.forCabinet.useQuery(
+    { cabinetId: cabinet?.id ?? 0 },
+    { enabled: !!cabinet?.id && isOwner }
+  );
+  const upsertOverride = trpc.cabinetOverrides.set.useMutation({
+    onSuccess: () => {
+      toast.success("Override saved");
+      void refetchOverrides();
+      setOverrideDistId(null);
+      setOverrideFields({});
+    },
+    onError: (err: { message: string }) => toast.error(`Override failed: ${err.message}`),
+  });
+  const deleteOverride = trpc.cabinetOverrides.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Override removed");
+      void refetchOverrides();
+    },
+    onError: (err: { message: string }) => toast.error(`Delete failed: ${err.message}`),
+  });
 
   const utils = trpc.useUtils();
   const updateCabinet = trpc.cabinets.adminUpdateCabinet.useMutation({
@@ -452,7 +490,12 @@ export default function CabinetDetail({ masterCode }: Props) {
       width: editWidth.trim() || null,
       height: editHeight.trim() || null,
       depth: editDepth.trim() || null,
+      physicalWidth: editPhysicalWidth.trim() || null,
       weight: editWeight.trim() || null,
+      pkgLength: editPkgLength.trim() || null,
+      pkgWidth: editPkgWidth.trim() || null,
+      pkgHeight: editPkgHeight.trim() || null,
+      pkgWeight: editPkgWeight.trim() || null,
       isActive: editIsActive,
     });
   }
@@ -1102,6 +1145,16 @@ export default function CabinetDetail({ masterCode }: Props) {
                     />
                   </div>
                   <div className="space-y-1">
+                    <Label htmlFor="edit-physical-width" className="text-xs text-muted-foreground">Physical Width (in)</Label>
+                    <Input
+                      id="edit-physical-width"
+                      value={editPhysicalWidth}
+                      onChange={(e) => setEditPhysicalWidth(e.target.value)}
+                      placeholder="e.g. 11.5"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
                     <Label htmlFor="edit-weight" className="text-xs text-muted-foreground">Weight (lbs)</Label>
                     <Input
                       id="edit-weight"
@@ -1113,6 +1166,54 @@ export default function CabinetDetail({ masterCode }: Props) {
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">Enter numeric values in inches / pounds. Leave blank to keep current value.</p>
+              </div>
+
+              {/* Package Dimensions */}
+              <div className="space-y-2">
+                <Label>Package Dimensions</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-pkg-length" className="text-xs text-muted-foreground">Pkg Length (in)</Label>
+                    <Input
+                      id="edit-pkg-length"
+                      value={editPkgLength}
+                      onChange={(e) => setEditPkgLength(e.target.value)}
+                      placeholder="e.g. 30"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-pkg-width" className="text-xs text-muted-foreground">Pkg Width (in)</Label>
+                    <Input
+                      id="edit-pkg-width"
+                      value={editPkgWidth}
+                      onChange={(e) => setEditPkgWidth(e.target.value)}
+                      placeholder="e.g. 15"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-pkg-height" className="text-xs text-muted-foreground">Pkg Height (in)</Label>
+                    <Input
+                      id="edit-pkg-height"
+                      value={editPkgHeight}
+                      onChange={(e) => setEditPkgHeight(e.target.value)}
+                      placeholder="e.g. 20"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-pkg-weight" className="text-xs text-muted-foreground">Pkg Weight (lbs)</Label>
+                    <Input
+                      id="edit-pkg-weight"
+                      value={editPkgWeight}
+                      onChange={(e) => setEditPkgWeight(e.target.value)}
+                      placeholder="e.g. 50"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Shipping box dimensions. Leave blank to keep current value.</p>
               </div>
 
               {/* Catalog image */}
@@ -1169,6 +1270,163 @@ export default function CabinetDetail({ masterCode }: Props) {
                 />
               </div>
             </div>
+
+            {/* ── Distributor-specific dimension overrides (admin only) ── */}
+            {isOwner && cabinet?.id && (
+              <div className="space-y-3 border-t border-dashed border-amber-500/40 pt-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-amber-700 dark:text-amber-400">Distributor Dimension Overrides</Label>
+                  <span className="text-[11px] text-muted-foreground">Per-supplier corrections (override master dims)</span>
+                </div>
+                {/* Existing overrides list */}
+                {(existingOverrides ?? []).length > 0 && (
+                  <div className="space-y-1.5">
+                    {(existingOverrides ?? []).map((ov) => (
+                      <div key={ov.id} className="flex items-start justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
+                        <div className="min-w-0">
+                          <span className="font-medium text-foreground">{ov.distributorName || `Dist #${ov.distributorId}`}</span>
+                          <div className="text-muted-foreground mt-0.5 flex flex-wrap gap-x-3">
+                            {ov.width && <span>W: {ov.width}&quot;</span>}
+                            {ov.height && <span>H: {ov.height}&quot;</span>}
+                            {ov.depth && <span>D: {ov.depth}&quot;</span>}
+                            {ov.physicalWidth && <span>PhysW: {ov.physicalWidth}&quot;</span>}
+                            {ov.weight && <span>Wt: {ov.weight} lbs</span>}
+                            {ov.pkgLength && <span>PkgL: {ov.pkgLength}&quot;</span>}
+                            {ov.pkgWidth && <span>PkgW: {ov.pkgWidth}&quot;</span>}
+                            {ov.pkgHeight && <span>PkgH: {ov.pkgHeight}&quot;</span>}
+                            {ov.pkgWeight && <span>PkgWt: {ov.pkgWeight} lbs</span>}
+                            {ov.note && <span className="italic">{ov.note}</span>}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => {
+                              setOverrideDistId(ov.distributorId);
+                              setOverrideFields({
+                                width: ov.width ?? "",
+                                height: ov.height ?? "",
+                                depth: ov.depth ?? "",
+                                physicalWidth: ov.physicalWidth ?? "",
+                                weight: ov.weight ?? "",
+                                pkgLength: ov.pkgLength ?? "",
+                                pkgWidth: ov.pkgWidth ?? "",
+                                pkgHeight: ov.pkgHeight ?? "",
+                                pkgWeight: ov.pkgWeight ?? "",
+                                note: ov.note ?? "",
+                              });
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                            disabled={deleteOverride.isPending}
+                            onClick={() => deleteOverride.mutate({ distributorId: ov.distributorId, cabinetId: cabinet.id })}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Add / edit override form */}
+                {overrideDistId !== null ? (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+                    <div className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                      Override for: {(distCoverage ?? []).find((d) => d.distributorId === overrideDistId)?.name ?? `Dist #${overrideDistId}`}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["width","height","depth","physicalWidth","weight","pkgLength","pkgWidth","pkgHeight","pkgWeight"] as const).map((field) => (
+                        <div key={field} className="space-y-0.5">
+                          <Label className="text-[10px] text-muted-foreground capitalize">{field.replace(/([A-Z])/g, " $1")}</Label>
+                          <Input
+                            value={overrideFields[field] ?? ""}
+                            onChange={(e) => setOverrideFields((prev) => ({ ...prev, [field]: e.target.value }))}
+                            placeholder="leave blank = use master"
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                      ))}
+                      <div className="col-span-2 space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Note</Label>
+                        <Input
+                          value={overrideFields.note ?? ""}
+                          onChange={(e) => setOverrideFields((prev) => ({ ...prev, note: e.target.value }))}
+                          placeholder="optional note"
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setOverrideDistId(null); setOverrideFields({}); }}>Cancel</Button>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                        disabled={upsertOverride.isPending}
+                        onClick={() => {
+                          if (!cabinet?.id) return;
+                          const toVal = (v: string) => v.trim() || null;
+                          upsertOverride.mutate({
+                            distributorId: overrideDistId,
+                            cabinetId: cabinet.id,
+                            width: toVal(overrideFields.width ?? ""),
+                            height: toVal(overrideFields.height ?? ""),
+                            depth: toVal(overrideFields.depth ?? ""),
+                            physicalWidth: toVal(overrideFields.physicalWidth ?? ""),
+                            weight: toVal(overrideFields.weight ?? ""),
+                            pkgLength: toVal(overrideFields.pkgLength ?? ""),
+                            pkgWidth: toVal(overrideFields.pkgWidth ?? ""),
+                            pkgHeight: toVal(overrideFields.pkgHeight ?? ""),
+                            pkgWeight: toVal(overrideFields.pkgWeight ?? ""),
+                            note: toVal(overrideFields.note ?? ""),
+                          });
+                        }}
+                      >
+                        {upsertOverride.isPending ? "Saving…" : "Save Override"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {(distCoverage ?? []).map((d) => (
+                      <Button
+                        key={d.distributorId}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => {
+                          const existing = (existingOverrides ?? []).find((ov) => ov.distributorId === d.distributorId);
+                          setOverrideDistId(d.distributorId);
+                          setOverrideFields(existing ? {
+                            width: existing.width ?? "",
+                            height: existing.height ?? "",
+                            depth: existing.depth ?? "",
+                            physicalWidth: existing.physicalWidth ?? "",
+                            weight: existing.weight ?? "",
+                            pkgLength: existing.pkgLength ?? "",
+                            pkgWidth: existing.pkgWidth ?? "",
+                            pkgHeight: existing.pkgHeight ?? "",
+                            pkgWeight: existing.pkgWeight ?? "",
+                            note: existing.note ?? "",
+                          } : {});
+                        }}
+                      >
+                        + {d.name}
+                      </Button>
+                    ))}
+                    {(distCoverage ?? []).length === 0 && (
+                      <p className="text-xs text-muted-foreground">No distributors carry this cabinet yet.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <DialogFooter className="gap-2 shrink-0 border-t border-border pt-4">
               <Button variant="outline" onClick={() => setEditOpen(false)}>

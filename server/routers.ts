@@ -31,6 +31,7 @@ import { affiliateMembershipRouter } from "./routers/affiliateMembership";
 import { siteSettingsRouter } from "./routers/siteSettings";
 import { skuAdminRouter } from "./routers/skuAdmin";
 import { genericCabinetsRouter } from "./routers/genericCabinets";
+import { cabinetOverridesRouter } from "./routers/cabinetOverrides";
 import { emailSettingsRouter } from "./routers/emailSettings";
 import { pelicanRouter } from "./routers/pelican";
 import { vendorsRouter } from "./routers/vendors";
@@ -85,6 +86,7 @@ export const appRouter = router({
   siteSettings: siteSettingsRouter,
   skuAdmin: skuAdminRouter,
   genericCabinets: genericCabinetsRouter,
+  cabinetOverrides: cabinetOverridesRouter,
   emailSettings: emailSettingsRouter,
   pelican: pelicanRouter,
   vendors: vendorsRouter,

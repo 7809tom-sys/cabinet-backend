@@ -2,9 +2,14 @@
  * Distributor product spreadsheet import — pure parsing + validation helpers.
  *
  * Distributors export their catalog from any spreadsheet tool as CSV. We accept
- * a small, well-defined column set keyed by the platform `masterCode` so the
- * import can upsert cabinet descriptions/info and (optionally) per-style pricing
- * without any native xlsx dependency (Node-only deploy runtime safe).
+ * a small, well-defined column set. The "code" column (masterCode) is matched
+ * against the platform master code AND all cabinet alias fields (sku, vendorSku,
+ * altSku1/2/3) so distributors can use their own SKU codes without needing to
+ * know the platform master code.
+ *
+ * The distributor is selected in the UI (dropdown) before import — no column
+ * needed for it. The door style is resolved from the `doorStyle` / `styleCode`
+ * column value against that distributor's door styles.
  *
  * Everything here is pure and unit-tested; the tRPC router calls these to build
  * a dry-run preview and to validate before committing writes.
@@ -25,48 +30,80 @@ export type ImportColumnKey =
 
 /** Header aliases (lower-cased, trimmed) -> canonical key. */
 const HEADER_ALIASES: Record<string, ImportColumnKey> = {
-  // identity
+  // identity — the distributor's own SKU or the platform master code
   "mastercode": "masterCode",
   "master code": "masterCode",
   "code": "masterCode",
   "item": "masterCode",
   "item code": "masterCode",
+  "item #": "masterCode",
+  "item no": "masterCode",
+  "item number": "masterCode",
   "sku": "masterCode",
   "model": "masterCode",
+  "model #": "masterCode",
+  "model number": "masterCode",
+  "part": "masterCode",
+  "part #": "masterCode",
+  "part number": "masterCode",
+  "product code": "masterCode",
+  "product #": "masterCode",
   // description / info
   "description": "description",
   "desc": "description",
   "name": "description",
   "product description": "description",
   "product name": "description",
+  "item description": "description",
   // taxonomy
   "category": "category",
   "type": "category",
+  "product type": "category",
   "subcategory": "subCategory",
   "sub category": "subCategory",
   "sub-category": "subCategory",
   // dimensions
   "width": "width",
   "w": "width",
+  "w (in)": "width",
+  "width (in)": "width",
   "height": "height",
   "h": "height",
+  "h (in)": "height",
+  "height (in)": "height",
   "depth": "depth",
   "d": "depth",
+  "d (in)": "depth",
+  "depth (in)": "depth",
   // pricing
   "listprice": "listPrice",
   "list price": "listPrice",
+  "list": "listPrice",
   "msrp": "listPrice",
+  "retail": "listPrice",
+  "retail price": "listPrice",
   "price": "listPrice",
   "yourcost": "yourCost",
   "your cost": "yourCost",
   "cost": "yourCost",
   "dealer cost": "yourCost",
-  // style
+  "dealer price": "yourCost",
+  "net": "yourCost",
+  "net price": "yourCost",
+  "wholesale": "yourCost",
+  "wholesale price": "yourCost",
+  // door style — resolved against the selected distributor's styles
   "stylecode": "styleCode",
   "style code": "styleCode",
   "style": "styleCode",
   "door style": "styleCode",
+  "doorsyle": "styleCode",
+  "door": "styleCode",
   "finish": "styleCode",
+  "finish code": "styleCode",
+  "line": "styleCode",
+  "product line": "styleCode",
+  "series": "styleCode",
 };
 
 export const VALID_CATEGORIES = [
@@ -179,7 +216,7 @@ export function parseDistributorCsv(text: string): ParsedImport {
     const record: Partial<Record<ImportColumnKey, string>> = {};
     colIndexToKey.forEach((key, idx) => {
       if (key && cells[idx] !== undefined && cells[idx] !== "") {
-        // Last column with a given key wins, but we keep first non-empty.
+        // First non-empty value wins for a given canonical key.
         if (record[key] === undefined) record[key] = cells[idx];
       }
     });
@@ -207,6 +244,7 @@ export function parseDimension(v: string | undefined): number | null {
 
 export interface RowValidation {
   rowNumber: number;
+  /** The raw code value from the row (distributor SKU or master code). */
   masterCode: string;
   ok: boolean;
   errors: string[];
@@ -215,25 +253,34 @@ export interface RowValidation {
 
 /**
  * Validate a parsed import in isolation (no DB). Confirms required columns and
- * per-row sanity. DB-aware create/update diffing happens in the router.
+ * per-row sanity. DB-aware alias resolution and style matching happen in the router.
+ *
+ * NOTE: The "masterCode" column is now optional when a styleCode column is present
+ * and the import is purely a pricing upload (no cabinet creation). However, at
+ * least one of masterCode or a pricing column must be present.
  */
 export function validateImport(parsed: ParsedImport): {
   fatalErrors: string[];
   rowResults: RowValidation[];
 } {
   const fatalErrors: string[] = [];
-  if (!parsed.columns.includes("masterCode")) {
-    fatalErrors.push(
-      'Missing required "Master Code" column (accepted headers: Master Code, Code, Item, SKU, Model).'
-    );
-  }
-  const hasContent =
-    parsed.columns.includes("description") ||
+
+  const hasCodeCol = parsed.columns.includes("masterCode");
+  const hasPricingCol =
     parsed.columns.includes("listPrice") ||
     parsed.columns.includes("yourCost");
+  const hasDescriptionCol = parsed.columns.includes("description");
+
+  if (!hasCodeCol) {
+    fatalErrors.push(
+      'Missing required item code column. Accepted headers: SKU, Code, Item, Item Code, Model, Part, Part #, Master Code.'
+    );
+  }
+
+  const hasContent = hasDescriptionCol || hasPricingCol;
   if (!hasContent) {
     fatalErrors.push(
-      "Provide at least a Description or a Price column so there is something to import."
+      "Provide at least a Description or a Price column (List Price / Your Cost) so there is something to import."
     );
   }
 
@@ -243,9 +290,9 @@ export function validateImport(parsed: ParsedImport): {
     const warnings: string[] = [];
     const masterCode = (row.cells.masterCode ?? "").trim();
     if (!masterCode) {
-      errors.push("Missing master code.");
+      errors.push("Missing item code.");
     } else if (seen.has(masterCode.toUpperCase())) {
-      errors.push(`Duplicate master code "${masterCode}" in this file.`);
+      warnings.push(`Duplicate code "${masterCode}" in this file — later row will overwrite earlier.`);
     } else {
       seen.add(masterCode.toUpperCase());
     }
@@ -294,7 +341,7 @@ export function validateImport(parsed: ParsedImport): {
 
 /** The CSV template we hand distributors to fill in. */
 export const IMPORT_TEMPLATE_CSV = [
-  "Master Code,Description,Category,Sub Category,Width,Height,Depth,List Price,Your Cost,Style Code",
-  'B-24,"24"" Double Door Base Cabinet",Base,Door Base,24,34.5,24,310.00,108.50,SHW',
-  'W-30-30,"30"" Double Door Wall Cabinet",Wall,Double Door,30,30,12,182.00,63.70,SHW',
+  "SKU,Description,Category,Sub Category,Width,Height,Depth,List Price,Your Cost,Door Style",
+  'B-24,"24"" Double Door Base Cabinet",Base,Door Base,24,34.5,24,310.00,108.50,Shaker White',
+  'W-30-30,"30"" Double Door Wall Cabinet",Wall,Double Door,30,30,12,182.00,63.70,Shaker White',
 ].join("\n");

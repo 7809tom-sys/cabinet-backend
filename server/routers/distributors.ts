@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -18,6 +18,12 @@ import { buildCatalogCsv, type CatalogExportRow } from "@shared/catalogExport";
 interface PreviewRow {
   rowNumber: number;
   masterCode: string;
+  /** The resolved platform master code (may differ from the raw code if alias matched). */
+  resolvedMasterCode: string | null;
+  /** How the code was matched: "exact" | "alias" | "none" */
+  matchHow: "exact" | "alias" | "none";
+  /** The door style name resolved from the styleCode column (if any). */
+  resolvedStyleName: string | null;
   action: "create-info" | "update-info" | "price-only" | "error";
   description: string | null;
   category: string | null;
@@ -33,6 +39,88 @@ function normalizeCategory(raw: string | undefined): string | null {
     (c) => c.toLowerCase() === raw.toLowerCase()
   );
   return match ?? null;
+}
+
+/**
+ * Build an alias lookup map from the cabinets table.
+ * Returns a map from upper-cased alias value → { id, masterCode, description, category }.
+ * Each cabinet can appear under multiple alias keys (sku, vendorSku, altSku1/2/3, masterCode).
+ */
+async function buildAliasMap(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  codes: string[]
+): Promise<Map<string, { id: number; masterCode: string; description: string | null; category: string | null }>> {
+  if (codes.length === 0) return new Map();
+  const upper = codes.map((c) => c.toUpperCase());
+
+  // Query all cabinets whose masterCode OR any alias field matches any of the codes.
+  const rows = await db
+    .select({
+      id: cabinets.id,
+      masterCode: cabinets.masterCode,
+      description: cabinets.description,
+      category: cabinets.category,
+      sku: cabinets.sku,
+      vendorSku: cabinets.vendorSku,
+      altSku1: cabinets.altSku1,
+      altSku2: cabinets.altSku2,
+      altSku3: cabinets.altSku3,
+    })
+    .from(cabinets)
+    .where(
+      or(
+        inArray(sql`UPPER(${cabinets.masterCode})`, upper),
+        inArray(sql`UPPER(${cabinets.sku})`, upper),
+        inArray(sql`UPPER(${cabinets.vendorSku})`, upper),
+        inArray(sql`UPPER(${cabinets.altSku1})`, upper),
+        inArray(sql`UPPER(${cabinets.altSku2})`, upper),
+        inArray(sql`UPPER(${cabinets.altSku3})`, upper)
+      )
+    );
+
+  const map = new Map<string, { id: number; masterCode: string; description: string | null; category: string | null }>();
+  for (const row of rows) {
+    const entry = { id: row.id, masterCode: row.masterCode, description: row.description, category: row.category };
+    // Register under every alias (masterCode wins over aliases for the same key).
+    for (const val of [row.sku, row.vendorSku, row.altSku1, row.altSku2, row.altSku3]) {
+      if (val) {
+        const key = val.toUpperCase();
+        if (!map.has(key)) map.set(key, entry);
+      }
+    }
+    // masterCode always wins.
+    map.set(row.masterCode.toUpperCase(), entry);
+  }
+  return map;
+}
+
+/**
+ * Build a door style lookup map for a distributor.
+ * Returns a map from upper-cased style name/code → { id, ourName }.
+ * Matches against styleCode, ourName, and distributorName.
+ */
+async function buildStyleMap(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  distributorId: number
+): Promise<Map<string, { id: number; ourName: string }>> {
+  const styles = await db
+    .select({
+      id: doorStyles.id,
+      styleCode: doorStyles.styleCode,
+      ourName: doorStyles.ourName,
+      distributorName: doorStyles.distributorName,
+    })
+    .from(doorStyles)
+    .where(eq(doorStyles.distributorId, distributorId));
+
+  const map = new Map<string, { id: number; ourName: string }>();
+  for (const s of styles) {
+    const entry = { id: s.id, ourName: s.ourName };
+    if (s.styleCode) map.set(s.styleCode.toUpperCase(), entry);
+    if (s.ourName) map.set(s.ourName.toUpperCase(), entry);
+    if (s.distributorName) map.set(s.distributorName.toUpperCase(), entry);
+  }
+  return map;
 }
 
 export const distributorImportRouter = router({
@@ -152,18 +240,12 @@ export const distributorImportRouter = router({
 
   /**
    * White-label a cabinet line from the Admin panel (no direct DB edits).
-   * Operator types the public-facing brand/label; we set the presentation
-   * fields accordingly. displayMode drives what members actually see:
-   *  - neutral : show `name`/`initials` (supplier identity hidden)
-   *  - branded : show the real `brandName`/`brandInitials`
-   *  - series  : show `seriesName` (e.g. "Cabinet Dealz Elegant Series")
    */
   setBranding: adminProcedure
     .input(
       z.object({
         distributorId: z.number().int().positive(),
         displayMode: z.enum(["neutral", "branded", "series"]),
-        // The public label the operator typed (meaning depends on displayMode).
         label: z.string().trim().min(1).max(128),
         initials: z.string().trim().max(8).optional(),
         seriesName: z.string().trim().max(128).optional(),
@@ -189,16 +271,13 @@ export const distributorImportRouter = router({
       };
 
       if (input.displayMode === "branded") {
-        // Show the real supplier identity.
         patch.brandName = input.label.trim();
         patch.brandInitials = initials;
         patch.whiteLabel = false;
       } else if (input.displayMode === "series") {
-        // Show a Cabinet Dealz series name; keep supplier hidden.
         patch.seriesName = input.label.trim();
         patch.whiteLabel = true;
       } else {
-        // neutral: show a plain neutral label (e.g. "Line A").
         patch.name = input.label.trim();
         patch.initials = initials;
         patch.whiteLabel = true;
@@ -231,13 +310,22 @@ export const distributorImportRouter = router({
   /**
    * Dry-run: parse the pasted CSV, validate it, and diff each row against the
    * existing catalog so the admin sees exactly what will be created/updated.
+   *
+   * Cabinet lookup: the row's code is matched against masterCode first, then
+   * against all alias fields (sku, vendorSku, altSku1/2/3).
+   *
+   * Door style lookup: the row's styleCode value is matched against the
+   * selected distributor's door styles (styleCode, ourName, distributorName).
+   * If styleId is provided in input it overrides per-row style resolution.
+   *
    * No database writes happen here.
    */
   importPreview: adminProcedure
     .input(
       z.object({
         distributorId: z.number(),
-        styleId: z.number().optional(), // required only if pricing columns present
+        /** Override style for all rows. If omitted, each row's styleCode column is used. */
+        styleId: z.number().optional(),
         csv: z.string().min(1),
       })
     )
@@ -250,35 +338,50 @@ export const distributorImportRouter = router({
       const hasPricing =
         parsed.columns.includes("listPrice") ||
         parsed.columns.includes("yourCost");
-      if (hasPricing && !input.styleId) {
+      const hasStyleCol = parsed.columns.includes("styleCode");
+
+      // If pricing is present and no style override and no styleCode column, warn.
+      if (hasPricing && !input.styleId && !hasStyleCol) {
         fatalErrors.push(
-          "Pricing columns detected — choose which door style these prices apply to."
+          "Pricing columns detected — either add a Door Style column to the spreadsheet or choose a door style from the dropdown."
         );
       }
 
-      // Look up which master codes already exist.
+      // Build alias map for all codes in the file.
       const codes = parsed.rows
         .map((r) => (r.cells.masterCode ?? "").trim())
         .filter(Boolean);
-      const existing = codes.length
-        ? await db
-            .select({
-              id: cabinets.id,
-              masterCode: cabinets.masterCode,
-              description: cabinets.description,
-              category: cabinets.category,
-            })
-            .from(cabinets)
-            .where(inArray(cabinets.masterCode, codes))
-        : [];
-      const byCode = new Map(
-        existing.map((c) => [c.masterCode.toUpperCase(), c])
-      );
+      const aliasMap = await buildAliasMap(db, codes);
+
+      // Build style map for this distributor (for per-row style resolution).
+      const styleMap = await buildStyleMap(db, input.distributorId);
 
       const rows: PreviewRow[] = parsed.rows.map((row, i) => {
         const v = rowResults[i];
         const code = (row.cells.masterCode ?? "").trim();
-        const found = byCode.get(code.toUpperCase());
+        const found = aliasMap.get(code.toUpperCase());
+        const matchHow: PreviewRow["matchHow"] = !found
+          ? "none"
+          : found.masterCode.toUpperCase() === code.toUpperCase()
+          ? "exact"
+          : "alias";
+
+        // Resolve door style for this row.
+        let resolvedStyleId: number | null = input.styleId ?? null;
+        let resolvedStyleName: string | null = null;
+        if (!resolvedStyleId && row.cells.styleCode) {
+          const styleHit = styleMap.get(row.cells.styleCode.toUpperCase());
+          if (styleHit) {
+            resolvedStyleId = styleHit.id;
+            resolvedStyleName = styleHit.ourName;
+          }
+        } else if (resolvedStyleId) {
+          // Find the name for the override style.
+          const styleEntries = Array.from(styleMap.values());
+          const hit = styleEntries.find((s) => s.id === resolvedStyleId);
+          if (hit) resolvedStyleName = hit.ourName;
+        }
+
         const fields: string[] = [];
         if (row.cells.description) fields.push("description");
         if (normalizeCategory(row.cells.category)) fields.push("category");
@@ -286,7 +389,8 @@ export const distributorImportRouter = router({
         if (parseDimension(row.cells.width)) fields.push("width");
         if (parseDimension(row.cells.height)) fields.push("height");
         if (parseDimension(row.cells.depth)) fields.push("depth");
-        const priceTouched = hasPricing && Boolean(input.styleId) && Boolean(found);
+
+        const priceTouched = hasPricing && Boolean(resolvedStyleId) && Boolean(found);
 
         let action: PreviewRow["action"];
         if (!v.ok) action = "error";
@@ -304,14 +408,26 @@ export const distributorImportRouter = router({
               "New item needs a valid Category (Base/Wall/Tall/ADA/Vanity/Accessory)."
             );
         }
+        const warnings = [...(v.warnings ?? [])];
         if (hasPricing && !found && v.ok)
-          (v.warnings ||= []).push(
-            "Pricing skipped: cabinet does not exist yet (create it first, then re-import prices)."
+          warnings.push(
+            "Pricing skipped: cabinet not found in catalog (will be created first, then prices applied on next import)."
           );
+        if (hasPricing && found && !resolvedStyleId)
+          warnings.push(
+            row.cells.styleCode
+              ? `Door style "${row.cells.styleCode}" not found for this distributor — pricing skipped.`
+              : "No door style specified for this row — pricing skipped."
+          );
+        if (matchHow === "alias")
+          warnings.push(`Matched via alias → platform code: ${found!.masterCode}`);
 
         return {
           rowNumber: row.rowNumber,
           masterCode: code,
+          resolvedMasterCode: found?.masterCode ?? null,
+          matchHow,
+          resolvedStyleName,
           action: errors.length ? "error" : action,
           description: row.cells.description ?? found?.description ?? null,
           category:
@@ -319,7 +435,7 @@ export const distributorImportRouter = router({
           fields,
           priceTouched,
           errors,
-          warnings: v.warnings,
+          warnings,
         };
       });
 
@@ -329,12 +445,14 @@ export const distributorImportRouter = router({
         toUpdate: rows.filter((r) => r.action === "update-info").length,
         priceOnly: rows.filter((r) => r.action === "price-only").length,
         errors: rows.filter((r) => r.action === "error").length,
+        aliasMatched: rows.filter((r) => r.matchHow === "alias").length,
       };
 
       return {
         columns: parsed.columns,
         unknownHeaders: parsed.unknownHeaders,
         hasPricing,
+        hasStyleCol,
         fatalErrors,
         summary,
         rows,
@@ -343,13 +461,20 @@ export const distributorImportRouter = router({
 
   /**
    * Commit the import: upsert cabinet info (create new / update existing) and,
-   * when a style + pricing columns are present, upsert the per-style SKU price
-   * for the chosen distributor. Rows with errors are skipped.
+   * when a style is resolvable (per-row styleCode column or styleId override),
+   * upsert the per-style SKU price for the chosen distributor.
+   *
+   * Cabinet lookup uses alias matching (sku, vendorSku, altSku1/2/3, masterCode).
+   * Door style lookup uses the row's styleCode column against the distributor's styles,
+   * falling back to the styleId override if provided.
+   *
+   * Rows with validation errors are skipped.
    */
   importCommit: adminProcedure
     .input(
       z.object({
         distributorId: z.number(),
+        /** Override style for all rows. If omitted, each row's styleCode column is used. */
         styleId: z.number().optional(),
         csv: z.string().min(1),
       })
@@ -372,6 +497,13 @@ export const distributorImportRouter = router({
         parsed.columns.includes("listPrice") ||
         parsed.columns.includes("yourCost");
 
+      // Build lookup maps once.
+      const codes = parsed.rows
+        .map((r) => (r.cells.masterCode ?? "").trim())
+        .filter(Boolean);
+      const aliasMap = await buildAliasMap(db, codes);
+      const styleMap = await buildStyleMap(db, input.distributorId);
+
       let created = 0;
       let updated = 0;
       let priced = 0;
@@ -386,11 +518,15 @@ export const distributorImportRouter = router({
           continue;
         }
 
-        const existing = await db
-          .select({ id: cabinets.id })
-          .from(cabinets)
-          .where(eq(cabinets.masterCode, code))
-          .limit(1);
+        // Resolve cabinet via alias map.
+        const found = aliasMap.get(code.toUpperCase());
+
+        // Resolve door style: per-row column first, then override.
+        let resolvedStyleId: number | null = input.styleId ?? null;
+        if (!resolvedStyleId && row.cells.styleCode) {
+          const styleHit = styleMap.get(row.cells.styleCode.toUpperCase());
+          if (styleHit) resolvedStyleId = styleHit.id;
+        }
 
         const category = normalizeCategory(row.cells.category);
         const width = parseDimension(row.cells.width);
@@ -398,7 +534,7 @@ export const distributorImportRouter = router({
         const depth = parseDimension(row.cells.depth);
 
         let cabinetId: number;
-        if (existing.length === 0) {
+        if (!found) {
           // Create requires description + category.
           if (!row.cells.description || !category) {
             skipped++;
@@ -416,9 +552,11 @@ export const distributorImportRouter = router({
             isActive: true,
           });
           cabinetId = (res as unknown as [{ insertId: number }])[0].insertId;
+          // Add to alias map so subsequent rows with the same code resolve correctly.
+          aliasMap.set(code.toUpperCase(), { id: cabinetId, masterCode: code, description: row.cells.description, category });
           created++;
         } else {
-          cabinetId = existing[0].id;
+          cabinetId = found.id;
           const patch: Record<string, unknown> = {};
           if (row.cells.description) patch.description = row.cells.description;
           if (category) patch.category = category;
@@ -435,8 +573,8 @@ export const distributorImportRouter = router({
           }
         }
 
-        // Optional pricing upsert (needs a style).
-        if (hasPricing && input.styleId) {
+        // Optional pricing upsert (needs a resolved style).
+        if (hasPricing && resolvedStyleId) {
           const listPrice = parseMoney(row.cells.listPrice);
           const yourCost = parseMoney(row.cells.yourCost);
           if (
@@ -450,7 +588,7 @@ export const distributorImportRouter = router({
                 and(
                   eq(distributorSkus.cabinetId, cabinetId),
                   eq(distributorSkus.distributorId, input.distributorId),
-                  eq(distributorSkus.styleId, input.styleId)
+                  eq(distributorSkus.styleId, resolvedStyleId)
                 )
               )
               .limit(1);
@@ -469,8 +607,8 @@ export const distributorImportRouter = router({
               await db.insert(distributorSkus).values({
                 cabinetId,
                 distributorId: input.distributorId,
-                styleId: input.styleId,
-                platformSku: `${code}-S${input.styleId}-D${input.distributorId}`,
+                styleId: resolvedStyleId,
+                platformSku: `${found?.masterCode ?? code}-S${resolvedStyleId}-D${input.distributorId}`,
                 distributorSku: code,
                 listPrice:
                   listPrice != null && !Number.isNaN(listPrice)
@@ -492,7 +630,7 @@ export const distributorImportRouter = router({
       return { created, updated, priced, skipped };
     }),
 
-  // ─── Quick-create helpers (stub — full implementation pending) ──────────────
+  // ─── Quick-create helpers ──────────────────────────────────────────────────
   addDistributor: adminProcedure
     .input(z.object({ name: z.string(), brandName: z.string().optional() }))
     .mutation(async ({ input }) => {

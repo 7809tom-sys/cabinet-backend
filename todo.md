@@ -876,3 +876,18 @@
 - [x] Catalog image upload in panel (hover overlay, click to upload)
 - [x] Distributor coverage button in panel opens coverage dialog
 - [x] TypeScript clean; checkpoint saved
+
+## Cabinet detail admin editing follow-up
+- [x] Fix `cabinetOverrides.ts` TypeScript errors and register the router
+- [x] Verify package dimension fields are already present in GenericCabinetsAdmin
+- [x] Extend `CabinetDetail.tsx` admin edit dialog to expose `physicalWidth`, `pkgLength`, `pkgWidth`, `pkgHeight`, and `pkgWeight`
+- [x] Add distributor-specific cabinet override controls to `CabinetDetail.tsx` using the `cabinetOverrides` admin router
+- [x] Preserve master-SKU grouping behavior while allowing distributor-specific dimension overrides
+- [x] Run TypeScript checks and targeted tests for the CabinetDetail admin editing flow
+
+## Distributor pricing import upgrade
+- [x] Upgrade shared distributorImport.ts to support alias-based cabinet lookup (sku/vendorSku/altSku1-3/masterCode)
+- [x] Add Door Style column support to importPreview and importCommit (per-row style resolution)
+- [x] Rewrite distributors.ts importPreview/importCommit with alias map + style map
+- [x] Update DistributorImport UI: improved column guidance, alias match indicators, optional style override dropdown
+- [x] TypeScript clean (0 errors)

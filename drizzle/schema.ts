@@ -9,6 +9,7 @@ import {
   decimal,
   boolean,
   json,
+  unique,
 } from "drizzle-orm/mysql-core";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -1473,3 +1474,35 @@ export const pageContent = mysqlTable("page_content", {
 });
 export type PageContent = typeof pageContent.$inferSelect;
 export type InsertPageContent = typeof pageContent.$inferInsert;
+
+// ─── Distributor Cabinet Overrides ───────────────────────────────────────────
+// Per-distributor dimension/spec overrides on top of the master cabinet record.
+// e.g. Skyline's BBC36 has a different physical width than the master.
+// null fields = use master value; non-null = use this override for that distributor.
+export const distributorCabinetOverrides = mysqlTable(
+  "distributor_cabinet_overrides",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    distributorId: int("distributorId").notNull(),
+    cabinetId: int("cabinetId").notNull(),
+    // Overrideable dimension fields (null = use master value)
+    width: decimal("width", { precision: 6, scale: 2 }),
+    height: decimal("height", { precision: 6, scale: 2 }),
+    depth: decimal("depth", { precision: 6, scale: 2 }),
+    physicalWidth: decimal("physicalWidth", { precision: 6, scale: 2 }),
+    weight: decimal("weight", { precision: 8, scale: 2 }),
+    pkgLength: decimal("pkgLength", { precision: 6, scale: 2 }),
+    pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
+    pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
+    pkgWeight: decimal("pkgWeight", { precision: 8, scale: 2 }),
+    note: text("note"),
+    updatedBy: int("updatedBy"),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => ({
+    uniq: unique().on(t.distributorId, t.cabinetId),
+  })
+);
+export type DistributorCabinetOverride = typeof distributorCabinetOverrides.$inferSelect;
+export type InsertDistributorCabinetOverride = typeof distributorCabinetOverrides.$inferInsert;

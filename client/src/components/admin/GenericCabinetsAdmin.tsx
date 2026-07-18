@@ -77,6 +77,10 @@ type CabinetRow = {
   height: string | null;
   depth: string | null;
   weight: string | null;
+  pkgLength: string | null;
+  pkgWidth: string | null;
+  pkgHeight: string | null;
+  pkgWeight: string | null;
   catalogImageUrl: string | null;
   sku: string | null;
   vendorSku: string | null;
@@ -103,6 +107,10 @@ function toDraft(cab: CabinetRow): DraftState {
     height: cab.height,
     depth: cab.depth,
     weight: cab.weight,
+    pkgLength: cab.pkgLength,
+    pkgWidth: cab.pkgWidth,
+    pkgHeight: cab.pkgHeight,
+    pkgWeight: cab.pkgWeight,
     catalogImageUrl: cab.catalogImageUrl,
     sku: cab.sku,
     vendorSku: cab.vendorSku,
@@ -439,15 +447,38 @@ function EditPanel({
 
           <Separator />
 
-          {/* Dimensions */}
+          {/* Cabinet Dimensions */}
           <div>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Dimensions & Weight</Label>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Cabinet Dimensions & Weight</Label>
             <div className="grid grid-cols-4 gap-2">
               {([
                 ["width", 'W"'],
                 ["height", 'H"'],
                 ["depth", 'D"'],
                 ["weight", "Wt lb"],
+              ] as [keyof DraftState, string][]).map(([key, label]) => (
+                <div key={key} className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">{label}</Label>
+                  <Input
+                    value={(draft[key] as string | null) ?? ""}
+                    onChange={e => set(key, e.target.value || null)}
+                    className="text-sm font-mono px-2"
+                    placeholder="—"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Package / Shipping Dimensions */}
+          <div>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Package / Shipping Dimensions</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {([
+                ["pkgLength", 'L"'],
+                ["pkgWidth", 'W"'],
+                ["pkgHeight", 'H"'],
+                ["pkgWeight", "Wt lb"],
               ] as [keyof DraftState, string][]).map(([key, label]) => (
                 <div key={key} className="space-y-1">
                   <Label className="text-xs text-muted-foreground">{label}</Label>

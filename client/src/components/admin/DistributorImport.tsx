@@ -15,7 +15,14 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
-import { Download, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  Download,
+  Upload,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertTriangle,
+  Link2,
+} from "lucide-react";
 
 const ACTION_LABEL: Record<string, string> = {
   "create-info": "New item",
@@ -23,7 +30,10 @@ const ACTION_LABEL: Record<string, string> = {
   "price-only": "Price only",
   error: "Error",
 };
-const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const ACTION_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   "create-info": "default",
   "update-info": "secondary",
   "price-only": "outline",
@@ -32,6 +42,7 @@ const ACTION_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
 
 export default function DistributorImport() {
   const [distributorId, setDistributorId] = useState<string>("");
+  /** Optional: override door style for ALL rows. If blank, each row's Door Style column is used. */
   const [styleId, setStyleId] = useState<string>("");
   const [csv, setCsv] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -108,6 +119,7 @@ export default function DistributorImport() {
 
   return (
     <div className="space-y-6">
+      {/* ── Master catalog export ─────────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -121,13 +133,22 @@ export default function DistributorImport() {
             supply lines carry it). Review and mark corrections, then re-import
             via the panel below.
           </p>
-          <Button onClick={downloadMasterCatalog} disabled={exporting} className="shrink-0">
-            {exporting ? <Spinner className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}
+          <Button
+            onClick={downloadMasterCatalog}
+            disabled={exporting}
+            className="shrink-0"
+          >
+            {exporting ? (
+              <Spinner className="mr-2 h-4 w-4" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
             Download master catalog (CSV)
           </Button>
         </CardContent>
       </Card>
 
+      {/* ── Distributor product import ────────────────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -135,16 +156,34 @@ export default function DistributorImport() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Upload a distributor's catalog spreadsheet (CSV) to add or update
-            product descriptions, dimensions, and pricing. Run a preview first —
-            nothing is written until you commit. Imported prices start
-            unpublished so you can review them before they go live.
-          </p>
+          <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-3 text-sm text-blue-800 dark:text-blue-300 space-y-1">
+            <p className="font-medium">Required spreadsheet columns</p>
+            <ul className="list-disc pl-5 space-y-0.5 text-xs">
+              <li>
+                <span className="font-mono">SKU</span> (or: Code, Item, Model,
+                Part #) — the distributor's own SKU or the platform master code.
+                Aliases are matched automatically.
+              </li>
+              <li>
+                <span className="font-mono">Door Style</span> (or: Style, Style
+                Code, Finish) — matched against this distributor's door styles.
+                Required when pricing columns are present and no style override
+                is chosen below.
+              </li>
+              <li>
+                <span className="font-mono">List Price</span> and/or{" "}
+                <span className="font-mono">Your Cost</span> — at least one
+                price or a Description column must be present.
+              </li>
+            </ul>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* Distributor picker — always required */}
             <div>
-              <label className="text-sm font-medium">Distributor line</label>
+              <label className="text-sm font-medium">
+                Distributor line <span className="text-destructive">*</span>
+              </label>
               <Select
                 value={distributorId}
                 onValueChange={(v) => {
@@ -166,10 +205,14 @@ export default function DistributorImport() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Style override — optional; per-row Door Style column takes precedence when blank */}
             <div>
               <label className="text-sm font-medium">
-                Door style{" "}
-                <span className="text-muted-foreground">(only if pricing included)</span>
+                Door style override{" "}
+                <span className="text-muted-foreground text-xs font-normal">
+                  (optional — applies to all rows)
+                </span>
               </label>
               <Select
                 value={styleId}
@@ -180,16 +223,24 @@ export default function DistributorImport() {
                 disabled={!distributorId}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Choose a style for prices" />
+                  <SelectValue placeholder="Use Door Style column per row" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="">Use Door Style column per row</SelectItem>
                   {(styles ?? []).map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
-                      {s.ourName} ({s.styleCode})
+                      {s.ourName}
+                      {s.styleCode ? ` (${s.styleCode})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {distributorId && !styleId && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Each row's Door Style column will be matched against this
+                  distributor's styles.
+                </p>
+              )}
             </div>
           </div>
 
@@ -221,7 +272,7 @@ export default function DistributorImport() {
                 setCsv(e.target.value);
                 setPreview(null);
               }}
-              placeholder="Master Code,Description,Category,Width,Height,List Price,Your Cost"
+              placeholder="SKU,Door Style,List Price,Your Cost&#10;B-24,Shaker White,310.00,108.50&#10;W-30-30,Shaker White,182.00,63.70"
               className="mt-1 h-32 font-mono text-xs"
             />
           </div>
@@ -267,10 +318,11 @@ export default function DistributorImport() {
         </CardContent>
       </Card>
 
+      {/* ── Preview results ───────────────────────────────────────────── */}
       {preview && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Preview</CardTitle>
+            <CardTitle className="text-base">Preview results</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {preview.fatalErrors.length > 0 && (
@@ -288,11 +340,30 @@ export default function DistributorImport() {
 
             <div className="flex flex-wrap gap-2 text-sm">
               <Badge variant="default">{preview.summary.toCreate} new</Badge>
-              <Badge variant="secondary">{preview.summary.toUpdate} update</Badge>
-              <Badge variant="outline">{preview.summary.priceOnly} price-only</Badge>
+              <Badge variant="secondary">
+                {preview.summary.toUpdate} update
+              </Badge>
+              <Badge variant="outline">
+                {preview.summary.priceOnly} price-only
+              </Badge>
               {preview.summary.errors > 0 && (
-                <Badge variant="destructive">{preview.summary.errors} error</Badge>
+                <Badge variant="destructive">
+                  {preview.summary.errors} error
+                </Badge>
               )}
+              {"aliasMatched" in preview.summary &&
+                (preview.summary as { aliasMatched: number }).aliasMatched >
+                  0 && (
+                  <Badge variant="outline" className="border-blue-400 text-blue-700 dark:text-blue-300">
+                    <Link2 className="mr-1 h-3 w-3" />
+                    {(preview.summary as { aliasMatched: number }).aliasMatched}{" "}
+                    alias match
+                    {(preview.summary as { aliasMatched: number })
+                      .aliasMatched !== 1
+                      ? "es"
+                      : ""}
+                  </Badge>
+                )}
               <span className="text-muted-foreground self-center">
                 {preview.summary.total} rows total
               </span>
@@ -300,7 +371,10 @@ export default function DistributorImport() {
 
             {preview.unknownHeaders.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Ignored columns: {preview.unknownHeaders.join(", ")}
+                Ignored columns:{" "}
+                <span className="font-mono">
+                  {preview.unknownHeaders.join(", ")}
+                </span>
               </p>
             )}
 
@@ -310,40 +384,74 @@ export default function DistributorImport() {
                   <tr>
                     <th className="px-3 py-2">Row</th>
                     <th className="px-3 py-2">Code</th>
+                    <th className="px-3 py-2">Style</th>
                     <th className="px-3 py-2">Action</th>
                     <th className="px-3 py-2">Changes</th>
                     <th className="px-3 py-2">Notes</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.rows.map((r: PreviewData["rows"][number]) => (
-                    <tr key={r.rowNumber} className="border-t">
-                      <td className="px-3 py-2 text-muted-foreground">{r.rowNumber}</td>
-                      <td className="px-3 py-2 font-mono">{r.masterCode || "—"}</td>
-                      <td className="px-3 py-2">
-                        <Badge variant={ACTION_VARIANT[r.action]}>
-                          {ACTION_LABEL[r.action]}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {[...r.fields, r.priceTouched ? "price" : null]
-                          .filter(Boolean)
-                          .join(", ") || "—"}
-                      </td>
-                      <td className="px-3 py-2 text-xs">
-                        {r.errors.length > 0 && (
-                          <span className="text-destructive">
-                            {r.errors.join(" ")}
-                          </span>
-                        )}
-                        {r.warnings.length > 0 && (
-                          <span className="text-amber-600">
-                            {r.warnings.join(" ")}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {preview.rows.map(
+                    (r: PreviewData["rows"][number]) => (
+                      <tr key={r.rowNumber} className="border-t">
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {r.rowNumber}
+                        </td>
+                        <td className="px-3 py-2 font-mono">
+                          <span>{r.masterCode || "—"}</span>
+                          {"matchHow" in r &&
+                            (r as { matchHow: string }).matchHow ===
+                              "alias" && (
+                              <span className="ml-1.5 text-xs text-blue-600 dark:text-blue-400">
+                                →{" "}
+                                {
+                                  (r as { resolvedMasterCode: string })
+                                    .resolvedMasterCode
+                                }
+                              </span>
+                            )}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          {"resolvedStyleName" in r
+                            ? (r as { resolvedStyleName: string | null })
+                                .resolvedStyleName ?? (
+                                <span className="text-amber-600">—</span>
+                              )
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <Badge variant={ACTION_VARIANT[r.action]}>
+                            {ACTION_LABEL[r.action]}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          {[
+                            ...r.fields,
+                            r.priceTouched ? "price" : null,
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || "—"}
+                        </td>
+                        <td className="px-3 py-2 text-xs">
+                          {r.errors.length > 0 && (
+                            <span className="text-destructive">
+                              {r.errors.join(" ")}
+                            </span>
+                          )}
+                          {r.warnings.length > 0 && (
+                            <span className="text-amber-600">
+                              {r.warnings
+                                .filter(
+                                  (w: string) =>
+                                    !w.startsWith("Matched via alias")
+                                )
+                                .join(" ")}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  )}
                 </tbody>
               </table>
             </div>

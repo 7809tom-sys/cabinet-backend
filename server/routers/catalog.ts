@@ -1361,6 +1361,7 @@ export const cabinetsRouter = router({
         width: z.string().nullable().optional(),
         height: z.string().nullable().optional(),
         depth: z.string().nullable().optional(),
+        physicalWidth: z.string().nullable().optional(),
         weight: z.string().nullable().optional(),
         // Package dimensions & weight
         pkgLength: z.string().nullable().optional(),
@@ -1383,6 +1384,7 @@ export const cabinetsRouter = router({
       if (input.width !== undefined) patch.width = input.width;
       if (input.height !== undefined) patch.height = input.height;
       if (input.depth !== undefined) patch.depth = input.depth;
+      if (input.physicalWidth !== undefined) patch.physicalWidth = input.physicalWidth;
       if (input.weight !== undefined) patch.weight = input.weight;
       if (input.pkgLength !== undefined) patch.pkgLength = input.pkgLength;
       if (input.pkgWidth !== undefined) patch.pkgWidth = input.pkgWidth;
@@ -1852,11 +1854,13 @@ export const pricingRouter = router({
           )
         );
 
-      // Collapse to one row per style code (some styles exist across multiple
-      // supply lines). Prefer the lowest contractor price as the sourced option.
+      // Keep one row per (style code × distributor) pair so that the same
+      // door style offered by different supply lines shows as distinct options.
+      // Within the same distributor+style pair, prefer the lowest contractor price.
       const byStyle = new Map<string, (typeof rows)[number]>();
       for (const r of rows) {
-        const key = (r.styleCode || r.ourName || String(r.styleId)).toUpperCase();
+        const styleKey = (r.styleCode || r.ourName || String(r.styleId)).toUpperCase();
+        const key = `${styleKey}__DIST_${r.distributorId ?? 0}`;
         const existing = byStyle.get(key);
         if (!existing) {
           byStyle.set(key, r);

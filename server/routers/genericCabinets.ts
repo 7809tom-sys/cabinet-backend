@@ -85,6 +85,10 @@ export const genericCabinetsRouter = router({
             altSku1: cabinets.altSku1,
             altSku2: cabinets.altSku2,
             altSku3: cabinets.altSku3,
+            pkgLength: cabinets.pkgLength,
+            pkgWidth: cabinets.pkgWidth,
+            pkgHeight: cabinets.pkgHeight,
+            pkgWeight: cabinets.pkgWeight,
             stainColor: cabinets.stainColor,
             constructionMethod: cabinets.constructionMethod,
             conflictStatus: cabinets.conflictStatus,
@@ -119,6 +123,10 @@ export const genericCabinetsRouter = router({
           height: r.height?.toString() ?? null,
           depth: r.depth?.toString() ?? null,
           weight: r.weight?.toString() ?? null,
+          pkgLength: r.pkgLength?.toString() ?? null,
+          pkgWidth: r.pkgWidth?.toString() ?? null,
+          pkgHeight: r.pkgHeight?.toString() ?? null,
+          pkgWeight: r.pkgWeight?.toString() ?? null,
         })),
         total: countResult[0]?.count ?? 0,
         categories,
@@ -229,6 +237,10 @@ export const genericCabinetsRouter = router({
         altSku1: z.string().nullable().optional(),
         altSku2: z.string().nullable().optional(),
         altSku3: z.string().nullable().optional(),
+        pkgLength: z.string().nullable().optional(),
+        pkgWidth: z.string().nullable().optional(),
+        pkgHeight: z.string().nullable().optional(),
+        pkgWeight: z.string().nullable().optional(),
         stainColor: z.string().nullable().optional(),
         constructionMethod: z.string().nullable().optional(),
         catalogImageUrl: z.string().nullable().optional(),
@@ -247,7 +259,7 @@ export const genericCabinetsRouter = router({
       const update: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(fields)) {
         if (v === undefined) continue;
-        if (["width", "height", "depth", "weight"].includes(k)) {
+        if (["width", "height", "depth", "weight", "pkgLength", "pkgWidth", "pkgHeight", "pkgWeight"].includes(k)) {
           update[k] = v === null || v === "" ? null : parseFloat(v as string);
         } else {
           update[k] = v;

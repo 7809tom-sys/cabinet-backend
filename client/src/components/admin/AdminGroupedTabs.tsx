@@ -57,7 +57,6 @@ import NotificationSettingsAdmin from "@/components/admin/NotificationSettingsAd
 import ApiStatusAdmin from "@/components/admin/ApiStatusAdmin";
 import QuickBooksAdmin from "@/components/admin/QuickBooksAdmin";
 import IncomingOrdersAdmin from "@/components/admin/IncomingOrdersAdmin";
-import { BulkDimensionsAdmin } from "@/components/admin/BulkDimensionsAdmin";
 import { DesignerCoverageAdmin } from "@/components/admin/DesignerCoverageAdmin";
 import { AdminTabHelp } from "@/components/admin/AdminTabHelp";
 import ApprovedVendorsAdmin from "@/components/admin/ApprovedVendorsAdmin";
@@ -109,7 +108,6 @@ const GROUPS = [
       { value: "images", label: "Product Images" },
       { value: "pelican-catalog", label: "Pelican Catalog" },
       { value: "conflicts", label: "Conflicts" },
-      { value: "dimensions", label: "Dimensions & Weight" },
       { value: "generic-catalog", label: "Generic Catalog" },
     ],
   },
@@ -458,7 +456,6 @@ export default function AdminGroupedTabs() {
         <TabsContent value="images" className="mt-6"><AdminTabHelp tab="images" /><SkuImageManager /></TabsContent>
         <TabsContent value="pelican-catalog" className="mt-6"><PelicanCatalogAdmin /></TabsContent>
         <TabsContent value="conflicts" className="mt-6"><AdminTabHelp tab="conflicts" /><ConflictsAdmin /></TabsContent>
-        <TabsContent value="dimensions" className="mt-6"><AdminTabHelp tab="dimensions" /><BulkDimensionsAdmin /></TabsContent>
         <TabsContent value="generic-catalog" className="mt-6"><GenericCabinetsAdmin /></TabsContent>
 
         {/* Pricing */}
