@@ -4894,11 +4894,11 @@ export default function DesignTool() {
         {/* Desktop action cluster */}
                 <div className="ml-auto hidden lg:flex items-center gap-1">
           {/* Undo / Redo */}
-          <Button variant="outline" size="icon" onClick={handleUndo} className="h-9 w-9" title={t("dt_sh_undo")}>
-            <Undo2 className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={handleUndo} className="h-7 w-7" title={t("dt_sh_undo")}>
+            <Undo2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleRedo} className="h-9 w-9" title={t("dt_sh_redo")}>
-            <Redo2 className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={handleRedo} className="h-7 w-7" title={t("dt_sh_redo")}>
+            <Redo2 className="h-3.5 w-3.5" />
           </Button>
           <div className="h-5 w-px bg-border mx-0.5" />
           {/* Measure / Dimensions */}
@@ -4907,18 +4907,18 @@ export default function DesignTool() {
             size="icon"
             onClick={() => { setMeasureMode((m) => !m); setSelectedUid(null); }}
             title={t("dt_sh_measure")}
-            className={`h-9 w-9 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+            className={`h-7 w-7 ${measureMode ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
-            <Ruler className="h-4 w-4" />
+            <Ruler className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="outline"
             size="icon"
             onClick={() => setAutoDimensions((d) => !d)}
             title={t("dt_sh_auto_dim")}
-            className={`h-9 w-9 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
+            className={`h-7 w-7 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
           >
-            <Ruler className="h-4 w-4" />
+            <Ruler className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="outline"
@@ -4930,20 +4930,20 @@ export default function DesignTool() {
                 setAnnotations((prev) => [...prev, makeAnnotation(room.width / 2, room.depth / 2, text.trim())]);
               }
             }}
-            className="h-9 w-9"
+            className="h-7 w-7"
           >
-            <StickyNote className="h-4 w-4" />
+            <StickyNote className="h-3.5 w-3.5" />
           </Button>
           <div className="h-5 w-px bg-border mx-0.5" />
           {/* Selected-item actions */}
-          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-9 w-9" title={`${t("dt_sh_rotate")} (R)`}>
-            <RotateCw className="h-4 w-4" />
+          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={rotateSelected} className="h-7 w-7" title={`${t("dt_sh_rotate")} (R)`}>
+            <RotateCw className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-9 w-9" title={`${t("dt_sh_swing")} (S)`}>
-            <DoorOpen className="h-4 w-4" />
+          <Button variant="outline" size="icon" disabled={!selectedUid || measureMode} onClick={swingSelected} className="h-7 w-7" title={`${t("dt_sh_swing")} (S)`}>
+            <DoorOpen className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="icon" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-9 w-9 text-destructive" title={t("dt_sh_delete")}>
-            <Trash2 className="h-4 w-4" />
+          <Button variant="outline" size="icon" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={deleteSelected} className="h-7 w-7 text-destructive" title={t("dt_sh_delete")}>
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
           <div className="h-5 w-px bg-border mx-0.5" />
           {/* Lock Cabs */}
@@ -4955,17 +4955,17 @@ export default function DesignTool() {
               toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked — you can move them again");
             }}
             title={cabinetsLocked ? "Unlock cabinets (allow moving)" : "Lock cabinets (freeze positions)"}
-            className={`relative h-9 w-9 ${
+            className={`relative h-7 w-7 ${
               cabinetsLocked ? "bg-amber-500 text-white border-amber-500 hover:bg-amber-600" : ""
             }`}
           >
-            {cabinetsLocked ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
+            {cabinetsLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
           </Button>
           {/* More ▾ dropdown — Island, Crown, Toe Kick, Batten, Light Rail, Valance, Filler, Countertop */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="relative h-9 w-9" title="More tools">
-                <MoreHorizontal className="h-4 w-4" />
+              <Button variant="outline" size="icon" className="relative h-7 w-7" title="More tools">
+                <MoreHorizontal className="h-3.5 w-3.5" />
                 {(island || crown || toeKick || batten || lightRail || valance || countertop) && (
                   <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-[#d4a75a]" />
                 )}
