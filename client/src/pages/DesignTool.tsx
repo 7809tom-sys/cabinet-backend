@@ -2600,7 +2600,9 @@ export default function DesignTool() {
 
       // 1) Cabinet ABOVE the fridge (upper zone → exempt from appliance collision).
       if (opts.above !== "none") {
-        const src = opts.above === "deep" ? surround.deepAbove : surround.bridgeAbove;
+        // "bridge" now means the fridge-cabinet (deepAbove) catalog since the dialog
+        // was updated to use deepAbove for the over-fridge section.
+        const src = (opts.above === "deep" || opts.above === "bridge") ? surround.deepAbove : surround.bridgeAbove;
         // Use fp.w (updated fridge width) — rotatedSize(fridge).w is the stale pre-resize value.
         // For bridge mode: filter candidates by the chosen bridge height, then pick best width match.
         let chosen: DesignCabinet | undefined;
