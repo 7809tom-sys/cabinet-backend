@@ -1487,11 +1487,13 @@ export const cabinetsRouter = router({
       if (shelves.length) parts.push(`Interior: ${shelves.join(" and ")}.`);
 
       parts.push(
-        "Style: white Shaker door panels with simple recessed center panel.",
-        "View: straight-on front elevation, centered, no perspective distortion.",
-        "Background: pure white (#FFFFFF). No shadows, no room context, no countertop.",
-        "Line weight: thin clean black outlines. Photorealistic finish, product-catalog quality.",
-        "Square image, cabinet fills 80% of the frame."
+        "Style: technical architectural line drawing, like a cabinet manufacturer's catalog illustration.",
+        "View: isometric 3D perspective view from slightly above and to the right, showing front face and right side.",
+        "Rendering: thin clean black outlines only, no fill, no shading, no color, no gradients, no shadows, no textures.",
+        "Background: pure white (#FFFFFF).",
+        "Dimension annotations: red dimension lines with arrows and measurements in inches (e.g. '34 1/2', '24') on the left side and top, matching standard cabinet shop drawing style.",
+        "One door shown open on the right side to reveal interior.",
+        "Square image, cabinet fills 80% of the frame. No room context, no countertop, no decorative elements."
       );
 
       const prompt = parts.join(" ");
