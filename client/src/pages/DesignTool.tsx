@@ -7236,7 +7236,7 @@ export default function DesignTool() {
         open={!!fridgeDialog}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
         fridgeWidthInches={fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined}
-        bridgeAbove={(fridgeSurround as { bridgeAbove?: DesignCabinet[] } | undefined)?.bridgeAbove ?? []}
+        deepAbove={(fridgeSurround as { deepAbove?: DesignCabinet[] } | undefined)?.deepAbove ?? []}
         endPanels={(fridgeSurround as { endPanels?: DesignCabinet[] } | undefined)?.endPanels ?? []}
         hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
         onApply={applyFridgeSurround}

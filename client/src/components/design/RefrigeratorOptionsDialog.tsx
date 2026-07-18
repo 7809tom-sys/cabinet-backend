@@ -80,11 +80,14 @@ const FRIDGE_WIDTHS = [24, 27, 30, 33, 36, 42];
 const FRIDGE_HEIGHTS = [66, 70, 72, 78, 84];
 const FRIDGE_DEPTHS = [24, 27, 30, 33, 36];
 
-const BRIDGE_HEIGHT_OPTIONS = [12, 18, 24] as const;
+const BRIDGE_HEIGHT_OPTIONS = [12, 15, 18, 21, 24] as const;
 type BridgeHeight = typeof BRIDGE_HEIGHT_OPTIONS[number];
 
 const BRIDGE_DEPTH_OPTIONS = [12, 24] as const;
 type BridgeDepth = typeof BRIDGE_DEPTH_OPTIONS[number];
+
+// Bridge cabinet widths — all distributors carry 30", 33", 36" fridge cabinets
+const BRIDGE_WIDTH_OPTIONS = [30, 33, 36];
 
 // End panel depth options (inches)
 const PANEL_DEPTH_OPTIONS = [24, 26, 28, 30, 32, 34, 36];
@@ -193,7 +196,7 @@ export function RefrigeratorOptionsDialog({
   open,
   onOpenChange,
   fridgeWidthInches,
-  bridgeAbove = [],
+  deepAbove = [],
   endPanels = [],
   hasSmoothPanel = false,
   onApply,
@@ -210,8 +213,8 @@ export function RefrigeratorOptionsDialog({
   const [above, setAbove] = useState<FridgeAbove>("none");
   const [bridgeHeightChoice, setBridgeHeightChoice] = useState<BridgeHeight>(12);
   const [bridgeDepthChoice, setBridgeDepthChoice] = useState<BridgeDepth>(12);
-  // Bridge width always matches fridge width
-  const bridgeWidthChoice = fridgeW;
+  // Bridge width is independent of fridge width — always 30/33/36
+  const [bridgeWidthChoice, setBridgeWidthChoice] = useState<number>(36);
 
   // ── End panels ─────────────────────────────────────────────────────────────
   const [panels, setPanels] = useState<FridgePanels>("none");
@@ -222,14 +225,21 @@ export function RefrigeratorOptionsDialog({
   const [smooth, setSmooth] = useState(false);
 
   // ── SKU dimension parser ──────────────────────────────────────────
-  // W[WW][HH][DD]: e.g. W301212=30W×12H×12D, W362424=36W×24H×24D
-  // WR[WW][HH]: e.g. WR3315=33W×15H×24D (wall refrigerator, depth always 24)
+  // Handles three over-fridge cabinet SKU formats:
+  //  1. Clark & Sons 12" deep:  W-WW-HH  e.g. W-36-18 → {w:36,h:18,d:12}
+  //  2. Clark & Sons 24" deep:  WRWWHH   e.g. WR3615  → {w:36,h:15,d:24}
+  //  3. Skyline/USCD 24" deep:  W[WW][HH]24 (8 chars) e.g. W361524 → {w:36,h:15,d:24}
   const parseSkuDims = (code: string) => {
     const c = code.replace(/^[^W]*W/, "W");
-    const m6 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
-    if (m6) return { w: parseInt(m6[1], 10), h: parseInt(m6[2], 10), d: parseInt(m6[3], 10) };
+    // Format 1: Clark & Sons 12" deep  W-WW-HH
+    const mDash = c.match(/^W-(\d{2})-(\d{2})$/);
+    if (mDash) return { w: parseInt(mDash[1], 10), h: parseInt(mDash[2], 10), d: 12 };
+    // Format 2: Clark & Sons 24" deep  WRWWHH
     const mR = c.match(/^WR(\d{2})(\d{2})$/);
     if (mR) return { w: parseInt(mR[1], 10), h: parseInt(mR[2], 10), d: 24 };
+    // Format 3: Skyline/USCD 24" deep  W[WW][HH]24 (8 chars)
+    const m8 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
+    if (m8) return { w: parseInt(m8[1], 10), h: parseInt(m8[2], 10), d: parseInt(m8[3], 10) };
     return null;
   };
 
@@ -237,12 +247,14 @@ export function RefrigeratorOptionsDialog({
   const bridgeByDims = useMemo(() => {
     const result: Record<BridgeHeight, Record<BridgeDepth, SurroundCabinet | null>> = {
       12: { 12: null, 24: null },
+      15: { 12: null, 24: null },
       18: { 12: null, 24: null },
+      21: { 12: null, 24: null },
       24: { 12: null, 24: null },
     };
     for (const targetH of BRIDGE_HEIGHT_OPTIONS) {
       for (const targetD of BRIDGE_DEPTH_OPTIONS) {
-        const candidates = bridgeAbove.filter((c) => {
+        const candidates = deepAbove.filter((c) => {
           const sku = parseSkuDims(c.masterCode);
           const storedW = parseFloat(String(c.width ?? ""));
           const storedH = parseFloat(String(c.height ?? ""));
@@ -269,7 +281,7 @@ export function RefrigeratorOptionsDialog({
       }
     }
     return result;
-  }, [bridgeAbove, bridgeWidthChoice]);
+  }, [deepAbove, bridgeWidthChoice]);
 
   // Always allow Add Cabinet — if catalog has no exact match we place a generic one.
   const hasBridgeAbove = true;
@@ -293,6 +305,7 @@ export function RefrigeratorOptionsDialog({
       setFridgeD(30);
       setBridgeHeightChoice(12);
       setBridgeDepthChoice(12);
+      setBridgeWidthChoice(36);
       setAbove("none");
       setPanels("none");
       setPanelDepth(24);
@@ -382,6 +395,14 @@ export function RefrigeratorOptionsDialog({
 
             {above === "bridge" && (
               <div className="space-y-3 pt-1">
+
+                {/* Cabinet Width */}
+                <DimSelector
+                  label="Width"
+                  value={bridgeWidthChoice}
+                  options={BRIDGE_WIDTH_OPTIONS}
+                  onChange={setBridgeWidthChoice}
+                />
 
                 {/* Cabinet Height */}
                 <div className="space-y-1.5">

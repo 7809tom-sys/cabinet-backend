@@ -326,17 +326,23 @@ export const designRouter = router({
           return (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
         });
 
-      // Deep refrigerator wall cabinets:
-      //  - Skyline/USCD format: masterCode ends in "-24" e.g. W-36-24-24
-      //  - Clark and Sons format: WR prefix (WR3315, WR3324, WR3624 etc.) — always 24" deep
-      //  Note: WRC% = wine rack wall cabinets — excluded from fridge cabinet results
+      // Refrigerator / over-fridge wall cabinets — both 12" and 24" deep:
+      //  - Clark & Sons 12" deep: W-(30|33|36)-(12|15|18|21|24)  e.g. W-36-12, W-36-18
+      //  - Clark & Sons 24" deep: WR prefix (WR3315, WR3624 etc.) — always 24" deep
+      //    Note: WRC% = wine rack wall cabinets — excluded
+      //  - Skyline/USCD/Milestone 24" deep: 8-char W[WW][HH]24 e.g. W361224, W362424
+      //    (depth encoded as last 2 digits = 24; width 30/33/36; height 12/15/18/24)
       const deepRows = await db
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
         .where(and(gate, or(
-          like(cabinets.masterCode, "W-%-24"),
-          and(like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`)
+          // Clark & Sons 12" deep fridge cabs: W-30-12 through W-36-24
+          sql`${cabinets.masterCode} REGEXP '^W-(30|33|36)-(12|15|18|21|24)$'`,
+          // Clark & Sons 24" deep fridge cabs: WR prefix (not wine rack WRC)
+          and(like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`),
+          // Skyline/USCD/Milestone 24" deep: 8-char W[WW][HH]24 ending in 24
+          sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|21|24)24$'`
         )));
       // Shallow bridge wall cabinets: short W-* that are NOT the deep "-24" or WR fridge boxes.
       const wallRows = await db
