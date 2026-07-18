@@ -155,39 +155,67 @@ function ImageCell({
   const busy = uploading || generating;
   const imageUrl = row.catalogImageUrl;
 
+  // Status message shown during generation
+  const statusLabel = generating
+    ? `Generating ${viewMode === "2d" ? "2D elevation" : "3D drawing"}…`
+    : uploading
+    ? "Uploading…"
+    : null;
+
   return (
     <div className="flex items-center gap-1.5">
-      {/* Thumbnail or placeholder */}
-      {imageUrl ? (
-        <div className="relative group">
-          <img
-            src={imageUrl}
-            alt="catalog"
-            className="h-10 w-10 rounded border border-border object-contain bg-muted/30 cursor-pointer"
+      {/* Thumbnail or placeholder — with generation overlay */}
+      <div className="relative">
+        {imageUrl && !generating ? (
+          <div className="relative group">
+            <img
+              src={imageUrl}
+              alt="catalog"
+              className="h-10 w-10 rounded border border-border object-contain bg-muted/30 cursor-pointer"
+              onClick={() => !busy && fileRef.current?.click()}
+              title="Click to replace image"
+            />
+            {/* Remove button */}
+            <button
+              className="absolute -top-1 -right-1 hidden group-hover:flex items-center justify-center h-4 w-4 rounded-full bg-destructive text-destructive-foreground"
+              onClick={() => onUploaded(row.id, null)}
+              title="Remove image"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "h-10 w-10 rounded border flex items-center justify-center transition-colors",
+              generating
+                ? "border-amber-400/60 bg-amber-50 dark:bg-amber-900/20"
+                : "border-dashed border-border bg-muted/20 cursor-pointer hover:bg-muted/40"
+            )}
             onClick={() => !busy && fileRef.current?.click()}
-            title="Click to replace image"
-          />
-          {/* Remove button */}
-          <button
-            className="absolute -top-1 -right-1 hidden group-hover:flex items-center justify-center h-4 w-4 rounded-full bg-destructive text-destructive-foreground"
-            onClick={() => onUploaded(row.id, null)}
-            title="Remove image"
+            title={generating ? statusLabel ?? undefined : "Upload image"}
           >
-            <X className="h-2.5 w-2.5" />
-          </button>
-        </div>
-      ) : (
-        <div
-          className="h-10 w-10 rounded border border-dashed border-border bg-muted/20 flex items-center justify-center cursor-pointer hover:bg-muted/40 transition-colors"
-          onClick={() => !busy && fileRef.current?.click()}
-          title="Upload image"
-        >
-          {busy ? (
-            <Spinner className="h-4 w-4" />
-          ) : (
-            <ImageIcon className="h-4 w-4 text-muted-foreground" />
-          )}
-        </div>
+            {busy ? (
+              <Spinner className="h-4 w-4 text-amber-500" />
+            ) : (
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+            )}
+          </div>
+        )}
+
+        {/* Generation overlay on existing image */}
+        {generating && imageUrl && (
+          <div className="absolute inset-0 rounded border border-amber-400/60 bg-amber-50/80 dark:bg-amber-900/60 flex items-center justify-center">
+            <Spinner className="h-4 w-4 text-amber-600" />
+          </div>
+        )}
+      </div>
+
+      {/* Status message shown while generating */}
+      {statusLabel && (
+        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap animate-pulse">
+          {statusLabel}
+        </span>
       )}
 
       {/* Upload button */}
