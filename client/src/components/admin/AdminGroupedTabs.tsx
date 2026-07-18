@@ -23,6 +23,7 @@ import {
   Hammer,
   Layers,
   Search,
+  ExternalLink,
 } from "lucide-react";
 
 // Tab content components
@@ -199,6 +200,7 @@ function ProApplications() {
                   {a.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {a.phone}</span>}
                   {a.baseZip && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {a.baseZip} · {a.serviceRadiusMiles}mi</span>}
                   {a.insured && <span className="inline-flex items-center gap-1 text-emerald-600"><ShieldCheck className="h-3.5 w-3.5" /> Insured</span>}
+                  {a.website && <a href={a.website.startsWith("http") ? a.website : `https://${a.website}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline"><ExternalLink className="h-3.5 w-3.5" /> Website</a>}
                 </div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {(a.trades ?? []).map((t: string) => (
@@ -256,7 +258,7 @@ function VendorApplications() {
                   <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {a.email}</span>
                   {a.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {a.phone}</span>}
                   {a.headquarters && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {a.headquarters}</span>}
-                  {a.website && <a href={a.website.startsWith("http") ? a.website : `https://${a.website}`} target="_blank" rel="noreferrer" className="text-primary underline">Website</a>}
+                  {a.website && <a href={a.website.startsWith("http") ? a.website : `https://${a.website}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline"><ExternalLink className="h-3.5 w-3.5" /> Website</a>}
                 </div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {a.categories && a.categories.split(",").map((c: string) => c.trim()).filter(Boolean).map((c: string) => (

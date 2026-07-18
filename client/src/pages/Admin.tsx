@@ -23,6 +23,7 @@ import {
   DollarSign,
   Inbox,
   BarChart3,
+  ExternalLink,
 } from "lucide-react";
 import AffiliatesAdmin from "@/components/admin/AffiliatesAdmin";
 import DistributorImport from "@/components/admin/DistributorImport";
@@ -145,6 +146,16 @@ function ProApplications() {
                     <span className="inline-flex items-center gap-1 text-emerald-600">
                       <ShieldCheck className="h-3.5 w-3.5" /> Insured
                     </span>
+                  )}
+                  {a.website && (
+                    <a
+                      href={a.website.startsWith("http") ? a.website : `https://${a.website}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> Website
+                    </a>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
@@ -274,9 +285,9 @@ function VendorApplications() {
                       href={a.website.startsWith("http") ? a.website : `https://${a.website}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-primary underline"
+                      className="inline-flex items-center gap-1 text-primary hover:underline"
                     >
-                      Website
+                      <ExternalLink className="h-3.5 w-3.5" /> Website
                     </a>
                   )}
                 </div>

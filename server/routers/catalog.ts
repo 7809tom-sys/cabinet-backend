@@ -18,6 +18,7 @@ import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { sellPriceForTier } from "@shared/margins";
 import { invokeLLM } from "../_core/llm";
+import sharp from "sharp";
 import { generateImage } from "../_core/imageGeneration";
 import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@shared/doorPhotoMatch";
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
@@ -1410,14 +1411,20 @@ export const cabinetsRouter = router({
     }),
 
   // ── Admin: Upload catalog image for a cabinet ────────────────────────────
-  // Accepts a base64 data URL (from a file picker), uploads to storage, and
-  // returns the /manus-storage/ URL so the client can save it via adminUpdateCabinet.
+  // Accepts a base64 data URL (from a file picker), resizes to the target
+  // dimensions for the given slot, uploads to storage, and returns the URL.
+  //
+  // Slot dimensions:
+  //   thumbnail   → 300×300 square (cover crop, WebP)
+  //   door-sample → 400×300 rectangular (cover crop, WebP)
+  //   room-scene  → 1200×800 rectangular (cover crop, WebP)
   adminUploadCatalogImage: adminProcedure
     .input(
       z.object({
         filename: z.string().min(1),
         dataBase64: z.string().min(1),
         contentType: z.string().default("image/jpeg"),
+        slot: z.enum(["thumbnail", "door-sample", "room-scene"]).default("thumbnail"),
       })
     )
     .mutation(async ({ input }) => {
@@ -1425,8 +1432,24 @@ export const cabinetsRouter = router({
         ? input.dataBase64.slice(input.dataBase64.indexOf(",") + 1)
         : input.dataBase64;
       const buf = Buffer.from(raw, "base64");
-      const safe = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const { url } = await storagePut(`catalog-images/${Date.now()}_${safe}`, buf, input.contentType);
+
+      // Determine target dimensions per slot
+      const slotDims: Record<string, { w: number; h: number }> = {
+        "thumbnail":   { w: 300,  h: 300  },
+        "door-sample": { w: 400,  h: 300  },
+        "room-scene":  { w: 1200, h: 800  },
+      };
+      const { w, h } = slotDims[input.slot];
+
+      // Resize + convert to WebP
+      const resized = await sharp(buf)
+        .resize(w, h, { fit: "cover", position: "centre" })
+        .webp({ quality: 85 })
+        .toBuffer();
+
+      const safe = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, "");
+      const folder = input.slot === "room-scene" ? "room-scenes" : input.slot === "door-sample" ? "door-samples" : "catalog-images";
+      const { url } = await storagePut(`${folder}/${Date.now()}_${safe}.webp`, resized, "image/webp");
       return { url };
     }),
 

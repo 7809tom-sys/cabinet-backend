@@ -1007,3 +1007,26 @@
 - [x] Add "Not a cabinet" checkbox/toggle per row in CabinetConfigAdmin; when checked, hide Depth/Doors/Drawers/Fixed Shelves/Adj Shelves dropdowns and dim the row
 - [x] Save `isNotCabinet` immediately on toggle (no separate Save button needed)
 - [x] TypeScript check passes; checkpoint saved
+
+## Three image upload slots with auto-resize
+
+- [ ] Audit existing image upload endpoints (adminUploadCatalogImage, uploadCatalogImage, door sample upload) to understand current flow
+- [ ] Install `sharp` for server-side image resizing
+- [ ] Add `imageSlot` param to upload endpoint: "thumbnail" (300×300 square crop), "door-sample" (400×300), "room-scene" (1200×800)
+- [ ] Server resizes and re-encodes image to target dimensions before uploading to S3
+- [ ] Wire three distinct upload buttons in CabinetConfigAdmin: Thumbnail, Door Sample, Room Scene
+- [ ] Wire three distinct upload buttons in GenericCabinetsAdmin detail panel
+- [ ] Wire three distinct upload buttons in CabinetDetail admin edit dialog
+- [ ] TypeScript check passes; checkpoint saved
+
+## Fix: Vendor page inconsistent links
+
+- [ ] Find the vendor/distributor listing page component
+- [ ] Ensure every distributor card shows a consistent arrow link (→) to its respective page
+- [ ] Remove any raw HTML addresses or inconsistent link rendering
+- [ ] TypeScript check passes; checkpoint saved
+
+## Fix: Door sample image upload (Winchester Gray) + vendor link consistency
+- [x] Add key={editingStyle.id} to EditDialog in FeaturedStylesAdmin so state resets when switching styles
+- [x] Add slot prop to ImageField component and pass correct slot per upload type (door-sample, room-scene, thumbnail)
+- [x] Fix VendorApplications and ProApplications website links to be consistent (ExternalLink icon + "Website" text)

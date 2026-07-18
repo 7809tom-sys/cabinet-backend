@@ -51,6 +51,7 @@ function ImageField({
   value,
   onChange,
   big,
+  slot,
 }: {
   label: string;
   hint?: string;
@@ -58,6 +59,7 @@ function ImageField({
   onChange: (url: string) => void;
   /** When true, render a larger preview (used for the room scene). */
   big?: boolean;
+  slot?: "thumbnail" | "door-sample" | "room-scene";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = trpc.cabinets.adminUploadCatalogImage.useMutation();
@@ -82,6 +84,7 @@ function ImageField({
         filename: file.name || "door-image.jpg",
         dataBase64: dataUrl,
         contentType: file.type || "image/jpeg",
+        slot: slot ?? "thumbnail",
       });
       onChange(url);
       toast.success("Image uploaded");
@@ -374,18 +377,21 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
               value={roomSceneImageUrl}
               onChange={setRoomSceneImageUrl}
               big
+              slot="room-scene"
             />
             <ImageField
               label="Door Sample Photo"
               hint="Close-up of the door, used as the main catalog/designer thumbnail."
               value={doorSampleImageUrl}
               onChange={setDoorSampleImageUrl}
+              slot="door-sample"
             />
             <ImageField
               label="Thumbnail (optional override)"
               hint="Overrides the door sample as the small thumbnail when set."
               value={thumbnailImageUrl}
               onChange={setThumbnailImageUrl}
+              slot="thumbnail"
             />
           </div>
         </div>
@@ -754,9 +760,10 @@ export default function FeaturedStylesAdmin() {
         )}
       </div>
 
-      {/* Quick-edit dialog */}
+      {/* Quick-edit dialog — key forces full remount when switching styles so local image state resets */}
       {editingStyle && (
         <EditDialog
+          key={editingStyle.id}
           style={editingStyle}
           open={!!editingStyle}
           onClose={() => setEditingStyle(null)}
