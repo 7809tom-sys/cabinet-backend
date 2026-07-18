@@ -5802,6 +5802,8 @@ export default function DesignTool() {
                         setMixedWarehouseOverride(true);
                       }
                       setLockedDistributorId(null);
+                      // Clear style filter so catalog shows all cabinets
+                      setStyleId(null);
                     } else {
                       const newDist = Number(val);
                       if (placed.length > 0 && lockedDistributorId != null && newDist !== lockedDistributorId) {
@@ -5810,6 +5812,12 @@ export default function DesignTool() {
                         setMixedWarehouseOverride(true);
                       }
                       setLockedDistributorId(newDist);
+                      // If the current styleId belongs to a different distributor,
+                      // clear it so the catalog shows all cabinets for the new line.
+                      const currentStyleDist = (doorStyles as Array<{id: number; distributorId: number}> | undefined)?.find((d) => d.id === styleId)?.distributorId;
+                      if (currentStyleDist != null && currentStyleDist !== newDist) {
+                        setStyleId(null);
+                      }
                     }
                   }}
                 >

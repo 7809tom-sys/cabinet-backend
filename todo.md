@@ -842,3 +842,7 @@
 - [x] Fix ElevationView.tsx: wall-placement cabinets must never show a drawer band (drawers prop must be 0 for wall cabinets)
 - [x] Verify fix in browser: over-fridge cabinet shows only 2 doors, no drawer band
 - [x] Restore color picker to mobile toolbar in DesignTool.tsx
+
+## Bug: US Cabinet Depot door style shows "No cabinets available for this door style"
+- [ ] Investigate why selecting a US Cabinet Depot door style shows no cabinets in the design tool catalog
+- [ ] Fix the catalog query/filtering so USCD cabinets appear when a USCD door style is selected
