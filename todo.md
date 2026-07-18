@@ -974,3 +974,10 @@
 - [x] Build a standalone admin page /admin/cabinet-config for bulk-editing depth/doors/drawers/shelves across all generic cabinets
 - [x] Add route and nav link to the admin cabinet-config page
 - [x] TypeScript check passes; checkpoint saved
+
+## Cabinet Config Image Upload
+
+- [x] Add catalog image thumbnail + upload button to each row in CabinetConfigAdmin
+- [x] Clicking the thumbnail or upload button opens a file picker; selected image uploads via adminUploadCatalogImage then saves via adminUpdateCabinet
+- [x] Show upload progress spinner on the row while uploading
+- [x] TypeScript check passes; checkpoint saved

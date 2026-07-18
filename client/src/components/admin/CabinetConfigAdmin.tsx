@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -63,7 +63,6 @@ function CountCell({
   value,
   options,
   onSave,
-  label,
 }: {
   value: number | null;
   options: readonly (number | null)[];
@@ -89,6 +88,106 @@ function CountCell({
           ))}
       </SelectContent>
     </Select>
+  );
+}
+
+// ─── Image upload cell ────────────────────────────────────────────────────────
+function ImageCell({
+  row,
+  onUploaded,
+}: {
+  row: CabinetRow;
+  onUploaded: (id: number, url: string | null) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const uploadMutation = trpc.cabinets.adminUploadCatalogImage.useMutation({
+    onSuccess: (data) => {
+      onUploaded(row.id, data.url);
+      setUploading(false);
+      toast.success("Image uploaded");
+    },
+    onError: (e) => {
+      setUploading(false);
+      toast.error(`Upload failed: ${e.message}`);
+    },
+  });
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataBase64 = reader.result as string;
+      uploadMutation.mutate({
+        filename: file.name,
+        dataBase64,
+        contentType: file.type || "image/jpeg",
+      });
+    };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be re-selected
+    e.target.value = "";
+  };
+
+  const imageUrl = row.catalogImageUrl;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {/* Thumbnail or placeholder */}
+      {imageUrl ? (
+        <div className="relative group">
+          <img
+            src={imageUrl}
+            alt="catalog"
+            className="h-10 w-10 rounded border border-border object-contain bg-muted/30 cursor-pointer"
+            onClick={() => fileRef.current?.click()}
+            title="Click to replace image"
+          />
+          {/* Remove button */}
+          <button
+            className="absolute -top-1 -right-1 hidden group-hover:flex items-center justify-center h-4 w-4 rounded-full bg-destructive text-destructive-foreground"
+            onClick={() => onUploaded(row.id, null)}
+            title="Remove image"
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </div>
+      ) : (
+        <div
+          className="h-10 w-10 rounded border border-dashed border-border bg-muted/20 flex items-center justify-center cursor-pointer hover:bg-muted/40 transition-colors"
+          onClick={() => fileRef.current?.click()}
+          title="Upload image"
+        >
+          {uploading ? (
+            <Spinner className="h-4 w-4" />
+          ) : (
+            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+      )}
+
+      {/* Upload button */}
+      {!uploading && (
+        <button
+          className="h-6 w-6 flex items-center justify-center rounded border border-border bg-background hover:bg-muted/50 transition-colors"
+          onClick={() => fileRef.current?.click()}
+          title="Upload image"
+        >
+          <Upload className="h-3 w-3 text-muted-foreground" />
+        </button>
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={handleFile}
+      />
+    </div>
   );
 }
 
@@ -135,6 +234,29 @@ export function CabinetConfigAdmin() {
     []
   );
 
+  // Image uploaded — save immediately (no pending queue needed)
+  const handleImageUploaded = useCallback(
+    (id: number, url: string | null) => {
+      setSaving((s) => new Set(s).add(id));
+      updateMutation.mutate(
+        { id, catalogImageUrl: url },
+        {
+          onSuccess: () => {
+            setSaving((s) => { const n = new Set(s); n.delete(id); return n; });
+            utils.cabinets.adminListCabinetConfig.invalidate();
+            if (url) toast.success("Catalog image saved");
+            else toast.success("Image removed");
+          },
+          onError: (e) => {
+            setSaving((s) => { const n = new Set(s); n.delete(id); return n; });
+            toast.error(`Save failed: ${e.message}`);
+          },
+        }
+      );
+    },
+    [updateMutation, utils]
+  );
+
   const saveRow = useCallback(
     (row: CabinetRow) => {
       const patch = pending[row.id];
@@ -175,8 +297,8 @@ export function CabinetConfigAdmin() {
         <Badge variant="secondary" className="ml-1">{total} cabinets</Badge>
       </div>
       <p className="text-sm text-muted-foreground">
-        Set the standard depth, door count, drawer count, and shelf counts for each generic cabinet.
-        These values appear in the public Specifications card and drive future catalog illustrations.
+        Set the standard depth, door count, drawer count, shelf counts, and catalog image for each generic cabinet.
+        These values appear in the public Specifications card and drive catalog illustrations.
       </p>
 
       {/* Filters */}
@@ -239,6 +361,7 @@ export function CabinetConfigAdmin() {
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20">Drawers</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24">Fixed Sh.</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24">Adj. Sh.</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-28">Image</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-16"></th>
               </tr>
             </thead>
@@ -305,6 +428,12 @@ export function CabinetConfigAdmin() {
                         options={SHELF_OPTIONS}
                         label="Adj. Shelves"
                         onSave={(v) => applyEdit(row.id, "numberOfAdjShelves", v)}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <ImageCell
+                        row={row as CabinetRow}
+                        onUploaded={handleImageUploaded}
                       />
                     </td>
                     <td className="px-3 py-1.5">
