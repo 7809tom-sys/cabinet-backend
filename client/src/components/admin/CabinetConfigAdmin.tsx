@@ -530,6 +530,7 @@ function EditModal({
                 </div>
               </div>
               <Button
+                type="button"
                 size="sm"
                 className="gap-1.5"
                 disabled={!newAlias.raw.trim() || !newAlias.platform.trim() || saveAliasMutation.isPending}
@@ -562,6 +563,7 @@ function EditModal({
                         <td className="px-3 py-2 text-primary font-medium">{a.platformCategory}</td>
                         <td className="px-2 py-2 text-center">
                           <button
+                            type="button"
                             className="text-destructive hover:text-destructive/70 transition-colors"
                             onClick={() => deleteAliasMutation.mutate({ id: a.id })}
                             disabled={deleteAliasMutation.isPending}
