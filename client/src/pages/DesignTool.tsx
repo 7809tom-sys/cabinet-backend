@@ -4518,7 +4518,43 @@ export default function DesignTool() {
           </button>
         )}
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
-        <div className="ml-auto flex items-center gap-2 lg:hidden">
+        <div className="ml-auto flex items-center gap-1.5 lg:hidden">
+          {/* Room dimensions — compact icon button */}
+          <button
+            type="button"
+            title="Room dimensions — edit room size"
+            onClick={() => setMobilePanel((p) => p === "room" ? null : "room")}
+            className={`h-7 w-7 flex items-center justify-center rounded-md border transition-colors ${
+              mobilePanel === "room"
+                ? "bg-[#1a2744] border-[#1a2744] text-white"
+                : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Ruler className="h-3.5 w-3.5" />
+          </button>
+          {/* Style / color picker — compact icon button */}
+          <button
+            type="button"
+            title="Door style & color"
+            onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
+            className={`h-7 w-7 flex items-center justify-center rounded-md border transition-colors ${
+              mobilePanel === "style"
+                ? "bg-[#1a2744] border-[#1a2744] text-white"
+                : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Palette className="h-3.5 w-3.5" />
+          </button>
+          {/* Save design — compact icon button */}
+          <button
+            type="button"
+            title="Save design"
+            disabled={placed.length === 0}
+            onClick={() => setSaveSignal((n) => n + 1)}
+            className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Save className="h-3.5 w-3.5" />
+          </button>
           <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setMoreSheetOpen(true)}>
             <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
           </Button>
@@ -7194,7 +7230,7 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-10 h-14">
+          <div className="grid grid-cols-7 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
@@ -7205,12 +7241,6 @@ export default function DesignTool() {
               }}
             />
             <MobileBarButton
-              icon={<Palette className="h-5 w-5" />}
-              label="Style"
-              active={mobilePanel === "style"}
-              onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
-            />
-            <MobileBarButton
               icon={<Waves className="h-5 w-5" />}
               label="Palette"
               active={mobilePanel === "catalog" && paletteType === "surfaces"}
@@ -7218,12 +7248,6 @@ export default function DesignTool() {
                 setPaletteType("surfaces");
                 setMobilePanel("catalog");
               }}
-            />
-            <MobileBarButton
-              icon={<Ruler className="h-5 w-5" />}
-              label="Room"
-              active={mobilePanel === "room"}
-              onClick={() => setMobilePanel((p) => p === "room" ? null : "room")}
             />
             <MobileBarButton
               icon={viewMode === "elevation" ? <LayoutGrid className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -7251,12 +7275,6 @@ export default function DesignTool() {
                 setCabinetsLocked((v) => !v);
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
               }}
-            />
-            <MobileBarButton
-              icon={<Save className="h-5 w-5" />}
-              label="Save"
-              disabled={placed.length === 0}
-              onClick={() => setSaveSignal((n) => n + 1)}
             />
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
