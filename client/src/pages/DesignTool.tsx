@@ -3691,7 +3691,10 @@ export default function DesignTool() {
       return;
     }
     // Lock from cart (if cart already has items from a specific distributor)
-    if (cartLockedDistributorId != null) {
+    // Only engage the cart-based lock when cabinets are also placed in the
+    // designer — otherwise a fresh designer session with cart items from a
+    // previous order would silently block the user from browsing other lines.
+    if (cartLockedDistributorId != null && placed.length > 0) {
       setLockedDistributorId(cartLockedDistributorId);
     }
   }, [lockedDistributorId, selectedStyleDistributorId, placed.length, cartLockedDistributorId, mixedWarehouseOverride]);

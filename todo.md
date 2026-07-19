@@ -834,9 +834,9 @@
 - [x] Verify fridge options popup shows all options: deepAbove=10, bridgeAbove=9, endPanels=1, smoothPanels=0 for Clark and Sons styles
 
 ## Bug: Clark & Sons fridge cabinet SKU resolver broken + fridge popup missing options (Jul 17)
-- [ ] Fix Clark & Sons WR-prefix SKU resolver: W361224 must map to WR3612 (WR{width}{height}, always 24 deep)
-- [ ] Restore all fridge popup options that were showing before (heights, depths, widths)
-- [ ] Verify Clark & Sons fridge bridge cabinets resolve correctly for all widths (30, 33, 36, etc.)
+- [x] Fix Clark & Sons WR-prefix SKU resolver: W361224 must map to WR3612 (WR{width}{height}, always 24 deep)
+- [x] Restore all fridge popup options that were showing before (heights, depths, widths)
+- [x] Verify Clark & Sons fridge bridge cabinets resolve correctly for all widths (30, 33, 36, etc.)
 
 ## Bug: Over-fridge cabinet shows drawer band instead of two doors
 - [x] Fix ElevationView.tsx: wall-placement cabinets must never show a drawer band (drawers prop must be 0 for wall cabinets)
@@ -844,8 +844,8 @@
 - [x] Restore color picker to mobile toolbar in DesignTool.tsx
 
 ## Bug: US Cabinet Depot door style shows "No cabinets available for this door style"
-- [ ] Investigate why selecting a US Cabinet Depot door style shows no cabinets in the design tool catalog
-- [ ] Fix the catalog query/filtering so USCD cabinets appear when a USCD door style is selected
+- [x] Investigate why selecting a US Cabinet Depot door style shows no cabinets in the design tool catalog
+- [x] Fix the catalog query/filtering so USCD cabinets appear when a USCD door style is selected
 
 ## Feature: Generic Cabinets Admin Screen
 - [x] Admin page /admin/generic-cabinets — table of all master cabinet codes
@@ -1021,12 +1021,20 @@
 
 ## Fix: Vendor page inconsistent links
 
-- [ ] Find the vendor/distributor listing page component
-- [ ] Ensure every distributor card shows a consistent arrow link (→) to its respective page
-- [ ] Remove any raw HTML addresses or inconsistent link rendering
-- [ ] TypeScript check passes; checkpoint saved
+- [x] Find the vendor/distributor listing page component
+- [x] Ensure every distributor card shows a consistent arrow link (→) to its respective page
+- [x] Remove any raw HTML addresses or inconsistent link rendering
+- [x] TypeScript check passes; checkpoint saved
 
 ## Fix: Door sample image upload (Winchester Gray) + vendor link consistency
 - [x] Add key={editingStyle.id} to EditDialog in FeaturedStylesAdmin so state resets when switching styles
 - [x] Add slot prop to ImageField component and pass correct slot per upload type (door-sample, room-scene, thumbnail)
 - [x] Fix VendorApplications and ProApplications website links to be consistent (ExternalLink icon + "Website" text)
+
+## Fix: Trim items showing in Base cabinets list for all cabinet lines
+
+- [x] Identify that catalog.ts familyCatalog returns trim items with their raw DB category (e.g. "Trim and Molding", "Base") to the Family page
+- [x] Add isTrimItem() helper in catalog.ts mirroring isAccessory() from design.ts
+- [x] Apply isTrimItem() in familyCatalog map: normalize trim items to category="accessory" so TYPE_FILTERS routes them to Accessories & Trim tab
+- [x] Extend trimDescPattern in design.ts isAccessory() to cover: shoe molding, flat base molding, square decorative leg, outside corner molding, touch-up, sample door, spray paint
+- [x] TypeScript check passes (0 errors); checkpoint saved

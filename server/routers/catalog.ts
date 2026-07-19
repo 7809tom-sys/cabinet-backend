@@ -24,6 +24,34 @@ import { rankDoorMatches, type DoorCandidate, type DoorVisionResult } from "@sha
 import { parsePriceAuditQuery } from "@shared/priceAuditLookup";
 import { filterStylesByAvailability } from "@shared/styleAvailability";
 
+// ─── Trim / accessory detection ──────────────────────────────────────────────
+// Mirrors the isAccessory() guard in design.ts so the Family page and the
+// designer palette agree on what counts as trim vs. a placeable cabinet.
+// Items that match are re-categorised to "accessory" before leaving the server
+// so the client TYPE_FILTERS always route them to the Accessories & Trim tab.
+function isTrimItem(r: {
+  category: string | null;
+  subCategory: string | null;
+  description: string | null;
+  placementType?: string | null;
+}): boolean {
+  const pt  = (r.placementType  || "").toLowerCase();
+  const cat = (r.category       || "").toLowerCase();
+  const sub = (r.subCategory    || "").toLowerCase();
+  const desc = (r.description   || "").toLowerCase();
+  if (pt.includes("accessory") || pt.includes("trim")) return true;
+  if (cat === "accessory") return true;
+  if (cat.includes("trim") || cat.includes("molding")) return true;
+  if (cat.includes("filler") || cat.includes("panel")) return true;
+  if (cat === "misc") return true;
+  if (sub.includes("moulding") || sub.includes("molding") || sub.includes("crown")) return true;
+  if (sub.includes("filler") || sub.includes("panel") || sub.includes("leg") || sub.includes("scribe")) return true;
+  if (sub.includes("rail") || sub.includes("rope") || sub.includes("cove") || sub.includes("skin")) return true;
+  const trimDescPattern = /\b(molding|moulding|scribe|light rail|crown|cove|rope|filler|end panel|skin panel|decorative leg|decorative panel|island panel|bead board|fluted filler|base filler|angle molding|inside corner molding|refrigerator end panel|shoe moulding|shoe molding|flat base molding|square decorative leg|outside corner molding|touch.?up|sample door|spray paint)\b/;
+  if (trimDescPattern.test(desc)) return true;
+  return false;
+}
+
 // ─── Supplier-identity scrubbing ───────────────────────────────────────────────
 // Cabinet Dealz never exposes the underlying supplier. These helpers strip any
 // supplier-identifying columns from rows before they leave a public procedure,
@@ -744,6 +772,10 @@ export const doorStylesRouter = router({
           })
         )
         .map((r) => {
+          // Normalise trim/molding/filler items to category="accessory" so the
+          // client TYPE_FILTERS always route them to the Accessories & Trim tab,
+          // regardless of which DB category the distributor originally assigned.
+          const normCategory = isTrimItem(r) ? "accessory" : r.category;
           // Cost base precedence (yourCost first) MUST match stylesForCabinet
           // so the Family page and the Cabinet Detail page price identically.
           const costRow = {
@@ -768,6 +800,9 @@ export const doorStylesRouter = router({
           );
           return {
             ...r,
+            // Override category so trim/molding/filler items always land in
+            // the Accessories & Trim tab on the Family page.
+            category: normCategory,
             listPrice: gated.listPrice,
             adjustedListPrice: gated.adjustedListPrice,
             wholesalePrice: gated.wholesalePrice,
