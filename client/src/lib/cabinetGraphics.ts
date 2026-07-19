@@ -62,11 +62,17 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   const code = lc(cab.masterCode ?? "");
   const w = toNum(cab.width);
 
-  // 1a) Drawers from the master code: DB-{width}-{drawers} e.g. DB-12-3 = 3 drawers.
-  // Also handles BD-{width}-{drawers} variant.
+  // 1a) Drawers from the master code:
+  //   DB-{width}-{drawers}  e.g. DB-12-3 = 3 drawers
+  //   BD-{width}-{drawers}  variant
+  //   {drawers}DB{width}     e.g. 2DB24 = 2 drawers (US Cabinet Depot style)
+  //   {drawers}DB-{width}    e.g. 3DB-24
   let drawers = 0;
   const codeDrawerMatch = code.match(/^(?:db|bd)[-_]\d+[-_](\d+)$/);
   if (codeDrawerMatch) drawers = parseInt(codeDrawerMatch[1], 10);
+  // {N}DB{width} format: leading digit(s) = drawer count
+  const ndbMatch = code.match(/^([2-6])db[-_]?\d/);
+  if (!codeDrawerMatch && ndbMatch) drawers = parseInt(ndbMatch[1], 10);
 
   // 1b) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
   // Use \b([1-6]) so SKU codes like "W3612" embedded in descriptions (e.g.
@@ -83,9 +89,9 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
     drawers = cab.numberOfDrawers ?? 0;
   }
 
-  // If this is a drawer-only base (DB-* or BD-* code), force doors=0 so the
-  // renderer never shows door panels — only the stacked drawer fronts.
-  const isDrawerOnlyCode = /^(?:db|bd)[-_]\d/.test(code);
+  // If this is a drawer-only base (DB-*, BD-*, or {N}DB{width} code), force doors=0
+  // so the renderer never shows door panels — only the stacked drawer fronts.
+  const isDrawerOnlyCode = /^(?:db|bd)[-_]\d/.test(code) || /^[2-6]db[-_]?\d/.test(code);
 
   // 2) Doors from the description first ("Single Door", "Double Door", "2 Door").
   // Use \b([1-6]) so SKU codes like "W3612" embedded in descriptions (e.g.
@@ -187,7 +193,7 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // resolver so the type matches the label (e.g. "3 Drawer Base").
   // Also detect by master code: DB-{width}-{drawers} or BD-{width}-{drawers}.
   const { doors, drawers } = resolveDoorDrawerCounts(cab);
-  if (/^(?:db|bd)[-_]\d/.test(code)) {
+  if (/^(?:db|bd)[-_]\d/.test(code) || /^[2-6]db[-_]?\d/.test(code)) {
     return "drawer-base";
   }
   if (/drawer base/.test(`${sub} ${desc}`) && doors === 0) {
