@@ -92,10 +92,29 @@ export const designRouter = router({
       // bill-of-materials add-ons. They live in their own "Accessories & Trim"
       // tab, never the drag-and-drop placement palette, so they can't leak into
       // a Base/Wall/Tall tab via the base-bucket fallback below.
-      const isAccessory = (r: { category: string | null; placementType: string | null }) => {
+      const isAccessory = (r: { category: string | null; placementType: string | null; description?: string | null; subCategory?: string | null }) => {
         const pt = (r.placementType || "").toLowerCase();
         const cat = (r.category || "").toLowerCase();
-        return cat === "accessory" || pt.includes("accessory") || pt.includes("trim");
+        const sub = (r.subCategory || "").toLowerCase();
+        const desc = (r.description || "").toLowerCase();
+        // Catch all trim/molding/filler/accessory categories across all cabinet lines.
+        // DB categories include: "Accessory", "Trim and Molding", "Filler's and Panels", "Misc"
+        // as well as placementType values like "accessory" and "trim".
+        if (pt.includes("accessory") || pt.includes("trim")) return true;
+        if (cat === "accessory") return true;
+        if (cat.includes("trim") || cat.includes("molding")) return true;
+        if (cat.includes("filler") || cat.includes("panel")) return true;
+        if (cat === "misc") return true;
+        // Many lines store trim items with category="Base" but their subCategory
+        // or description reveals they are trim/molding/filler/panel items.
+        if (sub.includes("moulding") || sub.includes("molding") || sub.includes("crown")) return true;
+        if (sub.includes("filler") || sub.includes("panel") || sub.includes("leg") || sub.includes("scribe")) return true;
+        if (sub.includes("rail") || sub.includes("rope") || sub.includes("cove") || sub.includes("skin")) return true;
+        // Description-based fallback: items whose description contains trim keywords
+        // but have no subCategory (e.g. ALRM, LRM, SCR, DCM, ICM, BF-*, BEP-*, etc.)
+        const trimDescPattern = /\b(molding|moulding|scribe|light rail|crown|cove|rope|filler|end panel|skin panel|decorative leg|decorative panel|island panel|bead board|fluted filler|base filler|angle molding|inside corner molding|refrigerator end panel)\b/;
+        if (trimDescPattern.test(desc)) return true;
+        return false;
       };
 
       // Accessory tab: return ONLY accessory/trim items. These are added to the
