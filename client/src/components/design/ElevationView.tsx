@@ -181,19 +181,13 @@ export function ElevationView({
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
-    // Resolve the door sample image URL for this cabinet (real door photo).
-    const cabDoorSampleUrl = !isAppliance && !isPanel && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
-    // Face fill: the CABINET BOX background (face frame). When a door sample
-    // image is available, the image is applied ONLY to individual door/drawer
-    // panels (not the full face). The box itself shows the face frame color.
-    // Panels get a wood-grain gradient to distinguish them from cabinet boxes.
+    // Door sample image URL — no longer used for rendering (flat color only).
+    const cabDoorSampleUrl: string | null = null;
+    // Face fill: the CABINET BOX background (face frame). Use flat color so
+    // the face frame matches the door panels exactly — no gradient, no texture.
     const faceFill = isAppliance
       ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
-      : isPanel
-        ? `linear-gradient(175deg, color-mix(in srgb, ${cabFinish.face} 95%, #ffffff) 0%, ${cabFinish.face} 40%, color-mix(in srgb, ${cabFinish.face} 82%, #000000) 100%)`
-        // Face frame: slightly lighter at top (light source above), darker at bottom.
-        // The door/drawer panels will overlay this with their own texture/color.
-        : `linear-gradient(175deg, color-mix(in srgb, ${cabFinish.face} 93%, #ffffff) 0%, ${cabFinish.face} 45%, color-mix(in srgb, ${cabFinish.face} 88%, #000000) 100%)`;
+      : cabFinish.face;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
@@ -1370,10 +1364,8 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
   // style (drawer fronts don't get raised/beaded treatments in this model),
   // except slab which stays flat.
   if (drawer) {
-    // Add backgroundColor as CSS fallback so if the image 404s the face color shows.
-    const drawerBg = doorSampleUrl
-      ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
-      : {};
+    // Flat solid color for drawer fronts.
+    const drawerBg = { backgroundColor: face };
     if (kind === "slab") {
       return (
         <div
@@ -1395,9 +1387,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
         <div
           className="absolute inset-[3px] rounded-[1px]"
           style={{
-            // drawerBg already has backgroundColor+backgroundImage fallback; no need to repeat.
             ...drawerBg,
-            background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #000) 0%, color-mix(in srgb, ${face} 97%, #000) 100%)`,
             boxShadow: `inset 0 2px 3px rgba(0,0,0,0.22), inset 0 -1px 0 rgba(255,255,255,0.18)`,
           }}
         />
@@ -1479,8 +1469,8 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
           <div
             className="absolute inset-[1.5px] rounded-[1px]"
             style={{
-              ...(doorSampleUrl ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
-              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 2px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}55`,
+              backgroundColor: face,
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 2px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}55`,
             }}
           />
         </div>
@@ -1730,12 +1720,8 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
 // the door edge to the panel (i.e. the rail width). `depth` tunes how deep the
 // panel reads. `raised` adds a central raised field (cathedral/raised-panel).
 function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { inset: number; face: string; edge: string; raised?: boolean; doorSampleUrl?: string | null }) {
-  // When doorSampleUrl is set but the image 404s, the browser silently shows
-  // transparent/default background. Adding backgroundColor as a CSS fallback
-  // ensures the face color shows through if the image fails to load.
-  const panelBg = doorSampleUrl
-    ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const }
-    : { background: `linear-gradient(160deg, color-mix(in srgb, ${face} 96%, #fff) 0%, ${face} 30%, color-mix(in srgb, ${face} 92%, #000) 100%)` };
+  // Flat solid color for the recessed panel — matches the face frame exactly.
+  const panelBg = { backgroundColor: face };
   return (
     <div
       className="absolute rounded-[1px]"
@@ -1751,8 +1737,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { i
         <div
           className="absolute inset-[4px] rounded-[1px]"
           style={{
-            background: doorSampleUrl ? undefined : `linear-gradient(160deg, color-mix(in srgb, ${face} 97%, #fff) 0%, ${face} 50%, color-mix(in srgb, ${face} 93%, #000) 100%)`,
-            ...(doorSampleUrl ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const } : {}),
+            backgroundColor: face,
             boxShadow: `0 1.5px 3px rgba(0,0,0,0.30), inset 1.5px 1.5px 0 rgba(255,255,255,0.35), inset -1px -1px 1px rgba(0,0,0,0.20)`,
           }}
         />
@@ -1775,13 +1760,12 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
   };
   switch (kind) {
     case "slab":
-      // Flat modern door: no panel, just a machined edge + soft top highlight.
-      // When a door sample is available, use it as the slab face.
+      // Flat modern door: no panel, just a flat color face.
       return (
         <div
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
-            ...(doorSampleUrl ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+            backgroundColor: face,
             boxShadow: `inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 4px rgba(0,0,0,0.18), 0 0 0 1px ${edge}55`,
           }}
         />
@@ -1812,10 +1796,8 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
           <div
             className="absolute inset-[5px] rounded-[1px]"
             style={{
+              backgroundColor: face,
               boxShadow: `inset 0 2px 5px rgba(0,0,0,0.28), 0 0 0 0.5px ${edge}77`,
-              ...(doorSampleUrl
-                ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
-                : { backgroundImage: `repeating-linear-gradient(90deg, color-mix(in srgb, ${face} 90%, #000) 0px, color-mix(in srgb, ${face} 90%, #000) 2px, color-mix(in srgb, ${face} 78%, #000) 2.5px, color-mix(in srgb, ${face} 90%, #000) 3px, color-mix(in srgb, ${face} 90%, #000) 4px)` }),
             }}
           />
         </div>

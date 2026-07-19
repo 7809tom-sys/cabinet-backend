@@ -1621,8 +1621,10 @@ const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: str
   { match: /evergreen fog|sw\s*9166|sw9166/, face: "#7a8c7e", edge: "#5a6a5e", label: "#f0f4f0", swName: "Evergreen Fog SW 9166" },
   // SW 6177 Pewter Green
   { match: /pewter green|sw\s*6177|sw6177/, face: "#6b7d6a", edge: "#4e5e4d", label: "#f0f4f0", swName: "Pewter Green SW 6177" },
-  // SW 2860 Sage — muted grey-green (used by Fresh Sage, Zenith Sage, Oxford Sage)
-  { match: /sw\s*2860|sw2860|fresh sage|zenith sage|oxford sage/, face: "#8b9190", edge: "#6a6f6e", label: "#1f2937", swName: "Sage SW 2860" },
+  // Faircrest Fresh Sage — medium sage green (#8FAF8A from DB)
+  { match: /fresh sage/, face: "#8FAF8A", edge: "#6a8a65", label: "#1f2937", swName: "Fresh Sage" },
+  // SW 2860 Sage — muted grey-green (used by Zenith Sage, Oxford Sage)
+  { match: /sw\s*2860|sw2860|zenith sage|oxford sage/, face: "#8b9190", edge: "#6a6f6e", label: "#1f2937", swName: "Sage SW 2860" },
   // SW 6191 Rosemary — medium sage green
   { match: /sw\s*6191|sw6191|rosemary|zephyr sage/, face: "#7a8c7e", edge: "#5a6a5e", label: "#f0f4f0", swName: "Rosemary SW 6191" },
   // ── GENERIC COLOR FAMILIES (fallback when no specific SW name matches) ────
