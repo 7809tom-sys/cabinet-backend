@@ -28,10 +28,203 @@ import {
   Search,
   X,
   Layers,
+  Tag,
+  Sparkles,
 } from "lucide-react";
+
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+
+const VALID_CATEGORIES = ["Base", "Wall", "Tall", "ADA", "Vanity", "Accessory"] as const;
+
+// ─── RecognitionPanel: resolve unknown categories & unmatched codes ──────────
+
+function RecognitionPanel({
+  unknownCategories,
+  unmatchedCodes,
+  distributorId,
+  onAliasResolved,
+  onCodeAssigned,
+}: {
+  unknownCategories: string[];
+  unmatchedCodes: string[];
+  distributorId: number | null;
+  onAliasResolved: (raw: string, platform: string) => void;
+  onCodeAssigned: (code: string, cabinetId: number, label: string) => void;
+}) {
+  const [aliasSelections, setAliasSelections] = useState<Record<string, string>>({});
+  const [savedAliases, setSavedAliases] = useState<Set<string>>(new Set());
+  const [assignedCodes, setAssignedCodes] = useState<Set<string>>(new Set());
+  const [openPopover, setOpenPopover] = useState<string | null>(null);
+  const [searchQ, setSearchQ] = useState<Record<string, string>>({});
+  const saveAliasMut = trpc.distributorAdmin.adminSaveCategoryAlias.useMutation();
+
+  const pendingCategories = unknownCategories.filter((c) => !savedAliases.has(c));
+  const pendingCodes = unmatchedCodes.filter((c) => !assignedCodes.has(c));
+
+  if (pendingCategories.length === 0 && pendingCodes.length === 0) return null;
+
+  return (
+    <div className="space-y-3 mb-3">
+      {/* Unknown category aliases */}
+      {pendingCategories.length > 0 && (
+        <div className="rounded-lg border border-blue-300 bg-blue-50/60 dark:bg-blue-950/20 dark:border-blue-700 p-3">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">
+            <Tag className="h-4 w-4" />
+            {pendingCategories.length} unknown categor{pendingCategories.length !== 1 ? "ies" : "y"} — save aliases to auto-map on future imports
+          </p>
+          <div className="space-y-2">
+            {pendingCategories.map((raw) => (
+              <div key={raw} className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-200 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-700">
+                  {raw}
+                </span>
+                <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                <Select
+                  value={aliasSelections[raw] ?? ""}
+                  onValueChange={(v) => setAliasSelections((p) => ({ ...p, [raw]: v }))}
+                >
+                  <SelectTrigger className="h-7 w-36 text-xs">
+                    <SelectValue placeholder="Pick category…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VALID_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat} className="text-xs">{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs px-3"
+                  disabled={!aliasSelections[raw] || saveAliasMut.isPending}
+                  onClick={async () => {
+                    const platform = aliasSelections[raw];
+                    if (!platform) return;
+                    try {
+                      await saveAliasMut.mutateAsync({
+                        rawCategory: raw,
+                        platformCategory: platform,
+                        distributorId: distributorId ?? null,
+                      });
+                      setSavedAliases((p) => new Set(Array.from(p).concat(raw)));
+                      onAliasResolved(raw, platform);
+                      toast.success(`Alias saved: "${raw}" → ${platform}`);
+                    } catch (e: any) {
+                      toast.error(`Failed to save alias: ${e?.message ?? "Unknown error"}`);
+                    }
+                  }}
+                >
+                  Save Alias
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Unmatched master codes */}
+      {pendingCodes.length > 0 && (
+        <div className="rounded-lg border border-orange-300 bg-orange-50/60 dark:bg-orange-950/20 dark:border-orange-700 p-3">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-orange-800 dark:text-orange-200 mb-2">
+            <Sparkles className="h-4 w-4" />
+            {pendingCodes.length} unmatched code{pendingCodes.length !== 1 ? "s" : ""} — assign to master cabinets to resolve all matching rows at once
+          </p>
+          <div className="space-y-2">
+            {pendingCodes.slice(0, 20).map((code) => (
+              <div key={code} className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-xs bg-orange-100 dark:bg-orange-900/40 text-orange-900 dark:text-orange-200 px-2 py-0.5 rounded border border-orange-200 dark:border-orange-700">
+                  {code}
+                </span>
+                <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                <Popover
+                  open={openPopover === code}
+                  onOpenChange={(o) => setOpenPopover(o ? code : null)}
+                >
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium border border-dashed border-orange-400 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+                    >
+                      <Search className="h-3 w-3" />
+                      Assign master…
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-2" align="start">
+                    <p className="text-xs text-muted-foreground mb-1.5">Search and pick the master cabinet for <span className="font-mono font-medium">{code}</span></p>
+                    <UnmatchedCodeSearch
+                      code={code}
+                      q={searchQ[code] ?? ""}
+                      onQChange={(v) => setSearchQ((p) => ({ ...p, [code]: v }))}
+                      onSelect={(cabId, label) => {
+                        setAssignedCodes((p) => new Set(Array.from(p).concat(code)));
+                        setOpenPopover(null);
+                        onCodeAssigned(code, cabId, label);
+                        toast.success(`"${code}" → ${label} — all matching rows updated`);
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ))}
+            {pendingCodes.length > 20 && (
+              <p className="text-xs text-muted-foreground">…and {pendingCodes.length - 20} more. Use the per-row assign buttons in the table below for the rest.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UnmatchedCodeSearch({
+  code,
+  q,
+  onQChange,
+  onSelect,
+}: {
+  code: string;
+  q: string;
+  onQChange: (v: string) => void;
+  onSelect: (cabinetId: number, label: string) => void;
+}) {
+  const { data: results, isFetching } = trpc.genericCabinets.searchForMatch.useQuery(
+    { q: q || code },
+    { enabled: true }
+  );
+  return (
+    <div>
+      <Input
+        autoFocus
+        placeholder="Search cabinets…"
+        value={q}
+        onChange={(e) => onQChange(e.target.value)}
+        className="h-7 text-xs mb-1.5"
+      />
+      {isFetching && <p className="py-2 text-center text-xs text-muted-foreground">Searching…</p>}
+      {!isFetching && results && results.length === 0 && (
+        <p className="py-2 text-center text-xs text-muted-foreground">No results</p>
+      )}
+      <ul className="max-h-48 overflow-auto space-y-0.5">
+        {results?.map((cab) => (
+          <li key={cab.id}>
+            <button
+              type="button"
+              className="w-full rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+              onClick={() => onSelect(cab.id, cab.masterCode)}
+            >
+              <span className="font-mono font-medium">{cab.masterCode}</span>
+              {cab.description && (
+                <span className="ml-1.5 text-muted-foreground">{cab.description}</span>
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 // ─── BulkAssignBar: floating action bar for multi-row cabinet assignment ───────
 
@@ -1104,6 +1297,28 @@ export default function DistributorImport() {
                       </p>
                     </div>
                   )}
+
+                  {/* Recognition panel — resolve unknown categories & unmatched codes */}
+                  <RecognitionPanel
+                    unknownCategories={(xlsxResult as any).unknownCategories ?? []}
+                    unmatchedCodes={(xlsxResult as any).unmatchedCodes ?? []}
+                    distributorId={distributorId ? Number(distributorId) : null}
+                    onAliasResolved={(_raw, _platform) => {
+                      // Alias saved — user can re-run preview to see updated matches
+                    }}
+                    onCodeAssigned={(code, cabinetId, _label) => {
+                      // Apply the assignment to all rows with this code
+                      setMatchOverrides((prev) => {
+                        const next = { ...prev };
+                        (xlsxResult?.previewRows ?? []).forEach((row) => {
+                          if ((row as any).rawCode === code || (row as any).code === code) {
+                            next[row.rowNum] = cabinetId;
+                          }
+                        });
+                        return next;
+                      });
+                    }}
+                  />
 
                   {/* Bulk-assign action bar — shown when rows are selected */}
                   <BulkAssignBar
