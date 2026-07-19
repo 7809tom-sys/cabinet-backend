@@ -74,6 +74,8 @@ interface Props {
   onMoveVertical?: (uid: string, mountBottom: number) => void;
   // When true, cabinets cannot be dragged (locked layout).
   moveLocked?: boolean;
+  // Hardware accent color (e.g. gold, chrome, matte black). Defaults to gold/brass.
+  hardwareAccent?: string;
 }
 
 export function ElevationView({
@@ -83,6 +85,7 @@ export function ElevationView({
   hardwareStyleId = null,
   finishFor, panelKindFor, doorSampleUrlFor, seamCabinets = [],
   onMove, onMoveVertical, moveLocked = false,
+  hardwareAccent = "#C9A84C",
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
@@ -273,7 +276,7 @@ export function ElevationView({
               drawers={resolvedCounts.drawers || drawerCountForCabinet(p)}
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
-              accent="#C9A84C"
+              accent={hardwareAccent}
               handleSide={
                 p.handleSide === "left" || p.handleSide === "right"
                   ? p.handleSide
@@ -611,7 +614,7 @@ export function ElevationView({
                   style={{
                     left: (r.start - OVERHANG_IN) * ppi,
                     width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
-                    bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                    bottom: STD.BASE_HEIGHT * ppi,
                     height: THICKNESS_IN * ppi,
                     // Polished stone slab: a glossy highlight streak across the
                     // front nosing plus subtle speckle tint from the material.
@@ -690,7 +693,7 @@ export function ElevationView({
             microwave/bridge render on top at higher z-index. */}
         {backsplashMaterialId && (() => {
           const bsMat = backsplashMaterial(backsplashMaterialId);
-          const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS; // ~37.5"
+          const BACKSPLASH_BOTTOM = STD.BASE_HEIGHT + STD.COUNTERTOP_THICKNESS; // 36" (top of countertop)
           const BACKSPLASH_STD_HEIGHT = 18; // standard backsplash is 18" tall
           const BACKSPLASH_DEFAULT_TOP = BACKSPLASH_BOTTOM + BACKSPLASH_STD_HEIGHT; // 55.5"
           // Behind a range, stretch backsplash up to wall cabinet bottom (54")
@@ -914,7 +917,7 @@ export function ElevationView({
           const slabFill = `linear-gradient(180deg, color-mix(in srgb, ${ct.fill} 82%, #ffffff) 0%, ${ct.fill} 45%, color-mix(in srgb, ${ct.fill} 88%, #000000) 100%)`;
           const thickPx = Math.max(2, STD.COUNTERTOP_THICKNESS * ppi);
           return sorted
-            .filter((p) => p.placement === "base" && p.cabinetId !== 0)
+            .filter((p) => p.placement === "base" && p.cabinetId !== 0 && bearsCountertop(p))
             .map((p) => {
               const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
               const posAlong = horizontal ? p.x : p.y;
@@ -925,7 +928,7 @@ export function ElevationView({
                   style={{
                     left: posAlong * ppi - 1,
                     width: sizeAlong * ppi + 2,
-                    bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                    bottom: STD.BASE_HEIGHT * ppi,
                     height: thickPx,
                     background: slabFill,
                     borderBottom: `1px solid ${ct.edge}`,
@@ -961,7 +964,7 @@ export function ElevationView({
               className="absolute pointer-events-none"
               style={{
                 left: centerX - svgW / 2,
-                bottom: (STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi,
+                bottom: (STD.BASE_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi,
                 width: svgW,
                 height: svgH,
                 overflow: "visible",
@@ -988,7 +991,7 @@ export function ElevationView({
           const posAlong = horizontal ? p.x : p.y;
           // Apron sits from floor (toe kick height) up to countertop bottom
           const apronBottom = toeKick ? TOE_KICK_HEIGHT_IN : 0;
-          const apronTop = STD.COUNTERTOP_HEIGHT; // 34.5"
+          const apronTop = STD.BASE_HEIGHT; // 34.5" — countertop bottom
           const apronH = apronTop - apronBottom;
           const apronPxH = apronH * ppi;
           const apronPxW = sizeAlong * ppi;

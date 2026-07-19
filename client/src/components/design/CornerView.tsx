@@ -44,6 +44,7 @@ interface Props {
   finishFor?: (cab: PlacedCabinet) => FinishColors;
   panelKindFor?: (cab: PlacedCabinet) => DoorPanelKind;
   doorSampleUrlFor?: (cab: PlacedCabinet) => string | null;
+  hardwareAccent?: string;
 }
 
 export function CornerView({
@@ -52,6 +53,7 @@ export function CornerView({
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", hardwareStyleId = null,
   finishFor, panelKindFor, doorSampleUrlFor,
+  hardwareAccent = "#C9A84C",
 }: Props) {
   const { t } = useLanguage();
   const isMobile = useIsMobile();
@@ -81,7 +83,7 @@ export function CornerView({
   const sharedProps = {
     room, cabinets, selectedUid, onSelect,
     countertopMaterialId, openings, finish, crown, toeKick, batten, lightRail, panelKind, hardwareStyleId,
-    finishFor, panelKindFor, doorSampleUrlFor,
+    finishFor, panelKindFor, doorSampleUrlFor, hardwareAccent,
   };
 
   return (

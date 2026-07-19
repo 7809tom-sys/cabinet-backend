@@ -315,7 +315,7 @@ export function IslandElevationView({
     const cabDoorSampleUrl = !isAppliance && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
     const faceFill = isAppliance
       ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
-      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
+      : cabFinish.face;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
     const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
@@ -333,8 +333,8 @@ export function IslandElevationView({
           bottom: bottom * ppi,
           height: height * ppi,
           background: faceFill,
-          border: isSelected ? "2px solid #1a2744" : `1px solid ${edgeColor}`,
-          borderRadius: 2,
+          border: isSelected ? "2px solid #1a2744" : "none",
+          borderRadius: 0,
           boxShadow: isSelected
             ? "0 0 0 3px rgba(212,167,90,0.55), 0 6px 14px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 10px rgba(0,0,0,0.16)"
             : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
@@ -505,7 +505,7 @@ export function IslandElevationView({
                     style={{
                       left: cabPosAlong * ppi,
                       width: cabSizeAlong * ppi,
-                      bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                      bottom: STD.BASE_HEIGHT * ppi,
                       height: thickPx,
                       background: slabFill,
                       borderTop: `1px solid color-mix(in srgb, ${ct.fill} 60%, #ffffff)`,
@@ -550,7 +550,7 @@ export function IslandElevationView({
                     style={{
                       left: (r.start - OVERHANG_IN) * ppi,
                       width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
-                      bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                      bottom: STD.BASE_HEIGHT * ppi,
                       height: THICKNESS_IN * ppi,
                       background: mat.speckle
                         ? `linear-gradient(180deg, color-mix(in srgb, ${mat.fill} 80%, #ffffff) 0%, ${mat.fill} 45%, color-mix(in srgb, ${mat.fill} 90%, #000000) 100%)`
@@ -666,7 +666,7 @@ export function IslandElevationView({
                 className="absolute pointer-events-none"
                 style={{
                   left: centerX - svgW / 2,
-                  bottom: (STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi,
+                  bottom: (STD.BASE_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi,
                   width: svgW,
                   height: svgH,
                   overflow: "visible",
@@ -686,7 +686,7 @@ export function IslandElevationView({
             const cabSizeAlong = sizeAlong(p);
             const cabPosAlong = posAlong(p);
             const apronBottom = toeKick ? TOE_KICK_HEIGHT_IN : 0;
-            const apronTop = STD.COUNTERTOP_HEIGHT;
+            const apronTop = STD.BASE_HEIGHT; // 34.5" — countertop bottom
             const apronH = apronTop - apronBottom;
             const apronPxH = apronH * ppi;
             const apronPxW = cabSizeAlong * ppi;

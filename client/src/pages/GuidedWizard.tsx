@@ -3,8 +3,8 @@
  *
  * A 3-step wizard that helps new users pick:
  *   Step 1 — Room type (Kitchen, Bathroom, Laundry, Closet, Other)
- *   Step 2 — Door style (featured active styles with thumbnails)
- *   Step 3 — Color / finish (from the chosen style's available colors)
+ *   Step 2 — Door style (ALL active styles from all cabinet companies, grouped by company)
+ *   Step 3 — Confirm & launch
  *
  * On completion, writes a cd_wizard_handoff key to sessionStorage and
  * navigates to /design?style=<id>&room=<type> so the Design Tool can
@@ -17,6 +17,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useSeo } from "@/hooks/useSeo";
 import {
   ChefHat,
@@ -28,6 +29,7 @@ import {
   ArrowRight,
   Check,
   Sparkles,
+  Search,
 } from "lucide-react";
 import type { RoomType } from "@/lib/design";
 
@@ -138,29 +140,70 @@ export default function GuidedWizard() {
   const [step, setStep] = useState(1);
   const [roomType, setRoomType] = useState<RoomType | null>(null);
   const [styleId, setStyleId] = useState<number | null>(null);
+  const [styleSearch, setStyleSearch] = useState("");
 
   const { data: styles, isLoading: stylesLoading } = trpc.doorStyles.list.useQuery(undefined, {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Only show featured styles in the wizard; fall back to all active styles if none are featured
-  const wizardStyles = useMemo(() => {
+  const { data: distributorList } = trpc.distributors.list.useQuery(undefined, {
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Map distributorId → display name
+  const distributorMap = useMemo(() => {
+    const m = new Map<number, string>();
+    (distributorList ?? []).forEach((d) => m.set(d.id, d.name));
+    return m;
+  }, [distributorList]);
+
+  // All styles, sorted: featured first (by rank), then alphabetical by name
+  const allStyles = useMemo(() => {
     if (!styles) return [];
-    const featured = styles.filter((s) => s.isFeatured);
-    return featured.length > 0 ? featured.sort((a, b) => (a.featuredRank ?? 999) - (b.featuredRank ?? 999)) : styles.slice(0, 12);
+    return [...styles].sort((a, b) => {
+      if (a.isFeatured && !b.isFeatured) return -1;
+      if (!a.isFeatured && b.isFeatured) return 1;
+      if (a.isFeatured && b.isFeatured) return (a.featuredRank ?? 999) - (b.featuredRank ?? 999);
+      const nameA = (a.aliasName || a.ourName || a.styleCode).toLowerCase();
+      const nameB = (b.aliasName || b.ourName || b.styleCode).toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
   }, [styles]);
 
-  const selectedStyle = useMemo(
-    () => wizardStyles.find((s) => s.id === styleId) ?? null,
-    [wizardStyles, styleId]
-  );
+  // Filter by search query
+  const filteredStyles = useMemo(() => {
+    const q = styleSearch.trim().toLowerCase();
+    if (!q) return allStyles;
+    return allStyles.filter((s) => {
+      const name = (s.aliasName || s.ourName || s.styleCode).toLowerCase();
+      const color = (s.color ?? "").toLowerCase();
+      const doorStyle = (s.doorStyle ?? "").toLowerCase();
+      const finish = (s.finish ?? "").toLowerCase();
+      return name.includes(q) || color.includes(q) || doorStyle.includes(q) || finish.includes(q);
+    });
+  }, [allStyles, styleSearch]);
 
-  // Unique colors/finishes for the selected style — in a real multi-style catalog
-  // each style IS a color, so step 3 just confirms the selection.
-  const colorOptions = useMemo(() => {
-    if (!selectedStyle) return [];
-    return [selectedStyle]; // single-style confirmation step
-  }, [selectedStyle]);
+  // Group filtered styles by distributorId
+  const groupedStyles = useMemo(() => {
+    const groups = new Map<number, typeof filteredStyles>();
+    filteredStyles.forEach((s) => {
+      const did = s.distributorId;
+      if (!groups.has(did)) groups.set(did, []);
+      groups.get(did)!.push(s);
+    });
+    // Sort groups: the one with most featured styles first, then by group size
+    return Array.from(groups.entries()).sort(([, a], [, b]) => {
+      const aFeat = a.filter((s) => s.isFeatured).length;
+      const bFeat = b.filter((s) => s.isFeatured).length;
+      if (aFeat !== bFeat) return bFeat - aFeat;
+      return b.length - a.length;
+    });
+  }, [filteredStyles]);
+
+  const selectedStyle = useMemo(
+    () => allStyles.find((s) => s.id === styleId) ?? null,
+    [allStyles, styleId]
+  );
 
   function handleFinish() {
     if (!roomType || !styleId) return;
@@ -172,7 +215,7 @@ export default function GuidedWizard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/30">
-      <div className="container max-w-4xl py-12">
+      <div className="container max-w-5xl py-12">
         {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-4">
@@ -249,64 +292,117 @@ export default function GuidedWizard() {
             <h2 className="text-xl font-semibold text-center mb-2">
               Pick a door style you love
             </h2>
-            <p className="text-center text-muted-foreground text-sm mb-6">
-              Each style has its own cabinet lineup with trade pricing built in.
+            <p className="text-center text-muted-foreground text-sm mb-5">
+              Browse all styles and colors from our cabinet companies. Each style has trade pricing built in.
             </p>
 
+            {/* Search */}
+            <div className="relative max-w-sm mx-auto mb-6">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search by name, color, or style…"
+                value={styleSearch}
+                onChange={(e) => setStyleSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
             {stylesLoading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {Array.from({ length: 8 }).map((_, i) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {Array.from({ length: 12 }).map((_, i) => (
                   <Skeleton key={i} className="aspect-[4/3] rounded-xl" />
                 ))}
               </div>
+            ) : filteredStyles.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No styles match "{styleSearch}"</p>
+                <button
+                  onClick={() => setStyleSearch("")}
+                  className="mt-2 text-sm text-primary hover:underline"
+                >
+                  Clear search
+                </button>
+              </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {wizardStyles.map((style) => {
-                  const selected = styleId === style.id;
-                  const img = style.thumbnailImageUrl || style.doorSampleImageUrl || style.roomSceneImageUrl;
-                  const label = style.aliasName || style.ourName || style.styleCode;
+              <div className="space-y-8">
+                {groupedStyles.map(([distributorId, groupStyles]) => {
+                  const companyName = distributorMap.get(distributorId) ?? `Collection ${distributorId}`;
                   return (
-                    <button
-                      key={style.id}
-                      onClick={() => setStyleId(style.id)}
-                      className={`group relative rounded-xl border-2 overflow-hidden transition-all duration-200 ${
-                        selected
-                          ? "border-primary shadow-lg shadow-primary/10 scale-[1.02]"
-                          : "border-border hover:border-primary/40 hover:shadow-md"
-                      }`}
-                    >
-                      {selected && (
-                        <div className="absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
-                          <Check className="h-3.5 w-3.5" />
+                    <div key={distributorId}>
+                      {/* Company header — only show when there are multiple companies */}
+                      {groupedStyles.length > 1 && (
+                        <div className="flex items-center gap-3 mb-4">
+                          <h3 className="text-sm font-semibold text-foreground">{companyName}</h3>
+                          <div className="flex-1 h-px bg-border" />
+                          <span className="text-xs text-muted-foreground">{groupStyles.length} style{groupStyles.length !== 1 ? "s" : ""}</span>
                         </div>
                       )}
-                      {style.isFeatured && style.featuredLabel && (
-                        <div className="absolute top-2 left-2 z-10">
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
-                            {style.featuredLabel}
-                          </Badge>
-                        </div>
-                      )}
-                      <div className="aspect-[4/3] bg-muted overflow-hidden">
-                        {img ? (
-                          <img
-                            src={img}
-                            alt={label}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
-                            No image
-                          </div>
-                        )}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {groupStyles.map((style) => {
+                          const selected = styleId === style.id;
+                          const img = style.thumbnailImageUrl || style.doorSampleImageUrl || style.roomSceneImageUrl;
+                          const label = style.aliasName || style.ourName || style.styleCode;
+                          return (
+                            <button
+                              key={style.id}
+                              onClick={() => setStyleId(style.id)}
+                              className={`group relative rounded-xl border-2 overflow-hidden transition-all duration-200 ${
+                                selected
+                                  ? "border-primary shadow-lg shadow-primary/10 scale-[1.02]"
+                                  : "border-border hover:border-primary/40 hover:shadow-md"
+                              }`}
+                            >
+                              {selected && (
+                                <div className="absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                                  <Check className="h-3.5 w-3.5" />
+                                </div>
+                              )}
+                              {style.isFeatured && style.featuredLabel && (
+                                <div className="absolute top-2 left-2 z-10">
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                                    {style.featuredLabel}
+                                  </Badge>
+                                </div>
+                              )}
+                              {style.isBuilderGrade && (
+                                <div className="absolute top-2 left-2 z-10">
+                                  <Badge className="text-[10px] px-1.5 py-0.5 bg-amber-500 text-white border-0">
+                                    Value
+                                  </Badge>
+                                </div>
+                              )}
+                              <div className="aspect-[4/3] bg-muted overflow-hidden">
+                                {img ? (
+                                  <img
+                                    src={img}
+                                    alt={label}
+                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                  />
+                                ) : style.color ? (
+                                  <div
+                                    className="h-full w-full"
+                                    style={{ backgroundColor: style.color }}
+                                  />
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">
+                                    No image
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-2.5 bg-background">
+                                <div className="font-medium text-sm text-foreground truncate">{label}</div>
+                                {(style.color || style.doorStyle) && (
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {[style.doorStyle, style.color].filter(Boolean).join(" · ")}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="p-2.5 bg-background">
-                        <div className="font-medium text-sm text-foreground truncate">{label}</div>
-                        {style.color && (
-                          <div className="text-xs text-muted-foreground truncate">{style.color}</div>
-                        )}
-                      </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -374,6 +470,8 @@ export default function GuidedWizard() {
                         alt=""
                         className="h-full w-full object-cover"
                       />
+                    ) : selectedStyle.color ? (
+                      <div className="h-full w-full" style={{ backgroundColor: selectedStyle.color }} />
                     ) : (
                       <div className="h-full w-full bg-muted" />
                     )}
@@ -383,8 +481,10 @@ export default function GuidedWizard() {
                     <div className="font-medium truncate">
                       {selectedStyle.aliasName || selectedStyle.ourName || selectedStyle.styleCode}
                     </div>
-                    {selectedStyle.color && (
-                      <div className="text-xs text-muted-foreground">{selectedStyle.color}</div>
+                    {(selectedStyle.color || selectedStyle.doorStyle) && (
+                      <div className="text-xs text-muted-foreground">
+                        {[selectedStyle.doorStyle, selectedStyle.color].filter(Boolean).join(" · ")}
+                      </div>
                     )}
                   </div>
                   <button

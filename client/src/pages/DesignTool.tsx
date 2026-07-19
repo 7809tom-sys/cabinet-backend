@@ -537,6 +537,8 @@ export default function DesignTool() {
   // not a priced catalog SKU: it draws on the fronts and lists a piece count on
   // the build sheet as a note. Defaults to "none".
   const [hardwareStyleId, setHardwareStyleId] = useState<HardwareStyleId>(DEFAULT_HARDWARE_STYLE_ID);
+  // Hardware accent color for elevation view rendering (gold, chrome, black, nickel, bronze).
+  const [hardwareAccent, setHardwareAccent] = useState<string>("#C9A84C");
 
   // Wall cabinet height room setting: 42", 36", or 30" (default). This is a
   // room-level preference that determines the height of wall cabinets placed
@@ -4904,6 +4906,53 @@ export default function DesignTool() {
               </SheetHeader>
               <div className="flex-1 overflow-y-auto overscroll-contain p-3" style={{ WebkitOverflowScrolling: "touch" }}>
                 <p className="mb-3 text-xs text-muted-foreground">Choose the hardware style for doors and drawers. This is a finishing spec — hardware is not priced in the catalog.</p>
+
+                {/* Hardware finish color */}
+                {hardwareStyleId !== "none" && (
+                  <div className="mb-4">
+                    <div className="text-xs font-semibold text-foreground mb-2">Hardware Finish</div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { label: "Gold / Brass", color: "#C9A84C" },
+                        { label: "Brushed Nickel", color: "#A8A9AD" },
+                        { label: "Chrome", color: "#D4D4D4" },
+                        { label: "Matte Black", color: "#2A2A2A" },
+                        { label: "Oil-Rubbed Bronze", color: "#4A3728" },
+                        { label: "Satin Brass", color: "#B8963E" },
+                      ].map((finish) => (
+                        <button
+                          key={finish.color}
+                          title={finish.label}
+                          onClick={() => setHardwareAccent(finish.color)}
+                          className={`relative h-8 w-8 rounded-full border-2 transition-all ${
+                            hardwareAccent === finish.color
+                              ? "border-primary scale-110 shadow-md"
+                              : "border-border hover:border-primary/50 hover:scale-105"
+                          }`}
+                          style={{ backgroundColor: finish.color }}
+                        >
+                          {hardwareAccent === finish.color && (
+                            <span className="absolute inset-0 flex items-center justify-center">
+                              <Check className={`h-3.5 w-3.5 ${finish.color === "#D4D4D4" || finish.color === "#A8A9AD" ? "text-gray-700" : "text-white"}`} />
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-1.5 text-[11px] text-muted-foreground">
+                      {[
+                        { label: "Gold / Brass", color: "#C9A84C" },
+                        { label: "Brushed Nickel", color: "#A8A9AD" },
+                        { label: "Chrome", color: "#D4D4D4" },
+                        { label: "Matte Black", color: "#2A2A2A" },
+                        { label: "Oil-Rubbed Bronze", color: "#4A3728" },
+                        { label: "Satin Brass", color: "#B8963E" },
+                      ].find((f) => f.color === hardwareAccent)?.label ?? "Custom"}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs font-semibold text-foreground mb-2">Hardware Style</div>
                 <div className="space-y-2">
                   {HARDWARE_STYLES.map((h) => (
                     <button
@@ -6305,6 +6354,7 @@ export default function DesignTool() {
               lightRail={lightRail}
               panelKind={activePanelKind}
               hardwareStyleId={hardwareStyleId}
+              hardwareAccent={hardwareAccent}
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
               doorSampleUrlFor={doorSampleForCab}

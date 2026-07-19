@@ -212,9 +212,6 @@ describe("cabinetDrawingType — real cabinet families never become accessory st
   });
 
   it("B-18 'Single Door Single Drawer Base ... with Adjustable Shelf' classifies as a real cabinet when category is carried (placed-cabinet regression)", () => {
-    // Regression: a PlacedCabinet built from the palette now carries `category`,
-    // so the selected-cabinet preview no longer mislabels a normal base box as
-    // "accessory / trim" just because its description mentions "Shelf".
     const placed: CabinetLike = {
       masterCode: "B-18",
       description: '18" Single Door Single Drawer Base Cabinet with Adjustable Shelf',
@@ -257,17 +254,14 @@ describe("cabinetDrawingType — real cabinet families never become accessory st
 });
 
 describe("door-count agreement: label + drawing follow the description, not a wrong subCategory", () => {
-  // Reported bug: a single-door wall whose subCategory is mislabeled
-  // "Double Door Wall". The drawing, the resolved count, and the visible
-  // tag must all agree on ONE door.
   it("single-door wall mislabeled 'Double Door Wall' resolves to 1 door + 'Single Door Wall'", () => {
     const cab: CabinetLike = {
       masterCode: "W-12-30",
       description: '12" Single Door Wall Cabinet',
       category: "Wall",
-      subCategory: "Double Door Wall", // <- wrong catalog tag
+      subCategory: "Double Door Wall",
       width: "12",
-      numberOfDoors: 2, // <- wrong numeric field too
+      numberOfDoors: 2,
       numberOfDrawers: 0,
     };
     expect(resolveDoorDrawerCounts(cab).doors).toBe(1);
@@ -291,7 +285,7 @@ describe("door-count agreement: label + drawing follow the description, not a wr
   it("label tracks the same door count the drawing uses (no description hint -> width fallback)", () => {
     const cab: CabinetLike = {
       masterCode: "W-18-30",
-      description: '18" Wall Cabinet', // no door word -> width<24 => 1 door
+      description: '18" Wall Cabinet',
       category: "Wall",
       subCategory: "Double Door Wall",
       width: "18",
@@ -304,8 +298,6 @@ describe("door-count agreement: label + drawing follow the description, not a wr
   });
 
   it("SKU codes embedded in description (e.g. 'W3612 Door') are not parsed as door counts", () => {
-    // W361224: description mentions 'W3612 Door' and 'W1236 Door Set' — old regex
-    // matched '3612' as the door count, rendering 3612 side-by-side door panels.
     const cab: CabinetLike = {
       masterCode: "W361224",
       description: 'Wall Refrigerator Cabinet - 36"W X 12"H X 24"D - 2D,Same Box With W3612 Door. Can Use W1236 Door Set.',
@@ -413,10 +405,6 @@ describe("baseSubGroup (designer Base tab ordering)", () => {
     ).toBe("specialty");
   });
 
-  // Regression: a standard door base whose DESCRIPTION contains the substring
-  // "...Single Drawer Base Cabinet" must NOT be mistaken for a drawer base. These
-  // are the regular bases (B-12..B-42) that were wrongly hidden under the Drawer
-  // Bases group instead of the Base Cabinets group.
   it("classifies a door + single drawer base as base (not drawer)", () => {
     expect(
       baseSubGroup({
@@ -430,9 +418,6 @@ describe("baseSubGroup (designer Base tab ordering)", () => {
     ).toBe("base");
   });
 
-  // Regression: some rows are mis-tagged subCategory="Drawer Base" but are really
-  // single-door full-height bases (BFH-12/15/18). A real drawer base has 0 doors,
-  // so a 1-door box tagged "Drawer Base" must still land in the base group.
   it("classifies a single-door base mis-tagged subCategory=Drawer Base as base", () => {
     expect(
       baseSubGroup({
@@ -456,5 +441,66 @@ describe("baseSubGroup (designer Base tab ordering)", () => {
         numberOfDrawers: 2,
       }),
     ).toBe("sink");
+  });
+});
+
+describe("resolveDoorDrawerCounts — DB/BD code-based drawer count parsing", () => {
+  it("parses DB-12-3 as 3 drawers even when numberOfDrawers is 0", () => {
+    const { drawers, doors } = resolveDoorDrawerCounts({
+      masterCode: "DB-12-3",
+      description: "Drawer Base 12",
+      category: "Base",
+      subCategory: "Drawer Base",
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    });
+    expect(drawers).toBe(3);
+    expect(doors).toBe(0);
+  });
+
+  it("parses DB-24-2 as 2 drawers", () => {
+    const { drawers } = resolveDoorDrawerCounts({
+      masterCode: "DB-24-2",
+      description: "Drawer Base 24",
+      category: "Base",
+      subCategory: "Drawer Base",
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    });
+    expect(drawers).toBe(2);
+  });
+
+  it("parses BD-15-3 as 3 drawers", () => {
+    const { drawers } = resolveDoorDrawerCounts({
+      masterCode: "BD-15-3",
+      description: "Drawer Base 15",
+      category: "Base",
+      subCategory: "Drawer Base",
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    });
+    expect(drawers).toBe(3);
+  });
+
+  it("classifies DB-12-3 as drawer-base drawing type even without numberOfDrawers", () => {
+    expect(cabinetDrawingType({
+      masterCode: "DB-12-3",
+      description: "Drawer Base 12",
+      category: "Base",
+      subCategory: "Drawer Base",
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    })).toBe("drawer-base");
+  });
+
+  it("parses DB-36-3 as 3 drawers", () => {
+    const { drawers } = resolveDoorDrawerCounts({
+      masterCode: "DB-36-3",
+      description: "Drawer Base 36",
+      category: "Base",
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    });
+    expect(drawers).toBe(3);
   });
 });

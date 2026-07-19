@@ -1078,3 +1078,4 @@
 - [x] Fix over-fridge cabinet rendering bug: resolveDoorDrawerCounts regex matched SKU codes (e.g. "W3612 Door" in description → doors=3612). Fixed by changing /(\d+)\s*[- ]?door/ to /\b([1-6])\s*[- ]?door/ (word boundary + 1-6 limit) in cabinetGraphics.ts. Same fix applied to drawer regex.
 - [x] Add regression test for W361224 SKU-in-description bug in cabinetGraphics.test.ts
 - [x] Add Templates button to mobile bottom toolbar (grid-cols-7 → grid-cols-8, LayoutGrid icon)
+- [ ] Add hardware color picker button to the kitchen designer toolbar (gold/brass, chrome, matte black, brushed nickel, oil-rubbed bronze)
