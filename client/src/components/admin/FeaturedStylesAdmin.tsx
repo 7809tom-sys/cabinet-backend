@@ -37,6 +37,7 @@ interface AdminStyle {
   featuredRank: number;
   distributorId: number;
   distributorName: string | null;
+  ourSeriesName: string | null;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -189,6 +190,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [doorSampleImageUrl, setDoorSampleImageUrl] = useState(style.doorSampleImageUrl ?? "");
   const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
   const [thumbnailImageUrl, setThumbnailImageUrl] = useState(style.thumbnailImageUrl ?? "");
+  const [ourSeriesName, setOurSeriesName] = useState(style.ourSeriesName ?? "");
 
   // Reset state when dialog opens for a different style
   const resetToStyle = (s: AdminStyle) => {
@@ -202,6 +204,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setDoorSampleImageUrl(s.doorSampleImageUrl ?? "");
     setRoomSceneImageUrl(s.roomSceneImageUrl ?? "");
     setThumbnailImageUrl(s.thumbnailImageUrl ?? "");
+    setOurSeriesName(s.ourSeriesName ?? "");
   };
 
   const update = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
@@ -230,6 +233,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       doorSampleImageUrl: doorSampleImageUrl.trim() || null,
       roomSceneImageUrl: roomSceneImageUrl.trim() || null,
       thumbnailImageUrl: thumbnailImageUrl.trim() || null,
+      ourSeriesName: ourSeriesName.trim() || null,
     });
   }
 
@@ -315,6 +319,23 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
               onChange={(e) => setOurName(e.target.value)}
               placeholder="e.g. Lumina White"
             />
+          </div>
+
+          {/* Our Series Name */}
+          <div className="space-y-1.5">
+            <Label htmlFor="ed-series">
+              Our Series Name{" "}
+              <span className="text-muted-foreground font-normal text-xs">(internal grouping — e.g. Lumina Series)</span>
+            </Label>
+            <Input
+              id="ed-series"
+              value={ourSeriesName}
+              onChange={(e) => setOurSeriesName(e.target.value)}
+              placeholder="e.g. Lumina Series"
+            />
+            <p className="text-xs text-muted-foreground">
+              Groups this style under a named series for internal organization and reporting.
+            </p>
           </div>
 
           {/* Door style type + Color */}

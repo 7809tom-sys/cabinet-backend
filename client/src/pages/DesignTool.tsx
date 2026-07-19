@@ -2681,8 +2681,8 @@ export default function DesignTool() {
           // while sharing that top line. mountBottom = topLine - height.
           // Determine the actual fridge height for mountBottom:
           // use opts.fridgeHeight if the user changed it, otherwise use the
-          // stored fridge height, falling back to the standard 70" catalog height.
-          const actualFridgeH = opts.fridgeHeight ?? (typeof fridge.height === "number" && fridge.height > 0 ? fridge.height : 70);
+          // stored fridge height, falling back to the standard 72" catalog height.
+          const actualFridgeH = opts.fridgeHeight ?? (typeof fridge.height === "number" && fridge.height > 0 ? fridge.height : 72);
           toPlace.push({
             uid: makeUid(),
             cabinetId: chosen.id,

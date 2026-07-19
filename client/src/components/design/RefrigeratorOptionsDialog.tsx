@@ -206,7 +206,7 @@ export function RefrigeratorOptionsDialog({
 
   // ── Fridge size ────────────────────────────────────────────────────────────
   const [fridgeW, setFridgeW] = useState<number>(fridgeWidthInches ?? 36);
-  const [fridgeH, setFridgeH] = useState<number>(70);
+  const [fridgeH, setFridgeH] = useState<number>(72);
   const [fridgeD, setFridgeD] = useState<number>(30);
 
   // ── Over-fridge cabinet ────────────────────────────────────────────────────
@@ -305,7 +305,7 @@ export function RefrigeratorOptionsDialog({
     if (open) {
       const w = fridgeWidthInches ?? 36;
       setFridgeW(w);
-      setFridgeH(70);
+      setFridgeH(72);
       setFridgeD(30);
       setBridgeHeightChoice(12);
       setBridgeDepthChoice(12);

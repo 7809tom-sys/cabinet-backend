@@ -1030,3 +1030,7 @@
 - [x] Add key={editingStyle.id} to EditDialog in FeaturedStylesAdmin so state resets when switching styles
 - [x] Add slot prop to ImageField component and pass correct slot per upload type (door-sample, room-scene, thumbnail)
 - [x] Fix VendorApplications and ProApplications website links to be consistent (ExternalLink icon + "Website" text)
+
+- [x] Mobile toolbar: move Room Dimensions, Style, and Save buttons to top toolbar as compact icon-only buttons with hover tooltips; remove them from the bottom toolbar
+- [x] Fix over-the-fridge cabinet default height from 70" to 72" (RefrigeratorOptionsDialog default, APPLIANCES fridge elevHeight, applyFridgeSurround fallback)
+- [x] Add "Our Series Name" field to door_styles schema (ourSeriesName varchar 128), apply ALTER TABLE migration, wire into adminUpdateDoorStyle procedure, add input field to EditDialog in FeaturedStylesAdmin

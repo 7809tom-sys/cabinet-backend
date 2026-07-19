@@ -133,9 +133,11 @@ export const doorStyles = mysqlTable("door_styles", {
   // Drives a UI badge + hardware note so it is clearly distinguished from premium lines.
   isBuilderGrade: boolean("isBuilderGrade").default(false).notNull(),
   isActive: boolean("isActive").default(true).notNull(),
+  // Our internal series/collection name for this style (e.g. "Lumina Series", "Craftsman Collection").
+  // Shown in admin and optionally in the catalog to group styles by series.
+  ourSeriesName: varchar("ourSeriesName", { length: 128 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
 export type DoorStyle = typeof doorStyles.$inferSelect;
 
 // ─── Cabinet Items (GENERIC_INFO) ─────────────────────────────────────────────

@@ -323,6 +323,7 @@ export const doorStylesRouter = router({
         doorSampleImageUrl: z.string().max(512).nullable().optional(),
         roomSceneImageUrl: z.string().max(512).nullable().optional(),
         thumbnailImageUrl: z.string().max(512).nullable().optional(),
+        ourSeriesName: z.string().max(128).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -340,6 +341,7 @@ export const doorStylesRouter = router({
       if (fields.doorSampleImageUrl !== undefined) patch.doorSampleImageUrl = fields.doorSampleImageUrl?.trim() || null;
       if (fields.roomSceneImageUrl !== undefined) patch.roomSceneImageUrl = fields.roomSceneImageUrl?.trim() || null;
       if (fields.thumbnailImageUrl !== undefined) patch.thumbnailImageUrl = fields.thumbnailImageUrl?.trim() || null;
+      if (fields.ourSeriesName !== undefined) patch.ourSeriesName = fields.ourSeriesName?.trim() || null;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(doorStyles).set(patch).where(eq(doorStyles.id, id));
       return { ok: true };
