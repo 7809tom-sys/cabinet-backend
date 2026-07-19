@@ -236,14 +236,12 @@ export function ElevationView({
           background: faceFill,
           border: isSelected
             ? "2px solid #1a2744"
-            : `1px solid ${edgeColor}`,
-          borderRadius: 2,
-          // Ambient occlusion + contact shadow: a soft inner shadow darkens the
-          // face edges (recessed reveal look) and an outer drop shadow lifts the
-          // box off the wall so adjacent cabinets read as separate 3D objects.
+            : "none",
+          borderRadius: 0,
+          // Only show a selection ring when selected — no border or shadow on unselected cabinets.
           boxShadow: isSelected
-            ? "0 0 0 3px rgba(212,167,90,0.55), 0 8px 18px rgba(15,23,42,0.32), inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 0 12px rgba(0,0,0,0.18)"
-            : "0 4px 10px rgba(15,23,42,0.24), inset 0 1.5px 0 rgba(255,255,255,0.26), inset 0 0 10px rgba(0,0,0,0.16)",
+            ? "0 0 0 3px rgba(212,167,90,0.55)"
+            : undefined,
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
@@ -1372,7 +1370,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
           className="absolute inset-[1.5px] rounded-[1.5px]"
           style={{
             ...drawerBg,
-            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 2px rgba(0,0,0,0.16), 0 0 0 1px ${edge}44`,
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 2px rgba(0,0,0,0.16)`,
           }}
         />
       );
@@ -1729,7 +1727,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { i
         inset,
         // Deep groove: strong top+left shadow simulates the rail casting
         // a shadow into the recessed panel; bright bottom-right lip catches light.
-        boxShadow: `inset 3px 3px 6px rgba(0,0,0,0.45), inset -1.5px -1.5px 0 rgba(255,255,255,0.28), 0 0 0 1px ${edge}80`,
+        boxShadow: `inset 3px 3px 6px rgba(0,0,0,0.45), inset -1.5px -1.5px 0 rgba(255,255,255,0.28)`,
         ...panelBg,
       }}
     >
@@ -1752,11 +1750,9 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { i
 // door reads as a real 3D door rather than flat outlines.
 function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; stroke: string; doorSampleUrl?: string | null }) {
   void stroke;
-  // Beveled outer rail: strong top-left highlight + dark bottom-right shadow
-  // makes the face-frame rail read as a real 3D surface.
+  // No bevel on the outer rail — flat color look matches the design example.
   const railBevel: React.CSSProperties = {
-    boxShadow: `inset 3px 3px 0 rgba(255,255,255,0.38), inset -2.5px -2.5px 3px rgba(0,0,0,0.28)`,
-    borderRadius: 2,
+    borderRadius: 0,
   };
   switch (kind) {
     case "slab":
@@ -1766,7 +1762,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
             backgroundColor: face,
-            boxShadow: `inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 4px rgba(0,0,0,0.18), 0 0 0 1px ${edge}55`,
+            boxShadow: `inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 4px rgba(0,0,0,0.18)`,
           }}
         />
       );
