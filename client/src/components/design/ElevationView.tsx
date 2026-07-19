@@ -190,8 +190,10 @@ export function ElevationView({
     const faceFill = isAppliance
       ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
       : isPanel
-        ? `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 92%, #ffffff) 0%, ${cabFinish.face} 35%, color-mix(in srgb, ${cabFinish.face} 85%, #000000) 100%)`
-        : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
+        ? `linear-gradient(175deg, color-mix(in srgb, ${cabFinish.face} 95%, #ffffff) 0%, ${cabFinish.face} 40%, color-mix(in srgb, ${cabFinish.face} 82%, #000000) 100%)`
+        // Face frame: slightly lighter at top (light source above), darker at bottom.
+        // The door/drawer panels will overlay this with their own texture/color.
+        : `linear-gradient(175deg, color-mix(in srgb, ${cabFinish.face} 93%, #ffffff) 0%, ${cabFinish.face} 45%, color-mix(in srgb, ${cabFinish.face} 88%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
@@ -246,8 +248,8 @@ export function ElevationView({
           // face edges (recessed reveal look) and an outer drop shadow lifts the
           // box off the wall so adjacent cabinets read as separate 3D objects.
           boxShadow: isSelected
-            ? "0 0 0 3px rgba(212,167,90,0.55), 0 6px 14px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 10px rgba(0,0,0,0.16)"
-            : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
+            ? "0 0 0 3px rgba(212,167,90,0.55), 0 8px 18px rgba(15,23,42,0.32), inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 0 12px rgba(0,0,0,0.18)"
+            : "0 4px 10px rgba(15,23,42,0.24), inset 0 1.5px 0 rgba(255,255,255,0.26), inset 0 0 10px rgba(0,0,0,0.16)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
@@ -1731,25 +1733,25 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
 function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { inset: number; face: string; edge: string; raised?: boolean; doorSampleUrl?: string | null }) {
   const panelBg = doorSampleUrl
     ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const }
-    : { background: `linear-gradient(180deg, color-mix(in srgb, ${face} 82%, #000) 0%, color-mix(in srgb, ${face} 93%, #000) 55%, color-mix(in srgb, ${face} 99%, #000) 100%)` };
+    : { background: `linear-gradient(160deg, color-mix(in srgb, ${face} 96%, #fff) 0%, ${face} 30%, color-mix(in srgb, ${face} 92%, #000) 100%)` };
   return (
     <div
-      className="absolute rounded-[1.5px]"
+      className="absolute rounded-[1px]"
       style={{
         inset,
-        // Reveal groove around the panel: dark shadow top-left where the rail
-        // casts onto the recess, subtle light at the bottom lip.
-        boxShadow: `inset 0 2.5px 5px rgba(0,0,0,0.32), inset 0 -1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px ${edge}80`,
+        // Deep groove: strong top+left shadow simulates the rail casting
+        // a shadow into the recessed panel; bright bottom-right lip catches light.
+        boxShadow: `inset 3px 3px 6px rgba(0,0,0,0.45), inset -1.5px -1.5px 0 rgba(255,255,255,0.28), 0 0 0 1px ${edge}80`,
         ...panelBg,
       }}
     >
       {raised && (
         <div
-          className="absolute inset-[3px] rounded-[1.5px]"
+          className="absolute inset-[4px] rounded-[1px]"
           style={{
-            background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #fff) 0%, ${face} 60%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
+            background: doorSampleUrl ? undefined : `linear-gradient(160deg, color-mix(in srgb, ${face} 97%, #fff) 0%, ${face} 50%, color-mix(in srgb, ${face} 93%, #000) 100%)`,
             ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const } : {}),
-            boxShadow: `0 1px 2px rgba(0,0,0,0.28), inset 1px 1px 0 rgba(255,255,255,0.30), inset -1px -1px 1px rgba(0,0,0,0.18)`,
+            boxShadow: `0 1.5px 3px rgba(0,0,0,0.30), inset 1.5px 1.5px 0 rgba(255,255,255,0.35), inset -1px -1px 1px rgba(0,0,0,0.20)`,
           }}
         />
       )}
@@ -1763,9 +1765,10 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { i
 // door reads as a real 3D door rather than flat outlines.
 function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; stroke: string; doorSampleUrl?: string | null }) {
   void stroke;
-  // Beveled outer rail applied to the whole door face (shared by framed styles).
+  // Beveled outer rail: strong top-left highlight + dark bottom-right shadow
+  // makes the face-frame rail read as a real 3D surface.
   const railBevel: React.CSSProperties = {
-    boxShadow: `inset 1.5px 1.5px 0 rgba(255,255,255,0.26), inset -1.5px -1.5px 1px rgba(0,0,0,0.20)`,
+    boxShadow: `inset 3px 3px 0 rgba(255,255,255,0.38), inset -2.5px -2.5px 3px rgba(0,0,0,0.28)`,
     borderRadius: 2,
   };
   switch (kind) {
@@ -1777,25 +1780,28 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
             ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
-            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 3px rgba(0,0,0,0.14), 0 0 0 1px ${edge}44`,
+            boxShadow: `inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 4px rgba(0,0,0,0.18), 0 0 0 1px ${edge}55`,
           }}
         />
       );
     case "double-shaker":
+      // Two stacked recessed panels — typical for taller doors.
+      // 9px outer rail + 5px mid-rail between the two panels.
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <div className="absolute left-[6px] right-[6px] top-[6px] bottom-[50.5%]">
+          <div className="absolute left-[9px] right-[9px] top-[9px] bottom-[51%]">
             <RecessedPanel inset={0} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
           </div>
-          <div className="absolute left-[6px] right-[6px] top-[50.5%] bottom-[6px]">
+          <div className="absolute left-[9px] right-[9px] top-[51%] bottom-[9px]">
             <RecessedPanel inset={0} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
           </div>
         </div>
       );
     case "raised":
+      // Raised panel: 9px outer rail with a raised inner field.
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={6} face={face} edge={edge} raised doorSampleUrl={doorSampleUrl} />
+          <RecessedPanel inset={9} face={face} edge={edge} raised doorSampleUrl={doorSampleUrl} />
         </div>
       );
     case "beaded":
@@ -1804,7 +1810,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
           <div
             className="absolute inset-[5px] rounded-[1px]"
             style={{
-              boxShadow: `inset 0 2px 4px rgba(0,0,0,0.24), 0 0 0 0.5px ${edge}66`,
+              boxShadow: `inset 0 2px 5px rgba(0,0,0,0.28), 0 0 0 0.5px ${edge}77`,
               ...(doorSampleUrl
                 ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
                 : { backgroundImage: `repeating-linear-gradient(90deg, color-mix(in srgb, ${face} 90%, #000) 0px, color-mix(in srgb, ${face} 90%, #000) 2px, color-mix(in srgb, ${face} 78%, #000) 2.5px, color-mix(in srgb, ${face} 90%, #000) 3px, color-mix(in srgb, ${face} 90%, #000) 4px)` }),
@@ -1813,10 +1819,11 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
         </div>
       );
     case "inset":
+      // Inset door: the door sits flush inside the face frame opening.
       return (
         <div
           className="absolute inset-[2px] rounded-[2px]"
-          style={{ boxShadow: `0 0 0 1px ${edge}77, inset 1px 1px 0 rgba(255,255,255,0.22), inset -1px -1px 1px rgba(0,0,0,0.18)` }}
+          style={{ boxShadow: `0 0 0 1px ${edge}88, inset 1.5px 1.5px 0 rgba(255,255,255,0.26), inset -1.5px -1.5px 2px rgba(0,0,0,0.22)` }}
         >
           <RecessedPanel inset={5} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
@@ -1824,14 +1831,17 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
     case "slim-shaker":
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={3} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
+          <RecessedPanel inset={4} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
       );
     case "shaker":
     default:
+      // Standard shaker: wide rails/stiles with a deep recessed center panel.
+      // inset=9 gives a more prominent rail width matching real shaker proportions
+      // (typically 1.5"–2" rails at 1:12 scale ≈ 8–10px at our ppi).
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={6} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
+          <RecessedPanel inset={9} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
       );
   }
