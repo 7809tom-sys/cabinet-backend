@@ -999,91 +999,6 @@ export function ElevationView({
           );
         })}
 
-        {/* Apron-front (farmhouse) sink: exposed ceramic apron face below countertop.
-            Shown for FSB-* cabinets. Replaces the standard hidden under-mount look
-            with a visible fireclay/cast-iron apron panel. */}
-        {sorted.filter((p) => isFarmerSinkBase(p)).map((p) => {
-          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-          const posAlong = horizontal ? p.x : p.y;
-          // Apron sits from floor (toe kick height) up to countertop bottom
-          const apronBottom = toeKick ? TOE_KICK_HEIGHT_IN : 0;
-          const apronTop = STD.BASE_HEIGHT; // 34.5" — countertop bottom
-          const apronH = apronTop - apronBottom;
-          const apronPxH = apronH * ppi;
-          const apronPxW = sizeAlong * ppi;
-          const apronLeft = posAlong * ppi;
-          const apronBottomPx = apronBottom * ppi;
-          // Basin cutout: centered, ~80% width, ~55% height of apron
-          const basinW = apronPxW * 0.78;
-          const basinH = apronPxH * 0.52;
-          const basinLeft = (apronPxW - basinW) / 2;
-          const basinBottom = apronPxH * 0.12;
-          return (
-            <div
-              key={`apron-${p.uid}`}
-              className="absolute pointer-events-none"
-              style={{
-                left: apronLeft,
-                width: apronPxW,
-                bottom: apronBottomPx,
-                height: apronPxH,
-                zIndex: 6,
-              }}
-            >
-              {/* Apron face panel — fireclay white */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: "linear-gradient(180deg, #f8f9fb 0%, #eef1f5 35%, #e4e8ee 70%, #d8dce4 100%)",
-                  borderTop: "1.5px solid #c8cdd6",
-                  borderLeft: "1px solid #d0d4dc",
-                  borderRight: "1px solid #d0d4dc",
-                  boxShadow: "inset 0 2px 6px rgba(0,0,0,0.08), inset 0 -1px 3px rgba(0,0,0,0.06)",
-                }}
-              />
-              {/* Basin cutout impression */}
-              <div
-                className="absolute"
-                style={{
-                  left: basinLeft,
-                  width: basinW,
-                  bottom: basinBottom,
-                  height: basinH,
-                  background: "linear-gradient(180deg, #c8cdd6 0%, #b8bec9 40%, #a8aebb 100%)",
-                  borderRadius: "3px 3px 6px 6px",
-                  boxShadow: "inset 0 3px 8px rgba(0,0,0,0.22), inset 0 1px 3px rgba(0,0,0,0.15), 0 0 0 1px #9aa0ad",
-                }}
-              >
-                {/* Drain circle */}
-                <div
-                  className="absolute"
-                  style={{
-                    left: "50%",
-                    bottom: "12%",
-                    width: Math.max(4, 2.5 * ppi),
-                    height: Math.max(4, 2.5 * ppi),
-                    marginLeft: -(Math.max(4, 2.5 * ppi) / 2),
-                    borderRadius: "50%",
-                    background: "#7a8090",
-                    border: "1px solid #5a6070",
-                    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.4)",
-                  }}
-                />
-              </div>
-              {/* Apron label */}
-              {apronPxH > 20 && (
-                <div
-                  className="absolute inset-0 flex items-end justify-center pointer-events-none"
-                  style={{ paddingBottom: basinBottom + basinH + 2, zIndex: 2 }}
-                >
-                  <span style={{ fontSize: Math.max(7, ppi * 1.8), color: "#8a9bb0", fontWeight: 500, letterSpacing: "0.03em" }}>
-                    {p.masterCode}
-                  </span>
-                </div>
-              )}
-            </div>
-          );
-        })}
 
         {/* Crown molding: band across the top of each wall cabinet */}
         {crown && sorted.filter((p) => p.placement === "wall" && p.mountBottom == null).map((p) => {
@@ -1507,6 +1422,43 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
             key={`sink-door-${i}`}
             className="absolute"
             style={{ left: `${colW * i}%`, width: `${colW}%`, top: `${falseFrontPct}%`, bottom: 0 }}
+          >
+            {i > 0 && (
+              <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+            )}
+            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  // ─── SPECIALTY TYPE: FARMER / APRON-FRONT SINK BASE ─────────────────────
+  // Farmhouse sink base: open rectangular cutout at top (~42% of height) where
+  // the apron sink sits, with two full-height doors below covering the remaining
+  // ~58% of the cabinet face. No false front or panel in the cutout zone.
+  if (cabinetType === "farmer-sink-base") {
+    const cutoutPct = 42; // top open zone where sink apron is exposed
+    const doorsPct = 100 - cutoutPct;
+    const cols = Math.max(1, doorCount || 2);
+    const colW = 100 / cols;
+    return (
+      <>
+        {/* Open cutout zone — recessed/dark background to indicate open space */}
+        <div
+          className="absolute left-0 right-0 top-0"
+          style={{
+            height: `${cutoutPct}%`,
+            background: `linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.28) 100%)`,
+            borderBottom: `2px solid ${stroke}`,
+          }}
+        />
+        {/* Door region: N side-by-side full doors below the cutout */}
+        {Array.from({ length: cols }).map((_, i) => (
+          <div
+            key={`fsb-door-${i}`}
+            className="absolute"
+            style={{ left: `${colW * i}%`, width: `${colW}%`, top: `${cutoutPct}%`, bottom: 0 }}
           >
             {i > 0 && (
               <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />

@@ -5,6 +5,7 @@ export type CabinetDrawingType =
   | "standard-door" // 1+ door box (base/wall/tall)
   | "drawer-base" // stacked drawer fronts
   | "sink-base" // false tilt-out top panel + sink cutout indication
+  | "farmer-sink-base" // apron/farmhouse sink base: open top cutout + two doors below
   | "appliance-garage" // tambour roll-up slats
   | "blind-corner" // L-shaped footprint
   | "corner-drawer-base" // L-shaped corner with stacked drawers on the main face (CDB-*)
@@ -157,6 +158,11 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "blind-corner";
   }
 
+  // Farmer/apron-front sink base (FSB-*): open top cutout + two doors below.
+  if (/^(?:ada-)?fsb[-_ ]?\d/.test(code) || (/\b(?:farm(?:house)?|apron)\b/.test(hay) && /sink/.test(hay))) {
+    return "farmer-sink-base";
+  }
+
   // Sink base (false front tilt-out + sink cutout indication).
   if (/sink base|sink/.test(hay) && /base|vanity/.test(`${cat} ${sub} ${desc}`)) {
     return "sink-base";
@@ -226,6 +232,7 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
   //    must be classified before the drawer/standard checks.
   if (
     type === "sink-base" ||
+    type === "farmer-sink-base" ||
     /\bsink\b/.test(hay) ||
     /^(?:ada-)?f?sb[-_ ]?\d/.test(code) ||
     /^csb[-_ ]?\d/.test(code) ||
@@ -301,7 +308,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "drawer-base") {
     return drawers > 0 ? `${drawers}-Drawer ${placement}` : `Drawer ${placement}`;
   }
-  if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
+  if (type === "sink-base" || type === "farmer-sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return /lazy susan|easy reach/.test(desc) ? `Corner ${placement}` : `Blind Corner ${placement}`;
   if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;
   if (type === "appliance-garage") return "Appliance Garage";
@@ -362,6 +369,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "standard-door": doors > 0 ? `${doors}-door cabinet` : "cabinet",
     "drawer-base": drawers > 0 ? `${drawers}-drawer base cabinet` : "drawer base cabinet",
     "sink-base": "sink base cabinet with false tilt-out front",
+    "farmer-sink-base": "farmhouse apron-front sink base cabinet",
     "appliance-garage": "appliance garage with tambour door",
     "blind-corner": "blind corner cabinet",
     "corner-drawer-base": "corner drawer base cabinet",
