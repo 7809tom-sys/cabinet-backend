@@ -273,7 +273,7 @@ export function ElevationView({
               drawers={resolvedCounts.drawers || drawerCountForCabinet(p)}
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
-              accent="#1a2744"
+              accent="#C9A84C"
               handleSide={
                 p.handleSide === "left" || p.handleSide === "right"
                   ? p.handleSide
@@ -1296,17 +1296,23 @@ function HardwareOverlay({
       );
     }
     if (kind === "pull") {
-      // Pulls on doors position on the handle side; on drawers they stay centered
-      const pullStyle = isDoor && hSide
-        ? hSide === "left"
-          ? { left: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
-          : { right: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
-        : { left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 };
+      if (isDoor) {
+        // Door pulls: vertical bar pull on the handle side, centered vertically
+        const leftPos = hSide === "left" ? "12%" : hSide === "right" ? "82%" : "82%";
+        return (
+          <div
+            key={key}
+            className="absolute rounded-full"
+            style={{ left: leftPos, width: 3, top: `${topPct - 10}%`, height: "20%", background: metal, boxShadow: metalShadow, zIndex: 8, marginLeft: -1.5 } as React.CSSProperties}
+          />
+        );
+      }
+      // Drawer pulls: horizontal bar centered
       return (
         <div
           key={key}
           className="absolute rounded-full"
-          style={pullStyle as React.CSSProperties}
+          style={{ left: "25%", right: "25%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 } as React.CSSProperties}
         />
       );
     }
@@ -1402,7 +1408,9 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
 function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
-  const stroke = `${edge}99`;
+  // Stile divider: a slightly darker shade of the face color so it reads as a
+  // physical separation without creating a harsh contrast border.
+  const stroke = `color-mix(in srgb, ${face} 75%, #000000)`;
 
   // ─── SPECIALTY TYPE: PANTRY (tall cabinet) ───────────────────────────
   // All tall pantry cabinets render as 4 doors: 2 side-by-side on the bottom
@@ -1727,7 +1735,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { i
         inset,
         // Deep groove: strong top+left shadow simulates the rail casting
         // a shadow into the recessed panel; bright bottom-right lip catches light.
-        boxShadow: `inset 3px 3px 6px rgba(0,0,0,0.45), inset -1.5px -1.5px 0 rgba(255,255,255,0.28)`,
+        boxShadow: `inset 2px 2px 4px rgba(0,0,0,0.22), inset -1px -1px 0 rgba(255,255,255,0.18)`,
         ...panelBg,
       }}
     >
