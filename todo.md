@@ -1041,3 +1041,4 @@
 - [x] Fix panel rendering in ElevationView: panels render as flat wood skins (no door fronts, no hardware)
 - [x] Tighten mobile top toolbar button spacing (gap-1.5 → gap-1)
 - [x] Reduce main header padding on mobile (px-3 → px-2, gap-1.5 → gap-1 on mobile)
+- [x] Add panel thickness selector (0.75" to 1.2") to fridge surround dialog and wire through to placement logic

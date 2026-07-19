@@ -2538,6 +2538,8 @@ export default function DesignTool() {
       panelDepth?: number | null;
       /** Pre-calculated panel height (fridge H + bridge H). When provided, overrides the auto-calc. */
       panelHeight?: number | null;
+      /** The chosen end panel face thickness in inches (0.75–1.2). Defaults to 0.75" when not provided. */
+      panelThickness?: number | null;
       smooth: boolean;
       fridgeWidth?: number;
       fridgeHeight?: number;
@@ -2742,14 +2744,17 @@ export default function DesignTool() {
         const inferredHeight = code.includes("S2496") || code.includes("REPV") || code.includes("TDEP") ? 96
           : code.includes("S3696") ? 96 : 96;
         const inferredDepth = (code.includes("REPV") || code.includes("S2496") || code.includes("S3696")) ? 0.75 : 0.75;
-        // pThick: the panel's face THICKNESS (the narrow face dimension — panelRow.width for REPV/TDEP
-        // panels where width=1.5" is the thickness and depth=24" is the floor depth).
-        // For REPV/TDEP/S-series panels: width column = face thickness (1.5" or 0.75").
-        // Fall back to inferredDepth (0.75") if width is missing or implausibly large.
+        // pThick: the panel's face THICKNESS (the narrow face dimension).
+        // Priority: 1) user-chosen panelThickness from dialog (0.75"–1.2")
+        //           2) catalog width when it's a plausible thickness (≤ 3")
+        //           3) inferred default (0.75")
         const rawPanelW = parseFloat(String(panelRow.width ?? ""));
-        const pThick = (Number.isFinite(rawPanelW) && rawPanelW > 0 && rawPanelW <= 3)
+        const catalogThick = (Number.isFinite(rawPanelW) && rawPanelW > 0 && rawPanelW <= 3)
           ? rawPanelW
           : inferredDepth;
+        const pThick = (opts.panelThickness != null && opts.panelThickness > 0 && opts.panelThickness <= 1.2)
+          ? opts.panelThickness
+          : catalogThick;
         // Panel height = fridge height + 2" gap + bridge height (if any), so the panel covers
         // the full built-in column: 70" fridge + 2" gap + 12" bridge → 84", + 18" → 90", + 24" → 96".
         const rawFridgeH = parseFloat(String(fridge.height ?? "70")) || 70;
