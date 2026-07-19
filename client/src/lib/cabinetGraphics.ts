@@ -61,8 +61,10 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   const w = toNum(cab.width);
 
   // 1) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
+  // Use \b([1-6]) so SKU codes like "W3612" embedded in descriptions (e.g.
+  // "Same Box With W3612 Door") are never parsed as door/drawer counts.
   let drawers = 0;
-  const drawerNum = desc.match(/(\d+)\s*[- ]?drawer/);
+  const drawerNum = desc.match(/\b([1-6])\s*[- ]?drawer/);
   if (drawerNum) drawers = parseInt(drawerNum[1], 10);
   else {
     const drawerWord = desc.match(/\b(single|two|double|three|triple|four|five|six)\s*[- ]?drawer/);
@@ -73,8 +75,10 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   }
 
   // 2) Doors from the description first ("Single Door", "Double Door", "2 Door").
+  // Use \b([1-6]) so SKU codes like "W3612" embedded in descriptions (e.g.
+  // "Same Box With W3612 Door") are never parsed as door counts.
   let doors = 0;
-  const doorNum = desc.match(/(\d+)\s*[- ]?door/);
+  const doorNum = desc.match(/\b([1-6])\s*[- ]?door/);
   if (doorNum) doors = parseInt(doorNum[1], 10);
   else {
     const doorWord = desc.match(/\b(single|two|double|three|triple|four)\s*[- ]?door/);

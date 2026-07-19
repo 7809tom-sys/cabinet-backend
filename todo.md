@@ -1075,3 +1075,6 @@
 - [x] inspiration_photos DB table created and inspiration tRPC router registered
 - [x] InspirationGalleryAdmin component added to Admin → Products & Catalog → Inspiration Gallery tab
 - [x] Homepage hero and featured styles CTAs updated to point to /start wizard
+- [x] Fix over-fridge cabinet rendering bug: resolveDoorDrawerCounts regex matched SKU codes (e.g. "W3612 Door" in description → doors=3612). Fixed by changing /(\d+)\s*[- ]?door/ to /\b([1-6])\s*[- ]?door/ (word boundary + 1-6 limit) in cabinetGraphics.ts. Same fix applied to drawer regex.
+- [x] Add regression test for W361224 SKU-in-description bug in cabinetGraphics.test.ts
+- [x] Add Templates button to mobile bottom toolbar (grid-cols-7 → grid-cols-8, LayoutGrid icon)

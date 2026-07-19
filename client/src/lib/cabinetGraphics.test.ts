@@ -302,6 +302,24 @@ describe("door-count agreement: label + drawing follow the description, not a wr
     expect(doors).toBe(1);
     expect(cabinetTypeLabel(cab)).toBe("Single Door Wall");
   });
+
+  it("SKU codes embedded in description (e.g. 'W3612 Door') are not parsed as door counts", () => {
+    // W361224: description mentions 'W3612 Door' and 'W1236 Door Set' — old regex
+    // matched '3612' as the door count, rendering 3612 side-by-side door panels.
+    const cab: CabinetLike = {
+      masterCode: "W361224",
+      description: 'Wall Refrigerator Cabinet - 36"W X 12"H X 24"D - 2D,Same Box With W3612 Door. Can Use W1236 Door Set.',
+      category: "Wall",
+      subCategory: "Refrigerator Wall",
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      width: "36",
+      height: "12",
+    };
+    const { doors, drawers } = resolveDoorDrawerCounts(cab);
+    expect(doors).toBe(2);
+    expect(drawers).toBe(0);
+  });
 });
 
 describe("baseSubGroup (designer Base tab ordering)", () => {

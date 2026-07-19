@@ -154,8 +154,11 @@ export default function InspirationGallery() {
 
       {/* Filter bar */}
       <div className="sticky top-16 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="container py-3">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <div className="container py-3 overflow-hidden">
+          <div
+            className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
             {ROOM_FILTERS.map((f) => {
               const Icon = f.Icon;
               const active = roomFilter === f.value;
@@ -163,7 +166,7 @@ export default function InspirationGallery() {
                 <button
                   key={f.value}
                   onClick={() => setRoomFilter(f.value)}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-150 ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium whitespace-nowrap transition-all duration-150 ${
                     active
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
