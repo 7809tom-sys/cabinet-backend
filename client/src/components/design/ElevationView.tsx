@@ -1370,8 +1370,9 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
   // style (drawer fronts don't get raised/beaded treatments in this model),
   // except slab which stays flat.
   if (drawer) {
+    // Add backgroundColor as CSS fallback so if the image 404s the face color shows.
     const drawerBg = doorSampleUrl
-      ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+      ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
       : {};
     if (kind === "slab") {
       return (
@@ -1394,11 +1395,9 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
         <div
           className="absolute inset-[3px] rounded-[1px]"
           style={{
+            // drawerBg already has backgroundColor+backgroundImage fallback; no need to repeat.
             ...drawerBg,
             background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #000) 0%, color-mix(in srgb, ${face} 97%, #000) 100%)`,
-            backgroundImage: doorSampleUrl ? `url(${doorSampleUrl})` : undefined,
-            backgroundSize: doorSampleUrl ? "cover" : undefined,
-            backgroundPosition: doorSampleUrl ? "center" : undefined,
             boxShadow: `inset 0 2px 3px rgba(0,0,0,0.22), inset 0 -1px 0 rgba(255,255,255,0.18)`,
           }}
         />
@@ -1480,7 +1479,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
           <div
             className="absolute inset-[1.5px] rounded-[1px]"
             style={{
-              ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+              ...(doorSampleUrl ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
               boxShadow: `inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 2px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}55`,
             }}
           />
@@ -1731,8 +1730,11 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
 // the door edge to the panel (i.e. the rail width). `depth` tunes how deep the
 // panel reads. `raised` adds a central raised field (cathedral/raised-panel).
 function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { inset: number; face: string; edge: string; raised?: boolean; doorSampleUrl?: string | null }) {
+  // When doorSampleUrl is set but the image 404s, the browser silently shows
+  // transparent/default background. Adding backgroundColor as a CSS fallback
+  // ensures the face color shows through if the image fails to load.
   const panelBg = doorSampleUrl
-    ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const }
+    ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const }
     : { background: `linear-gradient(160deg, color-mix(in srgb, ${face} 96%, #fff) 0%, ${face} 30%, color-mix(in srgb, ${face} 92%, #000) 100%)` };
   return (
     <div
@@ -1750,7 +1752,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { i
           className="absolute inset-[4px] rounded-[1px]"
           style={{
             background: doorSampleUrl ? undefined : `linear-gradient(160deg, color-mix(in srgb, ${face} 97%, #fff) 0%, ${face} 50%, color-mix(in srgb, ${face} 93%, #000) 100%)`,
-            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const } : {}),
+            ...(doorSampleUrl ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const } : {}),
             boxShadow: `0 1.5px 3px rgba(0,0,0,0.30), inset 1.5px 1.5px 0 rgba(255,255,255,0.35), inset -1px -1px 1px rgba(0,0,0,0.20)`,
           }}
         />
@@ -1779,7 +1781,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
         <div
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
-            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+            ...(doorSampleUrl ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
             boxShadow: `inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 4px rgba(0,0,0,0.18), 0 0 0 1px ${edge}55`,
           }}
         />
@@ -1812,7 +1814,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
             style={{
               boxShadow: `inset 0 2px 5px rgba(0,0,0,0.28), 0 0 0 0.5px ${edge}77`,
               ...(doorSampleUrl
-                ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+                ? { backgroundColor: face, backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
                 : { backgroundImage: `repeating-linear-gradient(90deg, color-mix(in srgb, ${face} 90%, #000) 0px, color-mix(in srgb, ${face} 90%, #000) 2px, color-mix(in srgb, ${face} 78%, #000) 2.5px, color-mix(in srgb, ${face} 90%, #000) 3px, color-mix(in srgb, ${face} 90%, #000) 4px)` }),
             }}
           />
