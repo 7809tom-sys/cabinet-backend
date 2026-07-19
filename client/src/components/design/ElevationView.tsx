@@ -614,7 +614,9 @@ export function ElevationView({
                   style={{
                     left: (r.start - OVERHANG_IN) * ppi,
                     width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
-                    bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                    // Bottom edge sits flush on top of 34.5" base cabinets.
+                    // The slab extends UP by THICKNESS_IN (1.5") to reach 36".
+                    bottom: STD.BASE_HEIGHT * ppi,
                     height: THICKNESS_IN * ppi,
                     // Polished stone slab: a glossy highlight streak across the
                     // front nosing plus subtle speckle tint from the material.
@@ -928,7 +930,8 @@ export function ElevationView({
                   style={{
                     left: posAlong * ppi - 1,
                     width: sizeAlong * ppi + 2,
-                    bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                    // Flush on top of 34.5" base cabinets; slab extends up 1.5" to 36".
+                    bottom: STD.BASE_HEIGHT * ppi,
                     height: thickPx,
                     background: slabFill,
                     borderBottom: `1px solid ${ct.edge}`,

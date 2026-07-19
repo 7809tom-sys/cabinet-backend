@@ -505,7 +505,8 @@ export function IslandElevationView({
                     style={{
                       left: cabPosAlong * ppi,
                       width: cabSizeAlong * ppi,
-                      bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                      // Flush on top of 34.5" base cabinets; slab extends up 1.5" to 36".
+                      bottom: STD.BASE_HEIGHT * ppi,
                       height: thickPx,
                       background: slabFill,
                       borderTop: `1px solid color-mix(in srgb, ${ct.fill} 60%, #ffffff)`,
@@ -550,7 +551,8 @@ export function IslandElevationView({
                     style={{
                       left: (r.start - OVERHANG_IN) * ppi,
                       width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
-                      bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                      // Flush on top of 34.5" base cabinets; slab extends up 1.5" to 36".
+                      bottom: STD.BASE_HEIGHT * ppi,
                       height: THICKNESS_IN * ppi,
                       background: mat.speckle
                         ? `linear-gradient(180deg, color-mix(in srgb, ${mat.fill} 80%, #ffffff) 0%, ${mat.fill} 45%, color-mix(in srgb, ${mat.fill} 90%, #000000) 100%)`

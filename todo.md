@@ -1038,3 +1038,9 @@
 - [x] Apply isTrimItem() in familyCatalog map: normalize trim items to category="accessory" so TYPE_FILTERS routes them to Accessories & Trim tab
 - [x] Extend trimDescPattern in design.ts isAccessory() to cover: shoe molding, flat base molding, square decorative leg, outside corner molding, touch-up, sample door, spray paint
 - [x] TypeScript check passes (0 errors); checkpoint saved
+
+## Bug: Countertop gap above base cabinets in elevation view
+
+- [x] Find countertop Y-position calculation in ElevationView.tsx (or design rendering lib)
+- [x] Fix so countertop sits flush on top of base cabinets with zero gap (changed bottom from STD.COUNTERTOP_HEIGHT to STD.BASE_HEIGHT in ElevationView.tsx x2 and IslandElevationView.tsx x2)
+- [x] TypeScript check passes; checkpoint saved
