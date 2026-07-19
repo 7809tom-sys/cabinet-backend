@@ -1034,3 +1034,10 @@
 - [x] Mobile toolbar: move Room Dimensions, Style, and Save buttons to top toolbar as compact icon-only buttons with hover tooltips; remove them from the bottom toolbar
 - [x] Fix over-the-fridge cabinet default height from 70" to 72" (RefrigeratorOptionsDialog default, APPLIANCES fridge elevHeight, applyFridgeSurround fallback)
 - [x] Add "Our Series Name" field to door_styles schema (ourSeriesName varchar 128), apply ALTER TABLE migration, wire into adminUpdateDoorStyle procedure, add input field to EditDialog in FeaturedStylesAdmin
+- [x] Fix fridge elevHeight from 72 to 70 (standard fridge is 70" tall)
+- [x] Fix over-fridge cabinet mountBottom to fridgeH+2 (cabinet bottom at 72" for 70" fridge)
+- [x] Fix panel height calculation to include 2" gap (fridgeH + 2 + bridgeH)
+- [x] Fix RefrigeratorOptionsDialog default fridge height from 72 to 70
+- [x] Fix panel rendering in ElevationView: panels render as flat wood skins (no door fronts, no hardware)
+- [x] Tighten mobile top toolbar button spacing (gap-1.5 → gap-1)
+- [x] Reduce main header padding on mobile (px-3 → px-2, gap-1.5 → gap-1 on mobile)

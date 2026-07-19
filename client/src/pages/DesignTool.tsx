@@ -2681,8 +2681,11 @@ export default function DesignTool() {
           // while sharing that top line. mountBottom = topLine - height.
           // Determine the actual fridge height for mountBottom:
           // use opts.fridgeHeight if the user changed it, otherwise use the
-          // stored fridge height, falling back to the standard 72" catalog height.
-          const actualFridgeH = opts.fridgeHeight ?? (typeof fridge.height === "number" && fridge.height > 0 ? fridge.height : 72);
+          // Standard fridge is 70" tall. The over-fridge cabinet mounts at 72" (70+2" gap).
+          // Use opts.fridgeHeight if the user changed it; otherwise use the stored height (falling back to 70").
+          const actualFridgeH = opts.fridgeHeight ?? (typeof fridge.height === "number" && fridge.height > 0 ? fridge.height : 70);
+          // The cabinet bottom sits 2" above the fridge top so there's a visible gap.
+          const overFridgeMountBottom = actualFridgeH + 2;
           toPlace.push({
             uid: makeUid(),
             cabinetId: chosen.id,
@@ -2702,7 +2705,7 @@ export default function DesignTool() {
             catalogImageUrl: chosen.catalogImageUrl ?? null,
             styleId: styleIdRef.current ?? null,
             // Mount the bridge cabinet directly on top of the fridge.
-            mountBottom: actualFridgeH,
+            mountBottom: overFridgeMountBottom,
           });
         }
       }
@@ -2711,7 +2714,7 @@ export default function DesignTool() {
       // Use the user-selected panel id if provided, otherwise fall back to best-width match.
       // If the catalog has no matching panel, create a synthetic placeholder so the panel
       // always appears in the drawing with the correct dimensions.
-      const rawFridgeHForPanel = parseFloat(String(fridge.height ?? "72")) || 72;
+      const rawFridgeHForPanel = parseFloat(String(fridge.height ?? "70")) || 70;
       const fridgeHForPanel = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeHForPanel;
       const syntheticPanelHeight = opts.panelHeight && opts.panelHeight > 0
         ? opts.panelHeight
@@ -2747,15 +2750,16 @@ export default function DesignTool() {
         const pThick = (Number.isFinite(rawPanelW) && rawPanelW > 0 && rawPanelW <= 3)
           ? rawPanelW
           : inferredDepth;
-        // Panel height = fridge height + bridge height (if any), so the panel covers
-        // the full built-in column: 72" fridge + 12" bridge → 84", + 18" → 90", + 24" → 96".
-        const rawFridgeH = parseFloat(String(fridge.height ?? "72")) || 72;
+        // Panel height = fridge height + 2" gap + bridge height (if any), so the panel covers
+        // the full built-in column: 70" fridge + 2" gap + 12" bridge → 84", + 18" → 90", + 24" → 96".
+        const rawFridgeH = parseFloat(String(fridge.height ?? "70")) || 70;
         const fridgeH = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeH;
         // Use pre-calculated panelHeight from dialog when provided; otherwise auto-calculate.
+        // Add 2" gap between fridge top and over-fridge cabinet bottom.
         const pHeight = opts.panelHeight && opts.panelHeight > 0
           ? opts.panelHeight
           : opts.above !== "none" && bridgeHeightPlaced > 0
-            ? fridgeH + bridgeHeightPlaced
+            ? fridgeH + 2 + bridgeHeightPlaced
             : (parseFloat(String(panelRow.height ?? "")) || inferredHeight);
         // Along-wall position: just outside the fridge edge on the chosen side.
         // Clamp to room bounds so the panel never lands outside the room.
@@ -4267,7 +4271,7 @@ export default function DesignTool() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="border-b border-border bg-card px-2 py-1.5 flex items-center gap-1 lg:gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Title + badge — desktop only */}
         <div className="hidden lg:flex items-center gap-2">
           <h1 className="font-serif text-sm font-bold text-foreground whitespace-nowrap">
@@ -4518,7 +4522,7 @@ export default function DesignTool() {
           </button>
         )}
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
-        <div className="ml-auto flex items-center gap-1.5 lg:hidden">
+        <div className="ml-auto flex items-center gap-1 lg:hidden">
           {/* Room dimensions — compact icon button */}
           <button
             type="button"

@@ -42,7 +42,7 @@ export interface FridgeSurroundChoice {
   panelDepth: number | null;
   /**
    * The auto-calculated panel height in inches.
-   * = 72 (standard fridge height) + bridgeHeight.
+   * = (fridge height + 2" gap) + bridgeHeight. e.g. 70" fridge → cabinet bottom at 72".
    * Null when panels === "none" or above === "none".
    */
   panelHeight: number | null;
@@ -92,8 +92,8 @@ const BRIDGE_WIDTH_OPTIONS = [30, 33, 36];
 // End panel depth options (inches)
 const PANEL_DEPTH_OPTIONS = [24, 26, 28, 30, 32, 34, 36];
 
-// Fridge height used for panel height calculation
-const FRIDGE_STANDARD_H = 72;
+// Standard fridge is 70" tall; over-fridge cabinet mounts at 72" (70+2" gap).
+const FRIDGE_STANDARD_H = 70;
 
 // ─── Helper: panel height from bridge height ──────────────────────────────────
 function calcPanelHeight(bridgeH: BridgeHeight): number {
@@ -206,7 +206,7 @@ export function RefrigeratorOptionsDialog({
 
   // ── Fridge size ────────────────────────────────────────────────────────────
   const [fridgeW, setFridgeW] = useState<number>(fridgeWidthInches ?? 36);
-  const [fridgeH, setFridgeH] = useState<number>(72);
+  const [fridgeH, setFridgeH] = useState<number>(70);
   const [fridgeD, setFridgeD] = useState<number>(30);
 
   // ── Over-fridge cabinet ────────────────────────────────────────────────────
@@ -293,8 +293,9 @@ export function RefrigeratorOptionsDialog({
   const chosenBridge = above === "bridge" ? bridgeByDims[bridgeHeightChoice][bridgeDepthChoice] : null;
 
   // Auto-calculated panel height: use the actual fridgeH the user selected, not a hardcoded constant.
+  // Panel covers the full built-in column: fridge height + 2" gap + bridge cabinet height.
   const panelHeight = above === "bridge" && panels !== "none"
-    ? fridgeH + bridgeHeightChoice
+    ? fridgeH + 2 + bridgeHeightChoice
     : null;
 
   // Best-match end panel
@@ -305,7 +306,7 @@ export function RefrigeratorOptionsDialog({
     if (open) {
       const w = fridgeWidthInches ?? 36;
       setFridgeW(w);
-      setFridgeH(72);
+      setFridgeH(70);
       setFridgeD(30);
       setBridgeHeightChoice(12);
       setBridgeDepthChoice(12);
@@ -380,7 +381,7 @@ export function RefrigeratorOptionsDialog({
           <Section title="Over-Fridge Cabinet">
             <div className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                Cabinet sits at 72″ above floor (bottom of cabinet = top of fridge space)
+                Cabinet bottom sits at fridge height + 2″ gap (e.g. 70″ fridge → cabinet starts at 72″)
               </p>
               <OptionPills<FridgeAbove>
                 value={above}
@@ -506,7 +507,7 @@ export function RefrigeratorOptionsDialog({
               {above === "bridge" && panels !== "none" && panelHeight && (
                 <p className="text-xs text-muted-foreground">
                   Panel height will be <span className="font-semibold text-foreground">{panelHeight}″</span>
-                  {" "}(72″ fridge + {bridgeHeightChoice}″ cabinet)
+                  {" "}({fridgeH}″ fridge + 2″ gap + {bridgeHeightChoice}″ cabinet)
                 </p>
               )}
               {above === "none" && panels !== "none" && (

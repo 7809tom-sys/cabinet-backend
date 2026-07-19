@@ -5,7 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, isPanelItem,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -174,18 +174,24 @@ export function ElevationView({
     const { bottom, height } = elevationBox(p, room);
     const isWall = p.placement === "wall";
     const isAppliance = p.placement === "appliance";
+    // Flat-stock end panels (REPV, PLYEB, S-series, etc.) render as a solid wood
+    // skin — no door/drawer fronts, just a flat panel face.
+    const isPanel = isPanelItem(p);
     const isSelected = p.uid === selectedUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
     // Resolve the door sample image URL for this cabinet (real door photo).
-    const cabDoorSampleUrl = !isAppliance && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
+    const cabDoorSampleUrl = !isAppliance && !isPanel && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
     // Face fill: the CABINET BOX background (face frame). When a door sample
     // image is available, the image is applied ONLY to individual door/drawer
     // panels (not the full face). The box itself shows the face frame color.
+    // Panels get a wood-grain gradient to distinguish them from cabinet boxes.
     const faceFill = isAppliance
       ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
-      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
+      : isPanel
+        ? `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 92%, #ffffff) 0%, ${cabFinish.face} 35%, color-mix(in srgb, ${cabFinish.face} 85%, #000000) 100%)`
+        : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
@@ -252,7 +258,8 @@ export function ElevationView({
           {/* Always render the DoorFront panel structure so the face frame is
               visible. When a door sample image is available, it's applied as the
               background of individual door/drawer panels (not the full face). */}
-          {!isAppliance && (
+          {/* Panels render as flat wood skins — no door fronts or hardware. */}
+          {!isAppliance && !isPanel && (
             <DoorFront
               kind={cabPanelKind}
               edge={edgeColor}
@@ -266,7 +273,7 @@ export function ElevationView({
               cabinetHeightIn={height}
             />
           )}
-          {!isAppliance && hw.id !== "none" && (
+          {!isAppliance && !isPanel && hw.id !== "none" && (
             <HardwareOverlay
               doors={resolvedCounts.doors || doorCountForCabinet(p)}
               drawers={resolvedCounts.drawers || drawerCountForCabinet(p)}
