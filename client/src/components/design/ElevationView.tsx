@@ -561,10 +561,26 @@ export function ElevationView({
             ? t("dt_ev_ceiling_slope", { hi: Math.round(ceilHigh), lo: Math.round(Math.min(heightLeft, heightRight)) })
             : t("dt_ev_ceiling", { n: Math.round(WALL_TOTAL_HEIGHT) })}
         </div>
-        <div
-          className="absolute left-0 right-0 border-b border-dashed border-[#b08d57]/40"
-          style={{ bottom: STD.COUNTERTOP_HEIGHT * ppi }}
-        />
+        {/* Countertop guide line: dashed 36" reference, drawn only over base
+            cabinet spans so it never passes through tall/pantry cabinets. */}
+        {sorted
+          .filter((p) => p.placement === "base" && p.cabinetId !== 0)
+          .map((p) => {
+            const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
+            const posAlong = horizontal ? p.x : p.y;
+            return (
+              <div
+                key={`ctguide-${p.uid}`}
+                className="absolute border-b border-dashed border-[#b08d57]/40 pointer-events-none"
+                style={{
+                  left: posAlong * ppi,
+                  width: sizeAlong * ppi,
+                  bottom: STD.COUNTERTOP_HEIGHT * ppi,
+                  height: 0,
+                }}
+              />
+            );
+          })}
 
         {/* Countertop band: a thin colored slab sitting on top of the base run,
             its top edge on the 36" counter line, colored by the chosen material.
@@ -1596,7 +1612,14 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
   // drawer base) but with a small corner indicator on the left edge.
   if (cabinetType === "corner-drawer-base") {
     const dCount = Math.max(1, drawerCount || 3);
-    const sliceH = 100 / dCount;
+    const cdbHeights: number[] =
+      dCount === 2
+        ? [40, 60]
+        : Array.from({ length: dCount }, () => 100 / dCount);
+    const cdbTops = cdbHeights.reduce<number[]>((acc, h, i) => {
+      acc.push(i === 0 ? 0 : acc[i - 1] + cdbHeights[i - 1]);
+      return acc;
+    }, []);
     return (
       <>
         {/* Corner indicator: subtle angled mark on left edge */}
@@ -1618,7 +1641,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
             <div
               key={`cdb-drw-${i}`}
               className="absolute left-0 right-0"
-              style={{ top: `${sliceH * i}%`, height: `${sliceH}%` }}
+              style={{ top: `${cdbTops[i]}%`, height: `${cdbHeights[i]}%` }}
             >
               {i > 0 && (
                 <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
@@ -1675,7 +1698,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
         </>
       );
     }
-    // DRAWER BASE (all-drawer, no doors): a vertical STACK of drawer fronts.
+    // DRAWER BASE (all-drawer, no doors): a vertical STACK of equal-height drawer fronts.
     const sliceH = 100 / drawerCount;
     return (
       <>
