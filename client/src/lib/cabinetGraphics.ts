@@ -85,11 +85,18 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   //    (e.g. "Two Drawer Base", subCategory="Drawer Base"), force doors=0 so
   //    the cabinet is never mis-classified as a door box. The numberOfDoors
   //    field in the DB is sometimes wrong (e.g. 2DB24 has numberOfDoors=2).
+  //    IMPORTANT: a cabinet like "Double Door Single Drawer Base Cabinet" is NOT
+  //    a pure drawer base — it has both doors AND drawers. Only treat it as a
+  //    pure drawer base when the description starts with a drawer count (e.g.
+  //    "Two Drawer Base", "3 Drawer Base") OR the masterCode is a drawer-base
+  //    code (2DB24, DB-24-3, BD-15-3) AND the description has no door mention.
+  const hasDoorMentionInDesc = /\b(single|double|two|three|four|\d+)\s*[- ]?door/.test(desc);
   const isPureDrawerBase =
     drawers > 0 &&
-    (/drawer base/.test(`${sub} ${desc}`) ||
-      /^\d+db\d/i.test(lc(cab.masterCode ?? "")) ||
-      /^(?:db|bd)[-_]\d/.test(lc(cab.masterCode ?? "")));
+    !hasDoorMentionInDesc &&
+    (/^(?:drawer base|\d+\s*drawer base|\w+\s+drawer base)/.test(sub) ||
+      /^(?:db|bd)[-_]\d/.test(lc(cab.masterCode ?? "")) ||
+      /^\d+db\d/i.test(lc(cab.masterCode ?? "")));
   if (isPureDrawerBase) {
     return { doors: 0, drawers };
   }

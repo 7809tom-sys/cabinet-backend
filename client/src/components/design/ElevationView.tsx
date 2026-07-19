@@ -261,7 +261,7 @@ export function ElevationView({
               kind={cabPanelKind}
               edge={edgeColor}
               face={cabFinish.face}
-              doors={resolvedCounts.doors || doorCountForCabinet(p)}
+              doors={resolvedCounts.drawers > 0 && resolvedCounts.doors === 0 ? 0 : (resolvedCounts.doors || doorCountForCabinet(p))}
               drawers={isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p))}
               isWall={isWall}
               doorSampleUrl={cabDoorSampleUrl}
