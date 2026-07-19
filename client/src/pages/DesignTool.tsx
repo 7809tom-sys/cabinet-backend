@@ -116,6 +116,7 @@ import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
+import { LayoutTemplatesDialog } from "@/components/design/LayoutTemplatesDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 // PhotorealPreview removed — replaced by deterministic preview modes
 import type { PhotorealSceneInput } from "@/components/design/PhotorealPreview";
@@ -248,6 +249,13 @@ export default function DesignTool() {
     const v = new URLSearchParams(search).get("style");
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
+  }, [search]);
+  // Optional room type to pre-select (?room=<roomType>), e.g. from the Guided Wizard.
+  const preloadRoomType = useMemo(() => {
+    const v = new URLSearchParams(search).get("room");
+    return v && ["kitchen", "bathroom", "laundry", "closet", "other"].includes(v)
+      ? (v as RoomType)
+      : null;
   }, [search]);
   const loadedDesignRef = useRef<number | null>(null);
   // Auto-save draft: flips true once we've attempted to restore a saved draft,
@@ -4115,8 +4123,15 @@ export default function DesignTool() {
     // Only apply if no style is already set (fresh canvas or empty draft).
     if (styleId != null) return;
     setSlotStyle("A", preloadStyleId);
-  }, [verified, preloadStyleId, doorStyles, styleId, setSlotStyle]);
-
+    }, [verified, preloadStyleId, doorStyles, styleId, setSlotStyle]);
+  // Apply the room type from the Guided Wizard URL param (?room=) once, after draft restore.
+  const preloadRoomAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!verified || !draftRestoredRef.current || preloadRoomAppliedRef.current) return;
+    if (preloadRoomType == null) return;
+    preloadRoomAppliedRef.current = true;
+    setRoomType(preloadRoomType);
+  }, [verified, preloadRoomType]);
   // Consume the Surfaces & Fixtures wizard hand-off ONCE, after verification and
   // after the draft has been restored. This only fires when the customer clicked
   // "I'm ready to design my kitchen" in the wizard (which writes the dedicated
@@ -4242,6 +4257,7 @@ export default function DesignTool() {
   });
   const [loadSignal, setLoadSignal] = useState(0);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [layoutTemplatesOpen, setLayoutTemplatesOpen] = useState(false);
   // (Generic flooring/backsplash swatch sheets removed — surfaces now come from
   //  real Pelican recommendations in the "Surfaces" palette tab.)
   const [hardwareSheetOpen, setHardwareSheetOpen] = useState(false);
@@ -4472,6 +4488,16 @@ export default function DesignTool() {
           onClick={() => setSaveSignal((n) => n + 1)}
         >
           <Save className="h-3.5 w-3.5" />
+        </button>
+        {/* Layout Templates — desktop only */}
+        <button
+          type="button"
+          className="hidden lg:inline-flex items-center justify-center h-7 px-2 gap-1 rounded-md border border-border text-muted-foreground text-xs font-medium transition-colors hover:bg-muted/60 hover:text-foreground"
+          title="Start from a layout template"
+          onClick={() => setLayoutTemplatesOpen(true)}
+        >
+          <LayoutGrid className="h-3.5 w-3.5" />
+          <span>Templates</span>
         </button>
         {/* Start New / Clear Design — desktop only */}
         <button
@@ -5175,6 +5201,22 @@ export default function DesignTool() {
             <FileText className="h-4 w-4" />
           </Button>
           <CsvImportDialog open={csvImportOpen} onOpenChange={setCsvImportOpen} />
+          <LayoutTemplatesDialog
+            open={layoutTemplatesOpen}
+            onOpenChange={setLayoutTemplatesOpen}
+            onApply={(newRoom, newPlaced, newIsland) => {
+              if (placed.length > 0 && !window.confirm("Replace current design with this template?")) return;
+              setRoom(newRoom);
+              setPlaced(newPlaced);
+              setIsland(newIsland ?? null);
+              setOpenings([]);
+              setSelectedUid(null);
+              setSinks([]);
+              setFurniture([]);
+              setPonyWalls([]);
+              toast.success("Layout template applied — customize as needed!");
+            }}
+          />
           <div className="h-5 w-px bg-border" />
           <DesignHelp />
         </div>

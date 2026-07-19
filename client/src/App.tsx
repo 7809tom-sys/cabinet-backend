@@ -50,6 +50,8 @@ const ShippingPolicy = lazy(() => import("@/pages/ShippingPolicy"));
 const ReturnPolicy = lazy(() => import("@/pages/ReturnPolicy"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const Terms = lazy(() => import("@/pages/Terms"));
+const GuidedWizard = lazy(() => import("@/pages/GuidedWizard"));
+const InspirationGallery = lazy(() => import("@/pages/InspirationGallery"));
 
 function PageLoader() {
   return (
@@ -407,6 +409,22 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <Terms />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/start">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <GuidedWizard />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/inspiration">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <InspirationGallery />
             </Suspense>
           </AppLayout>
         </Route>

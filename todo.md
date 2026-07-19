@@ -1042,3 +1042,36 @@
 - [x] Tighten mobile top toolbar button spacing (gap-1.5 → gap-1)
 - [x] Reduce main header padding on mobile (px-3 → px-2, gap-1.5 → gap-1 on mobile)
 - [x] Add panel thickness selector (0.75" to 1.2") to fridge surround dialog and wire through to placement logic
+
+## Feature: Guided Onboarding Wizard (/start)
+- [ ] Create /start route and GuidedWizard page component (3 steps: Room Type → Door Style → Color)
+- [ ] Step 1: Room type selector (Kitchen, Bathroom, Laundry, Closet, Other) with icons
+- [ ] Step 2: Door style picker using featured/active styles with thumbnails
+- [ ] Step 3: Color/finish picker from selected door style's available finishes
+- [ ] "Start Designing" CTA navigates to /design?style=<id>&room=<type> and writes cd_wizard_handoff to sessionStorage
+- [ ] DesignTool consumes cd_wizard_handoff on load (applies roomType + styleId)
+- [ ] Add "Start Designing" CTA on Home page linking to /start
+- [ ] Add /start route to App.tsx
+
+## Feature: Inspiration Gallery (/inspiration)
+- [ ] Add inspiration_gallery table to schema (id, title, imageUrl, roomType, doorStyleName, colorName, tags, sortOrder, isActive)
+- [ ] Apply CREATE TABLE SQL via webdev_execute_sql
+- [ ] Add inspirationRouter with list (public) and admin CRUD procedures
+- [ ] Register inspirationRouter in routers.ts
+- [ ] Create InspirationGallery page (/inspiration) with masonry/grid layout, filter by room type
+- [ ] Add admin UI for uploading/managing inspiration photos (in Admin page)
+- [ ] Add /inspiration route to App.tsx
+- [ ] Add "Inspiration" link to top nav
+
+## Feature: Layout Starter Templates
+- [ ] Create layoutTemplates.ts lib with 6 templates: Single Wall, Galley, L-Shape, U-Shape, Island, Peninsula
+- [ ] Each template defines: room dimensions, wall openings, and a pre-placed set of cabinets
+- [ ] Create LayoutTemplateDialog component shown when user clicks "Start from Template" in design tool
+- [ ] Wire "Start from Template" button into the design tool (More menu or empty-state prompt)
+- [ ] Apply template via loadSavedDesign (room + placed + openings)
+- [x] Guided Onboarding Wizard (/start) — 3-step wizard: room type → door style → color → launch design tool
+- [x] Inspiration Gallery (/inspiration) — filterable public gallery with admin management panel
+- [x] Layout Starter Templates — 5 templates (L-shape, U-shape, galley, single wall, island) accessible from design tool Templates button
+- [x] inspiration_photos DB table created and inspiration tRPC router registered
+- [x] InspirationGalleryAdmin component added to Admin → Products & Catalog → Inspiration Gallery tab
+- [x] Homepage hero and featured styles CTAs updated to point to /start wizard

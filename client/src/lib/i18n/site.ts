@@ -18,6 +18,8 @@ export const SITE_STRINGS = {
     nav_stonecreek: "StoneCreek",
     nav_plumbers_choice: "Plumber's Choice",
     nav_design_tool: "Design Tool",
+    nav_inspiration: "Inspiration",
+    nav_start_designing: "Start Designing",
     // --- Top nav: more dropdown ---
     nav_more: "More",
     nav_build_an_order: "Build an Order",
@@ -1328,6 +1330,8 @@ export const SITE_STRINGS = {
     nav_stonecreek: "Colección StoneCreek",
     nav_plumbers_choice: "Selección del Plomero",
     nav_design_tool: "Herramienta de Diseño",
+    nav_inspiration: "Inspiración",
+    nav_start_designing: "Comenzar a Diseñar",
     // --- Barra superior: menú "Más" ---
     nav_more: "Más",
     nav_build_an_order: "Armar un Pedido",
@@ -3067,6 +3071,8 @@ export const SITE_STRINGS = {
     nav_countertops: "台面",
     nav_stonecreek: "StoneCreek",
     nav_design_tool: "设计工具",
+    nav_inspiration: "灵感",
+    nav_start_designing: "开始设计",
     nav_build_an_order: "创建订单",
     nav_become_vendor: "成为供应商",
     nav_account: "账户",

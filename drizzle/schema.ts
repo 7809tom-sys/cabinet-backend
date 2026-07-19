@@ -1550,3 +1550,29 @@ export const categoryAliases = mysqlTable(
 
 export type CategoryAlias = typeof categoryAliases.$inferSelect;
 export type InsertCategoryAlias = typeof categoryAliases.$inferInsert;
+
+// ─── Inspiration Gallery Photos ───────────────────────────────────────────────
+// Admin-managed curated photos shown on the /inspiration page.
+// Each photo can optionally be linked to a door style so users can "design with
+// this style" directly from the gallery.
+export const inspirationPhotos = mysqlTable("inspiration_photos", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 256 }).notNull(),
+  imageUrl: text("imageUrl").notNull(),
+  // Optional room type filter: kitchen | bathroom | laundry | closet | other
+  roomType: varchar("roomType", { length: 32 }),
+  // Optional link to a door_styles row (enables "Design with this style" CTA)
+  styleId: int("styleId"),
+  // Denormalized display names for quick rendering without joins
+  doorStyleName: varchar("doorStyleName", { length: 128 }),
+  colorName: varchar("colorName", { length: 128 }),
+  // Comma-separated tags (e.g. "white, shaker, modern")
+  tags: varchar("tags", { length: 512 }),
+  // Lower number = shown first
+  sortOrder: int("sortOrder").default(0).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type InspirationPhoto = typeof inspirationPhotos.$inferSelect;
+export type InsertInspirationPhoto = typeof inspirationPhotos.$inferInsert;

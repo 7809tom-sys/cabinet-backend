@@ -102,7 +102,7 @@ function Hero() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/design">
+              <Link href="/start">
                 <Button size="lg" variant="outline" className="border-white/30 text-white bg-white/10 hover:bg-white/20 gap-2">
                   Design Your Kitchen
                 </Button>
@@ -288,7 +288,7 @@ function FeaturedStyles() {
               Browse All Door Styles <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
-          <Link href="/design">
+          <Link href="/start">
             <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2">
               Start Designing Your Kitchen <ChevronRight className="h-4 w-4" />
             </Button>
