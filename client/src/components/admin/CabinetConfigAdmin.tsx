@@ -132,6 +132,18 @@ function EditModal({
     onError: (e) => { setGenerating(false); toast.error(`Generation failed: ${e.message}`); },
   });
 
+  const estimateMutation = trpc.cabinets.adminEstimateMeasurements.useMutation({
+    onSuccess: (data) => {
+      if (data.weight) set("weight", data.weight);
+      if (data.pkgLength) set("pkgLength", data.pkgLength);
+      if (data.pkgWidth) set("pkgWidth", data.pkgWidth);
+      if (data.pkgHeight) set("pkgHeight", data.pkgHeight);
+      if (data.pkgWeight) set("pkgWeight", data.pkgWeight);
+      toast.success("AI estimates filled in — review and adjust as needed");
+    },
+    onError: (e) => toast.error(`AI estimate failed: ${e.message}`),
+  });
+
   // Aliases
   const { data: aliases, isLoading: aliasesLoading } = trpc.distributorAdmin.adminListCategoryAliases.useQuery({});
   const saveAliasMutation = trpc.distributorAdmin.adminSaveCategoryAlias.useMutation({
@@ -189,7 +201,7 @@ function EditModal({
     });
   };
 
-  const busy = uploading || generating || updateMutation.isPending;
+  const busy = uploading || generating || updateMutation.isPending || estimateMutation.isPending;
   const depthVal = merged.depth ? String(parseFloat(merged.depth)) : "";
   const isStandardDepth = STANDARD_DEPTHS.includes(depthVal);
 
@@ -433,9 +445,32 @@ function EditModal({
 
           {/* ── Measurements tab ── */}
           <TabsContent value="measurements" className="space-y-5 mt-0">
-            <p className="text-xs text-muted-foreground">
-              Assembled cabinet dimensions and package/shipping dimensions. All values in inches unless noted.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Assembled cabinet dimensions and package/shipping dimensions. All values in inches unless noted.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 shrink-0 ml-2"
+                disabled={busy}
+                onClick={() =>
+                  estimateMutation.mutate({
+                    id: row.id,
+                    width: merged.width,
+                    height: merged.height,
+                    depth: merged.depth,
+                  })
+                }
+              >
+                {estimateMutation.isPending ? (
+                  <Spinner className="h-3 w-3" />
+                ) : (
+                  <Sparkles className="h-3 w-3" />
+                )}
+                AI Fill
+              </Button>
+            </div>
 
             {/* Assembled dims */}
             <div>

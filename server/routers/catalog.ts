@@ -1578,6 +1578,105 @@ export const cabinetsRouter = router({
       return { url };
     }),
 
+  // ── AI Measurement Estimator ─────────────────────────────────────────────
+  // Uses the LLM to estimate weight and flat-pack package dimensions for a
+  // RTA cabinet based on its code, category, and assembled dimensions.
+  adminEstimateMeasurements: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        // Current assembled dims from the modal draft (may be partially filled)
+        width: z.string().nullable().optional(),
+        height: z.string().nullable().optional(),
+        depth: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [cab] = await db
+        .select({
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+        })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.id))
+        .limit(1);
+      if (!cab) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Prefer values from the modal draft (user may have just typed them)
+      const w = input.width ?? cab.width;
+      const h = input.height ?? cab.height;
+      const d = input.depth ?? cab.depth;
+
+      const dimStr = [
+        w && `${parseFloat(w)}\"W`,
+        h && `${parseFloat(h)}\"H`,
+        d && `${parseFloat(d)}\"D`,
+      ]
+        .filter(Boolean)
+        .join(" x ");
+
+      const prompt = [
+        `You are a cabinet industry expert. Estimate the assembled weight and flat-pack shipping box dimensions for a Ready-To-Assemble (RTA) kitchen cabinet.`,
+        `Cabinet code: ${cab.masterCode ?? "unknown"}.`,
+        cab.description ? `Description: ${cab.description}.` : "",
+        cab.category
+          ? `Category: ${cab.category}${cab.subCategory ? ` / ${cab.subCategory}` : ""}.`
+          : "",
+        dimStr ? `Assembled dimensions: ${dimStr}.` : "",
+        `IMPORTANT: This is a flat-pack RTA cabinet. The package is flat -- typically only 6 to 8 inches thick -- NOT a full-depth box.`,
+        `The box length and width roughly match the cabinet face dimensions (assembled width x assembled height), and the box thickness is 6-8 inches.`,
+        `For an 8-foot (96-inch) tall cabinet the box length will be approximately 96 inches.`,
+        `Respond ONLY with a JSON object (no markdown, no explanation) with these exact keys:`,
+        `{ "weight": "<assembled weight in lbs>", "pkgLength": "<box longest side in inches>", "pkgWidth": "<box second side in inches>", "pkgHeight": "<box thickness in inches, typically 6-8>", "pkgWeight": "<shipping weight in lbs, typically 5-10% more than assembled>" }`,
+        `All values must be numeric strings only (no units, no extra text).`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const result = await invokeLLM({
+        messages: [{ role: "user", content: prompt }],
+        maxTokens: 200,
+        responseFormat: { type: "json_object" },
+      });
+
+      const raw = result.choices[0]?.message?.content;
+      const text =
+        typeof raw === "string"
+          ? raw
+          : Array.isArray(raw)
+          ? raw
+              .map((c) =>
+                typeof c === "object" && "text" in c ? (c as { text: string }).text : ""
+              )
+              .join("")
+          : "";
+
+      let parsed: Record<string, string> = {};
+      try {
+        parsed = JSON.parse(text) as Record<string, string>;
+      } catch {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "AI returned invalid JSON",
+        });
+      }
+
+      return {
+        weight: parsed.weight ?? null,
+        pkgLength: parsed.pkgLength ?? null,
+        pkgWidth: parsed.pkgWidth ?? null,
+        pkgHeight: parsed.pkgHeight ?? null,
+        pkgWeight: parsed.pkgWeight ?? null,
+      };
+    }),
+
   // ── Cabinet Line Export ───────────────────────────────────────────────────
   // Returns an XLSX workbook with all cabinets available for a given door style,
   // including description, dimensions, pricing, and catalog image URL.

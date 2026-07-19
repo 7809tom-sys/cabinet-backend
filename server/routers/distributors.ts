@@ -1411,14 +1411,33 @@ export const distributorImportRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db
-        .insert(categoryAliases)
-        .values({
+      // MySQL NULL != NULL in unique indexes, so onDuplicateKeyUpdate never fires
+      // for global aliases (distributorId = NULL). Use a manual check-then-upsert.
+      const distId = input.distributorId ?? null;
+      const existing = await db
+        .select({ id: categoryAliases.id })
+        .from(categoryAliases)
+        .where(
+          and(
+            eq(categoryAliases.rawCategory, input.rawCategory),
+            distId === null
+              ? sql`${categoryAliases.distributorId} IS NULL`
+              : eq(categoryAliases.distributorId, distId)
+          )
+        )
+        .limit(1);
+      if (existing.length > 0) {
+        await db
+          .update(categoryAliases)
+          .set({ platformCategory: input.platformCategory })
+          .where(eq(categoryAliases.id, existing[0].id));
+      } else {
+        await db.insert(categoryAliases).values({
           rawCategory: input.rawCategory,
           platformCategory: input.platformCategory,
-          distributorId: input.distributorId ?? undefined,
-        })
-        .onDuplicateKeyUpdate({ set: { platformCategory: input.platformCategory } });
+          distributorId: distId ?? undefined,
+        });
+      }
       return { ok: true };
     }),
 
