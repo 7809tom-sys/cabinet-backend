@@ -1798,6 +1798,12 @@ export const cabinetsRouter = router({
             numberOfAdjShelves: cabinets.numberOfAdjShelves,
             isNotCabinet: cabinets.isNotCabinet,
             catalogImageUrl: cabinets.catalogImageUrl,
+            weight: cabinets.weight,
+            physicalWidth: cabinets.physicalWidth,
+            pkgLength: cabinets.pkgLength,
+            pkgWidth: cabinets.pkgWidth,
+            pkgHeight: cabinets.pkgHeight,
+            pkgWeight: cabinets.pkgWeight,
           })
           .from(cabinets)
           .where(where)

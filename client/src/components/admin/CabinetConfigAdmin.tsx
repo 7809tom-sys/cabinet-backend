@@ -2,14 +2,16 @@ import { useState, useCallback, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, X, Sparkles, Pencil } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, Sparkles, Pencil, Trash2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -34,7 +36,47 @@ type CabinetRow = {
   numberOfAdjShelves: number | null;
   isNotCabinet: boolean | null;
   catalogImageUrl: string | null;
+  weight: string | null;
+  physicalWidth: string | null;
+  pkgLength: string | null;
+  pkgWidth: string | null;
+  pkgHeight: string | null;
+  pkgWeight: string | null;
 };
+
+// ─── Dim Input ────────────────────────────────────────────────────────────────
+function DimInput({
+  label,
+  value,
+  onChange,
+  unit = '"',
+  disabled,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+  unit?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+      <div className="relative">
+        <Input
+          className="pr-6 h-8 text-sm"
+          placeholder="—"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+          disabled={disabled}
+          inputMode="decimal"
+        />
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+          {unit}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
 function EditModal({
@@ -52,6 +94,7 @@ function EditModal({
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<"3d" | "2d">("3d");
+  const [newAlias, setNewAlias] = useState({ raw: "", platform: "" });
   const fileRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
@@ -89,6 +132,24 @@ function EditModal({
     onError: (e) => { setGenerating(false); toast.error(`Generation failed: ${e.message}`); },
   });
 
+  // Aliases
+  const { data: aliases, isLoading: aliasesLoading } = trpc.distributorAdmin.adminListCategoryAliases.useQuery({});
+  const saveAliasMutation = trpc.distributorAdmin.adminSaveCategoryAlias.useMutation({
+    onSuccess: () => {
+      utils.distributorAdmin.adminListCategoryAliases.invalidate();
+      setNewAlias({ raw: "", platform: "" });
+      toast.success("Alias saved");
+    },
+    onError: (e: { message: string }) => toast.error(`Failed: ${e.message}`),
+  });
+  const deleteAliasMutation = trpc.distributorAdmin.adminDeleteCategoryAlias.useMutation({
+    onSuccess: () => {
+      utils.distributorAdmin.adminListCategoryAliases.invalidate();
+      toast.success("Alias deleted");
+    },
+    onError: (e: { message: string }) => toast.error(`Failed: ${e.message}`),
+  });
+
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -109,7 +170,16 @@ function EditModal({
     if (Object.keys(draft).length === 0) { onClose(); return; }
     updateMutation.mutate({
       id: row.id,
+      description: merged.description ?? undefined,
       depth: merged.depth ?? null,
+      width: merged.width ?? null,
+      height: merged.height ?? null,
+      weight: merged.weight ?? null,
+      physicalWidth: merged.physicalWidth ?? null,
+      pkgLength: merged.pkgLength ?? null,
+      pkgWidth: merged.pkgWidth ?? null,
+      pkgHeight: merged.pkgHeight ?? null,
+      pkgWeight: merged.pkgWeight ?? null,
       numberOfDoors: merged.numberOfDoors ?? null,
       numberOfDrawers: merged.numberOfDrawers ?? null,
       numberOfFixedShelves: merged.numberOfFixedShelves ?? null,
@@ -130,230 +200,350 @@ function EditModal({
           <DialogTitle className="flex items-center gap-2 text-base">
             <Settings2 className="h-4 w-4 text-primary shrink-0" />
             <span className="font-mono font-bold text-primary">{row.masterCode}</span>
-            <span className="font-normal text-muted-foreground text-sm truncate">{row.description}</span>
           </DialogTitle>
           {row.category && (
             <p className="text-xs text-muted-foreground mt-0.5">
               {row.category}{row.subCategory ? ` › ${row.subCategory}` : ""}
-              {(row.width || row.height) && (
-                <span className="ml-2">
-                  {row.width ? `${parseFloat(row.width)}"` : "—"} × {row.height ? `${parseFloat(row.height)}"` : "—"}
-                </span>
-              )}
             </p>
           )}
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
-          {/* Not a cabinet */}
-          <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 bg-muted/30">
-            <div>
-              <p className="text-sm font-medium">Not a Cabinet</p>
-              <p className="text-xs text-muted-foreground">Trim, panel, moulding, or accessory — hides cabinet-only fields</p>
+        <Tabs defaultValue="details" className="w-full">
+          <TabsList className="w-full grid grid-cols-3 mb-4">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="measurements">Measurements</TabsTrigger>
+            <TabsTrigger value="aliases">Aliases</TabsTrigger>
+          </TabsList>
+
+          {/* ── Details tab ── */}
+          <TabsContent value="details" className="space-y-5 mt-0">
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Description</Label>
+              <Textarea
+                className="text-sm resize-none"
+                rows={3}
+                placeholder="Enter cabinet description…"
+                value={merged.description ?? ""}
+                onChange={(e) => set("description", e.target.value || null)}
+                disabled={busy}
+              />
             </div>
-            <Switch
-              checked={merged.isNotCabinet === true}
-              onCheckedChange={(v) => set("isNotCabinet", v)}
-              disabled={busy}
-            />
-          </div>
 
-          {!merged.isNotCabinet && (
-            <>
-              {/* Depth */}
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Standard Depth</Label>
-                <Select
-                  value={depthVal || "__none__"}
-                  onValueChange={(v) => set("depth", v === "__none__" ? null : v)}
-                  disabled={busy}
-                >
-                  <SelectTrigger className={cn("w-full", !depthVal && "text-muted-foreground")}>
-                    <SelectValue placeholder="— not set —" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— not set —</SelectItem>
-                    {STANDARD_DEPTHS.map((d) => (
-                      <SelectItem key={d} value={d}>{d}"</SelectItem>
-                    ))}
-                    {depthVal && !isStandardDepth && (
-                      <SelectItem value={depthVal}>{depthVal}" (custom)</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+            {/* Not a cabinet */}
+            <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 bg-muted/30">
+              <div>
+                <p className="text-sm font-medium">Not a Cabinet</p>
+                <p className="text-xs text-muted-foreground">Trim, panel, moulding, or accessory</p>
               </div>
+              <Switch
+                checked={merged.isNotCabinet === true}
+                onCheckedChange={(v) => set("isNotCabinet", v)}
+                disabled={busy}
+              />
+            </div>
 
-              {/* Doors / Drawers */}
-              <div className="grid grid-cols-2 gap-4">
+            {!merged.isNotCabinet && (
+              <>
+                {/* Depth */}
                 <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Number of Doors</Label>
+                  <Label className="text-sm font-medium">Standard Depth</Label>
                   <Select
-                    value={merged.numberOfDoors === null ? "__none__" : String(merged.numberOfDoors)}
-                    onValueChange={(v) => set("numberOfDoors", v === "__none__" ? null : parseInt(v))}
+                    value={depthVal || "__none__"}
+                    onValueChange={(v) => set("depth", v === "__none__" ? null : v)}
                     disabled={busy}
                   >
-                    <SelectTrigger className={cn("w-full", merged.numberOfDoors === null && "text-muted-foreground")}>
+                    <SelectTrigger className={cn("w-full", !depthVal && "text-muted-foreground")}>
                       <SelectValue placeholder="— not set —" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">— not set —</SelectItem>
-                      {(DOOR_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
-                        <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
+                      {STANDARD_DEPTHS.map((d) => (
+                        <SelectItem key={d} value={d}>{d}"</SelectItem>
                       ))}
+                      {depthVal && !isStandardDepth && (
+                        <SelectItem value={depthVal}>{depthVal}" (custom)</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Number of Drawers</Label>
-                  <Select
-                    value={merged.numberOfDrawers === null ? "__none__" : String(merged.numberOfDrawers)}
-                    onValueChange={(v) => set("numberOfDrawers", v === "__none__" ? null : parseInt(v))}
-                    disabled={busy}
-                  >
-                    <SelectTrigger className={cn("w-full", merged.numberOfDrawers === null && "text-muted-foreground")}>
-                      <SelectValue placeholder="— not set —" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— not set —</SelectItem>
-                      {(DRAWER_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
-                        <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
-              {/* Fixed / Adj Shelves */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Fixed Shelves</Label>
-                  <Select
-                    value={merged.numberOfFixedShelves === null ? "__none__" : String(merged.numberOfFixedShelves)}
-                    onValueChange={(v) => set("numberOfFixedShelves", v === "__none__" ? null : parseInt(v))}
-                    disabled={busy}
-                  >
-                    <SelectTrigger className={cn("w-full", merged.numberOfFixedShelves === null && "text-muted-foreground")}>
-                      <SelectValue placeholder="— not set —" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— not set —</SelectItem>
-                      {(SHELF_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
-                        <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Adjustable Shelves</Label>
-                  <Select
-                    value={merged.numberOfAdjShelves === null ? "__none__" : String(merged.numberOfAdjShelves)}
-                    onValueChange={(v) => set("numberOfAdjShelves", v === "__none__" ? null : parseInt(v))}
-                    disabled={busy}
-                  >
-                    <SelectTrigger className={cn("w-full", merged.numberOfAdjShelves === null && "text-muted-foreground")}>
-                      <SelectValue placeholder="— not set —" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— not set —</SelectItem>
-                      {(SHELF_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
-                        <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Catalog Image */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Catalog Image</Label>
-            <div className="flex items-start gap-3">
-              {/* Thumbnail */}
-              <div
-                className={cn(
-                  "h-20 w-20 rounded-lg border flex items-center justify-center shrink-0 overflow-hidden",
-                  merged.catalogImageUrl
-                    ? "border-border bg-muted/20"
-                    : "border-dashed border-border bg-muted/20 cursor-pointer hover:bg-muted/40"
-                )}
-                onClick={() => !busy && !merged.catalogImageUrl && fileRef.current?.click()}
-              >
-                {generating ? (
-                  <div className="flex flex-col items-center gap-1">
-                    <Spinner className="h-5 w-5 text-amber-500" />
-                    <span className="text-[9px] text-amber-600 text-center px-1">Generating…</span>
+                {/* Doors / Drawers */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Number of Doors</Label>
+                    <Select
+                      value={merged.numberOfDoors === null ? "__none__" : String(merged.numberOfDoors)}
+                      onValueChange={(v) => set("numberOfDoors", v === "__none__" ? null : parseInt(v))}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className={cn("w-full", merged.numberOfDoors === null && "text-muted-foreground")}>
+                        <SelectValue placeholder="— not set —" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— not set —</SelectItem>
+                        {(DOOR_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                ) : uploading ? (
-                  <Spinner className="h-5 w-5 text-primary" />
-                ) : merged.catalogImageUrl ? (
-                  <img src={merged.catalogImageUrl} alt="catalog" className="h-full w-full object-contain" />
-                ) : (
-                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                )}
-              </div>
-
-              {/* Controls */}
-              <div className="flex flex-col gap-2 flex-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2 justify-start"
-                  disabled={busy}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  {merged.catalogImageUrl ? "Replace image" : "Upload image"}
-                </Button>
-
-                {/* 2D / 3D toggle + generate */}
-                <div className="flex gap-2 items-center">
-                  <div className="flex rounded border border-border overflow-hidden">
-                    {(["3d", "2d"] as const).map((m) => (
-                      <button
-                        key={m}
-                        className={cn(
-                          "px-2 py-1 text-xs font-medium transition-colors",
-                          m === "2d" && "border-l border-border",
-                          viewMode === m
-                            ? "bg-amber-500 text-white"
-                            : "bg-background text-muted-foreground hover:bg-muted/50"
-                        )}
-                        onClick={() => setViewMode(m)}
-                        disabled={busy}
-                      >
-                        {m.toUpperCase()}
-                      </button>
-                    ))}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Number of Drawers</Label>
+                    <Select
+                      value={merged.numberOfDrawers === null ? "__none__" : String(merged.numberOfDrawers)}
+                      onValueChange={(v) => set("numberOfDrawers", v === "__none__" ? null : parseInt(v))}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className={cn("w-full", merged.numberOfDrawers === null && "text-muted-foreground")}>
+                        <SelectValue placeholder="— not set —" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— not set —</SelectItem>
+                        {(DRAWER_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                </div>
+
+                {/* Fixed / Adj Shelves */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Fixed Shelves</Label>
+                    <Select
+                      value={merged.numberOfFixedShelves === null ? "__none__" : String(merged.numberOfFixedShelves)}
+                      onValueChange={(v) => set("numberOfFixedShelves", v === "__none__" ? null : parseInt(v))}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className={cn("w-full", merged.numberOfFixedShelves === null && "text-muted-foreground")}>
+                        <SelectValue placeholder="— not set —" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— not set —</SelectItem>
+                        {(SHELF_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Adjustable Shelves</Label>
+                    <Select
+                      value={merged.numberOfAdjShelves === null ? "__none__" : String(merged.numberOfAdjShelves)}
+                      onValueChange={(v) => set("numberOfAdjShelves", v === "__none__" ? null : parseInt(v))}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className={cn("w-full", merged.numberOfAdjShelves === null && "text-muted-foreground")}>
+                        <SelectValue placeholder="— not set —" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— not set —</SelectItem>
+                        {(SHELF_OPTIONS as ReadonlyArray<number | null>).filter((o): o is number => o !== null).map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Catalog Image */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Catalog Image</Label>
+              <div className="flex items-start gap-3">
+                <div
+                  className={cn(
+                    "h-20 w-20 rounded-lg border flex items-center justify-center shrink-0 overflow-hidden",
+                    merged.catalogImageUrl
+                      ? "border-border bg-muted/20"
+                      : "border-dashed border-border bg-muted/20 cursor-pointer hover:bg-muted/40"
+                  )}
+                  onClick={() => !busy && !merged.catalogImageUrl && fileRef.current?.click()}
+                >
+                  {generating ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <Spinner className="h-5 w-5 text-amber-500" />
+                      <span className="text-[9px] text-amber-600 text-center px-1">Generating…</span>
+                    </div>
+                  ) : uploading ? (
+                    <Spinner className="h-5 w-5 text-primary" />
+                  ) : merged.catalogImageUrl ? (
+                    <img src={merged.catalogImageUrl} alt="catalog" className="h-full w-full object-contain" />
+                  ) : (
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 flex-1">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 gap-1.5 border-amber-400/60 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                    className="w-full gap-2 justify-start"
                     disabled={busy}
-                    onClick={() => { setGenerating(true); generateMutation.mutate({ id: row.id, viewMode }); }}
+                    onClick={() => fileRef.current?.click()}
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    AI Generate
+                    <Upload className="h-3.5 w-3.5" />
+                    {merged.catalogImageUrl ? "Replace image" : "Upload image"}
                   </Button>
+                  <div className="flex gap-2 items-center">
+                    <div className="flex rounded border border-border overflow-hidden">
+                      {(["3d", "2d"] as const).map((m) => (
+                        <button
+                          key={m}
+                          className={cn(
+                            "px-2 py-1 text-xs font-medium transition-colors",
+                            m === "2d" && "border-l border-border",
+                            viewMode === m
+                              ? "bg-amber-500 text-white"
+                              : "bg-background text-muted-foreground hover:bg-muted/50"
+                          )}
+                          onClick={() => setViewMode(m)}
+                          disabled={busy}
+                        >
+                          {m.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 gap-1.5 border-amber-400/60 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                      disabled={busy}
+                      onClick={() => { setGenerating(true); generateMutation.mutate({ id: row.id, viewMode }); }}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      AI Generate
+                    </Button>
+                  </div>
+                  {merged.catalogImageUrl && (
+                    <button
+                      className="text-xs text-destructive hover:underline text-left"
+                      disabled={busy}
+                      onClick={() => set("catalogImageUrl", null)}
+                    >
+                      Remove image
+                    </button>
+                  )}
                 </div>
-
-                {/* Remove */}
-                {merged.catalogImageUrl && (
-                  <button
-                    className="text-xs text-destructive hover:underline text-left"
-                    disabled={busy}
-                    onClick={() => set("catalogImageUrl", null)}
-                  >
-                    Remove image
-                  </button>
-                )}
               </div>
             </div>
-          </div>
-        </div>
+          </TabsContent>
 
-        <DialogFooter className="gap-2 flex-row justify-end">
+          {/* ── Measurements tab ── */}
+          <TabsContent value="measurements" className="space-y-5 mt-0">
+            <p className="text-xs text-muted-foreground">
+              Assembled cabinet dimensions and package/shipping dimensions. All values in inches unless noted.
+            </p>
+
+            {/* Assembled dims */}
+            <div>
+              <p className="text-sm font-semibold mb-2">Assembled Dimensions</p>
+              <div className="grid grid-cols-3 gap-3">
+                <DimInput label="Width" value={merged.width} onChange={(v) => set("width", v)} disabled={busy} />
+                <DimInput label="Height" value={merged.height} onChange={(v) => set("height", v)} disabled={busy} />
+                <DimInput label="Depth" value={merged.depth} onChange={(v) => set("depth", v)} disabled={busy} />
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <DimInput label="Physical Width (door open)" value={merged.physicalWidth} onChange={(v) => set("physicalWidth", v)} disabled={busy} />
+                <DimInput label="Weight" value={merged.weight} onChange={(v) => set("weight", v)} unit="lbs" disabled={busy} />
+              </div>
+            </div>
+
+            {/* Package dims */}
+            <div>
+              <p className="text-sm font-semibold mb-2">Package / Shipping Dimensions</p>
+              <div className="grid grid-cols-3 gap-3">
+                <DimInput label="Pkg Length" value={merged.pkgLength} onChange={(v) => set("pkgLength", v)} disabled={busy} />
+                <DimInput label="Pkg Width" value={merged.pkgWidth} onChange={(v) => set("pkgWidth", v)} disabled={busy} />
+                <DimInput label="Pkg Height" value={merged.pkgHeight} onChange={(v) => set("pkgHeight", v)} disabled={busy} />
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <DimInput label="Pkg Weight" value={merged.pkgWeight} onChange={(v) => set("pkgWeight", v)} unit="lbs" disabled={busy} />
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ── Aliases tab ── */}
+          <TabsContent value="aliases" className="space-y-4 mt-0">
+            <p className="text-xs text-muted-foreground">
+              Category aliases map raw distributor category names to platform categories. These are global and apply across all cabinets.
+            </p>
+
+            {/* Add new alias */}
+            <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/20">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Alias</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">Raw Category (from distributor)</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    placeholder="e.g. BASE CABINET"
+                    value={newAlias.raw}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewAlias((a) => ({ ...a, raw: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Platform Category</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    placeholder="e.g. Base"
+                    value={newAlias.platform}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewAlias((a) => ({ ...a, platform: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                disabled={!newAlias.raw.trim() || !newAlias.platform.trim() || saveAliasMutation.isPending}
+                onClick={() => saveAliasMutation.mutate({ rawCategory: newAlias.raw.trim(), platformCategory: newAlias.platform.trim(), distributorId: null })}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Save Alias
+              </Button>
+            </div>
+
+            {/* Alias list */}
+            {aliasesLoading ? (
+              <div className="flex justify-center py-6"><Spinner /></div>
+            ) : !aliases?.length ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No aliases defined yet.</p>
+            ) : (
+              <div className="rounded-lg border border-border overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50 border-b border-border">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">Raw Category</th>
+                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">→ Platform</th>
+                      <th className="w-10 px-2 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aliases.map((a: { id: number; rawCategory: string; platformCategory: string; distributorId: number | null }, i: number) => (
+                      <tr key={a.id} className={cn("border-b border-border last:border-0", i % 2 === 0 ? "bg-background" : "bg-muted/20")}>
+                        <td className="px-3 py-2 font-mono">{a.rawCategory}</td>
+                        <td className="px-3 py-2 text-primary font-medium">{a.platformCategory}</td>
+                        <td className="px-2 py-2 text-center">
+                          <button
+                            className="text-destructive hover:text-destructive/70 transition-colors"
+                            onClick={() => deleteAliasMutation.mutate({ id: a.id })}
+                            disabled={deleteAliasMutation.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="gap-2 flex-row justify-end mt-2">
           <Button variant="outline" onClick={() => { setDraft({}); onClose(); }} disabled={busy}>
             Cancel
           </Button>
@@ -404,7 +594,6 @@ export function CabinetConfigAdmin() {
 
   const handleSaved = useCallback(
     (updated: Partial<CabinetRow>) => {
-      // Optimistically update the editRow so if they reopen it shows fresh data
       setEditRow((prev) => prev ? { ...prev, ...updated } : null);
       utils.cabinets.adminListCabinetConfig.invalidate();
     },
