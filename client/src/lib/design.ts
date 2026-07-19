@@ -1689,6 +1689,12 @@ export function doorPanelKind(doorStyle?: string | null): DoorPanelKind {
 // Returns the matched SW color entry including swName when available.
 // Used by the product detail hero to display the SW color name as attribution.
 export function finishColorsWithName(...parts: (string | null | undefined)[]): FinishColors & { swName?: string } {
+  // If any part is a valid 6-digit hex color, use it directly.
+  for (const p of parts) {
+    if (p && /^#[0-9a-fA-F]{6}$/.test(p.trim())) {
+      return colorsFromHex(p.trim().toLowerCase());
+    }
+  }
   const s = parts.filter(Boolean).join(" ").toLowerCase();
   for (const f of FINISH_BY_KEYWORD) {
     if (f.match.test(s)) return { face: f.face, edge: f.edge, label: f.label, swName: f.swName };
@@ -1697,11 +1703,37 @@ export function finishColorsWithName(...parts: (string | null | undefined)[]): F
   return FALLBACK_FINISHES[hashString(s) % FALLBACK_FINISHES.length];
 }
 
+// Derive edge and label colors from a hex face color.
+// Edge is darkened ~15%, label is white for dark faces and dark for light faces.
+function colorsFromHex(hex: string): FinishColors {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  // Darken by ~18% for edge
+  const dr = Math.round(r * 0.82);
+  const dg = Math.round(g * 0.82);
+  const db = Math.round(b * 0.82);
+  const edge = `#${dr.toString(16).padStart(2,'0')}${dg.toString(16).padStart(2,'0')}${db.toString(16).padStart(2,'0')}`;
+  // Luminance check for label contrast
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const label = lum > 160 ? '#2a2520' : '#f5f0eb';
+  return { face: hex, edge, label };
+}
+
 // Accepts any combination of the style's brand name, paint color, finish text,
 // and wood species — all are scanned together so the most specific signal wins.
+// When a hex color code is present in the parts, it is used directly so every
+// door style renders with its exact brand color regardless of keyword matching.
 // Falls back to a deterministic per-name color (never the same tone for every
 // style) when nothing matches.
 export function finishColors(...parts: (string | null | undefined)[]): FinishColors {
+  // First pass: if any part is a valid 6-digit hex color, use it directly.
+  for (const p of parts) {
+    if (p && /^#[0-9a-fA-F]{6}$/.test(p.trim())) {
+      return colorsFromHex(p.trim().toLowerCase());
+    }
+  }
   const s = parts.filter(Boolean).join(" ").toLowerCase();
   for (const f of FINISH_BY_KEYWORD) {
     if (f.match.test(s)) return { face: f.face, edge: f.edge, label: f.label };
