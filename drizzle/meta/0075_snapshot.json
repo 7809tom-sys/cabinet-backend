@@ -3997,14 +3997,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "ourSeriesName": {
-          "name": "ourSeriesName",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": null
         }
       },
       "indexes": {},

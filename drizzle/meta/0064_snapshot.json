@@ -2,7 +2,7 @@
   "version": "5",
   "dialect": "mysql",
   "id": "a1cc5aae-442b-4e81-b925-eb683000106d",
-  "prevId": "0adff216-be8f-44d3-aa33-27e5132ead7b",
+  "prevId": "d6e9df37-4d8b-40d5-8d54-1c03de3e11dc",
   "tables": {
     "affiliate_invoices": {
       "name": "affiliate_invoices",

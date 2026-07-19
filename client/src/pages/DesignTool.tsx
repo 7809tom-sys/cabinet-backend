@@ -116,7 +116,6 @@ import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
-import { LayoutTemplatesDialog } from "@/components/design/LayoutTemplatesDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 // PhotorealPreview removed — replaced by deterministic preview modes
 import type { PhotorealSceneInput } from "@/components/design/PhotorealPreview";
@@ -249,13 +248,6 @@ export default function DesignTool() {
     const v = new URLSearchParams(search).get("style");
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
-  }, [search]);
-  // Optional room type to pre-select (?room=<roomType>), e.g. from the Guided Wizard.
-  const preloadRoomType = useMemo(() => {
-    const v = new URLSearchParams(search).get("room");
-    return v && ["kitchen", "bathroom", "laundry", "closet", "other"].includes(v)
-      ? (v as RoomType)
-      : null;
   }, [search]);
   const loadedDesignRef = useRef<number | null>(null);
   // Auto-save draft: flips true once we've attempted to restore a saved draft,
@@ -537,8 +529,6 @@ export default function DesignTool() {
   // not a priced catalog SKU: it draws on the fronts and lists a piece count on
   // the build sheet as a note. Defaults to "none".
   const [hardwareStyleId, setHardwareStyleId] = useState<HardwareStyleId>(DEFAULT_HARDWARE_STYLE_ID);
-  // Hardware accent color for elevation view rendering (gold, chrome, black, nickel, bronze).
-  const [hardwareAccent, setHardwareAccent] = useState<string>("#C9A84C");
 
   // Wall cabinet height room setting: 42", 36", or 30" (default). This is a
   // room-level preference that determines the height of wall cabinets placed
@@ -2548,8 +2538,6 @@ export default function DesignTool() {
       panelDepth?: number | null;
       /** Pre-calculated panel height (fridge H + bridge H). When provided, overrides the auto-calc. */
       panelHeight?: number | null;
-      /** The chosen end panel face thickness in inches (0.75–1.2). Defaults to 0.75" when not provided. */
-      panelThickness?: number | null;
       smooth: boolean;
       fridgeWidth?: number;
       fridgeHeight?: number;
@@ -2693,11 +2681,8 @@ export default function DesignTool() {
           // while sharing that top line. mountBottom = topLine - height.
           // Determine the actual fridge height for mountBottom:
           // use opts.fridgeHeight if the user changed it, otherwise use the
-          // Standard fridge is 70" tall. The over-fridge cabinet mounts at 72" (70+2" gap).
-          // Use opts.fridgeHeight if the user changed it; otherwise use the stored height (falling back to 70").
+          // stored fridge height, falling back to the standard 70" catalog height.
           const actualFridgeH = opts.fridgeHeight ?? (typeof fridge.height === "number" && fridge.height > 0 ? fridge.height : 70);
-          // The cabinet bottom sits 2" above the fridge top so there's a visible gap.
-          const overFridgeMountBottom = actualFridgeH + 2;
           toPlace.push({
             uid: makeUid(),
             cabinetId: chosen.id,
@@ -2717,7 +2702,7 @@ export default function DesignTool() {
             catalogImageUrl: chosen.catalogImageUrl ?? null,
             styleId: styleIdRef.current ?? null,
             // Mount the bridge cabinet directly on top of the fridge.
-            mountBottom: overFridgeMountBottom,
+            mountBottom: actualFridgeH,
           });
         }
       }
@@ -2726,7 +2711,7 @@ export default function DesignTool() {
       // Use the user-selected panel id if provided, otherwise fall back to best-width match.
       // If the catalog has no matching panel, create a synthetic placeholder so the panel
       // always appears in the drawing with the correct dimensions.
-      const rawFridgeHForPanel = parseFloat(String(fridge.height ?? "70")) || 70;
+      const rawFridgeHForPanel = parseFloat(String(fridge.height ?? "72")) || 72;
       const fridgeHForPanel = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeHForPanel;
       const syntheticPanelHeight = opts.panelHeight && opts.panelHeight > 0
         ? opts.panelHeight
@@ -2754,27 +2739,23 @@ export default function DesignTool() {
         const inferredHeight = code.includes("S2496") || code.includes("REPV") || code.includes("TDEP") ? 96
           : code.includes("S3696") ? 96 : 96;
         const inferredDepth = (code.includes("REPV") || code.includes("S2496") || code.includes("S3696")) ? 0.75 : 0.75;
-        // pThick: the panel's face THICKNESS (the narrow face dimension).
-        // Priority: 1) user-chosen panelThickness from dialog (0.75"–1.2")
-        //           2) catalog width when it's a plausible thickness (≤ 3")
-        //           3) inferred default (0.75")
+        // pThick: the panel's face THICKNESS (the narrow face dimension — panelRow.width for REPV/TDEP
+        // panels where width=1.5" is the thickness and depth=24" is the floor depth).
+        // For REPV/TDEP/S-series panels: width column = face thickness (1.5" or 0.75").
+        // Fall back to inferredDepth (0.75") if width is missing or implausibly large.
         const rawPanelW = parseFloat(String(panelRow.width ?? ""));
-        const catalogThick = (Number.isFinite(rawPanelW) && rawPanelW > 0 && rawPanelW <= 3)
+        const pThick = (Number.isFinite(rawPanelW) && rawPanelW > 0 && rawPanelW <= 3)
           ? rawPanelW
           : inferredDepth;
-        const pThick = (opts.panelThickness != null && opts.panelThickness > 0 && opts.panelThickness <= 1.2)
-          ? opts.panelThickness
-          : catalogThick;
-        // Panel height = fridge height + 2" gap + bridge height (if any), so the panel covers
-        // the full built-in column: 70" fridge + 2" gap + 12" bridge → 84", + 18" → 90", + 24" → 96".
-        const rawFridgeH = parseFloat(String(fridge.height ?? "70")) || 70;
+        // Panel height = fridge height + bridge height (if any), so the panel covers
+        // the full built-in column: 72" fridge + 12" bridge → 84", + 18" → 90", + 24" → 96".
+        const rawFridgeH = parseFloat(String(fridge.height ?? "72")) || 72;
         const fridgeH = opts.fridgeHeight != null ? opts.fridgeHeight : rawFridgeH;
         // Use pre-calculated panelHeight from dialog when provided; otherwise auto-calculate.
-        // Add 2" gap between fridge top and over-fridge cabinet bottom.
         const pHeight = opts.panelHeight && opts.panelHeight > 0
           ? opts.panelHeight
           : opts.above !== "none" && bridgeHeightPlaced > 0
-            ? fridgeH + 2 + bridgeHeightPlaced
+            ? fridgeH + bridgeHeightPlaced
             : (parseFloat(String(panelRow.height ?? "")) || inferredHeight);
         // Along-wall position: just outside the fridge edge on the chosen side.
         // Clamp to room bounds so the panel never lands outside the room.
@@ -4125,15 +4106,8 @@ export default function DesignTool() {
     // Only apply if no style is already set (fresh canvas or empty draft).
     if (styleId != null) return;
     setSlotStyle("A", preloadStyleId);
-    }, [verified, preloadStyleId, doorStyles, styleId, setSlotStyle]);
-  // Apply the room type from the Guided Wizard URL param (?room=) once, after draft restore.
-  const preloadRoomAppliedRef = useRef(false);
-  useEffect(() => {
-    if (!verified || !draftRestoredRef.current || preloadRoomAppliedRef.current) return;
-    if (preloadRoomType == null) return;
-    preloadRoomAppliedRef.current = true;
-    setRoomType(preloadRoomType);
-  }, [verified, preloadRoomType]);
+  }, [verified, preloadStyleId, doorStyles, styleId, setSlotStyle]);
+
   // Consume the Surfaces & Fixtures wizard hand-off ONCE, after verification and
   // after the draft has been restored. This only fires when the customer clicked
   // "I'm ready to design my kitchen" in the wizard (which writes the dedicated
@@ -4259,7 +4233,6 @@ export default function DesignTool() {
   });
   const [loadSignal, setLoadSignal] = useState(0);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
-  const [layoutTemplatesOpen, setLayoutTemplatesOpen] = useState(false);
   // (Generic flooring/backsplash swatch sheets removed — surfaces now come from
   //  real Pelican recommendations in the "Surfaces" palette tab.)
   const [hardwareSheetOpen, setHardwareSheetOpen] = useState(false);
@@ -4294,7 +4267,7 @@ export default function DesignTool() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="border-b border-border bg-card px-2 py-1.5 flex items-center gap-1 lg:gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Title + badge — desktop only */}
         <div className="hidden lg:flex items-center gap-2">
           <h1 className="font-serif text-sm font-bold text-foreground whitespace-nowrap">
@@ -4491,16 +4464,6 @@ export default function DesignTool() {
         >
           <Save className="h-3.5 w-3.5" />
         </button>
-        {/* Layout Templates — desktop only */}
-        <button
-          type="button"
-          className="hidden lg:inline-flex items-center justify-center h-7 px-2 gap-1 rounded-md border border-border text-muted-foreground text-xs font-medium transition-colors hover:bg-muted/60 hover:text-foreground"
-          title="Start from a layout template"
-          onClick={() => setLayoutTemplatesOpen(true)}
-        >
-          <LayoutGrid className="h-3.5 w-3.5" />
-          <span>Templates</span>
-        </button>
         {/* Start New / Clear Design — desktop only */}
         <button
           type="button"
@@ -4555,43 +4518,7 @@ export default function DesignTool() {
           </button>
         )}
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
-        <div className="ml-auto flex items-center gap-1 lg:hidden">
-          {/* Room dimensions — compact icon button */}
-          <button
-            type="button"
-            title="Room dimensions — edit room size"
-            onClick={() => setMobilePanel((p) => p === "room" ? null : "room")}
-            className={`h-7 w-7 flex items-center justify-center rounded-md border transition-colors ${
-              mobilePanel === "room"
-                ? "bg-[#1a2744] border-[#1a2744] text-white"
-                : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <Ruler className="h-3.5 w-3.5" />
-          </button>
-          {/* Style / color picker — compact icon button */}
-          <button
-            type="button"
-            title="Door style & color"
-            onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
-            className={`h-7 w-7 flex items-center justify-center rounded-md border transition-colors ${
-              mobilePanel === "style"
-                ? "bg-[#1a2744] border-[#1a2744] text-white"
-                : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <Palette className="h-3.5 w-3.5" />
-          </button>
-          {/* Save design — compact icon button */}
-          <button
-            type="button"
-            title="Save design"
-            disabled={placed.length === 0}
-            onClick={() => setSaveSignal((n) => n + 1)}
-            className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Save className="h-3.5 w-3.5" />
-          </button>
+        <div className="ml-auto flex items-center gap-2 lg:hidden">
           <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setMoreSheetOpen(true)}>
             <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
           </Button>
@@ -4906,53 +4833,6 @@ export default function DesignTool() {
               </SheetHeader>
               <div className="flex-1 overflow-y-auto overscroll-contain p-3" style={{ WebkitOverflowScrolling: "touch" }}>
                 <p className="mb-3 text-xs text-muted-foreground">Choose the hardware style for doors and drawers. This is a finishing spec — hardware is not priced in the catalog.</p>
-
-                {/* Hardware finish color */}
-                {hardwareStyleId !== "none" && (
-                  <div className="mb-4">
-                    <div className="text-xs font-semibold text-foreground mb-2">Hardware Finish</div>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { label: "Gold / Brass", color: "#C9A84C" },
-                        { label: "Brushed Nickel", color: "#A8A9AD" },
-                        { label: "Chrome", color: "#D4D4D4" },
-                        { label: "Matte Black", color: "#2A2A2A" },
-                        { label: "Oil-Rubbed Bronze", color: "#4A3728" },
-                        { label: "Satin Brass", color: "#B8963E" },
-                      ].map((finish) => (
-                        <button
-                          key={finish.color}
-                          title={finish.label}
-                          onClick={() => setHardwareAccent(finish.color)}
-                          className={`relative h-8 w-8 rounded-full border-2 transition-all ${
-                            hardwareAccent === finish.color
-                              ? "border-primary scale-110 shadow-md"
-                              : "border-border hover:border-primary/50 hover:scale-105"
-                          }`}
-                          style={{ backgroundColor: finish.color }}
-                        >
-                          {hardwareAccent === finish.color && (
-                            <span className="absolute inset-0 flex items-center justify-center">
-                              <Check className={`h-3.5 w-3.5 ${finish.color === "#D4D4D4" || finish.color === "#A8A9AD" ? "text-gray-700" : "text-white"}`} />
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-1.5 text-[11px] text-muted-foreground">
-                      {[
-                        { label: "Gold / Brass", color: "#C9A84C" },
-                        { label: "Brushed Nickel", color: "#A8A9AD" },
-                        { label: "Chrome", color: "#D4D4D4" },
-                        { label: "Matte Black", color: "#2A2A2A" },
-                        { label: "Oil-Rubbed Bronze", color: "#4A3728" },
-                        { label: "Satin Brass", color: "#B8963E" },
-                      ].find((f) => f.color === hardwareAccent)?.label ?? "Custom"}
-                    </div>
-                  </div>
-                )}
-
-                <div className="text-xs font-semibold text-foreground mb-2">Hardware Style</div>
                 <div className="space-y-2">
                   {HARDWARE_STYLES.map((h) => (
                     <button
@@ -5250,22 +5130,6 @@ export default function DesignTool() {
             <FileText className="h-4 w-4" />
           </Button>
           <CsvImportDialog open={csvImportOpen} onOpenChange={setCsvImportOpen} />
-          <LayoutTemplatesDialog
-            open={layoutTemplatesOpen}
-            onOpenChange={setLayoutTemplatesOpen}
-            onApply={(newRoom, newPlaced, newIsland) => {
-              if (placed.length > 0 && !window.confirm("Replace current design with this template?")) return;
-              setRoom(newRoom);
-              setPlaced(newPlaced);
-              setIsland(newIsland ?? null);
-              setOpenings([]);
-              setSelectedUid(null);
-              setSinks([]);
-              setFurniture([]);
-              setPonyWalls([]);
-              toast.success("Layout template applied — customize as needed!");
-            }}
-          />
           <div className="h-5 w-px bg-border" />
           <DesignHelp />
         </div>
@@ -6354,7 +6218,6 @@ export default function DesignTool() {
               lightRail={lightRail}
               panelKind={activePanelKind}
               hardwareStyleId={hardwareStyleId}
-              hardwareAccent={hardwareAccent}
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
               doorSampleUrlFor={doorSampleForCab}
@@ -7331,12 +7194,7 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-8 h-14">
-            <MobileBarButton
-              icon={<LayoutGrid className="h-5 w-5" />}
-              label="Templates"
-              onClick={() => setLayoutTemplatesOpen(true)}
-            />
+          <div className="grid grid-cols-10 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
@@ -7347,6 +7205,12 @@ export default function DesignTool() {
               }}
             />
             <MobileBarButton
+              icon={<Palette className="h-5 w-5" />}
+              label="Style"
+              active={mobilePanel === "style"}
+              onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
+            />
+            <MobileBarButton
               icon={<Waves className="h-5 w-5" />}
               label="Palette"
               active={mobilePanel === "catalog" && paletteType === "surfaces"}
@@ -7354,6 +7218,12 @@ export default function DesignTool() {
                 setPaletteType("surfaces");
                 setMobilePanel("catalog");
               }}
+            />
+            <MobileBarButton
+              icon={<Ruler className="h-5 w-5" />}
+              label="Room"
+              active={mobilePanel === "room"}
+              onClick={() => setMobilePanel((p) => p === "room" ? null : "room")}
             />
             <MobileBarButton
               icon={viewMode === "elevation" ? <LayoutGrid className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -7381,6 +7251,12 @@ export default function DesignTool() {
                 setCabinetsLocked((v) => !v);
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
               }}
+            />
+            <MobileBarButton
+              icon={<Save className="h-5 w-5" />}
+              label="Save"
+              disabled={placed.length === 0}
+              onClick={() => setSaveSignal((n) => n + 1)}
             />
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}

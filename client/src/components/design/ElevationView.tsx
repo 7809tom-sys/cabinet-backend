@@ -5,7 +5,7 @@ import {
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
-  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, isPanelItem,
+  isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -74,8 +74,6 @@ interface Props {
   onMoveVertical?: (uid: string, mountBottom: number) => void;
   // When true, cabinets cannot be dragged (locked layout).
   moveLocked?: boolean;
-  // Hardware accent color (e.g. gold, chrome, matte black). Defaults to gold/brass.
-  hardwareAccent?: string;
 }
 
 export function ElevationView({
@@ -85,7 +83,6 @@ export function ElevationView({
   hardwareStyleId = null,
   finishFor, panelKindFor, doorSampleUrlFor, seamCabinets = [],
   onMove, onMoveVertical, moveLocked = false,
-  hardwareAccent = "#C9A84C",
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
@@ -177,24 +174,26 @@ export function ElevationView({
     const { bottom, height } = elevationBox(p, room);
     const isWall = p.placement === "wall";
     const isAppliance = p.placement === "appliance";
-    // Flat-stock end panels (REPV, PLYEB, S-series, etc.) render as a solid wood
-    // skin — no door/drawer fronts, just a flat panel face.
-    const isPanel = isPanelItem(p);
     const isSelected = p.uid === selectedUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
-    // Door sample image URL — no longer used for rendering (flat color only).
-    const cabDoorSampleUrl: string | null = null;
-    // Face fill: the CABINET BOX background (face frame). Use flat color so
-    // the face frame matches the door panels exactly — no gradient, no texture.
+    // Resolve the door sample image URL for this cabinet (real door photo).
+    const cabDoorSampleUrl = !isAppliance && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
+    // Face fill: the CABINET BOX background (face frame). When a door sample
+    // image is available, the image is applied ONLY to individual door/drawer
+    // panels (not the full face). The box itself shows the face frame color.
     const faceFill = isAppliance
       ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
-      : cabFinish.face;
+      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
     const cabType: CabinetDrawingType | null = !isAppliance ? cabinetDrawingType(p) : null;
+    // DEBUG: log over-fridge cabinets
+    if (p.mountBottom != null && p.placement === 'wall') {
+      console.log('[EV-DEBUG]', p.masterCode, '| placement:', p.placement, '| mountBottom:', p.mountBottom, '| resolvedCounts:', resolvedCounts, '| displayDrawerCount:', displayDrawerCount(p), '| cabType:', cabType, '| height:', height, '| bottom:', bottom);
+    }
     // For blind corner cabinets, determine which side the blind (corner) portion
     // is on. If the cabinet's start is near position 0 (wall start), the corner
     // is on the left. If its end is near planSpan (wall end), the corner is on
@@ -239,12 +238,14 @@ export function ElevationView({
           background: faceFill,
           border: isSelected
             ? "2px solid #1a2744"
-            : "none",
-          borderRadius: 0,
-          // Only show a selection ring when selected — no border or shadow on unselected cabinets.
+            : `1px solid ${edgeColor}`,
+          borderRadius: 2,
+          // Ambient occlusion + contact shadow: a soft inner shadow darkens the
+          // face edges (recessed reveal look) and an outer drop shadow lifts the
+          // box off the wall so adjacent cabinets read as separate 3D objects.
           boxShadow: isSelected
-            ? "0 0 0 3px rgba(212,167,90,0.55)"
-            : undefined,
+            ? "0 0 0 3px rgba(212,167,90,0.55), 0 6px 14px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 10px rgba(0,0,0,0.16)"
+            : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
@@ -255,8 +256,7 @@ export function ElevationView({
           {/* Always render the DoorFront panel structure so the face frame is
               visible. When a door sample image is available, it's applied as the
               background of individual door/drawer panels (not the full face). */}
-          {/* Panels render as flat wood skins — no door fronts or hardware. */}
-          {!isAppliance && !isPanel && (
+          {!isAppliance && (
             <DoorFront
               kind={cabPanelKind}
               edge={edgeColor}
@@ -270,13 +270,13 @@ export function ElevationView({
               cabinetHeightIn={height}
             />
           )}
-          {!isAppliance && !isPanel && hw.id !== "none" && (
+          {!isAppliance && hw.id !== "none" && (
             <HardwareOverlay
               doors={resolvedCounts.doors || doorCountForCabinet(p)}
               drawers={resolvedCounts.drawers || drawerCountForCabinet(p)}
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
-              accent={hardwareAccent}
+              accent="#1a2744"
               handleSide={
                 p.handleSide === "left" || p.handleSide === "right"
                   ? p.handleSide
@@ -561,26 +561,10 @@ export function ElevationView({
             ? t("dt_ev_ceiling_slope", { hi: Math.round(ceilHigh), lo: Math.round(Math.min(heightLeft, heightRight)) })
             : t("dt_ev_ceiling", { n: Math.round(WALL_TOTAL_HEIGHT) })}
         </div>
-        {/* Countertop guide line: dashed 36" reference, drawn only over base
-            cabinet spans so it never passes through tall/pantry cabinets. */}
-        {sorted
-          .filter((p) => p.placement === "base" && p.cabinetId !== 0)
-          .map((p) => {
-            const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-            const posAlong = horizontal ? p.x : p.y;
-            return (
-              <div
-                key={`ctguide-${p.uid}`}
-                className="absolute border-b border-dashed border-[#b08d57]/40 pointer-events-none"
-                style={{
-                  left: posAlong * ppi,
-                  width: sizeAlong * ppi,
-                  bottom: STD.COUNTERTOP_HEIGHT * ppi,
-                  height: 0,
-                }}
-              />
-            );
-          })}
+        <div
+          className="absolute left-0 right-0 border-b border-dashed border-[#b08d57]/40"
+          style={{ bottom: STD.COUNTERTOP_HEIGHT * ppi }}
+        />
 
         {/* Countertop band: a thin colored slab sitting on top of the base run,
             its top edge on the 36" counter line, colored by the chosen material.
@@ -630,7 +614,7 @@ export function ElevationView({
                   style={{
                     left: (r.start - OVERHANG_IN) * ppi,
                     width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
-                    bottom: STD.BASE_HEIGHT * ppi,
+                    bottom: STD.COUNTERTOP_HEIGHT * ppi,
                     height: THICKNESS_IN * ppi,
                     // Polished stone slab: a glossy highlight streak across the
                     // front nosing plus subtle speckle tint from the material.
@@ -709,7 +693,7 @@ export function ElevationView({
             microwave/bridge render on top at higher z-index. */}
         {backsplashMaterialId && (() => {
           const bsMat = backsplashMaterial(backsplashMaterialId);
-          const BACKSPLASH_BOTTOM = STD.BASE_HEIGHT + STD.COUNTERTOP_THICKNESS; // 36" (top of countertop)
+          const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS; // ~37.5"
           const BACKSPLASH_STD_HEIGHT = 18; // standard backsplash is 18" tall
           const BACKSPLASH_DEFAULT_TOP = BACKSPLASH_BOTTOM + BACKSPLASH_STD_HEIGHT; // 55.5"
           // Behind a range, stretch backsplash up to wall cabinet bottom (54")
@@ -933,7 +917,7 @@ export function ElevationView({
           const slabFill = `linear-gradient(180deg, color-mix(in srgb, ${ct.fill} 82%, #ffffff) 0%, ${ct.fill} 45%, color-mix(in srgb, ${ct.fill} 88%, #000000) 100%)`;
           const thickPx = Math.max(2, STD.COUNTERTOP_THICKNESS * ppi);
           return sorted
-            .filter((p) => p.placement === "base" && p.cabinetId !== 0 && bearsCountertop(p))
+            .filter((p) => p.placement === "base" && p.cabinetId !== 0)
             .map((p) => {
               const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
               const posAlong = horizontal ? p.x : p.y;
@@ -944,7 +928,7 @@ export function ElevationView({
                   style={{
                     left: posAlong * ppi - 1,
                     width: sizeAlong * ppi + 2,
-                    bottom: STD.BASE_HEIGHT * ppi,
+                    bottom: STD.COUNTERTOP_HEIGHT * ppi,
                     height: thickPx,
                     background: slabFill,
                     borderBottom: `1px solid ${ct.edge}`,
@@ -980,7 +964,7 @@ export function ElevationView({
               className="absolute pointer-events-none"
               style={{
                 left: centerX - svgW / 2,
-                bottom: (STD.BASE_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi,
+                bottom: (STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi,
                 width: svgW,
                 height: svgH,
                 overflow: "visible",
@@ -999,6 +983,91 @@ export function ElevationView({
           );
         })}
 
+        {/* Apron-front (farmhouse) sink: exposed ceramic apron face below countertop.
+            Shown for FSB-* cabinets. Replaces the standard hidden under-mount look
+            with a visible fireclay/cast-iron apron panel. */}
+        {sorted.filter((p) => isFarmerSinkBase(p)).map((p) => {
+          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
+          const posAlong = horizontal ? p.x : p.y;
+          // Apron sits from floor (toe kick height) up to countertop bottom
+          const apronBottom = toeKick ? TOE_KICK_HEIGHT_IN : 0;
+          const apronTop = STD.COUNTERTOP_HEIGHT; // 34.5"
+          const apronH = apronTop - apronBottom;
+          const apronPxH = apronH * ppi;
+          const apronPxW = sizeAlong * ppi;
+          const apronLeft = posAlong * ppi;
+          const apronBottomPx = apronBottom * ppi;
+          // Basin cutout: centered, ~80% width, ~55% height of apron
+          const basinW = apronPxW * 0.78;
+          const basinH = apronPxH * 0.52;
+          const basinLeft = (apronPxW - basinW) / 2;
+          const basinBottom = apronPxH * 0.12;
+          return (
+            <div
+              key={`apron-${p.uid}`}
+              className="absolute pointer-events-none"
+              style={{
+                left: apronLeft,
+                width: apronPxW,
+                bottom: apronBottomPx,
+                height: apronPxH,
+                zIndex: 6,
+              }}
+            >
+              {/* Apron face panel — fireclay white */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: "linear-gradient(180deg, #f8f9fb 0%, #eef1f5 35%, #e4e8ee 70%, #d8dce4 100%)",
+                  borderTop: "1.5px solid #c8cdd6",
+                  borderLeft: "1px solid #d0d4dc",
+                  borderRight: "1px solid #d0d4dc",
+                  boxShadow: "inset 0 2px 6px rgba(0,0,0,0.08), inset 0 -1px 3px rgba(0,0,0,0.06)",
+                }}
+              />
+              {/* Basin cutout impression */}
+              <div
+                className="absolute"
+                style={{
+                  left: basinLeft,
+                  width: basinW,
+                  bottom: basinBottom,
+                  height: basinH,
+                  background: "linear-gradient(180deg, #c8cdd6 0%, #b8bec9 40%, #a8aebb 100%)",
+                  borderRadius: "3px 3px 6px 6px",
+                  boxShadow: "inset 0 3px 8px rgba(0,0,0,0.22), inset 0 1px 3px rgba(0,0,0,0.15), 0 0 0 1px #9aa0ad",
+                }}
+              >
+                {/* Drain circle */}
+                <div
+                  className="absolute"
+                  style={{
+                    left: "50%",
+                    bottom: "12%",
+                    width: Math.max(4, 2.5 * ppi),
+                    height: Math.max(4, 2.5 * ppi),
+                    marginLeft: -(Math.max(4, 2.5 * ppi) / 2),
+                    borderRadius: "50%",
+                    background: "#7a8090",
+                    border: "1px solid #5a6070",
+                    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.4)",
+                  }}
+                />
+              </div>
+              {/* Apron label */}
+              {apronPxH > 20 && (
+                <div
+                  className="absolute inset-0 flex items-end justify-center pointer-events-none"
+                  style={{ paddingBottom: basinBottom + basinH + 2, zIndex: 2 }}
+                >
+                  <span style={{ fontSize: Math.max(7, ppi * 1.8), color: "#8a9bb0", fontWeight: 500, letterSpacing: "0.03em" }}>
+                    {p.masterCode}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Crown molding: band across the top of each wall cabinet */}
         {crown && sorted.filter((p) => p.placement === "wall" && p.mountBottom == null).map((p) => {
@@ -1230,23 +1299,17 @@ function HardwareOverlay({
       );
     }
     if (kind === "pull") {
-      if (isDoor) {
-        // Door pulls: vertical bar pull on the handle side, centered vertically
-        const leftPos = hSide === "left" ? "12%" : hSide === "right" ? "82%" : "82%";
-        return (
-          <div
-            key={key}
-            className="absolute rounded-full"
-            style={{ left: leftPos, width: 3, top: `${topPct - 10}%`, height: "20%", background: metal, boxShadow: metalShadow, zIndex: 8, marginLeft: -1.5 } as React.CSSProperties}
-          />
-        );
-      }
-      // Drawer pulls: horizontal bar centered
+      // Pulls on doors position on the handle side; on drawers they stay centered
+      const pullStyle = isDoor && hSide
+        ? hSide === "left"
+          ? { left: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
+          : { right: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
+        : { left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 };
       return (
         <div
           key={key}
           className="absolute rounded-full"
-          style={{ left: "25%", right: "25%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 } as React.CSSProperties}
+          style={pullStyle as React.CSSProperties}
         />
       );
     }
@@ -1302,15 +1365,16 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
   // style (drawer fronts don't get raised/beaded treatments in this model),
   // except slab which stays flat.
   if (drawer) {
-    // Flat solid color for drawer fronts.
-    const drawerBg = { backgroundColor: face };
+    const drawerBg = doorSampleUrl
+      ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+      : {};
     if (kind === "slab") {
       return (
         <div
           className="absolute inset-[1.5px] rounded-[1.5px]"
           style={{
             ...drawerBg,
-            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 2px rgba(0,0,0,0.16)`,
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 2px rgba(0,0,0,0.16), 0 0 0 1px ${edge}44`,
           }}
         />
       );
@@ -1326,6 +1390,10 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
           className="absolute inset-[3px] rounded-[1px]"
           style={{
             ...drawerBg,
+            background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #000) 0%, color-mix(in srgb, ${face} 97%, #000) 100%)`,
+            backgroundImage: doorSampleUrl ? `url(${doorSampleUrl})` : undefined,
+            backgroundSize: doorSampleUrl ? "cover" : undefined,
+            backgroundPosition: doorSampleUrl ? "center" : undefined,
             boxShadow: `inset 0 2px 3px rgba(0,0,0,0.22), inset 0 -1px 0 rgba(255,255,255,0.18)`,
           }}
         />
@@ -1342,9 +1410,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
 function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
-  // Stile divider: a slightly darker shade of the face color so it reads as a
-  // physical separation without creating a harsh contrast border.
-  const stroke = `color-mix(in srgb, ${face} 75%, #000000)`;
+  const stroke = `${edge}99`;
 
   // ─── SPECIALTY TYPE: PANTRY (tall cabinet) ───────────────────────────
   // All tall pantry cabinets render as 4 doors: 2 side-by-side on the bottom
@@ -1409,8 +1475,8 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
           <div
             className="absolute inset-[1.5px] rounded-[1px]"
             style={{
-              backgroundColor: face,
-            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 2px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}55`,
+              ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 2px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}55`,
             }}
           />
         </div>
@@ -1422,43 +1488,6 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
             key={`sink-door-${i}`}
             className="absolute"
             style={{ left: `${colW * i}%`, width: `${colW}%`, top: `${falseFrontPct}%`, bottom: 0 }}
-          >
-            {i > 0 && (
-              <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
-            )}
-            <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />
-          </div>
-        ))}
-      </>
-    );
-  }
-
-  // ─── SPECIALTY TYPE: FARMER / APRON-FRONT SINK BASE ─────────────────────
-  // Farmhouse sink base: open rectangular cutout at top (~42% of height) where
-  // the apron sink sits, with two full-height doors below covering the remaining
-  // ~58% of the cabinet face. No false front or panel in the cutout zone.
-  if (cabinetType === "farmer-sink-base") {
-    const cutoutPct = 42; // top open zone where sink apron is exposed
-    const doorsPct = 100 - cutoutPct;
-    const cols = Math.max(1, doorCount || 2);
-    const colW = 100 / cols;
-    return (
-      <>
-        {/* Open cutout zone — recessed/dark background to indicate open space */}
-        <div
-          className="absolute left-0 right-0 top-0"
-          style={{
-            height: `${cutoutPct}%`,
-            background: `linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.28) 100%)`,
-            borderBottom: `2px solid ${stroke}`,
-          }}
-        />
-        {/* Door region: N side-by-side full doors below the cutout */}
-        {Array.from({ length: cols }).map((_, i) => (
-          <div
-            key={`fsb-door-${i}`}
-            className="absolute"
-            style={{ left: `${colW * i}%`, width: `${colW}%`, top: `${cutoutPct}%`, bottom: 0 }}
           >
             {i > 0 && (
               <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
@@ -1564,14 +1593,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
   // drawer base) but with a small corner indicator on the left edge.
   if (cabinetType === "corner-drawer-base") {
     const dCount = Math.max(1, drawerCount || 3);
-    const cdbHeights: number[] =
-      dCount === 2
-        ? [40, 60]
-        : Array.from({ length: dCount }, () => 100 / dCount);
-    const cdbTops = cdbHeights.reduce<number[]>((acc, h, i) => {
-      acc.push(i === 0 ? 0 : acc[i - 1] + cdbHeights[i - 1]);
-      return acc;
-    }, []);
+    const sliceH = 100 / dCount;
     return (
       <>
         {/* Corner indicator: subtle angled mark on left edge */}
@@ -1593,7 +1615,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
             <div
               key={`cdb-drw-${i}`}
               className="absolute left-0 right-0"
-              style={{ top: `${cdbTops[i]}%`, height: `${cdbHeights[i]}%` }}
+              style={{ top: `${sliceH * i}%`, height: `${sliceH}%` }}
             >
               {i > 0 && (
                 <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
@@ -1650,7 +1672,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
         </>
       );
     }
-    // DRAWER BASE (all-drawer, no doors): a vertical STACK of equal-height drawer fronts.
+    // DRAWER BASE (all-drawer, no doors): a vertical STACK of drawer fronts.
     const sliceH = 100 / drawerCount;
     return (
       <>
@@ -1704,25 +1726,27 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
 // the door edge to the panel (i.e. the rail width). `depth` tunes how deep the
 // panel reads. `raised` adds a central raised field (cathedral/raised-panel).
 function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { inset: number; face: string; edge: string; raised?: boolean; doorSampleUrl?: string | null }) {
-  // Flat solid color for the recessed panel — matches the face frame exactly.
-  const panelBg = { backgroundColor: face };
+  const panelBg = doorSampleUrl
+    ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const }
+    : { background: `linear-gradient(180deg, color-mix(in srgb, ${face} 82%, #000) 0%, color-mix(in srgb, ${face} 93%, #000) 55%, color-mix(in srgb, ${face} 99%, #000) 100%)` };
   return (
     <div
-      className="absolute rounded-[1px]"
+      className="absolute rounded-[1.5px]"
       style={{
         inset,
-        // Deep groove: strong top+left shadow simulates the rail casting
-        // a shadow into the recessed panel; bright bottom-right lip catches light.
-        boxShadow: `inset 2px 2px 4px rgba(0,0,0,0.22), inset -1px -1px 0 rgba(255,255,255,0.18)`,
+        // Reveal groove around the panel: dark shadow top-left where the rail
+        // casts onto the recess, subtle light at the bottom lip.
+        boxShadow: `inset 0 2.5px 5px rgba(0,0,0,0.32), inset 0 -1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px ${edge}80`,
         ...panelBg,
       }}
     >
       {raised && (
         <div
-          className="absolute inset-[4px] rounded-[1px]"
+          className="absolute inset-[3px] rounded-[1.5px]"
           style={{
-            backgroundColor: face,
-            boxShadow: `0 1.5px 3px rgba(0,0,0,0.30), inset 1.5px 1.5px 0 rgba(255,255,255,0.35), inset -1px -1px 1px rgba(0,0,0,0.20)`,
+            background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #fff) 0%, ${face} 60%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
+            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const } : {}),
+            boxShadow: `0 1px 2px rgba(0,0,0,0.28), inset 1px 1px 0 rgba(255,255,255,0.30), inset -1px -1px 1px rgba(0,0,0,0.18)`,
           }}
         />
       )}
@@ -1736,40 +1760,39 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { i
 // door reads as a real 3D door rather than flat outlines.
 function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; stroke: string; doorSampleUrl?: string | null }) {
   void stroke;
-  // No bevel on the outer rail — flat color look matches the design example.
+  // Beveled outer rail applied to the whole door face (shared by framed styles).
   const railBevel: React.CSSProperties = {
-    borderRadius: 0,
+    boxShadow: `inset 1.5px 1.5px 0 rgba(255,255,255,0.26), inset -1.5px -1.5px 1px rgba(0,0,0,0.20)`,
+    borderRadius: 2,
   };
   switch (kind) {
     case "slab":
-      // Flat modern door: no panel, just a flat color face.
+      // Flat modern door: no panel, just a machined edge + soft top highlight.
+      // When a door sample is available, use it as the slab face.
       return (
         <div
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
-            backgroundColor: face,
-            boxShadow: `inset 0 1.5px 0 rgba(255,255,255,0.32), inset 0 -2px 4px rgba(0,0,0,0.18)`,
+            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 3px rgba(0,0,0,0.14), 0 0 0 1px ${edge}44`,
           }}
         />
       );
     case "double-shaker":
-      // Two stacked recessed panels — typical for taller doors.
-      // 9px outer rail + 5px mid-rail between the two panels.
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <div className="absolute left-[9px] right-[9px] top-[9px] bottom-[51%]">
+          <div className="absolute left-[6px] right-[6px] top-[6px] bottom-[50.5%]">
             <RecessedPanel inset={0} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
           </div>
-          <div className="absolute left-[9px] right-[9px] top-[51%] bottom-[9px]">
+          <div className="absolute left-[6px] right-[6px] top-[50.5%] bottom-[6px]">
             <RecessedPanel inset={0} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
           </div>
         </div>
       );
     case "raised":
-      // Raised panel: 9px outer rail with a raised inner field.
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={9} face={face} edge={edge} raised doorSampleUrl={doorSampleUrl} />
+          <RecessedPanel inset={6} face={face} edge={edge} raised doorSampleUrl={doorSampleUrl} />
         </div>
       );
     case "beaded":
@@ -1778,18 +1801,19 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
           <div
             className="absolute inset-[5px] rounded-[1px]"
             style={{
-              backgroundColor: face,
-              boxShadow: `inset 0 2px 5px rgba(0,0,0,0.28), 0 0 0 0.5px ${edge}77`,
+              boxShadow: `inset 0 2px 4px rgba(0,0,0,0.24), 0 0 0 0.5px ${edge}66`,
+              ...(doorSampleUrl
+                ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+                : { backgroundImage: `repeating-linear-gradient(90deg, color-mix(in srgb, ${face} 90%, #000) 0px, color-mix(in srgb, ${face} 90%, #000) 2px, color-mix(in srgb, ${face} 78%, #000) 2.5px, color-mix(in srgb, ${face} 90%, #000) 3px, color-mix(in srgb, ${face} 90%, #000) 4px)` }),
             }}
           />
         </div>
       );
     case "inset":
-      // Inset door: the door sits flush inside the face frame opening.
       return (
         <div
           className="absolute inset-[2px] rounded-[2px]"
-          style={{ boxShadow: `0 0 0 1px ${edge}88, inset 1.5px 1.5px 0 rgba(255,255,255,0.26), inset -1.5px -1.5px 2px rgba(0,0,0,0.22)` }}
+          style={{ boxShadow: `0 0 0 1px ${edge}77, inset 1px 1px 0 rgba(255,255,255,0.22), inset -1px -1px 1px rgba(0,0,0,0.18)` }}
         >
           <RecessedPanel inset={5} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
@@ -1797,17 +1821,14 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: Do
     case "slim-shaker":
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={4} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
+          <RecessedPanel inset={3} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
       );
     case "shaker":
     default:
-      // Standard shaker: wide rails/stiles with a deep recessed center panel.
-      // inset=9 gives a more prominent rail width matching real shaker proportions
-      // (typically 1.5"–2" rails at 1:12 scale ≈ 8–10px at our ppi).
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={9} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
+          <RecessedPanel inset={6} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
       );
   }

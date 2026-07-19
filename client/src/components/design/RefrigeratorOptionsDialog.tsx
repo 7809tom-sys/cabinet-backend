@@ -41,14 +41,8 @@ export interface FridgeSurroundChoice {
   /** The chosen end panel depth in inches (24–36). Null when panels === "none". */
   panelDepth: number | null;
   /**
-   * The chosen end panel face thickness in inches.
-   * Default 0.75" (standard 3/4" plywood); user can choose up to 1.2".
-   * Null when panels === "none".
-   */
-  panelThickness: number | null;
-  /**
    * The auto-calculated panel height in inches.
-   * = (fridge height + 2" gap) + bridgeHeight. e.g. 70" fridge → cabinet bottom at 72".
+   * = 72 (standard fridge height) + bridgeHeight.
    * Null when panels === "none" or above === "none".
    */
   panelHeight: number | null;
@@ -98,16 +92,8 @@ const BRIDGE_WIDTH_OPTIONS = [30, 33, 36];
 // End panel depth options (inches)
 const PANEL_DEPTH_OPTIONS = [24, 26, 28, 30, 32, 34, 36];
 
-// End panel face thickness options (inches): 3/4" standard up to 1.2" max
-const PANEL_THICKNESS_OPTIONS = [
-  { value: 0.75, label: '3/4"', sub: 'Standard' },
-  { value: 1.0,  label: '1"',   sub: '' },
-  { value: 1.2,  label: '1.2"', sub: 'Max' },
-] as const;
-type PanelThickness = typeof PANEL_THICKNESS_OPTIONS[number]['value'];
-
-// Standard fridge is 70" tall; over-fridge cabinet mounts at 72" (70+2" gap).
-const FRIDGE_STANDARD_H = 70;
+// Fridge height used for panel height calculation
+const FRIDGE_STANDARD_H = 72;
 
 // ─── Helper: panel height from bridge height ──────────────────────────────────
 function calcPanelHeight(bridgeH: BridgeHeight): number {
@@ -238,9 +224,6 @@ export function RefrigeratorOptionsDialog({
   // ── Smooth panel ───────────────────────────────────────────────────────────
   const [smooth, setSmooth] = useState(false);
 
-  // ── End panel thickness ───────────────────────────────────────────────────
-  const [panelThickness, setPanelThickness] = useState<PanelThickness>(0.75);
-
   // ── SKU dimension parser ──────────────────────────────────────────
   // Handles four over-fridge cabinet SKU formats:
   //  1. Clark & Sons 12" deep:     W-WW-HH      e.g. W-36-18   → {w:36,h:18,d:12}
@@ -310,9 +293,8 @@ export function RefrigeratorOptionsDialog({
   const chosenBridge = above === "bridge" ? bridgeByDims[bridgeHeightChoice][bridgeDepthChoice] : null;
 
   // Auto-calculated panel height: use the actual fridgeH the user selected, not a hardcoded constant.
-  // Panel covers the full built-in column: fridge height + 2" gap + bridge cabinet height.
   const panelHeight = above === "bridge" && panels !== "none"
-    ? fridgeH + 2 + bridgeHeightChoice
+    ? fridgeH + bridgeHeightChoice
     : null;
 
   // Best-match end panel
@@ -331,7 +313,6 @@ export function RefrigeratorOptionsDialog({
       setAbove("none");
       setPanels("none");
       setPanelDepth(24);
-      setPanelThickness(0.75);
       setSelectedPanelId(bestPanel ? String(bestPanel.id) : "");
       setSmooth(false);
     }
@@ -354,7 +335,6 @@ export function RefrigeratorOptionsDialog({
       panels,
       endPanelId: panels !== "none" && selectedPanelId ? parseInt(selectedPanelId, 10) : null,
       panelDepth: panels !== "none" ? panelDepth : null,
-      panelThickness: panels !== "none" ? panelThickness : null,
       panelHeight,
       smooth,
       fridgeWidth: fridgeW,
@@ -400,7 +380,7 @@ export function RefrigeratorOptionsDialog({
           <Section title="Over-Fridge Cabinet">
             <div className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                Cabinet bottom sits at fridge height + 2″ gap (e.g. 70″ fridge → cabinet starts at 72″)
+                Cabinet sits at 72″ above floor (bottom of cabinet = top of fridge space)
               </p>
               <OptionPills<FridgeAbove>
                 value={above}
@@ -526,7 +506,7 @@ export function RefrigeratorOptionsDialog({
               {above === "bridge" && panels !== "none" && panelHeight && (
                 <p className="text-xs text-muted-foreground">
                   Panel height will be <span className="font-semibold text-foreground">{panelHeight}″</span>
-                  {" "}({fridgeH}″ fridge + 2″ gap + {bridgeHeightChoice}″ cabinet)
+                  {" "}(72″ fridge + {bridgeHeightChoice}″ cabinet)
                 </p>
               )}
               {above === "none" && panels !== "none" && (
@@ -555,36 +535,6 @@ export function RefrigeratorOptionsDialog({
                   options={PANEL_DEPTH_OPTIONS}
                   onChange={setPanelDepth}
                 />
-
-                {/* Panel Thickness */}
-                <div className="space-y-1.5">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Panel Thickness</span>
-                    <span className="text-[10px] text-muted-foreground">face thickness of end panel</span>
-                  </div>
-                  <div className="flex gap-2">
-                    {PANEL_THICKNESS_OPTIONS.map((o) => {
-                      const active = panelThickness === o.value;
-                      return (
-                        <button
-                          key={o.value}
-                          type="button"
-                          onClick={() => setPanelThickness(o.value as PanelThickness)}
-                          className={cn(
-                            "flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
-                            active
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
-                          )}
-                          aria-pressed={active}
-                        >
-                          {o.label}
-                          {o.sub && <span className="block text-[10px] opacity-70">{o.sub}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
 
                 {/* Panel style selector */}
                 {endPanels.length > 0 && (

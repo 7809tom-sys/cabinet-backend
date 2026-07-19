@@ -2,7 +2,7 @@
   "version": "5",
   "dialect": "mysql",
   "id": "6f11ea22-3739-46d8-9699-90310135a6af",
-  "prevId": "0d28295d-97f6-40b1-963d-77769c8f5bfa",
+  "prevId": "d6e9df37-4d8b-40d5-8d54-1c03de3e11dc",
   "tables": {
     "affiliate_invoices": {
       "name": "affiliate_invoices",
@@ -3683,14 +3683,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(now())"
-        },
-        "ourSeriesName": {
-          "name": "ourSeriesName",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": null
         }
       },
       "indexes": {},

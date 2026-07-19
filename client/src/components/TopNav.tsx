@@ -20,12 +20,10 @@ const PRIMARY_LINKS: NavLink[] = [
   { key: "nav_stonecreek", href: "/stonecreek" },
   { key: "nav_plumbers_choice", href: "/plumbers-choice" },
   { key: "nav_design_tool", href: "/design" },
-  { key: "nav_inspiration", href: "/inspiration" },
 ];
 
 // Secondary links folded into the "More" dropdown on desktop
 const MORE_LINKS: NavLink[] = [
-  { key: "nav_start_designing", href: "/start" },
   { key: "nav_build_an_order", href: "/order/new" },
   { key: "nav_photo_to_cart", href: "/photo-to-cart" },
   { key: "nav_fixture_photo", href: "/fixture-photo" },

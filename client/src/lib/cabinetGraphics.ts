@@ -5,7 +5,6 @@ export type CabinetDrawingType =
   | "standard-door" // 1+ door box (base/wall/tall)
   | "drawer-base" // stacked drawer fronts
   | "sink-base" // false tilt-out top panel + sink cutout indication
-  | "farmer-sink-base" // apron/farmhouse sink base: open top cutout + two doors below
   | "appliance-garage" // tambour roll-up slats
   | "blind-corner" // L-shaped footprint
   | "corner-drawer-base" // L-shaped corner with stacked drawers on the main face (CDB-*)
@@ -59,52 +58,43 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
 } {
   const desc = lc(cab.description);
   const sub = lc(cab.subCategory);
-  const code = lc(cab.masterCode ?? "");
   const w = toNum(cab.width);
 
-  // 1a) Drawers from the master code:
-  //   DB-{width}-{drawers}  e.g. DB-12-3 = 3 drawers
-  //   BD-{width}-{drawers}  variant
-  //   {drawers}DB{width}     e.g. 2DB24 = 2 drawers (US Cabinet Depot style)
-  //   {drawers}DB-{width}    e.g. 3DB-24
+  // 1) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
   let drawers = 0;
-  const codeDrawerMatch = code.match(/^(?:db|bd)[-_]\d+[-_](\d+)$/);
-  if (codeDrawerMatch) drawers = parseInt(codeDrawerMatch[1], 10);
-  // {N}DB{width} format: leading digit(s) = drawer count
-  const ndbMatch = code.match(/^([2-6])db[-_]?\d/);
-  if (!codeDrawerMatch && ndbMatch) drawers = parseInt(ndbMatch[1], 10);
-
-  // 1b) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
-  // Use \b([1-6]) so SKU codes like "W3612" embedded in descriptions (e.g.
-  // "Same Box With W3612 Door") are never parsed as door/drawer counts.
-  if (drawers === 0) {
-    const drawerNum = desc.match(/\b([1-6])\s*[- ]?drawer/);
-    if (drawerNum) drawers = parseInt(drawerNum[1], 10);
-    else {
-      const drawerWord = desc.match(/\b(single|two|double|three|triple|four|five|six)\s*[- ]?drawer/);
-      if (drawerWord) drawers = WORD_NUM[drawerWord[1]] ?? 0;
-    }
+  const drawerNum = desc.match(/(\d+)\s*[- ]?drawer/);
+  if (drawerNum) drawers = parseInt(drawerNum[1], 10);
+  else {
+    const drawerWord = desc.match(/\b(single|two|double|three|triple|four|five|six)\s*[- ]?drawer/);
+    if (drawerWord) drawers = WORD_NUM[drawerWord[1]] ?? 0;
   }
   if (drawers === 0 && (cab.numberOfDrawers ?? 0) > 0 && /drawer/.test(`${desc} ${sub}`)) {
     drawers = cab.numberOfDrawers ?? 0;
   }
 
-  // If this is a drawer-only base (DB-*, BD-*, or {N}DB{width} code), force doors=0
-  // so the renderer never shows door panels — only the stacked drawer fronts.
-  const isDrawerOnlyCode = /^(?:db|bd)[-_]\d/.test(code) || /^[2-6]db[-_]?\d/.test(code);
-
   // 2) Doors from the description first ("Single Door", "Double Door", "2 Door").
-  // Use \b([1-6]) so SKU codes like "W3612" embedded in descriptions (e.g.
-  // "Same Box With W3612 Door") are never parsed as door counts.
   let doors = 0;
-  const doorNum = desc.match(/\b([1-6])\s*[- ]?door/);
+  const doorNum = desc.match(/(\d+)\s*[- ]?door/);
   if (doorNum) doors = parseInt(doorNum[1], 10);
   else {
     const doorWord = desc.match(/\b(single|two|double|three|triple|four)\s*[- ]?door/);
     if (doorWord) doors = WORD_NUM[doorWord[1]] ?? 0;
   }
 
-  // 3) Fall back to the numeric field, then to width (>=24" base/wall = 2 doors).
+  // 3) If the description/subCategory clearly indicates a PURE drawer base
+  //    (e.g. "Two Drawer Base", subCategory="Drawer Base"), force doors=0 so
+  //    the cabinet is never mis-classified as a door box. The numberOfDoors
+  //    field in the DB is sometimes wrong (e.g. 2DB24 has numberOfDoors=2).
+  const isPureDrawerBase =
+    drawers > 0 &&
+    (/drawer base/.test(`${sub} ${desc}`) ||
+      /^\d+db\d/i.test(lc(cab.masterCode ?? "")) ||
+      /^(?:db|bd)[-_]\d/.test(lc(cab.masterCode ?? "")));
+  if (isPureDrawerBase) {
+    return { doors: 0, drawers };
+  }
+
+  // 4) Fall back to the numeric field, then to width (>=24" base/wall = 2 doors).
   if (doors === 0) {
     const n = cab.numberOfDoors ?? 0;
     if (n > 0) doors = n;
@@ -112,9 +102,6 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   if (doors === 0 && drawers === 0) {
     doors = w !== null && w >= 24 ? 2 : 1;
   }
-
-  // Drawer-only codes (DB-*, BD-*) must never have door panels.
-  if (isDrawerOnlyCode) doors = 0;
 
   return { doors, drawers };
 }
@@ -164,11 +151,6 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "blind-corner";
   }
 
-  // Farmer/apron-front sink base (FSB-*): open top cutout + two doors below.
-  if (/^(?:ada-)?fsb[-_ ]?\d/.test(code) || (/\b(?:farm(?:house)?|apron)\b/.test(hay) && /sink/.test(hay))) {
-    return "farmer-sink-base";
-  }
-
   // Sink base (false front tilt-out + sink cutout indication).
   if (/sink base|sink/.test(hay) && /base|vanity/.test(`${cat} ${sub} ${desc}`)) {
     return "sink-base";
@@ -191,11 +173,7 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
 
   // Drawer base: all-drawer fronts (no doors). Use the description-driven
   // resolver so the type matches the label (e.g. "3 Drawer Base").
-  // Also detect by master code: DB-{width}-{drawers} or BD-{width}-{drawers}.
   const { doors, drawers } = resolveDoorDrawerCounts(cab);
-  if (/^(?:db|bd)[-_]\d/.test(code) || /^[2-6]db[-_]?\d/.test(code)) {
-    return "drawer-base";
-  }
   if (/drawer base/.test(`${sub} ${desc}`) && doors === 0) {
     return "drawer-base";
   }
@@ -238,7 +216,6 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
   //    must be classified before the drawer/standard checks.
   if (
     type === "sink-base" ||
-    type === "farmer-sink-base" ||
     /\bsink\b/.test(hay) ||
     /^(?:ada-)?f?sb[-_ ]?\d/.test(code) ||
     /^csb[-_ ]?\d/.test(code) ||
@@ -314,7 +291,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "drawer-base") {
     return drawers > 0 ? `${drawers}-Drawer ${placement}` : `Drawer ${placement}`;
   }
-  if (type === "sink-base" || type === "farmer-sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
+  if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return /lazy susan|easy reach/.test(desc) ? `Corner ${placement}` : `Blind Corner ${placement}`;
   if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;
   if (type === "appliance-garage") return "Appliance Garage";
@@ -375,7 +352,6 @@ export function cabinetAltText(cab: CabinetLike): string {
     "standard-door": doors > 0 ? `${doors}-door cabinet` : "cabinet",
     "drawer-base": drawers > 0 ? `${drawers}-drawer base cabinet` : "drawer base cabinet",
     "sink-base": "sink base cabinet with false tilt-out front",
-    "farmer-sink-base": "farmhouse apron-front sink base cabinet",
     "appliance-garage": "appliance garage with tambour door",
     "blind-corner": "blind corner cabinet",
     "corner-drawer-base": "corner drawer base cabinet",
