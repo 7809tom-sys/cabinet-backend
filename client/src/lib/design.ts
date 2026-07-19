@@ -1606,7 +1606,7 @@ const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: str
   // SW 6244 Naval — deep navy blue
   { match: /naval(?!\s*gray)|sw\s*6244|sw6244/, face: "#3d5166", edge: "#26354a", label: "#f0f4f8", swName: "Naval SW 6244" },
   // SW 6258 Tricorn Black — true black
-  { match: /tricorn black|sw\s*6258|sw6258/, face: "#2f2f2f", edge: "#161616", label: "#f5f5f5", swName: "Tricorn Black SW 6258" },
+  { match: /tricorn black|sw\s*6258|sw6258/, face: "#2b2b2e", edge: "#161618", label: "#f5f5f5", swName: "Tricorn Black SW 6258" },
   // SW 6990 Caviar — near-black warm
   { match: /caviar|sw\s*6990|sw6990/, face: "#3b3635", edge: "#1e1b1a", label: "#f5f5f5", swName: "Caviar SW 6990" },
   // SW 7069 Iron Ore — dark charcoal
@@ -1621,6 +1621,10 @@ const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: str
   { match: /evergreen fog|sw\s*9166|sw9166/, face: "#7a8c7e", edge: "#5a6a5e", label: "#f0f4f0", swName: "Evergreen Fog SW 9166" },
   // SW 6177 Pewter Green
   { match: /pewter green|sw\s*6177|sw6177/, face: "#6b7d6a", edge: "#4e5e4d", label: "#f0f4f0", swName: "Pewter Green SW 6177" },
+  // SW 2860 Sage — muted grey-green (used by Fresh Sage, Zenith Sage, Oxford Sage)
+  { match: /sw\s*2860|sw2860|fresh sage|zenith sage|oxford sage/, face: "#8b9190", edge: "#6a6f6e", label: "#1f2937", swName: "Sage SW 2860" },
+  // SW 6191 Rosemary — medium sage green
+  { match: /sw\s*6191|sw6191|rosemary|zephyr sage/, face: "#7a8c7e", edge: "#5a6a5e", label: "#f0f4f0", swName: "Rosemary SW 6191" },
   // ── GENERIC COLOR FAMILIES (fallback when no specific SW name matches) ────
   // WHITES (broad)
   { match: /white|snow|arctic|alpine|pearl|dove(?!tail)|blanc|alba|marshmallow|chantilly|frost(?!ed gray)|ivory|cotton|dawn/, face: "#f3f1ec", edge: "#cfc9bf", label: "#3a3a3a" },
