@@ -137,7 +137,9 @@ export const doorStyles = mysqlTable("door_styles", {
   // Shown in admin and optionally in the catalog to group styles by series.
   ourSeriesName: varchar("ourSeriesName", { length: 128 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => ({
+  uniqStylePerDistributor: uniqueIndex("door_styles_style_dist_uidx").on(t.styleCode, t.distributorId),
+}));
 export type DoorStyle = typeof doorStyles.$inferSelect;
 
 // ─── Cabinet Items (GENERIC_INFO) ─────────────────────────────────────────────
