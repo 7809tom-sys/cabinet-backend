@@ -1184,3 +1184,22 @@
 - [x] Fix: Base tab now also includes "corner" category cabinets
 - [x] Ensure the filter works for all door styles, not just White Shaker
 - [x] TypeScript check passes; checkpoint saved
+
+## Fix: FRIDGE cabinet elevation rendering (Jul 20)
+
+- [x] FRIDGE-36 renders with door panel lines for Preston style but should be a plain flat panel (no door details) like Ashford
+- [x] Root cause: older saved designs stored placement:"tall" for FRIDGE-* items; elevation view checked placement field only
+- [x] Fix 1: ElevationView.tsx isAppliance check now also checks masterCode.startsWith("FRIDGE-") and "RANGE-"
+- [x] Fix 2: loadSavedDesign normalizes placement:"appliance" for any FRIDGE-*/RANGE-* cabinet on load
+- [x] Fix 3: localStorage draft restore also normalizes appliance placement
+- [x] TypeScript check passes; checkpoint saved
+
+## Fix: Madison over-fridge cabinet "No 24×24 available" error (Jul 20)
+
+- [x] Error: "No 24″ × 24″ cabinet available for this style" when selecting 24″ deep over-fridge cabinet for Madison style
+- [x] Root cause: USCD bridge/fridge wall cabinet SKUs (OW-W3012, OW-W301224, etc.) were missing from distributor_skus table
+- [x] Fix 1: Inserted 456 distributor_skus rows linking all 24 bridge/fridge cabinet types to all 19 USCD styles
+- [x] Fix 2: Updated surroundForFridge server query to match USCD 4-char (W3012) and 6-char (W301224) SKU patterns
+- [x] Fix 3: Added auto-correct useEffect to switch depth when height changes and current depth has no match
+- [x] Fix 4: Depth buttons now show strikethrough/disabled when no matching cabinet exists at that depth
+- [x] TypeScript check passes; checkpoint saved

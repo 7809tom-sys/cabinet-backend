@@ -1205,7 +1205,16 @@ export default function DesignTool() {
       selectedSurfaces?: SelectedSurface[] | null;
     }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
-      setPlaced(normalizeLCornerDepths(Array.isArray(d.placed) ? d.placed : []));
+      // Normalize placement for appliance items — older saved designs may have
+      // stored placement:"tall" for FRIDGE-* or RANGE-* items. Correct them here
+      // so the elevation view renders them as plain steel boxes (no door lines).
+      const rawPlaced = Array.isArray(d.placed) ? d.placed : [];
+      const normalizedPlaced = rawPlaced.map((p) =>
+        isApplianceCode(p.masterCode ?? "") && p.placement !== "appliance"
+          ? { ...p, placement: "appliance" as const }
+          : p
+      );
+      setPlaced(normalizeLCornerDepths(normalizedPlaced));
       setStyleId(d.styleId ?? null);
       // Restore the supply-line lock if the saved design was pinned to one.
       setLockedDistributorId(typeof d.distributorId === "number" ? d.distributorId : null);
@@ -4038,7 +4047,15 @@ export default function DesignTool() {
         const d = JSON.parse(raw);
         if (d && typeof d === "object") {
           if (d.room) setRoom(d.room);
-          if (Array.isArray(d.placed)) setPlaced(normalizeLCornerDepths(d.placed));
+          if (Array.isArray(d.placed)) {
+            // Normalize appliance placement (same fix as loadSavedDesign)
+            const normalizedDraft = (d.placed as PlacedCabinet[]).map((p) =>
+              isApplianceCode(p.masterCode ?? "") && p.placement !== "appliance"
+                ? { ...p, placement: "appliance" as const }
+                : p
+            );
+            setPlaced(normalizeLCornerDepths(normalizedDraft));
+          }
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);
           setStyleId(d.styleId ?? null);

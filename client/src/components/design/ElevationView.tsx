@@ -173,7 +173,9 @@ export function ElevationView({
     const posAlong = seam ? 0 : (horizontal ? p.x : p.y);
     const { bottom, height } = elevationBox(p, room);
     const isWall = p.placement === "wall";
-    const isAppliance = p.placement === "appliance";
+    // Treat FRIDGE-* and RANGE-* as appliances even if placement was saved incorrectly
+    // (older designs may have stored placement:"tall" for fridge items).
+    const isAppliance = p.placement === "appliance" || /^(FRIDGE|RANGE)-/i.test(p.masterCode ?? "");
     const isSelected = p.uid === selectedUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;

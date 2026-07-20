@@ -329,6 +329,19 @@ export function RefrigeratorOptionsDialog({
     }
   }, [panels, selectedPanelId, bestPanel]);
 
+  // Auto-correct depth when height changes and current depth has no matching cabinet
+  useEffect(() => {
+    if (above !== "bridge") return;
+    const currentMatch = bridgeByDims[bridgeHeightChoice][bridgeDepthChoice];
+    if (!currentMatch) {
+      // Find the best available depth for this height
+      const fallback = BRIDGE_DEPTH_OPTIONS.find(
+        (d) => bridgeByDims[bridgeHeightChoice][d as BridgeDepth] != null
+      ) as BridgeDepth | undefined;
+      if (fallback !== undefined) setBridgeDepthChoice(fallback);
+    }
+  }, [bridgeHeightChoice, above]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleApply = () => {
     onApply({
       above,
@@ -469,14 +482,25 @@ export function RefrigeratorOptionsDialog({
                         <button
                           key={o.value}
                           type="button"
-                          onClick={() => setBridgeDepthChoice(o.value)}
-                          title={!hasDepth ? `No ${o.value}" deep cabinet available for this height` : undefined}
+                          disabled={!hasDepth}
+                          onClick={() => {
+                            if (hasDepth) {
+                              setBridgeDepthChoice(o.value);
+                            } else {
+                              // Fall back to the other depth if this one has no match
+                              const fallback = BRIDGE_DEPTH_OPTIONS.find(
+                                (d) => d !== o.value && bridgeByDims[bridgeHeightChoice][d] != null
+                              );
+                              if (fallback) setBridgeDepthChoice(fallback);
+                            }
+                          }}
+                          title={!hasDepth ? `No ${o.value}" deep cabinet available for this style` : undefined}
                           className={cn(
                             "flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
                             active
                               ? "border-primary bg-primary text-primary-foreground"
                               : !hasDepth
-                                ? "border-border bg-background text-muted-foreground/40 line-through"
+                                ? "border-border bg-background text-muted-foreground/40 line-through cursor-not-allowed"
                                 : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
                           )}
                           aria-pressed={active}
