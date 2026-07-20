@@ -1106,3 +1106,9 @@
 
 - [x] Search bar at top of door style picker filters by style name, color, and series name (real-time, desktop + mobile)
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Potential Merge Detection (SKU overlap detection)
+- [ ] Server procedure: detect SKU overlaps between cabinets and return merge candidates
+- [ ] Admin UI: PotentialMergesAdmin component with Accept (set alias) and Dismiss actions
+- [ ] Wire into Products & Catalog tab with badge count
+- [ ] TypeScript check passes; checkpoint saved

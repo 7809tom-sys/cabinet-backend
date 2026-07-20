@@ -66,6 +66,7 @@ import { AnalyticsAdmin } from "@/components/admin/AnalyticsAdmin";
 import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
 import GenericCabinetsAdmin from "@/components/admin/GenericCabinetsAdmin";
 import { CabinetConfigAdmin } from "@/components/admin/CabinetConfigAdmin";
+import PotentialMergesAdmin from "@/components/admin/PotentialMergesAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -110,6 +111,7 @@ const GROUPS = [
       { value: "images", label: "Product Images" },
       { value: "pelican-catalog", label: "Pelican Catalog" },
       { value: "conflicts", label: "Conflicts" },
+      { value: "merge-suggestions", label: "Merge Suggestions" },
       { value: "cabinet-config", label: "Cabinet Config" },
     ],
   },
@@ -459,6 +461,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="images" className="mt-6"><AdminTabHelp tab="images" /><SkuImageManager /></TabsContent>
         <TabsContent value="pelican-catalog" className="mt-6"><PelicanCatalogAdmin /></TabsContent>
         <TabsContent value="conflicts" className="mt-6"><AdminTabHelp tab="conflicts" /><ConflictsAdmin /></TabsContent>
+        <TabsContent value="merge-suggestions" className="mt-6"><PotentialMergesAdmin /></TabsContent>
         <TabsContent value="cabinet-config" className="mt-6"><CabinetConfigAdmin /><div className="mt-8 border-t border-border pt-6"><GenericCabinetsAdmin /></div></TabsContent>
 
         {/* Pricing */}

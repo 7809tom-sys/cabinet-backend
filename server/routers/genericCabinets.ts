@@ -529,6 +529,186 @@ export const genericCabinetsRouter = router({
     }),
 
   /**
+   * Detect cabinets with overlapping / similar SKU codes that may be duplicates.
+   * Returns pairs where one cabinet's code appears in another's alias fields,
+   * OR where codes differ only by a hyphen/space (e.g. B12 vs B-12, OC30 vs OC-30).
+   * Each suggestion has a unique key so admins can dismiss it permanently.
+   */
+  potentialMerges: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+
+    // Load all cabinets with their alias fields
+    const rows = await db
+      .select({
+        id: cabinets.id,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        sku: cabinets.sku,
+        vendorSku: cabinets.vendorSku,
+        altSku1: cabinets.altSku1,
+        altSku2: cabinets.altSku2,
+        altSku3: cabinets.altSku3,
+        showInCatalog: cabinets.showInCatalog,
+        showInDesigner: cabinets.showInDesigner,
+      })
+      .from(cabinets)
+      .orderBy(asc(cabinets.masterCode));
+
+    // Build a map: normalizedCode -> cabinet
+    // Normalize = uppercase, remove hyphens and spaces
+    const normalize = (s: string) => s.toUpperCase().replace(/[-\s]/g, "");
+
+    const byNorm = new Map<string, typeof rows[0][]>();
+    for (const row of rows) {
+      const norm = normalize(row.masterCode);
+      if (!byNorm.has(norm)) byNorm.set(norm, []);
+      byNorm.get(norm)!.push(row);
+    }
+
+    // Also build a map of all alias values -> cabinet that owns them
+    const aliasOwner = new Map<string, typeof rows[0]>();
+    for (const row of rows) {
+      for (const alias of [row.sku, row.vendorSku, row.altSku1, row.altSku2, row.altSku3]) {
+        if (alias) aliasOwner.set(alias.toUpperCase(), row);
+      }
+    }
+
+    type MergeCandidate = {
+      key: string;
+      cabinetA: { id: number; masterCode: string; description: string | null; category: string | null };
+      cabinetB: { id: number; masterCode: string; description: string | null; category: string | null };
+      reason: string;
+    };
+
+    const seen = new Set<string>();
+    const candidates: MergeCandidate[] = [];
+
+    const addCandidate = (a: typeof rows[0], b: typeof rows[0], reason: string) => {
+      // Skip if either is already hidden (already merged/aliased)
+      if (!a.showInCatalog && !a.showInDesigner) return;
+      if (!b.showInCatalog && !b.showInDesigner) return;
+      // Skip if one already has the other as an alias
+      const aAliases = [a.sku, a.vendorSku, a.altSku1, a.altSku2, a.altSku3].filter(Boolean);
+      const bAliases = [b.sku, b.vendorSku, b.altSku1, b.altSku2, b.altSku3].filter(Boolean);
+      if (aAliases.includes(b.masterCode) || bAliases.includes(a.masterCode)) return;
+      // Dedup: always use smaller id first
+      const [lo, hi] = a.id < b.id ? [a, b] : [b, a];
+      const key = `${lo.id}:${hi.id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      candidates.push({
+        key,
+        cabinetA: { id: lo.id, masterCode: lo.masterCode, description: lo.description ?? null, category: lo.category ?? null },
+        cabinetB: { id: hi.id, masterCode: hi.masterCode, description: hi.description ?? null, category: hi.category ?? null },
+        reason,
+      });
+    };
+
+    // 1. Normalized code collision (e.g. B12 vs B-12, OC30 vs OC-30)
+    for (const group of Array.from(byNorm.values())) {
+      if (group.length > 1) {
+        for (let i = 0; i < group.length - 1; i++) {
+          for (let j = i + 1; j < group.length; j++) {
+            addCandidate(group[i], group[j], "Codes match when hyphens/spaces are removed");
+          }
+        }
+      }
+    }
+
+    // 2. One cabinet's masterCode appears in another's alias fields
+    for (const row of rows) {
+      const owner = aliasOwner.get(row.masterCode.toUpperCase());
+      if (owner && owner.id !== row.id) {
+        addCandidate(row, owner, `"${row.masterCode}" is listed as an alias on ${owner.masterCode}`);
+      }
+    }
+
+    return candidates.slice(0, 200); // cap at 200 suggestions
+  }),
+
+  /**
+   * Dismiss a potential merge suggestion so it no longer appears.
+   * Stores a dismissal record in a JSON column on one of the cabinets (using a
+   * lightweight approach: we store dismissed pair keys in a server-side in-memory
+   * set for the session, and persist them via a dedicated DB table in a future
+   * sprint). For now we use a simple approach: mark both cabinets with a
+   * dismissedMergeKeys field. Since the schema doesn't have that yet, we use
+   * the conflictReason field as a temporary store prefixed with DISMISS:.
+   */
+  dismissMerge: adminProcedure
+    .input(z.object({ key: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      // key format: "lowerId:higherId"
+      const [aId, bId] = input.key.split(":").map(Number);
+      if (!aId || !bId) throw new Error("Invalid key");
+
+      // Store dismissal marker on both cabinets using conflictReason prefix
+      const marker = `DISMISS_MERGE:${input.key}`;
+      for (const id of [aId, bId]) {
+        const [existing] = await db
+          .select({ conflictReason: cabinets.conflictReason })
+          .from(cabinets)
+          .where(eq(cabinets.id, id))
+          .limit(1);
+        if (!existing) continue;
+        const current = existing.conflictReason ?? "";
+        if (!current.includes(marker)) {
+          await db
+            .update(cabinets)
+            .set({ conflictReason: current ? `${current}\n${marker}` : marker })
+            .where(eq(cabinets.id, id));
+        }
+      }
+      return { ok: true };
+    }),
+
+  /**
+   * Accept a merge: set cabinetB's masterCode as an alias on cabinetA,
+   * then hide cabinetB. cabinetA becomes the canonical listing.
+   */
+  acceptMerge: adminProcedure
+    .input(z.object({ canonicalId: z.number(), duplicateId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+
+      const [canonical] = await db
+        .select({ altSku1: cabinets.altSku1, altSku2: cabinets.altSku2, altSku3: cabinets.altSku3 })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.canonicalId))
+        .limit(1);
+
+      const [duplicate] = await db
+        .select({ masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.duplicateId))
+        .limit(1);
+
+      if (!canonical || !duplicate) throw new Error("Cabinet not found");
+
+      // Find an empty alias slot on the canonical cabinet
+      const aliasUpdate: Record<string, string> = {};
+      if (!canonical.altSku1) aliasUpdate.altSku1 = duplicate.masterCode;
+      else if (!canonical.altSku2) aliasUpdate.altSku2 = duplicate.masterCode;
+      else if (!canonical.altSku3) aliasUpdate.altSku3 = duplicate.masterCode;
+      else throw new Error("All alias slots are full on the canonical cabinet");
+
+      await db.update(cabinets).set(aliasUpdate).where(eq(cabinets.id, input.canonicalId));
+
+      // Hide the duplicate
+      await db
+        .update(cabinets)
+        .set({ showInCatalog: false, showInDesigner: false })
+        .where(eq(cabinets.id, input.duplicateId));
+
+      return { ok: true };
+    }),
+
+  /**
    * Get distinct categories and sub-categories for filter dropdowns.
    */
   categories: adminProcedure.query(async () => {
