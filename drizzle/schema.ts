@@ -1548,3 +1548,33 @@ export const categoryAliases = mysqlTable(
 
 export type CategoryAlias = typeof categoryAliases.$inferSelect;
 export type InsertCategoryAlias = typeof categoryAliases.$inferInsert;
+
+// ─── Storefront Banners ────────────────────────────────────────────────────────
+// Admin-managed promotional / holiday banners displayed at the top of the
+// storefront. Only one banner can be active at a time. Admins pre-create banners
+// for different holidays and switch the active one with a single toggle.
+export const banners = mysqlTable("banners", {
+  id: int("id").autoincrement().primaryKey(),
+  // Display content
+  title: varchar("title", { length: 256 }).notNull(),
+  subtitle: varchar("subtitle", { length: 512 }),
+  ctaText: varchar("ctaText", { length: 128 }), // call-to-action button label
+  ctaUrl: varchar("ctaUrl", { length: 512 }), // call-to-action button destination
+  // Styling
+  backgroundColor: varchar("backgroundColor", { length: 32 }).default("#1e3a5f").notNull(),
+  textColor: varchar("textColor", { length: 32 }).default("#ffffff").notNull(),
+  // Emoji or icon prefix shown before the title (e.g. "🎄" or "🇺🇸")
+  emoji: varchar("emoji", { length: 16 }),
+  // Activation — only one banner should be active at a time
+  isActive: boolean("isActive").default(false).notNull(),
+  // Optional date window; null = no restriction (always show when active)
+  startDate: timestamp("startDate"),
+  endDate: timestamp("endDate"),
+  // Internal label to help admins identify the banner (e.g. "July 4th 2025")
+  label: varchar("label", { length: 128 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Banner = typeof banners.$inferSelect;
+export type InsertBanner = typeof banners.$inferInsert;

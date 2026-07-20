@@ -12,33 +12,36 @@ import { useSeo } from "@/hooks/useSeo";
 
 const CDN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M";
 
-// ─── 4th of July Banner ──────────────────────────────────────────────────────
+// ─── Dynamic Storefront Banner ───────────────────────────────────────────────
+// Driven by the active banner in the admin Banner Management panel.
 
-function JulyBanner() {
+function StorefrontBanner() {
+  const { data: banner, isLoading } = trpc.banners.getActive.useQuery();
+
+  if (isLoading || !banner) return null;
+
   return (
-    <div className="relative overflow-hidden bg-gradient-to-r from-blue-900 via-red-700 to-blue-900 text-white py-3">
-      {/* Animated stars */}
-      <div className="absolute inset-0 overflow-hidden">
-        {[...Array(12)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute text-white/30 animate-pulse"
-            style={{
-              left: `${8 + i * 8}%`,
-              top: `${i % 2 === 0 ? 20 : 60}%`,
-              animationDelay: `${i * 0.2}s`,
-            }}
-          >
-            ★
-          </div>
-        ))}
-      </div>
-      <div className="container relative flex items-center justify-center gap-3 text-center">
-        <span className="text-lg">🇺🇸</span>
-        <p className="text-sm md:text-base font-semibold tracking-wide">
-          Happy 4th of July! Celebrate Independence Day with trade pricing on everything for your next project.
+    <div
+      className="py-2.5 px-4 text-sm"
+      style={{ backgroundColor: banner.backgroundColor, color: banner.textColor }}
+    >
+      <div className="container flex items-center justify-center gap-3 text-center flex-wrap">
+        {banner.emoji && <span className="text-base flex-shrink-0">{banner.emoji}</span>}
+        <p className="font-semibold tracking-wide">
+          {banner.title}
+          {banner.subtitle && (
+            <span className="ml-2 font-normal opacity-80 hidden sm:inline">{banner.subtitle}</span>
+          )}
         </p>
-        <span className="text-lg">🎆</span>
+        {banner.ctaText && banner.ctaUrl && (
+          <a
+            href={banner.ctaUrl}
+            className="text-xs font-bold px-3 py-1 rounded-full border flex-shrink-0 hover:opacity-80 transition-opacity"
+            style={{ borderColor: banner.textColor, color: banner.textColor }}
+          >
+            {banner.ctaText}
+          </a>
+        )}
       </div>
     </div>
   );
@@ -779,7 +782,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <JulyBanner />
+      <StorefrontBanner />
       <Hero />
       <FeaturedStyles />
       <ProductShowcase />

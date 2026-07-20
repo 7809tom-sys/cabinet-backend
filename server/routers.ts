@@ -45,6 +45,7 @@ import { qboRouter } from "./routers/qbo";
 import { pageContentRouter } from "./routers/pageContent";
 import { measureSessionsRouter } from "./routers/measureSessions";
 import { mediaLibraryRouter } from "./routers/mediaLibrary";
+import { bannersRouter } from "./routers/banners";
 
 export const appRouter = router({
   system: systemRouter,
@@ -100,6 +101,7 @@ export const appRouter = router({
   pageContent: pageContentRouter,
   measureSessions: measureSessionsRouter,
   mediaLibrary: mediaLibraryRouter,
+  banners: bannersRouter,
 });
 
 export type AppRouter = typeof appRouter;

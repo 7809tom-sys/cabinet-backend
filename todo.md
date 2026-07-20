@@ -1108,7 +1108,22 @@
 - [x] TypeScript check passes; checkpoint saved
 
 ## Feature: Potential Merge Detection (SKU overlap detection)
-- [ ] Server procedure: detect SKU overlaps between cabinets and return merge candidates
-- [ ] Admin UI: PotentialMergesAdmin component with Accept (set alias) and Dismiss actions
-- [ ] Wire into Products & Catalog tab with badge count
-- [ ] TypeScript check passes; checkpoint saved
+- [x] Server procedure: detect SKU overlaps between cabinets and return merge candidates
+- [x] Admin UI: PotentialMergesAdmin component with Accept (set alias) and Dismiss actions
+- [x] Wire into Products & Catalog tab with badge count
+- [x] TypeScript check passes; checkpoint saved
+
+## Fix: Remove auto-hide from alias procedures (aliases are cross-references only)
+- [x] Remove auto-hide logic from catalog.ts adminUpdateCabinet
+- [x] Remove auto-hide logic from genericCabinets.ts update and bulkUpdateAliases
+- [x] Update Aliases tab note: aliases are cross-references, not hide triggers
+- [ ] Restore B12 visibility (was hidden by old auto-hide logic) — confirm with admin
+
+## Feature: Banner Management Admin
+- [x] Add banners table to drizzle/schema.ts
+- [x] Run migration SQL for banners table
+- [x] Add tRPC procedures: banners.adminList, banners.adminCreate, banners.adminUpdate, banners.adminDelete, banners.adminSetActive, banners.getActive
+- [x] Build BannerAdmin component with list, active toggle, create/edit form, live preview, holiday presets
+- [x] Add Banner Management tab to admin Settings section
+- [x] Wire storefront top banner bar to fetch active banner from database (StorefrontBanner component)
+- [x] Pre-seed holiday banners (4th of July, Labor Day, Thanksgiving, Christmas, New Year, Memorial Day, Black Friday, Spring Sale)

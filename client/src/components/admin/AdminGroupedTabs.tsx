@@ -67,6 +67,7 @@ import FullDatabaseExport from "@/components/admin/FullDatabaseExport";
 import GenericCabinetsAdmin from "@/components/admin/GenericCabinetsAdmin";
 import { CabinetConfigAdmin } from "@/components/admin/CabinetConfigAdmin";
 import PotentialMergesAdmin from "@/components/admin/PotentialMergesAdmin";
+import { BannerAdmin } from "@/components/admin/BannerAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -142,6 +143,7 @@ const GROUPS = [
     icon: Settings,
     tabs: [
       { value: "email-settings", label: "Email Settings" },
+      { value: "banners", label: "Banner Management" },
       { value: "branding", label: "Site Branding" },
       { value: "notifications", label: "Notifications" },
       { value: "quickbooks", label: "QuickBooks" },
@@ -476,6 +478,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="designer-availability" className="mt-6"><AdminTabHelp tab="designer-availability" /><DesignerAvailabilityAdmin /></TabsContent>
 
         {/* Settings */}
+        <TabsContent value="banners" className="mt-6"><BannerAdmin /></TabsContent>
         <TabsContent value="email-settings" className="mt-6"><AdminTabHelp tab="email-settings" /><EmailSettingsAdmin /></TabsContent>
         <TabsContent value="branding" className="mt-6"><AdminTabHelp tab="branding" /><BrandingSettingsAdmin /></TabsContent>
         <TabsContent value="notifications" className="mt-6"><AdminTabHelp tab="notifications" /><NotificationSettingsAdmin /></TabsContent>

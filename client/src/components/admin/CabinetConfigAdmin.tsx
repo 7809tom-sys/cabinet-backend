@@ -542,7 +542,7 @@ function EditModal({
           {/* ── Aliases tab ── */}
           <TabsContent value="aliases" className="space-y-4 mt-0">
             <p className="text-xs text-muted-foreground">
-              Alternative SKU codes for this cabinet. When a customer or order references any of these codes, it resolves to <span className="font-mono font-semibold">{row.masterCode}</span>. The aliased cabinet will be hidden from the catalog automatically.
+              Alternative SKU codes for this cabinet. When a customer or order references any of these codes, it resolves to <span className="font-mono font-semibold">{row.masterCode}</span>. Aliases are cross-references only — they do not affect visibility.
             </p>
 
             <div className="space-y-3">
@@ -560,7 +560,7 @@ function EditModal({
               ))}
             </div>
             <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-              <strong>Note:</strong> Saving an alias will automatically hide the cabinet with that master code from the storefront and design tool. Clearing an alias will restore its visibility.
+              <strong>Note:</strong> Aliases are cross-references only. They help customers find this cabinet by alternate codes. Visibility is controlled separately via the Show in Catalog and Show in Designer toggles in the Details tab.
             </p>
           </TabsContent>
         </Tabs>

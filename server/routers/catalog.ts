@@ -1475,39 +1475,8 @@ export const cabinetsRouter = router({
       if (input.altSku3 !== undefined) patch.altSku3 = input.altSku3;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
-
-      // Auto-hide/show cabinets referenced by alias slots
-      const aliasKeys = ["altSku1", "altSku2", "altSku3"] as const;
-      // Fetch current aliases before update to detect changes
-      const [current] = await db
-        .select({ altSku1: cabinets.altSku1, altSku2: cabinets.altSku2, altSku3: cabinets.altSku3 })
-        .from(cabinets)
-        .where(eq(cabinets.id, input.id))
-        .limit(1);
-      if (current) {
-        const prevAliases = aliasKeys.map((k) => current[k]).filter(Boolean) as string[];
-        const nextAliases = aliasKeys
-          .map((k) => (input[k] !== undefined ? input[k] : current[k]))
-          .filter(Boolean) as string[];
-        // Newly added aliases → hide those cabinets
-        for (const code of nextAliases.filter((c) => !prevAliases.includes(c))) {
-          await db.update(cabinets).set({ showInCatalog: false, showInDesigner: false }).where(
-            and(
-              or(eq(cabinets.masterCode, code), eq(cabinets.sku, code)),
-              sql`${cabinets.id} != ${input.id}`
-            )
-          );
-        }
-        // Removed aliases → restore visibility
-        for (const code of prevAliases.filter((c) => !nextAliases.includes(c))) {
-          await db.update(cabinets).set({ showInCatalog: true, showInDesigner: true }).where(
-            and(
-              or(eq(cabinets.masterCode, code), eq(cabinets.sku, code)),
-              sql`${cabinets.id} != ${input.id}`
-            )
-          );
-        }
-      }
+      // Aliases are purely informational cross-references.
+      // Visibility is controlled exclusively by admin via showInCatalog/showInDesigner toggles.
       return { ok: true };
     }),
 

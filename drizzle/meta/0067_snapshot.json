@@ -2,7 +2,7 @@
   "version": "5",
   "dialect": "mysql",
   "id": "fd3771af-e34c-4658-9049-ee8cade6aa76",
-  "prevId": "2bc48e13-1378-4014-8153-4b2163eed082",
+  "prevId": "6f11ea22-3739-46d8-9699-90310135a6af",
   "tables": {
     "affiliate_banner_schedules": {
       "name": "affiliate_banner_schedules",
