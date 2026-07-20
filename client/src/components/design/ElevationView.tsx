@@ -238,16 +238,15 @@ export function ElevationView({
           bottom: bottom * ppi,
           height: height * ppi,
           background: faceFill,
-          border: isSelected
-            ? "2px solid #1a2744"
-            : `1px solid ${edgeColor}`,
+          // No outer border/frame — cabinets render as clean architectural drawings.
+          // Selection is indicated by a gold glow outline only.
+          border: isSelected ? "2px solid #1a2744" : "none",
           borderRadius: 2,
-          // Ambient occlusion + contact shadow: a soft inner shadow darkens the
-          // face edges (recessed reveal look) and an outer drop shadow lifts the
-          // box off the wall so adjacent cabinets read as separate 3D objects.
+          // Keep only the inner ambient occlusion shadow (recessed reveal look).
+          // Remove the outer drop shadow that made cabinets look like floating boxes.
           boxShadow: isSelected
-            ? "0 0 0 3px rgba(212,167,90,0.55), 0 6px 14px rgba(15,23,42,0.28), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 10px rgba(0,0,0,0.16)"
-            : "0 3px 7px rgba(15,23,42,0.20), inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
+            ? "0 0 0 3px rgba(212,167,90,0.55), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 10px rgba(0,0,0,0.16)"
+            : "inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
