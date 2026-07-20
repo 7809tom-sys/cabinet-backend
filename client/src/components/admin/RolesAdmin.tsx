@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  ShieldCheck, Search, Mail, Building2, UserRound, Hammer, Store, Lock,
+  ShieldCheck, Search, Mail, Building2, UserRound, Hammer, Store, Lock, Trash2,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
@@ -41,9 +41,6 @@ const ROLE_ICON: Record<ManageableRole, typeof ShieldCheck> = {
   admin: ShieldCheck,
 };
 
-// Roles the owner can assign from this panel. Specialized accounts
-// (distributor / dealer / sales_rep) are provisioned elsewhere and are
-// shown read-only here.
 const MANAGEABLE_ROLES: ManageableRole[] = ["admin", "designer", "partner", "user"];
 
 function roleVariant(r: string): "default" | "secondary" | "outline" {
@@ -61,13 +58,10 @@ export default function RolesAdmin() {
   const [roleFilter, setRoleFilter] = useState<"all" | ManageableRole>("all");
   const [page, setPage] = useState(1);
   const [confirmAdmin, setConfirmAdmin] = useState<{ id: number; name: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
 
   const query = trpc.customers.list.useQuery(
-    {
-      search: search.trim() || undefined,
-      page,
-      pageSize: PAGE_SIZE,
-    },
+    { search: search.trim() || undefined, page, pageSize: PAGE_SIZE },
     { retry: false },
   );
 
@@ -79,10 +73,20 @@ export default function RolesAdmin() {
     onError: (e) => toast.error("Could not update role", { description: e.message }),
   });
 
-  const allRows = query.data?.rows ?? [];
-  const rows =
-    roleFilter === "all" ? allRows : allRows.filter((u) => u.role === roleFilter);
+  const deleteUser = trpc.customers.delete.useMutation({
+    onSuccess: () => {
+      utils.customers.list.invalidate();
+      toast.success("Account deleted");
+      setConfirmDelete(null);
+    },
+    onError: (e) => {
+      toast.error("Could not delete account", { description: e.message });
+      setConfirmDelete(null);
+    },
+  });
 
+  const allRows = query.data?.rows ?? [];
+  const rows = roleFilter === "all" ? allRows : allRows.filter((u) => u.role === roleFilter);
   const total = query.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -127,10 +131,7 @@ export default function RolesAdmin() {
             className="pl-9"
           />
         </div>
-        <Select
-          value={roleFilter}
-          onValueChange={(v) => setRoleFilter(v as "all" | ManageableRole)}
-        >
+        <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as "all" | ManageableRole)}>
           <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All roles</SelectItem>
@@ -164,6 +165,9 @@ export default function RolesAdmin() {
             {rows.map((u) => {
               const isManageable = MANAGEABLE_ROLES.includes(u.role as ManageableRole);
               const isSelf = me?.id === u.id;
+              const isAdmin = u.role === "admin";
+              // Delete button: never shown for admin accounts or your own account
+              const canDelete = !isAdmin && !isSelf;
               return (
                 <Card key={u.id}>
                   <CardContent className="py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -193,7 +197,7 @@ export default function RolesAdmin() {
                         )}
                       </div>
                     </div>
-                    <div className="shrink-0">
+                    <div className="shrink-0 flex items-center gap-2">
                       {!isManageable ? (
                         <Badge
                           variant="outline"
@@ -234,6 +238,25 @@ export default function RolesAdmin() {
                           </SelectContent>
                         </Select>
                       )}
+
+                      {/* Delete button — hidden for admin accounts and self */}
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          title="Delete this account"
+                          disabled={deleteUser.isPending}
+                          onClick={() =>
+                            setConfirmDelete({
+                              id: u.id,
+                              name: u.name || u.email || `User #${u.id}`,
+                            })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -261,6 +284,7 @@ export default function RolesAdmin() {
         </>
       )}
 
+      {/* Confirm promote to admin */}
       <AlertDialog open={!!confirmAdmin} onOpenChange={(o) => { if (!o) setConfirmAdmin(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -279,6 +303,30 @@ export default function RolesAdmin() {
               }}
             >
               Yes, make Admin
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm delete account */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => { if (!o) setConfirmDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {confirmDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the account and all associated data (cart, saved designs).
+              This action <strong>cannot be undone</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmDelete) deleteUser.mutate({ userId: confirmDelete.id });
+              }}
+            >
+              Delete account
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
