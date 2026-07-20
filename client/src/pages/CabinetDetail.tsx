@@ -857,30 +857,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             </dl>
           </div>
 
-          {/* Shipping / Package Dimensions */}
-          {selectedRow && (selectedRow.pkgLength || selectedRow.pkgWidth || selectedRow.pkgHeight || selectedRow.pkgWeight) && (
-            <div className="rounded-xl border border-border p-5">
-              <h3 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
-                <Package className="h-4 w-4 text-muted-foreground" />
-                Shipping Package
-              </h3>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                {[
-                  { label: "Length", value: selectedRow.pkgLength ? `${parseFloat(selectedRow.pkgLength)}"` : null },
-                  { label: "Width", value: selectedRow.pkgWidth ? `${parseFloat(selectedRow.pkgWidth)}"` : null },
-                  { label: "Height", value: selectedRow.pkgHeight ? `${parseFloat(selectedRow.pkgHeight)}"` : null },
-                  { label: "Weight", value: selectedRow.pkgWeight ? `${parseFloat(selectedRow.pkgWeight)} lbs` : null },
-                ]
-                  .filter((item) => item.value)
-                  .map((item) => (
-                    <div key={item.label}>
-                      <dt className="text-muted-foreground">{item.label}</dt>
-                      <dd className="font-medium text-foreground">{item.value}</dd>
-                    </div>
-                  ))}
-              </dl>
-            </div>
-          )}
+          {/* Shipping info is internal/freight-only — not shown to members */}
         </div>
 
         {/* Right: Pricing selector */}
