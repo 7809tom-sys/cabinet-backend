@@ -400,15 +400,14 @@ export const designRouter = router({
           OR ${cabinets.masterCode} = 'PLYEB42'
         )`));
       // Sort end panels: REP2496 (Clark & Sons) first, then REPV* (Skyline/USCD), then PLY panels.
-      // REPVKIT is a USCD kit panel — sort it last among REPV panels.
-      const endPanelsRaw = panelRows.filter((r) => /^REPV/.test(r.masterCode) || /^REP9/.test(r.masterCode) || r.masterCode === 'REP2496' || r.masterCode === 'PLYEB42');
+      // REPVKIT is excluded from the display — only standard panels are shown.
+      const endPanelsRaw = panelRows.filter((r) => (/^REPV/.test(r.masterCode) && r.masterCode !== 'REPVKIT') || /^REP9/.test(r.masterCode) || r.masterCode === 'REP2496' || r.masterCode === 'PLYEB42');
       const endPanels = endPanelsRaw.sort((a, b) => {
         const rank = (code: string) => {
           if (code === 'REP2496') return 0;          // Clark & Sons — always first
-          if (/^REPV/.test(code) && code !== 'REPVKIT') return 1; // Skyline/USCD standard panels
-          if (code === 'REPVKIT') return 2;          // USCD kit — last among REPV
-          if (/^REP9/.test(code)) return 3;          // legacy REP9* panels
-          return 4;                                  // PLY panels
+          if (/^REPV/.test(code)) return 1;          // Skyline/USCD standard panels
+          if (/^REP9/.test(code)) return 2;          // legacy REP9* panels
+          return 3;                                  // PLY panels
         };
         const diff = rank(a.masterCode) - rank(b.masterCode);
         if (diff !== 0) return diff;

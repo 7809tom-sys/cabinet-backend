@@ -42,24 +42,22 @@ export function CabinetDrawing({ cabinet, finishColor, className }: CabinetDrawi
     placement.includes("wall") ? 30 : placement.includes("tall") ? 84 : 34.5;
   const h = toNum(cabinet.height) ?? fallbackH;
 
-  // Map real inches to a viewBox. Keep a fixed scale but clamp the aspect ratio
-  // so extreme sizes still render legibly inside a card.
-  const VIEW = 120;
-  const PAD = 12;
-  const usable = VIEW - PAD * 2;
+  // Use a tight viewBox that matches the cabinet's real aspect ratio so the
+  // drawing fills the container edge-to-edge with no surrounding whitespace.
+  const SCALE = 100; // arbitrary internal unit — only the ratio matters
   const ratio = Math.max(0.25, Math.min(w / h, 3.2)); // width/height, clamped
-  let boxW = usable;
-  let boxH = usable;
-  if (ratio >= 1) boxH = usable / ratio;
-  else boxW = usable * ratio;
-  const x0 = (VIEW - boxW) / 2;
-  const y0 = (VIEW - boxH) / 2;
+  const vbW = ratio >= 1 ? SCALE : SCALE * ratio;
+  const vbH = ratio >= 1 ? SCALE / ratio : SCALE;
+  const x0 = 0;
+  const y0 = 0;
+  const boxW = vbW;
+  const boxH = vbH;
 
   const fill = finishColor ?? DEFAULT_FILL;
 
   return (
     <svg
-      viewBox={`0 0 ${VIEW} ${VIEW}`}
+      viewBox={`0 0 ${vbW} ${vbH}`}
       className={className}
       role="img"
       aria-label={alt}
