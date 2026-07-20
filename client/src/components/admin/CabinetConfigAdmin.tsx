@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STANDARD_DEPTHS = ["9", "12", "15", "18", "21", "24", "27", "30", "33", "36"];
-const DOOR_OPTIONS = [null, 0, 1, 2] as const;
+const DOOR_OPTIONS = [null, 0, 1, 2, 3, 4] as const;
 const DRAWER_OPTIONS = [null, 0, 1, 2, 3, 4, 5, 6, 7, 8] as const;
 const SHELF_OPTIONS = [null, 0, 1, 2, 3, 4, 5, 6] as const;
 const PAGE_SIZE = 50;
