@@ -1127,3 +1127,10 @@
 - [x] Add Banner Management tab to admin Settings section
 - [x] Wire storefront top banner bar to fetch active banner from database (StorefrontBanner component)
 - [x] Pre-seed holiday banners (4th of July, Labor Day, Thanksgiving, Christmas, New Year, Memorial Day, Black Friday, Spring Sale)
+
+## Fix: Refrigerator Options dialog — all 3 cabinet lines
+- [x] Server deepAbove query: add REGEXP for W[WW][HH]GD (Skyline + USCD glass-door 12"-deep SKUs)
+- [x] Server endPanels sort: REP2496 (Clark & Sons) first, then REPV* standard, then REPVKIT, then REP9*, then PLY
+- [x] Client parseSkuDims (RefrigeratorOptionsDialog): add Format 5 for W[WW][HH]GD before 8-char match
+- [x] Client parseCabDims (DesignTool): add GD-suffix match before 8-char match
+- [x] TypeScript: 0 errors; checkpoint saved

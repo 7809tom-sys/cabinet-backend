@@ -2618,18 +2618,21 @@ export default function DesignTool() {
           const targetH = opts.bridgeHeight;
           const targetD = opts.bridgeDepth ?? 12;
           // Parse dimensions from SKU masterCode when stored columns are null.
-          // Supports W[WW][HH][DD] (e.g. W362424) and WR[WW][HH] (depth always 24).
+          // Supports W[WW][HH][DD] (e.g. W362424), WR[WW][HH] (depth always 24), and W[WW][HH]GD.
           const parseCabDims = (code: string) => {
             const c = code.replace(/^[^W]*W/, "W");
-            // 8-char Skyline/USCD: W[WW][HH][DD] e.g. W301224, W362424
-            const m6 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
-            if (m6) return { w: parseInt(m6[1], 10), h: parseInt(m6[2], 10), d: parseInt(m6[3], 10) };
             // Clark & Sons 24"-deep WR format: WR[WW][HH] e.g. WR3612, WR3624
             const mR = c.match(/^WR(\d{2})(\d{2})$/);
             if (mR) return { w: parseInt(mR[1], 10), h: parseInt(mR[2], 10), d: 24 };
             // Clark & Sons dash format 12"-deep: W-WW-HH e.g. W-36-12, W-33-18, W-30-24
             const mDash = c.match(/^W-(\d{2})-(\d{2})$/);
             if (mDash) return { w: parseInt(mDash[1], 10), h: parseInt(mDash[2], 10), d: 12 };
+            // Skyline/USCD glass-door 12"-deep: W[WW][HH]GD e.g. W3012GD, W3612GD (check before 8-char)
+            const mGD = c.match(/^W(\d{2})(\d{2})GD$/);
+            if (mGD) return { w: parseInt(mGD[1], 10), h: parseInt(mGD[2], 10), d: 12 };
+            // 8-char Skyline: W[WW][HH][DD] e.g. W301224, W362424
+            const m6 = c.match(/^W(\d{2})(\d{2})(\d{2})$/);
+            if (m6) return { w: parseInt(m6[1], 10), h: parseInt(m6[2], 10), d: parseInt(m6[3], 10) };
             // Skyline/Milestone 4-char 12"-deep: W[WW][HH] e.g. W3012, W3315, W3618, W3624
             const m4 = c.match(/^W(30|33|36)(12|15|18|21|24)$/);
             if (m4) return { w: parseInt(m4[1], 10), h: parseInt(m4[2], 10), d: 12 };

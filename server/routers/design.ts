@@ -349,9 +349,12 @@ export const designRouter = router({
       //  - Clark & Sons 12" deep: W-(30|33|36)-(12|15|18|21|24)  e.g. W-36-12, W-36-18
       //  - Clark & Sons 24" deep: WR prefix (WR3315, WR3624 etc.) — always 24" deep
       //    Note: WRC% = wine rack wall cabinets — excluded
-      //  - Skyline/USCD/Milestone 24" deep: 8-char W[WW][HH]24 e.g. W361224, W362424
+      //  - Skyline 24" deep: 8-char W[WW][HH]24 e.g. W361224, W362424
       //    (depth encoded as last 2 digits = 24; width 30/33/36; height 12/15/18/24)
-      //  - Skyline/Milestone 12" deep: 4-char W[WW][HH] e.g. W3012, W3315, W3618, W3624
+      //  - Skyline 12" deep: 4-char W[WW][HH] e.g. W3012, W3315, W3618, W3624
+      //  - Skyline 12" deep glass-door: W[WW][HH]GD e.g. W3012GD, W3612GD
+      //  - USCD 12" deep glass-door: W[WW][HH]GD e.g. W3012GD, W3612GD (same pattern as Skyline)
+      //    Note: USCD does NOT carry 24"-deep over-fridge cabs; only 12"-deep GD variants
       const deepRows = await db
         .select(cols)
         .from(cabinets)
@@ -361,10 +364,12 @@ export const designRouter = router({
           sql`${cabinets.masterCode} REGEXP '^W-(30|33|36)-(12|15|18|21|24)$'`,
           // Clark & Sons 24" deep fridge cabs: WR prefix (not wine rack WRC)
           and(like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`),
-          // Skyline/USCD/Milestone 24" deep: 8-char W[WW][HH]24 ending in 24
+          // Skyline 24" deep: 8-char W[WW][HH]24 ending in 24
           sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|21|24)24$'`,
           // Skyline/Milestone 12" deep: 4-char W[WW][HH] e.g. W3012, W3315, W3618, W3624
-          sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|24)$'`
+          sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|24)$'`,
+          // Skyline + USCD 12" deep glass-door: W[WW][HH]GD e.g. W3012GD, W3612GD
+          sql`${cabinets.masterCode} REGEXP '^W(30|33|36)(12|15|18|21|24)GD$'`
         )));
       // Shallow bridge wall cabinets: short W-* that are NOT the deep "-24" or WR fridge boxes.
       const wallRows = await db
@@ -395,12 +400,20 @@ export const designRouter = router({
           OR ${cabinets.masterCode} LIKE 'WSV%'
           OR ${cabinets.masterCode} = 'PLYEB42'
         )`));
-      // Sort end panels: REP panels first (used most often), then PLY panels.
+      // Sort end panels: REP2496 (Clark & Sons) first, then REPV* (Skyline/USCD), then PLY panels.
+      // REPVKIT is a USCD kit panel — sort it last among REPV panels.
       const endPanelsRaw = panelRows.filter((r) => /^REPV/.test(r.masterCode) || /^REP9/.test(r.masterCode) || r.masterCode === 'REP2496' || r.masterCode === 'PLYEB42');
       const endPanels = endPanelsRaw.sort((a, b) => {
-        const aIsRep = /^REP/.test(a.masterCode) ? 0 : 1;
-        const bIsRep = /^REP/.test(b.masterCode) ? 0 : 1;
-        return aIsRep - bIsRep;
+        const rank = (code: string) => {
+          if (code === 'REP2496') return 0;          // Clark & Sons — always first
+          if (/^REPV/.test(code) && code !== 'REPVKIT') return 1; // Skyline/USCD standard panels
+          if (code === 'REPVKIT') return 2;          // USCD kit — last among REPV
+          if (/^REP9/.test(code)) return 3;          // legacy REP9* panels
+          return 4;                                  // PLY panels
+        };
+        const diff = rank(a.masterCode) - rank(b.masterCode);
+        if (diff !== 0) return diff;
+        return (a.masterCode || '').localeCompare(b.masterCode || '', undefined, { numeric: true });
       });
       const smoothPanels = panelRows.filter((r) => /^WSV/.test(r.masterCode));
 
