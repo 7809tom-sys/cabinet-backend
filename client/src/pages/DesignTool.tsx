@@ -5000,7 +5000,7 @@ export default function DesignTool() {
         </div>
 
         {/* Desktop action cluster */}
-                <div className="ml-auto hidden lg:flex items-center gap-1">
+        <div className="hidden lg:flex items-center gap-1">
           {/* Undo / Redo */}
           <Button variant="outline" size="icon" onClick={handleUndo} className="h-7 w-7" title={t("dt_sh_undo")}>
             <Undo2 className="h-3.5 w-3.5" />
