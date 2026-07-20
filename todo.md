@@ -1096,3 +1096,8 @@
 - [ ] Add ft/m toggle switch to RoomSizeInline (mobile sheet) — same behavior
 - [ ] Add Undo and Redo icon buttons to mobile top toolbar (next to existing view buttons)
 - [ ] TypeScript check passes; checkpoint saved
+
+## Feature: Series name in door style description (Jul 20)
+
+- [x] Show series name in parentheses after style/color name on door style page: Clark & Son = Ashford, Milestone/Skyline = Preston, USCD = Madison
+- [x] TypeScript check passes; checkpoint saved

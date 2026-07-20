@@ -38,7 +38,7 @@ type StyleOption = {
 };
 
 /** Neutral, customer-safe distributor label (no hidden supplier brand). */
-export type DistributorLabel = { id: number; name: string | null };
+export type DistributorLabel = { id: number; name: string | null; seriesName?: string | null };
 
 interface ColorSlotButtonProps {
   label: string;
@@ -65,6 +65,7 @@ interface ColorSlotButtonProps {
 interface StyleGroup {
   distributorId: number | null;
   label: string;
+  seriesName?: string | null;
   styles: StyleOption[];
 }
 
@@ -157,14 +158,19 @@ export function ColorSlotButton({
   // Group the styles by distributor (supply line) via the shared, unit-tested
   // helper. Groups are ordered by their neutral label so the list is stable;
   // styles inside keep their incoming order.
-  const groups = useMemo<StyleGroup[]>(
-    () =>
-      groupStylesByDistributor(styles, distributors ?? [], {
-        fallback: (id) => t("dt_cs_line_fallback", { id }),
-        other: t("dt_cs_line_other"),
-      }),
-    [styles, distributors, t],
-  );
+  const groups = useMemo<StyleGroup[]>(() => {
+    const base = groupStylesByDistributor(styles, distributors ?? [], {
+      fallback: (id) => t("dt_cs_line_fallback", { id }),
+      other: t("dt_cs_line_other"),
+    });
+    // Attach seriesName from the distributor labels to each group.
+    const seriesById = new Map<number, string | null | undefined>();
+    for (const d of (distributors ?? [])) seriesById.set(d.id, d.seriesName);
+    return base.map((g) => ({
+      ...g,
+      seriesName: g.distributorId != null ? seriesById.get(g.distributorId) : null,
+    }));
+  }, [styles, distributors, t]);
 
   // Which distributor group is currently expanded (one at a time). Defaults to
   // the group that holds the selected style, else the first group.
@@ -240,7 +246,7 @@ export function ColorSlotButton({
   );
 
   // Card-grid of door styles within one open distributor group.
-  const StyleGrid = ({ list, cols }: { list: StyleOption[]; cols: 2 | 3 }) => {
+  const StyleGrid = ({ list, cols, seriesName }: { list: StyleOption[]; cols: 2 | 3; seriesName?: string | null }) => {
     const filtered = applyFilters(list);
     return filtered.length === 0 ? (
       <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
@@ -274,8 +280,11 @@ export function ColorSlotButton({
                   className="h-full w-full"
                 />
               </div>
-              <span className={`w-full truncate text-[10px] leading-tight ${isSelected ? "font-semibold text-[#1a2744]" : "text-muted-foreground"}`}>
-                {sName}
+              <span className={`w-full text-[10px] leading-tight ${isSelected ? "font-semibold text-[#1a2744]" : "text-muted-foreground"}`}>
+                <span className="block truncate">{sName}</span>
+                {seriesName && (
+                  <span className="block truncate text-[9px] text-muted-foreground/70">({seriesName})</span>
+                )}
               </span>
               {s.styleCode && (
                 <a
@@ -355,7 +364,7 @@ export function ColorSlotButton({
     ) : onlyOneGroup ? (
       <div className="space-y-1">
         <FilterBar />
-        <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} />
+        <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} seriesName={groups[0]?.seriesName} />
       </div>
     ) : activeGroup == null ? (
       <LineChooser />
@@ -378,7 +387,7 @@ export function ColorSlotButton({
           </span>
         </div>
         <FilterBar />
-        <StyleGrid list={activeGroup.styles} cols={cols} />
+        <StyleGrid list={activeGroup.styles} cols={cols} seriesName={activeGroup.seriesName} />
       </div>
     );
 
