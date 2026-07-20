@@ -186,8 +186,8 @@ export function ElevationView({
     // image is available, the image is applied ONLY to individual door/drawer
     // panels (not the full face). The box itself shows the face frame color.
     const faceFill = isAppliance
-      ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
-      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
+      ? "linear-gradient(160deg, #f4f6f9 0%, #dde2ea 18%, #c8cfd9 45%, #d4dae4 72%, #bec6d2 100%)"
+      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 78%, #ffffff) 0%, color-mix(in srgb, ${cabFinish.face} 92%, #ffffff) 22%, ${cabFinish.face} 55%, color-mix(in srgb, ${cabFinish.face} 88%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
@@ -457,7 +457,8 @@ export function ElevationView({
   return (
     <div
       ref={ref}
-      className="relative w-full h-full overflow-hidden bg-gradient-to-b from-[#dde6f0] to-[#eef1f5] select-none touch-none"
+      className="relative w-full h-full overflow-hidden select-none touch-none"
+      style={{ background: "linear-gradient(180deg, #e8e4de 0%, #f0ece6 40%, #ede9e3 100%)" }}
       onClick={() => onSelect(null)}
     >
       {/* Centering wrapper: positions the wall + floor assembly in the vertical
@@ -480,9 +481,9 @@ export function ElevationView({
             bottom: 0,
             height: PADDING,
             background:
-              "repeating-linear-gradient(90deg, #d8bd97 0px, #cbae86 3px, #d8bd97 6px, #d2b389 9px), linear-gradient(180deg, #d8bd97 0%, #c2a271 100%)",
-            borderTop: "3px solid #8a6f49",
-            boxShadow: "inset 0 6px 10px -6px rgba(0,0,0,0.35)",
+              "repeating-linear-gradient(90deg, transparent 0px, transparent 38px, rgba(0,0,0,0.06) 38px, rgba(0,0,0,0.06) 40px), repeating-linear-gradient(0deg, rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 1px, transparent 1px, transparent 8px), linear-gradient(180deg, #c8a96e 0%, #b8955a 30%, #c4a068 60%, #b08c52 100%)",
+            borderTop: "3px solid #7a5c34",
+            boxShadow: "inset 0 8px 14px -6px rgba(0,0,0,0.45)",
           }}
         />
         {/* Soft contact shadow where the wall/cabinets meet the floor. */}
@@ -507,7 +508,7 @@ export function ElevationView({
             height: wallPxH,
             left: 0,
             bottom: PADDING,
-            background: "linear-gradient(to bottom, #f7f9fc 0%, #eef2f7 100%)",
+            background: "linear-gradient(180deg, #f2ede7 0%, #ede8e2 50%, #e8e3dd 100%)",
             borderLeft: "2px solid #1a2744",
             borderRight: "2px solid #1a2744",
             borderTop: "2px solid #1a2744",
@@ -1415,7 +1416,9 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
   const stroke = `${edge}99`;
   // The face fill (cabinet face frame color) is applied as a full-bleed background
   // on this component's root so the outer container can be transparent (no box).
-  const faceBackground = faceFillOverride ?? `linear-gradient(180deg, color-mix(in srgb, ${face} 88%, #ffffff) 0%, ${face} 40%, ${face} 62%, color-mix(in srgb, ${face} 90%, #000000) 100%)`;
+  // Photorealistic face frame: strong top-light highlight (simulates overhead room
+  // lighting), rich mid-tone body, subtle bottom shadow for depth.
+  const faceBackground = faceFillOverride ?? `linear-gradient(180deg, color-mix(in srgb, ${face} 72%, #ffffff) 0%, color-mix(in srgb, ${face} 88%, #ffffff) 18%, ${face} 52%, color-mix(in srgb, ${face} 85%, #000000) 100%)`;
 
   // Helper: wrap content in a root div that carries the face-frame background.
   // This keeps the outer cabinet container transparent (no visible box).
@@ -1741,15 +1744,17 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
 function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { inset: number; face: string; edge: string; raised?: boolean; doorSampleUrl?: string | null }) {
   const panelBg = doorSampleUrl
     ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const }
-    : { background: `linear-gradient(180deg, color-mix(in srgb, ${face} 82%, #000) 0%, color-mix(in srgb, ${face} 93%, #000) 55%, color-mix(in srgb, ${face} 99%, #000) 100%)` };
+    : { background: `linear-gradient(180deg, color-mix(in srgb, ${face} 78%, #000) 0%, color-mix(in srgb, ${face} 88%, #000) 45%, color-mix(in srgb, ${face} 96%, #000) 100%)` };
   return (
     <div
       className="absolute rounded-[1.5px]"
       style={{
         inset,
-        // Reveal groove around the panel: dark shadow top-left where the rail
-        // casts onto the recess, subtle light at the bottom lip.
-        boxShadow: `inset 0 2.5px 5px rgba(0,0,0,0.32), inset 0 -1px 0 rgba(255,255,255,0.18), 0 0 0 0.5px ${edge}80`,
+        // Deep reveal groove: strong top shadow (rail overhang), bright bottom
+        // lip (light bouncing off the panel floor), dark left shadow (side rail
+        // overhang), subtle right highlight. This makes the panel read as truly
+        // recessed into the face frame.
+        boxShadow: `inset 0 3.5px 7px rgba(0,0,0,0.42), inset 3px 0 5px rgba(0,0,0,0.18), inset 0 -1.5px 0 rgba(255,255,255,0.28), inset -2px 0 3px rgba(255,255,255,0.12), 0 0 0 0.5px ${edge}80`,
         ...panelBg,
       }}
     >
@@ -1757,9 +1762,12 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { i
         <div
           className="absolute inset-[3px] rounded-[1.5px]"
           style={{
-            background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #fff) 0%, ${face} 60%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
+            // Raised field: lighter at top (catches overhead light), slightly
+            // darker at bottom. Strong bevel shadow on all 4 edges makes it
+            // read as a real raised wood panel.
+            background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 96%, #fff) 0%, color-mix(in srgb, ${face} 98%, #fff) 35%, ${face} 65%, color-mix(in srgb, ${face} 92%, #000) 100%)`,
             ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const } : {}),
-            boxShadow: `0 1px 2px rgba(0,0,0,0.28), inset 1px 1px 0 rgba(255,255,255,0.30), inset -1px -1px 1px rgba(0,0,0,0.18)`,
+            boxShadow: `0 2px 4px rgba(0,0,0,0.32), inset 1.5px 1.5px 0 rgba(255,255,255,0.40), inset -1.5px -1.5px 2px rgba(0,0,0,0.24)`,
           }}
         />
       )}
@@ -1774,8 +1782,11 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl }: { i
 function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; stroke: string; doorSampleUrl?: string | null }) {
   void stroke;
   // Beveled outer rail applied to the whole door face (shared by framed styles).
+  // Strong bevel on the outer rail: bright top-left highlight (light hits the
+  // top rail and left stile), dark bottom-right shadow (underside of bottom rail
+  // and right stile). Makes the face frame read as real routed wood.
   const railBevel: React.CSSProperties = {
-    boxShadow: `inset 1.5px 1.5px 0 rgba(255,255,255,0.26), inset -1.5px -1.5px 1px rgba(0,0,0,0.20)`,
+    boxShadow: `inset 2px 2px 0 rgba(255,255,255,0.38), inset -2px -2px 2px rgba(0,0,0,0.28)`,
     borderRadius: 2,
   };
   switch (kind) {
