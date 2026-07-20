@@ -1044,3 +1044,10 @@
 - [x] Find countertop Y-position calculation in ElevationView.tsx (or design rendering lib)
 - [x] Fix so countertop sits flush on top of base cabinets with zero gap (changed bottom from STD.COUNTERTOP_HEIGHT to STD.BASE_HEIGHT in ElevationView.tsx x2 and IslandElevationView.tsx x2)
 - [x] TypeScript check passes; checkpoint saved
+
+## Fix: Fridge cabinet positioning and panel SKU (Jul 19)
+
+- [x] Fridge sits on the floor (elevBottom=0), default height 70" (user can change in popup)
+- [x] Swap PLYB42 and REP panel button order — REP panel first (used most often)
+- [x] Renamed REP9624 → REP2496 in DB (REP=fridge panel, 24=depth, 96=height); fixed width/height dimensions
+- [x] TypeScript check passes; checkpoint saved

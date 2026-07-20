@@ -380,9 +380,10 @@ export const designRouter = router({
       // Refrigerator end panels + smooth skin panels.
       // Patterns by distributor:
       //  - Skyline (GR-): REPV-* end panels, WSV* smooth skin panels
-      //  - Clark and Sons: REP9624 end panel (no smooth panel equivalent)
+      //  - Clark and Sons: REP2496 end panel (no smooth panel equivalent)
       //  - USCD: REPV30* end panels, WSV* smooth skin panels
       // Note: WS1542 (Clark and Sons wall skin) is NOT a refrigerator smooth panel — excluded.
+      // REP2496 is the Clark & Sons fridge end panel (renamed from REP9624: REP=fridge panel, 24=depth, 96=height).
       const panelRows = await db
         .select(cols)
         .from(cabinets)
@@ -390,10 +391,17 @@ export const designRouter = router({
         .where(and(gate, sql`(
           ${cabinets.masterCode} LIKE 'REPV%'
           OR ${cabinets.masterCode} LIKE 'REP9%'
+          OR ${cabinets.masterCode} = 'REP2496'
           OR ${cabinets.masterCode} LIKE 'WSV%'
           OR ${cabinets.masterCode} = 'PLYEB42'
         )`));
-      const endPanels = panelRows.filter((r) => /^REPV/.test(r.masterCode) || /^REP9/.test(r.masterCode) || r.masterCode === 'PLYEB42');
+      // Sort end panels: REP panels first (used most often), then PLY panels.
+      const endPanelsRaw = panelRows.filter((r) => /^REPV/.test(r.masterCode) || /^REP9/.test(r.masterCode) || r.masterCode === 'REP2496' || r.masterCode === 'PLYEB42');
+      const endPanels = endPanelsRaw.sort((a, b) => {
+        const aIsRep = /^REP/.test(a.masterCode) ? 0 : 1;
+        const bIsRep = /^REP/.test(b.masterCode) ? 0 : 1;
+        return aIsRep - bIsRep;
+      });
       const smoothPanels = panelRows.filter((r) => /^WSV/.test(r.masterCode));
 
       // Dedupe helper (a cabinet can join multiple SKU rows).

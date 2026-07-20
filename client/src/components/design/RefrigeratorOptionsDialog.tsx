@@ -380,7 +380,7 @@ export function RefrigeratorOptionsDialog({
           <Section title="Over-Fridge Cabinet">
             <div className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                Cabinet sits at 72″ above floor (bottom of cabinet = top of fridge space)
+                Cabinet sits directly above the fridge (bottom = top of fridge)
               </p>
               <OptionPills<FridgeAbove>
                 value={above}
@@ -506,7 +506,7 @@ export function RefrigeratorOptionsDialog({
               {above === "bridge" && panels !== "none" && panelHeight && (
                 <p className="text-xs text-muted-foreground">
                   Panel height will be <span className="font-semibold text-foreground">{panelHeight}″</span>
-                  {" "}(72″ fridge + {bridgeHeightChoice}″ cabinet)
+                  {" "}({fridgeH}″ fridge + {bridgeHeightChoice}″ cabinet)
                 </p>
               )}
               {above === "none" && panels !== "none" && (
