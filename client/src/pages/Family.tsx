@@ -77,14 +77,27 @@ function fmtPrice(n: number | null): string {
 }
 
 // Group the DB categories into the buyer-facing room-section filters.
+// The DB stores categories in Title Case (e.g. "Base", "Wall", "Trim and Molding");
+// we always lowercase before matching so casing differences don't break filters.
 const TYPE_FILTERS: { key: string; labelKey: string; match: (cat: string) => boolean }[] = [
   { key: "all", labelKey: "fam_f_all", match: () => true },
-  { key: "base", labelKey: "fam_f_base", match: (c) => c === "base" },
+  { key: "base", labelKey: "fam_f_base", match: (c) => c === "base" || c === "corner" },
   { key: "wall", labelKey: "fam_f_wall", match: (c) => c === "wall" },
   { key: "tall", labelKey: "fam_f_tall", match: (c) => c === "tall" },
   { key: "vanity", labelKey: "fam_f_vanity", match: (c) => c === "vanity" },
   { key: "ada", labelKey: "fam_f_ada", match: (c) => c === "ada" },
-  { key: "accessory", labelKey: "fam_f_accessory", match: (c) => c === "accessory" },
+  {
+    key: "accessory",
+    labelKey: "fam_f_accessory",
+    match: (c) =>
+      c === "accessory" ||
+      c === "accessories" ||
+      c === "trim and molding" ||
+      c === "molding" ||
+      c === "filler's and panels" ||
+      c === "fillers and panels" ||
+      c === "specialty",
+  },
 ];
 
 function FamilyCabinetCard({

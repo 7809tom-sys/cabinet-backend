@@ -1064,7 +1064,7 @@
 
 ## Fix: 5 mobile designer issues (Jul 19)
 
-- [ ] #1 Cabinet pictures on mobile not matching desktop — needs user clarification on which pictures differ
+- [ ] #1 Cabinet pictures on mobile not matching desktop — needs user clarification on which pictures differ (awaiting user input)
 - [x] #2 Add clear distributor conflict pop-up warning when adding incompatible items to cart (AlertDialog with amber warning, explains supplier conflict, offers Keep/Clear options)
 - [x] #3 Fix Style/Save/More button spacing in mobile top toolbar (no overlap — compact icon-only buttons)
 - [x] #4 Make room size, style, and save buttons icon-only (h-8 w-8) with tooltip on mobile top bar
@@ -1092,10 +1092,10 @@
 
 ## Feature: Feet/meters toggle + mobile Undo/Redo (Jul 20)
 
-- [ ] Add ft/m toggle switch to RoomSizeControl (desktop popover) — converts displayed values between feet/inches and meters
-- [ ] Add ft/m toggle switch to RoomSizeInline (mobile sheet) — same behavior
-- [ ] Add Undo and Redo icon buttons to mobile top toolbar (next to existing view buttons)
-- [ ] TypeScript check passes; checkpoint saved
+- [x] Add ft/m toggle switch to RoomSizeControl (desktop popover) — converts displayed values between feet/inches and meters
+- [x] Add ft/m toggle switch to RoomSizeInline (mobile sheet) — same behavior
+- [x] Add Undo and Redo icon buttons to mobile top toolbar (next to existing view buttons)
+- [x] TypeScript check passes; checkpoint saved
 
 ## Feature: Series name in door style description (Jul 20)
 
@@ -1117,7 +1117,7 @@
 - [x] Remove auto-hide logic from catalog.ts adminUpdateCabinet
 - [x] Remove auto-hide logic from genericCabinets.ts update and bulkUpdateAliases
 - [x] Update Aliases tab note: aliases are cross-references, not hide triggers
-- [ ] Restore B12 visibility (was hidden by old auto-hide logic) — confirm with admin
+- [x] Restore B12 visibility (was hidden by old auto-hide logic) — confirmed active in DB (isActive=1, conflict=none)
 
 ## Feature: Banner Management Admin
 - [x] Add banners table to drizzle/schema.ts
@@ -1174,3 +1174,13 @@
 - [x] Show sale badge overlay (red badge) on door style cards in affiliate storefront FamilyPicker
 - [x] Show active banner bar at top of affiliate storefront (dismissible, fetched from DB)
 - [x] TypeScript: 0 errors; checkpoint saved
+
+## Fix: White Shaker family page category filter tabs (Jul 20)
+
+- [x] Verify all filter tabs (All Cabinets, Base, Wall, Tall & Pantry, Vanity, Trim & Accessories) correctly filter the White Shaker cabinet list
+- [x] Investigate why a filter tab may show "No cabinets match this filter" when cabinets exist
+- [x] Fix category mismatch: DB stores "Trim and Molding", "Accessories", "Specialty", "Molding", "Filler's and Panels" but filter only matched "accessory"
+- [x] Fix: updated TYPE_FILTERS to match all DB category variants (case-insensitive via .toLowerCase())
+- [x] Fix: Base tab now also includes "corner" category cabinets
+- [x] Ensure the filter works for all door styles, not just White Shaker
+- [x] TypeScript check passes; checkpoint saved

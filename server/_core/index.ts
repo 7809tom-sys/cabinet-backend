@@ -13,6 +13,7 @@ import { registerSeoRoutes } from "../seo";
 import { apexRedirectMiddleware } from "../apexRedirect";
 import fs from "fs";
 import path from "path";
+import { registerStripeWebhook } from "../stripeWebhook";
 
 // Resolve the build version once at startup. The framework emits a build stamp
 // at client/public/__manus__/version.json during the build; if present we use
@@ -65,6 +66,9 @@ async function startServer() {
   // No-op for localhost, *.manus.space/.manus.computer, and the www host, so it is
   // safe to run before everything else.
   app.use(apexRedirectMiddleware);
+  // Stripe webhook MUST be registered before express.json() so the raw body
+  // is available for signature verification.
+  registerStripeWebhook(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

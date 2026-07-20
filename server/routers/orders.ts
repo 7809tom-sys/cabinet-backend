@@ -37,6 +37,7 @@ import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
 import { resolveMarkupBps } from "@shared/affiliateBranding";
 import { affiliateStyleBranding } from "../../drizzle/schema";
+import { createCheckoutSession } from "../stripe";
 
 // Map the order tierEnum ("Wholesale" | "Contractor") to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor") =>
@@ -1424,5 +1425,71 @@ export const ordersRouter = router({
       if (ids.length === 0) return { deleted: 0 };
       await db.delete(orderRequests).where(inArray(orderRequests.id, ids));
       return { deleted: ids.length };
+    }),
+
+  // ─── Stripe Checkout Session ──────────────────────────────────────────────
+  // Creates a Stripe Checkout Session for an existing order request and returns
+  // the hosted checkout URL. The frontend opens this in a new tab.
+  createStripeCheckout: publicProcedure
+    .input(
+      z.object({
+        orderRequestId: z.number().int().positive(),
+        /** Freight in cents (must be > 0 before payment) */
+        freightCents: z.number().int().min(0).default(0),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const rows = await db
+        .select()
+        .from(orderRequests)
+        .where(eq(orderRequests.id, input.orderRequestId))
+        .limit(1);
+      const order = rows[0];
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+
+      const lineItems = (order.lineItems as OrderLineItem[]) ?? [];
+      if (lineItems.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Order has no line items" });
+      }
+
+      // Build Stripe line items from the order
+      const stripeLines: import("../stripe").CheckoutLineItem[] = lineItems
+        .filter((l) => l.linePrice != null && l.linePrice > 0)
+        .map((l) => ({
+          description: `${l.masterCode ?? l.rawCode ?? "Cabinet"} — ${l.description ?? ""}`.trim(),
+          quantity: l.qty,
+          unitPriceCents: Math.round(((l.unitPrice ?? l.linePrice! / l.qty) * 100)),
+          platformSku: l.masterCode ?? undefined,
+        }));
+
+      // Add freight as a line item if provided
+      if (input.freightCents > 0) {
+        stripeLines.push({
+          description: "LTL Freight Shipping",
+          quantity: 1,
+          unitPriceCents: input.freightCents,
+        });
+      }
+
+      if (stripeLines.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No priced items to charge" });
+      }
+
+      const origin = (ctx.req as import("express").Request).headers.origin as string ?? "https://www.cabinetdealz.com";
+      const { url } = await createCheckoutSession({
+        orderId: order.id,
+        orderNumber: order.requestNumber,
+        lineItems: stripeLines,
+        customerEmail: order.originatorEmail ?? ctx.user?.email ?? undefined,
+        customerName: order.originatorName ?? ctx.user?.name ?? undefined,
+        userId: ctx.user?.id ?? 0,
+        successUrl: `${origin}/order/${order.id}?payment=success`,
+        cancelUrl: `${origin}/order/${order.id}?payment=cancelled`,
+      });
+
+      return { url };
     }),
 });
