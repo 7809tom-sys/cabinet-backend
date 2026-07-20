@@ -11,8 +11,9 @@ import { StorefrontShop } from "@/components/storefront/StorefrontShop";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import {
   ArrowRight, Phone, Mail, MapPin, Globe, Facebook, Instagram, Award,
-  Ruler, ShieldCheck, Zap, Heart, Languages, Waves, LogIn, ShoppingCart,
+  Ruler, ShieldCheck, Zap, Heart, Languages, Waves, LogIn, ShoppingCart, X,
 } from "lucide-react";
+import { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/_core/hooks/useAuth";
 
@@ -162,6 +163,8 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
       )}
 
       <main className="flex-1">
+        {/* ─── Affiliate promo banner ──────────────────────────────────── */}
+        <AffiliateBannerBar slug={data.slug} brand={brand} />
         {/* ─── Value strip ─────────────────────────────────────────────── */}
         <section className="border-b border-border bg-card">
           <div className="container grid grid-cols-2 lg:grid-cols-4 divide-x divide-border">
@@ -675,5 +678,31 @@ function AdminFooterLink({ affiliateId, storeName }: { affiliateId?: number; sto
     >
       <LogIn className="h-3.5 w-3.5" /> Admin: {storeName ?? "Manage Affiliates"}
     </a>
+  );
+}
+
+// ─── Affiliate Promo Banner Bar ───────────────────────────────────────────────
+// Shows the affiliate's active scheduled banner (e.g. "Happy Holidays! 10% off")
+// at the top of the main content area. Dismissible per session.
+function AffiliateBannerBar({ slug, brand }: { slug: string; brand: { primary: string; accent: string } }) {
+  const [dismissed, setDismissed] = useState(false);
+  const { data } = trpc.storefront.activeBannerAndPromos.useQuery({ slug }, {
+    staleTime: 5 * 60 * 1000,
+  });
+  if (dismissed || !data?.banner?.message) return null;
+  return (
+    <div
+      className="relative flex items-center justify-center gap-3 px-10 py-2.5 text-sm font-medium text-white"
+      style={{ backgroundColor: brand.primary }}
+    >
+      <span>{data.banner.message}</span>
+      <button
+        onClick={() => setDismissed(true)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 hover:bg-white/20 transition-colors"
+        aria-label="Dismiss banner"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }

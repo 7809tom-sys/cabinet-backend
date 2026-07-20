@@ -1161,3 +1161,16 @@
 - [x] Add published/hidden toggle to admin edit dialog on CabinetDetail page
 - [x] Wire both fields to adminUpdateCabinet procedure (already supports them)
 - [x] Checkpoint saved
+
+## Feature: Affiliate CRM Dashboard — full build (Jul 20)
+- [x] Add affiliateBannerSchedules and affiliatePromoDiscounts to Drizzle schema
+- [x] Implement banner schedule procedures (getBannerSchedules, upsertBannerSchedule, deleteBannerSchedule) with real DB queries
+- [x] Add promoDiscounts procedures (getPromoDiscounts, upsertPromoDiscount, deletePromoDiscount) to affiliates router
+- [x] Add myConsultations procedure to affiliates router (affiliate-scoped design appointments)
+- [x] Add storefront.activeBannerAndPromos procedure (returns active banner + promo badges for a slug)
+- [x] Add Promotions tab to affiliate dashboard (banner library picker + sale badge editor per door style)
+- [x] Add Appointments tab to affiliate dashboard (view/manage design consultation bookings)
+- [x] Wire Promotions and Appointments into AffiliateDashboardLayout nav and AffiliateDashboard switch
+- [x] Show sale badge overlay (red badge) on door style cards in affiliate storefront FamilyPicker
+- [x] Show active banner bar at top of affiliate storefront (dismissible, fetched from DB)
+- [x] TypeScript: 0 errors; checkpoint saved

@@ -109,7 +109,7 @@ export function StorefrontShop({
   const branding = useStorefrontBranding(slug);
 
   if (!family) {
-    return <FamilyPicker brand={brand} lang={lang} onPick={lock} branding={branding} />;
+    return <FamilyPicker brand={brand} lang={lang} onPick={lock} branding={branding} slug={slug} />;
   }
   return (
     <LockedCatalog
@@ -129,14 +129,27 @@ function FamilyPicker({
   lang,
   onPick,
   branding,
+  slug,
 }: {
   brand: Brand;
   lang: Lang;
   onPick: (f: LockedFamily) => void;
   branding: StorefrontBranding;
+  slug?: string;
 }) {
   const { data, isLoading } = trpc.storefront.families.useQuery();
   const [detailFamily, setDetailFamily] = useState<typeof data extends Array<infer T> ? T : never | null>(null);
+  const { data: affiliatePromos } = trpc.storefront.activeBannerAndPromos.useQuery(
+    { slug: slug! },
+    { enabled: !!slug, staleTime: 5 * 60 * 1000 }
+  );
+  const promoByStyleId = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const p of affiliatePromos?.promos ?? []) {
+      if (p.targetId) map.set(p.targetId, p.label);
+    }
+    return map;
+  }, [affiliatePromos?.promos]);
 
   return (
     <section id="shop" className="py-16 md:py-20">
@@ -219,6 +232,11 @@ function FamilyPicker({
                         style={{ backgroundColor: brand.primary }}
                       >
                         {f.doorStyle}
+                      </Badge>
+                    )}
+                    {promoByStyleId.get(f.styleId) && (
+                      <Badge className="absolute right-3 top-3 border-0 bg-red-600 text-white shadow-sm font-bold">
+                        {promoByStyleId.get(f.styleId)}
                       </Badge>
                     )}
                     {/* Door-style detail swatch chip — click to open construction specs modal */}

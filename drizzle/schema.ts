@@ -1579,3 +1579,39 @@ export const banners = mysqlTable("banners", {
 
 export type Banner = typeof banners.$inferSelect;
 export type InsertBanner = typeof banners.$inferInsert;
+
+// ─── Affiliate Banner Schedules ───────────────────────────────────────────────
+// Each affiliate can schedule their own promotional banners (holiday, sale, etc.)
+// independently from the main site banners. Multiple schedules can exist; the
+// storefront shows the one whose date window is currently active.
+export const affiliateBannerSchedules = mysqlTable("affiliate_banner_schedules", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliate_id").notNull(),
+  message: text("message").notNull(),
+  holidayKey: varchar("holiday_key", { length: 64 }),
+  startDate: varchar("start_date", { length: 10 }).notNull(), // YYYY-MM-DD
+  endDate: varchar("end_date", { length: 10 }).notNull(),     // YYYY-MM-DD
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type AffiliateBannerSchedule = typeof affiliateBannerSchedules.$inferSelect;
+export type InsertAffiliateBannerSchedule = typeof affiliateBannerSchedules.$inferInsert;
+
+// ─── Affiliate Promo Discounts ────────────────────────────────────────────────
+// Discount badges affiliates can attach to specific door styles or categories
+// on their storefront (e.g. "10% Off", "Labor Day Sale").
+export const affiliatePromoDiscounts = mysqlTable("affiliate_promo_discounts", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  label: varchar("label", { length: 128 }).notNull(),
+  targetType: varchar("targetType", { length: 32 }).notNull().default("style"),
+  targetId: int("targetId"),
+  discountBps: int("discountBps").default(0).notNull(),
+  startsAt: timestamp("startsAt"),
+  endsAt: timestamp("endsAt"),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AffiliatePromoDiscount = typeof affiliatePromoDiscounts.$inferSelect;
+export type InsertAffiliatePromoDiscount = typeof affiliatePromoDiscounts.$inferInsert;

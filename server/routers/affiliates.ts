@@ -10,7 +10,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts } from "../../drizzle/schema";
+import { affiliates, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations } from "../../drizzle/schema";
 import { computeEarning, dollarsToCents, groupByWeek, isoWeekKey, isoWeekStart } from "@shared/earnings";
 import {
   normalizeReferralCode,
@@ -995,20 +995,172 @@ export const affiliatesRouter = router({
       return { ok: true };
     }),
 
-  // ─── Banner Schedules (stub — full implementation pending) ─────────────────
-  listBannerSchedules: partnerProcedure.query(async () => {
-    return [] as Array<{ id: number; message: string; startDate: string; endDate: string; holidayKey: string | null }>;
+  // ─── Banner Schedules ────────────────────────────────────────────────────────
+  listBannerSchedules: partnerProcedure.query(async ({ ctx }) => {
+    const mine = await resolveMyAffiliate(ctx);
+    if (!mine) return [];
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select()
+      .from(affiliateBannerSchedules)
+      .where(eq(affiliateBannerSchedules.affiliateId, mine.id))
+      .orderBy(desc(affiliateBannerSchedules.createdAt));
   }),
   createBannerSchedule: partnerProcedure
-    .input(z.object({ message: z.string(), holidayKey: z.string().optional(), startDate: z.string(), endDate: z.string() }))
-    .mutation(async () => ({ id: 0, ok: true })),
+    .input(z.object({ message: z.string().min(1).max(512), holidayKey: z.string().max(64).optional(), startDate: z.string().length(10), endDate: z.string().length(10) }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const result = await db.insert(affiliateBannerSchedules).values({
+        affiliateId: mine.id,
+        message: input.message,
+        holidayKey: input.holidayKey ?? null,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
+      const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+      return { id: insertId, ok: true };
+    }),
   updateBannerSchedule: partnerProcedure
-    .input(z.object({ id: z.number(), message: z.string().optional(), holidayKey: z.string().optional(), startDate: z.string().optional(), endDate: z.string().optional() }))
-    .mutation(async () => ({ ok: true })),
+    .input(z.object({ id: z.number(), message: z.string().max(512).optional(), holidayKey: z.string().max(64).nullable().optional(), startDate: z.string().length(10).optional(), endDate: z.string().length(10).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const { id, ...rest } = input;
+      const set: Record<string, unknown> = {};
+      if (rest.message !== undefined) set.message = rest.message;
+      if (rest.holidayKey !== undefined) set.holidayKey = rest.holidayKey;
+      if (rest.startDate !== undefined) set.startDate = rest.startDate;
+      if (rest.endDate !== undefined) set.endDate = rest.endDate;
+      if (Object.keys(set).length > 0) {
+        await db.update(affiliateBannerSchedules).set(set)
+          .where(and(eq(affiliateBannerSchedules.id, id), eq(affiliateBannerSchedules.affiliateId, mine.id)));
+      }
+      return { ok: true };
+    }),
   deleteBannerSchedule: partnerProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async () => ({ ok: true })),
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await db.delete(affiliateBannerSchedules)
+        .where(and(eq(affiliateBannerSchedules.id, input.id), eq(affiliateBannerSchedules.affiliateId, mine.id)));
+      return { ok: true };
+    }),
 
+  // ─── Promo Discounts (sale badges on door styles) ─────────────────────────
+  listPromoDiscounts: partnerProcedure.query(async ({ ctx }) => {
+    const mine = await resolveMyAffiliate(ctx);
+    if (!mine) return [];
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select()
+      .from(affiliatePromoDiscounts)
+      .where(eq(affiliatePromoDiscounts.affiliateId, mine.id))
+      .orderBy(desc(affiliatePromoDiscounts.createdAt));
+  }),
+  upsertPromoDiscount: partnerProcedure
+    .input(z.object({
+      id: z.number().optional(),
+      label: z.string().min(1).max(128),
+      targetType: z.enum(["style", "category", "all"]).default("style"),
+      targetId: z.number().nullable().optional(),
+      discountBps: z.number().int().min(0).max(10000).default(0),
+      startsAt: z.number().nullable().optional(),
+      endsAt: z.number().nullable().optional(),
+      active: z.boolean().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const values = {
+        affiliateId: mine.id,
+        label: input.label,
+        targetType: input.targetType,
+        targetId: input.targetId ?? null,
+        discountBps: input.discountBps,
+        startsAt: input.startsAt ? new Date(input.startsAt) : null,
+        endsAt: input.endsAt ? new Date(input.endsAt) : null,
+        active: input.active,
+      };
+      if (input.id) {
+        await db.update(affiliatePromoDiscounts).set(values)
+          .where(and(eq(affiliatePromoDiscounts.id, input.id), eq(affiliatePromoDiscounts.affiliateId, mine.id)));
+        return { id: input.id, ok: true };
+      }
+      const result = await db.insert(affiliatePromoDiscounts).values(values);
+      const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+      return { id: insertId, ok: true };
+    }),
+  deletePromoDiscount: partnerProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      await db.delete(affiliatePromoDiscounts)
+        .where(and(eq(affiliatePromoDiscounts.id, input.id), eq(affiliatePromoDiscounts.affiliateId, mine.id)));
+      return { ok: true };
+    }),
+
+  // ─── Public: active banner for a storefront ──────────────────────────────
+  getActiveBanner: publicProcedure
+    .input(z.object({ affiliateId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const today = new Date().toISOString().slice(0, 10);
+      const rows = await db
+        .select()
+        .from(affiliateBannerSchedules)
+        .where(eq(affiliateBannerSchedules.affiliateId, input.affiliateId));
+      const active = rows.find((r) => r.startDate <= today && r.endDate >= today);
+      return active ?? null;
+    }),
+
+  // ─── Public: active promo discounts for a storefront ─────────────────────
+  getActivePromos: publicProcedure
+    .input(z.object({ affiliateId: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const now = new Date();
+      const rows = await db
+        .select()
+        .from(affiliatePromoDiscounts)
+        .where(and(eq(affiliatePromoDiscounts.affiliateId, input.affiliateId), eq(affiliatePromoDiscounts.active, true)));
+      return rows.filter((r) => {
+        if (r.startsAt && r.startsAt > now) return false;
+        if (r.endsAt && r.endsAt < now) return false;
+        return true;
+      });
+    }),
+
+  // ─── Partner: view design consultations booked through their storefront ────────
+  myConsultations: partnerProcedure
+    .input(z.object({ status: z.enum(["requested", "confirmed", "completed", "cancelled", "all"]).default("all") }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return [] as Array<typeof designConsultations.$inferSelect>;
+      const status = input?.status ?? "all";
+      const conds = [];
+      if (status !== "all") conds.push(eq(designConsultations.status, status));
+      const rows = await db.select().from(designConsultations)
+        .where(conds.length ? and(...conds) : undefined)
+        .orderBy(desc(designConsultations.startAt)).limit(200);
+      return rows;
+    }),
   // ─── Payout Setup (stub — full implementation pending) ─────────────────────
   savePayoutBankInfo: partnerProcedure
     .input(z.object({

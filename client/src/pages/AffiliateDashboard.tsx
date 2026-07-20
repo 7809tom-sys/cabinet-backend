@@ -7,6 +7,8 @@ import AffiliatePricingPanel from "@/components/affiliate/AffiliatePricingPanel"
 import AffiliateCatalogPanel from "@/components/affiliate/AffiliateCatalogPanel";
 import AffiliateAnalyticsPanel from "@/components/affiliate/AffiliateAnalyticsPanel";
 import AffiliateMarketingHub from "@/components/affiliate/AffiliateMarketingHub";
+import AffiliatePromotionsPanel from "@/components/affiliate/AffiliatePromotionsPanel";
+import { AffiliateAppointmentsPanel } from "@/components/affiliate/AffiliateAppointmentsPanel";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -489,6 +491,18 @@ export default function AffiliateDashboard() {
           <div className="max-w-3xl">
             <h2 className="text-xl font-bold mb-4">Customize Store</h2>
             <CustomizeTab affiliate={affiliate} onSaved={() => myRef.refetch()} />
+          </div>
+        );
+      case "promotions":
+        return (
+          <div className="max-w-4xl">
+            <AffiliatePromotionsPanel />
+          </div>
+        );
+      case "appointments":
+        return (
+          <div className="max-w-4xl">
+            <AffiliateAppointmentsPanel />
           </div>
         );
       case "marketing":

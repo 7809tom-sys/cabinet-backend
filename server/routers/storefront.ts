@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql, inArray, gte, lte, isNull, or } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
@@ -10,6 +10,8 @@ import {
   distributorSkus,
   affiliates,
   affiliateStyleBranding,
+  affiliateBannerSchedules,
+  affiliatePromoDiscounts,
 } from "../../drizzle/schema";
 
 // ─── Family-locked storefront browsing ─────────────────────────────────────────
@@ -676,5 +678,38 @@ export const storefrontRouter = router({
         styleMarkupBps,
         styleNames,
       };
+    }),
+
+  // ─── Active banner + promo badges for an affiliate storefront ──────────────
+  activeBannerAndPromos: publicProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { banner: null, promos: [] as typeof affiliatePromoDiscounts.$inferSelect[] };
+      const [aff] = await db.select({ id: affiliates.id })
+        .from(affiliates)
+        .where(eq(affiliates.slug, input.slug))
+        .limit(1);
+      if (!aff) return { banner: null, promos: [] as typeof affiliatePromoDiscounts.$inferSelect[] };
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const [banner] = await db.select()
+        .from(affiliateBannerSchedules)
+        .where(and(
+          eq(affiliateBannerSchedules.affiliateId, aff.id),
+          lte(affiliateBannerSchedules.startDate, today),
+          gte(affiliateBannerSchedules.endDate, today),
+        ))
+        .orderBy(affiliateBannerSchedules.createdAt)
+        .limit(1);
+      const now = new Date();
+      const promos = await db.select()
+        .from(affiliatePromoDiscounts)
+        .where(and(
+          eq(affiliatePromoDiscounts.affiliateId, aff.id),
+          eq(affiliatePromoDiscounts.active, true),
+          or(isNull(affiliatePromoDiscounts.startsAt), lte(affiliatePromoDiscounts.startsAt, now)),
+          or(isNull(affiliatePromoDiscounts.endsAt), gte(affiliatePromoDiscounts.endsAt, now)),
+        ));
+      return { banner: banner ?? null, promos };
     }),
 });
