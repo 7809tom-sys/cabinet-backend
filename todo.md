@@ -1089,3 +1089,10 @@
 - [x] #5 Fix default language: English is default (storefrontI18n.ts — Chinese browser detection removed)
 - [x] #6 Mobile room size button now opens dedicated Room Size sheet (mobilePanel="room") instead of More sheet
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Feet/meters toggle + mobile Undo/Redo (Jul 20)
+
+- [ ] Add ft/m toggle switch to RoomSizeControl (desktop popover) — converts displayed values between feet/inches and meters
+- [ ] Add ft/m toggle switch to RoomSizeInline (mobile sheet) — same behavior
+- [ ] Add Undo and Redo icon buttons to mobile top toolbar (next to existing view buttons)
+- [ ] TypeScript check passes; checkpoint saved
