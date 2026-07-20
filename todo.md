@@ -1051,3 +1051,13 @@
 - [x] Swap PLYB42 and REP panel button order — REP panel first (used most often)
 - [x] Renamed REP9624 → REP2496 in DB (REP=fridge panel, 24=depth, 96=height); fixed width/height dimensions
 - [x] TypeScript check passes; checkpoint saved
+
+## Fix: Mobile toolbar Style/Save buttons moved to bottom (Jul 19)
+
+- [x] Move Style and Save buttons back to the top toolbar on mobile
+- [x] TypeScript check passes; checkpoint saved
+
+## Fix: Distributor lock shows empty palette when placed cabinets differ from cart distributor (Jul 19)
+
+- [x] Fix auto-lock effect: placed cabinets always take priority over cart lock
+- [x] TypeScript check passes; checkpoint saved

@@ -3683,21 +3683,20 @@ export default function DesignTool() {
   // (handled in setSlotStyle), which sets mixedWarehouseOverride=true and
   // prevents re-locking.
   useEffect(() => {
-    if (lockedDistributorId != null) return;
     if (mixedWarehouseOverride) return; // user explicitly unlocked
-    // Lock from placed cabinets
+    // Placed cabinets always take priority: lock to the distributor of the active style.
     if (placed.length > 0 && selectedStyleDistributorId != null) {
       setLockedDistributorId(selectedStyleDistributorId);
       return;
     }
-    // Lock from cart (if cart already has items from a specific distributor)
-    // Only engage the cart-based lock when cabinets are also placed in the
-    // designer — otherwise a fresh designer session with cart items from a
-    // previous order would silently block the user from browsing other lines.
-    if (cartLockedDistributorId != null && placed.length > 0) {
-      setLockedDistributorId(cartLockedDistributorId);
+    // No placed cabinets: clear any stale lock so the user can freely browse.
+    if (placed.length === 0) {
+      setLockedDistributorId(null);
+      return;
     }
-  }, [lockedDistributorId, selectedStyleDistributorId, placed.length, cartLockedDistributorId, mixedWarehouseOverride]);
+    // Placed cabinets exist but style distributor not yet loaded — wait.
+    // (Don't apply cart lock here; it may conflict once the style loads.)
+  }, [selectedStyleDistributorId, placed.length, mixedWarehouseOverride]);
   useEffect(() => { styleIdRef.current = styleId; }, [styleId]);
   useEffect(() => { styleBRef.current = styleB; }, [styleB]);
 
@@ -4521,7 +4520,28 @@ export default function DesignTool() {
           </button>
         )}
         {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
-        <div className="ml-auto flex items-center gap-2 lg:hidden">
+        <div className="ml-auto flex items-center gap-1.5 lg:hidden">
+          {/* Style button — mobile top bar */}
+          <Button
+            variant={mobilePanel === "style" ? "default" : "outline"}
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
+          >
+            <Palette className="h-4 w-4" />
+            <span className="text-xs">Style</span>
+          </Button>
+          {/* Save button — mobile top bar */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            disabled={placed.length === 0}
+            onClick={() => setSaveSignal((n) => n + 1)}
+          >
+            <Save className="h-4 w-4" />
+            <span className="text-xs">Save</span>
+          </Button>
           <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setMoreSheetOpen(true)}>
             <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
           </Button>
@@ -7197,7 +7217,7 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-10 h-14">
+          <div className="grid grid-cols-8 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
@@ -7206,12 +7226,6 @@ export default function DesignTool() {
                 if (paletteType === "surfaces") setPaletteType("base");
                 setMobilePanel("catalog");
               }}
-            />
-            <MobileBarButton
-              icon={<Palette className="h-5 w-5" />}
-              label="Style"
-              active={mobilePanel === "style"}
-              onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
             />
             <MobileBarButton
               icon={<Waves className="h-5 w-5" />}
@@ -7254,12 +7268,6 @@ export default function DesignTool() {
                 setCabinetsLocked((v) => !v);
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
               }}
-            />
-            <MobileBarButton
-              icon={<Save className="h-5 w-5" />}
-              label="Save"
-              disabled={placed.length === 0}
-              onClick={() => setSaveSignal((n) => n + 1)}
             />
             <MobileBarButton
               icon={<ShoppingCart className="h-5 w-5" />}
