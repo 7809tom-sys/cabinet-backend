@@ -237,16 +237,13 @@ export function ElevationView({
           width: sizeAlong * ppi,
           bottom: bottom * ppi,
           height: height * ppi,
-          background: faceFill,
-          // No outer border/frame — cabinets render as clean architectural drawings.
-          // Selection is indicated by a gold glow outline only.
-          border: isSelected ? "2px solid #1a2744" : "none",
+          // Transparent outer container — no box/frame around the cabinet.
+          // The face fill color is applied inside DoorFront so only the actual
+          // cabinet face (stiles, rails, panels) is visible, not a surrounding box.
+          background: "transparent",
+          border: isSelected ? "2px solid rgba(212,167,90,0.8)" : "none",
           borderRadius: 2,
-          // Keep only the inner ambient occlusion shadow (recessed reveal look).
-          // Remove the outer drop shadow that made cabinets look like floating boxes.
-          boxShadow: isSelected
-            ? "0 0 0 3px rgba(212,167,90,0.55), inset 0 1px 0 rgba(255,255,255,0.28), inset 0 0 10px rgba(0,0,0,0.16)"
-            : "inset 0 1px 0 rgba(255,255,255,0.22), inset 0 0 9px rgba(0,0,0,0.14)",
+          boxShadow: isSelected ? "0 0 0 3px rgba(212,167,90,0.40)" : "none",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
@@ -269,6 +266,7 @@ export function ElevationView({
               cabinetType={cabType}
               blindOnLeft={blindLeft}
               cabinetHeightIn={height}
+              faceFillOverride={faceFill}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -1411,10 +1409,21 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
+  // The face fill (cabinet face frame color) is applied as a full-bleed background
+  // on this component's root so the outer container can be transparent (no box).
+  const faceBackground = faceFillOverride ?? `linear-gradient(180deg, color-mix(in srgb, ${face} 88%, #ffffff) 0%, ${face} 40%, ${face} 62%, color-mix(in srgb, ${face} 90%, #000000) 100%)`;
+
+  // Helper: wrap content in a root div that carries the face-frame background.
+  // This keeps the outer cabinet container transparent (no visible box).
+  const withFace = (children: React.ReactNode) => (
+    <div className="absolute inset-0" style={{ background: faceBackground }}>
+      {children}
+    </div>
+  );
 
   // ─── SPECIALTY TYPE: PANTRY (tall cabinet) ───────────────────────────
   // All tall pantry cabinets render as 4 doors: 2 side-by-side on the bottom
@@ -1424,7 +1433,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
     const splitIn = 54; // split point in inches from floor
     // Clamp split so it's always between 20% and 80% of the cabinet height
     const splitPct = Math.min(80, Math.max(20, (splitIn / totalH) * 100));
-    return (
+    return withFace(
       <>
         {/* Bottom section: 2 side-by-side doors from floor to 54" */}
         <div className="absolute left-0 right-0 bottom-0" style={{ height: `${splitPct}%` }}>
@@ -1472,7 +1481,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
     const falseFrontPct = 14; // narrow tilt-out tray panel
     const cols = Math.max(1, doorCount || 2);
     const colW = 100 / cols;
-    return (
+    return withFace(
       <>
         {/* false front (tilt-out tray) */}
         <div className="absolute left-0 right-0 top-0" style={{ height: `${falseFrontPct}%` }}>
@@ -1509,7 +1518,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
   if (cabinetType === "glass-door") {
     const numDoors = Math.max(1, doorCount);
     const doorWidthPct = 100 / numDoors;
-    return (
+    return withFace(
       <>
         {Array.from({ length: numDoors }).map((_, i) => (
           <div
@@ -1550,7 +1559,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
     // blindOnLeft defaults to true (blind on left, door on right).
     // When false, the corner is on the right so we flip: door on left, blind on right.
     const bLeft = blindOnLeft !== false;
-    return (
+    return withFace(
       <>
         {/* Blind (hidden) portion: subtle hatched/darker area */}
         <div
@@ -1580,7 +1589,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
   // ─── SPECIALTY TYPE: APPLIANCE GARAGE ──────────────────────────────────
   // Tambour/roll-up slat pattern.
   if (cabinetType === "appliance-garage") {
-    return (
+    return withFace(
       <div
         className="absolute inset-[1.5px] rounded-[2px]"
         style={{
@@ -1598,7 +1607,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
   if (cabinetType === "corner-drawer-base") {
     const dCount = Math.max(1, drawerCount || 3);
     const sliceH = 100 / dCount;
-    return (
+    return withFace(
       <>
         {/* Corner indicator: subtle angled mark on left edge */}
         <div
@@ -1643,7 +1652,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
       const drawerBandPct = 26;
       const cols = Math.max(1, doorCount);
       const colW = 100 / cols;
-      return (
+      return withFace(
         <>
           {/* top drawer band: one drawer front per column */}
           {Array.from({ length: cols }).map((_, i) => (
@@ -1678,7 +1687,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
     }
     // DRAWER BASE (all-drawer, no doors): a vertical STACK of drawer fronts.
     const sliceH = 100 / drawerCount;
-    return (
+    return withFace(
       <>
         {Array.from({ length: drawerCount }).map((_, i) => (
           <div
@@ -1701,7 +1710,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
   const numDoors = Math.max(1, doorCount);
   if (numDoors > 1) {
     const doorWidthPct = 100 / numDoors;
-    return (
+    return withFace(
       <>
         {Array.from({ length: numDoors }).map((_, i) => (
           <div
@@ -1722,7 +1731,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
       </>
     );
   }
-  return <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />;
+  return withFace(<SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} />);
 }
 
 // A recessed center panel with real depth: darkened, top-shadowed fill inside a
