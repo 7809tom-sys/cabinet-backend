@@ -98,7 +98,7 @@ import { IslandElevationView } from "@/components/design/IslandElevationView";
 import { CsvImportDialog } from "@/components/design/CsvImportDialog";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
-import { RoomSizeControl } from "@/components/design/RoomSizeControl";
+import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -7523,34 +7523,10 @@ export default function DesignTool() {
             </SheetHeader>
             <div className="overflow-y-auto px-4 py-4">
               <div className={layoutLocked ? "pointer-events-none opacity-50" : undefined} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
-                <RoomSizeControl
+                <RoomSizeInline
                   room={room}
                   onChange={applyRoom}
-                  drawMode={drawMode}
-                  onToggleDraw={() => {
-                    if (layoutLocked) return;
-                    setDrawMode((d) => !d);
-                    setSelectedUid(null);
-                    setMeasureMode(false);
-                    setMobilePanel(null);
-                  }}
-                  isPolygon={isPolygonRoom}
-                  onTogglePolygon={() => {
-                    if (layoutLocked) return;
-                    if (!isPolygonRoom) {
-                      import("@/lib/polygonRoom").then(({ rectToPolygon }) => {
-                        const { vertices, customWalls } = rectToPolygon(room.width, room.depth);
-                        setRoom((prev) => ({ ...prev, vertices, customWalls }));
-                      });
-                      setPolygonEditMode(true);
-                      setDrawMode(false);
-                      setMeasureMode(false);
-                      toast.success("Custom shape mode — split walls and drag vertices to create bump-outs");
-                    } else {
-                      setPolygonEditMode((v) => !v);
-                    }
-                    setMobilePanel(null);
-                  }}
+                  onApplied={() => setMobilePanel(null)}
                 />
               </div>
             </div>

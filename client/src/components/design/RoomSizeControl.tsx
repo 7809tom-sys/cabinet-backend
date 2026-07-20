@@ -404,3 +404,205 @@ function WallField({
     </div>
   );
 }
+
+// ─── Inline variant (for mobile sheet — no Popover wrapper) ──────────────────
+// Renders the dimension form directly so the user sees the fields immediately
+// without needing to tap an extra trigger button.
+interface InlineProps {
+  room: RoomData;
+  onChange: (room: RoomData) => void;
+  /** Called after the user taps Apply so the parent can close the sheet. */
+  onApplied?: () => void;
+}
+
+export function RoomSizeInline({ room, onChange, onApplied }: InlineProps) {
+  const { t } = useLanguage();
+  const [showPerWall, setShowPerWall] = useState(
+    () => !!room.wallCeilings && Object.keys(room.wallCeilings).length > 0,
+  );
+  const [wStr, setWStr] = useState(() => toTapeString(room.width));
+  const [dStr, setDStr] = useState(() => toTapeString(room.depth));
+  const [cStr, setCStr] = useState(() => toTapeString(roomCeiling(room)));
+  const [perWall, setPerWall] = useState<Partial<Record<WallSide, WallCeiling>>>(
+    () => ({ ...(room.wallCeilings ?? {}) }),
+  );
+
+  useEffect(() => {
+    setWStr(toTapeString(room.width));
+    setDStr(toTapeString(room.depth));
+    setCStr(toTapeString(roomCeiling(room)));
+    setPerWall({ ...(room.wallCeilings ?? {}) });
+  }, [room.width, room.depth, room.ceilingHeight, room.wallCeilings]);
+
+  const wParsed = parseLengthToInches(wStr);
+  const dParsed = parseLengthToInches(dStr);
+  const cParsed = parseLengthToInches(cStr);
+  const wValid = wParsed != null;
+  const dValid = dParsed != null;
+  const cValid =
+    cParsed != null && cParsed >= MIN_CEILING_HEIGHT && cParsed <= MAX_CEILING_HEIGHT;
+
+  const apply = () => {
+    if (!wValid || !dValid || !cValid) return;
+    const flat = Math.round(cParsed!);
+    const cleaned: Partial<Record<WallSide, WallCeiling>> = {};
+    for (const { side } of WALLS) {
+      const wc = perWall[side];
+      if (!wc) continue;
+      const high = clampCeilingHeight(wc.high);
+      const low = clampCeilingHeight(wc.low);
+      const isSloped = Math.abs(high - low) > 0.5;
+      if (!isSloped && high === flat) continue;
+      cleaned[side] = isSloped
+        ? { high: Math.max(high, low), low: Math.min(high, low), slopeFrom: wc.slopeFrom ?? "start" }
+        : { high, low: high };
+    }
+    onChange({
+      width: clampRoomInches(wParsed!),
+      depth: clampRoomInches(dParsed!),
+      ceilingHeight: flat,
+      wallCeilings: Object.keys(cleaned).length ? cleaned : undefined,
+    });
+    onApplied?.();
+  };
+
+  const setWallMode = (side: WallSide, mode: "default" | "flat" | "sloped") => {
+    setPerWall((prev) => {
+      const next = { ...prev };
+      if (mode === "default") {
+        delete next[side];
+      } else if (mode === "flat") {
+        const cur = next[side] ?? wallCeiling(room, side);
+        const h = clampCeilingHeight(cur.high);
+        next[side] = { high: h, low: h };
+      } else {
+        const cur = next[side] ?? wallCeiling(room, side);
+        const high = clampCeilingHeight(cur.high);
+        const low = clampCeilingHeight(
+          Math.abs(cur.high - cur.low) > 0.5 ? cur.low : Math.max(MIN_CEILING_HEIGHT, high - 24),
+        );
+        next[side] = { high: Math.max(high, low), low: Math.min(high, low), slopeFrom: cur.slopeFrom ?? "start" };
+      }
+      return next;
+    });
+  };
+
+  const updateWall = (side: WallSide, patch: Partial<WallCeiling>) => {
+    setPerWall((prev) => {
+      const cur = prev[side] ?? wallCeiling(room, side);
+      return { ...prev, [side]: { ...cur, ...patch } };
+    });
+  };
+
+  const roomDefault = Math.round(cParsed ?? roomCeiling(room));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-2">
+        <Ruler className="h-4 w-4 mt-0.5 text-[#a87f33] shrink-0" />
+        <div>
+          <div className="text-sm font-semibold text-foreground">{t("dt_rs_measure_title")}</div>
+          <p className="text-[11px] text-muted-foreground">
+            {t("dt_rs_measure_hint")} <span className="font-medium">10' 6"</span>, <span className="font-medium">126"</span>, <span className="font-medium">120 1/2</span>.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <WallField
+          label={t("dt_rs_back_wall")}
+          value={wStr}
+          onChange={setWStr}
+          onEnter={apply}
+          parsed={wParsed}
+          valid={wValid}
+        />
+        <WallField
+          label={t("dt_rs_side_wall")}
+          value={dStr}
+          onChange={setDStr}
+          onEnter={apply}
+          parsed={dParsed}
+          valid={dValid}
+        />
+        <WallField
+          label={t("dt_rs_ceiling")}
+          value={cStr}
+          onChange={setCStr}
+          onEnter={apply}
+          parsed={cParsed}
+          valid={cValid}
+          hint={t("dt_rs_ceiling_hint", { min: MIN_CEILING_HEIGHT, max: MAX_CEILING_HEIGHT })}
+        />
+        <div className="flex flex-wrap gap-1">
+          {CEILING_HEIGHT_PRESETS.map((h) => (
+            <button
+              key={h}
+              type="button"
+              onClick={() => setCStr(toTapeString(h))}
+              className={`rounded-md border px-2 py-1 text-[11px] transition-colors hover:bg-muted/60 ${
+                Math.round(cParsed ?? -1) === h ? "border-[#1a2744] bg-[#1a2744]/5 font-medium" : "border-border"
+              }`}
+            >
+              {h / 12}&apos; ({h}&quot;)
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Per-wall / sloped ceiling section */}
+      <div className="rounded-md border border-border">
+        <button
+          type="button"
+          onClick={() => setShowPerWall((v) => !v)}
+          className="flex w-full items-center justify-between px-2.5 py-2 text-left"
+        >
+          <span className="text-[11px] font-semibold text-foreground">{t("dt_rs_per_wall_ceiling")}</span>
+          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${showPerWall ? "rotate-180" : ""}`} />
+        </button>
+        {showPerWall && (
+          <div className="space-y-2.5 border-t border-border px-2.5 py-2.5">
+            <p className="text-[10px] text-muted-foreground">{t("dt_rs_per_wall_hint")}</p>
+            {WALLS.map(({ side, labelKey }) => (
+              <WallCeilingRow
+                key={side}
+                label={t(labelKey)}
+                wc={perWall[side]}
+                roomDefault={roomDefault}
+                onMode={(m) => setWallMode(side, m)}
+                onUpdate={(patch) => updateWall(side, patch)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick presets */}
+      <div>
+        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("dt_rs_quick_presets")}</Label>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              onClick={() => onChange({ width: p.width, depth: p.depth, ceilingHeight: roomCeiling(room), wallCeilings: room.wallCeilings })}
+              className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/60 transition-colors"
+            >
+              {t("dt_rs_ft", { label: p.label })}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Button
+        onClick={apply}
+        disabled={!wValid || !dValid || !cValid}
+        className="w-full h-10 bg-[#1a2744] text-white hover:bg-[#243456] gap-1.5"
+      >
+        <Check className="h-4 w-4" /> {t("dt_rs_apply")}
+      </Button>
+      <p className="text-[10px] text-muted-foreground text-center">
+        {t("dt_rs_tip")}
+      </p>
+    </div>
+  );
+}
