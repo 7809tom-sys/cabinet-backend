@@ -17,21 +17,6 @@ import { cn } from "@/lib/utils";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STANDARD_DEPTHS = ["9", "12", "15", "18", "21", "24", "27", "30", "33", "36"];
 const DOOR_OPTIONS = [null, 0, 1, 2, 3, 4] as const;
-const CATEGORIES = ["Base","Wall","Tall","Corner","Drawer","Specialty","Vanity","Pantry","Island","Filler","Molding","Accessory"] as const;
-const SUB_CATEGORIES: Record<string, string[]> = {
-  Base: ["Standard Base","Sink Base","Blind Corner Base","Drawer Base","Lazy Susan","Appliance Garage","Pull-Out"],
-  Wall: ["Standard Wall","Blind Corner Wall","Corner Wall","Open Shelf","Microwave Wall","Glass Door"],
-  Tall: ["Pantry","Oven Tower","Utility","Linen"],
-  Corner: ["Lazy Susan","Blind Corner","Diagonal","Easy Reach"],
-  Drawer: ["Drawer Base","Peg Drawer","Utensil Drawer"],
-  Specialty: ["Spice Pull-Out","Tray Divider","Waste Bin","Appliance Lift","Mixer Shelf"],
-  Vanity: ["Vanity Base","Vanity Drawer","Vanity Sink","Medicine Cabinet","Linen Tower"],
-  Pantry: ["Pantry Cabinet","Pantry Pull-Out"],
-  Island: ["Island Base","Island Drawer"],
-  Filler: ["Filler Panel","Side Panel","Scribe Moulding"],
-  Molding: ["Crown Moulding","Light Rail","Base Moulding","Valance"],
-  Accessory: ["Hardware","Organizer","Shelf","Lazy Susan Insert","Drawer Insert"],
-};
 const DRAWER_OPTIONS = [null, 0, 1, 2, 3, 4, 5, 6, 7, 8] as const;
 const SHELF_OPTIONS = [null, 0, 1, 2, 3, 4, 5, 6] as const;
 const PAGE_SIZE = 50;
@@ -49,6 +34,13 @@ type CabinetRow = {
   numberOfDrawers: number | null;
   numberOfFixedShelves: number | null;
   numberOfAdjShelves: number | null;
+  altSku1: string | null;
+  altSku2: string | null;
+  altSku3: string | null;
+  showInCatalog: boolean | null;
+  showInDesigner: boolean | null;
+  showIn2020: boolean | null;
+  isActive: boolean | null;
   isNotCabinet: boolean | null;
   catalogImageUrl: string | null;
   weight: string | null;
@@ -198,8 +190,6 @@ function EditModal({
     updateMutation.mutate({
       id: row.id,
       description: merged.description ?? undefined,
-      category: merged.category ?? undefined,
-      subCategory: merged.subCategory ?? null,
       depth: merged.depth ?? null,
       width: merged.width ?? null,
       height: merged.height ?? null,
@@ -213,6 +203,13 @@ function EditModal({
       numberOfDrawers: merged.numberOfDrawers ?? null,
       numberOfFixedShelves: merged.numberOfFixedShelves ?? null,
       numberOfAdjShelves: merged.numberOfAdjShelves ?? null,
+      altSku1: merged.altSku1 ?? null,
+      altSku2: merged.altSku2 ?? null,
+      altSku3: merged.altSku3 ?? null,
+      showInCatalog: merged.showInCatalog ?? undefined,
+      showInDesigner: merged.showInDesigner ?? undefined,
+      showIn2020: merged.showIn2020 ?? undefined,
+      isActive: merged.isActive ?? undefined,
       isNotCabinet: merged.isNotCabinet ?? undefined,
       catalogImageUrl: merged.catalogImageUrl ?? null,
     });
@@ -257,51 +254,6 @@ function EditModal({
                 onChange={(e) => set("description", e.target.value || null)}
                 disabled={busy}
               />
-            </div>
-
-            {/* Category */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Category</Label>
-                <Select
-                  value={merged.category ?? "__none__"}
-                  onValueChange={(v) => {
-                    const cat = v === "__none__" ? null : v;
-                    set("category", cat);
-                    // Reset subCategory when category changes
-                    set("subCategory", null);
-                  }}
-                  disabled={busy}
-                >
-                  <SelectTrigger className={cn("w-full", !merged.category && "text-muted-foreground")}>
-                    <SelectValue placeholder="— not set —" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— not set —</SelectItem>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Sub-Category</Label>
-                <Select
-                  value={merged.subCategory ?? "__none__"}
-                  onValueChange={(v) => set("subCategory", v === "__none__" ? null : v)}
-                  disabled={busy || !merged.category}
-                >
-                  <SelectTrigger className={cn("w-full", !merged.subCategory && "text-muted-foreground")}>
-                    <SelectValue placeholder="— not set —" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— not set —</SelectItem>
-                    {(merged.category && SUB_CATEGORIES[merged.category] ? SUB_CATEGORIES[merged.category] : []).map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             {/* Not a cabinet */}
@@ -423,6 +375,31 @@ function EditModal({
                 </div>
               </>
             )}
+
+            {/* Visibility / Permissions */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Visibility & Permissions</Label>
+              <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+                {([
+                  { field: "showInCatalog" as const, label: "Show in Catalog", desc: "Visible on the public storefront" },
+                  { field: "showInDesigner" as const, label: "Show in Designer", desc: "Available in the 2D design tool" },
+                  { field: "showIn2020" as const, label: "Show in 2020", desc: "Exported to 2020 Design catalog" },
+                  { field: "isActive" as const, label: "Active", desc: "Cabinet is active in the system" },
+                ] as const).map(({ field, label, desc }) => (
+                  <div key={field} className="flex items-center justify-between px-4 py-3 bg-background">
+                    <div>
+                      <p className="text-sm font-medium">{label}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    </div>
+                    <Switch
+                      checked={merged[field] !== false}
+                      onCheckedChange={(v) => set(field, v)}
+                      disabled={busy}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* Catalog Image */}
             <div className="space-y-2">
@@ -565,80 +542,26 @@ function EditModal({
           {/* ── Aliases tab ── */}
           <TabsContent value="aliases" className="space-y-4 mt-0">
             <p className="text-xs text-muted-foreground">
-              Category aliases map raw distributor category names to platform categories. These are global and apply across all cabinets.
+              Alternative SKU codes for this cabinet. When a customer or order references any of these codes, it resolves to <span className="font-mono font-semibold">{row.masterCode}</span>. The aliased cabinet will be hidden from the catalog automatically.
             </p>
 
-            {/* Add new alias */}
-            <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/20">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Alias</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">Raw Category (from distributor)</Label>
+            <div className="space-y-3">
+              {(["altSku1", "altSku2", "altSku3"] as const).map((field, idx) => (
+                <div key={field} className="space-y-1.5">
+                  <Label className="text-sm font-medium">Alias SKU {idx + 1}</Label>
                   <Input
-                    className="h-8 text-sm"
-                    placeholder="e.g. BASE CABINET"
-                    value={newAlias.raw}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewAlias((a) => ({ ...a, raw: e.target.value }))}
+                    className="h-9 text-sm font-mono"
+                    placeholder={`e.g. alternate code ${idx + 1}`}
+                    value={merged[field] ?? ""}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => set(field, e.target.value.trim() || null)}
+                    disabled={busy}
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Platform Category</Label>
-                  <Input
-                    className="h-8 text-sm"
-                    placeholder="e.g. Base"
-                    value={newAlias.platform}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewAlias((a) => ({ ...a, platform: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                className="gap-1.5"
-                disabled={!newAlias.raw.trim() || !newAlias.platform.trim() || saveAliasMutation.isPending}
-                onClick={() => saveAliasMutation.mutate({ rawCategory: newAlias.raw.trim(), platformCategory: newAlias.platform.trim(), distributorId: null })}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Save Alias
-              </Button>
+              ))}
             </div>
-
-            {/* Alias list */}
-            {aliasesLoading ? (
-              <div className="flex justify-center py-6"><Spinner /></div>
-            ) : !aliases?.length ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No aliases defined yet.</p>
-            ) : (
-              <div className="rounded-lg border border-border overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/50 border-b border-border">
-                    <tr>
-                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">Raw Category</th>
-                      <th className="text-left px-3 py-2 font-medium text-muted-foreground">→ Platform</th>
-                      <th className="w-10 px-2 py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {aliases.map((a: { id: number; rawCategory: string; platformCategory: string; distributorId: number | null }, i: number) => (
-                      <tr key={a.id} className={cn("border-b border-border last:border-0", i % 2 === 0 ? "bg-background" : "bg-muted/20")}>
-                        <td className="px-3 py-2 font-mono">{a.rawCategory}</td>
-                        <td className="px-3 py-2 text-primary font-medium">{a.platformCategory}</td>
-                        <td className="px-2 py-2 text-center">
-                          <button
-                            type="button"
-                            className="text-destructive hover:text-destructive/70 transition-colors"
-                            onClick={() => deleteAliasMutation.mutate({ id: a.id })}
-                            disabled={deleteAliasMutation.isPending}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+              <strong>Note:</strong> Saving an alias will automatically hide the cabinet with that master code from the storefront and design tool. Clearing an alias will restore its visibility.
+            </p>
           </TabsContent>
         </Tabs>
 

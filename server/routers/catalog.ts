@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, like, inArray, isNotNull, sql, desc, asc, type SQL } from "drizzle-orm";
+import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
@@ -1433,11 +1433,15 @@ export const cabinetsRouter = router({
         pkgHeight: z.string().nullable().optional(),
         pkgWeight: z.string().nullable().optional(),
         // Door / drawer / shelf counts
-        numberOfDoors: z.number().int().min(0).max(2).nullable().optional(),
+        numberOfDoors: z.number().int().min(0).max(4).nullable().optional(),
         numberOfDrawers: z.number().int().min(0).max(8).nullable().optional(),
         numberOfFixedShelves: z.number().int().min(0).max(8).nullable().optional(),
         numberOfAdjShelves: z.number().int().min(0).max(8).nullable().optional(),
         isNotCabinet: z.boolean().optional(),
+        // Alias SKUs
+        altSku1: z.string().nullable().optional(),
+        altSku2: z.string().nullable().optional(),
+        altSku3: z.string().nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1466,8 +1470,44 @@ export const cabinetsRouter = router({
       if (input.numberOfAdjShelves !== undefined) patch.numberOfAdjShelves = input.numberOfAdjShelves;
       if (input.isNotCabinet !== undefined) patch.isNotCabinet = input.isNotCabinet;
       if (input.isActive !== undefined) patch.isActive = input.isActive;
+      if (input.altSku1 !== undefined) patch.altSku1 = input.altSku1;
+      if (input.altSku2 !== undefined) patch.altSku2 = input.altSku2;
+      if (input.altSku3 !== undefined) patch.altSku3 = input.altSku3;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
+
+      // Auto-hide/show cabinets referenced by alias slots
+      const aliasKeys = ["altSku1", "altSku2", "altSku3"] as const;
+      // Fetch current aliases before update to detect changes
+      const [current] = await db
+        .select({ altSku1: cabinets.altSku1, altSku2: cabinets.altSku2, altSku3: cabinets.altSku3 })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.id))
+        .limit(1);
+      if (current) {
+        const prevAliases = aliasKeys.map((k) => current[k]).filter(Boolean) as string[];
+        const nextAliases = aliasKeys
+          .map((k) => (input[k] !== undefined ? input[k] : current[k]))
+          .filter(Boolean) as string[];
+        // Newly added aliases → hide those cabinets
+        for (const code of nextAliases.filter((c) => !prevAliases.includes(c))) {
+          await db.update(cabinets).set({ showInCatalog: false, showInDesigner: false }).where(
+            and(
+              or(eq(cabinets.masterCode, code), eq(cabinets.sku, code)),
+              sql`${cabinets.id} != ${input.id}`
+            )
+          );
+        }
+        // Removed aliases → restore visibility
+        for (const code of prevAliases.filter((c) => !nextAliases.includes(c))) {
+          await db.update(cabinets).set({ showInCatalog: true, showInDesigner: true }).where(
+            and(
+              or(eq(cabinets.masterCode, code), eq(cabinets.sku, code)),
+              sql`${cabinets.id} != ${input.id}`
+            )
+          );
+        }
+      }
       return { ok: true };
     }),
 
@@ -1938,6 +1978,13 @@ export const cabinetsRouter = router({
             pkgWidth: cabinets.pkgWidth,
             pkgHeight: cabinets.pkgHeight,
             pkgWeight: cabinets.pkgWeight,
+            altSku1: cabinets.altSku1,
+            altSku2: cabinets.altSku2,
+            altSku3: cabinets.altSku3,
+            showInCatalog: cabinets.showInCatalog,
+            showInDesigner: cabinets.showInDesigner,
+            showIn2020: cabinets.showIn2020,
+            isActive: cabinets.isActive,
           })
           .from(cabinets)
           .where(where)
