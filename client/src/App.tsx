@@ -7,6 +7,7 @@ import ChatWidget from "@/components/ChatWidget";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
 import { lazy, Suspense, useEffect } from "react";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
@@ -120,9 +121,11 @@ export default function App() {
         <Route path="/catalog/:masterCode">
           {(params) => (
             <AppLayout>
-              <Suspense fallback={<PageLoader />}>
-                <CabinetDetail masterCode={params.masterCode} />
-              </Suspense>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <CabinetDetail masterCode={params.masterCode} />
+                </Suspense>
+              </ErrorBoundary>
             </AppLayout>
           )}
         </Route>

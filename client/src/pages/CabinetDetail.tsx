@@ -475,6 +475,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     onSuccess: (res) => {
       toast.success(res.scope === "global" ? "Image updated for all lines" : "Image updated for this line only");
       utils.cabinets.byCode.invalidate({ masterCode });
+      utils.pricing.stylesForCabinet.invalidate();
       setScopedImageOpen(false);
     },
     onError: (err) => toast.error(`Save failed: ${err.message}`),
