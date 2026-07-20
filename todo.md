@@ -1134,3 +1134,9 @@
 - [x] Client parseSkuDims (RefrigeratorOptionsDialog): add Format 5 for W[WW][HH]GD before 8-char match
 - [x] Client parseCabDims (DesignTool): add GD-suffix match before 8-char match
 - [x] TypeScript: 0 errors; checkpoint saved
+
+## Fix: Spreadsheet upload — new door styles blocked
+- [x] Add "Create new door style" sub-panel to StyleSearchDropdown in DistributorImport.tsx
+- [x] Uses distributorAdmin.addDoorStyle mutation to create style for the distributor and immediately assign it to the column
+- [x] Discontinued/deleted SKUs correctly show as unmatched (expected behavior, not a bug)
+- [x] TypeScript: 0 errors; checkpoint saved

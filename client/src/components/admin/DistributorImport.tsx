@@ -426,7 +426,14 @@ function StyleSearchDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  // "create" sub-panel state
+  const [creating, setCreating] = useState(false);
+  const [newCode, setNewCode] = useState("");
+  const [newName, setNewName] = useState("");
+  const [creating2, setCreating2] = useState(false); // submitting spinner
+
   const createStyleMut = trpc.distributorAdmin.adminCreateStyleForDistributor.useMutation();
+  const addStyleMut = trpc.distributorAdmin.addDoorStyle.useMutation();
   const { data: allStyles, isFetching } = trpc.distributorAdmin.adminAllStyles.useQuery(
     undefined,
     { enabled: open }
@@ -437,8 +444,32 @@ function StyleSearchDropdown({
     return s.styleCode.toLowerCase().includes(lq) || s.ourName.toLowerCase().includes(lq);
   }) ?? [];
 
+  function resetCreate() {
+    setCreating(false);
+    setNewCode("");
+    setNewName("");
+    setCreating2(false);
+  }
+
+  async function handleCreate() {
+    const code = newCode.trim().toUpperCase();
+    const name = newName.trim();
+    if (!code || !name) return;
+    setCreating2(true);
+    try {
+      const res = await addStyleMut.mutateAsync({ distributorId, styleCode: code, ourName: name });
+      onSelect({ id: res.id, styleCode: code, ourName: name, isNew: true });
+      setOpen(false);
+      resetCreate();
+      toast.success(`Door style "${code} — ${name}" created and assigned.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create style");
+      setCreating2(false);
+    }
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetCreate(); }}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -455,50 +486,112 @@ function StyleSearchDropdown({
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-2" align="start">
-        <Input
-          autoFocus
-          placeholder="Search all styles…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="h-7 text-xs mb-1.5"
-        />
-        {isFetching && <p className="py-2 text-center text-xs text-muted-foreground">Loading…</p>}
-        <ul className="max-h-52 overflow-auto space-y-0.5">
-          {filtered.map((s) => (
-            <li key={s.id}>
+        {creating ? (
+          /* ── Create new door style sub-panel ── */
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-foreground">Create new door style</p>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">Style code (e.g. HD)</label>
+              <Input
+                autoFocus
+                placeholder="Style code…"
+                value={newCode}
+                onChange={(e) => setNewCode(e.target.value.toUpperCase())}
+                className="h-7 text-xs font-mono"
+                maxLength={20}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">Display name (e.g. Haven Dune)</label>
+              <Input
+                placeholder="Display name…"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="h-7 text-xs"
+                maxLength={80}
+                onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); }}
+              />
+            </div>
+            <div className="flex gap-1.5 pt-0.5">
+              <Button
+                size="sm"
+                className="h-7 text-xs flex-1"
+                disabled={!newCode.trim() || !newName.trim() || creating2}
+                onClick={handleCreate}
+              >
+                {creating2 ? <Spinner className="h-3 w-3 mr-1" /> : null}
+                Create & assign
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={resetCreate}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* ── Search panel ── */
+          <>
+            <Input
+              autoFocus
+              placeholder="Search all styles…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="h-7 text-xs mb-1.5"
+            />
+            {isFetching && <p className="py-2 text-center text-xs text-muted-foreground">Loading…</p>}
+            <ul className="max-h-48 overflow-auto space-y-0.5">
+              {filtered.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className={`w-full rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground ${
+                      value?.id === s.id ? "bg-accent text-accent-foreground font-medium" : ""
+                    }`}
+                    onClick={async () => {
+                      setOpen(false);
+                      setQ("");
+                      if (s.distributorId === distributorId) {
+                        onSelect({ id: s.id, styleCode: s.styleCode, ourName: s.ourName, isNew: false });
+                      } else {
+                        // Clone style for this distributor
+                        try {
+                          const res = await createStyleMut.mutateAsync({ sourceStyleId: s.id, distributorId });
+                          onSelect({ id: res.id, styleCode: s.styleCode, ourName: s.ourName, isNew: res.created });
+                        } catch {
+                          onSelect({ id: s.id, styleCode: s.styleCode, ourName: s.ourName, isNew: false });
+                        }
+                      }
+                    }}
+                  >
+                    <span className="font-mono">{s.styleCode}</span>
+                    <span className="ml-1.5 text-muted-foreground">{s.ourName}</span>
+                    {s.distributorId !== distributorId && (
+                      <span className="ml-1.5 text-xs text-blue-500 dark:text-blue-400">(from {s.distributorName ?? "other"})</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+              {!isFetching && filtered.length === 0 && (
+                <li className="py-2 text-center text-xs text-muted-foreground">No styles found</li>
+              )}
+            </ul>
+            {/* Always show "Create new" at the bottom */}
+            <div className="border-t mt-1.5 pt-1.5">
               <button
                 type="button"
-                className={`w-full rounded px-2 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground ${
-                  value?.id === s.id ? "bg-accent text-accent-foreground font-medium" : ""
-                }`}
-                onClick={async () => {
-                  setOpen(false);
-                  setQ("");
-                  if (s.distributorId === distributorId) {
-                    onSelect({ id: s.id, styleCode: s.styleCode, ourName: s.ourName, isNew: false });
-                  } else {
-                    // Clone style for this distributor
-                    try {
-                      const res = await createStyleMut.mutateAsync({ sourceStyleId: s.id, distributorId });
-                      onSelect({ id: res.id, styleCode: s.styleCode, ourName: s.ourName, isNew: res.created });
-                    } catch {
-                      onSelect({ id: s.id, styleCode: s.styleCode, ourName: s.ourName, isNew: false });
-                    }
-                  }
-                }}
+                className="w-full rounded px-2 py-1.5 text-left text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 flex items-center gap-1.5 font-medium"
+                onClick={() => { setCreating(true); setQ(""); }}
               >
-                <span className="font-mono">{s.styleCode}</span>
-                <span className="ml-1.5 text-muted-foreground">{s.ourName}</span>
-                {s.distributorId !== distributorId && (
-                  <span className="ml-1.5 text-xs text-blue-500 dark:text-blue-400">(from {s.distributorName ?? "other"})</span>
-                )}
+                <span className="text-base leading-none">+</span>
+                Create new door style for this distributor
               </button>
-            </li>
-          ))}
-          {!isFetching && filtered.length === 0 && (
-            <li className="py-2 text-center text-xs text-muted-foreground">No styles found</li>
-          )}
-        </ul>
+            </div>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );
