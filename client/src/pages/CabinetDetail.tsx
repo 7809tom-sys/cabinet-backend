@@ -83,6 +83,8 @@ interface StyleRow {
   pkgWidth?: string | null;
   pkgHeight?: string | null;
   pkgWeight?: string | null;
+  // Line-specific image override (null = use master catalogImageUrl)
+  distributorImageUrl?: string | null;
 }
 
 function priceNumberForTier(row: StyleRow, tier: PricingTier): number | null {
@@ -394,6 +396,10 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editPkgHeight, setEditPkgHeight] = useState("");
   const [editPkgWeight, setEditPkgWeight] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
+  // Scoped image upload
+  const [scopedImageOpen, setScopedImageOpen] = useState(false);
+  const [scopedImageUploading, setScopedImageUploading] = useState(false);
+  const [scopedImageScope, setScopedImageScope] = useState<"line" | "global">("line");
   const [editNumDoors, setEditNumDoors] = useState<string>("0");
   const [editNumDrawers, setEditNumDrawers] = useState<string>("0");
   const [editNumFixedShelves, setEditNumFixedShelves] = useState<string>("0");
@@ -465,6 +471,45 @@ export default function CabinetDetail({ masterCode }: Props) {
   const uploadImage = trpc.cabinets.adminUploadCatalogImage.useMutation({
     onError: (err) => toast.error(`Upload failed: ${err.message}`),
   });
+  const setLineImage = trpc.cabinetOverrides.setImage.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.scope === "global" ? "Image updated for all lines" : "Image updated for this line only");
+      utils.cabinets.byCode.invalidate({ masterCode });
+      setScopedImageOpen(false);
+    },
+    onError: (err) => toast.error(`Save failed: ${err.message}`),
+  });
+  async function handleScopedImageFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !cabinet?.id) return;
+    setScopedImageUploading(true);
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onerror = () => reject(new Error("Could not read file"));
+        reader.onload = () => resolve(String(reader.result));
+        reader.readAsDataURL(file);
+      });
+      const result = await uploadImage.mutateAsync({
+        filename: file.name,
+        dataBase64: dataUrl,
+        contentType: file.type || "image/jpeg",
+        slot: "thumbnail",
+      });
+      // Now save at the chosen scope
+      const distId = selectedRow?.distributorId ?? 0;
+      await setLineImage.mutateAsync({
+        cabinetId: cabinet.id,
+        distributorId: distId,
+        imageUrl: result.url,
+        scope: scopedImageScope,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setScopedImageUploading(false);
+    }
+  }
 
   async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -768,14 +813,96 @@ export default function CabinetDetail({ masterCode }: Props) {
                 cabinet={cabinet}
                 finishColor={finishFace}
                 className="h-full w-auto max-w-full"
+                overrideImageUrl={selectedRow?.distributorImageUrl ?? null}
               />
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5 text-center">
-              {cabinet.catalogImageUrl
+              {(selectedRow?.distributorImageUrl || cabinet.catalogImageUrl)
                 ? "Catalog illustration — front elevation"
                 : `Drawn to scale${selectedRow ? ` in ${selectedRow.name}` : ""} — front elevation`}
             </p>
+            {/* Admin: scoped image replace button */}
+            {isOwner && (
+              <div className="flex justify-center mt-1.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground h-6 px-2 gap-1"
+                  onClick={() => setScopedImageOpen(true)}
+                >
+                  <Upload className="h-3 w-3" />
+                  Replace image
+                </Button>
+              </div>
+            )}
           </div>
+
+          {/* Scoped image upload dialog */}
+          {isOwner && (
+            <Dialog open={scopedImageOpen} onOpenChange={setScopedImageOpen}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Replace Cabinet Image</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <p className="text-sm text-muted-foreground">
+                    Choose where to apply the new image:
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setScopedImageScope("line")}
+                      className={`rounded-lg border-2 p-3 text-left transition-colors ${
+                        scopedImageScope === "line"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="font-semibold text-sm mb-0.5">This line only</div>
+                      <div className="text-xs text-muted-foreground">
+                        {selectedRow ? `${selectedRow.name} (${selectedRow.distributorId ? "this distributor" : "no distributor"})` : "Current distributor line"}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScopedImageScope("global")}
+                      className={`rounded-lg border-2 p-3 text-left transition-colors ${
+                        scopedImageScope === "global"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="font-semibold text-sm mb-0.5">All lines</div>
+                      <div className="text-xs text-muted-foreground">Replaces the master image across every distributor</div>
+                    </button>
+                  </div>
+                  <div>
+                    <Label className="text-sm mb-1.5 block">Upload new image</Label>
+                    <label className={`flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border p-4 cursor-pointer hover:border-primary/60 transition-colors ${
+                      scopedImageUploading ? "opacity-50 pointer-events-none" : ""
+                    }`}>
+                      <Upload className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        {scopedImageUploading ? "Uploading…" : "Click to choose image"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleScopedImageFile}
+                        disabled={scopedImageUploading}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setScopedImageOpen(false)} disabled={scopedImageUploading}>
+                    Cancel
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
           {/* Door style swatch (compact, below drawing) */}
           {selectedRow && (
             <div className="flex items-center gap-2 mb-4">

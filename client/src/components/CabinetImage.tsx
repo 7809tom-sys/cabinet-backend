@@ -7,6 +7,8 @@ interface CabinetImageProps {
   /** Optional override of the door/finish color, used only by the drawing fallback. */
   finishColor?: string;
   className?: string;
+  /** Line-specific image URL that takes priority over cabinet.catalogImageUrl */
+  overrideImageUrl?: string | null;
 }
 
 /**
@@ -19,8 +21,8 @@ interface CabinetImageProps {
  * the cross-reference. Finish-specific behavior (recolor) is only available on
  * the drawing fallback; the catalog renders are neutral grayscale line art.
  */
-export function CabinetImage({ cabinet, finishColor, className }: CabinetImageProps) {
-  const url = cabinet.catalogImageUrl?.trim() || null;
+export function CabinetImage({ cabinet, finishColor, className, overrideImageUrl }: CabinetImageProps) {
+  const url = overrideImageUrl?.trim() || cabinet.catalogImageUrl?.trim() || null;
   const [failed, setFailed] = useState(false);
 
   // Reset the error state if the cabinet (and thus the image) changes.

@@ -2218,6 +2218,8 @@ export const pricingRouter = router({
           pkgWidth: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgWidth}, ${cabinets.pkgWidth})`,
           pkgHeight: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgHeight}, ${cabinets.pkgHeight})`,
           pkgWeight: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgWeight}, ${cabinets.pkgWeight})`,
+          // Line-specific image override (null = use master catalogImageUrl)
+          distributorImageUrl: distributorCabinetOverrides.imageUrl,
         })
         .from(distributorSkus)
         .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
@@ -2311,6 +2313,7 @@ export const pricingRouter = router({
             pkgWidth: r.pkgWidth ?? null,
             pkgHeight: r.pkgHeight ?? null,
             pkgWeight: r.pkgWeight ?? null,
+            distributorImageUrl: r.distributorImageUrl ?? null,
           };
         })
         .sort((a, b) => (a.name || "").localeCompare(b.name || ""));

@@ -1148,3 +1148,10 @@
 - [x] 6,430 price rows upserted and published
 - [x] 7 rows skipped (trays, crown moulding, finished panel, waste bin — no category match)
 - [x] Checkpoint saved
+
+## Feature: Scoped cabinet image upload (admin)
+- [x] Add imageUrl column to distributor_cabinet_overrides table
+- [x] Add cabinetOverrides.setImage tRPC procedure (scope: "line" | "global")
+- [x] Add distributorImageUrl to stylesForCabinet response (from distributor_cabinet_overrides)
+- [x] CabinetImage component accepts overrideImageUrl prop — line image takes priority over master
+- [x] Add "Replace image" button on CabinetDetail (admin only) with scope dialog (this line / all lines)

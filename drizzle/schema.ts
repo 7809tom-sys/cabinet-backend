@@ -1512,6 +1512,7 @@ export const distributorCabinetOverrides = mysqlTable(
     pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
     pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
     pkgWeight: decimal("pkgWeight", { precision: 8, scale: 2 }),
+    imageUrl: varchar("imageUrl", { length: 1024 }),  // line-specific catalog image override
     note: text("note"),
     updatedBy: int("updatedBy"),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

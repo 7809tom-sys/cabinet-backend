@@ -158,6 +158,61 @@ export const cabinetOverridesRouter = router({
     }),
 
   /**
+   * Set the catalog image for a cabinet at a specific scope:
+   * - scope "line": saves to distributor_cabinet_overrides.imageUrl for this distributor only
+   * - scope "global": saves to cabinets.catalogImageUrl (master record, all lines)
+   */
+  setImage: adminProcedure
+    .input(
+      z.object({
+        cabinetId: z.number().int().positive(),
+        distributorId: z.number().int().positive(),
+        imageUrl: z.string().min(1),
+        scope: z.enum(["line", "global"]),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+
+      if (input.scope === "global") {
+        // Update master cabinet record
+        await db
+          .update(cabinets)
+          .set({ catalogImageUrl: input.imageUrl })
+          .where(eq(cabinets.id, input.cabinetId));
+        return { scope: "global" };
+      }
+
+      // scope = "line" — upsert into distributor_cabinet_overrides
+      const existing = await db
+        .select({ id: distributorCabinetOverrides.id })
+        .from(distributorCabinetOverrides)
+        .where(
+          and(
+            eq(distributorCabinetOverrides.distributorId, input.distributorId),
+            eq(distributorCabinetOverrides.cabinetId, input.cabinetId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        await db
+          .update(distributorCabinetOverrides)
+          .set({ imageUrl: input.imageUrl, updatedBy: ctx.user.id })
+          .where(eq(distributorCabinetOverrides.id, existing[0].id));
+      } else {
+        await db.insert(distributorCabinetOverrides).values({
+          distributorId: input.distributorId,
+          cabinetId: input.cabinetId,
+          imageUrl: input.imageUrl,
+          updatedBy: ctx.user.id,
+        });
+      }
+      return { scope: "line" };
+    }),
+
+  /**
    * Delete an override (revert to master values for this distributor + cabinet).
    */
   delete: adminProcedure
