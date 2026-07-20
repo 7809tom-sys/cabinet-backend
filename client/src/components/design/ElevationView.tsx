@@ -697,7 +697,7 @@ export function ElevationView({
             microwave/bridge render on top at higher z-index. */}
         {backsplashMaterialId && (() => {
           const bsMat = backsplashMaterial(backsplashMaterialId);
-          const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS; // ~37.5"
+          const BACKSPLASH_BOTTOM = STD.COUNTERTOP_HEIGHT; // 36" — sits on top of the countertop surface
           const BACKSPLASH_STD_HEIGHT = 18; // standard backsplash is 18" tall
           const BACKSPLASH_DEFAULT_TOP = BACKSPLASH_BOTTOM + BACKSPLASH_STD_HEIGHT; // 55.5"
           // Behind a range, stretch backsplash up to wall cabinet bottom (54")
