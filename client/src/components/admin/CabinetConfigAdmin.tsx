@@ -17,6 +17,21 @@ import { cn } from "@/lib/utils";
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STANDARD_DEPTHS = ["9", "12", "15", "18", "21", "24", "27", "30", "33", "36"];
 const DOOR_OPTIONS = [null, 0, 1, 2, 3, 4] as const;
+const CATEGORIES = ["Base","Wall","Tall","Corner","Drawer","Specialty","Vanity","Pantry","Island","Filler","Molding","Accessory"] as const;
+const SUB_CATEGORIES: Record<string, string[]> = {
+  Base: ["Standard Base","Sink Base","Blind Corner Base","Drawer Base","Lazy Susan","Appliance Garage","Pull-Out"],
+  Wall: ["Standard Wall","Blind Corner Wall","Corner Wall","Open Shelf","Microwave Wall","Glass Door"],
+  Tall: ["Pantry","Oven Tower","Utility","Linen"],
+  Corner: ["Lazy Susan","Blind Corner","Diagonal","Easy Reach"],
+  Drawer: ["Drawer Base","Peg Drawer","Utensil Drawer"],
+  Specialty: ["Spice Pull-Out","Tray Divider","Waste Bin","Appliance Lift","Mixer Shelf"],
+  Vanity: ["Vanity Base","Vanity Drawer","Vanity Sink","Medicine Cabinet","Linen Tower"],
+  Pantry: ["Pantry Cabinet","Pantry Pull-Out"],
+  Island: ["Island Base","Island Drawer"],
+  Filler: ["Filler Panel","Side Panel","Scribe Moulding"],
+  Molding: ["Crown Moulding","Light Rail","Base Moulding","Valance"],
+  Accessory: ["Hardware","Organizer","Shelf","Lazy Susan Insert","Drawer Insert"],
+};
 const DRAWER_OPTIONS = [null, 0, 1, 2, 3, 4, 5, 6, 7, 8] as const;
 const SHELF_OPTIONS = [null, 0, 1, 2, 3, 4, 5, 6] as const;
 const PAGE_SIZE = 50;
@@ -183,6 +198,8 @@ function EditModal({
     updateMutation.mutate({
       id: row.id,
       description: merged.description ?? undefined,
+      category: merged.category ?? undefined,
+      subCategory: merged.subCategory ?? null,
       depth: merged.depth ?? null,
       width: merged.width ?? null,
       height: merged.height ?? null,
@@ -240,6 +257,51 @@ function EditModal({
                 onChange={(e) => set("description", e.target.value || null)}
                 disabled={busy}
               />
+            </div>
+
+            {/* Category */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Category</Label>
+                <Select
+                  value={merged.category ?? "__none__"}
+                  onValueChange={(v) => {
+                    const cat = v === "__none__" ? null : v;
+                    set("category", cat);
+                    // Reset subCategory when category changes
+                    set("subCategory", null);
+                  }}
+                  disabled={busy}
+                >
+                  <SelectTrigger className={cn("w-full", !merged.category && "text-muted-foreground")}>
+                    <SelectValue placeholder="— not set —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— not set —</SelectItem>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Sub-Category</Label>
+                <Select
+                  value={merged.subCategory ?? "__none__"}
+                  onValueChange={(v) => set("subCategory", v === "__none__" ? null : v)}
+                  disabled={busy || !merged.category}
+                >
+                  <SelectTrigger className={cn("w-full", !merged.subCategory && "text-muted-foreground")}>
+                    <SelectValue placeholder="— not set —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— not set —</SelectItem>
+                    {(merged.category && SUB_CATEGORIES[merged.category] ? SUB_CATEGORIES[merged.category] : []).map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Not a cabinet */}
