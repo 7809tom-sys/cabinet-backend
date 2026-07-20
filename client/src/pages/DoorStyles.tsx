@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Palette, ArrowRight, ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
+import { Palette, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +30,7 @@ interface DoorStyle {
   finish: string | null;
   hardware?: string | null;
   isBuilderGrade?: boolean | null;
+  distributorId?: number | null;
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
@@ -207,13 +208,33 @@ export default function DoorStyles() {
     return p && p.trim() ? p.trim() : null;
   })();
   const [selectedType, setSelectedType] = useState<string | null>(initialType);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
-  // Desktop pages the main grid 16-at-a-time (a 4x4 grid) so the photos load
-  // fast and the page stays light. Mobile keeps the familiar single scroll.
   const PER_PAGE = 16;
   const [page, setPage] = useState(0);
-  // Reset to the first page whenever the active filter changes.
-  useEffect(() => { setPage(0); }, [selectedType]);
+  useEffect(() => { setPage(0); }, [selectedType, selectedColor, searchQuery]);
+
+  // Fetch distributors to map series names
+  const { data: distributorList } = trpc.distributors.list.useQuery();
+  const seriesById = useMemo(() => {
+    const m = new Map<number, string | null>();
+    for (const d of (distributorList ?? [])) m.set(d.id, d.seriesName ?? null);
+    return m;
+  }, [distributorList]);
+
+  // Color filter buckets
+  const COLOR_BUCKETS: { key: string; label: string; match: (n: string, c: string) => boolean }[] = [
+    { key: "White",       label: "White",       match: (n) => (n.includes("white")) && !n.includes("off white") && !n.includes("off-white") },
+    { key: "Grey",        label: "Grey",        match: (n) => (n.includes("grey") || n.includes("gray")) && !n.includes("stain") },
+    { key: "Off White",   label: "Off White",   match: (n) => n.includes("off white") || n.includes("off-white") || n.includes("cream") || n.includes("antique white") || n.includes("linen") },
+    { key: "Tan",         label: "Tan",         match: (n) => (n.includes("tan") || n.includes("beige") || n.includes("sand")) && !n.includes("stain") },
+    { key: "Dark",        label: "Dark",        match: (n) => (n.includes("espresso") || n.includes("dark") || n.includes("black") || n.includes("charcoal") || n.includes("navy")) && !n.includes("stain") },
+    { key: "Light Stain", label: "Light Stain", match: (n) => n.includes("light") && n.includes("stain") },
+    { key: "Grey Stain",  label: "Grey Stain",  match: (n) => (n.includes("grey") || n.includes("gray")) && n.includes("stain") },
+    { key: "Tan Stain",   label: "Tan Stain",   match: (n) => (n.includes("tan") || n.includes("honey") || n.includes("natural") || n.includes("oak")) && n.includes("stain") },
+    { key: "Dark Stain",  label: "Dark Stain",  match: (n) => (n.includes("dark") || n.includes("walnut") || n.includes("cherry") || n.includes("mahogany") || n.includes("tobacco") || n.includes("java")) && n.includes("stain") },
+  ];
 
   // Keep the URL in sync so the filtered view is shareable/back-button friendly.
   useEffect(() => {
@@ -276,9 +297,27 @@ export default function DoorStyles() {
     [uniqueStyles, featuredNames]
   );
 
-  const visible = selectedType
-    ? uniqueStyles.filter((s) => s.doorStyle === selectedType)
-    : uniqueStyles;
+  const visible = useMemo(() => {
+    let list = uniqueStyles;
+    if (selectedType) list = list.filter((s) => s.doorStyle === selectedType);
+    if (selectedColor) {
+      const bucket = COLOR_BUCKETS.find((b) => b.key === selectedColor);
+      if (bucket) list = list.filter((s) => {
+        const n = ((s.ourName || "") + " " + (s.aliasName || "") + " " + (s.color || "")).toLowerCase();
+        return bucket.match(n, "");
+      });
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter((s) => {
+        const sn = seriesById.get(s.distributorId ?? -1) ?? "";
+        const n = ((s.ourName || "") + " " + (s.aliasName || "") + " " + (s.color || "") + " " + (s.doorStyle || "") + " " + sn).toLowerCase();
+        return n.includes(q);
+      });
+    }
+    return list;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uniqueStyles, selectedType, selectedColor, searchQuery, seriesById]);
 
   // When no profile filter is active, show the Featured row separately and keep
   // the main grid as the rest (so featured styles aren't duplicated below).
@@ -313,34 +352,96 @@ export default function DoorStyles() {
         <DoorPhotoMatchWidget />
       </div>
 
-      {/* Door-style type filter */}
-      {types.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-8">
-          <button
-            onClick={() => setSelectedType(null)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              selectedType === null
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t("ds_all_styles")}
+      {/* Search + Filters */}
+      <div className="mb-8 space-y-3">
+        {/* Search bar */}
+        <div className="relative max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, color or series…"
+            className="w-full rounded-full border border-border bg-background py-2 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          {searchQuery && (
+            <button type="button" onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Style type pills */}
+        {types.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setSelectedType(null)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                selectedType === null
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+              }`}>
+              {t("ds_all_styles")}
+            </button>
+            {["Shaker", "Raised Panel", "Flat Panel"].map((type) => (
+              <button key={type}
+                onClick={() => setSelectedType(selectedType === type ? null : type)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                  selectedType === type
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                }`}>
+                {type}
+              </button>
+            ))}
+            {types.filter((tp) => !["Shaker", "Raised Panel", "Flat Panel"].includes(tp)).map((type) => (
+              <button key={type}
+                onClick={() => setSelectedType(selectedType === type ? null : type)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                  selectedType === type
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                }`}>
+                {type}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Color filter pills */}
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setSelectedColor(null)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+              selectedColor === null
+                ? "bg-[#d4a75a] text-white border-[#d4a75a]"
+                : "bg-background text-muted-foreground border-border hover:border-[#d4a75a]/60 hover:text-foreground"
+            }`}>
+            All Colors
           </button>
-          {types.map((t) => (
-            <button
-              key={t}
-              onClick={() => setSelectedType(t)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedType === t
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t}
+          {COLOR_BUCKETS.map((b) => (
+            <button key={b.key}
+              onClick={() => setSelectedColor(selectedColor === b.key ? null : b.key)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                selectedColor === b.key
+                  ? "bg-[#d4a75a] text-white border-[#d4a75a]"
+                  : "bg-background text-muted-foreground border-border hover:border-[#d4a75a]/60 hover:text-foreground"
+              }`}>
+              {b.label}
             </button>
           ))}
         </div>
-      )}
+
+        {/* Active filter summary */}
+        {(selectedType || selectedColor || searchQuery) && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{visible.length} style{visible.length !== 1 ? "s" : ""} found</span>
+            <button onClick={() => { setSelectedType(null); setSelectedColor(null); setSearchQuery(""); }}
+              className="text-primary hover:underline">
+              Clear all filters
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Featured: Skyline (Aero) styles lead the page */}
       {!isLoading && showFeatured && (
