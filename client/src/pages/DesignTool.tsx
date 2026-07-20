@@ -5231,7 +5231,7 @@ export default function DesignTool() {
         <div className="border-b border-border bg-[#f7f5f0] px-4 py-1.5 flex items-center gap-3 flex-wrap shrink-0 max-h-[120px] overflow-y-auto">
           {selectedCab && !drawMode && !isMobile && (
             <>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-white p-0.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center">
                 <CabinetImage cabinet={selectedCab} className="h-full w-auto max-w-full" />
               </div>
               {/* Door-style thumbnail: shows a picture of the selected door's
@@ -5522,7 +5522,7 @@ export default function DesignTool() {
             <div className="overflow-y-auto px-4 pb-6 pt-4">
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-border bg-white p-1">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center">
                     <CabinetImage cabinet={selectedCab} className="h-full w-auto max-w-full" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -6129,7 +6129,7 @@ export default function DesignTool() {
                           onClick={() => addCabinet(c)}
                           className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                         >
-                          <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                          <div className="h-9 w-9 flex items-center justify-center shrink-0">
                             <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -6149,7 +6149,7 @@ export default function DesignTool() {
                       onClick={() => addCabinet(c)}
                       className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
                     >
-                      <div className="h-9 w-9 rounded bg-white border border-[#a07d4a]/40 flex items-center justify-center shrink-0 p-0.5">
+                      <div className="h-9 w-9 flex items-center justify-center shrink-0">
                         <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
                       </div>
                       <div className="min-w-0 flex-1">
