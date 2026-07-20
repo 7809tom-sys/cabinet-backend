@@ -7264,7 +7264,7 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-10 h-14">
+          <div className="grid grid-cols-9 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
@@ -7282,12 +7282,6 @@ export default function DesignTool() {
                 setPaletteType("surfaces");
                 setMobilePanel("catalog");
               }}
-            />
-            <MobileBarButton
-              icon={<Ruler className="h-5 w-5" />}
-              label="Room"
-              active={mobilePanel === "room"}
-              onClick={() => setMobilePanel((p) => p === "room" ? null : "room")}
             />
             <MobileBarButton
               icon={<Undo2 className="h-5 w-5" />}
