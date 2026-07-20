@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Layers, Palette, Pencil, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, ExternalLink, Layers, Palette, Pencil, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { DoorStyleSwatch, type DoorStyleLike } from "@/components/DoorStyleSwatch";
 import {
@@ -152,6 +152,8 @@ export function ColorSlotButton({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [styleTypeFilter, setStyleTypeFilter] = useState<StyleTypeFilter>("all");
   const [colorFilter, setColorFilter] = useState<ColorFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const name = style ? (styleDisplayName(style as { ourName?: string | null; aliasName?: string | null }) || null) : null;
   const hasStyle = style != null;
 
@@ -205,17 +207,51 @@ export function ColorSlotButton({
     setChosenGroup(undefined);
     setStyleTypeFilter("all");
     setColorFilter("all");
+    setSearchQuery("");
+    // Auto-focus the search input after the picker opens
+    setTimeout(() => searchInputRef.current?.focus(), 80);
   }, [pickerOpen]);
 
   const activeGroup = groups.find((g) => g.distributorId === effectiveGroup) ?? null;
 
-  // Apply style type + color filters to a list of styles
-  const applyFilters = (list: StyleOption[]): StyleOption[] => {
+  // Apply style type + color filters + search query to a list of styles
+  const applyFilters = (list: StyleOption[], seriesName?: string | null): StyleOption[] => {
+    const q = searchQuery.trim().toLowerCase();
     return list.filter((s) => {
       const n = styleDisplayName(s) || "";
-      return matchesStyleType(n, styleTypeFilter) && matchesColor(n, colorFilter);
+      if (!matchesStyleType(n, styleTypeFilter)) return false;
+      if (!matchesColor(n, colorFilter)) return false;
+      if (q) {
+        const sn = (seriesName ?? "").toLowerCase();
+        if (!n.toLowerCase().includes(q) && !sn.includes(q)) return false;
+      }
+      return true;
     });
   };
+
+  // Search bar component — shown at the very top of the picker
+  const SearchBar = () => (
+    <div className="relative mb-2">
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <input
+        ref={searchInputRef}
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Search by name, color or series…"
+        className="w-full rounded-lg border border-border bg-white py-1.5 pl-7 pr-7 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:border-[#d4a75a] focus:outline-none focus:ring-1 focus:ring-[#d4a75a]"
+      />
+      {searchQuery && (
+        <button
+          type="button"
+          onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
 
   // Filter pills UI — shown above the style grid when drilled into a group
   const FilterBar = () => (
@@ -247,7 +283,7 @@ export function ColorSlotButton({
 
   // Card-grid of door styles within one open distributor group.
   const StyleGrid = ({ list, cols, seriesName }: { list: StyleOption[]; cols: 2 | 3; seriesName?: string | null }) => {
-    const filtered = applyFilters(list);
+    const filtered = applyFilters(list, seriesName);
     return filtered.length === 0 ? (
       <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
         No styles match the selected filters.
@@ -356,20 +392,64 @@ export function ColorSlotButton({
 
   // Distributor-first picker: step 1 = choose a supply line, step 2 = its styles.
   // When only one line is in scope (slot B, or a locked design) we skip step 1.
+  // When a search query is active, flatten ALL groups and search across them
+  const searchGroups = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+    const q = searchQuery.trim().toLowerCase();
+    return groups
+      .map((g) => ({
+        ...g,
+        styles: g.styles.filter((s) => {
+          const n = (styleDisplayName(s) || "").toLowerCase();
+          const sn = (g.seriesName ?? "").toLowerCase();
+          return n.includes(q) || sn.includes(q);
+        }),
+      }))
+      .filter((g) => g.styles.length > 0);
+  }, [searchQuery, groups]);
+
   const StyleList = ({ cols = 2 }: { cols?: 2 | 3 }) =>
     styles.length === 0 ? (
       <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
         {t("dt_cs_none_available")}
       </div>
+    ) : searchQuery.trim() ? (
+      // Search mode: show results across all groups
+      <div className="space-y-1">
+        <SearchBar />
+        {searchGroups && searchGroups.length > 0 ? (
+          searchGroups.map((g) => (
+            <div key={String(g.distributorId)} className="space-y-1">
+              {groups.length > 1 && (
+                <div className="flex items-center gap-1.5 px-1 pt-1">
+                  <Layers className="h-3 w-3 text-[#d4a75a]" />
+                  <span className="text-[11px] font-semibold text-foreground">{g.label}</span>
+                  {g.seriesName && <span className="text-[10px] text-muted-foreground">({g.seriesName})</span>}
+                </div>
+              )}
+              <StyleGrid list={g.styles} cols={cols} seriesName={g.seriesName} />
+            </div>
+          ))
+        ) : (
+          <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
+            No styles match &ldquo;{searchQuery}&rdquo;.
+          </div>
+        )}
+      </div>
     ) : onlyOneGroup ? (
       <div className="space-y-1">
+        <SearchBar />
         <FilterBar />
         <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} seriesName={groups[0]?.seriesName} />
       </div>
     ) : activeGroup == null ? (
-      <LineChooser />
+      <div className="space-y-1">
+        <SearchBar />
+        <LineChooser />
+      </div>
     ) : (
       <div className="space-y-2">
+        <SearchBar />
         {/* Back to supply-line list */}
         <button
           type="button"
