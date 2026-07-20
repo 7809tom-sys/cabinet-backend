@@ -41,7 +41,7 @@ function displayName(style: DoorStyle): string {
   return styleDisplayName(style) || style.featuredLabel || style.styleCode;
 }
 
-function StyleCard({ style }: { style: DoorStyle }) {
+function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: string | null }) {
   const { t } = useLanguage();
   const [showDoor, setShowDoor] = useState(false);
   // Room scene is the featured image; door sample is the secondary toggle view
@@ -115,7 +115,12 @@ function StyleCard({ style }: { style: DoorStyle }) {
                 <p className="text-xs text-muted-foreground">{t("ds_finish")}: {style.finish}</p>
               )}
               {style.color && (
-                <p className="text-xs text-muted-foreground">{t("ds_color")}: {style.color}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("ds_color")}: {style.color}{seriesName ? <span className="text-muted-foreground/70"> ({seriesName})</span> : null}
+                </p>
+              )}
+              {!style.color && seriesName && (
+                <p className="text-xs text-muted-foreground/70">({seriesName})</p>
               )}
             </div>
           </div>
@@ -452,7 +457,7 @@ export default function DoorStyles() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {featured.map((style) => (
-              <StyleCard key={style.id} style={style} />
+              <StyleCard key={style.id} style={style} seriesName={seriesById.get(style.distributorId ?? -1) ?? null} />
             ))}
           </div>
         </div>
@@ -484,7 +489,7 @@ export default function DoorStyles() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {pagedStyles.map((style) => (
-              <StyleCard key={style.id} style={style} />
+              <StyleCard key={style.id} style={style} seriesName={seriesById.get(style.distributorId ?? -1) ?? null} />
             ))}
           </div>
 
