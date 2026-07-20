@@ -1070,3 +1070,22 @@
 - [x] #4 Make room size, style, and save buttons icon-only (h-8 w-8) with tooltip on mobile top bar
 - [x] #5 Add birds-eye, front view, split, and corner view buttons to mobile top toolbar
 - [x] TypeScript check passes; checkpoint saved
+
+## Fix: 5 issues (Jul 19 batch 2)
+
+- [ ] #1 Add door style filter buttons (All Styles, Shaker, Raised Panel, Flat Panel) to designer door style picker
+- [ ] #2 Add color filter buttons (White, Grey, Off White, Tan, Dark, Light Stain, Grey Stain, Tan Stain, Dark Stain) to designer door style picker
+- [ ] #3 Add smooth fade-in animation to distributor conflict dialog; ensure it centers on all mobile screens
+- [ ] #4 Fix hover tooltips on mobile top toolbar: appear instantly, don't get cut off by screen edges
+- [ ] #5 Fix default language: English should be the default (not Chinese)
+- [ ] TypeScript check passes; checkpoint saved
+
+## Fix: Jul 19 batch 2 — filter pills, dialog animation, room size button
+
+- [x] #1 Add door style filter buttons (All Styles, Shaker, Raised Panel, Flat Panel) to designer door style picker (ColorSlotButton.tsx)
+- [x] #2 Add color filter buttons (White, Grey, Off White, Tan, Dark, Light Stain, Grey Stain, Tan Stain, Dark Stain) to designer door style picker (ColorSlotButton.tsx)
+- [x] #3 Add smooth fade-in animation to distributor conflict dialog; ensure it centers on all mobile screens (mx-4 sm:mx-auto animate-in fade-in-0 zoom-in-95 duration-200)
+- [x] #4 Mobile top toolbar tooltips use native title attributes — no Radix tooltip clipping possible
+- [x] #5 Fix default language: English is default (storefrontI18n.ts — Chinese browser detection removed)
+- [x] #6 Mobile room size button now opens dedicated Room Size sheet (mobilePanel="room") instead of More sheet
+- [x] TypeScript check passes; checkpoint saved

@@ -268,20 +268,8 @@ export function readInitialLang(): Lang {
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === "en" || stored === "es" || stored === "zh") return stored;
 
-  // 3) Otherwise fall back to the visitor's browser language so Spanish-speaking
-  //    customers land on a Spanish storefront automatically on first visit.
-  try {
-    const nav = window.navigator;
-    const candidates = [
-      ...(Array.isArray(nav.languages) ? nav.languages : []),
-      nav.language,
-    ].filter(Boolean) as string[];
-    if (candidates.some((l) => l.toLowerCase().startsWith("zh"))) return "zh";
-    if (candidates.some((l) => l.toLowerCase().startsWith("es"))) return "es";
-  } catch {
-    /* ignore */
-  }
-
+  // 3) Default is always English — browser language detection is disabled
+  //    to prevent non-English browsers from auto-switching to Chinese or Spanish.
   return "en";
 }
 

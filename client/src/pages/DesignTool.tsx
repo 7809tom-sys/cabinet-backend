@@ -4323,7 +4323,7 @@ export default function DesignTool() {
         {/* Mobile room size indicator — icon-only button with tooltip */}
         <button
           className="lg:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-          onClick={() => setMoreSheetOpen(true)}
+          onClick={() => setMobilePanel((p) => p === "room" ? null : "room")}
           title={`Room: ${Math.round(room.width / 12)}' × ${Math.round(room.depth / 12)}' · ${placed.length} items`}
         >
           <SquareDashedMousePointer className="h-4 w-4" />
@@ -7593,7 +7593,7 @@ export default function DesignTool() {
 
       {/* Distributor conflict warning dialog */}
       <AlertDialog open={distConflictOpen} onOpenChange={(o) => { if (!o) { distConflictResolve?.(false); setDistConflictOpen(false); } }}>
-        <AlertDialogContent className="max-w-md">
+        <AlertDialogContent className="max-w-md mx-4 sm:mx-auto animate-in fade-in-0 zoom-in-95 duration-200">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
               <span className="text-2xl">⚠️</span> Supplier Conflict

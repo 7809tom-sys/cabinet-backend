@@ -25,18 +25,6 @@ import { groupStylesByDistributor } from "@/lib/groupStylesByDistributor";
 // member can place the perimeter in Color 1, then switch to Color 2 for the island
 // to build a two-tone kitchen. Clicking the body selects the slot; the small edit
 // affordance opens a picker to set/change which door style this slot holds.
-//
-// MOBILE NOTE: on touch / small screens the style list is shown in a full-width
-// BOTTOM SHEET, not a Popover. A Radix Popover anchored to a tiny trigger near the
-// bottom of a phone screen could only grow ~10 rows tall and its internal scroll
-// gesture was being captured by the canvas behind it ("only see ~10 styles, won't
-// scroll"). A bottom Sheet is full-height and natively touch-scrollable, so the
-// entire lineup is reachable on every mobile browser.
-//
-// GROUPING: instead of one long flat list of every door style, styles are grouped
-// by their distributor (supply line) into a one-open-at-a-time accordion. Headers
-// use the NEUTRAL white-label distributor label only (never the hidden supplier
-// brand). Opening one line collapses the others so the picker stays compact.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type StyleOption = {
@@ -80,6 +68,72 @@ interface StyleGroup {
   styles: StyleOption[];
 }
 
+// ─── Door style type filter ───────────────────────────────────────────────────
+type StyleTypeFilter = "all" | "shaker" | "raised" | "flat";
+const STYLE_TYPE_FILTERS: { key: StyleTypeFilter; label: string }[] = [
+  { key: "all", label: "All Styles" },
+  { key: "shaker", label: "Shaker" },
+  { key: "raised", label: "Raised Panel" },
+  { key: "flat", label: "Flat Panel" },
+];
+
+function matchesStyleType(name: string, filter: StyleTypeFilter): boolean {
+  if (filter === "all") return true;
+  const n = name.toLowerCase();
+  if (filter === "shaker") return n.includes("shaker");
+  if (filter === "raised") return n.includes("raised") || n.includes("raised panel");
+  if (filter === "flat") return n.includes("flat") || n.includes("slab") || n.includes("modern");
+  return true;
+}
+
+// ─── Color filter ─────────────────────────────────────────────────────────────
+type ColorFilter = "all" | "white" | "grey" | "offwhite" | "tan" | "dark" | "lightstain" | "greystain" | "tanstain" | "darkstain";
+const COLOR_FILTERS: { key: ColorFilter; label: string }[] = [
+  { key: "all", label: "All Colors" },
+  { key: "white", label: "White" },
+  { key: "grey", label: "Grey" },
+  { key: "offwhite", label: "Off White" },
+  { key: "tan", label: "Tan" },
+  { key: "dark", label: "Dark" },
+  { key: "lightstain", label: "Light Stain" },
+  { key: "greystain", label: "Grey Stain" },
+  { key: "tanstain", label: "Tan Stain" },
+  { key: "darkstain", label: "Dark Stain" },
+];
+
+function matchesColor(name: string, filter: ColorFilter): boolean {
+  if (filter === "all") return true;
+  const n = name.toLowerCase();
+  if (filter === "white") return (n.includes("white") || n.includes("blanc")) && !n.includes("off white") && !n.includes("off-white");
+  if (filter === "grey") return (n.includes("grey") || n.includes("gray")) && !n.includes("stain");
+  if (filter === "offwhite") return n.includes("off white") || n.includes("off-white") || n.includes("cream") || n.includes("antique white") || n.includes("linen");
+  if (filter === "tan") return (n.includes("tan") || n.includes("beige") || n.includes("sand") || n.includes("caramel")) && !n.includes("stain");
+  if (filter === "dark") return (n.includes("espresso") || n.includes("dark") || n.includes("black") || n.includes("charcoal") || n.includes("navy") || n.includes("midnight")) && !n.includes("stain");
+  if (filter === "lightstain") return n.includes("light") && n.includes("stain");
+  if (filter === "greystain") return (n.includes("grey") || n.includes("gray")) && n.includes("stain");
+  if (filter === "tanstain") return (n.includes("tan") || n.includes("honey") || n.includes("natural") || n.includes("oak")) && n.includes("stain");
+  if (filter === "darkstain") return (n.includes("dark") || n.includes("walnut") || n.includes("cherry") || n.includes("mahogany") || n.includes("tobacco") || n.includes("java")) && n.includes("stain");
+  return true;
+}
+
+// ─── Filter pill button ───────────────────────────────────────────────────────
+function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap",
+        active
+          ? "border-[#d4a75a] bg-[#d4a75a] text-white shadow-sm"
+          : "border-border bg-white text-muted-foreground hover:border-[#d4a75a]/60 hover:text-foreground",
+      ].join(" ")}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function ColorSlotButton({
   label,
   active,
@@ -95,6 +149,8 @@ export function ColorSlotButton({
   const { t } = useLanguage();
   const isMobile = useIsMobile(1024);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [styleTypeFilter, setStyleTypeFilter] = useState<StyleTypeFilter>("all");
+  const [colorFilter, setColorFilter] = useState<ColorFilter>("all");
   const name = style ? (styleDisplayName(style as { ourName?: string | null; aliasName?: string | null }) || null) : null;
   const hasStyle = style != null;
 
@@ -141,64 +197,109 @@ export function ColorSlotButton({
   useEffect(() => {
     if (!pickerOpen) return;
     setChosenGroup(undefined);
+    setStyleTypeFilter("all");
+    setColorFilter("all");
   }, [pickerOpen]);
 
   const activeGroup = groups.find((g) => g.distributorId === effectiveGroup) ?? null;
 
-  // Card-grid of door styles within one open distributor group.
-  const StyleGrid = ({ list, cols }: { list: StyleOption[]; cols: 2 | 3 }) => (
-    <div className={`grid gap-2 p-1 ${cols === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-      {list.map((s) => {
-        const isSelected = (style as { id?: number } | null)?.id === s.id;
-        const sName = styleDisplayName(s) || t("dt_cs_style_num", { id: s.id });
-        return (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => {
-              onPick(s.id);
-              setPickerOpen(false);
-            }}
-            title={sName}
-            className={[
-              "relative flex flex-col items-center gap-1 rounded-lg border p-1.5 text-center transition-all",
-              "hover:border-[#d4a75a]/70 hover:bg-accent/60 active:scale-[0.97]",
-              isSelected
-                ? "border-[#d4a75a] bg-[#d4a75a]/10 ring-1 ring-[#d4a75a] shadow-sm"
-                : "border-border bg-white",
-            ].join(" ")}
-          >
-            <div className="w-full aspect-[10/13] overflow-hidden rounded">
-              <DoorStyleSwatch
-                style={s as Parameters<typeof DoorStyleSwatch>[0]["style"]}
-                className="h-full w-full"
-              />
-            </div>
-            <span className={`w-full truncate text-[10px] leading-tight ${isSelected ? "font-semibold text-[#1a2744]" : "text-muted-foreground"}`}>
-              {sName}
-            </span>
-            {s.styleCode && (
-              <a
-                href={`/family/${encodeURIComponent(s.styleCode)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] text-[#1a2744]/70 hover:text-[#d4a75a] hover:underline transition-colors"
-              >
-                <ExternalLink className="h-2.5 w-2.5" />
-                {t("dt_cs_view_collection")}
-              </a>
-            )}
-            {isSelected && (
-              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#d4a75a] text-white shadow">
-                <Check className="h-2.5 w-2.5" strokeWidth={3} />
-              </span>
-            )}
-          </button>
-        );
-      })}
+  // Apply style type + color filters to a list of styles
+  const applyFilters = (list: StyleOption[]): StyleOption[] => {
+    return list.filter((s) => {
+      const n = styleDisplayName(s) || "";
+      return matchesStyleType(n, styleTypeFilter) && matchesColor(n, colorFilter);
+    });
+  };
+
+  // Filter pills UI — shown above the style grid when drilled into a group
+  const FilterBar = () => (
+    <div className="space-y-1.5 pb-2">
+      {/* Style type row */}
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+        {STYLE_TYPE_FILTERS.map((f) => (
+          <FilterPill
+            key={f.key}
+            label={f.label}
+            active={styleTypeFilter === f.key}
+            onClick={() => setStyleTypeFilter(f.key)}
+          />
+        ))}
+      </div>
+      {/* Color row */}
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+        {COLOR_FILTERS.map((f) => (
+          <FilterPill
+            key={f.key}
+            label={f.label}
+            active={colorFilter === f.key}
+            onClick={() => setColorFilter(f.key)}
+          />
+        ))}
+      </div>
     </div>
   );
+
+  // Card-grid of door styles within one open distributor group.
+  const StyleGrid = ({ list, cols }: { list: StyleOption[]; cols: 2 | 3 }) => {
+    const filtered = applyFilters(list);
+    return filtered.length === 0 ? (
+      <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
+        No styles match the selected filters.
+      </div>
+    ) : (
+      <div className={`grid gap-2 p-1 ${cols === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+        {filtered.map((s) => {
+          const isSelected = (style as { id?: number } | null)?.id === s.id;
+          const sName = styleDisplayName(s) || t("dt_cs_style_num", { id: s.id });
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => {
+                onPick(s.id);
+                setPickerOpen(false);
+              }}
+              title={sName}
+              className={[
+                "relative flex flex-col items-center gap-1 rounded-lg border p-1.5 text-center transition-all",
+                "hover:border-[#d4a75a]/70 hover:bg-accent/60 active:scale-[0.97]",
+                isSelected
+                  ? "border-[#d4a75a] bg-[#d4a75a]/10 ring-1 ring-[#d4a75a] shadow-sm"
+                  : "border-border bg-white",
+              ].join(" ")}
+            >
+              <div className="w-full aspect-[10/13] overflow-hidden rounded">
+                <DoorStyleSwatch
+                  style={s as Parameters<typeof DoorStyleSwatch>[0]["style"]}
+                  className="h-full w-full"
+                />
+              </div>
+              <span className={`w-full truncate text-[10px] leading-tight ${isSelected ? "font-semibold text-[#1a2744]" : "text-muted-foreground"}`}>
+                {sName}
+              </span>
+              {s.styleCode && (
+                <a
+                  href={`/family/${encodeURIComponent(s.styleCode)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] text-[#1a2744]/70 hover:text-[#d4a75a] hover:underline transition-colors"
+                >
+                  <ExternalLink className="h-2.5 w-2.5" />
+                  {t("dt_cs_view_collection")}
+                </a>
+              )}
+              {isSelected && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#d4a75a] text-white shadow">
+                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   // The list of SUPPLY LINES to choose from (step 1). Each row shows the neutral
   // line label + how many door styles it carries.
@@ -252,7 +353,10 @@ export function ColorSlotButton({
         {t("dt_cs_none_available")}
       </div>
     ) : onlyOneGroup ? (
-      <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} />
+      <div className="space-y-1">
+        <FilterBar />
+        <StyleGrid list={groups[0]?.styles ?? styles} cols={cols} />
+      </div>
     ) : activeGroup == null ? (
       <LineChooser />
     ) : (
@@ -273,6 +377,7 @@ export function ColorSlotButton({
             {t("dt_cs_group_count", { count: activeGroup.styles.length })}
           </span>
         </div>
+        <FilterBar />
         <StyleGrid list={activeGroup.styles} cols={cols} />
       </div>
     );
@@ -392,13 +497,15 @@ export function ColorSlotButton({
               {hasStyle ? t("dt_cs_change_style") : t("dt_cs_choose_style")}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" side="bottom" collisionPadding={12} className="w-64 p-1">
+          <PopoverContent align="start" side="bottom" collisionPadding={12} className="w-72 p-1">
             <div
-              className="max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain touch-pan-y"
+              className="max-h-[min(60vh,480px)] overflow-y-auto overscroll-contain touch-pan-y"
               style={{ WebkitOverflowScrolling: "touch" }}
               onWheelCapture={(e) => e.stopPropagation()}
             >
-              <StyleList />
+              <div className="px-1 pt-1">
+                <StyleList />
+              </div>
             </div>
           </PopoverContent>
         </Popover>
