@@ -1140,3 +1140,11 @@
 - [x] Uses distributorAdmin.addDoorStyle mutation to create style for the distributor and immediately assign it to the column
 - [x] Discontinued/deleted SKUs correctly show as unmatched (expected behavior, not a bug)
 - [x] TypeScript: 0 errors; checkpoint saved
+
+## Data: Skyline XLSX import (skyline.xlsx)
+- [x] Created 31 new Skyline door styles (SW, SE, NB, AG, IB, SA, LG, SB, TC, RW, AW, AC, DSG, DDW, CW, SDW, SAG, SIB, SAO, SWO, HW, HG, MB, MI, OB, OS, CG, MG, FW, FG, FE)
+- [x] GR (Shaker Gray) skipped per user request — already exists
+- [x] 343 SKUs imported (312 matched existing cabinets, 31 new cabinets created)
+- [x] 6,430 price rows upserted and published
+- [x] 7 rows skipped (trays, crown moulding, finished panel, waste bin — no category match)
+- [x] Checkpoint saved
