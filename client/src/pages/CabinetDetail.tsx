@@ -388,7 +388,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editShowIn2020, setEditShowIn2020] = useState(true);
   const [editWidth, setEditWidth] = useState("");
   const [editHeight, setEditHeight] = useState("");
-  const [editDepth, setEditDepth] = useState("");
+  const [editDepth, setEditDepth] = useState("__custom__");
   const [editPhysicalWidth, setEditPhysicalWidth] = useState("");
   const [editWeight, setEditWeight] = useState("");
   const [editPkgLength, setEditPkgLength] = useState("");
@@ -417,7 +417,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditShowIn2020(cabinet.showIn2020 ?? true);
       setEditWidth(cabinet.width ?? "");
       setEditHeight(cabinet.height ?? "");
-      setEditDepth(cabinet.depth ?? "");
+      setEditDepth(cabinet.depth ?? "__custom__");
       setEditPhysicalWidth(String((cabinet as Record<string, unknown>).physicalWidth ?? ""));
       setEditWeight(cabinet.weight ?? "");
       setEditPkgLength(String((cabinet as Record<string, unknown>).pkgLength ?? ""));
@@ -549,7 +549,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       showIn2020: editShowIn2020,
       width: editWidth.trim() || null,
       height: editHeight.trim() || null,
-      depth: editDepth.trim() || null,
+      depth: (editDepth === "__custom__" || !editDepth.trim()) ? null : editDepth.trim(),
       physicalWidth: editPhysicalWidth.trim() || null,
       weight: editWeight.trim() || null,
       pkgLength: editPkgLength.trim() || null,
@@ -1301,13 +1301,13 @@ export default function CabinetDetail({ masterCode }: Props) {
                     <Select value={editDepth} onValueChange={setEditDepth}>
                       <SelectTrigger id="edit-depth" className="h-8 text-sm"><SelectValue placeholder="Select depth" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">— custom —</SelectItem>
+                        <SelectItem value="__custom__">— custom —</SelectItem>
                         {["9","12","15","18","21","24","27","30","33","36"].map(d => (
                           <SelectItem key={d} value={d}>{d}"</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {editDepth && !["9","12","15","18","21","24","27","30","33","36",""].includes(editDepth) && (
+                    {editDepth && !["9","12","15","18","21","24","27","30","33","36","","__custom__"].includes(editDepth) && (
                       <p className="text-[10px] text-amber-600">Custom: {editDepth}" — not a standard depth</p>
                     )}
                   </div>
