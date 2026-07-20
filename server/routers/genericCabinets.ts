@@ -268,7 +268,72 @@ export const genericCabinetsRouter = router({
 
       if (Object.keys(update).length === 0) return { ok: true };
 
+      // ── Auto-hide logic ────────────────────────────────────────────────────
+      // Before applying the update, read the cabinet's CURRENT alias values so
+      // we can detect which aliases were added and which were removed.
+      const [current] = await db
+        .select({
+          altSku1: cabinets.altSku1,
+          altSku2: cabinets.altSku2,
+          altSku3: cabinets.altSku3,
+        })
+        .from(cabinets)
+        .where(eq(cabinets.id, id))
+        .limit(1);
+
       await db.update(cabinets).set(update).where(eq(cabinets.id, id));
+
+      if (current) {
+        const aliasKeys = ["altSku1", "altSku2", "altSku3"] as const;
+        const prevAliases = aliasKeys.map((k) => current[k]).filter(Boolean) as string[];
+        const nextAliases = aliasKeys
+          .map((k) => (update[k] !== undefined ? (update[k] as string | null) : current[k]))
+          .filter(Boolean) as string[];
+
+        // Codes that were just ADDED as aliases → hide those master cabinets
+        const added = nextAliases.filter((c) => !prevAliases.includes(c));
+        // Codes that were just REMOVED as aliases → un-hide those master cabinets
+        //   (only if they are not still aliased by some other cabinet)
+        const removed = prevAliases.filter((c) => !nextAliases.includes(c));
+
+        if (added.length > 0) {
+          for (const code of added) {
+            await db
+              .update(cabinets)
+              .set({ showInCatalog: false, showInDesigner: false })
+              .where(eq(cabinets.masterCode, code));
+          }
+        }
+
+        if (removed.length > 0) {
+          // Only re-show if no other cabinet still aliases this code
+          for (const code of removed) {
+            const stillAliased = await db
+              .select({ id: cabinets.id })
+              .from(cabinets)
+              .where(
+                and(
+                  or(
+                    eq(cabinets.altSku1, code),
+                    eq(cabinets.altSku2, code),
+                    eq(cabinets.altSku3, code)
+                  ),
+                  // exclude the cabinet we just updated
+                  sql`${cabinets.id} != ${id}`
+                )
+              )
+              .limit(1);
+
+            if (stillAliased.length === 0) {
+              await db
+                .update(cabinets)
+                .set({ showInCatalog: true, showInDesigner: true })
+                .where(eq(cabinets.masterCode, code));
+            }
+          }
+        }
+      }
+
       return { ok: true };
     }),
 
@@ -332,8 +397,58 @@ export const genericCabinetsRouter = router({
         if (row.stainColor !== undefined) update.stainColor = row.stainColor;
         if (row.constructionMethod !== undefined) update.constructionMethod = row.constructionMethod;
 
+        // ── Auto-hide logic ─────────────────────────────────────────────────
+        // Read current aliases before applying the update
+        const [currentRow] = await db
+          .select({ altSku1: cabinets.altSku1, altSku2: cabinets.altSku2, altSku3: cabinets.altSku3 })
+          .from(cabinets)
+          .where(eq(cabinets.id, existing[0].id))
+          .limit(1);
+
         await db.update(cabinets).set(update).where(eq(cabinets.id, existing[0].id));
         updated++;
+
+        if (currentRow) {
+          const aliasKeys = ["altSku1", "altSku2", "altSku3"] as const;
+          const prevAliases = aliasKeys.map((k) => currentRow[k]).filter(Boolean) as string[];
+          const nextAliases = aliasKeys
+            .map((k) => (update[k] !== undefined ? (update[k] as string | null) : currentRow[k]))
+            .filter(Boolean) as string[];
+
+          const added = nextAliases.filter((c) => !prevAliases.includes(c));
+          const removed = prevAliases.filter((c) => !nextAliases.includes(c));
+
+          for (const code of added) {
+            await db
+              .update(cabinets)
+              .set({ showInCatalog: false, showInDesigner: false })
+              .where(eq(cabinets.masterCode, code));
+          }
+
+          for (const code of removed) {
+            const stillAliased = await db
+              .select({ id: cabinets.id })
+              .from(cabinets)
+              .where(
+                and(
+                  or(
+                    eq(cabinets.altSku1, code),
+                    eq(cabinets.altSku2, code),
+                    eq(cabinets.altSku3, code)
+                  ),
+                  sql`${cabinets.id} != ${existing[0].id}`
+                )
+              )
+              .limit(1);
+
+            if (stillAliased.length === 0) {
+              await db
+                .update(cabinets)
+                .set({ showInCatalog: true, showInDesigner: true })
+                .where(eq(cabinets.masterCode, code));
+            }
+          }
+        }
       }
 
       return { updated, notFound };
