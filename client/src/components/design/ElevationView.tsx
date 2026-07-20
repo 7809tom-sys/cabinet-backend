@@ -187,7 +187,7 @@ export function ElevationView({
     // panels (not the full face). The box itself shows the face frame color.
     const faceFill = isAppliance
       ? "linear-gradient(160deg, #f4f6f9 0%, #dde2ea 18%, #c8cfd9 45%, #d4dae4 72%, #bec6d2 100%)"
-      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 78%, #ffffff) 0%, color-mix(in srgb, ${cabFinish.face} 92%, #ffffff) 22%, ${cabFinish.face} 55%, color-mix(in srgb, ${cabFinish.face} 88%, #000000) 100%)`;
+      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 96%, #ffffff) 0%, ${cabFinish.face} 30%, ${cabFinish.face} 70%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
@@ -241,9 +241,10 @@ export function ElevationView({
           // The face fill color is applied inside DoorFront so only the actual
           // cabinet face (stiles, rails, panels) is visible, not a surrounding box.
           background: "transparent",
-          border: isSelected ? "2px solid rgba(212,167,90,0.8)" : "none",
-          borderRadius: 2,
-          boxShadow: isSelected ? "0 0 0 3px rgba(212,167,90,0.40)" : "none",
+          border: "none",
+          borderRadius: 0,
+          // Selection: subtle inner glow only — no outer border box.
+          boxShadow: isSelected ? "inset 0 0 0 2px rgba(212,167,90,0.85), inset 0 0 8px rgba(212,167,90,0.30)" : "none",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
@@ -1418,7 +1419,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
   // on this component's root so the outer container can be transparent (no box).
   // Photorealistic face frame: strong top-light highlight (simulates overhead room
   // lighting), rich mid-tone body, subtle bottom shadow for depth.
-  const faceBackground = faceFillOverride ?? `linear-gradient(180deg, color-mix(in srgb, ${face} 72%, #ffffff) 0%, color-mix(in srgb, ${face} 88%, #ffffff) 18%, ${face} 52%, color-mix(in srgb, ${face} 85%, #000000) 100%)`;
+  const faceBackground = faceFillOverride ?? `linear-gradient(180deg, color-mix(in srgb, ${face} 96%, #ffffff) 0%, ${face} 30%, ${face} 70%, color-mix(in srgb, ${face} 90%, #000000) 100%)`;
 
   // Helper: wrap content in a root div that carries the face-frame background.
   // This keeps the outer cabinet container transparent (no visible box).
