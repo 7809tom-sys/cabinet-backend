@@ -295,6 +295,27 @@ export const distributorImportRouter = router({
       return { id: input.distributorId, ...patch };
     }),
 
+  /**
+   * Toggle a cabinet line on or off. When isActive = false the line's SKUs are
+   * hidden from the storefront and the design tool; flip back to true to restore.
+   */
+  setActive: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number().int().positive(),
+        isActive: z.boolean(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
+      await db
+        .update(distributors)
+        .set({ isActive: input.isActive })
+        .where(eq(distributors.id, input.distributorId));
+      return { id: input.distributorId, isActive: input.isActive };
+    }),
+
   /** Door styles for a given distributor (used to map pricing rows to a style). */
   adminStyles: adminProcedure
     .input(z.object({ distributorId: z.number() }))

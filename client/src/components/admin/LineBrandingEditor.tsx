@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
-import { Tag } from "lucide-react";
+import { Tag, Power } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 type DisplayMode = "neutral" | "branded" | "series";
 
@@ -76,6 +77,14 @@ export default function LineBrandingEditor() {
     onError: (e) => toast.error(e.message || "Could not update branding"),
   });
 
+  const setActive = trpc.distributorAdmin.setActive.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.isActive ? "Cabinet line is now ONLINE." : "Cabinet line is now OFFLINE — hidden from storefront.");
+      utils.distributorAdmin.adminList.invalidate();
+    },
+    onError: (e) => toast.error(e.message || "Could not update line status"),
+  });
+
   function currentPublicLabel(d: NonNullable<typeof selected>): string {
     const m = (d.displayMode as DisplayMode) ?? "neutral";
     if (m === "branded") return d.brandName || d.name;
@@ -97,6 +106,43 @@ export default function LineBrandingEditor() {
           Choose how each supplier line is presented to members. Type the
           public-facing name here — no database editing required.
         </p>
+
+        {/* ── Line on/off status table ── */}
+        <div className="rounded-lg border">
+          <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
+            <Power className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Line status</span>
+            <span className="text-xs text-muted-foreground ml-1">— toggle a line off to hide all its SKUs from the storefront instantly</span>
+          </div>
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground px-4 py-3">
+              <Spinner className="h-4 w-4" /> Loading…
+            </div>
+          ) : (
+            <div className="divide-y">
+              {dists?.map((d) => (
+                <div key={d.id} className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Badge variant={d.isActive ? "default" : "secondary"} className="w-16 justify-center">
+                      {d.isActive ? "Online" : "Offline"}
+                    </Badge>
+                    <div>
+                      <p className="text-sm font-medium">{currentPublicLabel(d)}</p>
+                      <p className="text-xs text-muted-foreground">{d.code}</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={d.isActive ?? true}
+                    disabled={setActive.isPending}
+                    onCheckedChange={(checked) =>
+                      setActive.mutate({ distributorId: d.id, isActive: checked })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {isLoading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
