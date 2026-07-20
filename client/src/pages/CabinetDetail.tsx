@@ -37,6 +37,27 @@ import { useSeo } from "@/hooks/useSeo";
 import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 
+// ─── Cabinet category constants (must match CabinetConfigAdmin) ─────────────
+const CABINET_CATEGORIES = [
+  "Base", "Wall", "Tall", "Corner", "Drawer", "Specialty",
+  "Vanity", "Pantry", "Island", "Filler", "Molding", "Accessory",
+] as const;
+
+const CABINET_SUB_CATEGORIES: Record<string, string[]> = {
+  Base:      ["Standard Base","Sink Base","Blind Corner Base","Drawer Base","Lazy Susan","Appliance Garage","Pull-Out"],
+  Wall:      ["Standard Wall","Blind Corner Wall","Corner Wall","Open Shelf","Microwave Wall","Glass Door"],
+  Tall:      ["Pantry","Oven Tower","Utility","Linen"],
+  Corner:    ["Lazy Susan","Blind Corner","Diagonal","Easy Reach"],
+  Drawer:    ["Drawer Base","Peg Drawer","Utensil Drawer"],
+  Specialty: ["Spice Pull-Out","Tray Divider","Waste Bin","Appliance Lift","Mixer Shelf"],
+  Vanity:    ["Vanity Base","Vanity Drawer","Vanity Sink","Medicine Cabinet","Linen Tower"],
+  Pantry:    ["Pantry Cabinet","Pantry Pull-Out"],
+  Island:    ["Island Base","Island Drawer"],
+  Filler:    ["Filler Panel","Side Panel","Scribe Moulding"],
+  Molding:   ["Crown Moulding","Light Rail","Base Moulding","Valance"],
+  Accessory: ["Hardware","Organizer","Shelf","Lazy Susan Insert","Drawer Insert"],
+};
+
 // ─── Price tier display ───────────────────────────────────────────────────────
 // Retail storefront: guests/homeowners see retail (homeowner) pricing with a
 // "Compare at" strike-through. Logged-in pros see the tier the owner assigned
@@ -1185,28 +1206,51 @@ export default function CabinetDetail({ masterCode }: Props) {
               </div>
 
               {/* Category */}
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-cat">Category</Label>
-                <Input
-                  id="edit-cat"
-                  value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
-                  placeholder="e.g. Base Cabinets"
-                />
-              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-cat">Category</Label>
+                  <Select
+                    value={editCategory || "__none__"}
+                    onValueChange={(v) => {
+                      const cat = v === "__none__" ? "" : v;
+                      setEditCategory(cat);
+                      setEditSubCategory(""); // reset sub-category when category changes
+                    }}
+                  >
+                    <SelectTrigger id="edit-cat" className="w-full">
+                      <SelectValue placeholder="— not set —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— not set —</SelectItem>
+                      {CABINET_CATEGORIES.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Sub-category */}
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-sub">
-                  Sub-Category{" "}
-                  <span className="text-muted-foreground font-normal">(optional)</span>
-                </Label>
-                <Input
-                  id="edit-sub"
-                  value={editSubCategory}
-                  onChange={(e) => setEditSubCategory(e.target.value)}
-                  placeholder="e.g. Drawer Base, Angle Base, Sink Base"
-                />
+                {/* Sub-category */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-sub">
+                    Sub-Category{" "}
+                    <span className="text-muted-foreground font-normal text-xs">(optional)</span>
+                  </Label>
+                  <Select
+                    value={editSubCategory || "__none__"}
+                    onValueChange={(v) => setEditSubCategory(v === "__none__" ? "" : v)}
+                    disabled={!editCategory}
+                  >
+                    <SelectTrigger id="edit-sub" className="w-full">
+                      <SelectValue placeholder="— not set —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— not set —</SelectItem>
+                      {(editCategory && CABINET_SUB_CATEGORIES[editCategory] ? CABINET_SUB_CATEGORIES[editCategory] : []).map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Active / Inactive toggle */}

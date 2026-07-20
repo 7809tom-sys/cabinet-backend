@@ -1155,3 +1155,9 @@
 - [x] Add distributorImageUrl to stylesForCabinet response (from distributor_cabinet_overrides)
 - [x] CabinetImage component accepts overrideImageUrl prop — line image takes priority over master
 - [x] Add "Replace image" button on CabinetDetail (admin only) with scope dialog (this line / all lines)
+
+## Feature: Front-end cabinet edit — category + published status
+- [x] Add category selector to admin edit dialog on CabinetDetail page
+- [x] Add published/hidden toggle to admin edit dialog on CabinetDetail page
+- [x] Wire both fields to adminUpdateCabinet procedure (already supports them)
+- [x] Checkpoint saved
