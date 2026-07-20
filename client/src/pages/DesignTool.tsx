@@ -7,7 +7,7 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
@@ -1601,7 +1605,7 @@ export default function DesignTool() {
     return Array.from(map.values());
   }, [cabinetCartLines, trimCartLines, surfaceCartLines, lockedDistributorId, tier]);
 
-  const addAllToCart = useCallback(() => {
+  const addAllToCart = useCallback(async () => {
     if (cartableLines.length === 0) {
       toast.info(t("dt_cart_nothing"));
       return;
@@ -1613,9 +1617,10 @@ export default function DesignTool() {
       lockedDistributorId != null &&
       cartLockedDistributorId !== lockedDistributorId
     ) {
-      const ok = window.confirm(
-        t("dt_cart_distributor_conflict", { name: cartLockedStyleLabel ?? "" })
-      );
+      const ok = await new Promise<boolean>((resolve) => {
+        setDistConflictResolve(() => resolve);
+        setDistConflictOpen(true);
+      });
       if (!ok) return;
       clearCart();
     }
@@ -4222,6 +4227,9 @@ export default function DesignTool() {
   // Signals to open the Save / My Plans dialogs from the mobile "More" sheet
   // (the DesignActions toolbar itself is desktop-only / hidden on phones).
   const [saveSignal, setSaveSignal] = useState(0);
+  // Distributor conflict dialog state
+  const [distConflictOpen, setDistConflictOpen] = useState(false);
+  const [distConflictResolve, setDistConflictResolve] = useState<((ok: boolean) => void) | null>(null);
   // Rename dialog (opened from the mobile save success toast)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameDesignId, setRenameDesignId] = useState<number | null>(null);
@@ -4312,15 +4320,13 @@ export default function DesignTool() {
           />
         </div>
 
-        {/* Mobile room size indicator — shows current dimensions, tapping opens More sheet */}
+        {/* Mobile room size indicator — icon-only button with tooltip */}
         <button
-          className="lg:hidden flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 rounded-md px-2 py-1 shrink-0"
+          className="lg:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
           onClick={() => setMoreSheetOpen(true)}
-          title="Room size — tap More to edit"
+          title={`Room: ${Math.round(room.width / 12)}' × ${Math.round(room.depth / 12)}' · ${placed.length} items`}
         >
-          <span className="font-medium text-foreground">{Math.round(room.width / 12)}' × {Math.round(room.depth / 12)}'</span>
-          <span className="text-muted-foreground/60">·</span>
-          <span>{placed.length} items</span>
+          <SquareDashedMousePointer className="h-4 w-4" />
         </button>
 
         
@@ -4519,32 +4525,73 @@ export default function DesignTool() {
             <Eye className="h-3.5 w-3.5" />
           </button>
         )}
-        {/* Mobile: compact "More" menu — compact list with popup sub-sheets per section */}
-        <div className="ml-auto flex items-center gap-1.5 lg:hidden">
-          {/* Style button — mobile top bar */}
-          <Button
-            variant={mobilePanel === "style" ? "default" : "outline"}
-            size="sm"
-            className="h-8 gap-1.5"
+        {/* Mobile: icon-only compact buttons in top bar */}
+        <div className="ml-auto flex items-center gap-1 lg:hidden">
+          {/* View mode buttons */}
+          <button
+            title="Bird's-eye plan view"
+            onClick={() => setViewMode("plan")}
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
+              viewMode === "plan" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            title="Front elevation view"
+            onClick={() => setViewMode("elevation")}
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
+              viewMode === "elevation" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          <button
+            title="Split view (plan + elevation)"
+            onClick={() => setViewMode("split")}
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
+              viewMode === "split" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Columns3 className="h-4 w-4" />
+          </button>
+          <button
+            title="Corner view"
+            onClick={() => setViewMode("corner")}
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
+              viewMode === "corner" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <ScanLine className="h-4 w-4" />
+          </button>
+          <div className="w-px h-5 bg-border mx-0.5" />
+          {/* Style button — icon only */}
+          <button
+            title="Door style"
             onClick={() => setMobilePanel((p) => p === "style" ? null : "style")}
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
+              mobilePanel === "style" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
           >
             <Palette className="h-4 w-4" />
-            <span className="text-xs">Style</span>
-          </Button>
-          {/* Save button — mobile top bar */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5"
+          </button>
+          {/* Save button — icon only */}
+          <button
+            title="Save design"
             disabled={placed.length === 0}
             onClick={() => setSaveSignal((n) => n + 1)}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted disabled:opacity-40"
           >
             <Save className="h-4 w-4" />
-            <span className="text-xs">Save</span>
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setMoreSheetOpen(true)}>
-            <MoreHorizontal className="h-4 w-4" /> {t("dt_sh_more")}
-          </Button>
+          </button>
+          {/* More button */}
+          <button
+            title="More options"
+            onClick={() => setMoreSheetOpen(true)}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
 
           {/* ── Main "More" sheet ─────────────────────────────────────── */}
           <Sheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen}>
@@ -7543,6 +7590,39 @@ export default function DesignTool() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Distributor conflict warning dialog */}
+      <AlertDialog open={distConflictOpen} onOpenChange={(o) => { if (!o) { distConflictResolve?.(false); setDistConflictOpen(false); } }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <span className="text-2xl">⚠️</span> Supplier Conflict
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-foreground space-y-2">
+              <p>
+                Your cart already contains cabinets from <strong>{cartLockedStyleLabel ?? "a different supplier"}</strong>.
+              </p>
+              <p>
+                Cabinets from different suppliers cannot be mixed in the same order because they ship from separate warehouses and have different pricing.
+              </p>
+              <p className="font-medium text-destructive">
+                Proceeding will clear your existing cart and replace it with this design.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { distConflictResolve?.(false); setDistConflictOpen(false); }}>
+              Keep existing cart
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={() => { distConflictResolve?.(true); setDistConflictOpen(false); }}
+            >
+              Clear cart &amp; add this design
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Design Preview Modal */}
       <DesignPreviewModal

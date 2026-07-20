@@ -1061,3 +1061,12 @@
 
 - [x] Fix auto-lock effect: placed cabinets always take priority over cart lock
 - [x] TypeScript check passes; checkpoint saved
+
+## Fix: 5 mobile designer issues (Jul 19)
+
+- [ ] #1 Cabinet pictures on mobile not matching desktop — needs user clarification on which pictures differ
+- [x] #2 Add clear distributor conflict pop-up warning when adding incompatible items to cart (AlertDialog with amber warning, explains supplier conflict, offers Keep/Clear options)
+- [x] #3 Fix Style/Save/More button spacing in mobile top toolbar (no overlap — compact icon-only buttons)
+- [x] #4 Make room size, style, and save buttons icon-only (h-8 w-8) with tooltip on mobile top bar
+- [x] #5 Add birds-eye, front view, split, and corner view buttons to mobile top toolbar
+- [x] TypeScript check passes; checkpoint saved
