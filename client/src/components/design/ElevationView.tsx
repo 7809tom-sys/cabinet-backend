@@ -173,9 +173,11 @@ export function ElevationView({
     const posAlong = seam ? 0 : (horizontal ? p.x : p.y);
     const { bottom, height } = elevationBox(p, room);
     const isWall = p.placement === "wall";
-    // Treat FRIDGE-* and RANGE-* as appliances even if placement was saved incorrectly
-    // (older designs may have stored placement:"tall" for fridge items).
-    const isAppliance = p.placement === "appliance" || /^(FRIDGE|RANGE)-/i.test(p.masterCode ?? "");
+    // FRIDGE-* cabinets render as real cabinet faces (finish color + door style)
+    // — they are cabinet boxes that surround the refrigerator, not steel appliances.
+    // All other appliances (RANGE, DW, WINE, etc.) keep the steel rendering.
+    const isFridgeCabinet = /^FRIDGE-/i.test(p.masterCode ?? "");
+    const isAppliance = !isFridgeCabinet && (p.placement === "appliance" || /^RANGE-/i.test(p.masterCode ?? ""));
     const isSelected = p.uid === selectedUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
@@ -187,7 +189,10 @@ export function ElevationView({
     // panels (not the full face). The box itself shows the face frame color.
     const faceFill = isAppliance
       ? "linear-gradient(160deg, #f4f6f9 0%, #dde2ea 18%, #c8cfd9 45%, #d4dae4 72%, #bec6d2 100%)"
-      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 96%, #ffffff) 0%, ${cabFinish.face} 30%, ${cabFinish.face} 70%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
+      // Solid face frame color with very subtle top-light shading (5% lighter at
+      // top, 8% darker at bottom) — matches how real painted/stained cabinets look
+      // under overhead room lighting. No washed-out white gradient.
+      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 97%, #ffffff) 0%, ${cabFinish.face} 20%, ${cabFinish.face} 80%, color-mix(in srgb, ${cabFinish.face} 92%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
@@ -231,20 +236,25 @@ export function ElevationView({
           e.stopPropagation();
           onSelect(p.uid);
         }}
-        className={`absolute flex flex-col items-center justify-center overflow-hidden ${canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
+        className={`absolute overflow-hidden ${canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
         style={{
           left: posAlong * ppi,
           width: sizeAlong * ppi,
           bottom: bottom * ppi,
           height: height * ppi,
-          // Transparent outer container — no box/frame around the cabinet.
-          // The face fill color is applied inside DoorFront so only the actual
-          // cabinet face (stiles, rails, panels) is visible, not a surrounding box.
-          background: "transparent",
+          // The outer container carries the face fill as its background so that
+          // no interior/wall color bleeds through at the top or bottom of the
+          // cabinet face. DoorFront renders on top with the door/drawer details.
+          background: faceFill,
           border: "none",
           borderRadius: 0,
-          // Selection: subtle inner glow only — no outer border box.
-          boxShadow: isSelected ? "inset 0 0 0 2px rgba(212,167,90,0.85), inset 0 0 8px rgba(212,167,90,0.30)" : "none",
+          // Drop shadow lifts the cabinet face off the wall so even light-colored
+          // finishes read as 3D objects rather than flat rectangles. The shadow
+          // simulates overhead room lighting (slightly right+bottom biased).
+          // When selected, the gold inner glow is added on top of the shadow.
+          boxShadow: isSelected
+            ? "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10), inset 0 0 0 2px rgba(212,167,90,0.85), inset 0 0 8px rgba(212,167,90,0.30)"
+            : "2px 3px 8px rgba(0,0,0,0.22), -1px 0 4px rgba(0,0,0,0.10)",
           opacity: seam ? 0.96 : isDragging ? 0.85 : undefined,
           transition: isDragging ? undefined : "left 80ms ease-out",
           zIndex: isDragging ? 10 : 2,
@@ -911,41 +921,11 @@ export function ElevationView({
             BOTH walls of the corner view. */}
         {seamCabinets.map((p) => renderCabinetBox(p, true))}
 
-        {(() => {
-          // Countertop slab colored by the chosen material (falls back to the
-          // default material). A polished top gradient + a slightly darker
-          // front-edge lip make the counter read as a real stone/wood slab
-          // instead of a flat black band.
-          const ct = countertopMaterial(countertopMaterialId);
-          const slabFill = `linear-gradient(180deg, color-mix(in srgb, ${ct.fill} 82%, #ffffff) 0%, ${ct.fill} 45%, color-mix(in srgb, ${ct.fill} 88%, #000000) 100%)`;
-          const thickPx = Math.max(2, STD.COUNTERTOP_THICKNESS * ppi);
-          return sorted
-            .filter((p) => p.placement === "base" && p.cabinetId !== 0)
-            .map((p) => {
-              const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-              const posAlong = horizontal ? p.x : p.y;
-              return (
-                <div
-                  key={`ct-${p.uid}`}
-                  className="absolute"
-                  style={{
-                    left: posAlong * ppi - 1,
-                    width: sizeAlong * ppi + 2,
-                    // Flush on top of 34.5" base cabinets; slab extends up 1.5" to 36".
-                    bottom: STD.BASE_HEIGHT * ppi,
-                    height: thickPx,
-                    background: slabFill,
-                    borderBottom: `1px solid ${ct.edge}`,
-                    // Thin top sheen highlight + a soft cast shadow onto the
-                    // cabinet doors just below the counter.
-                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.45), 0 2px 4px rgba(15,23,42,0.22)`,
-                    zIndex: 6,
-                  }}
-                  title={`Countertop: ${ct.name}`}
-                />
-              );
-            });
-        })()}
+        {/* Duplicate per-cabinet countertop slab removed — the contiguous-run
+            countertop renderer above (lines 583-645) already handles the slab
+            correctly when a material is selected. The per-cabinet fallback was
+            causing an unwanted warm/orange stripe at the top of every base
+            cabinet even when no countertop material was chosen. */}
 
         {/* Faucet: drawn above sink base cabinets (SB-*). Shows a vertical
             riser + horizontal spout + aerator + handle knob sitting on top of
@@ -1282,11 +1262,10 @@ function HardwareOverlay({
   accent: string;
   handleSide?: "left" | "right" | null;
 }) {
-  // Brushed-metal sheen shared by all hardware: a diagonal light streak over the
-  // accent color plus a crisp top highlight and a soft drop shadow so the piece
-  // reads as a real metal knob/pull catching the room light.
+  // Brushed-metal sheen: diagonal light streak over accent color with crisp
+  // top highlight and soft drop shadow so pieces read as real metal hardware.
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
-  const metalShadow = "0 1px 1.5px rgba(0,0,0,0.35), inset 0 0.5px 0 rgba(255,255,255,0.55)";
+  const metalShadow = "0 2px 4px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.45)";
   // For door hardware (knobs), position on the handle side (opposite of hinge).
   // Drawers always center their hardware.
   const piece = (kind: "knob" | "pull" | "cup", key: string, topPct: number, isDoor?: boolean) => {
@@ -1298,36 +1277,37 @@ function HardwareOverlay({
         <div
           key={key}
           className="absolute rounded-full"
-          style={{ left: leftPos, top: `${topPct}%`, width: 5, height: 5, marginLeft: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8 }}
+          style={{ left: leftPos, top: `${topPct}%`, width: 9, height: 9, marginLeft: -4.5, marginTop: -4.5, background: metal, boxShadow: metalShadow, zIndex: 8 }}
         />
       );
     }
     if (kind === "pull") {
-      // Pulls on doors position on the handle side; on drawers they stay centered
+      // Bar pulls: large, prominent, centered on drawers; on doors positioned on handle side
+      // Width: ~42% of the cabinet face for doors, ~50% for drawers (like real bar pulls)
       const pullStyle = isDoor && hSide
         ? hSide === "left"
-          ? { left: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
-          : { right: "8%", width: "18%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 }
-        : { left: "30%", right: "30%", top: `${topPct}%`, height: 3, background: metal, boxShadow: metalShadow, zIndex: 8 };
+          ? { left: "6%", width: "38%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
+          : { right: "6%", width: "38%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 }
+        : { left: "25%", right: "25%", top: `${topPct}%`, height: 5, marginTop: -2.5, background: metal, boxShadow: metalShadow, zIndex: 8, borderRadius: 3 };
       return (
         <div
           key={key}
-          className="absolute rounded-full"
+          className="absolute"
           style={pullStyle as React.CSSProperties}
         />
       );
     }
-    // cup pull: a small half-moon (rounded bottom) bin pull — always centered (drawers only)
+    // cup pull: a half-moon bin pull — always centered (drawers only)
     return (
       <div
         key={key}
         className="absolute"
         style={{
-          left: "34%", right: "34%", top: `${topPct}%`, height: 4.5,
-          borderBottomLeftRadius: 7, borderBottomRightRadius: 7,
-          border: `1.5px solid ${accent}`, borderTop: "none",
+          left: "30%", right: "30%", top: `${topPct}%`, height: 7,
+          borderBottomLeftRadius: 10, borderBottomRightRadius: 10,
+          border: `2px solid ${accent}`, borderTop: "none",
           background: `linear-gradient(180deg, transparent 0%, color-mix(in srgb, ${accent} 35%, transparent) 100%)`,
-          boxShadow: "0 1px 1.5px rgba(0,0,0,0.30)", zIndex: 8,
+          boxShadow: "0 2px 3px rgba(0,0,0,0.35)", zIndex: 8,
         }}
       />
     );
@@ -1352,7 +1332,9 @@ function HardwareOverlay({
   if (hasDoors) {
     // Knob/pull near the bottom inner corner of the door band — positioned on
     // the handle side (opposite of the hinge).
-    const doorTop = drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.12 : 0.5);
+    // Bar pulls: position near the bottom 20% of the door (like real kitchens).
+    // Knobs: position near the top 15% of the door (near the handle side corner).
+    const doorTop = drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.15 : 0.78);
     for (let i = 0; i < Math.min(doors, 2); i++) {
       pieces.push(piece(doorPiece as "knob" | "pull", `do-${i}`, doorTop, true));
     }

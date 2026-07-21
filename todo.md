@@ -1203,3 +1203,40 @@
 - [x] Fix 3: Added auto-correct useEffect to switch depth when height changes and current depth has no match
 - [x] Fix 4: Depth buttons now show strikethrough/disabled when no matching cabinet exists at that depth
 - [x] TypeScript check passes; checkpoint saved
+
+## Fix: Elevation view — all cabinets must show correct door face for all lines, styles, colors (Jul 21)
+
+- [x] Add drop shadow to outer cabinet container so all cabinets visually lift off the wall (fixes white-box effect for light-colored finishes)
+- [x] Add keyword matches for Skyline style names that currently fall to fallback: "Treasure Chest" (warm brown), "Rustic Wood" (warm oak), "Midnight Glass" (dark/near-black slab)
+- [x] Add keyword matches for "blonde", "charcoal" (Aspen Charcoal), "iron" (Slim Iron Black), "aston" (Slim Aston Green), "dove" for Slim Dove White
+- [x] Verify doorPanelKind handles "Slim Shaker" doorStyle correctly (already handled by regex)
+- [x] Verify finishColors handles hex color codes from USCD styles correctly (already handled)
+- [x] Verify all cabinet types (single-door, double-door, drawer-base, pantry, sink-base, blind-corner, glass-door) render correctly with finish color and door style
+- [x] TypeScript check passes; checkpoint saved
+
+## Fix: Elevation rendering bugs — FRIDGE, B36 doors, B12FH (Jul 21)
+
+- [x] FRIDGE-36: Must show the cabinet face (finish color + door style), NOT the steel appliance box — remove the FRIDGE/RANGE masterCode check from isAppliance so refrigerator cabinets render as real cabinet faces
+- [x] B36 (36" base with drawers + door): The door portion below the drawers shows incorrectly — investigate why the door panel area has a visible orange/warm stripe at the top and fix the face fill gradient for the door region
+- [x] B12FH (12" single door base): Shows a white/light box — the face frame is light Oxford Mist against the warm beige wall; fix by ensuring the drop shadow is applied correctly and the face fill is solid
+- [x] All single-door base cabinets: Must show the full shaker door face (stiles + rails + recessed panel) in the correct finish color with no visible box artifact
+- [x] TypeScript check passes; screenshot verified; checkpoint saved
+
+## Fix: Base cabinet elevation — toe kick + full face + countertop (Jul 21)
+
+- [x] Remove duplicate per-cabinet countertop slab renderer (lines 922-956 in ElevationView.tsx) — renders always even without countertop selected, causing orange stripe at top
+- [x] Fix face fill to cover the full face area from toe kick top to countertop bottom — no interior/wall color showing through
+- [x] Ensure toe kick renders at the bottom of every base cabinet (dark strip ~4.5" tall)
+- [x] Remove FRIDGE-* from isAppliance so fridge cabinets render as real cabinet faces (finish color + door style)
+- [x] Verify correct layering: toe kick (bottom) → full cabinet face → countertop (top)
+- [x] TypeScript check passes; screenshot verified; checkpoint saved
+
+## Fix: Cabinet face fill gap — interior/wall color showing at top of ALL cabinets (Jul 21)
+
+- [x] ALL cabinets (base AND wall) show an orange/warm stripe at the top — the interior is showing through a gap at the top of the face fill
+- [x] Root cause: outer container was transparent; face fill (withFace absolute inset-0) had a sub-pixel gap at the top
+- [x] Fix: set outer cabinet container background to faceFill color directly — no interior shows through regardless of DoorFront rendering
+- [x] Wall cabinets: same issue fixed — orange stripe at top of W2136, W2736 eliminated
+- [x] Base cabinets: orange stripe at top + white stripe below countertop fixed
+- [x] The countertop slab (per-cabinet duplicate removed) — contiguous-run renderer still works correctly
+- [x] TypeScript check passes; screenshot verified; checkpoint saved

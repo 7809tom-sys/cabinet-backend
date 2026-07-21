@@ -18,7 +18,7 @@ import {
   PlacedCabinet, RoomData, STD, elevationBox,
   FinishColors, DEFAULT_FINISH_COLORS,
   type DoorPanelKind,
-  countertopMaterial, DEFAULT_COUNTERTOP_MATERIAL_ID,
+  countertopMaterial,
   isOnIsland, placedFootprint, bearsCountertop,
   isSinkBaseCabinet, isFarmerSinkBase, isBlindCorner, resolveSwing,
   isRangeOrOven, isStacker, wallCabinetTopLine,
@@ -488,35 +488,10 @@ export function IslandElevationView({
           {/* Cabinet boxes */}
           {sorted.map((p) => renderCabinetBox(p))}
 
-          {/* Countertop slab per base cabinet */}
-          {(() => {
-            const ct = countertopMaterial(countertopMaterialId ?? DEFAULT_COUNTERTOP_MATERIAL_ID);
-            const slabFill = `linear-gradient(180deg, color-mix(in srgb, ${ct.fill} 82%, #ffffff) 0%, ${ct.fill} 45%, color-mix(in srgb, ${ct.fill} 88%, #000000) 100%)`;
-            const thickPx = Math.max(2, STD.COUNTERTOP_THICKNESS * ppi);
-            return sorted
-              .filter((p) => p.placement === "base" && p.cabinetId !== 0)
-              .map((p) => {
-                const cabSizeAlong = sizeAlong(p);
-                const cabPosAlong = posAlong(p);
-                return (
-                  <div
-                    key={`ct-${p.uid}`}
-                    className="absolute z-20 pointer-events-none"
-                    style={{
-                      left: cabPosAlong * ppi,
-                      width: cabSizeAlong * ppi,
-                      // Flush on top of 34.5" base cabinets; slab extends up 1.5" to 36".
-                      bottom: STD.BASE_HEIGHT * ppi,
-                      height: thickPx,
-                      background: slabFill,
-                      borderTop: `1px solid color-mix(in srgb, ${ct.fill} 60%, #ffffff)`,
-                      borderBottom: `1px solid ${ct.edge}`,
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.55)",
-                    }}
-                  />
-                );
-              });
-          })()}
+          {/* Duplicate per-cabinet countertop slab removed — the merged-spans
+              renderer below handles the countertop correctly when a material
+              is selected. The per-cabinet fallback was causing an unwanted
+              warm/orange stripe at the top of every base cabinet. */}
 
           {/* Merged countertop spans (for bearsCountertop cabinets) */}
           {countertopMaterialId && (() => {

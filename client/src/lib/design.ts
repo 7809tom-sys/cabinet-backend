@@ -1628,16 +1628,16 @@ const FINISH_BY_KEYWORD: { match: RegExp; face: string; edge: string; label: str
   { match: /grey|gray|stone|pewter|graphite|slate|fog|cinder|relic|repose|dovetail|grizzle|greige|ash|smoke|nickel|harbor|mist|pebble|amberg/, face: "#9aa0a6", edge: "#6f747a", label: "#1f2937" },
   // BLUES
   { match: /navy|blue|indigo|ocean|naval|cobalt|abyss|cobblestone|denim|sapphire|marine|teal|peacock/, face: "#3b4d63", edge: "#26354a", label: "#f8fafc" },
-  // GREENS
-  { match: /green|sage|forest|hunter|olive|fern|moss|evergreen|basil|juniper/, face: "#566f5a", edge: "#3c4f40", label: "#f8fafc" },
-  // BLACKS / NEAR-BLACK
-  { match: /black|onyx|carbon|tricorn|obsidian|jet|raven|charcoal|iron ore|peppercorn|caviar/, face: "#2b2b2e", edge: "#161618", label: "#f5f5f5" },
-  // DARK BROWNS (espresso/walnut/mocha)
-  { match: /walnut|mocha|coffee|chocolate|brown|espresso|umbra|shadow|java|truffle|cocoa|bourbon/, face: "#6b4a32", edge: "#4c3422", label: "#fbeee6" },
+  // GREENS (incl. Aston Green, sage breeze)
+  { match: /green|sage|forest|hunter|olive|fern|moss|evergreen|basil|juniper|aston/, face: "#566f5a", edge: "#3c4f40", label: "#f8fafc" },
+  // BLACKS / NEAR-BLACK (incl. Iron Black, Midnight Glass/Black, Charcoal)
+  { match: /black|onyx|carbon|tricorn|obsidian|jet|raven|charcoal|iron ore|peppercorn|caviar|midnight|iron black/, face: "#2b2b2e", edge: "#161618", label: "#f5f5f5" },
+  // DARK BROWNS (espresso/walnut/mocha/treasure chest)
+  { match: /walnut|mocha|coffee|chocolate|brown|espresso|umbra|shadow|java|truffle|cocoa|bourbon|treasure/, face: "#6b4a32", edge: "#4c3422", label: "#fbeee6" },
   // REDDISH WOODS
   { match: /cherry|mahogany|chestnut|cinnamon|spice|sienna|russet|brick|garnet/, face: "#7a4a32", edge: "#5a3422", label: "#fbeee6" },
-  // MID WARM WOODS (oak/maple/honey/saddle/autumn)
-  { match: /honey|oak|natural|maple|wheat|amber|toffee|saddle|autumn|caramel|pecan|harvest|golden|butterscotch|solar/, face: "#c08a4e", edge: "#9a6a36", label: "#3a2410" },
+  // MID WARM WOODS (oak/maple/honey/saddle/autumn/rustic wood/blonde oak)
+  { match: /honey|oak|natural|maple|wheat|amber|toffee|saddle|autumn|caramel|pecan|harvest|golden|butterscotch|solar|rustic wood|blonde/, face: "#c08a4e", edge: "#9a6a36", label: "#3a2410" },
   // CREAMS / WARM NEUTRALS
   { match: /cream|almond|biscuit|linen|sand|beige|tan|creamy|manila|wicker|navajo|buttermilk|antique white|aged/, face: "#e6dcc6", edge: "#c7b79a", label: "#3a3526" },
 ];
