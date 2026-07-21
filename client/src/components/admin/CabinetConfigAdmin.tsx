@@ -103,6 +103,7 @@ function EditModal({
   const [generating, setGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<"3d" | "2d">("3d");
   const [newAliasCode, setNewAliasCode] = useState("");
+  const [measurementSource, setMeasurementSource] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
@@ -147,9 +148,16 @@ function EditModal({
       if (data.pkgWidth) set("pkgWidth", data.pkgWidth);
       if (data.pkgHeight) set("pkgHeight", data.pkgHeight);
       if (data.pkgWeight) set("pkgWeight", data.pkgWeight);
-      toast.success("AI estimates filled in — review and adjust as needed");
+      const label = data.sourceLabel ?? "Filled in";
+      setMeasurementSource(label);
+      const sourceType = data.source;
+      if (sourceType === "master_sheet" || sourceType === "distributor_override" || sourceType === "alias_sibling") {
+        toast.success(label);
+      } else {
+        toast.info(label);
+      }
     },
-    onError: (e) => toast.error(`AI estimate failed: ${e.message}`),
+    onError: (e) => toast.error(`Fill failed: ${e.message}`),
   });
 
   // Master SKU Aliases for this cabinet
@@ -493,30 +501,39 @@ function EditModal({
 
           {/* ── Measurements tab ── */}
           <TabsContent value="measurements" className="space-y-5 mt-0">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                Assembled cabinet dimensions and package/shipping dimensions. All values in inches unless noted.
-              </p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground">
+                  Assembled cabinet dimensions and package/shipping dimensions. All values in inches unless noted.
+                </p>
+                {measurementSource && (
+                  <p className="text-xs mt-1 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                    <span className="text-green-600 dark:text-green-400">{measurementSource}</span>
+                  </p>
+                )}
+              </div>
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5 shrink-0 ml-2"
+                className="gap-1.5 shrink-0"
                 disabled={busy}
-                onClick={() =>
+                onClick={() => {
+                  setMeasurementSource(null);
                   estimateMutation.mutate({
                     id: row.id,
                     width: merged.width,
                     height: merged.height,
                     depth: merged.depth,
-                  })
-                }
+                  });
+                }}
               >
                 {estimateMutation.isPending ? (
                   <Spinner className="h-3 w-3" />
                 ) : (
                   <Sparkles className="h-3 w-3" />
                 )}
-                AI Fill
+                {estimateMutation.isPending ? "Filling…" : "Smart Fill"}
               </Button>
             </div>
 
@@ -546,6 +563,13 @@ function EditModal({
                 <DimInput label="Pkg Weight" value={merged.pkgWeight} onChange={(v) => set("pkgWeight", v)} unit="lbs" disabled={busy} />
               </div>
             </div>
+
+            {/* Auto-fill hint when all weight/pkg fields are empty */}
+            {!merged.weight && !merged.pkgLength && !merged.pkgWeight && !estimateMutation.isPending && !measurementSource && (
+              <p className="text-xs text-muted-foreground italic">
+                No weight or package data yet. Click “Smart Fill” to pull from the master sheet or estimate via AI.
+              </p>
+            )}
           </TabsContent>
 
           {/* ── Aliases tab ── */}

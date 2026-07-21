@@ -1623,9 +1623,15 @@ export const cabinetsRouter = router({
       return { url };
     }),
 
-  // ── AI Measurement Estimator ─────────────────────────────────────────────
-  // Uses the LLM to estimate weight and flat-pack package dimensions for a
-  // RTA cabinet based on its code, category, and assembled dimensions.
+  // Smart Measurement Auto-Fill
+  // Three-tier strategy:
+  //   1. Master sheet data — pull from existing DB rows for this cabinet
+  //      (cabinets table + distributor overrides for the same masterCode)
+  //   2. Alias cross-reference — look up sibling cabinets via sku_master_aliases
+  //      and borrow their stored dimensions if available
+  //   3. AI fallback — LLM estimates based on cabinet code, description, and
+  //      assembled dimensions (uses industry knowledge + any public specs)
+  // The response includes a `source` field so the UI can show where data came from.
   adminEstimateMeasurements: adminProcedure
     .input(
       z.object({
@@ -1639,6 +1645,8 @@ export const cabinetsRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Load the full cabinet record including all measurement fields
       const [cab] = await db
         .select({
           masterCode: cabinets.masterCode,
@@ -1648,21 +1656,120 @@ export const cabinetsRouter = router({
           width: cabinets.width,
           height: cabinets.height,
           depth: cabinets.depth,
+          physicalWidth: cabinets.physicalWidth,
+          weight: cabinets.weight,
+          pkgLength: cabinets.pkgLength,
+          pkgWidth: cabinets.pkgWidth,
+          pkgHeight: cabinets.pkgHeight,
+          pkgWeight: cabinets.pkgWeight,
         })
         .from(cabinets)
         .where(eq(cabinets.id, input.id))
         .limit(1);
       if (!cab) throw new TRPCError({ code: "NOT_FOUND" });
 
-      // Prefer values from the modal draft (user may have just typed them)
+      // ── Tier 1: Master sheet data ──────────────────────────────────────────
+      // Check if the cabinet already has measurement data stored in the DB.
+      const hasStoredMeasurements =
+        cab.weight != null ||
+        cab.pkgLength != null ||
+        cab.pkgWidth != null ||
+        cab.pkgHeight != null ||
+        cab.pkgWeight != null;
+
+      if (hasStoredMeasurements) {
+        return {
+          weight: cab.weight ?? null,
+          pkgLength: cab.pkgLength ?? null,
+          pkgWidth: cab.pkgWidth ?? null,
+          pkgHeight: cab.pkgHeight ?? null,
+          pkgWeight: cab.pkgWeight ?? null,
+          source: "master_sheet" as const,
+          sourceLabel: "Filled from master sheet data",
+        };
+      }
+
+      // ── Tier 2: Distributor overrides for this cabinet ─────────────────────
+      // Check if any distributor has dimension overrides for this cabinet.
+      const overrides = await db
+        .select({
+          weight: distributorCabinetOverrides.weight,
+          pkgLength: distributorCabinetOverrides.pkgLength,
+          pkgWidth: distributorCabinetOverrides.pkgWidth,
+          pkgHeight: distributorCabinetOverrides.pkgHeight,
+          pkgWeight: distributorCabinetOverrides.pkgWeight,
+        })
+        .from(distributorCabinetOverrides)
+        .where(eq(distributorCabinetOverrides.cabinetId, input.id))
+        .limit(5);
+
+      const overrideData = overrides.find(
+        (o) => o.weight != null || o.pkgLength != null || o.pkgWeight != null
+      );
+      if (overrideData) {
+        return {
+          weight: overrideData.weight ?? null,
+          pkgLength: overrideData.pkgLength ?? null,
+          pkgWidth: overrideData.pkgWidth ?? null,
+          pkgHeight: overrideData.pkgHeight ?? null,
+          pkgWeight: overrideData.pkgWeight ?? null,
+          source: "distributor_override" as const,
+          sourceLabel: "Filled from distributor data",
+        };
+      }
+
+      // ── Tier 2b: Alias sibling lookup ──────────────────────────────────────
+      // If this cabinet has alias codes pointing to it, check if any of those
+      // sibling cabinets have measurement data we can borrow.
+      if (cab.masterCode) {
+        const aliasRows = await db
+          .select({ aliasCode: skuMasterAliases.aliasCode })
+          .from(skuMasterAliases)
+          .where(eq(skuMasterAliases.masterCode, cab.masterCode));
+
+        if (aliasRows.length > 0) {
+          const aliasCodes = aliasRows.map((a) => a.aliasCode);
+          const siblings = await db
+            .select({
+              weight: cabinets.weight,
+              pkgLength: cabinets.pkgLength,
+              pkgWidth: cabinets.pkgWidth,
+              pkgHeight: cabinets.pkgHeight,
+              pkgWeight: cabinets.pkgWeight,
+              masterCode: cabinets.masterCode,
+            })
+            .from(cabinets)
+            .where(inArray(cabinets.masterCode, aliasCodes))
+            .limit(5);
+
+          const siblingData = siblings.find(
+            (s) => s.weight != null || s.pkgLength != null || s.pkgWeight != null
+          );
+          if (siblingData) {
+            return {
+              weight: siblingData.weight ?? null,
+              pkgLength: siblingData.pkgLength ?? null,
+              pkgWidth: siblingData.pkgWidth ?? null,
+              pkgHeight: siblingData.pkgHeight ?? null,
+              pkgWeight: siblingData.pkgWeight ?? null,
+              source: "alias_sibling" as const,
+              sourceLabel: `Filled from alias sibling (${siblingData.masterCode})`,
+            };
+          }
+        }
+      }
+
+      // ── Tier 3: AI estimation ──────────────────────────────────────────────
+      // No stored data found anywhere. Fall back to LLM estimation based on
+      // cabinet code, description, category, and assembled dimensions.
       const w = input.width ?? cab.width;
       const h = input.height ?? cab.height;
       const d = input.depth ?? cab.depth;
 
       const dimStr = [
-        w && `${parseFloat(w)}\"W`,
-        h && `${parseFloat(h)}\"H`,
-        d && `${parseFloat(d)}\"D`,
+        w && `${parseFloat(w)}"W`,
+        h && `${parseFloat(h)}"H`,
+        d && `${parseFloat(d)}"D`,
       ]
         .filter(Boolean)
         .join(" x ");
@@ -1675,6 +1782,7 @@ export const cabinetsRouter = router({
           ? `Category: ${cab.category}${cab.subCategory ? ` / ${cab.subCategory}` : ""}.`
           : "",
         dimStr ? `Assembled dimensions: ${dimStr}.` : "",
+        `Use your knowledge of RTA cabinet industry standards and any publicly available specifications for this cabinet code to provide the most accurate estimates possible.`,
         `IMPORTANT: This is a flat-pack RTA cabinet. The package is flat -- typically only 6 to 8 inches thick -- NOT a full-depth box.`,
         `The box length and width roughly match the cabinet face dimensions (assembled width x assembled height), and the box thickness is 6-8 inches.`,
         `For an 8-foot (96-inch) tall cabinet the box length will be approximately 96 inches.`,
@@ -1719,6 +1827,8 @@ export const cabinetsRouter = router({
         pkgWidth: parsed.pkgWidth ?? null,
         pkgHeight: parsed.pkgHeight ?? null,
         pkgWeight: parsed.pkgWeight ?? null,
+        source: "ai_estimate" as const,
+        sourceLabel: "AI estimate — review and adjust as needed",
       };
     }),
 

@@ -1286,9 +1286,9 @@
 - [x] TypeScript check passes; checkpoint saved
 
 ## Feature: "Not a cabinet" flag on product edit (Jul 21)
-- [ ] Check DB schema: does cabinets table have isNotCabinet / is_not_cabinet column?
-- [ ] If missing: add boolean column is_not_cabinet (default false) via migration
-- [ ] Backend: expose isNotCabinet in getCabinetById and updateCabinet procedures
+- [x] Check DB schema: isNotCabinet boolean column exists in cabinets table (schema.ts line 161)
+- [x] No migration needed: column already exists
+- [x] Backend: isNotCabinet exposed in catalog.ts adminUpdateCabinet (line 1441) and byCode (line 1943)
 - [x] Admin edit form: "Not a Cabinet" toggle already exists in CabinetConfigAdmin.tsx
 - [x] Product detail page: door style selector wrapped in {!cabinet?.isNotCabinet && ...} conditional
 - [x] TypeScript check passes; checkpoint saved
@@ -1319,4 +1319,16 @@
 - [x] On save/add: upsert into sku_master_aliases (aliasCode → masterCode, status=approved, createdBy=admin)
 - [x] On remove: delete from sku_master_aliases
 - [x] Backend: tRPC procedures getAliasesForCabinet(masterCode) and addAliasForCabinet(aliasCode, masterCode)
+- [x] TypeScript check passes; checkpoint saved
+
+## Feature: Smart Fill for weight & dimensions (Jul 21)
+- [x] Backend: adminEstimateMeasurements upgraded to 3-tier strategy (master sheet → distributor overrides → alias siblings → AI fallback)
+- [x] Tier 1: If cabinet already has weight/pkgLength/pkgWeight in DB, return those immediately with source="master_sheet"
+- [x] Tier 2: Check distributor_cabinet_overrides for this cabinet; use first row with weight or pkg data, source="distributor_override"
+- [x] Tier 2b: Check sku_master_aliases for sibling cabinets; borrow their stored dimensions, source="alias_sibling"
+- [x] Tier 3: AI fallback — LLM prompt enhanced with "use publicly available specs" instruction, source="ai_estimate"
+- [x] Response now includes `source` and `sourceLabel` fields
+- [x] UI: Button renamed "Smart Fill"; shows "Filling…" while pending
+- [x] UI: Source label shown below description with green checkmark after fill
+- [x] UI: Hint text shown when all weight/pkg fields are empty
 - [x] TypeScript check passes; checkpoint saved
