@@ -6,12 +6,13 @@
  * used by ElevationView / DoorFront so the diagram always agrees with the
  * actual rendered elevation.
  *
- * Supported layouts (matches ElevationView DoorFront logic):
- *   • Standard base  – top drawer band (26 %) + N side-by-side doors below
- *   • All-drawer     – N stacked drawer fronts, no doors
- *   • Door-only      – N side-by-side doors (wall cabinets, single-door base)
- *   • Pantry         – 2 doors top + 2 doors bottom split at ~54 / totalH
- *   • Open / noDoor  – empty box (no panels)
+ * Supported layouts:
+ *   • Standard base     – top drawer band (26 %) + N side-by-side doors below
+ *   • All-drawer        – N stacked drawer fronts, no doors
+ *   • Door-only         – N side-by-side doors (wall cabinets, single-door base)
+ *   • Pantry (tall)     – 2 doors top + 2 doors bottom split at ~54 / totalH
+ *   • Oven/tall-oven    – 2 small doors top + oven opening + drawers bottom
+ *   • Open / noDoor     – empty box (no panels)
  */
 
 import React from "react";
@@ -25,8 +26,11 @@ const CLR = {
   doorStroke: "#1d4ed8",
   drawer: "#f59e0b",       // drawer fill (amber)
   drawerStroke: "#b45309",
+  oven: "#6b7280",         // oven opening fill (gray)
+  ovenStroke: "#374151",
   label: "#ffffff",        // text on panels
   subLabel: "#e2e8f0",     // secondary text
+  ovenLabel: "#d1d5db",    // text on oven opening
   rail: "#475569",         // horizontal rail between zones
   bg: "transparent",
 };
@@ -44,6 +48,23 @@ function toNum(v: number | string | null | undefined): number | null {
   if (v == null) return null;
   const n = typeof v === "number" ? v : parseFloat(v as string);
   return Number.isFinite(n) ? n : null;
+}
+
+function lc(s: string | null | undefined) {
+  return (s ?? "").toLowerCase();
+}
+
+/** Detect oven / tall-oven cabinets by code prefix or description. */
+function isOvenCabinet(cab: CabinetLike): boolean {
+  const code = lc(cab.masterCode);
+  const desc = lc(cab.description);
+  const sub  = lc(cab.subCategory);
+  // Code prefixes used in catalog: O30/O33 (oven tall), UOC (utility oven combo)
+  if (/^(?:o3[0-9]|uoc)/.test(code)) return true;
+  // Description contains "oven" (but not "microwave oven" which is a base)
+  if (/oven(?:\s+cabinet|\s+tower|\s+tall|\s+utility)?/.test(desc) && !/microwave/.test(desc)) return true;
+  if (/oven/.test(sub)) return true;
+  return false;
 }
 
 /** Render a single rectangular zone with fill + label centred inside. */
@@ -119,8 +140,94 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
 
   const DRAWER_BAND_PCT = 0.26; // matches ElevationView
 
-  if (doors === 0 && drawers === 0) {
+  const isOven = isOvenCabinet(cabinet);
+
+  // For oven cabinets, the DB often has numberOfDoors=0 / numberOfDrawers=0 because
+  // the oven opening is the main feature. Fall back to description parsing so the
+  // diagram can still show the correct door and drawer counts.
+  let effectiveDoors = doors;
+  let effectiveDrawers = drawers;
+  if (isOven && doors === 0 && drawers === 0) {
+    const desc = lc(cabinet.description);
+    const WORD_NUM: Record<string, number> = { one: 1, single: 1, two: 2, double: 2, three: 3, triple: 3, four: 4, five: 5, six: 6 };
+    const drawerNum = desc.match(/(\d+)\s*[- ]?drawer/);
+    if (drawerNum) effectiveDrawers = parseInt(drawerNum[1], 10);
+    else {
+      const drawerWord = desc.match(/\b(single|two|double|three|triple|four|five|six)\s*[- ]?drawer/);
+      if (drawerWord) effectiveDrawers = WORD_NUM[drawerWord[1]] ?? 0;
+    }
+    const doorNum = desc.match(/(\d+)\s*[- ]?door/);
+    if (doorNum) effectiveDoors = parseInt(doorNum[1], 10);
+    else {
+      const doorWord = desc.match(/\b(single|two|double|three|triple|four)\s*[- ]?door/);
+      if (doorWord) effectiveDoors = WORD_NUM[doorWord[1]] ?? 0;
+    }
+  }
+
+  if (effectiveDoors === 0 && effectiveDrawers === 0 && !isOven) {
     // Open cabinet — nothing to draw inside
+
+  } else if (isOven) {
+    // ── Oven cabinet layout ────────────────────────────────────────────────
+    // Typical oven tower: 2 small doors on top (~20%), oven opening (~45%), drawers at bottom (~35%)
+    // Proportions are approximate; adjust based on whether there are drawers.
+    const topDoorCount = Math.max(1, effectiveDoors);
+    const hasDrawers = effectiveDrawers > 0;
+
+    // Height proportions
+    const topDoorPct  = 0.20;
+    const drawerPct   = hasDrawers ? Math.max(0.10 * effectiveDrawers, 0.25) : 0;
+    const ovenPct     = Math.max(0.20, 1 - topDoorPct - drawerPct);
+
+    const topDoorH = Math.round(iH * topDoorPct);
+    const drawerH  = Math.round(iH * drawerPct);
+    const ovenH    = iH - topDoorH - drawerH;
+
+    // Top doors (side-by-side)
+    const doorColW = iW / topDoorCount;
+    for (let i = 0; i < topDoorCount; i++) {
+      const doorLabel =
+        topDoorCount === 1 ? "Door" :
+        topDoorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") :
+        `Door ${i + 1}`;
+      zones.push({
+        x: PAD + i * doorColW, y: PAD,
+        w: doorColW, h: topDoorH,
+        fill: CLR.door, stroke: CLR.doorStroke,
+        label: doorLabel,
+        subLabel: "upper",
+      });
+    }
+
+    // Rail between top doors and oven
+    rails.push({ y: PAD + topDoorH });
+
+    // Oven opening (gray cutout)
+    zones.push({
+      x: PAD, y: PAD + topDoorH,
+      w: iW, h: ovenH,
+      fill: CLR.oven, stroke: CLR.ovenStroke,
+      label: "Oven Opening",
+      subLabel: "appliance cutout",
+    });
+
+    // Rail between oven and drawers
+    if (hasDrawers) {
+      rails.push({ y: PAD + topDoorH + ovenH });
+
+      // Drawers at bottom (stacked)
+      const sliceH = drawerH / effectiveDrawers;
+      for (let i = 0; i < effectiveDrawers; i++) {
+        zones.push({
+          x: PAD, y: PAD + topDoorH + ovenH + i * sliceH,
+          w: iW, h: sliceH,
+          fill: CLR.drawer, stroke: CLR.drawerStroke,
+          label: `Drawer ${i + 1}`,
+          subLabel: i === effectiveDrawers - 1 ? "bottom" : undefined,
+        });
+      }
+    }
+
   } else if (type === "pantry") {
     // Pantry: 2 doors bottom + 2 doors top, split at ~54" from floor
     const totalH = cabinetH;
@@ -151,6 +258,7 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
         subLabel: "upper",
       });
     }
+
   } else if (drawers > 0 && doors > 0) {
     // Standard base: drawer band on top, doors below
     const drawerBandH = Math.round(iH * DRAWER_BAND_PCT);
@@ -182,6 +290,7 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
         label: doorLabel,
       });
     }
+
   } else if (drawers > 0 && doors === 0) {
     // All-drawer base: stacked drawers
     const sliceH = iH / drawers;
@@ -194,6 +303,7 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
         subLabel: i === 0 ? "top" : i === drawers - 1 ? "bottom" : undefined,
       });
     }
+
   } else if (doors > 0 && drawers === 0) {
     // Door-only (wall cabinets, single/double door base with no drawers)
     const cols = Math.max(1, doors);
@@ -212,11 +322,16 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     }
   }
 
-  // ── Legend items ─────────────────────────────────────────────────────────
+  // ── Legend items ─────────────────────────────────────────────────
+  // Use effectiveDoors/effectiveDrawers for oven cabinets (description-parsed),
+  // fall back to resolved doors/drawers for all other types.
+  const legendDoors   = isOven ? effectiveDoors   : doors;
+  const legendDrawers = isOven ? effectiveDrawers : drawers;
   const legendItems: { color: string; label: string }[] = [];
-  if (doors > 0) legendItems.push({ color: CLR.door, label: `${doors} Door${doors > 1 ? "s" : ""}` });
-  if (drawers > 0) legendItems.push({ color: CLR.drawer, label: `${drawers} Drawer${drawers > 1 ? "s" : ""}` });
-  if (doors === 0 && drawers === 0) legendItems.push({ color: "#64748b", label: "Open / No Doors" });
+  if (legendDoors > 0) legendItems.push({ color: CLR.door, label: `${legendDoors} Door${legendDoors > 1 ? "s" : ""}` });
+  if (legendDrawers > 0) legendItems.push({ color: CLR.drawer, label: `${legendDrawers} Drawer${legendDrawers > 1 ? "s" : ""}` });
+  if (isOven) legendItems.push({ color: CLR.oven, label: "Oven Opening" });
+  if (legendDoors === 0 && legendDrawers === 0 && !isOven) legendItems.push({ color: "#64748b", label: "Open / No Doors" });
 
   const legendY = svgH + 6;
   const totalSvgH = svgH + 24; // extra space for legend

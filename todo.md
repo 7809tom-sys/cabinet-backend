@@ -1367,3 +1367,10 @@
 - [x] Integrate diagram into CabinetDetail product page (below Specifications card)
 - [x] Integrate diagram into CabinetConfigAdmin edit dialog (live preview below Doors/Drawers selectors)
 - [x] TypeScript check passes; checkpoint saved
+
+## Fix: Door & Drawer Diagram — Oven Cabinet Layout
+- [x] Detect oven cabinets by code prefix (O3x, UOC) and description keyword
+- [x] Render oven cabinets as: top doors → gray oven opening cutout → stacked drawers at bottom
+- [x] Fall back to description parsing for oven cabinet door/drawer counts when DB has 0/0
+- [x] Update legend to show Doors + Drawers + Oven Opening for oven cabinets
+- [x] TypeScript check passes; checkpoint saved
