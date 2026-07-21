@@ -304,6 +304,21 @@ export default function Family({ styleCode }: { styleCode: string }) {
   const [activeType, setActiveType] = useState("all");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [heroPassed, setHeroPassed] = useState(false);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+
+  // Track when the hero scrolls out of view so the sticky bar shows the style name.
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setHeroPassed(!entry.isIntersecting),
+      { threshold: 0, rootMargin: "-64px 0px 0px 0px" },
+    );
+    obs.observe(hero);
+    return () => obs.disconnect();
+  }, []);
 
 
   useEffect(() => {
@@ -441,7 +456,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
       </Link>
 
       {/* ── Family header: room scene + sample door + the facts ───────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border border-border mb-8">
+      <div ref={heroRef} className="relative overflow-hidden rounded-2xl border border-border mb-8">
         {realScene ? (
           <img
             src={realScene}
@@ -670,8 +685,36 @@ export default function Family({ styleCode }: { styleCode: string }) {
       )}
 
       {/* ── Type filter + search ──────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex flex-wrap gap-2">
+      {/* Sticky filter bar — bleeds to viewport edge, stays below TopNav (top-16 = 64px) */}
+      <div
+        ref={filterBarRef}
+        className="sticky z-40 -mx-4 px-4 md:-mx-6 md:px-6 mb-6"
+        style={{
+          top: 64,
+          background: heroPassed ? "hsl(var(--background) / 0.97)" : "transparent",
+          backdropFilter: heroPassed ? "blur(8px)" : "none",
+          WebkitBackdropFilter: heroPassed ? "blur(8px)" : "none",
+          boxShadow: heroPassed ? "0 1px 0 hsl(var(--border))" : "none",
+          paddingTop: heroPassed ? 8 : 0,
+          paddingBottom: heroPassed ? 8 : 0,
+          transition: "background 150ms, box-shadow 150ms, padding 150ms",
+        }}
+      >
+        {/* Compact style name + thumbnail — only visible once hero scrolls away */}
+        {heroPassed && (
+          <div className="flex items-center gap-2 mb-2">
+            {realDoor && (
+              <img
+                src={realDoor}
+                alt={familyName}
+                className="h-7 w-7 rounded object-cover ring-1 ring-border shrink-0"
+              />
+            )}
+            <span className="text-sm font-semibold text-foreground truncate">{familyName}</span>
+          </div>
+        )}
+        {/* Filter pills + inline search on one row */}
+        <div className="flex flex-wrap items-center gap-2">
           {availableTypes.map((f) => (
             <button
               key={f.key}
@@ -685,15 +728,16 @@ export default function Family({ styleCode }: { styleCode: string }) {
               {t(f.labelKey as never)}
             </button>
           ))}
-        </div>
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t("fam_search_ph", { name: familyName })}
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          {/* Search input — pushed to the right on wider screens */}
+          <div className="relative ml-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={t("fam_search_ph", { name: familyName })}
+              className="pl-9 h-9 text-sm w-40 md:w-52"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
