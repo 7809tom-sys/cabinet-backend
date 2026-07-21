@@ -547,6 +547,13 @@
       "when": 1784642759261,
       "tag": "0077_magical_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "5",
+      "when": 1784662030077,
+      "tag": "0078_secret_black_queen",
+      "breakpoints": true
     }
   ]
 }

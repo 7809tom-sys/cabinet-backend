@@ -1350,3 +1350,14 @@
 - [x] All 7 SingleDoorPanel call sites in DoorFront updated to pass isWall={isWall}
 - [x] All door style cases (shaker, slim-shaker, raised, beaded, inset, slab, double-shaker) updated
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Separate Door Sample and Drawer Sample Images
+- [ ] DB: add drawer_sample_image_url column to door_styles table
+- [ ] Migration: generate and apply SQL for new column
+- [ ] Backend: expose drawerSampleImageUrl in getDoorStyles and adminUpdateDoorStyle procedures
+- [ ] Admin UI: add Drawer Sample image upload field alongside existing Door Sample field
+- [ ] ElevationView: wall cabinets skip door sample photo entirely (CSS-only rendering)
+- [ ] ElevationView: base cabinet door panels use doorSampleUrl (bottom of photo / center)
+- [ ] ElevationView: base cabinet drawer fronts use drawerSampleUrl (top of photo / center top)
+- [ ] ElevationView: StylePanel drawer=true uses drawerSampleUrl when available
+- [ ] TypeScript check passes; checkpoint saved

@@ -57,15 +57,17 @@ function RecessedPanel({
 }
 
 function DoorFront({
-  kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn,
+  kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn,
 }: {
   kind: DoorPanelKind; edge: string; face: string;
   doors: number; drawers: number; isWall: boolean;
   doorSampleUrl?: string | null;
+  drawerSampleUrl?: string | null;
   cabinetType: CabinetDrawingType | null;
   blindOnLeft: boolean;
   cabinetHeightIn: number;
 }) {
+  void drawerSampleUrl; // reserved for future drawer-front photo rendering in island view
   const railBevel: React.CSSProperties = {
     boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 ${edge}55, inset 1px 0 0 rgba(255,255,255,0.2), inset -1px 0 0 ${edge}44`,
   };
@@ -210,6 +212,7 @@ interface Props {
   finishFor?: (cab: PlacedCabinet) => FinishColors;
   panelKindFor?: (cab: PlacedCabinet) => DoorPanelKind;
   doorSampleUrlFor?: (cab: PlacedCabinet) => string | null;
+  drawerSampleUrlFor?: (cab: PlacedCabinet) => string | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -229,7 +232,7 @@ export function IslandElevationView({
   finish = DEFAULT_FINISH_COLORS,
   crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", hardwareStyleId = null,
-  finishFor, panelKindFor, doorSampleUrlFor,
+  finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor,
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
@@ -313,6 +316,7 @@ export function IslandElevationView({
     const cabFinish = finishFor ? finishFor(p) : finish;
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
     const cabDoorSampleUrl = !isAppliance && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
+    const cabDrawerSampleUrl = !isAppliance && drawerSampleUrlFor ? (drawerSampleUrlFor(p) ?? cabDoorSampleUrl) : cabDoorSampleUrl;
     const faceFill = isAppliance
       ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
       : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
@@ -353,6 +357,7 @@ export function IslandElevationView({
               drawers={resolvedCounts.drawers || displayDrawerCount(p)}
               isWall={isWall}
               doorSampleUrl={cabDoorSampleUrl}
+              drawerSampleUrl={cabDrawerSampleUrl}
               cabinetType={cabType}
               blindOnLeft={blindLeft}
               cabinetHeightIn={height}

@@ -51,6 +51,9 @@ interface Props {
   // Optional per-cabinet door sample image URL resolver. When provided, the
   // real door photo is rendered as a background texture on each cabinet face.
   doorSampleUrlFor?: (cab: PlacedCabinet) => string | null;
+  // Optional per-cabinet drawer sample image URL resolver. When provided, the
+  // drawer front photo is rendered on drawer fronts instead of the door photo.
+  drawerSampleUrlFor?: (cab: PlacedCabinet) => string | null;
   // When this elevation is rendered inside a horizontally-mirrored container
   // (the left half of CornerView), set `mirror` so text labels are counter-
   // flipped to stay readable. `hideSwitcher` removes the inner wall picker so
@@ -81,7 +84,7 @@ export function ElevationView({
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", mirror = false, hideSwitcher = false,
   hardwareStyleId = null,
-  finishFor, panelKindFor, doorSampleUrlFor, seamCabinets = [],
+  finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor, seamCabinets = [],
   onMove, onMoveVertical, moveLocked = false,
 }: Props) {
   const { t } = useLanguage();
@@ -182,6 +185,9 @@ export function ElevationView({
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
     // Resolve the door sample image URL for this cabinet (real door photo).
     const cabDoorSampleUrl = !isAppliance && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
+    // Resolve the drawer sample image URL (used for drawer fronts only).
+    // Falls back to the door sample if no separate drawer photo is set.
+    const cabDrawerSampleUrl = !isAppliance && drawerSampleUrlFor ? (drawerSampleUrlFor(p) ?? cabDoorSampleUrl) : cabDoorSampleUrl;
     // Face fill: the CABINET BOX background (face frame). When a door sample
     // image is available, the image is applied ONLY to individual door/drawer
     // panels (not the full face). The box itself shows the face frame color.
@@ -272,6 +278,7 @@ export function ElevationView({
               drawers={isWall ? 0 : (resolvedCounts.drawers || displayDrawerCount(p))}
               isWall={isWall}
               doorSampleUrl={cabDoorSampleUrl}
+              drawerSampleUrl={cabDrawerSampleUrl}
               cabinetType={cabType}
               blindOnLeft={blindLeft}
               cabinetHeightIn={height}
@@ -1439,7 +1446,9 @@ function HardwareOverlay({
 // One door/drawer face panel rendered in the chosen door style. Used both for
 // the door region and for each individual drawer front so a drawer base reads
 // as a real stack of drawer fronts rather than one big door.
-function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; drawer?: boolean; doorSampleUrl?: string | null }) {
+function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSampleUrl }: { kind: DoorPanelKind; edge: string; face: string; drawer?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null }) {
+  // When rendering a drawer front, prefer the dedicated drawer photo over the door photo.
+  const effectiveDoorUrl = drawer ? (drawerSampleUrl ?? doorSampleUrl) : doorSampleUrl;
   // Drawers always read as a slim single recessed front regardless of the door
   // style (drawer fronts don't get raised/beaded treatments in this model),
   // except slab which stays flat.
@@ -1481,14 +1490,14 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
       </div>
     );
   }
-  return <DoorFront kind={kind} edge={edge} face={face} doorSampleUrl={doorSampleUrl} />;
+  return <DoorFront kind={kind} edge={edge} face={face} doorSampleUrl={effectiveDoorUrl} />;
 }
 
 // Lightweight door-front detail overlay that reflects the active door style so a
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -1714,14 +1723,13 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
               {i > 0 && (
                 <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
               )}
-              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} />
+                            <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
             </div>
           ))}
         </div>
       </>
     );
   }
-
   // ─── STANDARD: DRAWERS + DOORS ─────────────────────────────────────────
   // When a cabinet has drawers, draw the drawer stack + (optional) door region.
   if (drawerCount > 0) {
@@ -1745,7 +1753,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
               {i > 0 && (
                 <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
               )}
-              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} />
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
             </div>
           ))}
           {/* rail between the drawer band and the doors */}
@@ -1779,7 +1787,7 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, ca
             {i > 0 && (
               <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
             )}
-            <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} />
+            <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
           </div>
         ))}
       </>

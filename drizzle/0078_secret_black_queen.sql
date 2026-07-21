@@ -1,0 +1,1 @@
+ALTER TABLE `door_styles` ADD `drawerSampleImageUrl` varchar(512);

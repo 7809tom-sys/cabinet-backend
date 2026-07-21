@@ -116,6 +116,9 @@ export const doorStyles = mysqlTable("door_styles", {
   warehouseZip: varchar("warehouseZip", { length: 16 }),
   shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }),
   doorSampleImageUrl: varchar("doorSampleImageUrl", { length: 512 }),
+  // Separate photo of just the drawer front (no door below). Used by the
+  // elevation renderer to show the correct texture on drawer bands.
+  drawerSampleImageUrl: varchar("drawerSampleImageUrl", { length: 512 }),
   // True once an admin (or an approved field correction) has verified the
   // sample photo is the correct door for this style. Drives the green check.
   doorSampleVerified: boolean("doorSampleVerified").default(false).notNull(),

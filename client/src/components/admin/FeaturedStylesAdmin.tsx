@@ -31,6 +31,7 @@ interface AdminStyle {
   woodSpecies: string | null;
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
+  drawerSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
   doorSampleVerified: boolean;
   isFeatured: boolean;
@@ -187,6 +188,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [finish, setFinish] = useState(style.finish ?? "");
   const [woodSpecies, setWoodSpecies] = useState(style.woodSpecies ?? "");
   const [doorSampleImageUrl, setDoorSampleImageUrl] = useState(style.doorSampleImageUrl ?? "");
+  const [drawerSampleImageUrl, setDrawerSampleImageUrl] = useState(style.drawerSampleImageUrl ?? "");
   const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
   const [thumbnailImageUrl, setThumbnailImageUrl] = useState(style.thumbnailImageUrl ?? "");
 
@@ -200,6 +202,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setFinish(s.finish ?? "");
     setWoodSpecies(s.woodSpecies ?? "");
     setDoorSampleImageUrl(s.doorSampleImageUrl ?? "");
+    setDrawerSampleImageUrl(s.drawerSampleImageUrl ?? "");
     setRoomSceneImageUrl(s.roomSceneImageUrl ?? "");
     setThumbnailImageUrl(s.thumbnailImageUrl ?? "");
   };
@@ -228,6 +231,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       finish: finish.trim() || null,
       woodSpecies: woodSpecies.trim() || null,
       doorSampleImageUrl: doorSampleImageUrl.trim() || null,
+      drawerSampleImageUrl: drawerSampleImageUrl.trim() || null,
       roomSceneImageUrl: roomSceneImageUrl.trim() || null,
       thumbnailImageUrl: thumbnailImageUrl.trim() || null,
     });
@@ -379,13 +383,27 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
               big
               slot="room-scene"
             />
-            <ImageField
-              label="Door Sample Photo"
-              hint="Close-up of the door, used as the main catalog/designer thumbnail."
-              value={doorSampleImageUrl}
-              onChange={setDoorSampleImageUrl}
-              slot="door-sample"
-            />
+            {/* Door Sample + Drawer Sample side-by-side */}
+            <div className="rounded-lg border border-blue-200 bg-blue-50/40 px-3 py-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-blue-800">Elevation Renderer Images</span>
+                <span className="text-xs text-muted-foreground">— used in the 2D kitchen designer</span>
+              </div>
+              <ImageField
+                label="Door Sample Photo"
+                hint="Close-up of the door panel only (no drawer front). Used for door panels in the designer."
+                value={doorSampleImageUrl}
+                onChange={setDoorSampleImageUrl}
+                slot="door-sample"
+              />
+              <ImageField
+                label="Drawer Sample Photo"
+                hint="Close-up of the drawer front only. Used for drawer fronts in the designer. Leave blank to fall back to the door sample."
+                value={drawerSampleImageUrl}
+                onChange={setDrawerSampleImageUrl}
+                slot="door-sample"
+              />
+            </div>
             <ImageField
               label="Thumbnail (optional override)"
               hint="Overrides the door sample as the small thumbnail when set."

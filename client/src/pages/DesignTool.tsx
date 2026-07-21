@@ -1478,6 +1478,15 @@ export default function DesignTool() {
     });
     return m;
   }, [doorStyles]);
+  // Per-style drawer sample image URL map (separate photo for drawer fronts).
+  const drawerSampleById = useMemo(() => {
+    const m = new Map<number, string>();
+    doorStyles?.forEach((d) => {
+      const s = d as { id: number; drawerSampleImageUrl?: string | null };
+      if (s.drawerSampleImageUrl) m.set(s.id, s.drawerSampleImageUrl);
+    });
+    return m;
+  }, [doorStyles]);
   const activeDoorSampleUrl = paletteFinishSwatch; // same source
   const doorSampleForCab = useCallback(
     (cab: PlacedCabinet): string | null => {
@@ -1485,6 +1494,14 @@ export default function DesignTool() {
       return (sid != null && doorSampleById.get(sid)) || activeDoorSampleUrl;
     },
     [styleId, doorSampleById, activeDoorSampleUrl]
+  );
+  // Returns the drawer sample URL for a cabinet (null = fall back to door sample).
+  const drawerSampleForCab = useCallback(
+    (cab: PlacedCabinet): string | null => {
+      const sid = styleId ? effectiveStyleId(cab, styleId) : null;
+      return (sid != null && drawerSampleById.get(sid)) || null;
+    },
+    [styleId, drawerSampleById]
   );
 
   // Distinct finishes actually used across the design (default + per-cabinet
@@ -6311,6 +6328,7 @@ export default function DesignTool() {
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
               doorSampleUrlFor={doorSampleForCab}
+              drawerSampleUrlFor={drawerSampleForCab}
               onMove={cabinetsLocked ? undefined : moveCabinet}
               onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
               moveLocked={cabinetsLocked}
@@ -6359,6 +6377,7 @@ export default function DesignTool() {
                 finishFor={finishForCab}
                 panelKindFor={panelKindForCab}
                 doorSampleUrlFor={doorSampleForCab}
+                drawerSampleUrlFor={drawerSampleForCab}
               />
             </div>
           )}
@@ -6382,6 +6401,7 @@ export default function DesignTool() {
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
               doorSampleUrlFor={doorSampleForCab}
+              drawerSampleUrlFor={drawerSampleForCab}
             />
           )}
           {viewMode === "split" && (
@@ -6469,6 +6489,7 @@ export default function DesignTool() {
                   finishFor={finishForCab}
                   panelKindFor={panelKindForCab}
                   doorSampleUrlFor={doorSampleForCab}
+                  drawerSampleUrlFor={drawerSampleForCab}
                   onMove={cabinetsLocked ? undefined : moveCabinet}
                   onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
                   moveLocked={cabinetsLocked}

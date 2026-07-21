@@ -156,6 +156,7 @@ export const doorStylesRouter = router({
         warehouseZip: doorStyles.warehouseZip,
         shippingRate: doorStyles.shippingRate,
         doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+        drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
         doorSampleVerified: doorStyles.doorSampleVerified,
         roomSceneImageUrl: doorStyles.roomSceneImageUrl,
         thumbnailImageUrl: doorStyles.thumbnailImageUrl,
@@ -350,6 +351,7 @@ export const doorStylesRouter = router({
         finish: z.string().max(128).nullable().optional(),
         woodSpecies: z.string().max(64).nullable().optional(),
         doorSampleImageUrl: z.string().max(512).nullable().optional(),
+        drawerSampleImageUrl: z.string().max(512).nullable().optional(),
         roomSceneImageUrl: z.string().max(512).nullable().optional(),
         thumbnailImageUrl: z.string().max(512).nullable().optional(),
       })
@@ -367,6 +369,7 @@ export const doorStylesRouter = router({
       if (fields.finish !== undefined) patch.finish = fields.finish?.trim() || null;
       if (fields.woodSpecies !== undefined) patch.woodSpecies = fields.woodSpecies?.trim() || null;
       if (fields.doorSampleImageUrl !== undefined) patch.doorSampleImageUrl = fields.doorSampleImageUrl?.trim() || null;
+      if (fields.drawerSampleImageUrl !== undefined) patch.drawerSampleImageUrl = fields.drawerSampleImageUrl?.trim() || null;
       if (fields.roomSceneImageUrl !== undefined) patch.roomSceneImageUrl = fields.roomSceneImageUrl?.trim() || null;
       if (fields.thumbnailImageUrl !== undefined) patch.thumbnailImageUrl = fields.thumbnailImageUrl?.trim() || null;
       if (Object.keys(patch).length === 0) return { ok: true };
