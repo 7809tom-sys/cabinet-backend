@@ -1248,3 +1248,21 @@
 - [ ] Fix: ensure cabinet face covers full height with no countertop overlap
 - [ ] 3DB36 is correct — do not change drawer base rendering
 - [ ] TypeScript check passes; screenshot verified; checkpoint saved
+
+## Master SKU Alias Program (Catalog Governance)
+
+- [x] Create DB schema: sku_master_aliases table (alias_code, master_code, created_at, created_by, conflict_status)
+- [x] Create DB schema: sku_merge_suggestions table (id, alias_code, master_code, similarity_score, reason, status, reviewed_by, reviewed_at)
+- [x] Create DB schema: sku_matching_rules table (id, rule_name, weight, enabled)
+- [x] Apply DB migrations via webdev_execute_sql
+- [x] Backend: tRPC procedures for suggestions (list, approve, dismiss)
+- [x] Backend: tRPC procedures for aliases (list, delete, update)
+- [x] Backend: conflict resolution — if alias already mapped, revert to oldest mapping
+- [x] Backend: AI similarity detection using built-in LLM
+- [x] Backend: tRPC procedure to manually trigger AI duplicate scan
+- [x] Admin UI: MasterSkuAdmin component with Suggestions/Aliases/Rules tabs
+- [x] Admin UI: Suggestion card with approve/dismiss + similarity score badge
+- [x] Admin UI: Alias mapping table with search + conflict status badge
+- [x] Admin UI: Run AI Scan button with confirmation dialog
+- [x] Admin UI: Wired into Products & Catalog group in AdminGroupedTabs as "Master SKU Aliases" tab
+- [x] Vitest tests: 19 tests passing for normalize, levenshtein, editSimilarity, duplicate detection, conflict detection, deduplication

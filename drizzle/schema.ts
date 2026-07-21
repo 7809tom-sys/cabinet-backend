@@ -1615,3 +1615,61 @@ export const affiliatePromoDiscounts = mysqlTable("affiliate_promo_discounts", {
 });
 export type AffiliatePromoDiscount = typeof affiliatePromoDiscounts.$inferSelect;
 export type InsertAffiliatePromoDiscount = typeof affiliatePromoDiscounts.$inferInsert;
+
+// ─── Master SKU Alias Program ─────────────────────────────────────────────────
+// Maps secondary/alias SKU codes to a canonical master code so that different
+// supplier codes for the same cabinet resolve to one product record.
+
+export const skuMasterAliases = mysqlTable("sku_master_aliases", {
+  id: int("id").autoincrement().primaryKey(),
+  // The secondary code that should resolve to the master
+  aliasCode: varchar("aliasCode", { length: 64 }).notNull().unique(),
+  // The canonical master code this alias points to
+  masterCode: varchar("masterCode", { length: 64 }).notNull(),
+  // Optional notes about why this alias was created
+  notes: text("notes"),
+  // Conflict status: 'ok' = clean mapping, 'conflict' = alias appeared in multiple roles
+  conflictStatus: mysqlEnum("conflictStatus", ["ok", "conflict"]).default("ok").notNull(),
+  // Audit trail
+  createdBy: int("createdBy"), // user id of admin who approved the merge
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SkuMasterAlias = typeof skuMasterAliases.$inferSelect;
+export type InsertSkuMasterAlias = typeof skuMasterAliases.$inferInsert;
+
+// AI-generated duplicate suggestions awaiting human review
+export const skuMergeSuggestions = mysqlTable("sku_merge_suggestions", {
+  id: int("id").autoincrement().primaryKey(),
+  // The code that looks like a duplicate (candidate alias)
+  aliasCode: varchar("aliasCode", { length: 64 }).notNull(),
+  // The code it should map to (candidate master)
+  masterCode: varchar("masterCode", { length: 64 }).notNull(),
+  // 0-100 similarity score from the AI
+  similarityScore: int("similarityScore").notNull(),
+  // Human-readable explanation from the AI
+  reason: text("reason"),
+  // pending = awaiting review, approved = merged, dismissed = false positive
+  status: mysqlEnum("status", ["pending", "approved", "dismissed"]).default("pending").notNull(),
+  // Who reviewed it and when
+  reviewedBy: int("reviewedBy"),
+  reviewedAt: timestamp("reviewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SkuMergeSuggestion = typeof skuMergeSuggestions.$inferSelect;
+export type InsertSkuMergeSuggestion = typeof skuMergeSuggestions.$inferInsert;
+
+// Configurable matching rules that guide the AI similarity detection
+export const skuMatchingRules = mysqlTable("sku_matching_rules", {
+  id: int("id").autoincrement().primaryKey(),
+  ruleName: varchar("ruleName", { length: 128 }).notNull(),
+  description: text("description"),
+  // Weight 1-10: how much this rule contributes to the overall similarity score
+  weight: int("weight").default(5).notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SkuMatchingRule = typeof skuMatchingRules.$inferSelect;
+export type InsertSkuMatchingRule = typeof skuMatchingRules.$inferInsert;
