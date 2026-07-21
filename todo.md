@@ -1240,3 +1240,11 @@
 - [x] Base cabinets: orange stripe at top + white stripe below countertop fixed
 - [x] The countertop slab (per-cabinet duplicate removed) — contiguous-run renderer still works correctly
 - [x] TypeScript check passes; screenshot verified; checkpoint saved
+
+## Fix: B12FH, B18FH, B36FH countertop stripe at top (Jul 21)
+
+- [ ] B12FH, B18FH, B36FH show warm/orange stripe at top of cabinet face — countertop slab overlapping or z-index issue
+- [ ] Investigate contiguous-run countertop renderer position vs cabinet face position
+- [ ] Fix: ensure cabinet face covers full height with no countertop overlap
+- [ ] 3DB36 is correct — do not change drawer base rendering
+- [ ] TypeScript check passes; screenshot verified; checkpoint saved

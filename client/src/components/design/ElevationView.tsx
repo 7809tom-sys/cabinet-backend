@@ -1351,15 +1351,16 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
   // style (drawer fronts don't get raised/beaded treatments in this model),
   // except slab which stays flat.
   if (drawer) {
-    const drawerBg = doorSampleUrl
-      ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
-      : {};
+    // Drawer fronts: never apply the door sample image — the door sample photo is
+    // a full-height door portrait and crops incorrectly on the short, wide drawer
+    // front (the center crop shows the warm wood interior/frame area instead of
+    // the finish color). Use the face color with the shaker-style bevel instead,
+    // which correctly reflects the cabinet finish on all drawer fronts.
     if (kind === "slab") {
       return (
         <div
           className="absolute inset-[1.5px] rounded-[1.5px]"
           style={{
-            ...drawerBg,
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.30), inset 0 -1px 2px rgba(0,0,0,0.16), 0 0 0 1px ${edge}44`,
           }}
         />
@@ -1375,11 +1376,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl }: { kind:
         <div
           className="absolute inset-[3px] rounded-[1px]"
           style={{
-            ...drawerBg,
-            background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #000) 0%, color-mix(in srgb, ${face} 97%, #000) 100%)`,
-            backgroundImage: doorSampleUrl ? `url(${doorSampleUrl})` : undefined,
-            backgroundSize: doorSampleUrl ? "cover" : undefined,
-            backgroundPosition: doorSampleUrl ? "center" : undefined,
+            background: `linear-gradient(180deg, color-mix(in srgb, ${face} 92%, #000) 0%, color-mix(in srgb, ${face} 97%, #000) 100%)`,
             boxShadow: `inset 0 2px 3px rgba(0,0,0,0.22), inset 0 -1px 0 rgba(255,255,255,0.18)`,
           }}
         />
