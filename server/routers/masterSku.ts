@@ -35,6 +35,37 @@ function normalize(code: string): string {
   return code.toUpperCase().replace(/[-\s]/g, "");
 }
 
+/**
+ * Extract all numeric segments from a normalized code.
+ * e.g. "DCW2415GD" → ["2415"], "WER2412GD" → ["2412"], "RS21TYPEA" → ["21"]
+ */
+function numericSegments(code: string): string[] {
+  return (code.match(/\d+/g) ?? []);
+}
+
+/**
+ * Returns true if two normalized codes differ in ANY numeric segment.
+ * Cabinet codes encode dimensions — different numbers always mean a different
+ * physical cabinet, never a duplicate.
+ *
+ * Examples that return true (should NOT be flagged as duplicates):
+ *   DCW2415GD vs DCW2412GD  (15 ≠ 12)
+ *   RS27TYPEA vs RS21TYPEA  (27 ≠ 21)
+ *   WER2415GD vs WER2412GD  (15 ≠ 12)
+ *
+ * Examples that return false (safe to compare further):
+ *   VS24 vs VS-24  (same numbers, just punctuation)
+ *   B12 vs B-12   (same numbers)
+ */
+function hasDifferentNumbers(normA: string, normB: string): boolean {
+  const numsA = numericSegments(normA);
+  const numsB = numericSegments(normB);
+  // If either code has no numbers, don't block on this guard
+  if (numsA.length === 0 || numsB.length === 0) return false;
+  // If the sorted numeric segments differ at all, these are different cabinets
+  return numsA.sort().join(",") !== numsB.sort().join(",");
+}
+
 /** Levenshtein distance between two strings (for similarity scoring) */
 function levenshtein(a: string, b: string): number {
   const m = a.length;
@@ -382,6 +413,9 @@ export const masterSkuRouter = router({
       if (resolvedAliases.has(aliasCode)) return;
       const pairKey = `${aliasCode}|${masterCode}`;
       if (seen.has(pairKey) || existingPairs.has(pairKey)) return;
+      // CRITICAL: if the two codes contain different numbers, they are different
+      // cabinet sizes/dimensions — never flag them as duplicates.
+      if (hasDifferentNumbers(normalize(aliasCode), normalize(masterCode))) return;
       seen.add(pairKey);
       candidates.push({ aliasCode, masterCode, score, reason });
     };
@@ -420,34 +454,22 @@ export const masterSkuRouter = router({
       }
     }
 
-    // 3. High edit-distance similarity (fuzzy match)
-    const allCodes = rows.map((r) => r.masterCode);
-    for (let i = 0; i < allCodes.length; i++) {
-      for (let j = i + 1; j < allCodes.length; j++) {
-        const normA = normalize(allCodes[i]);
-        const normB = normalize(allCodes[j]);
-        const score = editSimilarity(normA, normB);
-        if (score >= 80 && score < 95) {
-          const a = rows[i];
-          const b = rows[j];
-          const [master, alias] = a.id < b.id ? [a, b] : [b, a];
-          addCandidate(
-            alias.masterCode,
-            master.masterCode,
-            score,
-            `Codes are ${score}% similar after normalization (${normA} vs ${normB})`
-          );
-        }
-      }
-    }
+    // NOTE: The fuzzy edit-distance pass (80-94%) has been intentionally removed.
+    // Cabinet codes encode dimensions in their numeric segments — codes like
+    // DCW2415GD vs DCW2412GD score 89% similar but are completely different cabinets
+    // (15" vs 12" height). The hasDifferentNumbers guard in addCandidate would catch
+    // these, but the fuzzy pass generated too much noise. Only the deterministic
+    // hyphen/space-stripping pass (step 1) and the alias-field cross-reference (step 2)
+    // are reliable enough to use.
 
     // Cap at 50 candidates to keep LLM costs reasonable
     const topCandidates = candidates
       .sort((a, b) => b.score - a.score)
       .slice(0, 50);
 
-    // 4. For medium-confidence candidates (score 80-90), ask the LLM to verify
-    const mediumConfidence = topCandidates.filter((c) => c.score >= 80 && c.score < 90);
+    // LLM verification: for alias-field cross-reference candidates (score 90),
+    // ask the LLM to confirm they are true duplicates
+    const mediumConfidence = topCandidates.filter((c) => c.score === 90);
 
     if (mediumConfidence.length > 0) {
       try {

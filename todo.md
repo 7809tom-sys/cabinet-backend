@@ -1278,3 +1278,9 @@
 - [x] Backend: approveAll tRPC procedure in masterSku router (bulk-approves all pending, handles conflicts)
 - [x] Update stylesForCabinet query to resolve alias cabinet IDs via sku_master_aliases so distributor pricing rows with aliased codes appear on the product detail page
 - [x] TypeScript check passes; checkpoint saved
+
+## Fix: AI scan false positives from numeric differences (Jul 21)
+- [x] Add hasDifferentNumbers() guard: reject any pair where normalized codes differ in their numeric segments (different numbers = different cabinet size, never a duplicate)
+- [x] Remove fuzzy edit-distance pass (80-94% score range) entirely — only keep hyphen/space-stripping pass (95%+) and alias-field cross-reference (90%)
+- [x] Clear all existing pending suggestions (false positives) from the DB — fresh start for next scan
+- [x] TypeScript check passes; checkpoint saved
