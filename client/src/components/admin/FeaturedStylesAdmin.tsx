@@ -42,6 +42,7 @@ interface AdminStyle {
   stileWidth: string | null;
   centerRailWidth: string | null;
   profileNotes: string | null;
+  profileDescription?: string | null;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -199,6 +200,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [stileWidth, setStileWidth] = useState(style.stileWidth != null ? String(style.stileWidth) : "");
   const [centerRailWidth, setCenterRailWidth] = useState(style.centerRailWidth != null ? String(style.centerRailWidth) : "");
   const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
+  const [profileDescription, setProfileDescription] = useState((style as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
 
   // Reset state when dialog opens for a different style
   const resetToStyle = (s: AdminStyle) => {
@@ -217,6 +219,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setStileWidth(s.stileWidth != null ? String(s.stileWidth) : "");
     setCenterRailWidth(s.centerRailWidth != null ? String(s.centerRailWidth) : "");
     setProfileNotes(s.profileNotes ?? "");
+    setProfileDescription((s as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
   };
 
   const update = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
@@ -250,6 +253,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       stileWidth: stileWidth.trim() ? parseFloat(stileWidth) : null,
       centerRailWidth: centerRailWidth.trim() ? parseFloat(centerRailWidth) : null,
       profileNotes: profileNotes.trim() || null,
+      profileDescription: profileDescription.trim() || null,
     });
   }
 
@@ -412,6 +416,20 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
                 placeholder="e.g. Ogee profile, Beaded inner edge, Step detail"
               />
             </div>
+          </div>
+
+          {/* Profile Description */}
+          <div className="space-y-1.5">
+            <Label htmlFor="ed-profile-desc">Profile Description</Label>
+            <textarea
+              id="ed-profile-desc"
+              value={profileDescription}
+              onChange={(e) => setProfileDescription(e.target.value)}
+              rows={5}
+              placeholder="Long-form educational description shown on the public Door Styles page. Explain what makes this profile unique, its construction, and ideal use cases."
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+            />
+            <p className="text-xs text-muted-foreground">Shown in the style detail popup and the Door Styles education guide.</p>
           </div>
 
           {/* Finish + Wood species */}

@@ -137,6 +137,7 @@ export const doorStyles = mysqlTable("door_styles", {
   stileWidth: decimal("stileWidth", { precision: 4, scale: 2 }),         // left/right stile width in inches
   centerRailWidth: decimal("centerRailWidth", { precision: 4, scale: 2 }), // center/mid rail (if any)
   profileNotes: varchar("profileNotes", { length: 256 }),                // free-text e.g. "Ogee profile", "Beaded inner edge"
+  profileDescription: text("profileDescription"),                        // long-form educational description shown on public Door Styles page
   // Builder Grade line (Skyline Builder / Spring Forest "Floral" finishes):
   // ships STANDARD hardware (not soft-close) and is a lower-spec value line.
   // Drives a UI badge + hardware note so it is clearly distinguished from premium lines.

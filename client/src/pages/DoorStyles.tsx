@@ -38,6 +38,7 @@ interface DoorStyle {
   stileWidth?: string | number | null;
   centerRailWidth?: string | number | null;
   profileNotes?: string | null;
+  profileDescription?: string | null;
 }
 
 /** Returns the public-facing display name: aliasName → featuredLabel → ourName → styleCode */
@@ -202,6 +203,16 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
                 <p className="text-xs"><span className="text-muted-foreground">Profile:</span> {style.profileNotes}</p>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Profile Description */}
+        {(style as DoorStyle & { profileDescription?: string | null }).profileDescription && (
+          <div className="rounded-md border border-blue-100 bg-blue-50/50 px-3 py-2.5 space-y-1.5">
+            <p className="text-xs font-semibold text-blue-800">About This Profile</p>
+            <p className="text-xs text-foreground/80 leading-relaxed whitespace-pre-line">
+              {(style as DoorStyle & { profileDescription?: string | null }).profileDescription}
+            </p>
           </div>
         )}
 
@@ -598,6 +609,97 @@ export default function DoorStyles() {
           )}
         </>
       )}
+      {/* ── Door Style Profile Guide ─────────────────────────────────────────── */}
+      <div className="mt-16 border-t border-border pt-12">
+        <div className="mb-8">
+          <h2 className="font-serif text-2xl font-bold text-foreground mb-2">Door Style Profile Guide</h2>
+          <p className="text-muted-foreground max-w-2xl">
+            Not sure which profile is right for your project? Each door style has its own character, construction method, and ideal use case. Use this guide to compare profiles and find the perfect fit.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {PROFILE_GUIDE.map((profile) => (
+            <div key={profile.name} className="rounded-xl border border-border bg-card p-5 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-foreground text-base">{profile.name}</h3>
+                  {profile.tag && (
+                    <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-primary/10 text-primary">{profile.tag}</span>
+                  )}
+                </div>
+                {profile.frameRange && (
+                  <span className="shrink-0 text-xs text-muted-foreground bg-muted rounded-full px-2.5 py-1">Rail {profile.frameRange}</span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">{profile.description}</p>
+              {profile.bestFor && (
+                <p className="text-xs text-foreground/70"><span className="font-medium text-foreground">Best for:</span> {profile.bestFor}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
+
+// -- Profile Guide content --------------------------------------------------
+const PROFILE_GUIDE: {
+  name: string;
+  tag?: string;
+  frameRange?: string;
+  description: string;
+  bestFor?: string;
+}[] = [
+  {
+    name: "Shaker",
+    tag: "Most Popular",
+    frameRange: '2" - 3"',
+    description:
+      "The Shaker door is defined by its clean, flat recessed center panel framed by four square-edged rails and stiles. Originating from the Shaker furniture tradition, this profile is celebrated for its simplicity, versatility, and timeless appeal. It works equally well in traditional, transitional, and modern kitchens.",
+    bestFor: "Any kitchen style -- especially transitional and contemporary designs.",
+  },
+  {
+    name: "Slim Shaker",
+    tag: "Modern Favorite",
+    frameRange: '1/2" - 1"',
+    description:
+      "The Slim Shaker (also called Skinny Shaker) is a refined take on the classic Shaker profile with dramatically narrower rails and stiles -- typically 1/2\" to 1\". The thinner frame exposes more of the center panel, creating a sleek, minimal look that is ideal for modern and contemporary kitchens.",
+    bestFor: "Modern, minimalist, and European-inspired kitchen designs.",
+  },
+  {
+    name: "Double Shaker",
+    tag: "Transitional",
+    frameRange: '2" - 3"',
+    description:
+      "The Double Shaker profile adds a second inner rail to the classic Shaker door, creating a step or dual-panel effect. This extra detail adds depth, striking shadow lines, and a sophisticated architectural feel -- making it a popular choice for transitional and upscale kitchen designs.",
+    bestFor: "Transitional kitchens, custom built-ins, and high-end bathroom vanities.",
+  },
+  {
+    name: "Raised Panel",
+    tag: "Classic",
+    description:
+      "Raised Panel cabinets feature a center panel that sits higher than the surrounding door frame, creating a distinctive three-dimensional, sculpted look. This classic, architectural style offers depth, shadow lines, and elegant detailing, making it a popular choice for traditional, transitional, and formal design spaces.",
+    bestFor: "Traditional kitchens, formal dining rooms, home offices, and master bathrooms.",
+  },
+  {
+    name: "Flat Panel (Slab)",
+    tag: "Ultra-Modern",
+    description:
+      "The Slab door is a single, flat piece of material with no frame, rails, or stiles. This frameless, handle-less profile is the defining look of ultra-modern and European-style kitchens. It creates a seamless, uninterrupted surface that emphasizes clean lines and open space.",
+    bestFor: "Modern, minimalist, and European-style kitchens with integrated or push-to-open hardware.",
+  },
+  {
+    name: "Beaded",
+    description:
+      "The Beaded profile adds a small decorative bead (a narrow routed groove) along the inner edge of the door frame, where the stiles and rails meet the center panel. This subtle detail adds a cottage, farmhouse, or craftsman character to an otherwise simple flat or recessed panel door.",
+    bestFor: "Farmhouse, cottage, and craftsman-style kitchens.",
+  },
+  {
+    name: "Inset",
+    tag: "Premium",
+    description:
+      "Inset cabinet doors are set flush inside the cabinet frame rather than overlaying it. This construction method requires precise fitting and higher-quality materials, resulting in a furniture-grade, built-in look. The visible frame around each door gives the kitchen a refined, custom cabinetry appearance.",
+    bestFor: "High-end custom kitchens where a furniture-grade, built-in aesthetic is the priority.",
+  },
+];
