@@ -132,18 +132,21 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
         </button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 flex-wrap">
-            {displayName(style)}
-            {style.doorStyle && (
-              <Badge variant="outline" className="text-xs">{style.doorStyle}</Badge>
-            )}
-            {style.isBuilderGrade && (
-              <Badge className="text-xs bg-amber-300 text-amber-950 hover:bg-amber-300">{t("ds_builder_grade")}</Badge>
-            )}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden p-0">
+        <div className="px-6 pt-6 pb-3 border-b border-border shrink-0">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              {displayName(style)}
+              {style.doorStyle && (
+                <Badge variant="outline" className="text-xs">{style.doorStyle}</Badge>
+              )}
+              {style.isBuilderGrade && (
+                <Badge className="text-xs bg-amber-300 text-amber-950 hover:bg-amber-300">{t("ds_builder_grade")}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
 
         {/* Primary: room scene (full-width hero), then door sample thumbnail below */}
         {roomScene && (
@@ -223,13 +226,16 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
           </div>
         )}
 
-        {/* Primary path into shopping: see EVERY cabinet available in this family */}
-        <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
-          <Button className="w-full mt-1" size="lg">
-            {t("ds_shop_collection", { name: displayName(style) })}
-            <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
-        </Link>
+        </div>
+        {/* Sticky footer with the CTA button — always visible */}
+        <div className="px-6 py-4 border-t border-border shrink-0 bg-background">
+          <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
+            <Button className="w-full" size="lg">
+              {t("ds_shop_collection", { name: displayName(style) })}
+              <ArrowRight className="h-4 w-4 ml-1" />
+            </Button>
+          </Link>
+        </div>
       </DialogContent>
     </Dialog>
   );
