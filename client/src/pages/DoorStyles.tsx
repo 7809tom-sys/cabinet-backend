@@ -656,7 +656,7 @@ const PROFILE_GUIDE: {
     tag: "Most Popular",
     frameRange: '2" - 3"',
     description:
-      "The Shaker door is defined by its clean, flat recessed center panel framed by four square-edged rails and stiles. Originating from the Shaker furniture tradition, this profile is celebrated for its simplicity, versatility, and timeless appeal. It works equally well in traditional, transitional, and modern kitchens.",
+      "Shaker cabinet doors feature a classic five-piece design with a recessed, flat center panel and a surrounding frame. Their simple, clean lines and durable construction make them a versatile choice that complements both traditional and modern kitchen styles.",
     bestFor: "Any kitchen style -- especially transitional and contemporary designs.",
   },
   {
@@ -686,7 +686,7 @@ const PROFILE_GUIDE: {
     name: "Flat Panel (Slab)",
     tag: "Ultra-Modern",
     description:
-      "The Slab door is a single, flat piece of material with no frame, rails, or stiles. This frameless, handle-less profile is the defining look of ultra-modern and European-style kitchens. It creates a seamless, uninterrupted surface that emphasizes clean lines and open space.",
+      "A slab cabinet door is a solid, flat piece of material like wood or laminate, with no raised panels, frames, or decorative molding. It is completely smooth and has clean lines, giving kitchens a very modern, minimalist look.",
     bestFor: "Modern, minimalist, and European-style kitchens with integrated or push-to-open hardware.",
   },
   {
@@ -699,7 +699,14 @@ const PROFILE_GUIDE: {
     name: "Inset",
     tag: "Premium",
     description:
-      "Inset cabinet doors are set flush inside the cabinet frame rather than overlaying it. This construction method requires precise fitting and higher-quality materials, resulting in a furniture-grade, built-in look. The visible frame around each door gives the kitchen a refined, custom cabinetry appearance.",
+      "Inset cabinet doors are set flush inside the cabinet frame, showing the frame around the door. This gives a traditional, high-end look but requires precise craftsmanship to ensure they fit perfectly.",
     bestFor: "High-end custom kitchens where a furniture-grade, built-in aesthetic is the priority.",
+  },
+  {
+    name: "Framed vs Frameless",
+    tag: "Construction Type",
+    description:
+      "Framed cabinets have a face frame attached to the front of the box, which adds sturdiness and provides a traditional look. Frameless cabinets, also known as European style, don't have that frame, which gives you easier access and a more modern, seamless appearance.",
+    bestFor: "Framed: traditional and transitional kitchens. Frameless: modern, contemporary, and European-style kitchens.",
   },
 ];
