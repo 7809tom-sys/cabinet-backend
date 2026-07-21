@@ -22,6 +22,14 @@ const DRAWER_OPTIONS = [null, 0, 1, 2, 3, 4, 5, 6, 7, 8] as const;
 const SHELF_OPTIONS = [null, 0, 1, 2, 3, 4, 5, 6] as const;
 const PAGE_SIZE = 50;
 
+// Detect blind corner cabinets by code prefix or description (mirrors design.ts)
+function isBlindCornerCode(masterCode: string | null, description?: string | null): boolean {
+  const code = (masterCode || "").toUpperCase();
+  if (/^(BBC|WBC|BBL|BBR|WBL|WBR)/.test(code)) return true;
+  if (/-BLIND|BLIND/.test(code)) return true;
+  return /blind\s*corner/.test((description || "").toLowerCase());
+}
+
 type CabinetRow = {
   id: number;
   masterCode: string | null;
@@ -50,6 +58,10 @@ type CabinetRow = {
   pkgWidth: string | null;
   pkgHeight: string | null;
   pkgWeight: string | null;
+  // Blind corner pull spec
+  minPull: string | null;
+  maxPull: string | null;
+  openingWidth: string | null;
 };
 
 // ─── Dim Input ────────────────────────────────────────────────────────────────
@@ -229,6 +241,9 @@ function EditModal({
       isActive: merged.isActive ?? undefined,
       isNotCabinet: merged.isNotCabinet ?? undefined,
       catalogImageUrl: merged.catalogImageUrl ?? null,
+      minPull: merged.minPull != null ? parseFloat(merged.minPull) : null,
+      maxPull: merged.maxPull != null ? parseFloat(merged.maxPull) : null,
+      openingWidth: merged.openingWidth != null ? parseFloat(merged.openingWidth) : null,
     });
   };
 
@@ -350,6 +365,48 @@ function EditModal({
                     </Select>
                   </div>
                 </div>
+
+                {/* Blind Corner Pull Spec — auto-shown for BBC/WBC/BLIND codes */}
+                {isBlindCornerCode(merged.masterCode, merged.description) && (
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-50/10 dark:bg-amber-900/10 px-4 py-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                      <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Blind Corner Pull Spec</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      The pull range controls how far this cabinet slides out from the corner. The designer enforces these limits when placing the cabinet.
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <DimInput
+                        label="Min Pull"
+                        value={merged.minPull}
+                        onChange={(v) => set("minPull", v)}
+                        unit='"'
+                        disabled={busy}
+                      />
+                      <DimInput
+                        label="Max Pull"
+                        value={merged.maxPull}
+                        onChange={(v) => set("maxPull", v)}
+                        unit='"'
+                        disabled={busy}
+                      />
+                      <DimInput
+                        label="Opening Width"
+                        value={merged.openingWidth}
+                        onChange={(v) => set("openingWidth", v)}
+                        unit='"'
+                        disabled={busy}
+                      />
+                    </div>
+                    {(!merged.minPull || !merged.maxPull) && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                        Min and Max Pull are required — the designer defaults to 3–6" until set.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Fixed / Adj Shelves */}
                 <div className="grid grid-cols-2 gap-4">

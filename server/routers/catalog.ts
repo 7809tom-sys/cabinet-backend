@@ -1443,6 +1443,10 @@ export const cabinetsRouter = router({
         altSku1: z.string().nullable().optional(),
         altSku2: z.string().nullable().optional(),
         altSku3: z.string().nullable().optional(),
+        // Blind corner pull spec
+        minPull: z.number().positive().nullable().optional(),
+        maxPull: z.number().positive().nullable().optional(),
+        openingWidth: z.number().positive().nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1474,6 +1478,9 @@ export const cabinetsRouter = router({
       if (input.altSku1 !== undefined) patch.altSku1 = input.altSku1;
       if (input.altSku2 !== undefined) patch.altSku2 = input.altSku2;
       if (input.altSku3 !== undefined) patch.altSku3 = input.altSku3;
+      if (input.minPull !== undefined) patch.minPull = input.minPull != null ? String(input.minPull) : null;
+      if (input.maxPull !== undefined) patch.maxPull = input.maxPull != null ? String(input.maxPull) : null;
+      if (input.openingWidth !== undefined) patch.openingWidth = input.openingWidth != null ? String(input.openingWidth) : null;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
       // Aliases are purely informational cross-references.
@@ -2065,6 +2072,10 @@ export const cabinetsRouter = router({
             showInDesigner: cabinets.showInDesigner,
             showIn2020: cabinets.showIn2020,
             isActive: cabinets.isActive,
+            // Blind corner pull spec
+            minPull: cabinets.minPull,
+            maxPull: cabinets.maxPull,
+            openingWidth: cabinets.openingWidth,
           })
           .from(cabinets)
           .where(where)

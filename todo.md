@@ -1332,3 +1332,14 @@
 - [x] UI: Source label shown below description with green checkmark after fill
 - [x] UI: Hint text shown when all weight/pkg fields are empty
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Blind Corner Pull Data in Admin Edit Dialog (Jul 21)
+- [x] Backend: add minPull, maxPull, openingWidth to adminUpdateCabinet input schema and mutation handler
+- [x] Backend: add minPull, maxPull, openingWidth to adminListCabinetConfig return fields
+- [x] Admin UI: detect isBlindCorner(masterCode, description) and show "Blind Corner Pull Spec" section
+- [x] Admin UI: minPull and maxPull number inputs (required for blind corners, shown only when isBlindCorner)
+- [x] Admin UI: openingWidth number input (optional, shown only when isBlindCorner)
+- [x] Admin UI: CabinetRow type extended with minPull, maxPull, openingWidth
+- [x] Admin UI: handleSave passes minPull, maxPull, openingWidth to updateMutation
+- [x] Designer: pullMin/pullMax from DB already flow through design.ts router — no changes needed (confirmed)
+- [x] TypeScript check passes; checkpoint saved
