@@ -34,6 +34,10 @@ interface DoorStyle {
   thumbnailImageUrl: string | null;
   doorSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
+  railWidth?: string | number | null;
+  stileWidth?: string | number | null;
+  centerRailWidth?: string | number | null;
+  profileNotes?: string | null;
 }
 
 /** Returns the public-facing display name: aliasName → featuredLabel → ourName → styleCode */
@@ -179,6 +183,27 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
             {style.hardware && <p className="text-xs"><span className="text-muted-foreground">{t("ds_hardware")}:</span> {style.hardware}</p>}
           </div>
         </div>
+
+        {/* Frame profile measurements */}
+        {(style.railWidth || style.stileWidth || style.centerRailWidth || style.profileNotes) && (
+          <div className="rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-2.5 space-y-1.5">
+            <p className="text-xs font-semibold text-emerald-800">Frame Profile</p>
+            <div className="flex flex-wrap gap-x-5 gap-y-1">
+              {style.railWidth && (
+                <p className="text-xs"><span className="text-muted-foreground">Rail:</span> {style.railWidth}&quot;</p>
+              )}
+              {style.stileWidth && (
+                <p className="text-xs"><span className="text-muted-foreground">Stile:</span> {style.stileWidth}&quot;</p>
+              )}
+              {style.centerRailWidth && (
+                <p className="text-xs"><span className="text-muted-foreground">Center Rail:</span> {style.centerRailWidth}&quot;</p>
+              )}
+              {style.profileNotes && (
+                <p className="text-xs"><span className="text-muted-foreground">Profile:</span> {style.profileNotes}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Builder Grade advisory: this value line ships standard hardware, not soft-close */}
         {style.isBuilderGrade && (

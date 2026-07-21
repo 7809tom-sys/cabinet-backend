@@ -131,6 +131,12 @@ export const doorStyles = mysqlTable("door_styles", {
   isFeatured: boolean("isFeatured").default(false).notNull(),
   featuredRank: int("featuredRank").default(0).notNull(),
   featuredLabel: varchar("featuredLabel", { length: 128 }),
+  // Frame profile measurements — help designers understand the visual weight of the door style.
+  // All widths stored as fractional inches (e.g. 0.5 = 1/2", 3.0 = 3").
+  railWidth: decimal("railWidth", { precision: 4, scale: 2 }),           // top/bottom rail width in inches
+  stileWidth: decimal("stileWidth", { precision: 4, scale: 2 }),         // left/right stile width in inches
+  centerRailWidth: decimal("centerRailWidth", { precision: 4, scale: 2 }), // center/mid rail (if any)
+  profileNotes: varchar("profileNotes", { length: 256 }),                // free-text e.g. "Ogee profile", "Beaded inner edge"
   // Builder Grade line (Skyline Builder / Spring Forest "Floral" finishes):
   // ships STANDARD hardware (not soft-close) and is a lower-spec value line.
   // Drives a UI badge + hardware note so it is clearly distinguished from premium lines.

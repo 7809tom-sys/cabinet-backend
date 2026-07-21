@@ -38,6 +38,10 @@ interface AdminStyle {
   featuredRank: number;
   distributorId: number;
   distributorName: string | null;
+  railWidth: string | null;
+  stileWidth: string | null;
+  centerRailWidth: string | null;
+  profileNotes: string | null;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -191,6 +195,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [drawerSampleImageUrl, setDrawerSampleImageUrl] = useState(style.drawerSampleImageUrl ?? "");
   const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
   const [thumbnailImageUrl, setThumbnailImageUrl] = useState(style.thumbnailImageUrl ?? "");
+  const [railWidth, setRailWidth] = useState(style.railWidth != null ? String(style.railWidth) : "");
+  const [stileWidth, setStileWidth] = useState(style.stileWidth != null ? String(style.stileWidth) : "");
+  const [centerRailWidth, setCenterRailWidth] = useState(style.centerRailWidth != null ? String(style.centerRailWidth) : "");
+  const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
 
   // Reset state when dialog opens for a different style
   const resetToStyle = (s: AdminStyle) => {
@@ -205,6 +213,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setDrawerSampleImageUrl(s.drawerSampleImageUrl ?? "");
     setRoomSceneImageUrl(s.roomSceneImageUrl ?? "");
     setThumbnailImageUrl(s.thumbnailImageUrl ?? "");
+    setRailWidth(s.railWidth != null ? String(s.railWidth) : "");
+    setStileWidth(s.stileWidth != null ? String(s.stileWidth) : "");
+    setCenterRailWidth(s.centerRailWidth != null ? String(s.centerRailWidth) : "");
+    setProfileNotes(s.profileNotes ?? "");
   };
 
   const update = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
@@ -234,6 +246,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       drawerSampleImageUrl: drawerSampleImageUrl.trim() || null,
       roomSceneImageUrl: roomSceneImageUrl.trim() || null,
       thumbnailImageUrl: thumbnailImageUrl.trim() || null,
+      railWidth: railWidth.trim() ? parseFloat(railWidth) : null,
+      stileWidth: stileWidth.trim() ? parseFloat(stileWidth) : null,
+      centerRailWidth: centerRailWidth.trim() ? parseFloat(centerRailWidth) : null,
+      profileNotes: profileNotes.trim() || null,
     });
   }
 
@@ -339,6 +355,61 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
                 placeholder="e.g. White"
+              />
+            </div>
+          </div>
+
+          {/* Frame Profile Measurements */}
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 px-3 py-3 space-y-3">
+            <div>
+              <span className="text-xs font-semibold text-emerald-800">Frame Profile Measurements</span>
+              <p className="text-xs text-muted-foreground mt-0.5">Enter widths in inches (e.g. <code>0.5</code> = ½", <code>3</code> = 3"). Applies to all door style types — Shaker, Slim Shaker, Double Shaker, Raised Panel, Beaded, Inset, Slab, etc.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="ed-rail">Rail Width (in)</Label>
+                <Input
+                  id="ed-rail"
+                  type="number"
+                  min="0" max="99" step="0.125"
+                  value={railWidth}
+                  onChange={(e) => setRailWidth(e.target.value)}
+                  placeholder="e.g. 2.5"
+                />
+                <p className="text-xs text-muted-foreground">Top &amp; bottom rail</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ed-stile">Stile Width (in)</Label>
+                <Input
+                  id="ed-stile"
+                  type="number"
+                  min="0" max="99" step="0.125"
+                  value={stileWidth}
+                  onChange={(e) => setStileWidth(e.target.value)}
+                  placeholder="e.g. 2.5"
+                />
+                <p className="text-xs text-muted-foreground">Left &amp; right stile</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ed-center-rail">Center Rail (in)</Label>
+                <Input
+                  id="ed-center-rail"
+                  type="number"
+                  min="0" max="99" step="0.125"
+                  value={centerRailWidth}
+                  onChange={(e) => setCenterRailWidth(e.target.value)}
+                  placeholder="e.g. 2.5"
+                />
+                <p className="text-xs text-muted-foreground">Mid rail if any</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-profile-notes">Profile Notes</Label>
+              <Input
+                id="ed-profile-notes"
+                value={profileNotes}
+                onChange={(e) => setProfileNotes(e.target.value)}
+                placeholder="e.g. Ogee profile, Beaded inner edge, Step detail"
               />
             </div>
           </div>

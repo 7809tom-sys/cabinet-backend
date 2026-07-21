@@ -35,6 +35,11 @@ type StyleOption = {
   doorSampleImageUrl?: string | null;
   distributorId?: number | null;
   styleCode?: string | null;
+  doorStyle?: string | null;
+  railWidth?: string | number | null;
+  stileWidth?: string | number | null;
+  centerRailWidth?: string | number | null;
+  profileNotes?: string | null;
 };
 
 /** Neutral, customer-safe distributor label (no hidden supplier brand). */
@@ -532,6 +537,13 @@ export function ColorSlotButton({
                 ? t("dt_cs_click_use")
                 : t("dt_cs_optional_second")}
           </span>
+          {/* Frame measurements — shown when set */}
+          {hasStyle && (style as StyleOption)?.railWidth && (
+            <span className="block text-[9px] text-muted-foreground/80 mt-0.5">
+              Rail {(style as StyleOption).railWidth}&quot; · Stile {(style as StyleOption).stileWidth ?? "—"}&quot;
+              {(style as StyleOption).centerRailWidth ? ` · Ctr ${(style as StyleOption).centerRailWidth}"` : ""}
+            </span>
+          )}
         </span>
       </button>
 
