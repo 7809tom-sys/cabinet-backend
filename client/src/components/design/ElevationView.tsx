@@ -294,6 +294,99 @@ export function ElevationView({
               }
             />
           )}
+          {/* Appliance-specific detail overlays */}
+          {isAppliance && /^FRIDGE-/i.test(p.masterCode ?? "") && (
+            <>
+              {/* Fridge body: two-door french-door style split at 65% from bottom */}
+              {/* Bottom freezer drawer line */}
+              <div className="absolute left-0 right-0" style={{ bottom: "35%", height: 2, background: "rgba(80,90,110,0.55)" }} />
+              {/* Center vertical divider for upper fridge doors */}
+              <div className="absolute top-0" style={{ left: "50%", width: 2, bottom: "35%", background: "rgba(80,90,110,0.55)", transform: "translateX(-50%)" }} />
+              {/* Left door handle — vertical bar near right edge of left door */}
+              <div
+                className="absolute rounded-full"
+                style={{
+                  left: "calc(50% - 10px)",
+                  top: "8%",
+                  width: 4,
+                  bottom: "38%",
+                  background: "linear-gradient(90deg, #8a9ab0 0%, #c8d4e0 40%, #a0b0c4 100%)",
+                  boxShadow: "1px 0 2px rgba(0,0,0,0.30), -1px 0 1px rgba(255,255,255,0.25)",
+                  borderRadius: 3,
+                }}
+              />
+              {/* Right door handle — vertical bar near left edge of right door */}
+              <div
+                className="absolute rounded-full"
+                style={{
+                  left: "calc(50% + 6px)",
+                  top: "8%",
+                  width: 4,
+                  bottom: "38%",
+                  background: "linear-gradient(90deg, #8a9ab0 0%, #c8d4e0 40%, #a0b0c4 100%)",
+                  boxShadow: "1px 0 2px rgba(0,0,0,0.30), -1px 0 1px rgba(255,255,255,0.25)",
+                  borderRadius: 3,
+                }}
+              />
+              {/* Freezer drawer handle — horizontal bar centered */}
+              <div
+                className="absolute"
+                style={{
+                  left: "20%",
+                  right: "20%",
+                  bottom: "calc(35% + 6px)",
+                  height: 4,
+                  background: "linear-gradient(180deg, #8a9ab0 0%, #c8d4e0 40%, #a0b0c4 100%)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.30), 0 -1px 1px rgba(255,255,255,0.25)",
+                  borderRadius: 3,
+                }}
+              />
+            </>
+          )}
+          {isAppliance && /^(DW|WINE)-/i.test(p.masterCode ?? "") && (
+            <>
+              {/* Dishwasher / wine cooler: control panel strip at top */}
+              <div className="absolute left-0 right-0 top-0" style={{ height: "12%", background: "linear-gradient(180deg, #b0bac8 0%, #8a96a8 100%)", borderBottom: "1px solid rgba(60,70,90,0.4)" }} />
+              {/* Door handle — horizontal bar below control panel */}
+              <div
+                className="absolute"
+                style={{
+                  left: "15%",
+                  right: "15%",
+                  top: "14%",
+                  height: 4,
+                  background: "linear-gradient(180deg, #8a9ab0 0%, #c8d4e0 40%, #a0b0c4 100%)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.30), 0 -1px 1px rgba(255,255,255,0.25)",
+                  borderRadius: 3,
+                }}
+              />
+            </>
+          )}
+          {isAppliance && /^RANGE-/i.test(p.masterCode ?? "") && (
+            <>
+              {/* Range: cooktop area at top ~40%, oven door below */}
+              <div className="absolute left-0 right-0" style={{ top: "38%", height: 2, background: "rgba(80,90,110,0.50)" }} />
+              {/* Burner circles on cooktop */}
+              {[{l:"22%",t:"8%"},{l:"58%",t:"8%"},{l:"22%",t:"22%"},{l:"58%",t:"22%"}].map((b,i) => (
+                <div key={i} className="absolute rounded-full" style={{ left: b.l, top: b.t, width: "16%", aspectRatio:"1", border: "1.5px solid rgba(60,70,90,0.55)", background: "radial-gradient(circle, #8a96a8 30%, #6a7888 100%)" }} />
+              ))}
+              {/* Oven door handle */}
+              <div
+                className="absolute"
+                style={{
+                  left: "15%",
+                  right: "15%",
+                  top: "42%",
+                  height: 4,
+                  background: "linear-gradient(180deg, #8a9ab0 0%, #c8d4e0 40%, #a0b0c4 100%)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.30), 0 -1px 1px rgba(255,255,255,0.25)",
+                  borderRadius: 3,
+                }}
+              />
+              {/* Oven window */}
+              <div className="absolute" style={{ left: "10%", right: "10%", top: "50%", bottom: "15%", background: "rgba(30,40,60,0.35)", border: "1px solid rgba(80,90,110,0.40)", borderRadius: 2 }} />
+            </>
+          )}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>
             <span className="text-[8px] font-bold truncate px-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]" style={{ color: isAppliance ? "#1a2744" : cabFinish.label, ...textFlip }}>
               {p.masterCode}
