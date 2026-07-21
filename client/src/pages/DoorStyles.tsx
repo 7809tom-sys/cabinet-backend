@@ -239,11 +239,22 @@ export default function DoorStyles() {
   })();
   const [selectedType, setSelectedType] = useState<string | null>(initialType);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedFrame, setSelectedFrame] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
   const PER_PAGE = 16;
   const [page, setPage] = useState(0);
-  useEffect(() => { setPage(0); }, [selectedType, selectedColor, searchQuery]);
+  useEffect(() => { setPage(0); }, [selectedType, selectedColor, selectedFrame, searchQuery]);
+
+  // Frame-width filter buckets — keyed by rail/stile width ranges
+  const FRAME_BUCKETS: { key: string; label: string; desc: string; match: (rail: number | null, stile: number | null) => boolean }[] = [
+    { key: "slim",   label: "Slim (≤ ¾\")",   desc: "Rail & stile ≤ 0.75\"",  match: (r) => r != null && r <= 0.75 },
+    { key: "narrow", label: "Narrow (1\"–1½\")", desc: "Rail 1\"–1.5\"",        match: (r) => r != null && r > 0.75 && r <= 1.5 },
+    { key: "standard",label: "Standard (2\"–2½\")",desc: "Rail 2\"–2.5\"",     match: (r) => r != null && r > 1.5 && r <= 2.5 },
+    { key: "wide",   label: "Wide (3\"–4\")",   desc: "Rail 3\"–4\"",          match: (r) => r != null && r > 2.5 && r <= 4 },
+    { key: "xl",     label: "XL (> 4\")",       desc: "Rail > 4\"",            match: (r) => r != null && r > 4 },
+    { key: "none",   label: "No Frame (Slab)",  desc: "No rail/stile data",   match: (r) => r == null },
+  ];
 
   // Fetch distributors to map series names
   const { data: distributorList } = trpc.distributors.list.useQuery();
@@ -337,6 +348,16 @@ export default function DoorStyles() {
         return bucket.match(n, "");
       });
     }
+    if (selectedFrame) {
+      const fb = FRAME_BUCKETS.find((b) => b.key === selectedFrame);
+      if (fb) list = list.filter((s) => {
+        const rail = s.railWidth != null ? parseFloat(String(s.railWidth)) : null;
+        const stile = s.stileWidth != null ? parseFloat(String(s.stileWidth)) : null;
+        // Use rail if available, fall back to stile
+        const ref = rail ?? stile;
+        return fb.match(isNaN(ref as number) ? null : ref, stile != null && !isNaN(stile) ? stile : null);
+      });
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter((s) => {
@@ -347,11 +368,11 @@ export default function DoorStyles() {
     }
     return list;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uniqueStyles, selectedType, selectedColor, searchQuery, seriesById]);
+  }, [uniqueStyles, selectedType, selectedColor, selectedFrame, searchQuery, seriesById]);
 
   // When no profile filter is active, show the Featured row separately and keep
   // the main grid as the rest (so featured styles aren't duplicated below).
-  const showFeatured = !selectedType && featured.length > 0;
+  const showFeatured = !selectedType && !selectedFrame && featured.length > 0;
   const gridStyles = showFeatured
     ? visible.filter((s) => !isFeatured(s))
     : visible;
@@ -461,11 +482,36 @@ export default function DoorStyles() {
           ))}
         </div>
 
+        {/* Frame / Rail width filter pills */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mr-1">Frame</span>
+          <button onClick={() => setSelectedFrame(null)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+              selectedFrame === null
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-background text-muted-foreground border-border hover:border-emerald-500/60 hover:text-foreground"
+            }`}>
+            All Frames
+          </button>
+          {FRAME_BUCKETS.map((b) => (
+            <button key={b.key}
+              title={b.desc}
+              onClick={() => setSelectedFrame(selectedFrame === b.key ? null : b.key)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                selectedFrame === b.key
+                  ? "bg-emerald-600 text-white border-emerald-600"
+                  : "bg-background text-muted-foreground border-border hover:border-emerald-500/60 hover:text-foreground"
+              }`}>
+              {b.label}
+            </button>
+          ))}
+        </div>
+
         {/* Active filter summary */}
-        {(selectedType || selectedColor || searchQuery) && (
+        {(selectedType || selectedColor || selectedFrame || searchQuery) && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{visible.length} style{visible.length !== 1 ? "s" : ""} found</span>
-            <button onClick={() => { setSelectedType(null); setSelectedColor(null); setSearchQuery(""); }}
+            <button onClick={() => { setSelectedType(null); setSelectedColor(null); setSelectedFrame(null); setSearchQuery(""); }}
               className="text-primary hover:underline">
               Clear all filters
             </button>
