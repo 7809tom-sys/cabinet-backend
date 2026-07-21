@@ -634,7 +634,7 @@ export default function DoorStyles() {
         </>
       )}
       {/* ── Door Style Profile Guide ─────────────────────────────────────────── */}
-      <div className="mt-16 border-t border-border pt-12">
+      <div id="profile-guide" className="mt-16 border-t border-border pt-12">
         <div className="mb-8">
           <h2 className="font-serif text-2xl font-bold text-foreground mb-2">Door Style Profile Guide</h2>
           <p className="text-muted-foreground max-w-2xl">
