@@ -1305,3 +1305,9 @@
 - [x] Family.tsx: style pill now always visible in the sticky filter bar (not just after hero scrolls away)
 - [x] Pill shows door thumbnail + style name + chevron; clicking scrolls to top of page
 - [x] TypeScript compiles cleanly; checkpoint saved
+
+## Fix: AG2418 Appliance Garage placement in designer (Jul 21)
+- [x] AG2418 mounts at 36" from floor (on countertop) up to 54" (36"+18" height)
+- [x] Fixed elevationBox in design.ts: added branch 2b that detects appliance garages (via /appliance garage|\bag-?\d/ regex) and returns { bottom: STD.COUNTERTOP_HEIGHT (36"), height: h } before the short-wall top-anchor branch
+- [x] Explicit mountBottom user override (branch 1) still wins if user drags it
+- [x] TypeScript check passes; checkpoint saved

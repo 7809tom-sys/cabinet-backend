@@ -1201,6 +1201,15 @@ export function elevationBox(
     if (isStacker(p)) {
       return { bottom: topLine, height: h };
     }
+    // 2b) Appliance garages (AG-*) mount ON the countertop surface (36") and
+    //     rise up to 54" (36" + 18"). They are NOT top-anchored like wall
+    //     cabinets — they sit between the countertop and the wall cabinets above.
+    {
+      const agHay = `${p.subCategory ?? ""} ${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
+      if (/appliance garage|\bag-?\d/.test(agHay)) {
+        return { bottom: STD.COUNTERTOP_HEIGHT, height: h };
+      }
+    }
     // 3) SHORT wall cabinets (under 30" tall — e.g. 12"/15"/18"/24" bridges and
     //    over-appliance boxes) ride HIGH: they stay TOP-anchored at the upper-run
     //    top line so their TOP finishes flush with the standard uppers and their
