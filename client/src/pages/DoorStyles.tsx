@@ -12,7 +12,7 @@ import DoorPhotoMatchWidget from "@/components/DoorPhotoMatchWidget";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { useIsMobile } from "@/hooks/useMobile";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 
 // ─── Style card ───────────────────────────────────────────────────────────────
@@ -133,8 +133,8 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
       </DialogTrigger>
 
       <DialogContent className="max-w-2xl max-h-[90dvh] flex flex-col overflow-hidden p-0">
-        <div className="px-6 pt-6 pb-3 border-b border-border shrink-0">
-          <DialogHeader>
+        <div className="px-6 pt-6 pb-3 border-b border-border shrink-0 flex items-start justify-between gap-3">
+          <DialogHeader className="flex-1 min-w-0">
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               {displayName(style)}
               {style.doorStyle && (
@@ -145,6 +145,10 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
               )}
             </DialogTitle>
           </DialogHeader>
+          <DialogClose className="shrink-0 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 mt-0.5">
+            <X className="h-5 w-5" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
 
