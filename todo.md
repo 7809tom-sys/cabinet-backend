@@ -1300,3 +1300,8 @@
 - [x] Elevation renderer: updated resolveDoorDrawerCounts to treat numberOfDoors/numberOfDrawers as hard admin overrides (priority 0, before description parsing) — except for pure drawer-base codes (DB-*, 2DB*)
 - [x] isNotCabinet: door style selector hidden on product detail page when flag is set
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Floating style pill always visible on Family page (Jul 21)
+- [x] Family.tsx: style pill now always visible in the sticky filter bar (not just after hero scrolls away)
+- [x] Pill shows door thumbnail + style name + chevron; clicking scrolls to top of page
+- [x] TypeScript compiles cleanly; checkpoint saved

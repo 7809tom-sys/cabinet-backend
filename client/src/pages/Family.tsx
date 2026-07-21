@@ -700,19 +700,26 @@ export default function Family({ styleCode }: { styleCode: string }) {
           transition: "background 150ms, box-shadow 150ms, padding 150ms",
         }}
       >
-        {/* Compact style name + thumbnail — only visible once hero scrolls away */}
-        {heroPassed && (
-          <div className="flex items-center gap-2 mb-2">
+        {/* Style pill — always visible so the shopper always knows which door
+            style family they are browsing. Clicking scrolls back to the hero. */}
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 shadow-sm hover:bg-muted/60 transition-colors"
+            title="Scroll to top to change style"
+          >
             {realDoor && (
               <img
                 src={realDoor}
                 alt={familyName}
-                className="h-7 w-7 rounded object-cover ring-1 ring-border shrink-0"
+                className="h-6 w-6 rounded object-cover ring-1 ring-border shrink-0"
               />
             )}
-            <span className="text-sm font-semibold text-foreground truncate">{familyName}</span>
-          </div>
-        )}
+            <span className="text-sm font-semibold text-foreground truncate max-w-[200px]">{familyName}</span>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          </button>
+        </div>
         {/* Filter pills + inline search on one row */}
         <div className="flex flex-wrap items-center gap-2">
           {availableTypes.map((f) => (
