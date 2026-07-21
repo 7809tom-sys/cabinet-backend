@@ -173,11 +173,9 @@ export function ElevationView({
     const posAlong = seam ? 0 : (horizontal ? p.x : p.y);
     const { bottom, height } = elevationBox(p, room);
     const isWall = p.placement === "wall";
-    // FRIDGE-* cabinets render as real cabinet faces (finish color + door style)
-    // — they are cabinet boxes that surround the refrigerator, not steel appliances.
-    // All other appliances (RANGE, DW, WINE, etc.) keep the steel rendering.
-    const isFridgeCabinet = /^FRIDGE-/i.test(p.masterCode ?? "");
-    const isAppliance = !isFridgeCabinet && (p.placement === "appliance" || /^RANGE-/i.test(p.masterCode ?? ""));
+    // FRIDGE-* and all other appliances render as plain steel/gray appliance boxes.
+    // They are NOT cabinet faces — the refrigerator is the appliance itself.
+    const isAppliance = p.placement === "appliance" || /^(RANGE|FRIDGE)-/i.test(p.masterCode ?? "");
     const isSelected = p.uid === selectedUid;
     const isDragging = p.uid === dragUid;
     const cabFinish = finishFor ? finishFor(p) : finish;
