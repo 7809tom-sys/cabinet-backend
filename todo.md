@@ -1343,3 +1343,10 @@
 - [x] Admin UI: handleSave passes minPull, maxPull, openingWidth to updateMutation
 - [x] Designer: pullMin/pullMax from DB already flow through design.ts router — no changes needed (confirmed)
 - [x] TypeScript check passes; checkpoint saved
+
+## Fix: Wall Cabinet Door Sample Image Shows Drawer Front on Top
+- [x] Root cause: door sample photos are base-cabinet combo shots (drawer front on top + door below); when applied as background-size:cover on wall cabinet panels, the drawer portion shows at the top
+- [x] Fix: RecessedPanel and SingleDoorPanel now accept isWall prop; when isWall=true, background-position is "center 80%" to anchor to the door portion of the image
+- [x] All 7 SingleDoorPanel call sites in DoorFront updated to pass isWall={isWall}
+- [x] All door style cases (shaker, slim-shaker, raised, beaded, inset, slab, double-shaker) updated
+- [x] TypeScript check passes; checkpoint saved
