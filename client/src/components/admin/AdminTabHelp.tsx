@@ -1,6 +1,6 @@
 import { Info } from "lucide-react";
 
-const TAB_HELP: Record<string, { en: string; zh: string }> = {
+const TAB_HELP: Record<string, { en: string; zh: string; link?: { label: string; url: string } }> = {
   orders: {
     en: "View and manage all incoming cabinet orders. Update order status, review line items, and coordinate fulfillment.",
     zh: "查看並管理所有進來的櫥櫃訂單。更新訂單狀態、審查明細項目並協調履行事宜。",
@@ -54,8 +54,9 @@ const TAB_HELP: Record<string, { en: string; zh: string }> = {
     zh: "審查客戶提交的檯面報價請求。回覆定價及交貨時間。",
   },
   featured: {
-    en: "Control which door styles appear as featured on the public Door Styles page. Set alias names and promotional order.",
-    zh: "控制哪些門板樣式在公開的門板樣式頁面上顯示為精選。設定別名及推廣順序。",
+    en: "Control which door styles appear as featured on the public Door Styles page. Set alias names and promotional order. To edit or crop door/drawer sample images before uploading, use the free browser-based image editor:",
+    zh: "控制哪些門板樣式在公開的門板樣式頁面上顯示為精選。設定別名及推廣順序。上傳前可使用免費線上圖片編輯器裁切或調整門板/抽屜樣品圖片：",
+    link: { label: "Photopea — Free Online Image Editor", url: "https://www.photopea.com" },
   },
   "door-corrections": {
     en: "Fix door style data issues — correct mismatched style codes, update distributor assignments, and resolve conflicts.",
@@ -135,8 +136,38 @@ export function AdminTabHelp({ tab }: AdminTabHelpProps) {
     <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-6 text-sm dark:border-amber-900/40 dark:bg-amber-950/20">
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
       <div className="space-y-1">
-        <p className="text-amber-900 dark:text-amber-200 leading-relaxed">{help.en}</p>
-        <p className="text-amber-700 dark:text-amber-400 leading-relaxed font-medium">{help.zh}</p>
+        <p className="text-amber-900 dark:text-amber-200 leading-relaxed">
+          {help.en}
+          {help.link && (
+            <>
+              {" "}
+              <a
+                href={help.link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+              >
+                {help.link.label} ↗
+              </a>
+            </>
+          )}
+        </p>
+        <p className="text-amber-700 dark:text-amber-400 leading-relaxed font-medium">
+          {help.zh}
+          {help.link && (
+            <>
+              {" "}
+              <a
+                href={help.link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+              >
+                {help.link.label} ↗
+              </a>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );
