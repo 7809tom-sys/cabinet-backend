@@ -1059,7 +1059,8 @@ export default function CabinetDetail({ masterCode }: Props) {
             )}
           </div>
 
-          {/* Door style selector (price follows the chosen style) */}
+          {/* Door style selector — hidden for non-cabinet items (trim, accessories, corbels) */}
+          {!cabinet?.isNotCabinet && (
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-3">
               <Palette className="h-4 w-4 text-muted-foreground" />
@@ -1092,6 +1093,7 @@ export default function CabinetDetail({ masterCode }: Props) {
               </div>
             )}
           </div>
+          )}
 
           {/* Pricing tier tabs + price display */}
           {selectedRow && (

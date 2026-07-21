@@ -1284,3 +1284,19 @@
 - [x] Remove fuzzy edit-distance pass (80-94% score range) entirely — only keep hyphen/space-stripping pass (95%+) and alias-field cross-reference (90%)
 - [x] Clear all existing pending suggestions (false positives) from the DB — fresh start for next scan
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: "Not a cabinet" flag on product edit (Jul 21)
+- [ ] Check DB schema: does cabinets table have isNotCabinet / is_not_cabinet column?
+- [ ] If missing: add boolean column is_not_cabinet (default false) via migration
+- [ ] Backend: expose isNotCabinet in getCabinetById and updateCabinet procedures
+- [x] Admin edit form: "Not a Cabinet" toggle already exists in CabinetConfigAdmin.tsx
+- [x] Product detail page: door style selector wrapped in {!cabinet?.isNotCabinet && ...} conditional
+- [x] TypeScript check passes; checkpoint saved
+
+## Feature: Number of Doors field on admin edit (Jul 21)
+- [x] numberOfDoors column already exists in cabinets schema (int, default 0)
+- [x] Admin edit form already has Number of Doors selector (0, 1, 2, 3, 4) in CabinetConfigAdmin.tsx
+- [x] Backend already exposes numberOfDoors in adminUpdateCabinet and byCode procedures
+- [x] Elevation renderer: updated resolveDoorDrawerCounts to treat numberOfDoors/numberOfDrawers as hard admin overrides (priority 0, before description parsing) — except for pure drawer-base codes (DB-*, 2DB*)
+- [x] isNotCabinet: door style selector hidden on product detail page when flag is set
+- [x] TypeScript check passes; checkpoint saved

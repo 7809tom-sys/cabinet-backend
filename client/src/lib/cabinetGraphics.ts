@@ -60,6 +60,28 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   const sub = lc(cab.subCategory);
   const w = toNum(cab.width);
 
+  // 0) Admin-set numberOfDoors / numberOfDrawers act as hard overrides.
+  //    When an admin explicitly sets these fields in the product editor, they
+  //    take priority over description parsing so the elevation renderer always
+  //    shows the correct door/drawer count regardless of what the description
+  //    text says. We only treat the field as an override when it is a positive
+  //    integer (null / 0 = "not set", fall through to description parsing).
+  //    Exception: pure drawer-base codes (DB-*, 2DB*) are never given doors
+  //    even if numberOfDoors is set to a positive value by mistake.
+  const isPureDrawerCode =
+    /^(?:db|bd)[-_]\d/.test(lc(cab.masterCode ?? "")) ||
+    /^\d+db\d/i.test(lc(cab.masterCode ?? ""));
+  if (!isPureDrawerCode) {
+    const adminDoors = typeof cab.numberOfDoors === "number" && cab.numberOfDoors > 0 ? cab.numberOfDoors : null;
+    const adminDrawers = typeof cab.numberOfDrawers === "number" && cab.numberOfDrawers > 0 ? cab.numberOfDrawers : null;
+    if (adminDoors !== null || adminDrawers !== null) {
+      return {
+        doors: adminDoors ?? 0,
+        drawers: adminDrawers ?? 0,
+      };
+    }
+  }
+
   // 1) Drawers from the description, e.g. "3 Drawer Base", "with 4 Drawers".
   let drawers = 0;
   const drawerNum = desc.match(/(\d+)\s*[- ]?drawer/);
