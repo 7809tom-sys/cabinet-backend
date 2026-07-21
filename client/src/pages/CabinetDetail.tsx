@@ -36,6 +36,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
+import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 
 // ─── Cabinet category constants (must match CabinetConfigAdmin) ─────────────
 const CABINET_CATEGORIES = [
@@ -1030,6 +1031,23 @@ export default function CabinetDetail({ masterCode }: Props) {
             </dl>
           </div>
 
+          {/* Door / Drawer Location Diagram — shown for real cabinets only */}
+          {!cabinet.isNotCabinet && (() => {
+            const drawingType = cabinetDrawingType(cabinet as Parameters<typeof cabinetDrawingType>[0]);
+            const isTrim = drawingType === "accessory-strip";
+            if (isTrim) return null;
+            return (
+              <div className="rounded-xl border border-border p-5">
+                <h3 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
+                  <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="12" y1="9" x2="12" y2="21"/></svg>
+                  Door &amp; Drawer Layout
+                </h3>
+                <div className="flex justify-center">
+                  <DoorDrawerDiagram cabinet={cabinet} width={200} />
+                </div>
+              </div>
+            );
+          })()}
           {/* Shipping info is internal/freight-only — not shown to members */}
         </div>
 

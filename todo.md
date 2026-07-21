@@ -1361,3 +1361,9 @@
 - [ ] ElevationView: base cabinet drawer fronts use drawerSampleUrl (top of photo / center top)
 - [ ] ElevationView: StylePanel drawer=true uses drawerSampleUrl when available
 - [ ] TypeScript check passes; checkpoint saved
+
+## Feature: Door & Drawer Location Diagram
+- [x] Build DoorDrawerDiagram SVG component — labeled front-elevation schematic showing door/drawer zones
+- [x] Integrate diagram into CabinetDetail product page (below Specifications card)
+- [x] Integrate diagram into CabinetConfigAdmin edit dialog (live preview below Doors/Drawers selectors)
+- [x] TypeScript check passes; checkpoint saved

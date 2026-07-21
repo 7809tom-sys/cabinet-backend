@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, Sparkles, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STANDARD_DEPTHS = ["9", "12", "15", "18", "21", "24", "27", "30", "33", "36"];
@@ -366,6 +367,27 @@ function EditModal({
                   </div>
                 </div>
 
+                {/* Door / Drawer Layout Preview — live preview of the door+drawer arrangement */}
+                {(merged.numberOfDoors !== null || merged.numberOfDrawers !== null) && (
+                  <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Layout Preview</p>
+                    <div className="flex justify-center">
+                      <DoorDrawerDiagram
+                        cabinet={{
+                          masterCode: merged.masterCode,
+                          description: merged.description,
+                          category: merged.category,
+                          subCategory: merged.subCategory,
+                          width: merged.width,
+                          height: merged.height,
+                          numberOfDoors: merged.numberOfDoors,
+                          numberOfDrawers: merged.numberOfDrawers,
+                        }}
+                        width={160}
+                      />
+                    </div>
+                  </div>
+                )}
                 {/* Blind Corner Pull Spec — auto-shown for BBC/WBC/BLIND codes */}
                 {isBlindCornerCode(merged.masterCode, merged.description) && (
                   <div className="rounded-lg border border-amber-500/40 bg-amber-50/10 dark:bg-amber-900/10 px-4 py-3 space-y-3">
