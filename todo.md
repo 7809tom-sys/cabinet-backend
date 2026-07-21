@@ -1266,3 +1266,9 @@
 - [x] Admin UI: Run AI Scan button with confirmation dialog
 - [x] Admin UI: Wired into Products & Catalog group in AdminGroupedTabs as "Master SKU Aliases" tab
 - [x] Vitest tests: 19 tests passing for normalize, levenshtein, editSimilarity, duplicate detection, conflict detection, deduplication
+
+## Feature: Floating cabinet style selector on product detail page (Jul 21)
+- [x] Identify the floating style selector component used on the catalog listing page (sticky pill in Family.tsx)
+- [x] Add the same floating style selector to the individual product detail page (breadcrumb row, right-aligned pill with DoorStyleSwatch thumbnail + style name + chevron)
+- [x] Clicking the pill scrolls to #pricing section where the full style picker lives
+- [x] TypeScript compiles cleanly; screenshot verified; checkpoint saved

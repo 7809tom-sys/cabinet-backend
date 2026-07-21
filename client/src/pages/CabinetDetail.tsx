@@ -678,23 +678,47 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   return (
     <div className="container py-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Link href="/catalog" className="hover:text-foreground flex items-center gap-1">
-          <ChevronLeft className="h-3.5 w-3.5" />
-          Catalog
-        </Link>
-        {cabinet.category && (
-          <>
-            <span>/</span>
-            <Link href={`/catalog?category=${cabinet.category}`} className="hover:text-foreground">
-              {cabinet.category}
-            </Link>
-          </>
+      {/* Breadcrumb + floating style pill on the same row */}
+      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Link href="/catalog" className="hover:text-foreground flex items-center gap-1">
+            <ChevronLeft className="h-3.5 w-3.5" />
+            Catalog
+          </Link>
+          {cabinet.category && (
+            <>
+              <span>/</span>
+              <Link href={`/catalog?category=${cabinet.category}`} className="hover:text-foreground">
+                {cabinet.category}
+              </Link>
+            </>
+          )}
+          <span>/</span>
+          <span className="text-foreground font-medium">{masterCode}</span>
+        </nav>
+        {/* Floating style selector pill — shows the active door style with a
+            thumbnail swatch. Tapping it scrolls to the style picker in the
+            pricing section so the user can switch styles without scrolling. */}
+        {styleRows.length > 0 && (
+          <a
+            href="#pricing"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 shadow-sm hover:border-primary/50 hover:bg-muted/40 transition-colors group shrink-0"
+            title="Change door style"
+          >
+            <div className="h-7 w-7 rounded-full overflow-hidden border border-border shrink-0">
+              {selectedRow ? (
+                <DoorStyleSwatch style={selectedRow} className="h-full w-full" />
+              ) : (
+                <div className="h-full w-full bg-muted" />
+              )}
+            </div>
+            <span className="text-xs font-semibold text-foreground">
+              {selectedRow?.name ?? (pricingLoading ? "Loading…" : "Select style")}
+            </span>
+            <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground rotate-180 group-hover:text-primary transition-colors" />
+          </a>
         )}
-        <span>/</span>
-        <span className="text-foreground font-medium">{masterCode}</span>
-      </nav>
+      </div>
 
       {/* ── Hero block: room-scene photo (primary) + door thumbnail strip (secondary) ──
           Layout:
