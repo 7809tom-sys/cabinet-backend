@@ -1453,24 +1453,23 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
   // style (drawer fronts don't get raised/beaded treatments in this model),
   // except slab which stays flat.
   if (drawer) {
-    // Drawer fronts: never apply the door sample image — the door sample photo is
-    // a full-height door portrait and crops incorrectly on the short, wide drawer
-    // front (any crop position shows the wrong color from the photo).
-    // Instead, render using the face color with a strong visible bevel/border so
-    // the drawer front reads clearly even on light finishes like Aspen White.
+    // Apply the photo (drawer sample preferred, door sample as fallback) when available.
+    const photoStyle: React.CSSProperties = effectiveDoorUrl
+      ? { backgroundImage: `url(${effectiveDoorUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+      : {};
     if (kind === "slab") {
       return (
         <div
           className="absolute inset-[1.5px] rounded-[1.5px]"
           style={{
+            ...photoStyle,
             border: `1px solid ${edge}55`,
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 2px rgba(0,0,0,0.18)`,
           }}
         />
       );
     }
-    // Shaker / framed styles: outer rail bevel + recessed inner panel.
-    // Use edge color for the border so it's visible on both dark and light finishes.
+    // Shaker / framed styles: outer rail bevel + recessed inner panel with photo.
     return (
       <div
         className="absolute inset-[1.5px] rounded-[1.5px]"
@@ -1482,7 +1481,10 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
         <div
           className="absolute inset-[3px] rounded-[1px]"
           style={{
-            background: `linear-gradient(180deg, color-mix(in srgb, ${face} 88%, #000) 0%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
+            ...photoStyle,
+            ...(effectiveDoorUrl ? {} : {
+              background: `linear-gradient(180deg, color-mix(in srgb, ${face} 88%, #000) 0%, color-mix(in srgb, ${face} 94%, #000) 100%)`,
+            }),
             border: `1px solid ${edge}44`,
             boxShadow: `inset 0 2px 3px rgba(0,0,0,0.25), inset 0 -1px 0 rgba(255,255,255,0.20)`,
           }}
