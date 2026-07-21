@@ -27,6 +27,8 @@ export interface CabinetLike {
   isCornerCabinet?: boolean | null;
   placementType?: string | null;
   catalogImageUrl?: string | null;
+  /** User-toggled in the design tool: render as open box with no door panels */
+  noDoor?: boolean | null;
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -56,6 +58,9 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   doors: number;
   drawers: number;
 } {
+  // If the user explicitly marked this cabinet as "no door", render as open box.
+  if (cab.noDoor) return { doors: 0, drawers: 0 };
+
   const desc = lc(cab.description);
   const sub = lc(cab.subCategory);
   const w = toNum(cab.width);
@@ -64,14 +69,20 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   //    When an admin explicitly sets these fields in the product editor, they
   //    take priority over description parsing so the elevation renderer always
   //    shows the correct door/drawer count regardless of what the description
-  //    text says. We only treat the field as an override when it is a positive
-  //    integer (null / 0 = "not set", fall through to description parsing).
+  //    text says.
+  //    Special case: numberOfDoors === 0 is treated as an explicit "no doors"
+  //    override (e.g. wine lattice, tray divider, open shelf wall cabinets).
   //    Exception: pure drawer-base codes (DB-*, 2DB*) are never given doors
   //    even if numberOfDoors is set to a positive value by mistake.
   const isPureDrawerCode =
     /^(?:db|bd)[-_]\d/.test(lc(cab.masterCode ?? "")) ||
     /^\d+db\d/i.test(lc(cab.masterCode ?? ""));
   if (!isPureDrawerCode) {
+    // Explicit zero-door override (specialty open cabinets set numberOfDoors=0)
+    if (typeof cab.numberOfDoors === "number" && cab.numberOfDoors === 0) {
+      const adminDrawers = typeof cab.numberOfDrawers === "number" && cab.numberOfDrawers > 0 ? cab.numberOfDrawers : null;
+      return { doors: 0, drawers: adminDrawers ?? 0 };
+    }
     const adminDoors = typeof cab.numberOfDoors === "number" && cab.numberOfDoors > 0 ? cab.numberOfDoors : null;
     const adminDrawers = typeof cab.numberOfDrawers === "number" && cab.numberOfDrawers > 0 ? cab.numberOfDrawers : null;
     if (adminDoors !== null || adminDrawers !== null) {
