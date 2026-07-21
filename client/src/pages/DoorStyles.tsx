@@ -349,6 +349,30 @@ export default function DoorStyles() {
     [uniqueStyles, featuredNames]
   );
 
+  // Pre-compute which frame buckets have at least one matching style
+  // (considering only the current type + color filters, not the frame filter itself)
+  const activeBucketKeys = useMemo(() => {
+    let base = uniqueStyles;
+    if (selectedType) base = base.filter((s) => s.doorStyle === selectedType);
+    if (selectedColor) {
+      const bucket = COLOR_BUCKETS.find((b) => b.key === selectedColor);
+      if (bucket) base = base.filter((s) => {
+        const n = ((s.ourName || "") + " " + (s.aliasName || "") + " " + (s.color || "")).toLowerCase();
+        return bucket.match(n, "");
+      });
+    }
+    return new Set(
+      FRAME_BUCKETS.filter((fb) =>
+        base.some((s) => {
+          const rail = s.railWidth != null ? parseFloat(String(s.railWidth)) : null;
+          const stile = s.stileWidth != null ? parseFloat(String(s.stileWidth)) : null;
+          const ref = rail ?? stile;
+          return fb.match(isNaN(ref as number) ? null : ref, stile != null && !isNaN(stile) ? stile : null);
+        })
+      ).map((fb) => fb.key)
+    );
+  }, [uniqueStyles, selectedType, selectedColor]);
+
   const visible = useMemo(() => {
     let list = uniqueStyles;
     if (selectedType) list = list.filter((s) => s.doorStyle === selectedType);
@@ -504,7 +528,7 @@ export default function DoorStyles() {
             }`}>
             All Frames
           </button>
-          {FRAME_BUCKETS.map((b) => (
+          {FRAME_BUCKETS.filter((b) => activeBucketKeys.has(b.key)).map((b) => (
             <button key={b.key}
               title={b.desc}
               onClick={() => setSelectedFrame(selectedFrame === b.key ? null : b.key)}
