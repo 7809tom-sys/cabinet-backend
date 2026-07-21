@@ -657,6 +657,69 @@ Return a JSON array with objects: { index: number, isDuplicate: boolean, reason:
     }),
 
   /**
+   * Get all alias codes pointing to a specific master code.
+   * Used by the cabinet edit dialog Aliases tab.
+   */
+  getAliasesForCabinet: adminProcedure
+    .input(z.object({ masterCode: z.string() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db
+        .select()
+        .from(skuMasterAliases)
+        .where(eq(skuMasterAliases.masterCode, input.masterCode))
+        .orderBy(asc(skuMasterAliases.aliasCode));
+    }),
+
+  /**
+   * Add a new alias code pointing to a master code.
+   * If the alias already exists pointing elsewhere, marks it as conflict.
+   * Used by the cabinet edit dialog Aliases tab.
+   */
+  addAliasForCabinet: adminProcedure
+    .input(
+      z.object({
+        aliasCode: z.string().min(1).max(64),
+        masterCode: z.string().min(1).max(64),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      const aliasNorm = input.aliasCode.trim().toUpperCase();
+      const [existing] = await db
+        .select()
+        .from(skuMasterAliases)
+        .where(eq(skuMasterAliases.aliasCode, aliasNorm))
+        .limit(1);
+      if (existing) {
+        if (existing.masterCode === input.masterCode) {
+          return { ok: true, conflict: false, id: existing.id };
+        }
+        await db
+          .update(skuMasterAliases)
+          .set({
+            masterCode: input.masterCode,
+            conflictStatus: "conflict",
+            notes: input.notes ?? `Manually set via cabinet edit — was ${existing.masterCode}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(skuMasterAliases.id, existing.id));
+        return { ok: true, conflict: true, id: existing.id };
+      }
+      const [result] = await db.insert(skuMasterAliases).values({
+        aliasCode: aliasNorm,
+        masterCode: input.masterCode,
+        notes: input.notes ?? "Manually added via cabinet edit",
+        conflictStatus: "ok",
+        createdBy: ctx.user.id,
+      });
+      return { ok: true, conflict: false, id: (result as { insertId?: number })?.insertId ?? 0 };
+    }),
+
+  /**
    * Get summary counts for the dashboard badge.
    */
   summaryCounts: adminProcedure.query(async () => {

@@ -1311,3 +1311,12 @@
 - [x] Fixed elevationBox in design.ts: added branch 2b that detects appliance garages (via /appliance garage|\bag-?\d/ regex) and returns { bottom: STD.COUNTERTOP_HEIGHT (36"), height: h } before the short-wall top-anchor branch
 - [x] Explicit mountBottom user override (branch 1) still wins if user drags it
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Aliases tab in cabinet edit dialog (Jul 21)
+- [x] Cabinet edit dialog: Aliases tab shows all alias codes pointing to this cabinet's masterCode
+- [x] Aliases tab: add new alias code field (text input + Add button)
+- [x] Aliases tab: list existing aliases with a remove (X) button per row
+- [x] On save/add: upsert into sku_master_aliases (aliasCode → masterCode, status=approved, createdBy=admin)
+- [x] On remove: delete from sku_master_aliases
+- [x] Backend: tRPC procedures getAliasesForCabinet(masterCode) and addAliasForCabinet(aliasCode, masterCode)
+- [x] TypeScript check passes; checkpoint saved

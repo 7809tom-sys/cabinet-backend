@@ -11,7 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, Sparkles, Pencil, Trash2, Plus } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, Sparkles, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -101,7 +102,7 @@ function EditModal({
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<"3d" | "2d">("3d");
-  const [newAlias, setNewAlias] = useState({ raw: "", platform: "" });
+  const [newAliasCode, setNewAliasCode] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
 
@@ -151,20 +152,28 @@ function EditModal({
     onError: (e) => toast.error(`AI estimate failed: ${e.message}`),
   });
 
-  // Aliases
-  const { data: aliases, isLoading: aliasesLoading } = trpc.distributorAdmin.adminListCategoryAliases.useQuery({});
-  const saveAliasMutation = trpc.distributorAdmin.adminSaveCategoryAlias.useMutation({
-    onSuccess: () => {
-      utils.distributorAdmin.adminListCategoryAliases.invalidate();
-      setNewAlias({ raw: "", platform: "" });
-      toast.success("Alias saved");
+  // Master SKU Aliases for this cabinet
+  const masterCode = row.masterCode ?? "";
+  const { data: skuAliases, isLoading: aliasesLoading } = trpc.masterSku.getAliasesForCabinet.useQuery(
+    { masterCode },
+    { enabled: !!masterCode }
+  );
+  const addAliasMutation = trpc.masterSku.addAliasForCabinet.useMutation({
+    onSuccess: (result) => {
+      utils.masterSku.getAliasesForCabinet.invalidate({ masterCode });
+      setNewAliasCode("");
+      if (result.conflict) {
+        toast.warning("Alias added but marked as conflict — it was previously mapped to a different master code.");
+      } else {
+        toast.success("Alias added");
+      }
     },
     onError: (e: { message: string }) => toast.error(`Failed: ${e.message}`),
   });
-  const deleteAliasMutation = trpc.distributorAdmin.adminDeleteCategoryAlias.useMutation({
+  const deleteAliasMutation = trpc.masterSku.deleteAlias.useMutation({
     onSuccess: () => {
-      utils.distributorAdmin.adminListCategoryAliases.invalidate();
-      toast.success("Alias deleted");
+      utils.masterSku.getAliasesForCabinet.invalidate({ masterCode });
+      toast.success("Alias removed");
     },
     onError: (e: { message: string }) => toast.error(`Failed: ${e.message}`),
   });
@@ -542,26 +551,110 @@ function EditModal({
           {/* ── Aliases tab ── */}
           <TabsContent value="aliases" className="space-y-4 mt-0">
             <p className="text-xs text-muted-foreground">
-              Alternative SKU codes for this cabinet. When a customer or order references any of these codes, it resolves to <span className="font-mono font-semibold">{row.masterCode}</span>. Aliases are cross-references only — they do not affect visibility.
+              Master SKU alias codes that redirect to{" "}
+              <span className="font-mono font-semibold">{row.masterCode}</span>. When any of these codes appear in an order or catalog lookup, they resolve to this cabinet.
             </p>
 
-            <div className="space-y-3">
-              {(["altSku1", "altSku2", "altSku3"] as const).map((field, idx) => (
-                <div key={field} className="space-y-1.5">
-                  <Label className="text-sm font-medium">Alias SKU {idx + 1}</Label>
-                  <Input
-                    className="h-9 text-sm font-mono"
-                    placeholder={`e.g. alternate code ${idx + 1}`}
-                    value={merged[field] ?? ""}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => set(field, e.target.value.trim() || null)}
-                    disabled={busy}
-                  />
-                </div>
-              ))}
+            {/* Add new alias */}
+            <div className="flex gap-2">
+              <Input
+                className="h-9 text-sm font-mono flex-1"
+                placeholder="e.g. VS-24 or DCW2415GD"
+                value={newAliasCode}
+                onChange={(e) => setNewAliasCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newAliasCode.trim()) {
+                    addAliasMutation.mutate({ aliasCode: newAliasCode.trim(), masterCode });
+                  }
+                }}
+                disabled={addAliasMutation.isPending || !masterCode}
+              />
+              <Button
+                size="sm"
+                className="h-9 gap-1.5"
+                onClick={() => {
+                  if (newAliasCode.trim()) {
+                    addAliasMutation.mutate({ aliasCode: newAliasCode.trim(), masterCode });
+                  }
+                }}
+                disabled={!newAliasCode.trim() || addAliasMutation.isPending || !masterCode}
+              >
+                {addAliasMutation.isPending ? <Spinner className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                Add
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-              <strong>Note:</strong> Aliases are cross-references only. They help customers find this cabinet by alternate codes. Visibility is controlled separately via the Show in Catalog and Show in Designer toggles in the Details tab.
-            </p>
+
+            {/* Alias list */}
+            {aliasesLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Spinner className="h-5 w-5 text-muted-foreground" />
+              </div>
+            ) : !skuAliases || skuAliases.length === 0 ? (
+              <div className="text-center py-6 text-sm text-muted-foreground border border-dashed rounded-lg">
+                No alias codes yet. Add one above.
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {skuAliases.map((alias) => (
+                  <div
+                    key={alias.id}
+                    className={cn(
+                      "flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-sm",
+                      alias.conflictStatus === "conflict"
+                        ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+                        : "border-border bg-muted/30"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-mono font-semibold truncate">{alias.aliasCode}</span>
+                      {alias.conflictStatus === "conflict" && (
+                        <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 gap-1 shrink-0">
+                          <AlertTriangle className="h-3 w-3" />
+                          Conflict
+                        </Badge>
+                      )}
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                          disabled={deleteAliasMutation.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove alias?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will remove the mapping{" "}
+                            <strong className="font-mono">{alias.aliasCode}</strong> →{" "}
+                            <strong className="font-mono">{alias.masterCode}</strong>. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => deleteAliasMutation.mutate({ id: alias.id })}
+                          >
+                            Remove
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!masterCode && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                This cabinet has no master code set. Add a master code in the Details tab before managing aliases.
+              </p>
+            )}
           </TabsContent>
         </Tabs>
 
