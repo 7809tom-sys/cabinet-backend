@@ -559,6 +559,82 @@ Return a JSON array with objects: { index: number, isDuplicate: boolean, reason:
   }),
 
   /**
+   * Approve all pending suggestions in bulk (one click).
+   * Skips any that are already reviewed. Handles conflicts the same way
+   * as the single approveSuggestion procedure.
+   */
+  approveAll: adminProcedure
+    .input(
+      z.object({
+        minScore: z.number().min(0).max(100).default(0),
+      })
+    )
+    .mutation(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+
+      const pending = await db
+        .select()
+        .from(skuMergeSuggestions)
+        .where(eq(skuMergeSuggestions.status, "pending"));
+
+      let approved = 0;
+      let skipped = 0;
+
+      for (const suggestion of pending) {
+        const { aliasCode, masterCode } = suggestion;
+
+        // Check for existing alias with the same aliasCode
+        const [existing] = await db
+          .select()
+          .from(skuMasterAliases)
+          .where(eq(skuMasterAliases.aliasCode, aliasCode))
+          .limit(1);
+
+        if (existing) {
+          if (existing.masterCode === masterCode) {
+            // Already aliased correctly — just mark approved
+          } else {
+            // Conflict: mark old as conflicted, insert new
+            await db
+              .update(skuMasterAliases)
+              .set({ conflictStatus: "conflict" })
+              .where(eq(skuMasterAliases.id, existing.id));
+
+            await db.insert(skuMasterAliases).values({
+              aliasCode,
+              masterCode,
+              notes: `Bulk approved from AI suggestion #${suggestion.id}`,
+              conflictStatus: "conflict",
+              createdBy: ctx.user.id,
+            });
+          }
+        } else {
+          await db.insert(skuMasterAliases).values({
+            aliasCode,
+            masterCode,
+            notes: `Bulk approved from AI suggestion #${suggestion.id}`,
+            conflictStatus: "ok",
+            createdBy: ctx.user.id,
+          });
+        }
+
+        await db
+          .update(skuMergeSuggestions)
+          .set({
+            status: "approved",
+            reviewedBy: ctx.user.id,
+            reviewedAt: new Date(),
+          })
+          .where(eq(skuMergeSuggestions.id, suggestion.id));
+
+        approved++;
+      }
+
+      return { approved, skipped };
+    }),
+
+  /**
    * Get summary counts for the dashboard badge.
    */
   summaryCounts: adminProcedure.query(async () => {

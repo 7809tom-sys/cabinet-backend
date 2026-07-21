@@ -1272,3 +1272,9 @@
 - [x] Add the same floating style selector to the individual product detail page (breadcrumb row, right-aligned pill with DoorStyleSwatch thumbnail + style name + chevron)
 - [x] Clicking the pill scrolls to #pricing section where the full style picker lives
 - [x] TypeScript compiles cleanly; screenshot verified; checkpoint saved
+
+## Feature: Approve All + alias-aware product page (Jul 21)
+- [x] Add "Approve All" bulk action button to Suggestions tab (approves all pending suggestions in one click, with confirmation dialog)
+- [x] Backend: approveAll tRPC procedure in masterSku router (bulk-approves all pending, handles conflicts)
+- [x] Update stylesForCabinet query to resolve alias cabinet IDs via sku_master_aliases so distributor pricing rows with aliased codes appear on the product detail page
+- [x] TypeScript check passes; checkpoint saved

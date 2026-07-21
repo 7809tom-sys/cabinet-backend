@@ -83,6 +83,16 @@ function SuggestionsTab() {
     onError: (err) => toast.error(err.message),
   });
 
+  const approveAll = trpc.masterSku.approveAll.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Approved ${result.approved} suggestion${result.approved !== 1 ? "s" : ""} — aliases created`);
+      utils.masterSku.listSuggestions.invalidate();
+      utils.masterSku.listAliases.invalidate();
+      utils.masterSku.summaryCounts.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   const scoreColor = (score: number) => {
     if (score >= 90) return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
     if (score >= 80) return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
@@ -116,9 +126,46 @@ function SuggestionsTab() {
           </Button>
         ))}
         {data && (
-          <span className="ml-auto text-sm text-muted-foreground self-center">
+          <span className="text-sm text-muted-foreground self-center">
             {data.total} result{data.total !== 1 ? "s" : ""}
           </span>
+        )}
+        {statusFilter === "pending" && (data?.total ?? 0) > 0 && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                className="ml-auto gap-1.5 bg-green-700 hover:bg-green-800 text-white"
+                disabled={approveAll.isPending}
+              >
+                {approveAll.isPending ? (
+                  <Spinner className="h-3.5 w-3.5" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                )}
+                Approve All ({data?.total ?? 0})
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Approve all {data?.total ?? 0} pending suggestions?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will create alias mappings for all pending suggestions at once. Distributors
+                  whose pricing uses these alias codes will immediately appear on the matching product
+                  pages. Conflicts will be flagged for review.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-green-700 hover:bg-green-800"
+                  onClick={() => approveAll.mutate({ minScore: 0 })}
+                >
+                  Approve All
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
 

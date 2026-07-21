@@ -13,6 +13,7 @@ import {
   costChangeLog,
   doorStyleCorrections,
   distributorCabinetOverrides,
+  skuMasterAliases,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
@@ -2192,6 +2193,47 @@ export const pricingRouter = router({
       const viewerTier = resolveStorefrontTier(ctx.user);
       const isAdmin = ctx.user?.role === "admin";
       const ps = await getPricingSettings();
+
+      // ── Alias resolution ────────────────────────────────────────────────────
+      // The Master SKU Alias Program maps supplier-variant codes (e.g. "VS-24")
+      // to canonical master codes (e.g. "VS24"). When a distributor's price rows
+      // are linked to a cabinet whose masterCode is an alias of this cabinet's
+      // masterCode, we want those rows to appear on this product page too.
+      //
+      // Steps:
+      //   1. Look up the masterCode string for the requested cabinetId.
+      //   2. Find all alias codes that map TO this masterCode.
+      //   3. Find all cabinet IDs whose masterCode is one of those alias codes.
+      //   4. Include those cabinet IDs in the WHERE clause alongside the direct match.
+      const masterCabinetRow = await db
+        .select({ masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.cabinetId))
+        .limit(1);
+      const masterCode = masterCabinetRow[0]?.masterCode ?? null;
+
+      // Collect all cabinet IDs to include (direct + aliased)
+      let allCabinetIds: number[] = [input.cabinetId];
+      if (masterCode) {
+        // Find alias codes that point to this master code
+        const aliasRows = await db
+          .select({ aliasCode: skuMasterAliases.aliasCode })
+          .from(skuMasterAliases)
+          .where(eq(skuMasterAliases.masterCode, masterCode));
+
+        if (aliasRows.length > 0) {
+          const aliasCodes = aliasRows.map((a) => a.aliasCode);
+          // Find cabinet IDs whose masterCode is one of those alias codes
+          const aliasCabinets = await db
+            .select({ id: cabinets.id })
+            .from(cabinets)
+            .where(inArray(cabinets.masterCode, aliasCodes));
+          const aliasIds = aliasCabinets.map((c) => c.id);
+          allCabinetIds = Array.from(new Set(allCabinetIds.concat(aliasIds)));
+        }
+      }
+      // ── End alias resolution ────────────────────────────────────────────────
+
       const rows = await db
         .select({
           styleId: distributorSkus.styleId,
@@ -2234,7 +2276,9 @@ export const pricingRouter = router({
         )
         .where(
           and(
-            eq(distributorSkus.cabinetId, input.cabinetId),
+            allCabinetIds.length === 1
+              ? eq(distributorSkus.cabinetId, allCabinetIds[0])
+              : inArray(distributorSkus.cabinetId, allCabinetIds),
             eq(distributorSkus.isAvailable, true),
             eq(distributorSkus.isPublished, true),
             eq(doorStyles.isActive, true),
