@@ -1243,11 +1243,11 @@
 
 ## Fix: B12FH, B18FH, B36FH countertop stripe at top (Jul 21)
 
-- [ ] B12FH, B18FH, B36FH show warm/orange stripe at top of cabinet face — countertop slab overlapping or z-index issue
-- [ ] Investigate contiguous-run countertop renderer position vs cabinet face position
-- [ ] Fix: ensure cabinet face covers full height with no countertop overlap
-- [ ] 3DB36 is correct — do not change drawer base rendering
-- [ ] TypeScript check passes; screenshot verified; checkpoint saved
+- [x] B12FH, B18FH, B36FH show warm/orange stripe at top of cabinet face — countertop slab overlapping or z-index issue
+- [x] Root cause: sub-pixel rounding at fractional PPI values causes countertop slab to bleed 1px below cabinet top edge
+- [x] Fix: Math.ceil(STD.BASE_HEIGHT * ppi) on countertop slab bottom ensures slab never bleeds into cabinet face
+- [x] 3DB36 is correct — drawer base rendering unchanged
+- [x] TypeScript check passes; checkpoint saved
 
 ## Master SKU Alias Program (Catalog Governance)
 

@@ -718,7 +718,9 @@ export function ElevationView({
                     width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
                     // Bottom edge sits flush on top of 34.5" base cabinets.
                     // The slab extends UP by THICKNESS_IN (1.5") to reach 36".
-                    bottom: STD.BASE_HEIGHT * ppi,
+                    // Math.ceil ensures the slab never bleeds below the cabinet
+                    // top edge due to sub-pixel rounding at fractional PPI values.
+                    bottom: Math.ceil(STD.BASE_HEIGHT * ppi),
                     height: THICKNESS_IN * ppi,
                     // Polished stone slab: a glossy highlight streak across the
                     // front nosing plus subtle speckle tint from the material.
