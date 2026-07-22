@@ -1033,7 +1033,13 @@ export function ElevationView({
             the countertop so the faucet is visible in Front View even though
             the sink bowl is cut into the counter.
             Skipped when sinkTopType is a range top (gas/electric/smooth-top). */}
-        {sorted.filter((p) => isSinkBaseCabinet(p) && p.sinkTopType !== "gas" && p.sinkTopType !== "electric" && p.sinkTopType !== "smooth-top").map((p) => {
+        {sorted.filter((p) =>
+          isSinkBaseCabinet(p) &&
+          p.sinkTopType !== "gas" && p.sinkTopType !== "electric" && p.sinkTopType !== "smooth-top" &&
+          // Only show faucet when a sink has been explicitly assigned (sinkTopType === "sink")
+          // or when a faucet product was selected. Unassigned SB-* cabinets show no faucet.
+          (p.sinkTopType === "sink" || p.faucetProductId != null || p.sinkTopProductId != null)
+        ).map((p) => {
           const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const centerX = (posAlong + sizeAlong / 2) * ppi;
