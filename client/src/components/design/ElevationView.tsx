@@ -1044,27 +1044,8 @@ export function ElevationView({
           const knobR = Math.max(3, 1.5 * ppi);
           const svgW = spoutW + knobR * 3;
           const svgH = riserH + knobR * 2 + 4;
-          // Use product image if available, otherwise fall back to drawn faucet
-          if (p.faucetImageUrl) {
-            const imgW = Math.max(40, 10 * ppi);
-            const imgH = Math.max(50, 12 * ppi);
-            return (
-              <img
-                key={`faucet-${p.uid}`}
-                src={p.faucetImageUrl}
-                alt="Faucet"
-                className="absolute pointer-events-none object-contain"
-                style={{
-                  left: centerX - imgW / 2,
-                  bottom: (STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi,
-                  width: imgW,
-                  height: imgH,
-                  zIndex: 26,
-                  mixBlendMode: "multiply",
-                }}
-              />
-            );
-          }
+          // Always use drawn SVG faucet in elevation view — product photos have white
+          // backgrounds that look like a white box in the drawing.
           return (
             <svg
               key={`faucet-${p.uid}`}
@@ -1090,75 +1071,93 @@ export function ElevationView({
           );
         })}
 
-        {/* Range Top: drawn on top of sink base cabinets when sinkTopType is gas/electric/smooth-top.
-            Shows a flat cooktop surface with burner circles (gas) or coil rings (electric/smooth). */}
+        {/* Range Top: drawn ON the sink base cabinet face when sinkTopType is gas/electric/smooth-top.
+            Renders a stainless steel cooktop panel covering the cabinet face, with burner circles
+            drawn on it — matching how a slide-in range looks in a front elevation drawing. */}
         {sorted.filter((p) => isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top")).map((p) => {
           const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
-          const topY = (STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi;
-          const surfaceH = 2 * ppi;   // 2" cooktop rim height above counter
-          const surfaceW = sizeAlong * ppi;
-          const surfaceLeft = posAlong * ppi;
+          const { bottom, height } = elevationBox(p, room);
+          const panelW = sizeAlong * ppi;
+          const panelH = height * ppi;
+          const panelLeft = posAlong * ppi;
+          const panelBottom = bottom * ppi;
           const isGas = p.sinkTopType === "gas";
           const isSmooth = p.sinkTopType === "smooth-top";
-          // Burner layout: 2 rows × 2 columns, centered in the surface width
-          const burnerR = Math.max(3, (surfaceW / 8));
+          // Burner layout: 2 rows × 2 columns centered on the panel face
+          const burnerR = Math.max(4, panelW / 9);
           const burnerPositions = [
-            { cx: surfaceW * 0.28, cy: -surfaceH - burnerR * 1.6 },
-            { cx: surfaceW * 0.72, cy: -surfaceH - burnerR * 1.6 },
-            { cx: surfaceW * 0.28, cy: -surfaceH - burnerR * 4.2 },
-            { cx: surfaceW * 0.72, cy: -surfaceH - burnerR * 4.2 },
+            { cx: panelW * 0.28, cy: panelH * 0.32 },
+            { cx: panelW * 0.72, cy: panelH * 0.32 },
+            { cx: panelW * 0.28, cy: panelH * 0.68 },
+            { cx: panelW * 0.72, cy: panelH * 0.68 },
           ];
-          const totalBurnerH = burnerR * 6;
-          // Always use drawn SVG burners in elevation view — product photos are side-angle
-          // shots that look wrong on a countertop surface. The product image is used
-          // in the quote/product list only.
           return (
             <svg
               key={`rangetop-${p.uid}`}
               className="absolute pointer-events-none"
               style={{
-                left: surfaceLeft,
-                bottom: topY,
-                width: surfaceW,
-                height: surfaceH + totalBurnerH + 4,
-                overflow: "visible",
-                zIndex: 26,
+                left: panelLeft,
+                bottom: panelBottom,
+                width: panelW,
+                height: panelH,
+                zIndex: 8,
               }}
             >
-              {/* Cooktop surface rim */}
-              <rect x={0} y={totalBurnerH} width={surfaceW} height={surfaceH}
-                fill={isSmooth ? "#2a2a2a" : "#4a4a4a"} rx={1} />
+              {/* Stainless steel / black glass cooktop face panel */}
+              <rect x={0} y={0} width={panelW} height={panelH}
+                fill={isSmooth
+                  ? "linear-gradient(180deg,#1a1a1a 0%,#2a2a2a 100%)"
+                  : "url(#ss-grad)"}
+                rx={0} />
+              {/* Subtle stainless sheen for gas/electric */}
+              {!isSmooth && (
+                <defs>
+                  <linearGradient id="ss-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#d8dde6"/>
+                    <stop offset="30%" stopColor="#b8bec9"/>
+                    <stop offset="60%" stopColor="#c4cad4"/>
+                    <stop offset="100%" stopColor="#a8aebb"/>
+                  </linearGradient>
+                </defs>
+              )}
+              {/* Thin border */}
+              <rect x={0} y={0} width={panelW} height={panelH}
+                fill="none" stroke={isSmooth ? "#444" : "#8a9099"} strokeWidth={1.5} />
+              {/* Control knobs strip at bottom */}
+              <rect x={panelW * 0.1} y={panelH * 0.88} width={panelW * 0.8} height={panelH * 0.08}
+                fill={isSmooth ? "#333" : "#9aa0aa"} rx={2} />
+              {[0.2, 0.4, 0.6, 0.8].map((xr, i) => (
+                <circle key={i} cx={panelW * xr} cy={panelH * 0.92} r={Math.max(2, panelH * 0.03)}
+                  fill={isSmooth ? "#555" : "#6b7280"} />
+              ))}
               {/* Burners / coils */}
               {burnerPositions.map((b, i) => (
                 <g key={i}>
                   {isGas ? (
-                    // Gas: concentric rings with spokes
                     <>
-                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR} fill="none" stroke="#888" strokeWidth={Math.max(1, burnerR * 0.18)} />
-                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.55} fill="none" stroke="#888" strokeWidth={Math.max(1, burnerR * 0.14)} />
-                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.15} fill="#666" />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR} fill="none" stroke="#666" strokeWidth={Math.max(1, burnerR * 0.18)} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.55} fill="none" stroke="#666" strokeWidth={Math.max(1, burnerR * 0.14)} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.15} fill="#555" />
                       {[0, 60, 120, 180, 240, 300].map(angle => (
                         <line key={angle}
                           x1={b.cx + Math.cos(angle * Math.PI / 180) * burnerR * 0.55}
-                          y1={b.cy + totalBurnerH + Math.sin(angle * Math.PI / 180) * burnerR * 0.55}
+                          y1={b.cy + Math.sin(angle * Math.PI / 180) * burnerR * 0.55}
                           x2={b.cx + Math.cos(angle * Math.PI / 180) * burnerR}
-                          y2={b.cy + totalBurnerH + Math.sin(angle * Math.PI / 180) * burnerR}
-                          stroke="#777" strokeWidth={Math.max(1, burnerR * 0.12)} />
+                          y2={b.cy + Math.sin(angle * Math.PI / 180) * burnerR}
+                          stroke="#666" strokeWidth={Math.max(1, burnerR * 0.12)} />
                       ))}
                     </>
                   ) : isSmooth ? (
-                    // Smooth top: solid dark circle with subtle highlight
                     <>
-                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR} fill="#1a1a1a" stroke="#555" strokeWidth={1} />
-                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.7} fill="none" stroke="#333" strokeWidth={Math.max(1, burnerR * 0.1)} strokeDasharray={`${burnerR * 0.3} ${burnerR * 0.15}`} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR} fill="#111" stroke="#444" strokeWidth={1} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.65} fill="none" stroke="#333" strokeWidth={Math.max(1, burnerR * 0.1)} strokeDasharray={`${burnerR * 0.3} ${burnerR * 0.15}`} />
                     </>
                   ) : (
-                    // Electric coil: spiral-like rings
                     <>
-                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR} fill="none" stroke="#c0392b" strokeWidth={Math.max(1.5, burnerR * 0.22)} />
-                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.65} fill="none" stroke="#c0392b" strokeWidth={Math.max(1.5, burnerR * 0.22)} />
-                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.3} fill="none" stroke="#c0392b" strokeWidth={Math.max(1, burnerR * 0.18)} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR} fill="none" stroke="#c0392b" strokeWidth={Math.max(1.5, burnerR * 0.22)} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.65} fill="none" stroke="#c0392b" strokeWidth={Math.max(1.5, burnerR * 0.22)} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.3} fill="none" stroke="#c0392b" strokeWidth={Math.max(1, burnerR * 0.18)} />
                     </>
                   )}
                 </g>
