@@ -7584,7 +7584,7 @@ export default function DesignTool() {
         };
         return (
           <div className="fixed inset-0 z-[300] flex items-center justify-center" role="dialog" aria-modal="true">
-            <div className="absolute inset-0 bg-black/60 pointer-events-auto" onClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); }} />
+            <div className="absolute inset-0 bg-black/60 pointer-events-auto" onClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); setPendingRangeTopType(null); }} />
             <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-[400px] max-w-[95vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200" style={{ maxHeight: "90vh", overflowY: "auto" }}>
               {rangeTopStep === "choose" && (
                 <>
@@ -7706,7 +7706,7 @@ export default function DesignTool() {
                       <button
                         key={type}
                         className="flex items-center gap-4 rounded-xl border-2 border-border hover:border-[#a87f33] p-4 transition-colors text-left group"
-                        onClick={(e) => { e.stopPropagation(); setPendingRangeTopType(type); setRangeTopStep("range-product"); }}
+                        onClick={(e) => { e.stopPropagation(); const t2 = type; setPendingRangeTopType(t2); setTimeout(() => setRangeTopStep("range-product"), 0); }}
                       >
                         <div className={`w-12 h-12 rounded-full ${bg} flex items-center justify-center shrink-0`}>{icon}</div>
                         <div>
