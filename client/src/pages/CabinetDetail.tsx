@@ -444,6 +444,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editIsNotCabinet, setEditIsNotCabinet] = useState(false);
   const [editDoorOrientation, setEditDoorOrientation] = useState<string>("__none__");
   const [editCornerType, setEditCornerType] = useState<string>("__none__");
+  const [editOpeningType, setEditOpeningType] = useState<string>("__none__");
   const [editConfigVerified, setEditConfigVerified] = useState(false);
 
   // Pre-fill form when dialog opens
@@ -474,6 +475,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditIsNotCabinet(cab.isNotCabinet === true);
       setEditDoorOrientation(String(cab.doorOrientation ?? "__none__"));
       setEditCornerType(String(cab.cornerType ?? "__none__"));
+      setEditOpeningType(String(cab.openingType ?? "__none__"));
       setEditConfigVerified(cab.configVerified === true);
     }
   }, [editOpen, cabinet]);
@@ -610,6 +612,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       isNotCabinet: editIsNotCabinet,
       doorOrientation: editDoorOrientation === "__none__" ? null : editDoorOrientation as "side-by-side" | "stacked",
       cornerType: editCornerType === "__none__" ? null : editCornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape",
+      openingType: editOpeningType === "__none__" ? null : editOpeningType as "top" | "middle" | "bottom",
       configVerified: editConfigVerified,
     });
   }
@@ -1483,6 +1486,21 @@ export default function CabinetDetail({ masterCode }: Props) {
                   <p className="text-[11px] text-muted-foreground">For pantries or tall cabinets with 2+ doors arranged vertically, choose "Stacked".</p>
                 </div>
               )}
+
+              {/* Appliance Opening Position */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">Appliance Opening</Label>
+                <Select value={editOpeningType} onValueChange={setEditOpeningType}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— none —</SelectItem>
+                    <SelectItem value="top">Top (doors above opening)</SelectItem>
+                    <SelectItem value="middle">Middle (doors above, drawers below)</SelectItem>
+                    <SelectItem value="bottom">Bottom (opening above drawers)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">Set for oven, microwave, or appliance cabinets that have a cutout opening.</p>
+              </div>
 
               {/* Corner Cabinet Type */}
               <div className="space-y-1.5">

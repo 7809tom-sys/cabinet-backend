@@ -1456,3 +1456,10 @@
 - [x] Wire CabinetConfigAdmin category filter to use dynamic DB list
 - [x] Wire FullDatabaseExport category filter to use dynamic DB list
 - [x] TypeScript compiles cleanly; checkpoint saved
+
+## Feature: Appliance Opening Position selector in front-end CabinetDetail edit dialog
+- [x] Add editOpeningType state + hydration from cabinet.openingType
+- [x] Add Appliance Opening dropdown (Top / Middle / Bottom) to the edit form
+- [x] Include openingType in handleSaveEdit mutation payload
+- [x] Backend already accepts openingType — no server changes needed
+- [x] TypeScript compiles cleanly
