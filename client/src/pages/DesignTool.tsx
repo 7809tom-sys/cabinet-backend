@@ -2142,6 +2142,8 @@ export default function DesignTool() {
       // Oven tall cabinet dialog
       if (cabinetDrawingType(finalCab) === "oven-tall") {
         setOvenDialog({ cabinetUid: finalCab.uid });
+        // Close the mobile catalog sheet so it doesn't intercept dialog touch events
+        setMobilePanel(null);
       }
     },
     [room, activeWall, openings, placed, setSinks, setSelectedSinkUid, setCountertop]
