@@ -1468,6 +1468,8 @@ export const cabinetsRouter = router({
         openingWidth: z.number().positive().nullable().optional(),
         // Appliance opening (oven cutout) position: null = none, 'top' | 'middle' | 'bottom'
         openingType: z.enum(["top", "middle", "bottom"]).nullable().optional(),
+        // Corner cabinet type: null = standard, or one of the corner types
+        cornerType: z.enum(["lazy-susan", "blind-corner", "diagonal", "pie-cut", "l-shape"]).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1503,6 +1505,7 @@ export const cabinetsRouter = router({
       if (input.maxPull !== undefined) patch.maxPull = input.maxPull != null ? String(input.maxPull) : null;
       if (input.openingWidth !== undefined) patch.openingWidth = input.openingWidth != null ? String(input.openingWidth) : null;
       if (input.openingType !== undefined) patch.openingType = input.openingType;
+      if (input.cornerType !== undefined) patch.cornerType = input.cornerType;
       if (Object.keys(patch).length === 0) return { ok: true };
       // Always stamp configuredAt so the admin list shows when this cabinet was last saved.
       patch.configuredAt = new Date();
@@ -2102,6 +2105,8 @@ export const cabinetsRouter = router({
             openingWidth: cabinets.openingWidth,
             // Appliance opening type
             openingType: cabinets.openingType,
+            // Corner cabinet type
+            cornerType: cabinets.cornerType,
             // Timestamps
             configuredAt: cabinets.configuredAt,
           })

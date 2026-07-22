@@ -65,6 +65,8 @@ type CabinetRow = {
   openingWidth: string | null;
   // Appliance opening
   openingType: string | null;
+  // Corner cabinet type
+  cornerType: string | null;
   // Timestamps
   configuredAt: Date | null;
 };
@@ -250,6 +252,7 @@ function EditModal({
       maxPull: merged.maxPull != null ? parseFloat(merged.maxPull) : null,
       openingWidth: merged.openingWidth != null ? parseFloat(merged.openingWidth) : null,
       openingType: (merged.openingType as "top" | "middle" | "bottom" | null | undefined) ?? null,
+      cornerType: (merged.cornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape" | null | undefined) ?? null,
       category: merged.category ?? undefined,
       subCategory: merged.subCategory ?? null,
     });
@@ -431,6 +434,29 @@ function EditModal({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Corner Type */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Corner Cabinet Type</Label>
+                  <Select
+                    value={merged.cornerType ?? "__none__"}
+                    onValueChange={(v) => set("cornerType", v === "__none__" ? null : v)}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className={cn("w-full", !merged.cornerType && "text-muted-foreground")}>
+                      <SelectValue placeholder="— standard (not a corner) —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— standard (not a corner) —</SelectItem>
+                      <SelectItem value="lazy-susan">Lazy Susan (LS)</SelectItem>
+                      <SelectItem value="blind-corner">Blind Corner (BBC / WBC)</SelectItem>
+                      <SelectItem value="diagonal">Diagonal Corner (DC / WDC)</SelectItem>
+                      <SelectItem value="pie-cut">Pie-Cut Lazy Susan</SelectItem>
+                      <SelectItem value="l-shape">L-Shape Corner</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">Controls how this cabinet is rendered in the design tool plan view and elevation.</p>
                 </div>
 
                 {/* Appliance Opening */}

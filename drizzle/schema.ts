@@ -178,6 +178,8 @@ export const cabinets = mysqlTable("cabinets", {
   stackingAllowed: boolean("stackingAllowed").default(false),
   isCornerCabinet: boolean("isCornerCabinet").default(false),
   cornerSide: varchar("cornerSide", { length: 16 }), // left, right
+  // Corner cabinet type: lazy-susan | blind-corner | diagonal | pie-cut | l-shape | null (standard)
+  cornerType: varchar("corner_type", { length: 50 }),
   fillerRequired: boolean("fillerRequired").default(false),
   // Blind corner specific
   openingWidth: decimal("openingWidth", { precision: 5, scale: 2 }),
