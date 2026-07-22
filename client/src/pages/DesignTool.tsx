@@ -465,6 +465,8 @@ export default function DesignTool() {
   // Cabinet lock: when true, placed cabinets cannot be moved, deleted, or have
   // new ones dropped. The room/walls/openings/island are still editable.
   const [cabinetsLocked, setCabinetsLocked] = useState(false);
+  // D-pad nudge step size: 1" (normal) or 0.25" (fine)
+  const [nudgeStep, setNudgeStep] = useState<1 | 0.25>(1);
   // Accordion: which palette group headers the user has explicitly collapsed.
   // Keyed by `${paletteType}:${groupLabel}` so collapse state is per-tab. By
   // default every group is OPEN; toggling adds/removes the key here. While
@@ -6569,48 +6571,63 @@ export default function DesignTool() {
 
           {/* D-pad nudge buttons — appears when a cabinet is selected */}
           {selectedUid && !cabinetsLocked && !measureMode && (
-            <div className="absolute bottom-20 lg:bottom-4 left-4 z-30 flex flex-col items-center gap-0.5">
-              <button
-                type="button"
-                onClick={() => nudgeSelected(0, -1)}
-                className="w-9 h-9 flex items-center justify-center rounded-t-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
-                title="Move up 1 inch"
-              >
-                <ArrowUp className="h-4 w-4 text-[#1a2744]" />
-              </button>
-              <div className="flex gap-0.5">
+            <div className="absolute bottom-20 lg:bottom-4 left-4 z-30 flex items-end gap-2">
+              <div className="flex flex-col items-center gap-0.5">
                 <button
                   type="button"
-                  onClick={() => nudgeSelected(-1, 0)}
-                  className="w-9 h-9 flex items-center justify-center rounded-l-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
-                  title="Move left 1 inch"
+                  onClick={() => nudgeSelected(0, -nudgeStep)}
+                  className="w-9 h-9 flex items-center justify-center rounded-t-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
+                  title={`Move up ${nudgeStep === 1 ? '1"' : '¼"'}`}
                 >
-                  <ArrowLeft className="h-4 w-4 text-[#1a2744]" />
+                  <ArrowUp className="h-4 w-4 text-[#1a2744]" />
                 </button>
+                <div className="flex gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => nudgeSelected(-nudgeStep, 0)}
+                    className="w-9 h-9 flex items-center justify-center rounded-l-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
+                    title={`Move left ${nudgeStep === 1 ? '1"' : '¼"'}`}
+                  >
+                    <ArrowLeft className="h-4 w-4 text-[#1a2744]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={rotateSelected}
+                    className="w-9 h-9 flex items-center justify-center bg-[#1a2744] border border-[#1a2744] shadow-sm hover:bg-[#1a2744]/80 active:scale-95 transition-transform rounded-sm"
+                    title="Rotate 90°"
+                  >
+                    <RotateCw className="h-4 w-4 text-white" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => nudgeSelected(nudgeStep, 0)}
+                    className="w-9 h-9 flex items-center justify-center rounded-r-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
+                    title={`Move right ${nudgeStep === 1 ? '1"' : '¼"'}`}
+                  >
+                    <ArrowRight className="h-4 w-4 text-[#1a2744]" />
+                  </button>
+                </div>
                 <button
                   type="button"
-                  onClick={rotateSelected}
-                  className="w-9 h-9 flex items-center justify-center bg-[#1a2744] border border-[#1a2744] shadow-sm hover:bg-[#1a2744]/80 active:scale-95 transition-transform rounded-sm"
-                  title="Rotate 90°"
+                  onClick={() => nudgeSelected(0, nudgeStep)}
+                  className="w-9 h-9 flex items-center justify-center rounded-b-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
+                  title={`Move down ${nudgeStep === 1 ? '1"' : '¼"'}`}
                 >
-                  <RotateCw className="h-4 w-4 text-white" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => nudgeSelected(1, 0)}
-                  className="w-9 h-9 flex items-center justify-center rounded-r-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
-                  title="Move right 1 inch"
-                >
-                  <ArrowRight className="h-4 w-4 text-[#1a2744]" />
+                  <ArrowDown className="h-4 w-4 text-[#1a2744]" />
                 </button>
               </div>
+              {/* Step size toggle */}
               <button
                 type="button"
-                onClick={() => nudgeSelected(0, 1)}
-                className="w-9 h-9 flex items-center justify-center rounded-b-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
-                title="Move down 1 inch"
+                onClick={() => setNudgeStep((s) => (s === 1 ? 0.25 : 1))}
+                className={`px-2 py-1.5 rounded-md border text-[11px] font-bold shadow-sm transition-colors ${
+                  nudgeStep === 0.25
+                    ? "bg-amber-100 border-amber-400 text-amber-800"
+                    : "bg-white/90 border-border text-[#1a2744] hover:bg-white"
+                }`}
+                title={`Step: ${nudgeStep === 1 ? '1 inch' : '¼ inch'}. Click to toggle.`}
               >
-                <ArrowDown className="h-4 w-4 text-[#1a2744]" />
+                {nudgeStep === 1 ? '1"' : '¼"'}
               </button>
             </div>
           )}
