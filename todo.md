@@ -1473,3 +1473,9 @@
 - [x] Carry openingType, doorHeight, doorOrientation from catalog to PlacedCabinet when placed on canvas
 - [x] Add appliance opening rendering section for non-oven-tall cabinets (MW3042 microwave wall cabs)
 - [x] Ensure MW3042 and similar cabinets render with correct door proportions based on config
+
+## Bug Fix: Cabinets not updating in design tool after category change
+- [x] Root cause: placementType field not updated when category changed in admin
+- [x] Fix: Auto-derive placementType from category in both catalog update mutations
+- [x] Fix existing mismatched data (U-18-84-24, U-18-90-24, U-18-96-24 → tall; TK-8 → accessory)
+- [x] Bulk sync all cabinets where placementType didn't match category

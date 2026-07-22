@@ -1189,7 +1189,15 @@ export const cabinetsRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const patch: Record<string, unknown> = {};
       if (input.description !== undefined) patch.description = input.description;
-      if (input.category !== undefined) patch.category = input.category;
+      if (input.category !== undefined) {
+        patch.category = input.category;
+        // Auto-derive placementType from category so the design tool tab matches
+        const catLower = (input.category || "").toLowerCase();
+        if (catLower.includes("wall")) patch.placementType = "wall";
+        else if (catLower.includes("tall") || catLower.includes("pantry") || catLower.includes("utility") || catLower.includes("oven")) patch.placementType = "tall";
+        else if (catLower.includes("accessory") || catLower.includes("trim") || catLower.includes("molding") || catLower.includes("filler")) patch.placementType = "accessory";
+        else patch.placementType = "base";
+      }
       if (input.subCategory !== undefined) patch.subCategory = input.subCategory;
       if (input.width !== undefined) patch.width = input.width;
       if (input.height !== undefined) patch.height = input.height;
@@ -1491,7 +1499,15 @@ export const cabinetsRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const patch: Record<string, unknown> = {};
       if (input.description !== undefined) patch.description = input.description;
-      if (input.category !== undefined) patch.category = input.category;
+      if (input.category !== undefined) {
+        patch.category = input.category;
+        // Auto-derive placementType from category so the design tool tab matches
+        const catLower = (input.category || "").toLowerCase();
+        if (catLower.includes("wall")) patch.placementType = "wall";
+        else if (catLower.includes("tall") || catLower.includes("pantry") || catLower.includes("utility") || catLower.includes("oven")) patch.placementType = "tall";
+        else if (catLower.includes("accessory") || catLower.includes("trim") || catLower.includes("molding") || catLower.includes("filler")) patch.placementType = "accessory";
+        else patch.placementType = "base";
+      }
       if (input.subCategory !== undefined) patch.subCategory = input.subCategory;
       if (input.catalogImageUrl !== undefined) patch.catalogImageUrl = input.catalogImageUrl;
       if (input.showInCatalog !== undefined) patch.showInCatalog = input.showInCatalog;
