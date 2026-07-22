@@ -5469,6 +5469,33 @@ export default function DesignTool() {
                   </>
                 );
               })()}
+              {/* Range Top Finish toggle — shown when a range top is on this sink base */}
+              {isSinkBaseCabinet(selectedCab) && (selectedCab.sinkTopType === "gas" || selectedCab.sinkTopType === "electric" || selectedCab.sinkTopType === "smooth-top") && (
+                <>
+                  <div className="h-4 w-px bg-border" />
+                  <div className="flex items-center gap-1" title="Range top face finish">
+                    <span className="text-[11px] text-muted-foreground mr-0.5">Finish:</span>
+                    <Button
+                      variant={(selectedCab.rangeTopFinish ?? "stainless") === "stainless" ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 px-2 text-[11px] gap-1"
+                      onClick={() => setCabAttr(selectedCab.uid, { rangeTopFinish: "stainless" })}
+                    >
+                      <span className="inline-block w-3 h-3 rounded-sm bg-gradient-to-b from-[#d8dde6] to-[#a8aebb] border border-[#8a9099]" />
+                      Stainless
+                    </Button>
+                    <Button
+                      variant={selectedCab.rangeTopFinish === "black-glass" ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 px-2 text-[11px] gap-1"
+                      onClick={() => setCabAttr(selectedCab.uid, { rangeTopFinish: "black-glass" })}
+                    >
+                      <span className="inline-block w-3 h-3 rounded-sm bg-[#1a1a1a] border border-[#444]" />
+                      Black Glass
+                    </Button>
+                  </div>
+                </>
+              )}
             </>
           )}
           {selectedOpening && !drawMode && (
@@ -5780,6 +5807,32 @@ export default function DesignTool() {
                 })()}
 
                 {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
+                {/* Range Top Finish toggle — shown when a range top is on this sink base */}
+                {isSinkBaseCabinet(selectedCab) && (selectedCab.sinkTopType === "gas" || selectedCab.sinkTopType === "electric" || selectedCab.sinkTopType === "smooth-top") && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3">
+                    <div className="mb-3 text-sm font-semibold text-foreground">Range Top Finish</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant={(selectedCab.rangeTopFinish ?? "stainless") === "stainless" ? "default" : "outline"}
+                        size="sm"
+                        className="h-9 gap-2"
+                        onClick={() => setCabAttr(selectedCab.uid, { rangeTopFinish: "stainless" })}
+                      >
+                        <span className="inline-block w-4 h-4 rounded-sm bg-gradient-to-b from-[#d8dde6] to-[#a8aebb] border border-[#8a9099] shrink-0" />
+                        Stainless
+                      </Button>
+                      <Button
+                        variant={selectedCab.rangeTopFinish === "black-glass" ? "default" : "outline"}
+                        size="sm"
+                        className="h-9 gap-2"
+                        onClick={() => setCabAttr(selectedCab.uid, { rangeTopFinish: "black-glass" })}
+                      >
+                        <span className="inline-block w-4 h-4 rounded-sm bg-[#1a1a1a] border border-[#555] shrink-0" />
+                        Black Glass
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <RollOutTrayPicker
                   cabinet={selectedCab}
                   designStyleId={styleId}

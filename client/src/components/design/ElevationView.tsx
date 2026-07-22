@@ -1083,7 +1083,11 @@ export function ElevationView({
           const panelLeft = posAlong * ppi;
           const panelBottom = bottom * ppi;
           const isGas = p.sinkTopType === "gas";
-          const isSmooth = p.sinkTopType === "smooth-top";
+          // rangeTopFinish overrides the visual finish: 'black-glass' always renders
+          // the dark glass panel regardless of burner type. 'stainless' (default)
+          // renders the silver gradient for gas/electric and dark for smooth-top.
+          const isBlackGlass = p.rangeTopFinish === "black-glass";
+          const isSmooth = isBlackGlass || p.sinkTopType === "smooth-top";
           // Burner layout: 2 rows × 2 columns centered on the panel face
           const burnerR = Math.max(4, panelW / 9);
           const burnerPositions = [

@@ -291,6 +291,9 @@ export interface PlacedCabinet {
   sinkImageUrl?: string | null;
   // Image URL of the chosen range top product (for elevation rendering).
   rangeTopImageUrl?: string | null;
+  // Range top finish for the elevation face panel: 'stainless' (default) or 'black-glass'.
+  // Independent of sinkTopType (gas/electric/smooth-top) — any burner type can have either finish.
+  rangeTopFinish?: "stainless" | "black-glass" | null;
   /** Polygon room: which custom wall segment this cabinet is placed on.
    *  Only used when the room has customWalls. */
   wallId?: string | null;
