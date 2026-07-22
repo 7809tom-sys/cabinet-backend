@@ -691,13 +691,9 @@ export function ElevationView({
           // RANGE (a slide-in/free-standing range has its own cooktop surface,
           // no counter over it) and at the FRIDGE (full-height, tall). So only
           // DW-* appliances are bridgeable here — RANGE and FRIDGE are excluded.
-          const isBridgeable = (p: PlacedCabinet) => {
-            // Sink bases with a range top have their own cooktop surface —
-            // no countertop slab should draw over them.
-            if (isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top")) return false;
-            return bearsCountertop(p) ||
-              (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? ""));
-          };
+          const isBridgeable = (p: PlacedCabinet) =>
+            bearsCountertop(p) ||
+            (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? ""));
           // Base-cabinet spans along this wall, sorted by start position.
           const spans = sorted
             .filter(isBridgeable)
@@ -1081,30 +1077,32 @@ export function ElevationView({
           );
         })}
 
-        {/* Range Top v2: drawn ON the sink base cabinet face when sinkTopType is gas/electric/smooth-top.
-            Renders a stainless steel cooktop panel covering the cabinet face, with burner circles
-            drawn on it — matching how a slide-in range looks in a front elevation drawing. */}
+        {/* Range Top / Cooktop: thin surface appliance sitting ON TOP of the countertop.
+            A cooktop is ~3.5" tall and sits flush with the countertop surface. In front
+            elevation it appears as a thin stainless/black strip at the 34.5"-38" zone
+            (just above the base cabinet face, replacing the countertop slab for that section).
+            The cabinet face below remains visible as a normal cabinet. */}
         {sorted.filter((p) => isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top")).map((p) => {
           const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
-          const { bottom, height } = elevationBox(p, room);
+          // Cooktop sits on the countertop surface: bottom at BASE_HEIGHT (34.5"),
+          // height ~3.5" (slightly thicker than the 1.5" countertop slab so it
+          // visually reads as an appliance, not just a slab).
+          const COOKTOP_THICKNESS = 3.5; // inches — visible front face of cooktop
           const panelW = sizeAlong * ppi;
-          const panelH = height * ppi;
+          const panelH = COOKTOP_THICKNESS * ppi;
           const panelLeft = posAlong * ppi;
-          const panelBottom = bottom * ppi;
+          const panelBottom = STD.BASE_HEIGHT * ppi; // sits on top of 34.5" cabinet
           const isGas = p.sinkTopType === "gas";
-          // rangeTopFinish overrides the visual finish: 'black-glass' always renders
-          // the dark glass panel regardless of burner type. 'stainless' (default)
-          // renders the silver gradient for gas/electric and dark for smooth-top.
           const isBlackGlass = p.rangeTopFinish === "black-glass";
           const isSmooth = isBlackGlass || p.sinkTopType === "smooth-top";
-          // Burner layout: 2 rows × 2 columns centered on the panel face
-          const burnerR = Math.max(4, panelW / 9);
+          // Burner layout: 4 burners in a single row (since the panel is thin/wide)
+          const burnerR = Math.max(3, Math.min(panelH * 0.32, panelW / 14));
           const burnerPositions = [
-            { cx: panelW * 0.28, cy: panelH * 0.32 },
-            { cx: panelW * 0.72, cy: panelH * 0.32 },
-            { cx: panelW * 0.28, cy: panelH * 0.68 },
-            { cx: panelW * 0.72, cy: panelH * 0.68 },
+            { cx: panelW * 0.2, cy: panelH * 0.45 },
+            { cx: panelW * 0.4, cy: panelH * 0.45 },
+            { cx: panelW * 0.6, cy: panelH * 0.45 },
+            { cx: panelW * 0.8, cy: panelH * 0.45 },
           ];
           return (
             <svg
@@ -1118,12 +1116,10 @@ export function ElevationView({
                 zIndex: 22,
               }}
             >
-              {/* SVG gradient defs — always rendered so both fill IDs resolve */}
               <defs>
                 <linearGradient id={`ss-grad-${p.uid}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#d8dde6"/>
-                  <stop offset="30%" stopColor="#b8bec9"/>
-                  <stop offset="60%" stopColor="#c4cad4"/>
+                  <stop offset="0%" stopColor="#e2e6ec"/>
+                  <stop offset="40%" stopColor="#c8cdd6"/>
                   <stop offset="100%" stopColor="#a8aebb"/>
                 </linearGradient>
                 <linearGradient id={`bg-grad-${p.uid}`} x1="0" y1="0" x2="0" y2="1">
@@ -1131,18 +1127,15 @@ export function ElevationView({
                   <stop offset="100%" stopColor="#2a2a2a"/>
                 </linearGradient>
               </defs>
-              {/* Stainless steel / black glass cooktop face panel */}
+              {/* Cooktop face panel */}
               <rect x={0} y={0} width={panelW} height={panelH}
                 fill={isSmooth ? `url(#bg-grad-${p.uid})` : `url(#ss-grad-${p.uid})`}
-                rx={0} />
-              {/* Thin border */}
+                rx={1} />
               <rect x={0} y={0} width={panelW} height={panelH}
-                fill="none" stroke={isSmooth ? "#444" : "#8a9099"} strokeWidth={1.5} />
-              {/* Control knobs strip at bottom */}
-              <rect x={panelW * 0.1} y={panelH * 0.88} width={panelW * 0.8} height={panelH * 0.08}
-                fill={isSmooth ? "#333" : "#9aa0aa"} rx={2} />
+                fill="none" stroke={isSmooth ? "#444" : "#8a9099"} strokeWidth={1.5} rx={1} />
+              {/* Control knobs: small dots along the front (bottom edge) */}
               {[0.2, 0.4, 0.6, 0.8].map((xr, i) => (
-                <circle key={i} cx={panelW * xr} cy={panelH * 0.92} r={Math.max(2, panelH * 0.03)}
+                <circle key={`knob-${i}`} cx={panelW * xr} cy={panelH * 0.82} r={Math.max(1.5, panelH * 0.08)}
                   fill={isSmooth ? "#555" : "#6b7280"} />
               ))}
               {/* Burners / coils */}
@@ -1150,28 +1143,19 @@ export function ElevationView({
                 <g key={i}>
                   {isGas ? (
                     <>
-                      <circle cx={b.cx} cy={b.cy} r={burnerR} fill="none" stroke="#666" strokeWidth={Math.max(1, burnerR * 0.18)} />
-                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.55} fill="none" stroke="#666" strokeWidth={Math.max(1, burnerR * 0.14)} />
-                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.15} fill="#555" />
-                      {[0, 60, 120, 180, 240, 300].map(angle => (
-                        <line key={angle}
-                          x1={b.cx + Math.cos(angle * Math.PI / 180) * burnerR * 0.55}
-                          y1={b.cy + Math.sin(angle * Math.PI / 180) * burnerR * 0.55}
-                          x2={b.cx + Math.cos(angle * Math.PI / 180) * burnerR}
-                          y2={b.cy + Math.sin(angle * Math.PI / 180) * burnerR}
-                          stroke="#666" strokeWidth={Math.max(1, burnerR * 0.12)} />
-                      ))}
+                      <circle cx={b.cx} cy={b.cy} r={burnerR} fill="none" stroke="#666" strokeWidth={Math.max(1, burnerR * 0.2)} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.5} fill="none" stroke="#666" strokeWidth={Math.max(0.8, burnerR * 0.15)} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.12} fill="#555" />
                     </>
                   ) : isSmooth ? (
                     <>
-                      <circle cx={b.cx} cy={b.cy} r={burnerR} fill="#111" stroke="#444" strokeWidth={1} />
-                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.65} fill="none" stroke="#333" strokeWidth={Math.max(1, burnerR * 0.1)} strokeDasharray={`${burnerR * 0.3} ${burnerR * 0.15}`} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR} fill="#111" stroke="#444" strokeWidth={0.8} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.6} fill="none" stroke="#333" strokeWidth={Math.max(0.5, burnerR * 0.1)} />
                     </>
                   ) : (
                     <>
-                      <circle cx={b.cx} cy={b.cy} r={burnerR} fill="none" stroke="#c0392b" strokeWidth={Math.max(1.5, burnerR * 0.22)} />
-                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.65} fill="none" stroke="#c0392b" strokeWidth={Math.max(1.5, burnerR * 0.22)} />
-                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.3} fill="none" stroke="#c0392b" strokeWidth={Math.max(1, burnerR * 0.18)} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR} fill="none" stroke="#c0392b" strokeWidth={Math.max(1, burnerR * 0.22)} />
+                      <circle cx={b.cx} cy={b.cy} r={burnerR * 0.6} fill="none" stroke="#c0392b" strokeWidth={Math.max(1, burnerR * 0.18)} />
                     </>
                   )}
                 </g>

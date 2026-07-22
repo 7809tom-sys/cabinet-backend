@@ -1392,3 +1392,10 @@
 - [x] Return updatedAt from adminListCabinetConfig query
 - [x] Add "Last Saved" column to Cabinet Config list table (visible on lg+ screens)
 - [x] Format date as "Jul 22, 2026" style in the list rows
+
+## Fix: Range Top renders on top of cabinet (not covering full face)
+- [x] Change range top from full-face panel (34.5" tall) to thin cooktop strip (3.5" tall) at countertop level
+- [x] Position cooktop at bottom: STD.BASE_HEIGHT (34.5") so it sits ON TOP of the cabinet box
+- [x] Revert isBridgeable exclusion — countertop slab still runs under the cooktop (cooktop at z-22 covers it)
+- [x] Burners arranged in single row of 4 (thin/wide panel) instead of 2x2 grid
+- [x] TypeScript check passes; checkpoint saved
