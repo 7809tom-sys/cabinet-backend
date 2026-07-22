@@ -1486,3 +1486,14 @@
 - [x] Add drawerHeight input to CabinetDetail front-end edit dialog (shown when drawers > 0)
 - [x] Add drawerHeight input to CabinetConfigAdmin
 - [x] Update DoorDrawerDiagram and ElevationView to use drawerHeight from config
+
+## Bug: DoorDrawerDiagram shows "Door" zone when doors = 0 (BMC-27)
+- [x] DoorDrawerDiagram should not render a door section when numberOfDoors is set to 0/None
+- [x] When doors=0 and openingType is set, diagram should show only: opening + drawers (no door zone)
+- [x] TypeScript check passes; checkpoint saved
+
+## Bug: 18" pantry (U-18) renders side-by-side doors instead of stacked
+- [x] Pantry rendering should use numberOfDoors from admin config to determine layout
+- [x] 18" wide pantry should show single stacked doors (1 top + 1 bottom), not 2+2 side-by-side
+- [x] ElevationView pantry rendering should respect admin numberOfDoors setting
+- [x] TypeScript check passes; checkpoint saved

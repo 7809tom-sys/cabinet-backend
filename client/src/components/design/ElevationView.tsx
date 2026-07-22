@@ -1926,22 +1926,29 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
   }
 
   // ─── SPECIALTY TYPE: PANTRY (tall cabinet) ───────────────────────────
-  // All tall pantry cabinets render as 4 doors: 2 side-by-side on the bottom
-  // section (floor to 54") and 2 side-by-side on the top section (54" to top).
+  // Pantry cabinets split at ~54" from floor into upper and lower sections.
+  // Uses admin-configured doorCount to determine layout:
+  //   - 2 doors total → 1 top + 1 bottom (stacked, for narrow pantries like 18")
+  //   - 4 doors total → 2 top + 2 bottom (side-by-side, for wider pantries)
+  //   - fallback: 4 doors (classic pantry layout)
   if (cabinetType === "pantry") {
     const totalH = cabinetHeightIn ?? 84; // default 84" if not provided
     const splitIn = 54; // split point in inches from floor
     // Clamp split so it's always between 20% and 80% of the cabinet height
     const splitPct = Math.min(80, Math.max(20, (splitIn / totalH) * 100));
+    // Determine doors per section from admin-configured doorCount
+    const totalDoors = doorCount > 0 ? doorCount : 4; // fallback to 4 for classic pantry
+    const doorsPerSection = Math.max(1, Math.round(totalDoors / 2));
+    const colW = 100 / doorsPerSection;
     return withFace(
       <>
-        {/* Bottom section: 2 side-by-side doors from floor to 54" */}
+        {/* Bottom section: doors from floor to 54" */}
         <div className="absolute left-0 right-0 bottom-0" style={{ height: `${splitPct}%` }}>
-          {[0, 1].map((i) => (
+          {Array.from({ length: doorsPerSection }).map((_, i) => (
             <div
               key={`pantry-bot-${i}`}
               className="absolute top-0 bottom-0"
-              style={{ left: `${50 * i}%`, width: "50%" }}
+              style={{ left: `${colW * i}%`, width: `${colW}%` }}
             >
               {i > 0 && (
                 <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
@@ -1955,13 +1962,13 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
           className="absolute left-0 right-0"
           style={{ bottom: `${splitPct}%`, height: 2, background: stroke }}
         />
-        {/* Top section: 2 side-by-side doors from 54" to top */}
+        {/* Top section: doors from 54" to top */}
         <div className="absolute left-0 right-0 top-0" style={{ height: `${100 - splitPct}%` }}>
-          {[0, 1].map((i) => (
+          {Array.from({ length: doorsPerSection }).map((_, i) => (
             <div
               key={`pantry-top-${i}`}
               className="absolute top-0 bottom-0"
-              style={{ left: `${50 * i}%`, width: "50%" }}
+              style={{ left: `${colW * i}%`, width: `${colW}%` }}
             >
               {i > 0 && (
                 <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />

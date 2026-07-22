@@ -203,7 +203,8 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     //   'middle' — doors on top, opening in middle, drawers at bottom (default)
     //   'bottom' — doors on top, drawers in middle, opening at bottom
     const openingPos = getOpeningPosition(cabinet);
-    const doorCount = Math.max(1, effectiveDoors);
+    const doorCount = effectiveDoors; // respect admin setting: 0 doors means no door zone
+    const hasDoors = doorCount > 0;
     const hasDrawers = effectiveDrawers > 0;
     const openingLabel = "Appliance Opening";
     const openingSubLabel = "cutout";
@@ -216,7 +217,17 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     if (openingPos === 'top') {
       // Opening at top, doors/drawers below
       let openingPct: number, doorPct: number, drawerPct: number;
-      if (adminDoorH && adminDoorH > 0) {
+      if (!hasDoors) {
+        // No doors: just opening + drawers
+        doorPct = 0;
+        if (adminDrawerH && adminDrawerH > 0 && hasDrawers) {
+          const drawerInches = adminDrawerH * effectiveDrawers;
+          drawerPct = drawerInches / cabTotalH;
+        } else {
+          drawerPct = hasDrawers ? Math.max(0.20, 0.10 * effectiveDrawers) : 0;
+        }
+        openingPct = Math.max(0.15, 1 - drawerPct);
+      } else if (adminDoorH && adminDoorH > 0) {
         doorPct = adminDoorH / cabTotalH;
         const drawerInches = adminDrawerH && adminDrawerH > 0 ? adminDrawerH * effectiveDrawers : effectiveDrawers * 5;
         drawerPct = hasDrawers ? drawerInches / cabTotalH : 0;
@@ -239,16 +250,18 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       zones.push({ x: PAD, y: PAD, w: iW, h: openingH, fill: CLR.oven, stroke: CLR.ovenStroke, label: openingLabel, subLabel: openingSubLabel });
       rails.push({ y: PAD + openingH });
 
-      // Doors below opening
-      const doorColW = iW / doorCount;
-      for (let i = 0; i < doorCount; i++) {
-        const doorLabel = doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") : `Door ${i + 1}`;
-        zones.push({ x: PAD + i * doorColW, y: PAD + openingH, w: doorColW, h: doorH, fill: CLR.door, stroke: CLR.doorStroke, label: doorLabel });
+      // Doors below opening (only if doors > 0)
+      if (hasDoors) {
+        const doorColW = iW / doorCount;
+        for (let i = 0; i < doorCount; i++) {
+          const doorLabel = doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") : `Door ${i + 1}`;
+          zones.push({ x: PAD + i * doorColW, y: PAD + openingH, w: doorColW, h: doorH, fill: CLR.door, stroke: CLR.doorStroke, label: doorLabel });
+        }
       }
 
       // Drawers at bottom
       if (hasDrawers) {
-        rails.push({ y: PAD + openingH + doorH });
+        if (hasDoors) rails.push({ y: PAD + openingH + doorH });
         const sliceH = drawerH / effectiveDrawers;
         for (let i = 0; i < effectiveDrawers; i++) {
           zones.push({ x: PAD, y: PAD + openingH + doorH + i * sliceH, w: iW, h: sliceH, fill: CLR.drawer, stroke: CLR.drawerStroke, label: `Drawer ${i + 1}`, subLabel: i === effectiveDrawers - 1 ? "bottom" : undefined });
@@ -258,7 +271,16 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     } else if (openingPos === 'bottom') {
       // Doors on top, opening at bottom (no drawers below opening)
       let doorPct: number, drawerPct: number, openingPct: number;
-      if (adminDoorH && adminDoorH > 0) {
+      if (!hasDoors) {
+        doorPct = 0;
+        if (adminDrawerH && adminDrawerH > 0 && hasDrawers) {
+          const drawerInches = adminDrawerH * effectiveDrawers;
+          drawerPct = drawerInches / cabTotalH;
+        } else {
+          drawerPct = hasDrawers ? Math.max(0.20, 0.10 * effectiveDrawers) : 0;
+        }
+        openingPct = Math.max(0.15, 1 - drawerPct);
+      } else if (adminDoorH && adminDoorH > 0) {
         doorPct = adminDoorH / cabTotalH;
         const drawerInches = adminDrawerH && adminDrawerH > 0 ? adminDrawerH * effectiveDrawers : effectiveDrawers * 5;
         drawerPct = hasDrawers ? drawerInches / cabTotalH : 0;
@@ -277,13 +299,15 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       const drawerH  = Math.round(iH * drawerPct);
       const openingH = iH - doorH - drawerH;
 
-      // Doors at top
-      const doorColW = iW / doorCount;
-      for (let i = 0; i < doorCount; i++) {
-        const doorLabel = doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") : `Door ${i + 1}`;
-        zones.push({ x: PAD + i * doorColW, y: PAD, w: doorColW, h: doorH, fill: CLR.door, stroke: CLR.doorStroke, label: doorLabel, subLabel: "upper" });
+      // Doors at top (only if doors > 0)
+      if (hasDoors) {
+        const doorColW = iW / doorCount;
+        for (let i = 0; i < doorCount; i++) {
+          const doorLabel = doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") : `Door ${i + 1}`;
+          zones.push({ x: PAD + i * doorColW, y: PAD, w: doorColW, h: doorH, fill: CLR.door, stroke: CLR.doorStroke, label: doorLabel, subLabel: "upper" });
+        }
+        rails.push({ y: PAD + doorH });
       }
-      rails.push({ y: PAD + doorH });
 
       // Drawers in middle (if any)
       if (hasDrawers) {
@@ -300,7 +324,16 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     } else {
       // Default 'middle': doors on top, opening in middle, drawers at bottom
       let topDoorPct: number, drawerPct: number, ovenPct: number;
-      if (adminDoorH && adminDoorH > 0) {
+      if (!hasDoors) {
+        topDoorPct = 0;
+        if (adminDrawerH && adminDrawerH > 0 && hasDrawers) {
+          const drawerInches = adminDrawerH * effectiveDrawers;
+          drawerPct = drawerInches / cabTotalH;
+        } else {
+          drawerPct = hasDrawers ? Math.max(0.20, 0.10 * effectiveDrawers) : 0;
+        }
+        ovenPct = Math.max(0.15, 1 - drawerPct);
+      } else if (adminDoorH && adminDoorH > 0) {
         topDoorPct = adminDoorH / cabTotalH;
         const drawerInches = adminDrawerH && adminDrawerH > 0 ? adminDrawerH * effectiveDrawers : effectiveDrawers * 5;
         drawerPct = hasDrawers ? drawerInches / cabTotalH : 0;
@@ -319,13 +352,15 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       const drawerH  = Math.round(iH * drawerPct);
       const ovenH    = iH - topDoorH - drawerH;
 
-      // Top doors (side-by-side)
-      const doorColW = iW / doorCount;
-      for (let i = 0; i < doorCount; i++) {
-        const doorLabel = doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") : `Door ${i + 1}`;
-        zones.push({ x: PAD + i * doorColW, y: PAD, w: doorColW, h: topDoorH, fill: CLR.door, stroke: CLR.doorStroke, label: doorLabel, subLabel: "upper" });
+      // Top doors (side-by-side) — only if doors > 0
+      if (hasDoors) {
+        const doorColW = iW / doorCount;
+        for (let i = 0; i < doorCount; i++) {
+          const doorLabel = doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") : `Door ${i + 1}`;
+          zones.push({ x: PAD + i * doorColW, y: PAD, w: doorColW, h: topDoorH, fill: CLR.door, stroke: CLR.doorStroke, label: doorLabel, subLabel: "upper" });
+        }
+        rails.push({ y: PAD + topDoorH });
       }
-      rails.push({ y: PAD + topDoorH });
 
       // Opening in middle
       zones.push({ x: PAD, y: PAD + topDoorH, w: iW, h: ovenH, fill: CLR.oven, stroke: CLR.ovenStroke, label: openingLabel, subLabel: openingSubLabel });
@@ -341,32 +376,43 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     }
 
   } else if (type === "pantry") {
-    // Pantry: 2 doors bottom + 2 doors top, split at ~54" from floor
+    // Pantry: split at ~54" from floor into upper and lower sections.
+    // Use actual door count from admin config to determine layout:
+    //   - 2 doors total → 1 top + 1 bottom (stacked, for narrow pantries like 18")
+    //   - 4 doors total → 2 top + 2 bottom (side-by-side, for wider pantries like 24"+)
+    //   - fallback: use width heuristic (>=24" = 2 per section, else 1 per section)
     const totalH = cabinetH;
     const splitIn = 54;
     const splitPct = Math.min(0.8, Math.max(0.2, splitIn / totalH));
     const botH = Math.round(iH * splitPct);
     const topH = iH - botH;
-    const dW = Math.round(iW / 2);
-    // Bottom 2 doors
-    for (let i = 0; i < 2; i++) {
+
+    // Determine doors per section based on total door count
+    const totalDoors = effectiveDoors > 0 ? effectiveDoors : 4; // fallback to 4 for classic pantry
+    const doorsPerSection = Math.max(1, Math.round(totalDoors / 2));
+    const dW = Math.round(iW / doorsPerSection);
+
+    // Bottom doors
+    for (let i = 0; i < doorsPerSection; i++) {
+      const label = doorsPerSection === 1 ? "Door" : (i === 0 ? "Left Door" : "Right Door");
       zones.push({
         x: PAD + i * dW, y: PAD + topH,
         w: dW, h: botH,
         fill: CLR.door, stroke: CLR.doorStroke,
-        label: i === 0 ? "Left Door" : "Right Door",
+        label,
         subLabel: "lower",
       });
     }
     // Rail between top and bottom
     rails.push({ y: PAD + topH });
-    // Top 2 doors
-    for (let i = 0; i < 2; i++) {
+    // Top doors
+    for (let i = 0; i < doorsPerSection; i++) {
+      const label = doorsPerSection === 1 ? "Door" : (i === 0 ? "Left Door" : "Right Door");
       zones.push({
         x: PAD + i * dW, y: PAD,
         w: dW, h: topH,
         fill: CLR.door, stroke: CLR.doorStroke,
-        label: i === 0 ? "Left Door" : "Right Door",
+        label,
         subLabel: "upper",
       });
     }
