@@ -1077,7 +1077,7 @@ export function ElevationView({
           );
         })}
 
-        {/* Range Top: drawn ON the sink base cabinet face when sinkTopType is gas/electric/smooth-top.
+        {/* Range Top v2: drawn ON the sink base cabinet face when sinkTopType is gas/electric/smooth-top.
             Renders a stainless steel cooktop panel covering the cabinet face, with burner circles
             drawn on it — matching how a slide-in range looks in a front elevation drawing. */}
         {sorted.filter((p) => isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top")).map((p) => {
