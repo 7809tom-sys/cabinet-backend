@@ -3,7 +3,7 @@ import { and, eq, or, like, desc, sql, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { users, carts, cartItems } from "../../drizzle/schema";
+import { users, carts, cartItems, kitchenDesigns } from "../../drizzle/schema";
 import { PRICING_TIERS } from "@shared/pricingTier";
 
 const tierEnum = z.enum(["homeowner", "contractor", "wholesale"]);
@@ -240,6 +240,34 @@ export const customersRouter = router({
 
       return { ok: true, userId: input.userId };
     }),
+
+  // Purge all non-admin test members.
+  // Deletes every user whose role is NOT 'admin', along with their carts,
+  // cart items, and saved kitchen designs. Admin accounts are always preserved.
+  purgeTestMembers: adminProcedure.mutation(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    // Collect all non-admin users.
+    const targets = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`${users.role} != 'admin'`);
+    if (targets.length === 0) return { deleted: 0 };
+    const ids = targets.map((u) => u.id);
+    // Cascade-safe delete order: cart items → carts → designs → users.
+    const userCarts = await db
+      .select({ id: carts.id })
+      .from(carts)
+      .where(inArray(carts.userId, ids));
+    if (userCarts.length > 0) {
+      const cartIds = userCarts.map((c) => c.id);
+      await db.delete(cartItems).where(inArray(cartItems.cartId, cartIds));
+      await db.delete(carts).where(inArray(carts.userId, ids));
+    }
+    await db.delete(kitchenDesigns).where(inArray(kitchenDesigns.userId, ids));
+    await db.delete(users).where(inArray(users.id, ids));
+    return { deleted: ids.length };
+  }),
 
   // Self-serve: a front-door member classifies themselves as a contractor so they
   // get their own CRM-only admin screen (deals they own). Only a plain "user"

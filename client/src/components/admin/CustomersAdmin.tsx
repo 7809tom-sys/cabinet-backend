@@ -12,6 +12,7 @@ import {
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Users, Search, Building2, Mail, Clock, ShieldCheck, Trash2 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -97,6 +98,14 @@ export default function CustomersAdmin() {
     onError: (e) => toast.error("Could not update role", { description: e.message }),
   });
 
+  const purgeMembers = trpc.customers.purgeTestMembers.useMutation({
+    onSuccess: (res) => {
+      utils.customers.list.invalidate();
+      toast.success(`Purged ${res.deleted} test member${res.deleted === 1 ? "" : "s"}`);
+    },
+    onError: (e) => toast.error("Purge failed", { description: e.message }),
+  });
+
   const counts = query.data?.counts ?? {};
   const total = query.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -135,6 +144,35 @@ export default function CustomersAdmin() {
             <SelectItem value="wholesale">Wholesale</SelectItem>
           </SelectContent>
         </Select>
+        {total > 0 && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive shrink-0">
+                <Trash2 className="h-3.5 w-3.5" />
+                Purge non-admins
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Purge all non-admin members?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently deletes all {total} member account{total === 1 ? "" : "s"} that are not admins,
+                  along with their carts, saved designs, and order history. Admin accounts are kept.
+                  Use this to clear out test sign-ups. This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => purgeMembers.mutate()}
+                >
+                  Delete {total} member{total === 1 ? "" : "s"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       {query.isLoading ? (
