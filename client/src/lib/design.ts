@@ -289,6 +289,8 @@ export interface PlacedCabinet {
   faucetImageUrl?: string | null;
   // Image URL of the chosen sink product (for elevation rendering).
   sinkImageUrl?: string | null;
+  // Image URL of the chosen range top product (for elevation rendering).
+  rangeTopImageUrl?: string | null;
   /** Polygon room: which custom wall segment this cabinet is placed on.
    *  Only used when the room has customWalls. */
   wallId?: string | null;

@@ -2463,10 +2463,12 @@ export default function DesignTool() {
   const [sinkBaseDialog, setSinkBaseDialog] = useState<{ cabinetUid: string } | null>(null);
   // Range top sub-type selection (shown after user picks "Range Top" in the sink base dialog).
   // Also used for sink/faucet steps: "sink" = sink picker, "faucet" = faucet picker.
-  const [rangeTopStep, setRangeTopStep] = useState<"choose" | "sink" | "faucet" | "gas" | "electric" | "smooth-top">("choose");
+  const [rangeTopStep, setRangeTopStep] = useState<"choose" | "sink" | "faucet" | "range-type" | "range-product" | "gas" | "electric" | "smooth-top">("choose");
   // Pending sink product selected in the "sink" step, waiting for faucet selection.
   type SinkDialogProduct = { id: number; slug: string; name: string; category: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null };
   const [pendingSinkProduct, setPendingSinkProduct] = useState<SinkDialogProduct | null>(null);
+  // Pending range top type selected in the "range-type" step, waiting for product selection.
+  const [pendingRangeTopType, setPendingRangeTopType] = useState<"gas" | "electric" | "smooth-top" | null>(null);
   // Recommended range top products fetched from Stone Creek catalog.
   const { data: rangeTopProducts } = trpc.surfaces.recommended.useQuery(
     { role: "range-top", limit: 6 },
@@ -7481,7 +7483,7 @@ export default function DesignTool() {
           id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
         }>;
         const applyRangeTop = (type: "gas" | "electric" | "smooth-top", product?: typeof filteredRangeTops[0]) => {
-          setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: type, sinkTopProductId: product?.id ?? null });
+          setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: type, sinkTopProductId: product?.id ?? null, rangeTopImageUrl: product?.imageUrl ?? null });
           if (product) {
             addRecommendedSurface(
               { id: product.id, slug: product.slug, name: product.name, category: product.category, subCategory: product.subCategory, size: product.size, imageUrl: product.imageUrl, sellPrice: product.sellPrice },
@@ -7490,6 +7492,7 @@ export default function DesignTool() {
           }
           setSinkBaseDialog(null);
           setRangeTopStep("choose");
+          setPendingRangeTopType(null);
           toast.success(type === "gas" ? "Gas range top added" : type === "electric" ? "Electric range top added" : "Smooth top added");
         };
         const filteredFaucets = (faucetBaseProducts ?? []) as Array<{
@@ -7535,7 +7538,7 @@ export default function DesignTool() {
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       className="flex flex-col items-center gap-3 rounded-xl border-2 border-border hover:border-[#a87f33] p-5 transition-colors group"
-                      onClick={() => setRangeTopStep("gas")}
+                      onClick={(e) => { e.stopPropagation(); setRangeTopStep("range-type"); }}
                     >
                       <div className="w-14 h-14 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center group-hover:bg-orange-200 dark:group-hover:bg-orange-900/50 transition-colors">
                         <Flame className="h-7 w-7 text-orange-500" />
@@ -7625,57 +7628,102 @@ export default function DesignTool() {
                   <button className="text-xs text-muted-foreground underline self-center" onClick={() => applySink(pendingSinkProduct, null)}>Skip faucet selection</button>
                 </>
               )}
-              {(rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "smooth-top") && (
+              {/* Step 1 of Range Top: choose the type (Gas / Electric / Smooth Top) */}
+              {rangeTopStep === "range-type" && (
                 <>
                   <div className="flex items-center gap-2">
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
-                    <h2 className="text-lg font-semibold text-foreground">Choose Range Top Type</h2>
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">Range Top Type</h2>
+                      <p className="text-sm text-muted-foreground">What kind of cooktop will you install?</p>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(["gas", "electric", "smooth-top"] as const).map(type => (
+                  <div className="flex flex-col gap-3">
+                    {([
+                      { type: "gas" as const, label: "Gas Range Top", desc: "Open burners, precise flame control", icon: <Flame className="h-7 w-7 text-orange-500" />, bg: "bg-orange-100 dark:bg-orange-900/30" },
+                      { type: "electric" as const, label: "Electric Range Top", desc: "Coil or radiant electric burners", icon: <Zap className="h-7 w-7 text-yellow-500" />, bg: "bg-yellow-100 dark:bg-yellow-900/30" },
+                      { type: "smooth-top" as const, label: "Smooth Top / Induction", desc: "Glass-ceramic or induction surface", icon: <span className="text-2xl">〰</span>, bg: "bg-slate-100 dark:bg-slate-800" },
+                    ]).map(({ type, label, desc, icon, bg }) => (
                       <button
                         key={type}
-                        className={cn(
-                          "flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-colors",
-                          rangeTopStep === type ? "border-[#a87f33] bg-[#a87f33]/5" : "border-border hover:border-[#a87f33]/60"
-                        )}
-                        onClick={() => setRangeTopStep(type)}
+                        className="flex items-center gap-4 rounded-xl border-2 border-border hover:border-[#a87f33] p-4 transition-colors text-left group"
+                        onClick={(e) => { e.stopPropagation(); setPendingRangeTopType(type); setRangeTopStep("range-product"); }}
                       >
-                        {type === "gas" ? <Flame className="h-5 w-5 text-orange-500" /> : type === "electric" ? <Zap className="h-5 w-5 text-yellow-500" /> : <span className="text-sm">〰</span>}
-                        <span className="text-xs font-medium capitalize">{type === "smooth-top" ? "Smooth Top" : type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                        <div className={`w-12 h-12 rounded-full ${bg} flex items-center justify-center shrink-0`}>{icon}</div>
+                        <div>
+                          <div className="font-semibold text-sm text-foreground">{label}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{desc}</div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto shrink-0" />
                       </button>
                     ))}
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Stone Creek Range Tops</p>
-                    {filteredRangeTops.filter(p => {
-                      if (rangeTopStep === "gas") return p.subCategory === "Gas";
-                      if (rangeTopStep === "electric") return p.subCategory === "Electric";
+                  <button className="text-xs text-muted-foreground underline self-center" onClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); setPendingRangeTopType(null); }}>Skip for now</button>
+                </>
+              )}
+              {/* Step 2 of Range Top: pick a specific product from Stone Creek */}
+              {rangeTopStep === "range-product" && pendingRangeTopType && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("range-type")}>
+                      <ChevronRight className="h-4 w-4 rotate-180" />
+                    </button>
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">
+                        {pendingRangeTopType === "gas" ? "Gas" : pendingRangeTopType === "electric" ? "Electric" : "Smooth Top"} Range Tops
+                      </h2>
+                      <p className="text-sm text-muted-foreground">Stone Creek Collection</p>
+                    </div>
+                  </div>
+                  {(() => {
+                    const typeProducts = filteredRangeTops.filter(p => {
+                      if (pendingRangeTopType === "gas") return p.subCategory === "Gas";
+                      if (pendingRangeTopType === "electric") return p.subCategory === "Electric";
                       return p.subCategory === "Smooth Top";
-                    }).length === 0 ? (
-                      <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => applyRangeTop(rangeTopStep as "gas" | "electric" | "smooth-top")}>Add {rangeTopStep} range top (no product selected)</button>
+                    });
+                    return typeProducts.length === 0 ? (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm text-muted-foreground text-center py-4">No {pendingRangeTopType} range tops in catalog yet.</p>
+                        <button
+                          className="w-full rounded-lg border border-dashed border-[#a87f33] py-3 text-sm text-[#a87f33] font-medium hover:bg-[#a87f33]/5 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); applyRangeTop(pendingRangeTopType!); }}
+                        >
+                          Add {pendingRangeTopType} range top (no product)
+                        </button>
+                      </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        {filteredRangeTops.filter(p => {
-                          if (rangeTopStep === "gas") return p.subCategory === "Gas";
-                          if (rangeTopStep === "electric") return p.subCategory === "Electric";
-                          return p.subCategory === "Smooth Top";
-                        }).slice(0, 4).map(p => (
-                          <button key={p.id} className="overflow-hidden rounded-lg border border-border hover:border-[#a87f33] text-left transition-colors" onClick={() => applyRangeTop(rangeTopStep as "gas" | "electric" | "smooth-top", p)}>
-                            <div className="aspect-[4/3] w-full bg-muted">
-                              {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Flame className="h-5 w-5 text-muted-foreground/40" /></div>}
+                      <div className="grid grid-cols-2 gap-3">
+                        {typeProducts.map(p => (
+                          <button
+                            key={p.id}
+                            className="overflow-hidden rounded-xl border-2 border-border hover:border-[#a87f33] text-left transition-colors group"
+                            onClick={(e) => { e.stopPropagation(); applyRangeTop(pendingRangeTopType!, p); }}
+                          >
+                            <div className="aspect-[4/3] w-full bg-muted overflow-hidden">
+                              {p.imageUrl
+                                ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                                : <div className="flex h-full items-center justify-center">{pendingRangeTopType === "gas" ? <Flame className="h-8 w-8 text-muted-foreground/30" /> : <Zap className="h-8 w-8 text-muted-foreground/30" />}</div>
+                              }
                             </div>
-                            <div className="p-1.5">
+                            <div className="p-2">
                               <div className="line-clamp-2 text-[11px] font-semibold leading-snug">{p.name}</div>
-                              {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">${p.sellPrice.toFixed(2)}</div>}
+                              {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground mt-0.5">${p.sellPrice.toFixed(2)}</div>}
                             </div>
                           </button>
                         ))}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
+                  <button className="text-xs text-muted-foreground underline self-center" onClick={(e) => { e.stopPropagation(); applyRangeTop(pendingRangeTopType!); }}>Skip — add without product</button>
+                </>
+              )}
+              {/* Legacy steps kept for backward compat (should not normally be reached) */}
+              {(rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "smooth-top") && (
+                <>
+                  <p className="text-sm text-muted-foreground">Redirecting…</p>
+                  {(() => { setPendingRangeTopType(rangeTopStep as "gas" | "electric" | "smooth-top"); setRangeTopStep("range-product"); return null; })()}
                 </>
               )}
               <button
