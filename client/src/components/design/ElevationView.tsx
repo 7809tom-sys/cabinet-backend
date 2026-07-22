@@ -1110,25 +1110,9 @@ export function ElevationView({
             { cx: surfaceW * 0.72, cy: -surfaceH - burnerR * 4.2 },
           ];
           const totalBurnerH = burnerR * 6;
-          // Use product image if available, otherwise fall back to drawn burners
-          if (p.rangeTopImageUrl) {
-            const imgH = Math.max(60, 14 * ppi);
-            return (
-              <img
-                key={`rangetop-${p.uid}`}
-                src={p.rangeTopImageUrl}
-                alt="Range Top"
-                className="absolute pointer-events-none object-contain"
-                style={{
-                  left: surfaceLeft,
-                  bottom: topY,
-                  width: surfaceW,
-                  height: imgH,
-                  zIndex: 26,
-                }}
-              />
-            );
-          }
+          // Always use drawn SVG burners in elevation view — product photos are side-angle
+          // shots that look wrong on a countertop surface. The product image is used
+          // in the quote/product list only.
           return (
             <svg
               key={`rangetop-${p.uid}`}
