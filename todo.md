@@ -1412,3 +1412,9 @@
 - [x] When simplified: use original flat colors for flooring, countertop, backsplash, faucet, and sink
 - [x] When realistic: use the new staggered planks, veining, metallic faucet, etc.
 - [x] Persist the preference in localStorage so it remembers across sessions
+
+## Feature: Cabinet company selector button
+- [x] Add a button to choose one of 3 cabinet companies, placed to the right of the door style sample in the design tool
+
+## Feature: Export elevation view as PNG
+- [x] Add an export button that downloads the current elevation rendering as a high-quality PNG image

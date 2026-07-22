@@ -8,7 +8,7 @@ import {
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -256,6 +256,7 @@ export default function DesignTool() {
     return Number.isFinite(n) ? n : null;
   }, [search]);
   const loadedDesignRef = useRef<number | null>(null);
+  const canvasExportRef = useRef<HTMLDivElement>(null);
   // Auto-save draft: flips true once we've attempted to restore a saved draft,
   // so the debounced save effect doesn't overwrite the stored draft with the
   // initial empty state before restore runs.
@@ -4501,6 +4502,31 @@ export default function DesignTool() {
         >
           <Printer className="h-3.5 w-3.5" />
         </a>
+        {/* Export current view as PNG */}
+        <button
+          type="button"
+          title="Export view as PNG"
+          className="hidden lg:inline-flex items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+          onClick={async () => {
+            const el = canvasExportRef.current;
+            if (!el) return;
+            toast.info("Exporting image…");
+            try {
+              const { toPng } = await import("html-to-image");
+              const dataUrl = await toPng(el, { pixelRatio: 2, cacheBust: true });
+              const link = document.createElement("a");
+              link.download = `cabinet-design-${activeWall}-${Date.now()}.png`;
+              link.href = dataUrl;
+              link.click();
+              toast.success("Image exported!");
+            } catch (err) {
+              console.error(err);
+              toast.error("Export failed — please try again");
+            }
+          }}
+        >
+          <Download className="h-3.5 w-3.5" />
+        </button>
         {/* Preview modes — desktop toolbar button */}
         {placed.length > 0 && (
           <button
@@ -6254,7 +6280,7 @@ export default function DesignTool() {
         </PaletteShell>
 
         {/* Canvas */}
-        <div className="flex-1 min-w-0 relative pb-16 lg:pb-0">
+        <div ref={canvasExportRef} className="flex-1 min-w-0 relative pb-16 lg:pb-0">
           {viewMode === "plan" && isPolygonRoom && polygonEditMode && (
             <div className="absolute inset-0 z-20">
               <PolygonRoomEditor
@@ -6578,6 +6604,53 @@ export default function DesignTool() {
             ) : (
               <span className="text-xs text-muted-foreground">{t("dt_bs_select_finish_preview")}</span>
             )}
+            {/* Cabinet company selector — pick one of the 3 supply lines */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="shrink-0 flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[10px] font-medium hover:bg-accent transition-colors"
+                  title="Choose cabinet company"
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline truncate max-w-[72px]">
+                    {lockedDistributorId
+                      ? (distributorLabels?.find((d) => d.id === lockedDistributorId)?.name ?? "Company")
+                      : "All"}
+                  </span>
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-48 p-1">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Cabinet Company</div>
+                <button
+                  className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-accent flex items-center gap-2 ${lockedDistributorId == null ? "bg-accent font-semibold" : ""}`}
+                  onClick={() => { setLockedDistributorId(null); setMixedWarehouseOverride(true); }}
+                >
+                  <span className="h-5 w-5 rounded bg-muted flex items-center justify-center text-[9px] font-bold">All</span>
+                  <span>All Companies</span>
+                  {lockedDistributorId == null && <Check className="h-3.5 w-3.5 ml-auto text-primary" />}
+                </button>
+                {(distributorLabels ?? []).map((d) => (
+                  <button
+                    key={d.id}
+                    className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-accent flex items-center gap-2 ${lockedDistributorId === d.id ? "bg-accent font-semibold" : ""}`}
+                    onClick={() => {
+                      setLockedDistributorId(d.id);
+                      setMixedWarehouseOverride(false);
+                      // If current style doesn't belong to this distributor, clear it
+                      if (selectedStyleDistributorId != null && selectedStyleDistributorId !== d.id) {
+                        setStyleId(null); setStyleA(null); setStyleB(null);
+                        toast.info(`Switched to ${d.name} — please choose a door style`);
+                      }
+                    }}
+                  >
+                    <span className="h-5 w-5 rounded bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">{d.initials}</span>
+                    <span className="truncate">{d.name}</span>
+                    {lockedDistributorId === d.id && <Check className="h-3.5 w-3.5 ml-auto text-primary" />}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Door style & pricing picker: collapses into an accordion once a door
@@ -7332,7 +7405,7 @@ export default function DesignTool() {
       {/* Mobile bottom toolbar — core actions; side panels open as drawers. */}
       {isMobile && (
         <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden">
-          <div className="grid grid-cols-9 h-14">
+          <div className="grid grid-cols-10 h-14">
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
@@ -7386,6 +7459,27 @@ export default function DesignTool() {
               onClick={() => {
                 setCabinetsLocked((v) => !v);
                 toast.success(!cabinetsLocked ? "Cabinets locked — positions are frozen" : "Cabinets unlocked");
+              }}
+            />
+            <MobileBarButton
+              icon={<Download className="h-5 w-5" />}
+              label="Export"
+              onClick={async () => {
+                const el = canvasExportRef.current;
+                if (!el) return;
+                toast.info("Exporting image\u2026");
+                try {
+                  const { toPng } = await import("html-to-image");
+                  const dataUrl = await toPng(el, { pixelRatio: 2, cacheBust: true });
+                  const link = document.createElement("a");
+                  link.download = `cabinet-design-${activeWall}-${Date.now()}.png`;
+                  link.href = dataUrl;
+                  link.click();
+                  toast.success("Image exported!");
+                } catch (err) {
+                  console.error(err);
+                  toast.error("Export failed");
+                }
               }}
             />
             <MobileBarButton
