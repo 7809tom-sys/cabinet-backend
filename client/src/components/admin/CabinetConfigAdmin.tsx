@@ -1087,7 +1087,10 @@ export function CabinetConfigAdmin() {
     verifiedFilter,
   });
 
-  const categories = ["Base","Wall","Tall","Corner","Drawer","Specialty","Vanity","Pantry","Island","Filler","Molding","Accessory"];
+  const { data: dbCatsList } = trpc.cabinetCategories.list.useQuery();
+  const categories = dbCatsList && dbCatsList.length > 0
+    ? dbCatsList.map((c) => c.name)
+    : ["Base","Wall","Tall","Corner","Drawer","Specialty","Vanity","Pantry","Island","Filler","Molding","Accessory"];
 
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;

@@ -38,13 +38,13 @@ import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 
-// ─── Cabinet category constants (must match CabinetConfigAdmin) ─────────────
-const CABINET_CATEGORIES = [
+// ─── Cabinet categories (loaded from DB, with hardcoded fallback) ────────────
+const FALLBACK_CATEGORIES = [
   "Base", "Wall", "Tall", "Corner", "Drawer", "Specialty",
   "Vanity", "Pantry", "Island", "Filler", "Molding", "Accessory",
 ] as const;
 
-const CABINET_SUB_CATEGORIES: Record<string, string[]> = {
+const FALLBACK_SUB_CATEGORIES: Record<string, string[]> = {
   Base:      ["Standard Base","Sink Base","Blind Corner Base","Drawer Base","Lazy Susan","Appliance Garage","Pull-Out"],
   Wall:      ["Standard Wall","Blind Corner Wall","Corner Wall","Open Shelf","Microwave Wall","Glass Door"],
   Tall:      ["Pantry","Oven Tower","Utility","Linen"],
@@ -58,6 +58,20 @@ const CABINET_SUB_CATEGORIES: Record<string, string[]> = {
   Molding:   ["Crown Moulding","Light Rail","Base Moulding","Valance"],
   Accessory: ["Hardware","Organizer","Shelf","Lazy Susan Insert","Drawer Insert"],
 };
+
+/** Hook to get dynamic categories from DB with fallback */
+function useDynamicCategories() {
+  const { data: dbCats } = trpc.cabinetCategories.list.useQuery();
+  if (!dbCats || dbCats.length === 0) {
+    return { categoryNames: FALLBACK_CATEGORIES as unknown as string[], subCategoriesMap: FALLBACK_SUB_CATEGORIES };
+  }
+  const categoryNames = dbCats.map((c) => c.name);
+  const subCategoriesMap: Record<string, string[]> = {};
+  for (const cat of dbCats) {
+    subCategoriesMap[cat.name] = cat.subCategories.map((s) => s.name);
+  }
+  return { categoryNames, subCategoriesMap };
+}
 
 // ─── Price tier display ───────────────────────────────────────────────────────
 // Retail storefront: guests/homeowners see retail (homeowner) pricing with a
@@ -278,6 +292,7 @@ interface Props {
 }
 
 export default function CabinetDetail({ masterCode }: Props) {
+  const { categoryNames, subCategoriesMap } = useDynamicCategories();
   const searchStr = useSearch();
   // When a shopper arrives from a door-style FAMILY page we pre-lock that style
   // (passed as ?style=<styleId>) so the cabinet shows in the family they picked.
@@ -1191,7 +1206,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">— not set —</SelectItem>
-                      {CABINET_CATEGORIES.map((c) => (
+                      {categoryNames.map((c) => (
                         <SelectItem key={c} value={c}>{c}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1214,7 +1229,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">— not set —</SelectItem>
-                      {(editCategory && CABINET_SUB_CATEGORIES[editCategory] ? CABINET_SUB_CATEGORIES[editCategory] : []).map((s) => (
+                      {(editCategory && subCategoriesMap[editCategory] ? subCategoriesMap[editCategory] : []).map((s) => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
                     </SelectContent>

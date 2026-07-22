@@ -25,7 +25,10 @@ export default function FullDatabaseExport() {
     return allStyles.filter((s: any) => s.distributorId === distributorId);
   }, [allStyles, distributorId]);
 
-  const categories = ["Base", "Wall", "Tall", "ADA", "Vanity", "Accessory"];
+  const { data: dbCatsList } = trpc.cabinetCategories.list.useQuery();
+  const categories = dbCatsList && dbCatsList.length > 0
+    ? dbCatsList.map((c) => c.name)
+    : ["Base", "Wall", "Tall", "ADA", "Vanity", "Accessory"];
 
   function handleDownload() {
     setDownloading(true);

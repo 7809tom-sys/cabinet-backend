@@ -69,6 +69,7 @@ import { CabinetConfigAdmin } from "@/components/admin/CabinetConfigAdmin";
 import PotentialMergesAdmin from "@/components/admin/PotentialMergesAdmin";
 import { BannerAdmin } from "@/components/admin/BannerAdmin";
 import MasterSkuAdmin from "@/components/admin/MasterSkuAdmin";
+import CategoriesAdmin from "@/components/admin/CategoriesAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -116,6 +117,7 @@ const GROUPS = [
       { value: "merge-suggestions", label: "Merge Suggestions" },
       { value: "master-sku", label: "Master SKU Aliases" },
       { value: "cabinet-config", label: "Cabinet Config" },
+      { value: "categories", label: "Categories" },
     ],
   },
   {
@@ -468,6 +470,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="merge-suggestions" className="mt-6"><PotentialMergesAdmin /></TabsContent>
         <TabsContent value="master-sku" className="mt-6"><MasterSkuAdmin /></TabsContent>
         <TabsContent value="cabinet-config" className="mt-6"><CabinetConfigAdmin /><div className="mt-8 border-t border-border pt-6"><GenericCabinetsAdmin /></div></TabsContent>
+        <TabsContent value="categories" className="mt-6"><CategoriesAdmin /></TabsContent>
 
         {/* Pricing */}
         <TabsContent value="multipliers" className="mt-6"><DistributorMultipliersAdmin /></TabsContent>

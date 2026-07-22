@@ -1445,3 +1445,14 @@
 - [x] Include cornerType in handleSaveEdit mutation payload
 - [x] Backend already accepts cornerType — no server changes needed
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Admin Categories & Sub-Categories management page
+- [x] Create cabinet_categories and cabinet_sub_categories DB tables
+- [x] Seed tables with existing hardcoded categories and sub-categories
+- [x] Build backend tRPC CRUD procedures (create/update/delete/reorder for categories and sub-categories)
+- [x] Build admin UI page (CategoriesAdmin) with expand/collapse, inline edit, add, delete
+- [x] Add "Categories" tab to Products & Catalog group in admin panel
+- [x] Wire CabinetDetail edit dialog category/sub-category dropdowns to use dynamic DB list
+- [x] Wire CabinetConfigAdmin category filter to use dynamic DB list
+- [x] Wire FullDatabaseExport category filter to use dynamic DB list
+- [x] TypeScript compiles cleanly; checkpoint saved

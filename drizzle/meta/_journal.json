@@ -582,6 +582,13 @@
       "when": 1784730640900,
       "tag": "0082_regular_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "5",
+      "when": 1784737374658,
+      "tag": "0083_brief_mandarin",
+      "breakpoints": true
     }
   ]
 }

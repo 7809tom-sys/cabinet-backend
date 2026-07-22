@@ -1703,3 +1703,26 @@ export const skuMatchingRules = mysqlTable("sku_matching_rules", {
 });
 export type SkuMatchingRule = typeof skuMatchingRules.$inferSelect;
 export type InsertSkuMatchingRule = typeof skuMatchingRules.$inferInsert;
+
+// ─── Cabinet Categories & Sub-Categories ─────────────────────────────────────
+// Admin-managed list of categories and sub-categories for cabinetry.
+// Replaces hardcoded arrays so the admin can add/edit/remove from the UI.
+
+export const cabinetCategories = mysqlTable("cabinet_categories", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 64 }).notNull().unique(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CabinetCategory = typeof cabinetCategories.$inferSelect;
+export type InsertCabinetCategory = typeof cabinetCategories.$inferInsert;
+
+export const cabinetSubCategories = mysqlTable("cabinet_sub_categories", {
+  id: int("id").autoincrement().primaryKey(),
+  categoryId: int("categoryId").notNull(), // FK to cabinet_categories.id
+  name: varchar("name", { length: 128 }).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CabinetSubCategory = typeof cabinetSubCategories.$inferSelect;
+export type InsertCabinetSubCategory = typeof cabinetSubCategories.$inferInsert;

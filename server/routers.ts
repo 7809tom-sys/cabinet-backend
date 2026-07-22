@@ -47,6 +47,7 @@ import { measureSessionsRouter } from "./routers/measureSessions";
 import { mediaLibraryRouter } from "./routers/mediaLibrary";
 import { bannersRouter } from "./routers/banners";
 import { masterSkuRouter } from "./routers/masterSku";
+import { cabinetCategoriesRouter } from "./routers/cabinetCategories";
 
 export const appRouter = router({
   system: systemRouter,
@@ -104,6 +105,7 @@ export const appRouter = router({
   mediaLibrary: mediaLibraryRouter,
   banners: bannersRouter,
   masterSku: masterSkuRouter,
+  cabinetCategories: cabinetCategoriesRouter,
 });
 
 export type AppRouter = typeof appRouter;
