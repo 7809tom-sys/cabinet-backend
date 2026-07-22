@@ -7,7 +7,8 @@ import {
   Boxes, ShoppingCart, MoreHorizontal, Lock, LockOpen, Wand2, X, Sparkles,
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
-  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer } from "lucide-react";
+  Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
+  Flame, Zap, Droplets } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -385,7 +386,7 @@ export default function DesignTool() {
   // material id so the plan/elevation render updates to a representative texture.
   const addRecommendedSurface = (
     item: SelectedSurface,
-    role: "flooring" | "backsplash" | "countertop" | "sink" | "faucet"
+    role: "flooring" | "backsplash" | "countertop" | "sink" | "faucet" | "range-top"
   ) => {
     const already = selectedSurfaces.some((s) => s.id === item.id);
     toggleSurface(item);
@@ -1925,6 +1926,11 @@ export default function DesignTool() {
 
   const addCabinet = useCallback(
     (c: DesignCabinet, x?: number, y?: number) => {
+      // Debounce guard: block re-entry within 500 ms to prevent double-placement
+      // caused by mobile touch events firing both touchend and click.
+      if (isAddingRef.current) return;
+      isAddingRef.current = true;
+      setTimeout(() => { isAddingRef.current = false; }, 500);
       // Placeable accessories (decorative/end panels, skins, appliance garages)
       // come in via the Accessories tab. Force a sensible placement (base vs
       // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they
@@ -2120,23 +2126,12 @@ export default function DesignTool() {
       setSelectedUid(finalCab.uid);
       setPlaced((prev) => [...prev, finalCab]);
 
-      // Sink-base auto-fixture
+      // Sink-base: open the top-type chooser dialog instead of auto-adding a sink.
+      // The user picks Sink (Stone Creek catalog) or Range Top (gas/electric/smooth).
       if (isSinkBaseCabinet(finalCab)) {
-        const fp = placedFootprint(finalCab);
-        const preset = SINK_PRESETS["single"];
-        const sx = Math.max(
-          0,
-          Math.min(finalCab.x + fp.w / 2 - preset.width / 2, room.width - preset.width)
-        );
-        const sy = Math.max(
-          0,
-          Math.min(finalCab.y + fp.d / 2 - preset.depth / 2, room.depth - preset.depth)
-        );
-        const autoSink = makeSink("single", sx, sy);
-        setSinks((prevSinks) => [...prevSinks, autoSink]);
-        setSelectedSinkUid(autoSink.uid);
+        setSinkBaseDialog({ cabinetUid: finalCab.uid });
+        setRangeTopStep("choose");
         setCountertop(true);
-        toast.success(t("dt_t_sink_added"));
       }
       // Refrigerator dialog
       if (isRefrigerator(finalCab)) {
@@ -2463,6 +2458,21 @@ export default function DesignTool() {
   const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string } | null>(null);
   // Oven type dialog: opens when an oven tall cabinet (O-code) is placed.
   const [ovenDialog, setOvenDialog] = useState<{ cabinetUid: string } | null>(null);
+  // Sink base top dialog: opens when a sink base cabinet is placed.
+  // Lets the user choose between a sink fixture or a range top (gas/electric/smooth).
+  const [sinkBaseDialog, setSinkBaseDialog] = useState<{ cabinetUid: string } | null>(null);
+  // Range top sub-type selection (shown after user picks "Range Top" in the sink base dialog).
+  const [rangeTopStep, setRangeTopStep] = useState<"choose" | "gas" | "electric" | "smooth-top">("choose");
+  // Recommended range top products fetched from Stone Creek catalog.
+  const { data: rangeTopProducts } = trpc.surfaces.recommended.useQuery(
+    { role: "range-top", limit: 6 },
+    { enabled: !!sinkBaseDialog }
+  );
+  // Recommended sink products fetched from Stone Creek catalog.
+  const { data: sinkBaseProducts } = trpc.surfaces.recommended.useQuery(
+    { role: "sink", limit: 6 },
+    { enabled: !!sinkBaseDialog }
+  );
   const fridgeForDialog = useMemo(
     () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
     [fridgeDialog, placed]
@@ -4207,6 +4217,10 @@ export default function DesignTool() {
   // edit sheet does NOT auto-open. Only open the sheet when the user taps an
   // existing cabinet on the canvas.
   const justPlacedRef = useRef(false);
+  // Guard against double-placement: on mobile a tap fires both touchend and
+  // click, which would call addCabinet twice. Block re-entry for 500 ms after
+  // the first call so the second synthetic event is a no-op.
+  const isAddingRef = useRef(false);
   // Sync sheet open state with selection on mobile
   useEffect(() => {
     if (!isMobile) return;
@@ -7447,6 +7461,168 @@ export default function DesignTool() {
         onSkip={() => setFridgeDialog(null)}
       />
 
+      {/* Sink Base Top Dialog: opens when a sink base cabinet is placed */}
+      {sinkBaseDialog && (() => {
+        const filteredRangeTops = (rangeTopProducts ?? []) as Array<{
+          id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
+        }>;
+        const filteredSinks = (sinkBaseProducts ?? []) as Array<{
+          id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
+        }>;
+        const applyRangeTop = (type: "gas" | "electric" | "smooth-top", product?: typeof filteredRangeTops[0]) => {
+          setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: type, sinkTopProductId: product?.id ?? null });
+          if (product) {
+            addRecommendedSurface(
+              { id: product.id, slug: product.slug, name: product.name, category: product.category, subCategory: product.subCategory, size: product.size, imageUrl: product.imageUrl, sellPrice: product.sellPrice },
+              "range-top"
+            );
+          }
+          setSinkBaseDialog(null);
+          setRangeTopStep("choose");
+          toast.success(type === "gas" ? "Gas range top added" : type === "electric" ? "Electric range top added" : "Smooth top added");
+        };
+        const applySink = (product?: typeof filteredSinks[0]) => {
+          const fp = placedFootprint(placed.find(p => p.uid === sinkBaseDialog.cabinetUid) ?? { x: 0, y: 0, width: 30, depth: 24, rotation: 0, placement: "base" } as PlacedCabinet);
+          const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
+          const preset = SINK_PRESETS["single"];
+          const sx = cab ? Math.max(0, Math.min(cab.x + fp.w / 2 - preset.width / 2, room.width - preset.width)) : 0;
+          const sy = cab ? Math.max(0, Math.min(cab.y + fp.d / 2 - preset.depth / 2, room.depth - preset.depth)) : 0;
+          const autoSink = makeSink("single", sx, sy);
+          setSinks((prevSinks) => [...prevSinks, autoSink]);
+          setSelectedSinkUid(autoSink.uid);
+          setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: product?.id ?? null });
+          if (product) {
+            addRecommendedSurface(
+              { id: product.id, slug: product.slug, name: product.name, category: product.category, subCategory: product.subCategory, size: product.size, imageUrl: product.imageUrl, sellPrice: product.sellPrice },
+              "sink"
+            );
+          }
+          setSinkBaseDialog(null);
+          setRangeTopStep("choose");
+          toast.success("Sink added");
+        };
+        return (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center" role="dialog" aria-modal="true">
+            <div className="absolute inset-0 bg-black/50" onClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); }} />
+            <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-[400px] max-w-[95vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200" style={{ maxHeight: "90vh", overflowY: "auto" }}>
+              {rangeTopStep === "choose" && (
+                <>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">What goes on top?</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Choose what will be installed on this sink base cabinet.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      className="flex flex-col items-center gap-3 rounded-xl border-2 border-border hover:border-[#a87f33] p-5 transition-colors group"
+                      onClick={() => setRangeTopStep("gas")}
+                    >
+                      <div className="w-14 h-14 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center group-hover:bg-orange-200 dark:group-hover:bg-orange-900/50 transition-colors">
+                        <Flame className="h-7 w-7 text-orange-500" />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-semibold">Range Top</div>
+                        <div className="text-xs text-muted-foreground">Gas / Electric / Smooth</div>
+                      </div>
+                    </button>
+                    <button
+                      className="flex flex-col items-center gap-3 rounded-xl border-2 border-border hover:border-[#a87f33] p-5 transition-colors group"
+                      onClick={() => applySink()}
+                    >
+                      <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
+                        <Droplets className="h-7 w-7 text-blue-500" />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-semibold">Sink</div>
+                        <div className="text-xs text-muted-foreground">Kitchen / Bar / Farm</div>
+                      </div>
+                    </button>
+                  </div>
+                  {/* Sink products grid */}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Stone Creek Sinks</p>
+                    {filteredSinks.length === 0 ? (
+                      <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => applySink()}>Add a sink (no product selected)</button>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {filteredSinks.slice(0, 4).map(p => (
+                          <button key={p.id} className="overflow-hidden rounded-lg border border-border hover:border-[#a87f33] text-left transition-colors" onClick={() => applySink(p)}>
+                            <div className="aspect-[4/3] w-full bg-muted">
+                              {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Droplets className="h-5 w-5 text-muted-foreground/40" /></div>}
+                            </div>
+                            <div className="p-1.5">
+                              <div className="line-clamp-2 text-[11px] font-semibold leading-snug">{p.name}</div>
+                              {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">${p.sellPrice.toFixed(2)}</div>}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+              {(rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "smooth-top") && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
+                      <ChevronRight className="h-4 w-4 rotate-180" />
+                    </button>
+                    <h2 className="text-lg font-semibold text-foreground">Choose Range Top Type</h2>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["gas", "electric", "smooth-top"] as const).map(type => (
+                      <button
+                        key={type}
+                        className={cn(
+                          "flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-colors",
+                          rangeTopStep === type ? "border-[#a87f33] bg-[#a87f33]/5" : "border-border hover:border-[#a87f33]/60"
+                        )}
+                        onClick={() => setRangeTopStep(type)}
+                      >
+                        {type === "gas" ? <Flame className="h-5 w-5 text-orange-500" /> : type === "electric" ? <Zap className="h-5 w-5 text-yellow-500" /> : <span className="text-sm">〰</span>}
+                        <span className="text-xs font-medium capitalize">{type === "smooth-top" ? "Smooth Top" : type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Stone Creek Range Tops</p>
+                    {filteredRangeTops.filter(p => {
+                      if (rangeTopStep === "gas") return p.subCategory === "Gas";
+                      if (rangeTopStep === "electric") return p.subCategory === "Electric";
+                      return p.subCategory === "Smooth Top";
+                    }).length === 0 ? (
+                      <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => applyRangeTop(rangeTopStep as "gas" | "electric" | "smooth-top")}>Add {rangeTopStep} range top (no product selected)</button>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {filteredRangeTops.filter(p => {
+                          if (rangeTopStep === "gas") return p.subCategory === "Gas";
+                          if (rangeTopStep === "electric") return p.subCategory === "Electric";
+                          return p.subCategory === "Smooth Top";
+                        }).slice(0, 4).map(p => (
+                          <button key={p.id} className="overflow-hidden rounded-lg border border-border hover:border-[#a87f33] text-left transition-colors" onClick={() => applyRangeTop(rangeTopStep as "gas" | "electric" | "smooth-top", p)}>
+                            <div className="aspect-[4/3] w-full bg-muted">
+                              {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Flame className="h-5 w-5 text-muted-foreground/40" /></div>}
+                            </div>
+                            <div className="p-1.5">
+                              <div className="line-clamp-2 text-[11px] font-semibold leading-snug">{p.name}</div>
+                              {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">${p.sellPrice.toFixed(2)}</div>}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+              <button
+                className="text-xs text-muted-foreground underline self-center"
+                onClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); }}
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+        );
+      })()}
       {/* Oven Type Dialog: opens when an oven tall cabinet (O-code) is placed */}
       {ovenDialog && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center" role="dialog" aria-modal="true">

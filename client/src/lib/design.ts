@@ -276,6 +276,13 @@ export interface PlacedCabinet {
   // Oven type for tall oven cabinets (O-code). 'single' = 1 oven + 3 drawers;
   // 'double' = 2 stacked ovens + 1 drawer. Drives the elevation renderer.
   ovenType?: "single" | "double" | null;
+  // Sink base top type: what sits on top of this sink base cabinet.
+  // 'sink' = a sink fixture (default); 'gas' | 'electric' | 'smooth-top' = range top type.
+  // When a range top is chosen, no sink fixture is added and the elevation
+  // renders the range top burners/coils instead of a faucet.
+  sinkTopType?: "sink" | "gas" | "electric" | "smooth-top" | null;
+  // Pelican product id of the chosen sink or range top (for cart/BOM).
+  sinkTopProductId?: number | null;
   /** Polygon room: which custom wall segment this cabinet is placed on.
    *  Only used when the room has customWalls. */
   wallId?: string | null;

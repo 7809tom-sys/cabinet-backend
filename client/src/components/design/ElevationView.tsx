@@ -1031,8 +1031,9 @@ export function ElevationView({
         {/* Faucet: drawn above sink base cabinets (SB-*). Shows a vertical
             riser + horizontal spout + aerator + handle knob sitting on top of
             the countertop so the faucet is visible in Front View even though
-            the sink bowl is cut into the counter. */}
-        {sorted.filter((p) => isSinkBaseCabinet(p)).map((p) => {
+            the sink bowl is cut into the counter.
+            Skipped when sinkTopType is a range top (gas/electric/smooth-top). */}
+        {sorted.filter((p) => isSinkBaseCabinet(p) && p.sinkTopType !== "gas" && p.sinkTopType !== "electric" && p.sinkTopType !== "smooth-top").map((p) => {
           const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
           const posAlong = horizontal ? p.x : p.y;
           const centerX = (posAlong + sizeAlong / 2) * ppi;
@@ -1068,6 +1069,79 @@ export function ElevationView({
           );
         })}
 
+        {/* Range Top: drawn on top of sink base cabinets when sinkTopType is gas/electric/smooth-top.
+            Shows a flat cooktop surface with burner circles (gas) or coil rings (electric/smooth). */}
+        {sorted.filter((p) => isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top")).map((p) => {
+          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
+          const posAlong = horizontal ? p.x : p.y;
+          const topY = (STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi;
+          const surfaceH = 2 * ppi;   // 2" cooktop rim height above counter
+          const surfaceW = sizeAlong * ppi;
+          const surfaceLeft = posAlong * ppi;
+          const isGas = p.sinkTopType === "gas";
+          const isSmooth = p.sinkTopType === "smooth-top";
+          // Burner layout: 2 rows × 2 columns, centered in the surface width
+          const burnerR = Math.max(3, (surfaceW / 8));
+          const burnerPositions = [
+            { cx: surfaceW * 0.28, cy: -surfaceH - burnerR * 1.6 },
+            { cx: surfaceW * 0.72, cy: -surfaceH - burnerR * 1.6 },
+            { cx: surfaceW * 0.28, cy: -surfaceH - burnerR * 4.2 },
+            { cx: surfaceW * 0.72, cy: -surfaceH - burnerR * 4.2 },
+          ];
+          const totalBurnerH = burnerR * 6;
+          return (
+            <svg
+              key={`rangetop-${p.uid}`}
+              className="absolute pointer-events-none"
+              style={{
+                left: surfaceLeft,
+                bottom: topY,
+                width: surfaceW,
+                height: surfaceH + totalBurnerH + 4,
+                overflow: "visible",
+                zIndex: 26,
+              }}
+            >
+              {/* Cooktop surface rim */}
+              <rect x={0} y={totalBurnerH} width={surfaceW} height={surfaceH}
+                fill={isSmooth ? "#2a2a2a" : "#4a4a4a"} rx={1} />
+              {/* Burners / coils */}
+              {burnerPositions.map((b, i) => (
+                <g key={i}>
+                  {isGas ? (
+                    // Gas: concentric rings with spokes
+                    <>
+                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR} fill="none" stroke="#888" strokeWidth={Math.max(1, burnerR * 0.18)} />
+                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.55} fill="none" stroke="#888" strokeWidth={Math.max(1, burnerR * 0.14)} />
+                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.15} fill="#666" />
+                      {[0, 60, 120, 180, 240, 300].map(angle => (
+                        <line key={angle}
+                          x1={b.cx + Math.cos(angle * Math.PI / 180) * burnerR * 0.55}
+                          y1={b.cy + totalBurnerH + Math.sin(angle * Math.PI / 180) * burnerR * 0.55}
+                          x2={b.cx + Math.cos(angle * Math.PI / 180) * burnerR}
+                          y2={b.cy + totalBurnerH + Math.sin(angle * Math.PI / 180) * burnerR}
+                          stroke="#777" strokeWidth={Math.max(1, burnerR * 0.12)} />
+                      ))}
+                    </>
+                  ) : isSmooth ? (
+                    // Smooth top: solid dark circle with subtle highlight
+                    <>
+                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR} fill="#1a1a1a" stroke="#555" strokeWidth={1} />
+                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.7} fill="none" stroke="#333" strokeWidth={Math.max(1, burnerR * 0.1)} strokeDasharray={`${burnerR * 0.3} ${burnerR * 0.15}`} />
+                    </>
+                  ) : (
+                    // Electric coil: spiral-like rings
+                    <>
+                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR} fill="none" stroke="#c0392b" strokeWidth={Math.max(1.5, burnerR * 0.22)} />
+                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.65} fill="none" stroke="#c0392b" strokeWidth={Math.max(1.5, burnerR * 0.22)} />
+                      <circle cx={b.cx} cy={b.cy + totalBurnerH} r={burnerR * 0.3} fill="none" stroke="#c0392b" strokeWidth={Math.max(1, burnerR * 0.18)} />
+                    </>
+                  )}
+                </g>
+              ))}
+            </svg>
+          );
+        })}
         {/* Apron-front (farmhouse) sink: exposed ceramic apron face below countertop.
             Shown for FSB-* cabinets. Replaces the standard hidden under-mount look
             with a visible fireclay/cast-iron apron panel. */}

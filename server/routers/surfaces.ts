@@ -58,13 +58,13 @@ async function toReferenceUrl(imageUrl: string | null | undefined): Promise<stri
 const SelectionItem = z.object({
   id: z.number().int().positive(),
   category: z.string(),
-  role: z.enum(["flooring", "tile", "countertop", "sink", "faucet"]).optional(),
+  role: z.enum(["flooring", "tile", "countertop", "sink", "faucet", "range-top"]).optional(),
 });
 
 // Roles the Designer surfaces into: each maps to a real Pelican category (and
 // subCategory where a category is shared, e.g. Sinks & Faucets). This is the
 // single server-side source of truth for the Designer's recommended lists.
-const RECOMMENDED_ROLE = z.enum(["flooring", "backsplash", "countertop", "sink", "faucet"]);
+const RECOMMENDED_ROLE = z.enum(["flooring", "backsplash", "countertop", "sink", "faucet", "range-top"]);
 type RecommendedRole = z.infer<typeof RECOMMENDED_ROLE>;
 
 function roleFilter(role: RecommendedRole) {
@@ -89,6 +89,8 @@ function roleFilter(role: RecommendedRole) {
         eq(pelicanProducts.category, "Sinks & Faucets"),
         eq(pelicanProducts.subCategory, "Faucets")
       );
+    case "range-top":
+      return eq(pelicanProducts.category, "Range Tops");
   }
 }
 
@@ -332,11 +334,12 @@ export const surfacesRouter = router({
     }),
 });
 
-function roleFromCategory(category: string): "flooring" | "tile" | "countertop" | "sink" | "faucet" {
+function roleFromCategory(category: string): "flooring" | "tile" | "countertop" | "sink" | "faucet" | "range-top" {
   if (category === "Flooring") return "flooring";
   if (category === "Tile & Mosaic") return "tile";
   if (category === "Quartz Slabs (Countertops)") return "countertop";
   if (category === "Sinks & Faucets") return "sink";
+  if (category === "Range Tops") return "range-top";
   return "tile";
 }
 function roleLabel(role: string): string {
@@ -351,6 +354,8 @@ function roleLabel(role: string): string {
       return "SINK";
     case "faucet":
       return "FAUCET";
+    case "range-top":
+      return "RANGE TOP";
     default:
       return role.toUpperCase();
   }
