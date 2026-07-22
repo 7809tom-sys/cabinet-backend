@@ -1470,6 +1470,14 @@ export const cabinetsRouter = router({
         openingType: z.enum(["top", "middle", "bottom"]).nullable().optional(),
         // Corner cabinet type: null = standard, or one of the corner types
         cornerType: z.enum(["lazy-susan", "blind-corner", "diagonal", "pie-cut", "l-shape"]).nullable().optional(),
+        // Lazy Susan specific
+        shelfRadius: z.number().positive().nullable().optional(),
+        shelfCount: z.number().int().positive().nullable().optional(),
+        // Corner cabinet shared (Lazy Susan + Diagonal)
+        cabinetSquare: z.number().positive().nullable().optional(),
+        // Diagonal corner specific
+        faceWidth: z.number().positive().nullable().optional(),
+        legWidth: z.number().positive().nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1506,6 +1514,11 @@ export const cabinetsRouter = router({
       if (input.openingWidth !== undefined) patch.openingWidth = input.openingWidth != null ? String(input.openingWidth) : null;
       if (input.openingType !== undefined) patch.openingType = input.openingType;
       if (input.cornerType !== undefined) patch.cornerType = input.cornerType;
+      if (input.shelfRadius !== undefined) patch.shelfRadius = input.shelfRadius != null ? String(input.shelfRadius) : null;
+      if (input.shelfCount !== undefined) patch.shelfCount = input.shelfCount;
+      if (input.cabinetSquare !== undefined) patch.cabinetSquare = input.cabinetSquare != null ? String(input.cabinetSquare) : null;
+      if (input.faceWidth !== undefined) patch.faceWidth = input.faceWidth != null ? String(input.faceWidth) : null;
+      if (input.legWidth !== undefined) patch.legWidth = input.legWidth != null ? String(input.legWidth) : null;
       if (Object.keys(patch).length === 0) return { ok: true };
       // Always stamp configuredAt so the admin list shows when this cabinet was last saved.
       patch.configuredAt = new Date();
@@ -2107,6 +2120,12 @@ export const cabinetsRouter = router({
             openingType: cabinets.openingType,
             // Corner cabinet type
             cornerType: cabinets.cornerType,
+            // Corner measurement fields
+            shelfRadius: cabinets.shelfRadius,
+            shelfCount: cabinets.shelfCount,
+            cabinetSquare: cabinets.cabinetSquare,
+            faceWidth: cabinets.faceWidth,
+            legWidth: cabinets.legWidth,
             // Timestamps
             configuredAt: cabinets.configuredAt,
           })

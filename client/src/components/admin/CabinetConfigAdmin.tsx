@@ -67,6 +67,12 @@ type CabinetRow = {
   openingType: string | null;
   // Corner cabinet type
   cornerType: string | null;
+  // Corner measurement fields
+  shelfRadius: string | null;
+  shelfCount: number | null;
+  cabinetSquare: string | null;
+  faceWidth: string | null;
+  legWidth: string | null;
   // Timestamps
   configuredAt: Date | null;
 };
@@ -253,6 +259,11 @@ function EditModal({
       openingWidth: merged.openingWidth != null ? parseFloat(merged.openingWidth) : null,
       openingType: (merged.openingType as "top" | "middle" | "bottom" | null | undefined) ?? null,
       cornerType: (merged.cornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape" | null | undefined) ?? null,
+      shelfRadius: merged.shelfRadius != null ? parseFloat(merged.shelfRadius) : null,
+      shelfCount: merged.shelfCount ?? null,
+      cabinetSquare: merged.cabinetSquare != null ? parseFloat(merged.cabinetSquare) : null,
+      faceWidth: merged.faceWidth != null ? parseFloat(merged.faceWidth) : null,
+      legWidth: merged.legWidth != null ? parseFloat(merged.legWidth) : null,
       category: merged.category ?? undefined,
       subCategory: merged.subCategory ?? null,
     });
@@ -760,8 +771,127 @@ function EditModal({
             {/* Auto-fill hint when all weight/pkg fields are empty */}
             {!merged.weight && !merged.pkgLength && !merged.pkgWeight && !estimateMutation.isPending && !measurementSource && (
               <p className="text-xs text-muted-foreground italic">
-                No weight or package data yet. Click “Smart Fill” to pull from the master sheet or estimate via AI.
+                No weight or package data yet. Click "Smart Fill" to pull from the master sheet or estimate via AI.
               </p>
+            )}
+
+            {/* ── Corner Cabinet Measurements (conditional) ── */}
+            {merged.cornerType === "lazy-susan" && (
+              <div className="rounded-lg border border-blue-500/40 bg-blue-50/10 dark:bg-blue-900/10 px-4 py-3 space-y-3">
+                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">Lazy Susan Measurements</p>
+                <p className="text-xs text-muted-foreground">
+                  The cabinet square is the overall footprint. Shelf radius controls the rotating shelf size.
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <DimInput
+                    label="Cabinet Square"
+                    value={merged.cabinetSquare}
+                    onChange={(v) => set("cabinetSquare", v)}
+                    unit='"'
+                    disabled={busy}
+                  />
+                  <DimInput
+                    label="Shelf Radius"
+                    value={merged.shelfRadius}
+                    onChange={(v) => set("shelfRadius", v)}
+                    unit='"'
+                    disabled={busy}
+                  />
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-muted-foreground">Shelf Count</Label>
+                    <Select
+                      value={merged.shelfCount != null ? String(merged.shelfCount) : "__none__"}
+                      onValueChange={(v) => set("shelfCount", v === "__none__" ? null : parseInt(v))}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— not set —</SelectItem>
+                        {[1, 2, 3, 4].map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {merged.cornerType === "diagonal" && (
+              <div className="rounded-lg border border-purple-500/40 bg-purple-50/10 dark:bg-purple-900/10 px-4 py-3 space-y-3">
+                <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">Diagonal Corner Measurements</p>
+                <p className="text-xs text-muted-foreground">
+                  Face width is the angled door opening. Leg width is the depth of each side leg. Cabinet square is the overall footprint.
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <DimInput
+                    label="Cabinet Square"
+                    value={merged.cabinetSquare}
+                    onChange={(v) => set("cabinetSquare", v)}
+                    unit='"'
+                    disabled={busy}
+                  />
+                  <DimInput
+                    label="Face Width"
+                    value={merged.faceWidth}
+                    onChange={(v) => set("faceWidth", v)}
+                    unit='"'
+                    disabled={busy}
+                  />
+                  <DimInput
+                    label="Leg Width"
+                    value={merged.legWidth}
+                    onChange={(v) => set("legWidth", v)}
+                    unit='"'
+                    disabled={busy}
+                  />
+                </div>
+              </div>
+            )}
+
+            {merged.cornerType === "pie-cut" && (
+              <div className="rounded-lg border border-green-500/40 bg-green-50/10 dark:bg-green-900/10 px-4 py-3 space-y-3">
+                <p className="text-sm font-semibold text-green-600 dark:text-green-400">Pie-Cut Lazy Susan Measurements</p>
+                <p className="text-xs text-muted-foreground">
+                  Same as Lazy Susan but with pie-cut (kidney-shaped) shelves. Cabinet square is the overall footprint.
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <DimInput
+                    label="Cabinet Square"
+                    value={merged.cabinetSquare}
+                    onChange={(v) => set("cabinetSquare", v)}
+                    unit='"'
+                    disabled={busy}
+                  />
+                  <DimInput
+                    label="Shelf Radius"
+                    value={merged.shelfRadius}
+                    onChange={(v) => set("shelfRadius", v)}
+                    unit='"'
+                    disabled={busy}
+                  />
+                  <div className="space-y-1">
+                    <Label className="text-xs font-medium text-muted-foreground">Shelf Count</Label>
+                    <Select
+                      value={merged.shelfCount != null ? String(merged.shelfCount) : "__none__"}
+                      onValueChange={(v) => set("shelfCount", v === "__none__" ? null : parseInt(v))}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— not set —</SelectItem>
+                        {[1, 2, 3, 4].map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
             )}
           </TabsContent>
 

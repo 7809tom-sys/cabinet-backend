@@ -185,6 +185,14 @@ export const cabinets = mysqlTable("cabinets", {
   openingWidth: decimal("openingWidth", { precision: 5, scale: 2 }),
   minPull: decimal("minPull", { precision: 5, scale: 2 }),
   maxPull: decimal("maxPull", { precision: 5, scale: 2 }),
+  // Lazy Susan specific
+  shelfRadius: decimal("shelf_radius", { precision: 5, scale: 2 }),     // radius of rotating shelves in inches
+  shelfCount: int("shelf_count"),                                         // number of rotating shelves (typically 2)
+  // Corner cabinet shared (Lazy Susan + Diagonal)
+  cabinetSquare: decimal("cabinet_square", { precision: 5, scale: 2 }), // overall square footprint in inches
+  // Diagonal corner specific
+  faceWidth: decimal("face_width", { precision: 5, scale: 2 }),           // width of the angled face in inches
+  legWidth: decimal("leg_width", { precision: 5, scale: 2 }),             // depth of each leg in inches
   // 2D graphic
   graphicType: varchar("graphicType", { length: 64 }), // base_1door, wall_2door, etc.
   // Generic tab aliases — alternative codes this cabinet is known by across distributors
