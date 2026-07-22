@@ -114,7 +114,7 @@ import {
 } from "@/lib/surfaceSelection";
 import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
-import { baseSubGroup, type BaseSubGroup } from "@/lib/cabinetGraphics";
+import { baseSubGroup, cabinetDrawingType, type BaseSubGroup } from "@/lib/cabinetGraphics";
 import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
@@ -2136,6 +2136,10 @@ export default function DesignTool() {
         if (isRefrigerator(newCab)) {
           setFridgeDialog({ fridgeUid: newCab.uid });
         }
+        // Oven tall cabinet: prompt user for single vs double oven type
+        if (cabinetDrawingType(newCab) === "oven-tall") {
+          setOvenDialog({ cabinetUid: newCab.uid });
+        }
         // Blind corner: the user places fillers manually if needed.
         // No auto-filler — the pull defaults (width+3 / width+6) handle clearance.
         //
@@ -2545,6 +2549,8 @@ export default function DesignTool() {
   // an optional smooth refrigerator PANEL. Everything is placed flush to the
   // dropped fridge's footprint and is fully movable/deletable afterward.
   const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string } | null>(null);
+  // Oven type dialog: opens when an oven tall cabinet (O-code) is placed.
+  const [ovenDialog, setOvenDialog] = useState<{ cabinetUid: string } | null>(null);
   const fridgeForDialog = useMemo(
     () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
     [fridgeDialog, placed]
@@ -7528,6 +7534,55 @@ export default function DesignTool() {
         onApply={applyFridgeSurround}
         onSkip={() => setFridgeDialog(null)}
       />
+
+      {/* Oven Type Dialog: opens when an oven tall cabinet (O-code) is placed */}
+      {ovenDialog && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setOvenDialog(null)} />
+          <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-[340px] max-w-[90vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+            <h2 className="text-lg font-semibold text-foreground">Oven Cabinet Type</h2>
+            <p className="text-sm text-muted-foreground">Is this going to be a single oven or a double oven?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                className="flex flex-col items-center gap-2 rounded-xl border-2 border-border hover:border-primary p-4 transition-colors"
+                onClick={() => {
+                  if (ovenDialog) setCabAttr(ovenDialog.cabinetUid, { ovenType: "single" });
+                  setOvenDialog(null);
+                }}
+              >
+                <img
+                  src="https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-single-front-U843ihaYrWbB8xwKsMyngZ.webp"
+                  alt="Single oven"
+                  className="w-20 h-24 object-cover rounded-lg"
+                />
+                <span className="text-sm font-medium">Single Oven</span>
+                <span className="text-xs text-muted-foreground">3 drawers below</span>
+              </button>
+              <button
+                className="flex flex-col items-center gap-2 rounded-xl border-2 border-border hover:border-primary p-4 transition-colors"
+                onClick={() => {
+                  if (ovenDialog) setCabAttr(ovenDialog.cabinetUid, { ovenType: "double" });
+                  setOvenDialog(null);
+                }}
+              >
+                <img
+                  src="https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-double-front-n2DaWbuTecczH4YKk7fJbo.webp"
+                  alt="Double oven"
+                  className="w-20 h-24 object-cover rounded-lg"
+                />
+                <span className="text-sm font-medium">Double Oven</span>
+                <span className="text-xs text-muted-foreground">1 drawer below</span>
+              </button>
+            </div>
+            <button
+              className="text-xs text-muted-foreground underline self-center"
+              onClick={() => setOvenDialog(null)}
+            >
+              Skip for now
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* AI Design Consultant slide-in panel */}
       {consultOpen && (

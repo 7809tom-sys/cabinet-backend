@@ -273,6 +273,9 @@ export interface PlacedCabinet {
   // used on island ends or end-of-run bases. Adds extra material to the BOM.
   waterfallLeft?: boolean;
   waterfallRight?: boolean;
+  // Oven type for tall oven cabinets (O-code). 'single' = 1 oven + 3 drawers;
+  // 'double' = 2 stacked ovens + 1 drawer. Drives the elevation renderer.
+  ovenType?: "single" | "double" | null;
   /** Polygon room: which custom wall segment this cabinet is placed on.
    *  Only used when the room has customWalls. */
   wallId?: string | null;

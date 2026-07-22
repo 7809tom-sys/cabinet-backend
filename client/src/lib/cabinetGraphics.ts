@@ -12,7 +12,8 @@ export type CabinetDrawingType =
   | "ada" // ADA-height unit
   | "accessory-strip" // moldings, fillers, panels, shelves (thin)
   | "glass-door" // glass-front wall cabinet
-  | "pantry"; // tall pantry: 4 doors split at 54" (2 bottom, 2 top)
+  | "pantry" // tall pantry: 4 doors split at 54" (2 bottom, 2 top)
+  | "oven-tall"; // tall oven cabinet: 2 upper doors + appliance opening + drawers
 
 export interface CabinetLike {
   masterCode?: string | null;
@@ -31,6 +32,8 @@ export interface CabinetLike {
   noDoor?: boolean | null;
   /** Appliance opening position set in admin: 'top' | 'middle' | 'bottom' | null */
   openingType?: string | null;
+  /** Oven type selected by user: 'single' | 'double' | null */
+  ovenType?: "single" | "double" | null;
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -223,6 +226,13 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "drawer-base";
   }
 
+  // Oven tall cabinets: O-code tall cabinets (e.g. O309024) — 2 upper doors +
+  // appliance opening + drawers at bottom. Must be detected BEFORE the generic
+  // pantry check so they don't fall through as a plain 4-door pantry.
+  if (cat === "tall" && (/^o\d/.test(code) || /oven.*cabinet|oven.*tower|oven.*tall|tall.*oven/.test(hay))) {
+    return "oven-tall";
+  }
+
   // Tall/pantry cabinets: 4-door split at 54" (2 bottom, 2 top).
   if (cat === "tall") {
     return "pantry";
@@ -402,6 +412,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "accessory-strip": "accessory / trim",
     "glass-door": "glass-front wall cabinet",
     "pantry": "tall pantry cabinet with 4 doors",
+    "oven-tall": "tall oven cabinet with appliance opening",
   };
 
   let detail = detailMap[type];

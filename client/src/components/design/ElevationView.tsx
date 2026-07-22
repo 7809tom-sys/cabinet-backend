@@ -283,6 +283,7 @@ export function ElevationView({
               blindOnLeft={blindLeft}
               cabinetHeightIn={height}
               faceFillOverride={faceFill}
+              ovenType={p.ovenType ?? null}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -1499,7 +1500,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -1516,6 +1517,83 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
       {children}
     </div>
   );
+
+  // ─── SPECIALTY TYPE: OVEN TALL ────────────────────────────────────────
+  // Oven tall cabinets (O-code): 2 upper doors at top + appliance opening in
+  // the middle + drawers at the bottom.
+  // Single oven: opening ≈ 50% of height, 3 drawers below.
+  // Double oven: opening ≈ 60% of height, 1 drawer below.
+  if (cabinetType === "oven-tall") {
+    const totalH = cabinetHeightIn ?? 84;
+    const isDouble = ovenType === "double";
+    // Upper door section: top ~20% of cabinet
+    const upperDoorPct = 20;
+    // Appliance opening: single=50%, double=62%
+    const openingPct = isDouble ? 62 : 50;
+    // Drawers fill the rest at the bottom
+    const drawerAreaPct = 100 - upperDoorPct - openingPct;
+    const drawerCount2 = isDouble ? 1 : 3;
+    const drawerH = drawerAreaPct / drawerCount2;
+    const ovenImgUrl = isDouble
+      ? "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-double-front-n2DaWbuTecczH4YKk7fJbo.webp"
+      : "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-single-front-U843ihaYrWbB8xwKsMyngZ.webp";
+    return withFace(
+      <>
+        {/* Upper section: 2 side-by-side doors */}
+        <div className="absolute left-0 right-0 top-0" style={{ height: `${upperDoorPct}%` }}>
+          {[0, 1].map((i) => (
+            <div
+              key={`oven-top-${i}`}
+              className="absolute top-0 bottom-0"
+              style={{ left: `${50 * i}%`, width: "50%" }}
+            >
+              {i > 0 && (
+                <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+              )}
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} />
+            </div>
+          ))}
+        </div>
+        {/* Horizontal rail between upper doors and oven opening */}
+        <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct}%`, height: 2, background: stroke }} />
+        {/* Appliance opening: oven image */}
+        <div
+          className="absolute left-0 right-0"
+          style={{
+            top: `${upperDoorPct}%`,
+            height: `${openingPct}%`,
+            background: "#1a1a1a",
+            overflow: "hidden",
+          }}
+        >
+          <img
+            src={ovenImgUrl}
+            alt={isDouble ? "Double oven" : "Single oven"}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: "center center" }}
+          />
+        </div>
+        {/* Horizontal rail between oven opening and drawers */}
+        <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct + openingPct}%`, height: 2, background: stroke }} />
+        {/* Drawer section at bottom */}
+        {Array.from({ length: drawerCount2 }).map((_, i) => (
+          <div
+            key={`oven-drawer-${i}`}
+            className="absolute left-0 right-0"
+            style={{
+              top: `${upperDoorPct + openingPct + drawerH * i}%`,
+              height: `${drawerH}%`,
+            }}
+          >
+            {i > 0 && (
+              <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />
+            )}
+            <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+          </div>
+        ))}
+      </>
+    );
+  }
 
   // ─── SPECIALTY TYPE: PANTRY (tall cabinet) ───────────────────────────
   // All tall pantry cabinets render as 4 doors: 2 side-by-side on the bottom
