@@ -1060,6 +1060,7 @@ export function ElevationView({
                   width: imgW,
                   height: imgH,
                   zIndex: 26,
+                  mixBlendMode: "multiply",
                 }}
               />
             );
