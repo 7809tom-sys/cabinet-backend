@@ -250,6 +250,8 @@ function EditModal({
       maxPull: merged.maxPull != null ? parseFloat(merged.maxPull) : null,
       openingWidth: merged.openingWidth != null ? parseFloat(merged.openingWidth) : null,
       openingType: (merged.openingType as "top" | "middle" | "bottom" | null | undefined) ?? null,
+      category: merged.category ?? undefined,
+      subCategory: merged.subCategory ?? null,
     });
   };
 
@@ -294,6 +296,65 @@ function EditModal({
               />
             </div>
 
+            {/* Category & Sub-Category */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Category</Label>
+                <Select
+                  value={merged.category ?? "__none__"}
+                  onValueChange={(v) => set("category", v === "__none__" ? null : v)}
+                  disabled={busy}
+                >
+                  <SelectTrigger className={cn("w-full", !merged.category && "text-muted-foreground")}>
+                    <SelectValue placeholder="— not set —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— not set —</SelectItem>
+                    <SelectItem value="Base">Base</SelectItem>
+                    <SelectItem value="Wall">Wall</SelectItem>
+                    <SelectItem value="Tall">Tall</SelectItem>
+                    <SelectItem value="Vanity">Vanity</SelectItem>
+                    <SelectItem value="ADA">ADA</SelectItem>
+                    <SelectItem value="Corner">Corner</SelectItem>
+                    <SelectItem value="Accessory">Accessory</SelectItem>
+                    <SelectItem value="Specialty">Specialty</SelectItem>
+                    <SelectItem value="Filler">Filler</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Sub-Category</Label>
+                <Select
+                  value={merged.subCategory ?? "__none__"}
+                  onValueChange={(v) => set("subCategory", v === "__none__" ? null : v)}
+                  disabled={busy}
+                >
+                  <SelectTrigger className={cn("w-full", !merged.subCategory && "text-muted-foreground")}>
+                    <SelectValue placeholder="— none —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— none —</SelectItem>
+                    <SelectItem value="Sink Base">Sink Base</SelectItem>
+                    <SelectItem value="Drawer Base">Drawer Base</SelectItem>
+                    <SelectItem value="Corner Base">Corner Base</SelectItem>
+                    <SelectItem value="Blind Corner">Blind Corner</SelectItem>
+                    <SelectItem value="Lazy Susan">Lazy Susan</SelectItem>
+                    <SelectItem value="Oven Base">Oven Base</SelectItem>
+                    <SelectItem value="Range Base">Range Base</SelectItem>
+                    <SelectItem value="Microwave">Microwave</SelectItem>
+                    <SelectItem value="Refrigerator">Refrigerator</SelectItem>
+                    <SelectItem value="Pantry">Pantry</SelectItem>
+                    <SelectItem value="Utility">Utility</SelectItem>
+                    <SelectItem value="Open Shelf">Open Shelf</SelectItem>
+                    <SelectItem value="Glass Door">Glass Door</SelectItem>
+                    <SelectItem value="Decorative End Panel">Decorative End Panel</SelectItem>
+                    <SelectItem value="Roll-Out Tray">Roll-Out Tray</SelectItem>
+                    <SelectItem value="Trim &amp; Molding">Trim &amp; Molding</SelectItem>
+                    <SelectItem value="Filler Panel">Filler Panel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             {/* Not a cabinet */}
             <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 bg-muted/30">
               <div>
