@@ -283,6 +283,12 @@ export interface PlacedCabinet {
   sinkTopType?: "sink" | "gas" | "electric" | "smooth-top" | null;
   // Pelican product id of the chosen sink or range top (for cart/BOM).
   sinkTopProductId?: number | null;
+  // Pelican product id of the chosen faucet (for cart/BOM and elevation rendering).
+  faucetProductId?: number | null;
+  // Image URL of the chosen faucet product (for elevation rendering).
+  faucetImageUrl?: string | null;
+  // Image URL of the chosen sink product (for elevation rendering).
+  sinkImageUrl?: string | null;
   /** Polygon room: which custom wall segment this cabinet is placed on.
    *  Only used when the room has customWalls. */
   wallId?: string | null;

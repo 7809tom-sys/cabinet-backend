@@ -1044,6 +1044,26 @@ export function ElevationView({
           const knobR = Math.max(3, 1.5 * ppi);
           const svgW = spoutW + knobR * 3;
           const svgH = riserH + knobR * 2 + 4;
+          // Use product image if available, otherwise fall back to drawn faucet
+          if (p.faucetImageUrl) {
+            const imgW = Math.max(40, 10 * ppi);
+            const imgH = Math.max(50, 12 * ppi);
+            return (
+              <img
+                key={`faucet-${p.uid}`}
+                src={p.faucetImageUrl}
+                alt="Faucet"
+                className="absolute pointer-events-none object-contain"
+                style={{
+                  left: centerX - imgW / 2,
+                  bottom: (STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS) * ppi,
+                  width: imgW,
+                  height: imgH,
+                  zIndex: 26,
+                }}
+              />
+            );
+          }
           return (
             <svg
               key={`faucet-${p.uid}`}

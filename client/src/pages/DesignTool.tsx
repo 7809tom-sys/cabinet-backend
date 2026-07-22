@@ -2462,7 +2462,11 @@ export default function DesignTool() {
   // Lets the user choose between a sink fixture or a range top (gas/electric/smooth).
   const [sinkBaseDialog, setSinkBaseDialog] = useState<{ cabinetUid: string } | null>(null);
   // Range top sub-type selection (shown after user picks "Range Top" in the sink base dialog).
-  const [rangeTopStep, setRangeTopStep] = useState<"choose" | "gas" | "electric" | "smooth-top">("choose");
+  // Also used for sink/faucet steps: "sink" = sink picker, "faucet" = faucet picker.
+  const [rangeTopStep, setRangeTopStep] = useState<"choose" | "sink" | "faucet" | "gas" | "electric" | "smooth-top">("choose");
+  // Pending sink product selected in the "sink" step, waiting for faucet selection.
+  type SinkDialogProduct = { id: number; slug: string; name: string; category: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null };
+  const [pendingSinkProduct, setPendingSinkProduct] = useState<SinkDialogProduct | null>(null);
   // Recommended range top products fetched from Stone Creek catalog.
   const { data: rangeTopProducts } = trpc.surfaces.recommended.useQuery(
     { role: "range-top", limit: 6 },
@@ -2471,6 +2475,11 @@ export default function DesignTool() {
   // Recommended sink products fetched from Stone Creek catalog.
   const { data: sinkBaseProducts } = trpc.surfaces.recommended.useQuery(
     { role: "sink", limit: 6 },
+    { enabled: !!sinkBaseDialog }
+  );
+  // Recommended faucet products fetched from Stone Creek catalog.
+  const { data: faucetBaseProducts } = trpc.surfaces.recommended.useQuery(
+    { role: "faucet", limit: 6 },
     { enabled: !!sinkBaseDialog }
   );
   const fridgeForDialog = useMemo(
@@ -7483,7 +7492,10 @@ export default function DesignTool() {
           setRangeTopStep("choose");
           toast.success(type === "gas" ? "Gas range top added" : type === "electric" ? "Electric range top added" : "Smooth top added");
         };
-        const applySink = (product?: typeof filteredSinks[0]) => {
+        const filteredFaucets = (faucetBaseProducts ?? []) as Array<{
+          id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
+        }>;
+        const applySink = (sinkProduct: typeof filteredSinks[0] | null, faucetProduct: typeof filteredFaucets[0] | null) => {
           const fp = placedFootprint(placed.find(p => p.uid === sinkBaseDialog.cabinetUid) ?? { x: 0, y: 0, width: 30, depth: 24, rotation: 0, placement: "base" } as PlacedCabinet);
           const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
           const preset = SINK_PRESETS["single"];
@@ -7492,16 +7504,23 @@ export default function DesignTool() {
           const autoSink = makeSink("single", sx, sy);
           setSinks((prevSinks) => [...prevSinks, autoSink]);
           setSelectedSinkUid(autoSink.uid);
-          setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: product?.id ?? null });
-          if (product) {
+          setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: sinkProduct?.id ?? null, faucetProductId: faucetProduct?.id ?? null, faucetImageUrl: faucetProduct?.imageUrl ?? null, sinkImageUrl: sinkProduct?.imageUrl ?? null });
+          if (sinkProduct) {
             addRecommendedSurface(
-              { id: product.id, slug: product.slug, name: product.name, category: product.category, subCategory: product.subCategory, size: product.size, imageUrl: product.imageUrl, sellPrice: product.sellPrice },
+              { id: sinkProduct.id, slug: sinkProduct.slug, name: sinkProduct.name, category: sinkProduct.category, subCategory: sinkProduct.subCategory, size: sinkProduct.size, imageUrl: sinkProduct.imageUrl, sellPrice: sinkProduct.sellPrice },
               "sink"
+            );
+          }
+          if (faucetProduct) {
+            addRecommendedSurface(
+              { id: faucetProduct.id, slug: faucetProduct.slug, name: faucetProduct.name, category: faucetProduct.category, subCategory: faucetProduct.subCategory, size: faucetProduct.size, imageUrl: faucetProduct.imageUrl, sellPrice: faucetProduct.sellPrice },
+              "faucet"
             );
           }
           setSinkBaseDialog(null);
           setRangeTopStep("choose");
-          toast.success("Sink added");
+          setPendingSinkProduct(null);
+          toast.success(faucetProduct ? "Sink & faucet added" : "Sink added");
         };
         return (
           <div className="fixed inset-0 z-[200] flex items-center justify-center" role="dialog" aria-modal="true">
@@ -7528,7 +7547,7 @@ export default function DesignTool() {
                     </button>
                     <button
                       className="flex flex-col items-center gap-3 rounded-xl border-2 border-border hover:border-[#a87f33] p-5 transition-colors group"
-                      onClick={() => applySink()}
+                      onClick={(e) => { e.stopPropagation(); setRangeTopStep("sink"); }}
                     >
                       <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
                         <Droplets className="h-7 w-7 text-blue-500" />
@@ -7539,27 +7558,71 @@ export default function DesignTool() {
                       </div>
                     </button>
                   </div>
-                  {/* Sink products grid */}
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Stone Creek Sinks</p>
-                    {filteredSinks.length === 0 ? (
-                      <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => applySink()}>Add a sink (no product selected)</button>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        {filteredSinks.slice(0, 4).map(p => (
-                          <button key={p.id} className="overflow-hidden rounded-lg border border-border hover:border-[#a87f33] text-left transition-colors" onClick={() => applySink(p)}>
-                            <div className="aspect-[4/3] w-full bg-muted">
-                              {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Droplets className="h-5 w-5 text-muted-foreground/40" /></div>}
-                            </div>
-                            <div className="p-1.5">
-                              <div className="line-clamp-2 text-[11px] font-semibold leading-snug">{p.name}</div>
-                              {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">${p.sellPrice.toFixed(2)}</div>}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                </>
+              )}
+              {rangeTopStep === "sink" && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
+                      <ChevronRight className="h-4 w-4 rotate-180" />
+                    </button>
+                    <h2 className="text-lg font-semibold text-foreground">Choose a Sink</h2>
                   </div>
+                  <p className="text-sm text-muted-foreground -mt-2">Pick a sink from our Stone Creek collection, or skip to add without one.</p>
+                  {filteredSinks.length === 0 ? (
+                    <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => { setPendingSinkProduct(null); setRangeTopStep("faucet"); }}>Continue without a sink product</button>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {filteredSinks.slice(0, 6).map(p => (
+                        <button key={p.id} className="overflow-hidden rounded-lg border border-border hover:border-[#a87f33] text-left transition-colors" onClick={() => { setPendingSinkProduct(p); setRangeTopStep("faucet"); }}>
+                          <div className="aspect-[4/3] w-full bg-muted">
+                            {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Droplets className="h-5 w-5 text-muted-foreground/40" /></div>}
+                          </div>
+                          <div className="p-1.5">
+                            <div className="line-clamp-2 text-[11px] font-semibold leading-snug">{p.name}</div>
+                            {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">${p.sellPrice.toFixed(2)}</div>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button className="text-xs text-muted-foreground underline self-center" onClick={() => { setPendingSinkProduct(null); setRangeTopStep("faucet"); }}>Skip sink selection</button>
+                </>
+              )}
+              {rangeTopStep === "faucet" && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("sink")}>
+                      <ChevronRight className="h-4 w-4 rotate-180" />
+                    </button>
+                    <h2 className="text-lg font-semibold text-foreground">Choose a Faucet</h2>
+                  </div>
+                  {pendingSinkProduct && (
+                    <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs">
+                      <Droplets className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                      <span className="text-muted-foreground">Sink: </span>
+                      <span className="font-medium line-clamp-1">{pendingSinkProduct.name}</span>
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground -mt-2">Pick a matching faucet from Stone Creek, or skip to finish.</p>
+                  {filteredFaucets.length === 0 ? (
+                    <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => applySink(pendingSinkProduct, null)}>Finish without a faucet</button>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {filteredFaucets.slice(0, 6).map(p => (
+                        <button key={p.id} className="overflow-hidden rounded-lg border border-border hover:border-[#a87f33] text-left transition-colors" onClick={() => applySink(pendingSinkProduct, p)}>
+                          <div className="aspect-[4/3] w-full bg-muted">
+                            {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Droplets className="h-5 w-5 text-muted-foreground/40" /></div>}
+                          </div>
+                          <div className="p-1.5">
+                            <div className="line-clamp-2 text-[11px] font-semibold leading-snug">{p.name}</div>
+                            {p.sellPrice != null && <div className="text-[11px] font-bold text-[#1a2744] dark:text-foreground">${p.sellPrice.toFixed(2)}</div>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button className="text-xs text-muted-foreground underline self-center" onClick={() => applySink(pendingSinkProduct, null)}>Skip faucet selection</button>
                 </>
               )}
               {(rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "smooth-top") && (
