@@ -2132,6 +2132,8 @@ export default function DesignTool() {
         setSinkBaseDialog({ cabinetUid: finalCab.uid });
         setRangeTopStep("choose");
         setCountertop(true);
+        // Close the mobile catalog sheet so it doesn't intercept dialog touch events
+        setMobilePanel(null);
       }
       // Refrigerator dialog
       if (isRefrigerator(finalCab)) {
@@ -7526,8 +7528,8 @@ export default function DesignTool() {
           toast.success(faucetProduct ? "Sink & faucet added" : "Sink added");
         };
         return (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center" role="dialog" aria-modal="true">
-            <div className="absolute inset-0 bg-black/50" onClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); }} />
+          <div className="fixed inset-0 z-[300] flex items-center justify-center" role="dialog" aria-modal="true">
+            <div className="absolute inset-0 bg-black/60 pointer-events-auto" onClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); }} />
             <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-[400px] max-w-[95vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200" style={{ maxHeight: "90vh", overflowY: "auto" }}>
               {rangeTopStep === "choose" && (
                 <>
@@ -7738,7 +7740,7 @@ export default function DesignTool() {
       })()}
       {/* Oven Type Dialog: opens when an oven tall cabinet (O-code) is placed */}
       {ovenDialog && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center" role="dialog" aria-modal="true">
           <div className="absolute inset-0 bg-black/50" />
           <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-[340px] max-w-[90vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
             <h2 className="text-lg font-semibold text-foreground">Oven Cabinet Type</h2>
