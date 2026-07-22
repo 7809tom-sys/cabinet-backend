@@ -121,6 +121,7 @@ import { ColorSlotButton } from "@/components/design/ColorSlotButton";
 import { CabinetAttributesDialog } from "@/components/design/CabinetAttributesDialog";
 import { RefrigeratorOptionsDialog } from "@/components/design/RefrigeratorOptionsDialog";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
+import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 // PhotorealPreview removed — replaced by deterministic preview modes
 import type { PhotorealSceneInput } from "@/components/design/PhotorealPreview";
 import { DesignPreviewModal } from "@/components/design/DesignPreviewModal";
@@ -5807,6 +5808,15 @@ export default function DesignTool() {
                   );
                 })()}
 
+                {/* Door & Drawer Layout diagram */}
+                {!selectedCab.noDoor && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3">
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Door &amp; Drawer Layout</div>
+                    <div className="flex justify-center">
+                      <DoorDrawerDiagram cabinet={selectedCab} width={160} />
+                    </div>
+                  </div>
+                )}
                 {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
                 <RollOutTrayPicker
                   cabinet={selectedCab}

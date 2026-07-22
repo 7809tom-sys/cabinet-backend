@@ -54,6 +54,28 @@ function lc(s: string | null | undefined) {
   return (s ?? "").toLowerCase();
 }
 
+const WORD_NUM: Record<string, number> = {
+  one: 1, single: 1, two: 2, double: 2, three: 3, triple: 3, four: 4, five: 5, six: 6,
+};
+
+/** Parse door count from a description string. */
+function parseDoors(desc: string): number {
+  const num = desc.match(/(\d+)\s*[- ]?door/);
+  if (num) return parseInt(num[1], 10);
+  const word = desc.match(/\b(single|two|double|three|triple|four)\s*[- ]?door/);
+  if (word) return WORD_NUM[word[1]] ?? 0;
+  return 0;
+}
+
+/** Parse drawer count from a description string. */
+function parseDrawers(desc: string): number {
+  const num = desc.match(/(\d+)\s*[- ]?drawer/);
+  if (num) return parseInt(num[1], 10);
+  const word = desc.match(/\b(single|two|double|three|triple|four|five|six)\s*[- ]?drawer/);
+  if (word) return WORD_NUM[word[1]] ?? 0;
+  return 0;
+}
+
 /** Detect oven / tall-oven cabinets by code prefix or description. */
 function isOvenCabinet(cab: CabinetLike): boolean {
   const code = lc(cab.masterCode);
@@ -142,30 +164,26 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
 
   const isOven = isOvenCabinet(cabinet);
 
-  // For oven cabinets, the DB often has numberOfDoors=0 / numberOfDrawers=0 because
-  // the oven opening is the main feature. Fall back to description parsing so the
-  // diagram can still show the correct door and drawer counts.
+  // When the DB has numberOfDoors=0 / numberOfDrawers=0 (admin override or missing data),
+  // fall back to description parsing so the diagram still shows the correct layout.
+  // This handles wall cabinets (e.g. W4230 "Double Door Wall") and oven cabinets alike.
+  // Only skip the fallback if noDoor is explicitly set (open shelf, wine lattice, etc.).
   let effectiveDoors = doors;
   let effectiveDrawers = drawers;
-  if (isOven && doors === 0 && drawers === 0) {
+  if (doors === 0 && drawers === 0 && !cabinet.noDoor) {
     const desc = lc(cabinet.description);
-    const WORD_NUM: Record<string, number> = { one: 1, single: 1, two: 2, double: 2, three: 3, triple: 3, four: 4, five: 5, six: 6 };
-    const drawerNum = desc.match(/(\d+)\s*[- ]?drawer/);
-    if (drawerNum) effectiveDrawers = parseInt(drawerNum[1], 10);
-    else {
-      const drawerWord = desc.match(/\b(single|two|double|three|triple|four|five|six)\s*[- ]?drawer/);
-      if (drawerWord) effectiveDrawers = WORD_NUM[drawerWord[1]] ?? 0;
-    }
-    const doorNum = desc.match(/(\d+)\s*[- ]?door/);
-    if (doorNum) effectiveDoors = parseInt(doorNum[1], 10);
-    else {
-      const doorWord = desc.match(/\b(single|two|double|three|triple|four)\s*[- ]?door/);
-      if (doorWord) effectiveDoors = WORD_NUM[doorWord[1]] ?? 0;
+    effectiveDrawers = parseDrawers(desc);
+    effectiveDoors   = parseDoors(desc);
+    // If still 0 and description doesn't mention doors/drawers, fall back to width heuristic
+    // (same logic as resolveDoorDrawerCounts step 4: >=24" = 2 doors, else 1)
+    if (effectiveDoors === 0 && effectiveDrawers === 0 && !isOven) {
+      const w = toNum(cabinet.width);
+      effectiveDoors = w !== null && w >= 24 ? 2 : 1;
     }
   }
 
   if (effectiveDoors === 0 && effectiveDrawers === 0 && !isOven) {
-    // Open cabinet — nothing to draw inside
+    // Open cabinet (noDoor flag or genuinely no doors/drawers) — nothing to draw inside
 
   } else if (isOven) {
     // ── Oven cabinet layout ────────────────────────────────────────────────
@@ -259,11 +277,11 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       });
     }
 
-  } else if (drawers > 0 && doors > 0) {
+  } else if (effectiveDrawers > 0 && effectiveDoors > 0) {
     // Standard base: drawer band on top, doors below
     const drawerBandH = Math.round(iH * DRAWER_BAND_PCT);
     const doorH = iH - drawerBandH;
-    const cols = Math.max(1, doors);
+    const cols = Math.max(1, effectiveDoors);
     const colW = iW / cols;
     // Drawer fronts (top band, one per column)
     for (let i = 0; i < cols; i++) {
@@ -291,22 +309,22 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       });
     }
 
-  } else if (drawers > 0 && doors === 0) {
+  } else if (effectiveDrawers > 0 && effectiveDoors === 0) {
     // All-drawer base: stacked drawers
-    const sliceH = iH / drawers;
-    for (let i = 0; i < drawers; i++) {
+    const sliceH = iH / effectiveDrawers;
+    for (let i = 0; i < effectiveDrawers; i++) {
       zones.push({
         x: PAD, y: PAD + i * sliceH,
         w: iW, h: sliceH,
         fill: CLR.drawer, stroke: CLR.drawerStroke,
         label: `Drawer ${i + 1}`,
-        subLabel: i === 0 ? "top" : i === drawers - 1 ? "bottom" : undefined,
+        subLabel: i === 0 ? "top" : i === effectiveDrawers - 1 ? "bottom" : undefined,
       });
     }
 
-  } else if (doors > 0 && drawers === 0) {
+  } else if (effectiveDoors > 0 && effectiveDrawers === 0) {
     // Door-only (wall cabinets, single/double door base with no drawers)
-    const cols = Math.max(1, doors);
+    const cols = Math.max(1, effectiveDoors);
     const colW = iW / cols;
     for (let i = 0; i < cols; i++) {
       const doorLabel =
@@ -323,10 +341,9 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
   }
 
   // ── Legend items ─────────────────────────────────────────────────
-  // Use effectiveDoors/effectiveDrawers for oven cabinets (description-parsed),
-  // fall back to resolved doors/drawers for all other types.
-  const legendDoors   = isOven ? effectiveDoors   : doors;
-  const legendDrawers = isOven ? effectiveDrawers : drawers;
+  // Always use effectiveDoors/effectiveDrawers (they include description fallback).
+  const legendDoors   = effectiveDoors;
+  const legendDrawers = effectiveDrawers;
   const legendItems: { color: string; label: string }[] = [];
   if (legendDoors > 0) legendItems.push({ color: CLR.door, label: `${legendDoors} Door${legendDoors > 1 ? "s" : ""}` });
   if (legendDrawers > 0) legendItems.push({ color: CLR.drawer, label: `${legendDrawers} Drawer${legendDrawers > 1 ? "s" : ""}` });
