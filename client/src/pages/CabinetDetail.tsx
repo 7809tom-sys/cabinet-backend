@@ -428,6 +428,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editNumAdjShelves, setEditNumAdjShelves] = useState<string>("0");
   const [editIsNotCabinet, setEditIsNotCabinet] = useState(false);
   const [editDoorOrientation, setEditDoorOrientation] = useState<string>("__none__");
+  const [editCornerType, setEditCornerType] = useState<string>("__none__");
   const [editConfigVerified, setEditConfigVerified] = useState(false);
 
   // Pre-fill form when dialog opens
@@ -457,6 +458,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditNumAdjShelves(String(cab.numberOfAdjShelves ?? 0));
       setEditIsNotCabinet(cab.isNotCabinet === true);
       setEditDoorOrientation(String(cab.doorOrientation ?? "__none__"));
+      setEditCornerType(String(cab.cornerType ?? "__none__"));
       setEditConfigVerified(cab.configVerified === true);
     }
   }, [editOpen, cabinet]);
@@ -592,6 +594,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       isActive: editIsActive,
       isNotCabinet: editIsNotCabinet,
       doorOrientation: editDoorOrientation === "__none__" ? null : editDoorOrientation as "side-by-side" | "stacked",
+      cornerType: editCornerType === "__none__" ? null : editCornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape",
       configVerified: editConfigVerified,
     });
   }
@@ -1465,6 +1468,23 @@ export default function CabinetDetail({ masterCode }: Props) {
                   <p className="text-[11px] text-muted-foreground">For pantries or tall cabinets with 2+ doors arranged vertically, choose "Stacked".</p>
                 </div>
               )}
+
+              {/* Corner Cabinet Type */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">Corner Cabinet Type</Label>
+                <Select value={editCornerType} onValueChange={setEditCornerType}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— standard (not a corner) —</SelectItem>
+                    <SelectItem value="lazy-susan">Lazy Susan (LS)</SelectItem>
+                    <SelectItem value="blind-corner">Blind Corner (BBC / WBC)</SelectItem>
+                    <SelectItem value="diagonal">Diagonal Corner (DC / WDC)</SelectItem>
+                    <SelectItem value="pie-cut">Pie-Cut Lazy Susan</SelectItem>
+                    <SelectItem value="l-shape">L-Shape Corner</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">Controls how this cabinet is rendered in the design tool plan view and elevation.</p>
+              </div>
 
               {/* Config Verified */}
               <div className="flex items-center justify-between rounded-lg border px-4 py-3" style={{ borderColor: editConfigVerified ? '#86efac' : undefined, background: editConfigVerified ? '#f0fdf4' : undefined }}>

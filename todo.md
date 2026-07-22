@@ -1438,3 +1438,10 @@
 ## Feature: Replace room scene hero with expanded category browser on cabinet detail page
 - [x] Remove the "Build This Look" room scene hero image from the cabinet detail page
 - [x] Replace with an expanded grid/list of all cabinets in the current category for the same door style
+
+## Feature: Corner type dropdown in front-end CabinetDetail edit dialog
+- [x] Add cornerType state + hydration to CabinetDetail edit dialog
+- [x] Add Corner Cabinet Type dropdown (Lazy Susan, Blind Corner, Diagonal, Pie-Cut, L-Shape) to the edit form
+- [x] Include cornerType in handleSaveEdit mutation payload
+- [x] Backend already accepts cornerType — no server changes needed
+- [x] TypeScript check passes; checkpoint saved
