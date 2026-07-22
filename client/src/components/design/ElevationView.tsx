@@ -691,9 +691,13 @@ export function ElevationView({
           // RANGE (a slide-in/free-standing range has its own cooktop surface,
           // no counter over it) and at the FRIDGE (full-height, tall). So only
           // DW-* appliances are bridgeable here — RANGE and FRIDGE are excluded.
-          const isBridgeable = (p: PlacedCabinet) =>
-            bearsCountertop(p) ||
-            (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? ""));
+          const isBridgeable = (p: PlacedCabinet) => {
+            // Sink bases with a range top have their own cooktop surface —
+            // no countertop slab should draw over them.
+            if (isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top")) return false;
+            return bearsCountertop(p) ||
+              (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? ""));
+          };
           // Base-cabinet spans along this wall, sorted by start position.
           const spans = sorted
             .filter(isBridgeable)
@@ -1111,7 +1115,7 @@ export function ElevationView({
                 bottom: panelBottom,
                 width: panelW,
                 height: panelH,
-                zIndex: 8,
+                zIndex: 22,
               }}
             >
               {/* SVG gradient defs — always rendered so both fill IDs resolve */}
