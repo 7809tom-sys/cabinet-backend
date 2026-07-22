@@ -229,7 +229,17 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // Oven tall cabinets: O-code tall cabinets (e.g. O309024) — 2 upper doors +
   // appliance opening + drawers at bottom. Must be detected BEFORE the generic
   // pantry check so they don't fall through as a plain 4-door pantry.
-  if (cat === "tall" && (/^o\d/.test(code) || /oven.*cabinet|oven.*tower|oven.*tall|tall.*oven/.test(hay))) {
+  // Detection is intentionally broad: O-code pattern OR oven keyword in any field,
+  // regardless of category value (some distributors store these as "Oven Cabinets",
+  // "Tall Cabinets", or just "Tall" — all should render as oven-tall).
+  const placementLc = lc(cab.placementType);
+  const isTallPlacement = cat === "tall" || sub.includes("oven") || sub.includes("tower") || placementLc === "tall" || placementLc.includes("tall") || placementLc.includes("oven") || placementLc.includes("pantry");
+  // Oven tall detection: O-code or zero-prefixed oven codes (e.g. 0309024),
+  // OR subCategory/description contains oven tower/pantry keywords.
+  // Note: some distributors use digit 0 instead of letter O in the master code.
+  const isOvenCode = /^[o0]3\d{5}/.test(code); // matches o309024, 0309024, etc.
+  const isOvenKeyword = /oven.*tower|oven.*pantry|oven.*tall|tall.*oven|oven.*cabinet/.test(hay);
+  if (isOvenCode || (isOvenKeyword && isTallPlacement)) {
     return "oven-tall";
   }
 
