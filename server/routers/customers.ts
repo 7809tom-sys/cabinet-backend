@@ -244,29 +244,63 @@ export const customersRouter = router({
   // Purge all non-admin test members.
   // Deletes every user whose role is NOT 'admin', along with their carts,
   // cart items, and saved kitchen designs. Admin accounts are always preserved.
+  // Processes in batches of 500 to stay within SQL IN() clause limits.
   purgeTestMembers: adminProcedure.mutation(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    // Collect all non-admin users.
-    const targets = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(sql`${users.role} != 'admin'`);
-    if (targets.length === 0) return { deleted: 0 };
-    const ids = targets.map((u) => u.id);
-    // Cascade-safe delete order: cart items → carts → designs → users.
-    const userCarts = await db
-      .select({ id: carts.id })
-      .from(carts)
-      .where(inArray(carts.userId, ids));
-    if (userCarts.length > 0) {
-      const cartIds = userCarts.map((c) => c.id);
-      await db.delete(cartItems).where(inArray(cartItems.cartId, cartIds));
-      await db.delete(carts).where(inArray(carts.userId, ids));
+
+    const BATCH = 500;
+    let totalDeleted = 0;
+
+    // Helper to chunk an array into slices of size n.
+    function chunk<T>(arr: T[], n: number): T[][] {
+      const out: T[][] = [];
+      for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+      return out;
     }
-    await db.delete(kitchenDesigns).where(inArray(kitchenDesigns.userId, ids));
-    await db.delete(users).where(inArray(users.id, ids));
-    return { deleted: ids.length };
+
+    // Loop until no non-admin users remain.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const targets = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(sql`${users.role} != 'admin'`)
+        .limit(BATCH);
+
+      if (targets.length === 0) break;
+
+      const ids = targets.map((u) => u.id);
+
+      // Delete cart items → carts for this batch.
+      const userCarts = await db
+        .select({ id: carts.id })
+        .from(carts)
+        .where(inArray(carts.userId, ids));
+      if (userCarts.length > 0) {
+        const cartIds = userCarts.map((c) => c.id);
+        for (const cartChunk of chunk(cartIds, BATCH)) {
+          await db.delete(cartItems).where(inArray(cartItems.cartId, cartChunk));
+        }
+        for (const idChunk of chunk(ids, BATCH)) {
+          await db.delete(carts).where(inArray(carts.userId, idChunk));
+        }
+      }
+
+      // Delete kitchen designs for this batch.
+      for (const idChunk of chunk(ids, BATCH)) {
+        await db.delete(kitchenDesigns).where(inArray(kitchenDesigns.userId, idChunk));
+      }
+
+      // Delete the users themselves.
+      for (const idChunk of chunk(ids, BATCH)) {
+        await db.delete(users).where(inArray(users.id, idChunk));
+      }
+
+      totalDeleted += ids.length;
+    }
+
+    return { deleted: totalDeleted };
   }),
 
   // Self-serve: a front-door member classifies themselves as a contractor so they
