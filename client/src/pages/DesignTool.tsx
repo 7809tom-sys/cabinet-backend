@@ -4292,11 +4292,13 @@ export default function DesignTool() {
   // Sync sheet open state with selection on mobile
   useEffect(() => {
     if (!isMobile) return;
-    // Single tap only SELECTS a cabinet/opening — it no longer auto-opens the edit
-    // sheet (which felt like it "popped up too easily"). The editor now opens via an
-    // explicit double-tap on the cabinet (or the pencil Edit button / long-press).
-    // We still auto-close the sheet when the selection is cleared.
-    if (!selectedCab && !selectedOpening) {
+    // Single tap now opens the bottom sheet immediately so the designer can
+    // see the Door & Drawer Layout diagram and cabinet details right away.
+    if (selectedCab || selectedOpening) {
+      if (!justPlacedRef.current) {
+        setCabEditSheetOpen(true);
+      }
+    } else {
       setCabEditSheetOpen(false);
     }
     if (justPlacedRef.current) {
@@ -5249,9 +5251,21 @@ export default function DesignTool() {
         <div className="border-b border-border bg-[#f7f5f0] px-4 py-1.5 flex items-center gap-3 flex-wrap shrink-0 max-h-[120px] overflow-y-auto">
           {selectedCab && !drawMode && !isMobile && (
             <>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center">
-                <CabinetImage cabinet={selectedCab} className="h-full w-auto max-w-full" />
-              </div>
+              {/* Cabinet image — click to open the Door & Drawer Layout popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-transparent hover:border-border hover:bg-muted/50 transition-colors cursor-pointer"
+                    title="Door & Drawer Layout"
+                  >
+                    <CabinetImage cabinet={selectedCab} className="h-full w-auto max-w-full" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="bottom" align="start" className="w-auto p-3">
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Door &amp; Drawer Layout</div>
+                  <DoorDrawerDiagram cabinet={selectedCab} width={180} />
+                </PopoverContent>
+              </Popover>
               {/* Door-style thumbnail: shows a picture of the selected door's
                   face/finish so the member sees the actual door look while
                   editing the cabinet. Falls back to a color chip from the
@@ -5571,6 +5585,16 @@ export default function DesignTool() {
                   )}
                 </div>
 
+                {/* Door & Drawer Layout diagram — shown immediately after cabinet header */}
+                {!selectedCab.noDoor && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3">
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Door &amp; Drawer Layout</div>
+                    <div className="flex justify-center">
+                      <DoorDrawerDiagram cabinet={selectedCab} width={220} />
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-xl border border-border bg-muted/30 p-3">
                   <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     {t("dt_snap_to_wall")}
@@ -5808,15 +5832,6 @@ export default function DesignTool() {
                   );
                 })()}
 
-                {/* Door & Drawer Layout diagram */}
-                {!selectedCab.noDoor && (
-                  <div className="rounded-xl border border-border bg-muted/30 p-3">
-                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Door &amp; Drawer Layout</div>
-                    <div className="flex justify-center">
-                      <DoorDrawerDiagram cabinet={selectedCab} width={160} />
-                    </div>
-                  </div>
-                )}
                 {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
                 <RollOutTrayPicker
                   cabinet={selectedCab}
