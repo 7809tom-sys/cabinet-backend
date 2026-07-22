@@ -32,6 +32,10 @@ export interface CabinetLike {
   noDoor?: boolean | null;
   /** Appliance opening position set in admin: 'top' | 'middle' | 'bottom' | null */
   openingType?: string | null;
+  /** Door height in inches (used with openingType to calculate opening size) */
+  doorHeight?: number | string | null;
+  /** Door orientation: 'side-by-side' | 'stacked' | null */
+  doorOrientation?: string | null;
   /** Oven type selected by user: 'single' | 'double' | null */
   ovenType?: "single" | "double" | null;
 }

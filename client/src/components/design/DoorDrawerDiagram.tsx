@@ -208,11 +208,23 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     const openingLabel = "Appliance Opening";
     const openingSubLabel = "cutout";
 
+    // Use doorHeight from admin config if available to calculate proportions
+    const cabTotalH = toNum(cabinet.height) ?? 84;
+    const adminDoorH = cabinet.doorHeight ? Number(cabinet.doorHeight) : null;
+
     if (openingPos === 'top') {
       // Opening at top, doors/drawers below
-      const openingPct = 0.45;
-      const doorPct    = hasDrawers ? 0.30 : (1 - openingPct);
-      const drawerPct  = hasDrawers ? Math.max(0.10 * effectiveDrawers, 1 - openingPct - doorPct) : 0;
+      let openingPct: number, doorPct: number, drawerPct: number;
+      if (adminDoorH && adminDoorH > 0) {
+        doorPct = adminDoorH / cabTotalH;
+        const drawerInches = effectiveDrawers * 5;
+        drawerPct = hasDrawers ? drawerInches / cabTotalH : 0;
+        openingPct = Math.max(0.15, 1 - doorPct - drawerPct);
+      } else {
+        openingPct = 0.45;
+        doorPct    = hasDrawers ? 0.30 : (1 - openingPct);
+        drawerPct  = hasDrawers ? Math.max(0.10 * effectiveDrawers, 1 - openingPct - doorPct) : 0;
+      }
       const openingH = Math.round(iH * openingPct);
       const doorH    = Math.round(iH * doorPct);
       const drawerH  = iH - openingH - doorH;
@@ -239,9 +251,17 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
 
     } else if (openingPos === 'bottom') {
       // Doors on top, opening at bottom (no drawers below opening)
-      const doorPct    = 0.30;
-      const drawerPct  = hasDrawers ? Math.max(0.10 * effectiveDrawers, 0.25) : 0;
-      const openingPct = Math.max(0.20, 1 - doorPct - drawerPct);
+      let doorPct: number, drawerPct: number, openingPct: number;
+      if (adminDoorH && adminDoorH > 0) {
+        doorPct = adminDoorH / cabTotalH;
+        const drawerInches = effectiveDrawers * 5;
+        drawerPct = hasDrawers ? drawerInches / cabTotalH : 0;
+        openingPct = Math.max(0.15, 1 - doorPct - drawerPct);
+      } else {
+        doorPct    = 0.30;
+        drawerPct  = hasDrawers ? Math.max(0.10 * effectiveDrawers, 0.25) : 0;
+        openingPct = Math.max(0.20, 1 - doorPct - drawerPct);
+      }
       const doorH    = Math.round(iH * doorPct);
       const drawerH  = Math.round(iH * drawerPct);
       const openingH = iH - doorH - drawerH;
@@ -268,9 +288,17 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
 
     } else {
       // Default 'middle': doors on top, opening in middle, drawers at bottom
-      const topDoorPct  = 0.20;
-      const drawerPct   = hasDrawers ? Math.max(0.10 * effectiveDrawers, 0.25) : 0;
-      const ovenPct     = Math.max(0.20, 1 - topDoorPct - drawerPct);
+      let topDoorPct: number, drawerPct: number, ovenPct: number;
+      if (adminDoorH && adminDoorH > 0) {
+        topDoorPct = adminDoorH / cabTotalH;
+        const drawerInches = effectiveDrawers * 5;
+        drawerPct = hasDrawers ? drawerInches / cabTotalH : 0;
+        ovenPct = Math.max(0.15, 1 - topDoorPct - drawerPct);
+      } else {
+        topDoorPct  = 0.20;
+        drawerPct   = hasDrawers ? Math.max(0.10 * effectiveDrawers, 0.25) : 0;
+        ovenPct     = Math.max(0.20, 1 - topDoorPct - drawerPct);
+      }
       const topDoorH = Math.round(iH * topDoorPct);
       const drawerH  = Math.round(iH * drawerPct);
       const ovenH    = iH - topDoorH - drawerH;

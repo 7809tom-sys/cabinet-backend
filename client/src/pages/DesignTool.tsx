@@ -2058,6 +2058,9 @@ export default function DesignTool() {
         catalogImageUrl: c.catalogImageUrl ?? null,
         pullMin: c.pullMin ?? null,
         pullMax: c.pullMax ?? null,
+        openingType: (c as any).openingType ?? null,
+        doorHeight: (c as any).doorHeight != null ? Number((c as any).doorHeight) : null,
+        doorOrientation: (c as any).doorOrientation ?? null,
         styleId: styleIdRef.current ?? null,
         ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
         ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
@@ -2261,6 +2264,9 @@ export default function DesignTool() {
             catalogImageUrl: c.catalogImageUrl ?? null,
             pullMin: c.pullMin ?? null,
             pullMax: c.pullMax ?? null,
+            openingType: (c as any).openingType ?? null,
+            doorHeight: (c as any).doorHeight != null ? Number((c as any).doorHeight) : null,
+            doorOrientation: (c as any).doorOrientation ?? null,
             // Stamp the active color so Auto-Fill cabinets keep their finish.
             styleId: styleIdRef.current ?? null,
           };
@@ -2326,6 +2332,9 @@ export default function DesignTool() {
         catalogImageUrl: c.catalogImageUrl ?? null,
         pullMin: c.pullMin ?? null,
         pullMax: c.pullMax ?? null,
+        openingType: (c as any).openingType ?? null,
+        doorHeight: (c as any).doorHeight != null ? Number((c as any).doorHeight) : null,
+        doorOrientation: (c as any).doorOrientation ?? null,
         styleId: styleIdRef.current ?? null,
       };
       setPlaced((prev) => [...prev, newCab]);
@@ -2405,6 +2414,9 @@ export default function DesignTool() {
         catalogImageUrl: c.catalogImageUrl ?? null,
         pullMin: c.pullMin ?? null,
         pullMax: c.pullMax ?? null,
+        openingType: (c as any).openingType ?? null,
+        doorHeight: (c as any).doorHeight != null ? Number((c as any).doorHeight) : null,
+        doorOrientation: (c as any).doorOrientation ?? null,
         styleId: styleIdRef.current ?? null,
       };
       // Place filler at gap.start + cabWidth

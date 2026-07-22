@@ -65,6 +65,7 @@ type CabinetRow = {
   openingWidth: string | null;
   // Appliance opening
   openingType: string | null;
+  doorHeight: string | null;
   // Corner cabinet type
   cornerType: string | null;
   // Corner measurement fields
@@ -263,6 +264,7 @@ function EditModal({
       maxPull: merged.maxPull != null ? parseFloat(merged.maxPull) : null,
       openingWidth: merged.openingWidth != null ? parseFloat(merged.openingWidth) : null,
       openingType: (merged.openingType as "top" | "middle" | "bottom" | null | undefined) ?? null,
+      doorHeight: merged.doorHeight != null ? parseFloat(merged.doorHeight) : null,
       cornerType: (merged.cornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape" | null | undefined) ?? null,
       shelfRadius: merged.shelfRadius != null ? parseFloat(merged.shelfRadius) : null,
       shelfCount: merged.shelfCount ?? null,
@@ -520,6 +522,24 @@ function EditModal({
                   <p className="text-[11px] text-muted-foreground">Set for oven, microwave, or appliance cabinets that have a cutout opening.</p>
                 </div>
 
+                {/* Door Height (shown when opening type is set) */}
+                {merged.openingType && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Door Height (inches)</Label>
+                    <Input
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      placeholder="e.g. 18.5"
+                      value={merged.doorHeight ?? ""}
+                      onChange={(e) => set("doorHeight", e.target.value || null)}
+                      disabled={busy}
+                      className="w-full"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Height of the door panels. The opening size is calculated from total height minus door/drawer heights.</p>
+                  </div>
+                )}
+
                 {/* Door / Drawer Layout Preview — live preview of the door+drawer arrangement */}
                 {(merged.numberOfDoors !== null || merged.numberOfDrawers !== null || merged.openingType) && (
                   <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
@@ -536,6 +556,8 @@ function EditModal({
                           numberOfDoors: merged.numberOfDoors,
                           numberOfDrawers: merged.numberOfDrawers,
                           openingType: merged.openingType,
+                          doorHeight: merged.doorHeight,
+                          doorOrientation: merged.doorOrientation,
                         }}
                         width={160}
                       />

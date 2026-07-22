@@ -303,6 +303,9 @@ export function ElevationView({
               cabinetHeightIn={height}
               faceFillOverride={faceFill}
               ovenType={p.ovenType ?? null}
+              openingType={p.openingType ?? null}
+              doorHeight={p.doorHeight ?? null}
+              doorOrientation={p.doorOrientation ?? null}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -1776,7 +1779,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType, openingType, doorHeight, doorOrientation }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -1795,80 +1798,130 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
   );
 
   // ─── SPECIALTY TYPE: OVEN TALL ────────────────────────────────────────
-  // Oven tall cabinets (O-code): 2 upper doors at top + appliance opening in
-  // the middle + drawers at the bottom.
-  // Single oven: opening ≈ 50% of height, 3 drawers below.
-  // Double oven: opening ≈ 60% of height, 1 drawer below.
+  // Oven tall cabinets (O-code): Uses admin-configured openingType, doorHeight,
+  // doorCount, and drawerCount to render accurately. Falls back to legacy
+  // percentages only when admin data is missing.
   if (cabinetType === "oven-tall") {
     const totalH = cabinetHeightIn ?? 84;
     const isDouble = ovenType === "double";
-    // Upper door section: top ~20% of cabinet
-    const upperDoorPct = 20;
-    // Appliance opening: single=50%, double=62%
-    const openingPct = isDouble ? 62 : 50;
-    // Drawers fill the rest at the bottom
-    const drawerAreaPct = 100 - upperDoorPct - openingPct;
-    const drawerCount2 = isDouble ? 1 : 3;
-    const drawerH = drawerAreaPct / drawerCount2;
+    // Use admin-configured opening position (default: middle for oven-tall)
+    const oPos = openingType ?? "middle";
+    // Use admin-configured door count (default: 2 for oven-tall)
+    const ovenDoorCount = Math.max(1, doorCount || 2);
+    // Use admin-configured drawer count (default: 3 single / 1 double)
+    const ovenDrawerCount = drawerCount > 0 ? drawerCount : (isDouble ? 1 : 3);
+    // Calculate percentages from doorHeight if provided, otherwise use legacy defaults
+    let upperDoorPct: number;
+    let openingPct: number;
+    let drawerAreaPct: number;
+    if (doorHeight && doorHeight > 0) {
+      // doorHeight is the height of the door section in inches
+      upperDoorPct = (doorHeight / totalH) * 100;
+      // Estimate drawer height: ~5" per drawer
+      const drawerInches = ovenDrawerCount * 5;
+      drawerAreaPct = (drawerInches / totalH) * 100;
+      openingPct = 100 - upperDoorPct - drawerAreaPct;
+      // Clamp opening to at least 15%
+      if (openingPct < 15) {
+        openingPct = 15;
+        drawerAreaPct = 100 - upperDoorPct - openingPct;
+      }
+    } else {
+      upperDoorPct = 20;
+      openingPct = isDouble ? 62 : 50;
+      drawerAreaPct = 100 - upperDoorPct - openingPct;
+    }
+    const drawerH = ovenDrawerCount > 0 ? drawerAreaPct / ovenDrawerCount : 0;
     const ovenImgUrl = isDouble
       ? "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-double-front-n2DaWbuTecczH4YKk7fJbo.webp"
       : "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-single-front-U843ihaYrWbB8xwKsMyngZ.webp";
-    return withFace(
-      <>
-        {/* Upper section: 2 side-by-side doors */}
-        <div className="absolute left-0 right-0 top-0" style={{ height: `${upperDoorPct}%` }}>
-          {[0, 1].map((i) => (
-            <div
-              key={`oven-top-${i}`}
-              className="absolute top-0 bottom-0"
-              style={{ left: `${50 * i}%`, width: "50%" }}
-            >
-              {i > 0 && (
-                <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
-              )}
-              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} />
+
+    // Render based on opening position
+    if (oPos === "top") {
+      // Opening at top, doors below, drawers at bottom
+      return withFace(
+        <>
+          {/* Appliance opening at top */}
+          <div className="absolute left-0 right-0 top-0" style={{ height: `${openingPct}%`, background: "#1a1a1a", overflow: "hidden" }}>
+            <img src={ovenImgUrl} alt="Oven" className="w-full h-full object-cover" />
+          </div>
+          <div className="absolute left-0 right-0" style={{ top: `${openingPct}%`, height: 2, background: stroke }} />
+          {/* Doors below opening */}
+          <div className="absolute left-0 right-0" style={{ top: `${openingPct}%`, height: `${upperDoorPct}%` }}>
+            {Array.from({ length: ovenDoorCount }).map((_, i) => (
+              <div key={`oven-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / ovenDoorCount) * i}%`, width: `${100 / ovenDoorCount}%` }}>
+                {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} />
+              </div>
+            ))}
+          </div>
+          {ovenDrawerCount > 0 && <div className="absolute left-0 right-0" style={{ top: `${openingPct + upperDoorPct}%`, height: 2, background: stroke }} />}
+          {/* Drawers at bottom */}
+          {Array.from({ length: ovenDrawerCount }).map((_, i) => (
+            <div key={`oven-drw-${i}`} className="absolute left-0 right-0" style={{ top: `${openingPct + upperDoorPct + drawerH * i}%`, height: `${drawerH}%` }}>
+              {i > 0 && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
             </div>
           ))}
-        </div>
-        {/* Horizontal rail between upper doors and oven opening */}
-        <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct}%`, height: 2, background: stroke }} />
-        {/* Appliance opening: oven image */}
-        <div
-          className="absolute left-0 right-0"
-          style={{
-            top: `${upperDoorPct}%`,
-            height: `${openingPct}%`,
-            background: "#1a1a1a",
-            overflow: "hidden",
-          }}
-        >
-          <img
-            src={ovenImgUrl}
-            alt={isDouble ? "Double oven" : "Single oven"}
-            className="w-full h-full object-cover"
-            style={{ objectPosition: "center center" }}
-          />
-        </div>
-        {/* Horizontal rail between oven opening and drawers */}
-        <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct + openingPct}%`, height: 2, background: stroke }} />
-        {/* Drawer section at bottom */}
-        {Array.from({ length: drawerCount2 }).map((_, i) => (
-          <div
-            key={`oven-drawer-${i}`}
-            className="absolute left-0 right-0"
-            style={{
-              top: `${upperDoorPct + openingPct + drawerH * i}%`,
-              height: `${drawerH}%`,
-            }}
-          >
-            {i > 0 && (
-              <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />
-            )}
-            <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+        </>
+      );
+    } else if (oPos === "bottom") {
+      // Doors at top, drawers in middle, opening at bottom
+      return withFace(
+        <>
+          {/* Doors at top */}
+          <div className="absolute left-0 right-0 top-0" style={{ height: `${upperDoorPct}%` }}>
+            {Array.from({ length: ovenDoorCount }).map((_, i) => (
+              <div key={`oven-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / ovenDoorCount) * i}%`, width: `${100 / ovenDoorCount}%` }}>
+                {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} />
+              </div>
+            ))}
           </div>
-        ))}
-      </>
-    );
+          <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct}%`, height: 2, background: stroke }} />
+          {/* Drawers in middle */}
+          {Array.from({ length: ovenDrawerCount }).map((_, i) => (
+            <div key={`oven-drw-${i}`} className="absolute left-0 right-0" style={{ top: `${upperDoorPct + drawerH * i}%`, height: `${drawerH}%` }}>
+              {i > 0 && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+            </div>
+          ))}
+          {ovenDrawerCount > 0 && <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct + drawerAreaPct}%`, height: 2, background: stroke }} />}
+          {/* Opening at bottom */}
+          <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct + drawerAreaPct}%`, bottom: 0, background: "#1a1a1a", overflow: "hidden" }}>
+            <img src={ovenImgUrl} alt="Oven" className="w-full h-full object-cover" />
+          </div>
+        </>
+      );
+    } else {
+      // Default 'middle': doors on top, opening in middle, drawers at bottom
+      return withFace(
+        <>
+          {/* Doors at top */}
+          <div className="absolute left-0 right-0 top-0" style={{ height: `${upperDoorPct}%` }}>
+            {Array.from({ length: ovenDoorCount }).map((_, i) => (
+              <div key={`oven-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / ovenDoorCount) * i}%`, width: `${100 / ovenDoorCount}%` }}>
+                {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={false} />
+              </div>
+            ))}
+          </div>
+          <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct}%`, height: 2, background: stroke }} />
+          {/* Opening in middle */}
+          <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct}%`, height: `${openingPct}%`, background: "#1a1a1a", overflow: "hidden" }}>
+            <img src={ovenImgUrl} alt={isDouble ? "Double oven" : "Single oven"} className="w-full h-full object-cover" />
+          </div>
+          <div className="absolute left-0 right-0" style={{ top: `${upperDoorPct + openingPct}%`, height: 2, background: stroke }} />
+          {/* Drawers at bottom */}
+          {Array.from({ length: ovenDrawerCount }).map((_, i) => (
+            <div key={`oven-drw-${i}`} className="absolute left-0 right-0" style={{ top: `${upperDoorPct + openingPct + drawerH * i}%`, height: `${drawerH}%` }}>
+              {i > 0 && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
+              <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+            </div>
+          ))}
+        </>
+      );
+    }
   }
 
   // ─── SPECIALTY TYPE: PANTRY (tall cabinet) ───────────────────────────
@@ -2086,6 +2139,119 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
       </>
     );
   }
+  // ─── APPLIANCE OPENING (non-oven-tall) ──────────────────────────────────
+  // For cabinets with openingType set (e.g. MW3042 microwave wall cabinets)
+  // that are NOT classified as oven-tall, render based on admin config.
+  if (openingType && (cabinetType as string) !== "oven-tall") {
+    const totalH = cabinetHeightIn ?? 34.5;
+    const oPos = openingType;
+    const cabDoorCount = Math.max(1, doorCount || 2);
+    const cabDrawerCount = drawerCount;
+    // Calculate door height percentage
+    let doorPct: number;
+    if (doorHeight && doorHeight > 0) {
+      doorPct = (doorHeight / totalH) * 100;
+    } else {
+      doorPct = cabDoorCount > 0 ? 40 : 0;
+    }
+    // Drawer height: ~5" per drawer
+    const drawerInches = cabDrawerCount * 5;
+    const drawerPct = totalH > 0 ? (drawerInches / totalH) * 100 : 0;
+    const openingPct = Math.max(15, 100 - doorPct - drawerPct);
+
+    if (oPos === "top") {
+      // Opening at top, doors below
+      return withFace(
+        <>
+          <div className="absolute left-0 right-0 top-0" style={{ height: `${openingPct}%`, background: "#1a1a1a" }} />
+          <div className="absolute left-0 right-0" style={{ top: `${openingPct}%`, height: 2, background: stroke }} />
+          <div className="absolute left-0 right-0" style={{ top: `${openingPct}%`, height: `${doorPct}%` }}>
+            {Array.from({ length: cabDoorCount }).map((_, i) => (
+              <div key={`mw-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / cabDoorCount) * i}%`, width: `${100 / cabDoorCount}%` }}>
+                {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+              </div>
+            ))}
+          </div>
+          {cabDrawerCount > 0 && (
+            <>
+              <div className="absolute left-0 right-0" style={{ top: `${openingPct + doorPct}%`, height: 2, background: stroke }} />
+              {Array.from({ length: cabDrawerCount }).map((_, i) => {
+                const sliceH = drawerPct / cabDrawerCount;
+                return (
+                  <div key={`mw-drw-${i}`} className="absolute left-0 right-0" style={{ top: `${openingPct + doorPct + sliceH * i}%`, height: `${sliceH}%` }}>
+                    {i > 0 && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
+                    <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </>
+      );
+    } else if (oPos === "bottom") {
+      // Doors at top, opening at bottom
+      return withFace(
+        <>
+          <div className="absolute left-0 right-0 top-0" style={{ height: `${doorPct}%` }}>
+            {Array.from({ length: cabDoorCount }).map((_, i) => (
+              <div key={`mw-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / cabDoorCount) * i}%`, width: `${100 / cabDoorCount}%` }}>
+                {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+              </div>
+            ))}
+          </div>
+          <div className="absolute left-0 right-0" style={{ top: `${doorPct}%`, height: 2, background: stroke }} />
+          {cabDrawerCount > 0 && (
+            <>
+              {Array.from({ length: cabDrawerCount }).map((_, i) => {
+                const sliceH = drawerPct / cabDrawerCount;
+                return (
+                  <div key={`mw-drw-${i}`} className="absolute left-0 right-0" style={{ top: `${doorPct + sliceH * i}%`, height: `${sliceH}%` }}>
+                    {i > 0 && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
+                    <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+                  </div>
+                );
+              })}
+              <div className="absolute left-0 right-0" style={{ top: `${doorPct + drawerPct}%`, height: 2, background: stroke }} />
+            </>
+          )}
+          <div className="absolute left-0 right-0" style={{ top: `${doorPct + drawerPct}%`, bottom: 0, background: "#1a1a1a" }} />
+        </>
+      );
+    } else {
+      // Middle: doors on top, opening in middle, drawers at bottom
+      return withFace(
+        <>
+          <div className="absolute left-0 right-0 top-0" style={{ height: `${doorPct}%` }}>
+            {Array.from({ length: cabDoorCount }).map((_, i) => (
+              <div key={`mw-door-${i}`} className="absolute top-0 bottom-0" style={{ left: `${(100 / cabDoorCount) * i}%`, width: `${100 / cabDoorCount}%` }}>
+                {i > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+              </div>
+            ))}
+          </div>
+          <div className="absolute left-0 right-0" style={{ top: `${doorPct}%`, height: 2, background: stroke }} />
+          <div className="absolute left-0 right-0" style={{ top: `${doorPct}%`, height: `${openingPct}%`, background: "#1a1a1a" }} />
+          {cabDrawerCount > 0 && (
+            <>
+              <div className="absolute left-0 right-0" style={{ top: `${doorPct + openingPct}%`, height: 2, background: stroke }} />
+              {Array.from({ length: cabDrawerCount }).map((_, i) => {
+                const sliceH = drawerPct / cabDrawerCount;
+                return (
+                  <div key={`mw-drw-${i}`} className="absolute left-0 right-0" style={{ top: `${doorPct + openingPct + sliceH * i}%`, height: `${sliceH}%` }}>
+                    {i > 0 && <div className="absolute top-0 left-0 right-0" style={{ height: 2, background: stroke }} />}
+                    <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </>
+      );
+    }
+  }
+
   // ─── STANDARD: DRAWERS + DOORS ─────────────────────────────────────────
   // When a cabinet has drawers, draw the drawer stack + (optional) door region.
   if (drawerCount > 0) {

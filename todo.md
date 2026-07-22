@@ -1463,3 +1463,13 @@
 - [x] Include openingType in handleSaveEdit mutation payload
 - [x] Backend already accepts openingType — no server changes needed
 - [x] TypeScript compiles cleanly
+
+## Feature: Door height field for accurate elevation rendering
+- [x] Add doorHeight column to cabinets table in DB schema
+- [x] Add doorHeight to backend update mutation (catalog.ts)
+- [x] Add doorHeight input to CabinetDetail front-end edit dialog
+- [x] Add doorHeight input to CabinetConfigAdmin
+- [x] Update elevation renderer (DoorDrawerDiagram / ElevationView) to use doorHeight from config data
+- [x] Carry openingType, doorHeight, doorOrientation from catalog to PlacedCabinet when placed on canvas
+- [x] Add appliance opening rendering section for non-oven-tall cabinets (MW3042 microwave wall cabs)
+- [x] Ensure MW3042 and similar cabinets render with correct door proportions based on config

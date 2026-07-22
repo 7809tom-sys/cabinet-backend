@@ -276,6 +276,13 @@ export interface PlacedCabinet {
   // Oven type for tall oven cabinets (O-code). 'single' = 1 oven + 3 drawers;
   // 'double' = 2 stacked ovens + 1 drawer. Drives the elevation renderer.
   ovenType?: "single" | "double" | null;
+  // Appliance opening position: 'top' | 'middle' | 'bottom'. Drives elevation layout.
+  openingType?: "top" | "middle" | "bottom" | null;
+  // Door height in inches (for cabinets with appliance openings). Used to
+  // calculate exact opening size: opening = totalHeight - doorHeight - drawerHeight.
+  doorHeight?: number | null;
+  // Door orientation: 'side-by-side' or 'stacked'. Drives elevation layout.
+  doorOrientation?: "side-by-side" | "stacked" | null;
   // Sink base top type: what sits on top of this sink base cabinet.
   // 'sink' = a sink fixture (default); 'gas' | 'electric' | 'smooth-top' = range top type.
   // When a range top is chosen, no sink fixture is added and the elevation

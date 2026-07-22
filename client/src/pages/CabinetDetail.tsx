@@ -445,6 +445,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editDoorOrientation, setEditDoorOrientation] = useState<string>("__none__");
   const [editCornerType, setEditCornerType] = useState<string>("__none__");
   const [editOpeningType, setEditOpeningType] = useState<string>("__none__");
+  const [editDoorHeight, setEditDoorHeight] = useState<string>("");
   const [editConfigVerified, setEditConfigVerified] = useState(false);
 
   // Pre-fill form when dialog opens
@@ -476,6 +477,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditDoorOrientation(String(cab.doorOrientation ?? "__none__"));
       setEditCornerType(String(cab.cornerType ?? "__none__"));
       setEditOpeningType(String(cab.openingType ?? "__none__"));
+      setEditDoorHeight(cab.doorHeight != null ? String(cab.doorHeight) : "");
       setEditConfigVerified(cab.configVerified === true);
     }
   }, [editOpen, cabinet]);
@@ -613,6 +615,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       doorOrientation: editDoorOrientation === "__none__" ? null : editDoorOrientation as "side-by-side" | "stacked",
       cornerType: editCornerType === "__none__" ? null : editCornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape",
       openingType: editOpeningType === "__none__" ? null : editOpeningType as "top" | "middle" | "bottom",
+      doorHeight: editDoorHeight ? parseFloat(editDoorHeight) : null,
       configVerified: editConfigVerified,
     });
   }
@@ -1501,6 +1504,23 @@ export default function CabinetDetail({ masterCode }: Props) {
                 </Select>
                 <p className="text-[11px] text-muted-foreground">Set for oven, microwave, or appliance cabinets that have a cutout opening.</p>
               </div>
+
+              {/* Door Height (shown when opening type is set) */}
+              {editOpeningType !== "__none__" && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Door Height (inches)</Label>
+                  <Input
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    placeholder="e.g. 18.5"
+                    value={editDoorHeight}
+                    onChange={(e) => setEditDoorHeight(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Height of the door panels. The opening size is calculated from total height minus door/drawer heights.</p>
+                </div>
+              )}
 
               {/* Corner Cabinet Type */}
               <div className="space-y-1.5">
