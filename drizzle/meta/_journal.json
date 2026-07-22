@@ -568,6 +568,13 @@
       "when": 1784682668461,
       "tag": "0080_familiar_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "5",
+      "when": 1784683827075,
+      "tag": "0081_silky_angel",
+      "breakpoints": true
     }
   ]
 }

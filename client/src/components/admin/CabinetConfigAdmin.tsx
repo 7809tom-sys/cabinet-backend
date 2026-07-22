@@ -66,7 +66,7 @@ type CabinetRow = {
   // Appliance opening
   openingType: string | null;
   // Timestamps
-  updatedAt: Date | null;
+  configuredAt: Date | null;
 };
 
 // ─── Dim Input ────────────────────────────────────────────────────────────────
@@ -969,11 +969,11 @@ export function CabinetConfigAdmin() {
                       )}
                     </td>
                     <td className="px-3 py-2.5">
-                      {row.updatedAt ? (
+                      {row.configuredAt ? (
                         <div className="flex items-center gap-1">
                           <span className="text-green-500 text-sm">✅</span>
                           <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden sm:inline">
-                            {new Date(row.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {new Date(row.configuredAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                           </span>
                         </div>
                       ) : (

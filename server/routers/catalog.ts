@@ -1504,6 +1504,8 @@ export const cabinetsRouter = router({
       if (input.openingWidth !== undefined) patch.openingWidth = input.openingWidth != null ? String(input.openingWidth) : null;
       if (input.openingType !== undefined) patch.openingType = input.openingType;
       if (Object.keys(patch).length === 0) return { ok: true };
+      // Always stamp configuredAt so the admin list shows when this cabinet was last saved.
+      patch.configuredAt = new Date();
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
       // Aliases are purely informational cross-references.
       // Visibility is controlled exclusively by admin via showInCatalog/showInDesigner toggles.
@@ -2101,7 +2103,7 @@ export const cabinetsRouter = router({
             // Appliance opening type
             openingType: cabinets.openingType,
             // Timestamps
-            updatedAt: cabinets.updatedAt,
+            configuredAt: cabinets.configuredAt,
           })
           .from(cabinets)
           .where(where)
