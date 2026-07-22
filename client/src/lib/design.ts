@@ -3732,6 +3732,18 @@ export function flooringMaterial(id: string | null | undefined): FlooringMateria
   return FLOORING_MATERIALS.find((m) => m.id === id) ?? FLOORING_MATERIALS[10];
 }
 
+// ─── LVP Flooring Layout Patterns ─────────────────────────────────────────────
+// When the user selects a plank/hardwood-type flooring, they can also choose
+// how the planks are laid out. This affects the plan-view SVG tile rendering.
+export type FlooringLayoutPattern = "random-stagger" | "third-offset" | "diagonal" | "herringbone";
+
+export const FLOORING_LAYOUT_PATTERNS: { id: FlooringLayoutPattern; name: string; description: string }[] = [
+  { id: "random-stagger", name: "Random Stagger", description: "Natural look, minimal waste" },
+  { id: "third-offset", name: "1/3 Offset", description: "Clean geometric flow" },
+  { id: "diagonal", name: "Diagonal", description: "45° angle, makes rooms feel larger" },
+  { id: "herringbone", name: "Herringbone", description: "Classic V-shape zigzag" },
+];
+
 // ─── Pony Wall ────────────────────────────────────────────────────────────────
 // A half-wall / peninsula divider placed freely on the floor plan.
 // Height defaults to 34.5" (counter height) so base cabinets sit flush on top.

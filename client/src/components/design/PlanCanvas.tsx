@@ -88,6 +88,8 @@ interface Props {
   onRotateFurn?: (uid: string) => void;
   // Flooring: when set, draw a flooring pattern texture on the room floor.
   flooringMaterialId?: string | null;
+  // Flooring layout pattern: how planks are arranged (affects SVG tile rendering).
+  flooringPattern?: import("@/lib/design").FlooringLayoutPattern;
   // Cabinet lock: when true, cabinet drag/drop/delete are blocked.
   cabinetsLocked?: boolean;
   // Gap intelligence: one representative real cabinet per width (keyed by width
@@ -144,6 +146,7 @@ export function PlanCanvas({
   finishFor,
   furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn,
   flooringMaterialId = null,
+  flooringPattern = "random-stagger",
   cabinetsLocked = false,
   gapFillCandidates,
   onFillGap,
@@ -629,17 +632,48 @@ export function PlanCanvas({
             const tw = Math.max(6, fm.tileW * ppi);
             const th = Math.max(6, fm.tileH * ppi);
             if (fm.pattern === "hardwood" || fm.pattern === "plank") {
-              // Staggered planks (brick-lay pattern): alternate rows offset by 1/3 plank width.
-              // Uses an inline SVG tile that spans 2 rows with offset seams.
-              const g = fm.grout; // raw color value, encoded once with the whole SVG
+              // Plank rendering varies by the user-selected layout pattern.
+              const g = fm.grout;
+              if (flooringPattern === "herringbone") {
+                // Herringbone: V-shape zigzag planks at 45°
+                return `repeating-linear-gradient(45deg, ${g} 0px, ${g} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(-45deg, ${g} 0px, ${g} 1px, transparent 1px, transparent ${th}px)`;
+              }
+              if (flooringPattern === "diagonal") {
+                // Diagonal: planks at 45° with staggered seams
+                const h2 = th * 2;
+                const offset = Math.round(tw / 3);
+                const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tw}' height='${h2}'>`
+                  + `<rect x='0' y='0' width='${tw}' height='${h2}' fill='none'/>`
+                  + `<line x1='0' y1='0' x2='${tw}' y2='0' stroke='${g}' stroke-width='1'/>`
+                  + `<line x1='0' y1='${th}' x2='${tw}' y2='${th}' stroke='${g}' stroke-width='1'/>`
+                  + `<line x1='0' y1='0' x2='0' y2='${th}' stroke='${g}' stroke-width='1'/>`
+                  + `<line x1='${offset}' y1='${th}' x2='${offset}' y2='${h2}' stroke='${g}' stroke-width='1'/>`
+                  + `</svg>`;
+                return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+              }
+              if (flooringPattern === "third-offset") {
+                // 1/3 Offset: each row offset by exactly 1/3 plank length (3-row repeat)
+                const h3 = th * 3;
+                const off1 = Math.round(tw / 3);
+                const off2 = Math.round((tw * 2) / 3);
+                const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tw}' height='${h3}'>`
+                  + `<rect x='0' y='0' width='${tw}' height='${h3}' fill='none'/>`
+                  + `<line x1='0' y1='0' x2='${tw}' y2='0' stroke='${g}' stroke-width='1'/>`
+                  + `<line x1='0' y1='${th}' x2='${tw}' y2='${th}' stroke='${g}' stroke-width='1'/>`
+                  + `<line x1='0' y1='${th * 2}' x2='${tw}' y2='${th * 2}' stroke='${g}' stroke-width='1'/>`
+                  + `<line x1='0' y1='0' x2='0' y2='${th}' stroke='${g}' stroke-width='1'/>`
+                  + `<line x1='${off1}' y1='${th}' x2='${off1}' y2='${th * 2}' stroke='${g}' stroke-width='1'/>`
+                  + `<line x1='${off2}' y1='${th * 2}' x2='${off2}' y2='${h3}' stroke='${g}' stroke-width='1'/>`
+                  + `</svg>`;
+                return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+              }
+              // Default: random-stagger (2-row repeat with 1/3 offset — looks natural)
               const offset = Math.round(tw / 3);
-              const h2 = th * 2; // tile covers 2 rows
+              const h2 = th * 2;
               const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tw}' height='${h2}'>`
                 + `<rect x='0' y='0' width='${tw}' height='${h2}' fill='none'/>`
-                // Row separators
                 + `<line x1='0' y1='0' x2='${tw}' y2='0' stroke='${g}' stroke-width='1'/>`
                 + `<line x1='0' y1='${th}' x2='${tw}' y2='${th}' stroke='${g}' stroke-width='1'/>`
-                // Vertical seams: row 1 at 0, row 2 offset by 1/3
                 + `<line x1='0' y1='0' x2='0' y2='${th}' stroke='${g}' stroke-width='1'/>`
                 + `<line x1='${offset}' y1='${th}' x2='${offset}' y2='${h2}' stroke='${g}' stroke-width='1'/>`
                 + `</svg>`;
@@ -676,6 +710,9 @@ export function PlanCanvas({
             const fm = flooringMaterial(flooringMaterialId);
             const tw = Math.max(6, fm.tileW * ppi);
             const th = Math.max(6, fm.tileH * ppi);
+            if ((fm.pattern === "hardwood" || fm.pattern === "plank") && flooringPattern === "third-offset") {
+              return `${tw}px ${th * 3}px`;
+            }
             // Staggered patterns use a 2-row SVG tile, so double the height.
             if (fm.pattern === "hardwood" || fm.pattern === "plank" || fm.pattern === "tile-stagger") {
               return `${tw}px ${th * 2}px`;

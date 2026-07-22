@@ -81,6 +81,8 @@ interface Props {
   // When set, renders the floor strip with the selected flooring material pattern
   // (staggered planks for hardwood/LVP, tile grid, etc.). null/undefined = default wood.
   flooringMaterialId?: string | null;
+  // Flooring layout pattern: how planks are arranged.
+  flooringPattern?: import("@/lib/design").FlooringLayoutPattern;
 }
 
 export function ElevationView({
@@ -91,6 +93,7 @@ export function ElevationView({
   finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor, seamCabinets = [],
   onMove, onMoveVertical, moveLocked = false,
   flooringMaterialId = null,
+  flooringPattern = "random-stagger",
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);

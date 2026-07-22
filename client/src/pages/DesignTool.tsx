@@ -70,6 +70,7 @@ import {
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode,
   type PonyWall, makePonyWall, clampPonyWall,
+  flooringMaterial, FLOORING_LAYOUT_PATTERNS,
 } from "@/lib/design";
 import {
   buildTrimCartLines,
@@ -462,6 +463,8 @@ export default function DesignTool() {
   const [backsplashMaterialId, setBacksplashMaterialId] = useState<string | null>(null);
   // Flooring material: shown as a pattern in the bird's-eye plan view.
   const [flooringMaterialId, setFlooringMaterialId] = useState<string | null>(null);
+  // Flooring layout pattern: how planks are arranged (random stagger, 1/3 offset, diagonal, herringbone).
+  const [flooringPattern, setFlooringPattern] = useState<import("@/lib/design").FlooringLayoutPattern>("random-stagger");
   // Cabinet lock: when true, placed cabinets cannot be moved, deleted, or have
   // new ones dropped. The room/walls/openings/island are still editable.
   const [cabinetsLocked, setCabinetsLocked] = useState(false);
@@ -3979,6 +3982,7 @@ export default function DesignTool() {
     edgeProfileId,
     backsplashMaterialId,
     flooringMaterialId,
+    flooringPattern,
     selectedSurfaces,
     cabinetsLocked,
     sinks,
@@ -4067,6 +4071,7 @@ export default function DesignTool() {
           if (typeof d.edgeProfileId === "string") setEdgeProfileId(d.edgeProfileId);
           if (typeof d.backsplashMaterialId === "string") setBacksplashMaterialId(d.backsplashMaterialId);
           if (typeof d.flooringMaterialId === "string") setFlooringMaterialId(d.flooringMaterialId);
+          if (typeof d.flooringPattern === "string") setFlooringPattern(d.flooringPattern as import("@/lib/design").FlooringLayoutPattern);
           if (typeof d.cabinetsLocked === "boolean") setCabinetsLocked(d.cabinetsLocked);
           // Restore the exact Pelican surface & fixture picks so the cart, the
           // 3D View gate and the plan/elevation fill all match the draft.
@@ -4185,7 +4190,7 @@ export default function DesignTool() {
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, flooringMaterialId, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, flooringMaterialId, flooringPattern, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -4500,6 +4505,8 @@ export default function DesignTool() {
             setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
             setBacksplashMaterialId(null);
             setFlooringMaterialId(null);
+            setFlooringPattern("random-stagger");
+            setSelectedSurfaces([]);
             setCabinetsLocked(false);
             setConsultMessages([]);
             setConsultOpen(false);
@@ -4897,6 +4904,8 @@ export default function DesignTool() {
                       setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
                       setBacksplashMaterialId(null);
                       setFlooringMaterialId(null);
+                      setFlooringPattern("random-stagger");
+                      setSelectedSurfaces([]);
                       setCabinetsLocked(false);
                       setConsultMessages([]);
                       setConsultOpen(false);
@@ -6103,11 +6112,43 @@ export default function DesignTool() {
                 </div>
               )}
             {paletteType === "surfaces" ? (
+              <>
               <RecommendedSurfaces
                 selected={selectedSurfaces}
                 onToggle={addRecommendedSurface}
                 onBrowseAll={() => setSurfacesOpen(true)}
               />
+              {/* Flooring Layout Pattern Picker */}
+              {flooringMaterialId && (() => {
+                const fm = flooringMaterial(flooringMaterialId);
+                if (fm.pattern !== "hardwood" && fm.pattern !== "plank") return null;
+                return (
+                  <div className="mt-4 space-y-1.5">
+                    <div className="sticky top-0 z-10 -mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1.5 border-b border-border bg-background/95 px-2 py-1.5 backdrop-blur">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Plank Layout</span>
+                      <span className="text-[10px] font-normal normal-case text-muted-foreground/70">· How planks are arranged</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {FLOORING_LAYOUT_PATTERNS.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setFlooringPattern(p.id)}
+                          className={`rounded-lg border px-3 py-2 text-left transition-colors ${
+                            flooringPattern === p.id
+                              ? "border-[#a87f33] ring-1 ring-[#a87f33]/40 bg-[#a87f33]/5"
+                              : "border-border hover:border-[#a87f33]/50 hover:bg-muted/40"
+                          }`}
+                        >
+                          <div className="text-[11px] font-semibold text-foreground">{p.name}</div>
+                          <div className="text-[9px] text-muted-foreground">{p.description}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+              </>
             ) : paletteType === "furniture" ? (
               (() => {
                 const cats = ["table", "chair", "stool", "bench"] as const;
@@ -6359,6 +6400,7 @@ export default function DesignTool() {
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
               flooringMaterialId={flooringMaterialId}
+              flooringPattern={flooringPattern}
               cabinetsLocked={cabinetsLocked}
               gapFillCandidates={gapFillCandidates}
               onFillGap={fillGap}
@@ -6387,6 +6429,7 @@ export default function DesignTool() {
               countertopMaterialId={countertop ? countertopMaterialId : null}
               backsplashMaterialId={backsplashMaterialId}
               flooringMaterialId={flooringMaterialId}
+              flooringPattern={flooringPattern}
               openings={openings}
               finish={activeFinish}
               crown={crown}
@@ -6521,6 +6564,7 @@ export default function DesignTool() {
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
               onRotateFurn={(uid) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, rotation: (f.rotation + 90) % 360 } : f))}
               flooringMaterialId={flooringMaterialId}
+              flooringPattern={flooringPattern}
               cabinetsLocked={cabinetsLocked}
               gapFillCandidates={gapFillCandidates}
               onFillGap={fillGap}
@@ -6549,6 +6593,7 @@ export default function DesignTool() {
                   countertopMaterialId={countertop ? countertopMaterialId : null}
                   backsplashMaterialId={backsplashMaterialId}
                   flooringMaterialId={flooringMaterialId}
+                  flooringPattern={flooringPattern}
                   openings={openings}
                   finish={activeFinish}
                   crown={crown}

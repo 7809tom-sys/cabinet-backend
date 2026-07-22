@@ -1503,3 +1503,9 @@
 - [x] Wire buttons to move the selected cabinet by a small increment (e.g. 1 inch) in the chosen direction
 - [x] Ensure movement respects wall boundaries (uses clampCabinetsToRoom)
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Flooring improvements in design tool
+- [x] Delete flooring when a design/plan is deleted (clear flooringMaterialId + flooringPattern + selectedSurfaces)
+- [x] Add flooring pattern selection (Random Stagger, 1/3 Offset, Diagonal, Herringbone) in Surfaces palette
+- [x] Flooring products already come from real Pelican inventory; rendering now properly changes per product + pattern
+- [x] TypeScript check passes; checkpoint saved
