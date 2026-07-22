@@ -1937,305 +1937,217 @@ export default function DesignTool() {
       const height = isFlatPanel
         ? dim(c.height, standardHeight(accPlacement))
         : dim(c.height, standardHeight(accPlacement));
-      setPlaced((prev) => {
-        // Explicit drop position (drag-and-drop) wins. Otherwise we drop the
-        // cabinet UNATTACHED in the center of the room so the user can grab it
-        // and drag it wherever they want (it still snaps to a wall when dragged
-        // close). This feels more like 20/20 than auto-pinning to a corner.
-        let spot: { x: number; y: number; rotation: number };
-        if (x != null && y != null) {
-          spot = { x, y, rotation: 0 };
+      // ── Build the new cabinet object OUTSIDE setPlaced so we can run side
+      // effects (dialogs, toasts, sink auto-place) exactly once afterward.
+      // setPlaced updaters can be called multiple times by React in concurrent
+      // mode — any side effects inside them fire twice, causing double placement.
+      // We snapshot `placed` via closure (stable within this callback invocation).
+      const prev = placed;
+
+      // Explicit drop position (drag-and-drop) wins. Otherwise seat the cabinet
+      // flush against the ACTIVE wall at the first free segment.
+      let spot: { x: number; y: number; rotation: number };
+      if (x != null && y != null) {
+        spot = { x, y, rotation: 0 };
+      } else {
+        const segs = freeSegmentsOnWall(activeWall, room, prev, openings, Math.min(width, 9), 0, c.placement);
+        const fit = segs.find((s) => s.length >= width) ?? segs[0];
+        if (fit) {
+          const wallLen = (activeWall === "top" || activeWall === "bottom") ? room.width : room.depth;
+          const isCorner = isCornerCabinet(c.masterCode, c.description || undefined) || c.isCornerCabinet === true;
+          let along = fit.start;
+          if (isCorner) {
+            const distFromEnd = wallLen - (fit.start + width);
+            if (distFromEnd < fit.start) {
+              along = Math.max(0, wallLen - width);
+            } else {
+              along = 0;
+            }
+          }
+          spot = wallPlacementAt(along, width, depth, activeWall, room);
         } else {
-          // Seat the cabinet flush against the ACTIVE wall at the first free
-          // segment so it appears immediately on that wall in both Bird's-Eye
-          // and Front View (and is correctly attributed for molding/pricing).
-          // The user can still drag it anywhere afterward. Fall back to the
-          // room center only if the active wall has no free run left.
-          const segs = freeSegmentsOnWall(activeWall, room, prev, openings, Math.min(width, 9), 0, c.placement);
-          const fit = segs.find((s) => s.length >= width) ?? segs[0];
-          if (fit) {
-            // For corner cabinets, snap to the nearest room corner so the
-            // cabinet sits flush against both walls. Without this, a corner
-            // cabinet placed at the end of a wall run would overflow the room
-            // by the difference between the segment length and the cabinet width.
-            const wallLen = (activeWall === "top" || activeWall === "bottom") ? room.width : room.depth;
-            const isCorner = isCornerCabinet(c.masterCode, c.description || undefined) || c.isCornerCabinet === true;
-            let along = fit.start;
-            if (isCorner) {
-              // Snap to whichever end of the wall the segment is closer to.
-              const distFromEnd = wallLen - (fit.start + width);
-              if (distFromEnd < fit.start) {
-                // Closer to the far end — pin the right edge to the wall.
-                along = Math.max(0, wallLen - width);
-              } else {
-                // Closer to the near end — pin the left edge to the wall.
-                along = 0;
-              }
-            }
-            spot = wallPlacementAt(along, width, depth, activeWall, room);
+          const cx = Math.max(0, Math.min(room.width / 2 - width / 2, Math.max(0, room.width - width)));
+          const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
+          spot = { x: cx, y: cy, rotation: 0 };
+        }
+      }
+
+      // ── Stacker auto-snap ──────────────────────────────────────────────
+      let stackerMountBottom: number | undefined;
+      let stackWidth = width;
+      if (accPlacement === "wall" && isStacker(c)) {
+        const topLine = wallCabinetTopLine(room);
+        stackerMountBottom = topLine;
+        const sameWallCabs = prev.filter((p) => {
+          if (p.placement !== "wall" || isStacker(p)) return false;
+          const pw = cabinetWall(p, room);
+          const sw = cabinetWall({ ...p, x: spot.x, y: spot.y, width, depth, rotation: spot.rotation }, room);
+          return pw === sw;
+        });
+        const byX = [...sameWallCabs].sort(
+          (a, b) => Math.abs(a.x - spot.x) - Math.abs(b.x - spot.x)
+        );
+        const bestMatch =
+          byX.find((p) => Math.abs(p.width - width) <= 0.5) ?? byX[0];
+        if (bestMatch) {
+          const bw = rotatedSize(bestMatch).w;
+          spot = { ...spot, x: bestMatch.x, y: bestMatch.y };
+          stackWidth = bw;
+          toast.success("Stacker snapped above " + (bestMatch.masterCode ?? "wall cabinet"));
+        }
+      }
+
+      // ── OTR microwave auto-snap over a range ───────────────────────────
+      let otrMountBottom: number | undefined;
+      if (isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement })) {
+        const targetWall = cabinetWall(
+          { ...(prev[0] as PlacedCabinet), x: spot.x, y: spot.y, width, depth, rotation: spot.rotation },
+          room
+        );
+        const ranges = prev.filter(
+          (p) =>
+            isRangeOrOven(p.masterCode, p.description) &&
+            cabinetWall(p, room) === targetWall
+        );
+        const byDist = [...ranges].sort(
+          (a, b) =>
+            Math.hypot(a.x - spot.x, a.y - spot.y) -
+            Math.hypot(b.x - spot.x, b.y - spot.y)
+        );
+        const range = byDist[0];
+        if (range) {
+          const rs = rotatedSize(range);
+          const horizontal = targetWall === "top" || targetWall === "bottom";
+          if (horizontal) {
+            spot = { ...spot, x: range.x + rs.w / 2 - width / 2 };
           } else {
-            // Wall is full: center the footprint in the room, clamped in-bounds.
-            const cx = Math.max(0, Math.min(room.width / 2 - width / 2, Math.max(0, room.width - width)));
-            const cy = Math.max(0, Math.min(room.depth / 2 - depth / 2, Math.max(0, room.depth - depth)));
-            spot = { x: cx, y: cy, rotation: 0 };
+            spot = { ...spot, y: range.y + rs.d / 2 - depth / 2 };
+          }
+          const mwDef = APPLIANCES.find((a) => a.masterCode === "MW-30");
+          otrMountBottom = mwDef?.elevBottom ?? 54;
+          toast.success(t("dt_otr_snapped_over_range"));
+        }
+      }
+
+      const newCab: PlacedCabinet = {
+        uid: makeUid(),
+        cabinetId: c.id,
+        masterCode: c.masterCode,
+        description: c.description,
+        category: c.category ?? null,
+        subCategory: c.subCategory ?? null,
+        placement: accPlacement,
+        x: spot.x,
+        y: spot.y,
+        width: stackWidth,
+        nominalWidth: stackWidth,
+        depth,
+        nominalDepth: depth,
+        height,
+        nominalHeight: height,
+        rotation: spot.rotation,
+        numberOfDoors: c.numberOfDoors,
+        numberOfDrawers: c.numberOfDrawers,
+        catalogImageUrl: c.catalogImageUrl ?? null,
+        pullMin: c.pullMin ?? null,
+        pullMax: c.pullMax ?? null,
+        styleId: styleIdRef.current ?? null,
+        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
+        ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
+      };
+
+      // Blind corner: auto-position and auto-swing
+      if (isBlindCorner(newCab.masterCode, newCab.description)) {
+        const wallSide = cabinetWall(newCab, room);
+        const horiz = wallSide === "top" || wallSide === "bottom";
+        const wallLen = horiz ? room.width : room.depth;
+        const cabWidth = horiz ? newCab.width : newCab.width;
+        const cabStart = horiz ? newCab.x : newCab.y;
+        const cabEnd = cabStart + cabWidth;
+        const range = blindPullRange(newCab);
+        const atStart = cabStart <= 2;
+        const atEnd = cabEnd >= wallLen - 2;
+        const cornerAtStart = atStart || (!atEnd && cabStart < wallLen / 2);
+        if (range) {
+          newCab.blindPull = range.max;
+          if (cornerAtStart) {
+            if (horiz) newCab.x = 0;
+            else newCab.y = 0;
+          } else {
+            if (horiz) newCab.x = wallLen - cabWidth;
+            else newCab.y = wallLen - cabWidth;
           }
         }
-        // ── Stacker auto-snap ──────────────────────────────────────────────
-        // Glass stacker wall cabinets (12"/15"/18" GD stackers) should sit
-        // directly on top of a matching wall cabinet below. When one is placed,
-        // find the nearest wall cabinet on the same wall whose width matches
-        // (within 0.5") and snap the stacker's X to align with it. Also set
-        // mountBottom to wallCabinetTopLine so the elevation view places it
-        // correctly above the standard upper run.
-        let stackerMountBottom: number | undefined;
-        // A glass stacker is ALWAYS the same width as the wall cabinet directly
-        // below it. `stackWidth` starts at the item's own width and is overridden
-        // to the matched wall cabinet's width when we snap onto one.
-        let stackWidth = width;
-        if (accPlacement === "wall" && isStacker(c)) {
-          const topLine = wallCabinetTopLine(room);
-          stackerMountBottom = topLine;
-          // Find wall cabinets on the same wall as the new stacker's spot.
-          const sameWallCabs = prev.filter((p) => {
-            if (p.placement !== "wall" || isStacker(p)) return false;
-            const pw = cabinetWall(p, room);
-            const sw = cabinetWall({ ...p, x: spot.x, y: spot.y, width, depth, rotation: spot.rotation }, room);
-            return pw === sw;
+        newCab.swing = cornerAtStart ? "right" : "left";
+      }
+
+      // Filler auto-snap: find nearest gap and resize/reposition
+      let finalCab = newCab;
+      if (/^FILL-/i.test(newCab.masterCode)) {
+        const allGaps = wallGaps(room, prev, openings, 0.5);
+        const fillerLayer = newCab.placement === "wall" ? "wall" : "base";
+        const layerGaps = allGaps.filter((g) => g.layer === fillerLayer && g.length <= 6 && g.length > 0);
+        if (layerGaps.length > 0) {
+          const fillerCx = newCab.x + newCab.width / 2;
+          const fillerCy = newCab.y + newCab.depth / 2;
+          const best = layerGaps.reduce((a, b) => {
+            const horizontal = (a.side === "top" || a.side === "bottom");
+            const aCx = horizontal ? (a.start + a.length / 2) : (a.side === "left" ? 12 : room.width - 12);
+            const aCy = horizontal ? (a.side === "top" ? 12 : room.depth - 12) : (a.start + a.length / 2);
+            const bCx = (b.side === "top" || b.side === "bottom") ? (b.start + b.length / 2) : (b.side === "left" ? 12 : room.width - 12);
+            const bCy = (b.side === "top" || b.side === "bottom") ? (b.side === "top" ? 12 : room.depth - 12) : (b.start + b.length / 2);
+            return Math.hypot(aCx - fillerCx, aCy - fillerCy) <= Math.hypot(bCx - fillerCx, bCy - fillerCy) ? a : b;
           });
-          // Prefer a same-width wall cabinet (±0.5") so the stacker sits flush
-          // on the box below; otherwise fall back to the NEAREST wall cabinet on
-          // this wall so a glass stacker ALWAYS ends up on top of a wall cabinet
-          // rather than floating on its own.
-          const byX = [...sameWallCabs].sort(
-            (a, b) => Math.abs(a.x - spot.x) - Math.abs(b.x - spot.x)
-          );
-          const bestMatch =
-            byX.find((p) => Math.abs(p.width - width) <= 0.5) ?? byX[0];
-          if (bestMatch) {
-            // Snap stacker X to align with the wall cabinet below it and MATCH
-            // its width exactly (a stacker is always the width of the box below).
-            const bw = rotatedSize(bestMatch).w;
-            spot = { ...spot, x: bestMatch.x, y: bestMatch.y };
-            stackWidth = bw;
-            toast.success("Stacker snapped above " + (bestMatch.masterCode ?? "wall cabinet"));
-          }
+          const fillerDepth = footprintDepth(c);
+          const snappedSpot = wallPlacementAt(best.start, best.length, fillerDepth, best.side, room);
+          const horizontal = best.side === "top" || best.side === "bottom";
+          finalCab = {
+            ...newCab,
+            x: snappedSpot.x,
+            y: snappedSpot.y,
+            rotation: snappedSpot.rotation,
+            width: horizontal ? best.length : newCab.width,
+            nominalWidth: horizontal ? best.length : newCab.width,
+            depth: horizontal ? newCab.depth : best.length,
+            nominalDepth: horizontal ? newCab.depth : best.length,
+            masterCode: `FILL-${Math.round(best.length * 10) / 10}`,
+          };
         }
-        // ── OTR microwave auto-snap over a range ───────────────────────────
-        // An over-the-range (OTR) microwave (MW-*) belongs directly above the
-        // range/cooktop. When one is placed, find the nearest range/cooktop on
-        // the same wall and center the microwave over its footprint at the wall
-        // (its wall-mounted elevation, 54" bottom, is already correct). Then
-        // suggest the matching short "bridge" wall cabinet that caps the run
-        // above the microwave. The bridge-over-OTR pairing is already exempt in
-        // the collision engine (isBridgeOverRange), so no false alarm is raised.
-        let otrMountBottom: number | undefined;
-        if (isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement })) {
-          const targetWall = cabinetWall(
-            { ...(prev[0] as PlacedCabinet), x: spot.x, y: spot.y, width, depth, rotation: spot.rotation },
-            room
-          );
-          const ranges = prev.filter(
-            (p) =>
-              isRangeOrOven(p.masterCode, p.description) &&
-              cabinetWall(p, room) === targetWall
-          );
-          // Prefer the nearest range along the run axis to the drop point.
-          const byDist = [...ranges].sort(
-            (a, b) =>
-              Math.hypot(a.x - spot.x, a.y - spot.y) -
-              Math.hypot(b.x - spot.x, b.y - spot.y)
-          );
-          const range = byDist[0];
-          if (range) {
-            const rs = rotatedSize(range);
-            const horizontal = targetWall === "top" || targetWall === "bottom";
-            // Center the microwave over the range footprint along the wall run,
-            // keeping it flush to the same wall (its cross-axis position from
-            // wallPlacementAt is already correct).
-            if (horizontal) {
-              spot = { ...spot, x: range.x + rs.w / 2 - width / 2 };
-            } else {
-              spot = { ...spot, y: range.y + rs.d / 2 - depth / 2 };
-            }
-            // OTR microwaves hang above the counter at their catalog elevation.
-            const mwDef = APPLIANCES.find((a) => a.masterCode === "MW-30");
-            otrMountBottom = mwDef?.elevBottom ?? 54;
-            toast.success(t("dt_otr_snapped_over_range"));
-          }
-        }
-        const newCab: PlacedCabinet = {
-          uid: makeUid(),
-          cabinetId: c.id,
-          masterCode: c.masterCode,
-          description: c.description,
-          // Carry catalog category/sub-category so the placed cabinet's canvas
-          // drawing + accessibility label classify it the same as the palette
-          // (otherwise a normal base box whose description says "shelf"/"panel"
-          // is mislabeled "accessory / trim").
-          category: c.category ?? null,
-          subCategory: c.subCategory ?? null,
-          placement: accPlacement,
-          x: spot.x,
-          y: spot.y,
-          width: stackWidth,
-          nominalWidth: stackWidth,
-          depth,
-          nominalDepth: depth,
-          height,
-          nominalHeight: height,
-          rotation: spot.rotation,
-          numberOfDoors: c.numberOfDoors,
-          numberOfDrawers: c.numberOfDrawers,
-          catalogImageUrl: c.catalogImageUrl ?? null,
-          pullMin: c.pullMin ?? null,
-          pullMax: c.pullMax ?? null,
-          // Two-color: ALWAYS stamp the active door style onto this cabinet so it
-          // permanently keeps the color it was placed in, even after the active
-          // style/slot later changes. (Previously we only stamped when slot B
-          // existed and left styleId null otherwise — which caused every
-          // already-placed cabinet to inherit the new default and the WHOLE room
-          // to repaint the moment a 2nd color was activated.) When no style is
-          // chosen yet, fall back to null so the cabinet tracks the single default.
-          styleId: styleIdRef.current ?? null,
-          // Stacker: pin mountBottom to the wall-cabinet top line so the
-          // elevation view places it directly above the standard upper run.
-          ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
-          // OTR microwave: pin mountBottom to its catalog elevation so the
-          // elevation view hangs it above the range at the correct height.
-          ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
-        };
-        justPlacedRef.current = true;
-        setSelectedUid(newCab.uid);
-        // Sink-base auto-fixture: dropping a sink base (SB-*) means there's a
-        // sink there, so auto-place a default single-bowl sink WITH a faucet
-        // (makeSink defaults faucet=true) centered over the cabinet footprint.
-        // The sink is a separate fixture (not a placed cabinet/appliance), so it
-        // never triggers a layout conflict and the user can still drag/remove it.
-        if (isSinkBaseCabinet(newCab)) {
-          const fp = placedFootprint(newCab);
-          const preset = SINK_PRESETS["single"];
-          const sx = Math.max(
-            0,
-            Math.min(newCab.x + fp.w / 2 - preset.width / 2, room.width - preset.width)
-          );
-          const sy = Math.max(
-            0,
-            Math.min(newCab.y + fp.d / 2 - preset.depth / 2, room.depth - preset.depth)
-          );
-          const autoSink = makeSink("single", sx, sy);
-          setSinks((prevSinks) => [...prevSinks, autoSink]);
-          setSelectedSinkUid(autoSink.uid);
-          setCountertop(true); // a sink implies a counter
-          toast.success(t("dt_t_sink_added"));
-        }
-        // Refrigerator: after the fridge lands, open the Refrigerator Options
-        // dialog so the user can add the cabinet above (deep fridge wall cabinet
-        // or shallow bridge), end panels (L/R/both), and/or a smooth panel. The
-        // dialog places everything flush to THIS fridge's footprint. We seed it
-        // from the just-placed fridge; the wall it sits on drives panel sides.
-        if (isRefrigerator(newCab)) {
-          setFridgeDialog({ fridgeUid: newCab.uid });
-        }
-        // Oven tall cabinet: prompt user for single vs double oven type
-        if (cabinetDrawingType(newCab) === "oven-tall") {
-          setOvenDialog({ cabinetUid: newCab.uid });
-        }
-        // Blind corner: the user places fillers manually if needed.
-        // No auto-filler — the pull defaults (width+3 / width+6) handle clearance.
-        //
-        // ── Blind corner auto-stop + auto-swing ─────────────────────────────
-        // When a blind corner is placed, enforce the max pull constraint so it
-        // doesn't exceed the allowed distance from the wall corner. Also auto-set
-        // the door swing to the exposed side (away from the corner).
-        if (isBlindCorner(newCab.masterCode, newCab.description)) {
-          const wallSide = cabinetWall(newCab, room);
-          const horiz = wallSide === "top" || wallSide === "bottom";
-          const wallLen = horiz ? room.width : room.depth;
-          const cabWidth = horiz ? newCab.width : newCab.width;
-          const cabStart = horiz ? newCab.x : newCab.y;
-          const cabEnd = cabStart + cabWidth;
-          const range = blindPullRange(newCab);
-          // The "pull" is the blind portion — how many inches of the cabinet
-          // are hidden behind the perpendicular wall. Standard is 3-6".
-          // Auto-position: place the cabinet so the blind portion = range.max (6").
-          // BBC sits flush against the corner wall with `pull` inches extending
-          // past the perpendicular wall into the corner.
-          const atStart = cabStart <= 2;
-          const atEnd = cabEnd >= wallLen - 2;
-          const cornerAtStart = atStart || (!atEnd && cabStart < wallLen / 2);
-          if (range) {
-            // Store the pull distance as an attribute (defaults to max).
-            newCab.blindPull = range.max;
-            // Position the cabinet so that `range.max` inches are the blind
-            // portion tucked into the corner. The cabinet's near edge starts
-            // at negative pull (i.e. x=0 with the blind portion overlapping
-            // into the corner). In plan view the cabinet starts at x=0 and
-            // the first `pull` inches are the blind section.
-            if (cornerAtStart) {
-              // Corner on left: cabinet starts at x=0, first 6" are blind
-              if (horiz) newCab.x = 0;
-              else newCab.y = 0;
-            } else {
-              // Corner on right: cabinet ends at wallLen, last 6" are blind
-              if (horiz) newCab.x = wallLen - cabWidth;
-              else newCab.y = wallLen - cabWidth;
-            }
-          }
-          // Auto-swing: door faces the exposed side (away from corner).
-          // If corner is at start (left), exposed side is right → swing = "right"
-          // If corner is at end (right), exposed side is left → swing = "left"
-          newCab.swing = cornerAtStart ? "right" : "left";
-        }
+      }
 
-        // Wall-cabinet-above suggestion removed — no auto-prompts when placing base cabinets.
+            // ── Now do all state updates and side effects exactly once ──────────
+      justPlacedRef.current = true;
+      setSelectedUid(finalCab.uid);
+      setPlaced((prev) => [...prev, finalCab]);
 
-
-
-
-                // ── Filler auto-snap ────────────────────────────────────────────
-        // When a filler strip (FILL-*) is placed, find the nearest filler-sized
-        // gap on any wall and snap the filler into it, auto-resizing to fill
-        // the gap exactly. This lets the user just tap a filler from the catalog
-        // and have it jump straight into the right spot.
-        if (/^FILL-/i.test(newCab.masterCode)) {
-          const allGaps = wallGaps(room, prev, openings, 0.5);
-          // Only consider gaps on the same layer as the filler.
-          const fillerLayer = newCab.placement === "wall" ? "wall" : "base";
-          const layerGaps = allGaps.filter((g) => g.layer === fillerLayer && g.length <= 6 && g.length > 0);
-          if (layerGaps.length > 0) {
-            // Pick the gap whose center is closest to the filler's drop position.
-            const fillerCx = newCab.x + newCab.width / 2;
-            const fillerCy = newCab.y + newCab.depth / 2;
-            const best = layerGaps.reduce((a, b) => {
-              const horizontal = (a.side === "top" || a.side === "bottom");
-              const aCx = horizontal ? (a.start + a.length / 2) : (a.side === "left" ? 12 : room.width - 12);
-              const aCy = horizontal ? (a.side === "top" ? 12 : room.depth - 12) : (a.start + a.length / 2);
-              const bCx = (b.side === "top" || b.side === "bottom") ? (b.start + b.length / 2) : (b.side === "left" ? 12 : room.width - 12);
-              const bCy = (b.side === "top" || b.side === "bottom") ? (b.side === "top" ? 12 : room.depth - 12) : (b.start + b.length / 2);
-              return Math.hypot(aCx - fillerCx, aCy - fillerCy) <= Math.hypot(bCx - fillerCx, bCy - fillerCy) ? a : b;
-            });
-            // Snap the filler into the gap: resize it to the gap width and
-            // position it flush against the wall at the gap's start.
-            const fillerDepth = footprintDepth(c);
-            const snappedSpot = wallPlacementAt(best.start, best.length, fillerDepth, best.side, room);
-            const horizontal = best.side === "top" || best.side === "bottom";
-            return [...prev, {
-              ...newCab,
-              x: snappedSpot.x,
-              y: snappedSpot.y,
-              rotation: snappedSpot.rotation,
-              width: horizontal ? best.length : newCab.width,
-              nominalWidth: horizontal ? best.length : newCab.width,
-              depth: horizontal ? newCab.depth : best.length,
-              nominalDepth: horizontal ? newCab.depth : best.length,
-              masterCode: `FILL-${Math.round(best.length * 10) / 10}`,
-            }];
-          }
-        }
-        return [...prev, newCab];
-      });
+      // Sink-base auto-fixture
+      if (isSinkBaseCabinet(finalCab)) {
+        const fp = placedFootprint(finalCab);
+        const preset = SINK_PRESETS["single"];
+        const sx = Math.max(
+          0,
+          Math.min(finalCab.x + fp.w / 2 - preset.width / 2, room.width - preset.width)
+        );
+        const sy = Math.max(
+          0,
+          Math.min(finalCab.y + fp.d / 2 - preset.depth / 2, room.depth - preset.depth)
+        );
+        const autoSink = makeSink("single", sx, sy);
+        setSinks((prevSinks) => [...prevSinks, autoSink]);
+        setSelectedSinkUid(autoSink.uid);
+        setCountertop(true);
+        toast.success(t("dt_t_sink_added"));
+      }
+      // Refrigerator dialog
+      if (isRefrigerator(finalCab)) {
+        setFridgeDialog({ fridgeUid: finalCab.uid });
+      }
+      // Oven tall cabinet dialog
+      if (cabinetDrawingType(finalCab) === "oven-tall") {
+        setOvenDialog({ cabinetUid: finalCab.uid });
+      }
     },
-    [room, activeWall, openings, setSinks, setSelectedSinkUid, setCountertop]
+    [room, activeWall, openings, placed, setSinks, setSelectedSinkUid, setCountertop]
   );
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
