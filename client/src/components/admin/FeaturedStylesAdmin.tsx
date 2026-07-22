@@ -1,7 +1,7 @@
 import { useMemo, useState, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
-  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon,
+  AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, EyeOff, Eye,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,7 @@ interface AdminStyle {
   centerRailWidth: string | null;
   profileNotes: string | null;
   profileDescription?: string | null;
+  isActive: boolean;
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -556,7 +557,7 @@ export default function FeaturedStylesAdmin() {
     const q = search.trim().toLowerCase();
     const distId = distributorFilter === "all" ? null : Number(distributorFilter);
     return styles
-      .filter((s) => !s.isFeatured)
+      .filter((s) => s.isActive && !s.isFeatured)
       .filter((s) => (distId === null ? true : s.distributorId === distId))
       .filter((s) =>
         q
@@ -567,6 +568,37 @@ export default function FeaturedStylesAdmin() {
       )
       .sort((a, b) => a.ourName.localeCompare(b.ourName));
   }, [styles, search, distributorFilter]);
+
+  const inactive = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return styles
+      .filter((s) => !s.isActive)
+      .filter((s) =>
+        q
+          ? `${s.ourName} ${s.doorStyle ?? ""} ${s.color ?? ""} ${s.finish ?? ""}`
+              .toLowerCase()
+              .includes(q)
+          : true,
+      )
+      .sort((a, b) => a.ourName.localeCompare(b.ourName));
+  }, [styles, search]);
+
+  const toggleActive = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
+    onSuccess: () => {
+      utils.doorStyles.listForAdmin.invalidate();
+      utils.doorStyles.featured.invalidate();
+      utils.doorStyles.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  function deactivate(s: AdminStyle) {
+    toggleActive.mutate({ id: s.id, isActive: false });
+    toast.success(`"${s.ourName}" hidden from storefront`);
+  }
+  function activate(s: AdminStyle) {
+    toggleActive.mutate({ id: s.id, isActive: true });
+    toast.success(`"${s.ourName}" restored to storefront`);
+  }
 
   const setFeatured = trpc.doorStyles.setFeatured.useMutation({
     onSuccess: () => {
@@ -855,6 +887,17 @@ export default function FeaturedStylesAdmin() {
                   >
                     <Star className="h-4 w-4 text-muted-foreground/60" />
                   </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => deactivate(s)}
+                    disabled={toggleActive.isPending}
+                    aria-label="Deactivate style"
+                    title="Hide from storefront (deactivate)"
+                  >
+                    <EyeOff className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             ))}
@@ -866,6 +909,57 @@ export default function FeaturedStylesAdmin() {
           </p>
         )}
       </div>
+
+      {/* Inactive / deactivated styles */}
+      {inactive.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+            Inactive styles{" "}
+            <span className="text-muted-foreground/60 normal-case font-normal">({inactive.length} hidden from storefront)</span>
+          </h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {inactive.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 opacity-60"
+              >
+                <div className="shrink-0">
+                  {thumb(s) ? (
+                    <img
+                      src={thumb(s)!}
+                      alt={s.ourName}
+                      className="h-11 w-11 rounded object-cover ring-1 ring-border grayscale"
+                    />
+                  ) : (
+                    <div className="h-11 w-11 rounded bg-muted flex items-center justify-center">
+                      <ImageIcon className="h-4 w-4 text-muted-foreground/40" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm truncate line-through text-muted-foreground">{s.ourName}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                    onClick={() => activate(s)}
+                    disabled={toggleActive.isPending}
+                    aria-label="Restore style"
+                    title="Restore to storefront (activate)"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick-edit dialog — key forces full remount when switching styles so local image state resets */}
       {editingStyle && (

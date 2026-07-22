@@ -274,16 +274,15 @@ export const doorStylesRouter = router({
     return rows.map(scrubDoorStyle);
   }),
 
-  // Admin: every active style with its featured flag/rank, for the manager UI.
+  // Admin: every style (active + inactive) with its featured flag/rank, for the manager UI.
   listForAdmin: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
     const rows = await db
       .select()
       .from(doorStyles)
-      .where(eq(doorStyles.isActive, true))
       .orderBy(asc(doorStyles.ourName));
-    return rows; // admin sees full rows (incl. distributorName) intentionally
+    return rows; // admin sees ALL rows (incl. inactive + distributorName) intentionally
   }),
 
   // Admin: toggle a style's featured state. Enforces the MAX 30 cap on enable.
@@ -364,6 +363,7 @@ export const doorStylesRouter = router({
         centerRailWidth: z.number().min(0).max(99).nullable().optional(),
         profileNotes: z.string().max(256).nullable().optional(),
         profileDescription: z.string().nullable().optional(),
+        isActive: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -387,6 +387,7 @@ export const doorStylesRouter = router({
       if (fields.centerRailWidth !== undefined) patch.centerRailWidth = fields.centerRailWidth ?? null;
       if (fields.profileNotes !== undefined) patch.profileNotes = fields.profileNotes?.trim() || null;
       if (fields.profileDescription !== undefined) patch.profileDescription = fields.profileDescription?.trim() || null;
+      if (fields.isActive !== undefined) patch.isActive = fields.isActive;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(doorStyles).set(patch).where(eq(doorStyles.id, id));
       return { ok: true };
