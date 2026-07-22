@@ -1434,3 +1434,7 @@
 - [x] Add floating category pills (Base, Wall, Tall, Vanity, Accessory, Molding) to the CabinetDetail page that filter within the current door style
 - [x] Add a search input within the category pills to search cabinets within that door style
 - [x] Clicking a category pill shows a scrollable list/grid of cabinets in that category for the same door style
+
+## Feature: Replace room scene hero with expanded category browser on cabinet detail page
+- [x] Remove the "Build This Look" room scene hero image from the cabinet detail page
+- [x] Replace with an expanded grid/list of all cabinets in the current category for the same door style

@@ -29,7 +29,7 @@ import {
 import { CabinetImage } from "@/components/CabinetImage";
 import { cabinetTypeLabel, resolveDoorDrawerCounts, cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
-import { doorFamilyPhoto, realImageUrl } from "@/lib/doorFamilyPhotos";
+import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
 import { finishColors, finishColorsWithName } from "@/lib/design";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -739,128 +739,32 @@ export default function CabinetDetail({ masterCode }: Props) {
         />
       )}
 
-      {/* ── Hero block: room-scene photo (primary) + door thumbnail strip (secondary) ──
-          Layout:
-          1. Full-width lifestyle room-scene photo — tall, immersive, promoted first.
-             When no photo exists: SW-accurate color wash + door photo on the right.
-          2. Compact door-photo thumbnail strip below the hero — real photo of the
-             door panel (not a drawing), tappable to jump to the pricing/specs section. */}
+      {/* ── Door style compact strip (replaces old room-scene hero) ────────────── */}
       {(() => {
-        const realScene = realImageUrl(selectedRow?.roomSceneImageUrl);
         const doorPhoto = doorFamilyPhoto(selectedRow ?? {});
         const styleLabel = selectedRow?.name || selectedRow?.doorStyle || "your finish";
-        const hasScene = !!realScene;
-        return (
-          <>
-            {/* ── 1. Hero image ────────────────────────────────────────── */}
-            <div
-              className="relative overflow-hidden rounded-2xl border border-border mb-4"
-              style={{ minHeight: hasScene ? 360 : 200 }}
-            >
-              {/* Background: room scene photo OR finish color swatch */}
-              {hasScene ? (
-                <img
-                  src={realScene!}
-                  alt={`${styleLabel} kitchen`}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  style={{ objectPosition: "center 30%" }}
-                />
-              ) : (
-                <>
-                  {/* Solid SW-accurate color fills the left 60% */}
-                  <div
-                    className="absolute inset-0"
-                    style={{ backgroundColor: finishFace }}
-                    aria-hidden
-                  />
-                  {/* Door photo floated to the right when available */}
-                  {doorPhoto && (
-                    <div
-                      className="absolute right-0 top-0 bottom-0 w-2/5 overflow-hidden"
-                      style={{ maskImage: "linear-gradient(to right, transparent 0%, black 30%)" }}
-                    >
-                      <img
-                        src={doorPhoto}
-                        alt={`${styleLabel} door panel`}
-                        className="h-full w-full object-cover"
-                        style={{ objectPosition: "center" }}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Gradient overlay — text legibility */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: hasScene
-                    ? "linear-gradient(to right, rgba(13,27,55,0.82) 0%, rgba(13,27,55,0.45) 55%, transparent 100%)"
-                    : "linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.30) 60%, transparent 100%)",
-                }}
-              />
-
-              {/* Text overlay */}
-              <div className="relative px-6 py-8 md:px-10 md:py-12 max-w-2xl">
-                <p className="text-[var(--color-gold,#c9a14a)] text-xs font-semibold uppercase tracking-wider mb-1">
-                  Build this look
-                </p>
-                <h2 className="font-serif text-xl md:text-3xl font-bold text-white leading-tight">
-                  Design your kitchen in {styleLabel}
-                </h2>
-                <p className="text-white/85 text-sm mt-2 max-w-lg">
-                  Shop this cabinet and the full matching line — base, wall, tall, vanity and trim — all in this one finish, with member trade pricing built in.
-                </p>
-                {/* SW color attribution when no room scene */}
-                {!hasScene && swColorName && (
-                  <p className="text-white/60 text-xs mt-3">
-                    Finish color: <span className="font-medium text-white/80">{swColorName}</span>
-                  </p>
-                )}
-                {!hasScene && !swColorName && (
-                  <p className="text-white/50 text-xs mt-3 italic">
-                    Room scene photo coming soon for this finish.
-                  </p>
-                )}
+        return doorPhoto ? (
+          <a
+            href="#pricing"
+            className="flex items-center gap-4 rounded-xl border border-border bg-card p-3 mb-4 hover:border-primary/50 hover:bg-muted/40 transition-colors group"
+            title="View pricing & specs"
+          >
+            <div className="h-14 w-12 rounded-lg overflow-hidden shrink-0 border border-border shadow-sm">
+              <img src={doorPhoto} alt={`${styleLabel} door`} className="h-full w-full object-cover" />
+            </div>
+            <div className="h-14 w-5 rounded shrink-0 border border-border/60" style={{ backgroundColor: finishFace }} title={swColorName ?? styleLabel} />
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm text-foreground truncate">{styleLabel}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {selectedRow?.doorStyle ? `${selectedRow.doorStyle} profile` : "Door style"}
+                {swColorName ? ` · ${swColorName}` : " · true color"}
+              </div>
+              <div className="text-xs text-primary/80 mt-1 group-hover:text-primary transition-colors">
+                Tap to view specs & pricing →
               </div>
             </div>
-
-            {/* ── 2. Door photo thumbnail strip ─────────────────────────── */}
-            {doorPhoto && (
-              <a
-                href="#pricing"
-                className="flex items-center gap-4 rounded-xl border border-border bg-card p-3 mb-6 hover:border-primary/50 hover:bg-muted/40 transition-colors group"
-                title="View pricing & specs"
-              >
-                {/* Real door photo */}
-                <div className="h-16 w-14 rounded-lg overflow-hidden shrink-0 border border-border shadow-sm">
-                  <img
-                    src={doorPhoto}
-                    alt={`${styleLabel} door`}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                {/* Color swatch */}
-                <div
-                  className="h-16 w-6 rounded shrink-0 border border-border/60"
-                  style={{ backgroundColor: finishFace }}
-                  title={swColorName ?? styleLabel}
-                />
-                {/* Label */}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-foreground truncate">{styleLabel}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {selectedRow?.doorStyle ? `${selectedRow.doorStyle} profile` : "Door style"}
-                    {swColorName ? ` · ${swColorName}` : " · true color"}
-                  </div>
-                  <div className="text-xs text-primary/80 mt-1 group-hover:text-primary transition-colors">
-                    Tap to view specs &amp; pricing →
-                  </div>
-                </div>
-              </a>
-            )}
-          </>
-        );
+          </a>
+        ) : null;
       })()}
 
       <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
@@ -1827,14 +1731,14 @@ function StyleCategoryNav({
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(currentCategory ?? null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showResults, setShowResults] = useState(false);
+  const [showResults, setShowResults] = useState(true);
 
   const { data, isLoading } = trpc.cabinets.listForStyle.useQuery(
     {
       styleId,
       category: activeCategory ?? undefined,
       search: searchTerm || undefined,
-      limit: 20,
+      limit: 50,
       offset: 0,
     },
     { enabled: showResults }
@@ -1899,7 +1803,7 @@ function StyleCategoryNav({
 
       {/* Results dropdown */}
       {showResults && (
-        <div className="mt-2 rounded-xl border border-border bg-card shadow-lg max-h-64 overflow-y-auto">
+        <div className="mt-2 rounded-xl border border-border bg-card shadow-lg max-h-96 overflow-y-auto">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border">
             <span className="text-xs text-muted-foreground">
               {isLoading ? "Loading..." : `${total} cabinet${total !== 1 ? "s" : ""} in this style`}
@@ -1944,9 +1848,9 @@ function StyleCategoryNav({
               </Badge>
             </Link>
           ))}
-          {total > 20 && (
+          {total > 50 && (
             <div className="px-3 py-2 text-center text-xs text-muted-foreground border-t border-border">
-              Showing 20 of {total} — use search to narrow results
+              Showing 50 of {total} — use search to narrow results
             </div>
           )}
         </div>
