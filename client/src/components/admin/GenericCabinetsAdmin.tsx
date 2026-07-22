@@ -63,6 +63,7 @@ import {
   AlertCircle,
   ChevronRight as ArrowRight,
   RefreshCw,
+  FolderInput,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -678,9 +679,23 @@ export default function GenericCabinetsAdmin() {
   const [showZipManager, setShowZipManager] = useState(false);
   const [selectedCabinet, setSelectedCabinet] = useState<CabinetRow | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [moveCatOpen, setMoveCatOpen] = useState(false);
+  const [moveCatTarget, setMoveCatTarget] = useState("");
+  const [moveSubCatTarget, setMoveSubCatTarget] = useState<string | null>(null);
+  const [moveNewCat, setMoveNewCat] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
-
   const utils = trpc.useUtils();
+  const moveCatMut = trpc.genericCabinets.bulkMoveCategory.useMutation({
+    onSuccess: (res) => {
+      toast.success(`Moved ${res.count} cabinet${res.count !== 1 ? "s" : ""} to ${moveCatTarget || moveNewCat}`);
+      setSelectedIds(new Set());
+      setMoveCatOpen(false);
+      setMoveCatTarget("");
+      setMoveSubCatTarget(null);
+      setMoveNewCat("");
+      utils.genericCabinets.list.invalidate();
+    },
+  });
 
   const { data, isLoading } = trpc.genericCabinets.list.useQuery({
     search: search || undefined,
@@ -824,6 +839,9 @@ export default function GenericCabinetsAdmin() {
             <Button variant="outline" size="sm" onClick={() => bulkAction("hideDesigner")} disabled={updateMut.isPending}>
               <Wrench className="h-3.5 w-3.5 mr-1 opacity-40" />Hide from Designer
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setMoveCatOpen(true)}>
+              <FolderInput className="h-3.5 w-3.5 mr-1" />Move to Category
+            </Button>
             <button className="ml-auto text-muted-foreground hover:text-foreground" onClick={() => setSelectedIds(new Set())}>
               <X className="h-4 w-4" />
             </button>
@@ -926,6 +944,68 @@ export default function GenericCabinetsAdmin() {
           onSaved={() => utils.genericCabinets.list.invalidate()}
         />
       )}
+
+      {/* ── Move to Category dialog ── */}
+      <Dialog open={moveCatOpen} onOpenChange={setMoveCatOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Move {selectedIds.size} cabinet{selectedIds.size !== 1 ? "s" : ""} to category</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label className="text-sm font-medium">Target Category</Label>
+              <Select value={moveCatTarget} onValueChange={(v) => { setMoveCatTarget(v); setMoveNewCat(""); }}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select existing category…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {data?.categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Separator className="flex-1" />
+              <span className="text-xs text-muted-foreground">or create new</span>
+              <Separator className="flex-1" />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">New Category Name</Label>
+              <Input
+                className="mt-1.5"
+                placeholder="e.g. Glass Decorative Doors"
+                value={moveNewCat}
+                onChange={e => { setMoveNewCat(e.target.value); setMoveCatTarget(""); }}
+              />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Sub-Category (optional)</Label>
+              <Input
+                className="mt-1.5"
+                placeholder="Leave blank to clear sub-category"
+                value={moveSubCatTarget ?? ""}
+                onChange={e => setMoveSubCatTarget(e.target.value || null)}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setMoveCatOpen(false)}>Cancel</Button>
+              <Button
+                disabled={(!moveCatTarget && !moveNewCat.trim()) || moveCatMut.isPending}
+                onClick={() => {
+                  const cat = moveCatTarget || moveNewCat.trim();
+                  if (!cat) return;
+                  moveCatMut.mutate({
+                    ids: Array.from(selectedIds),
+                    category: cat,
+                    subCategory: moveSubCatTarget,
+                  });
+                }}
+              >
+                {moveCatMut.isPending ? "Moving…" : "Move"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

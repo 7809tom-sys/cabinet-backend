@@ -8,7 +8,7 @@
  * - View distributor coverage (which distributors carry each cabinet, with zip codes)
  * - Manage warehouse zip codes per distributor
  */
-import { and, asc, eq, like, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
@@ -599,23 +599,43 @@ export const genericCabinetsRouter = router({
   /**
    * Get distinct categories and sub-categories for filter dropdowns.
    */
+    /** Bulk move selected cabinets to a different category (and optionally sub-category). */
+  bulkMoveCategory: adminProcedure
+    .input(
+      z.object({
+        ids: z.array(z.number()).min(1),
+        category: z.string().min(1).max(64),
+        subCategory: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      const update: Record<string, unknown> = { category: input.category };
+      if (input.subCategory !== undefined) {
+        update.subCategory = input.subCategory;
+      }
+      await db
+        .update(cabinets)
+        .set(update)
+        .where(inArray(cabinets.id, input.ids));
+      return { ok: true, count: input.ids.length };
+    }),
+
   categories: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return { categories: [], subCategories: [] };
-
     const rows = await db
       .select({ category: cabinets.category, subCategory: cabinets.subCategory })
       .from(cabinets)
       .groupBy(cabinets.category, cabinets.subCategory)
       .orderBy(asc(cabinets.category), asc(cabinets.subCategory));
-
     const categories = Array.from(
       new Set(rows.map((r) => r.category).filter(Boolean))
     ) as string[];
     const subCategories = Array.from(
       new Set(rows.map((r) => r.subCategory).filter(Boolean))
     ) as string[];
-
     return { categories, subCategories };
   }),
 });

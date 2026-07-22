@@ -1509,3 +1509,10 @@
 - [x] Add flooring pattern selection (Random Stagger, 1/3 Offset, Diagonal, Herringbone) in Surfaces palette
 - [x] Flooring products already come from real Pelican inventory; rendering now properly changes per product + pattern
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Move products between categories in admin panel
+- [x] Add "Move to Category" button in the bulk action bar (when products are selected)
+- [x] Show a dialog with category dropdown (existing categories) + option to create new category
+- [x] Also allow changing sub-category in the same dialog
+- [x] Bulk update category/subCategory for all selected products via bulkMoveCategory procedure
+- [x] TypeScript check passes; checkpoint saved
