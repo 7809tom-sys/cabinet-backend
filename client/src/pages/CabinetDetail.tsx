@@ -446,6 +446,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editCornerType, setEditCornerType] = useState<string>("__none__");
   const [editOpeningType, setEditOpeningType] = useState<string>("__none__");
   const [editDoorHeight, setEditDoorHeight] = useState<string>("");
+  const [editDrawerHeight, setEditDrawerHeight] = useState<string>("");
   const [editConfigVerified, setEditConfigVerified] = useState(false);
 
   // Pre-fill form when dialog opens
@@ -478,6 +479,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditCornerType(String(cab.cornerType ?? "__none__"));
       setEditOpeningType(String(cab.openingType ?? "__none__"));
       setEditDoorHeight(cab.doorHeight != null ? String(cab.doorHeight) : "");
+      setEditDrawerHeight(cab.drawerHeight != null ? String(cab.drawerHeight) : "");
       setEditConfigVerified(cab.configVerified === true);
     }
   }, [editOpen, cabinet]);
@@ -616,6 +618,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       cornerType: editCornerType === "__none__" ? null : editCornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape",
       openingType: editOpeningType === "__none__" ? null : editOpeningType as "top" | "middle" | "bottom",
       doorHeight: editDoorHeight ? parseFloat(editDoorHeight) : null,
+      drawerHeight: editDrawerHeight ? parseFloat(editDrawerHeight) : null,
       configVerified: editConfigVerified,
     });
   }
@@ -1519,6 +1522,23 @@ export default function CabinetDetail({ masterCode }: Props) {
                     className="h-8 text-sm"
                   />
                   <p className="text-[11px] text-muted-foreground">Height of the door panels. The opening size is calculated from total height minus door/drawer heights.</p>
+                </div>
+              )}
+
+              {/* Drawer Height (shown when drawers > 0) */}
+              {parseInt(editNumDrawers) > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Drawer Height (inches)</Label>
+                  <Input
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    placeholder="e.g. 6"
+                    value={editDrawerHeight}
+                    onChange={(e) => setEditDrawerHeight(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Height of each drawer front in inches.</p>
                 </div>
               )}
 

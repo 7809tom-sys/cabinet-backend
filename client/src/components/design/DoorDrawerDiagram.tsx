@@ -208,17 +208,23 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     const openingLabel = "Appliance Opening";
     const openingSubLabel = "cutout";
 
-    // Use doorHeight from admin config if available to calculate proportions
+    // Use doorHeight and drawerHeight from admin config if available to calculate proportions
     const cabTotalH = toNum(cabinet.height) ?? 84;
     const adminDoorH = cabinet.doorHeight ? Number(cabinet.doorHeight) : null;
+    const adminDrawerH = cabinet.drawerHeight ? Number(cabinet.drawerHeight) : null;
 
     if (openingPos === 'top') {
       // Opening at top, doors/drawers below
       let openingPct: number, doorPct: number, drawerPct: number;
       if (adminDoorH && adminDoorH > 0) {
         doorPct = adminDoorH / cabTotalH;
-        const drawerInches = effectiveDrawers * 5;
+        const drawerInches = adminDrawerH && adminDrawerH > 0 ? adminDrawerH * effectiveDrawers : effectiveDrawers * 5;
         drawerPct = hasDrawers ? drawerInches / cabTotalH : 0;
+        openingPct = Math.max(0.15, 1 - doorPct - drawerPct);
+      } else if (adminDrawerH && adminDrawerH > 0 && hasDrawers) {
+        const drawerInches = adminDrawerH * effectiveDrawers;
+        drawerPct = drawerInches / cabTotalH;
+        doorPct = doorCount > 0 ? 0.30 : 0;
         openingPct = Math.max(0.15, 1 - doorPct - drawerPct);
       } else {
         openingPct = 0.45;
@@ -254,8 +260,13 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       let doorPct: number, drawerPct: number, openingPct: number;
       if (adminDoorH && adminDoorH > 0) {
         doorPct = adminDoorH / cabTotalH;
-        const drawerInches = effectiveDrawers * 5;
+        const drawerInches = adminDrawerH && adminDrawerH > 0 ? adminDrawerH * effectiveDrawers : effectiveDrawers * 5;
         drawerPct = hasDrawers ? drawerInches / cabTotalH : 0;
+        openingPct = Math.max(0.15, 1 - doorPct - drawerPct);
+      } else if (adminDrawerH && adminDrawerH > 0 && hasDrawers) {
+        const drawerInches = adminDrawerH * effectiveDrawers;
+        drawerPct = drawerInches / cabTotalH;
+        doorPct = doorCount > 0 ? 0.30 : 0;
         openingPct = Math.max(0.15, 1 - doorPct - drawerPct);
       } else {
         doorPct    = 0.30;
@@ -291,8 +302,13 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       let topDoorPct: number, drawerPct: number, ovenPct: number;
       if (adminDoorH && adminDoorH > 0) {
         topDoorPct = adminDoorH / cabTotalH;
-        const drawerInches = effectiveDrawers * 5;
+        const drawerInches = adminDrawerH && adminDrawerH > 0 ? adminDrawerH * effectiveDrawers : effectiveDrawers * 5;
         drawerPct = hasDrawers ? drawerInches / cabTotalH : 0;
+        ovenPct = Math.max(0.15, 1 - topDoorPct - drawerPct);
+      } else if (adminDrawerH && adminDrawerH > 0 && hasDrawers) {
+        const drawerInches = adminDrawerH * effectiveDrawers;
+        drawerPct = drawerInches / cabTotalH;
+        topDoorPct = doorCount > 0 ? 0.20 : 0;
         ovenPct = Math.max(0.15, 1 - topDoorPct - drawerPct);
       } else {
         topDoorPct  = 0.20;

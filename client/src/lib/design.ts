@@ -281,6 +281,8 @@ export interface PlacedCabinet {
   // Door height in inches (for cabinets with appliance openings). Used to
   // calculate exact opening size: opening = totalHeight - doorHeight - drawerHeight.
   doorHeight?: number | null;
+  // Drawer height in inches (height of each drawer front)
+  drawerHeight?: number | null;
   // Door orientation: 'side-by-side' or 'stacked'. Drives elevation layout.
   doorOrientation?: "side-by-side" | "stacked" | null;
   // Sink base top type: what sits on top of this sink base cabinet.

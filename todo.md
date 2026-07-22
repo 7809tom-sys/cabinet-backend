@@ -1479,3 +1479,10 @@
 - [x] Fix: Auto-derive placementType from category in both catalog update mutations
 - [x] Fix existing mismatched data (U-18-84-24, U-18-90-24, U-18-96-24 → tall; TK-8 → accessory)
 - [x] Bulk sync all cabinets where placementType didn't match category
+
+## Feature: Drawer height field for accurate rendering
+- [x] Add drawerHeight column to cabinets table in DB schema
+- [x] Add drawerHeight to backend update mutation (catalog.ts)
+- [x] Add drawerHeight input to CabinetDetail front-end edit dialog (shown when drawers > 0)
+- [x] Add drawerHeight input to CabinetConfigAdmin
+- [x] Update DoorDrawerDiagram and ElevationView to use drawerHeight from config

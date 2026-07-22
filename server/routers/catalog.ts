@@ -1478,6 +1478,7 @@ export const cabinetsRouter = router({
         openingType: z.enum(["top", "middle", "bottom"]).nullable().optional(),
         // Door height in inches (used with openingType to calculate opening size)
         doorHeight: z.number().positive().nullable().optional(),
+        drawerHeight: z.number().positive().nullable().optional(),
         // Corner cabinet type: null = standard, or one of the corner types
         cornerType: z.enum(["lazy-susan", "blind-corner", "diagonal", "pie-cut", "l-shape"]).nullable().optional(),
         // Lazy Susan specific
@@ -1536,6 +1537,7 @@ export const cabinetsRouter = router({
       if (input.openingWidth !== undefined) patch.openingWidth = input.openingWidth != null ? String(input.openingWidth) : null;
       if (input.openingType !== undefined) patch.openingType = input.openingType;
       if (input.doorHeight !== undefined) patch.doorHeight = input.doorHeight != null ? String(input.doorHeight) : null;
+      if (input.drawerHeight !== undefined) patch.drawerHeight = input.drawerHeight != null ? String(input.drawerHeight) : null;
       if (input.cornerType !== undefined) patch.cornerType = input.cornerType;
       if (input.shelfRadius !== undefined) patch.shelfRadius = input.shelfRadius != null ? String(input.shelfRadius) : null;
       if (input.shelfCount !== undefined) patch.shelfCount = input.shelfCount;
@@ -2160,6 +2162,7 @@ export const cabinetsRouter = router({
             openingType: cabinets.openingType,
             // Door height for opening calculation
             doorHeight: cabinets.doorHeight,
+            drawerHeight: cabinets.drawerHeight,
             // Corner cabinet type
             cornerType: cabinets.cornerType,
             // Corner measurement fields

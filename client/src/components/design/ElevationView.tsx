@@ -305,6 +305,7 @@ export function ElevationView({
               ovenType={p.ovenType ?? null}
               openingType={p.openingType ?? null}
               doorHeight={p.doorHeight ?? null}
+              drawerHeight={p.drawerHeight ?? null}
               doorOrientation={p.doorOrientation ?? null}
             />
           )}
@@ -1779,7 +1780,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType, openingType, doorHeight, doorOrientation }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -2154,8 +2155,8 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
     } else {
       doorPct = cabDoorCount > 0 ? 40 : 0;
     }
-    // Drawer height: ~5" per drawer
-    const drawerInches = cabDrawerCount * 5;
+    // Drawer height: use admin config drawerHeight if available, otherwise ~5" per drawer
+    const drawerInches = drawerHeight && drawerHeight > 0 ? drawerHeight * cabDrawerCount : cabDrawerCount * 5;
     const drawerPct = totalH > 0 ? (drawerInches / totalH) * 100 : 0;
     const openingPct = Math.max(15, 100 - doorPct - drawerPct);
 

@@ -34,6 +34,8 @@ export interface CabinetLike {
   openingType?: string | null;
   /** Door height in inches (used with openingType to calculate opening size) */
   doorHeight?: number | string | null;
+  /** Drawer height in inches (height of each drawer front) */
+  drawerHeight?: number | string | null;
   /** Door orientation: 'side-by-side' | 'stacked' | null */
   doorOrientation?: string | null;
   /** Oven type selected by user: 'single' | 'double' | null */

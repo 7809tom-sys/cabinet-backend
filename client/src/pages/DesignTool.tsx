@@ -2060,6 +2060,7 @@ export default function DesignTool() {
         pullMax: c.pullMax ?? null,
         openingType: (c as any).openingType ?? null,
         doorHeight: (c as any).doorHeight != null ? Number((c as any).doorHeight) : null,
+        drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
         doorOrientation: (c as any).doorOrientation ?? null,
         styleId: styleIdRef.current ?? null,
         ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
@@ -2266,6 +2267,7 @@ export default function DesignTool() {
             pullMax: c.pullMax ?? null,
             openingType: (c as any).openingType ?? null,
             doorHeight: (c as any).doorHeight != null ? Number((c as any).doorHeight) : null,
+            drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
             doorOrientation: (c as any).doorOrientation ?? null,
             // Stamp the active color so Auto-Fill cabinets keep their finish.
             styleId: styleIdRef.current ?? null,
@@ -2334,6 +2336,7 @@ export default function DesignTool() {
         pullMax: c.pullMax ?? null,
         openingType: (c as any).openingType ?? null,
         doorHeight: (c as any).doorHeight != null ? Number((c as any).doorHeight) : null,
+        drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
         doorOrientation: (c as any).doorOrientation ?? null,
         styleId: styleIdRef.current ?? null,
       };
@@ -2416,6 +2419,7 @@ export default function DesignTool() {
         pullMax: c.pullMax ?? null,
         openingType: (c as any).openingType ?? null,
         doorHeight: (c as any).doorHeight != null ? Number((c as any).doorHeight) : null,
+        drawerHeight: (c as any).drawerHeight != null ? Number((c as any).drawerHeight) : null,
         doorOrientation: (c as any).doorOrientation ?? null,
         styleId: styleIdRef.current ?? null,
       };

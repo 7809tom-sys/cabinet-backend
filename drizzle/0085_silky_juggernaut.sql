@@ -1,0 +1,1 @@
+ALTER TABLE `cabinets` ADD `drawerHeight` decimal(5,2);

@@ -171,6 +171,7 @@ export const cabinets = mysqlTable("cabinets", {
   openingType: varchar("openingType", { length: 16 }),
   // Height of each door panel in inches (used with openingType to calculate opening size)
   doorHeight: decimal("doorHeight", { precision: 5, scale: 2 }),
+  drawerHeight: decimal("drawerHeight", { precision: 5, scale: 2 }),
   numberOfFixedShelves: int("numberOfFixedShelves"),
   numberOfAdjShelves: int("numberOfAdjShelves"),
   isNotCabinet: boolean("isNotCabinet").default(false),

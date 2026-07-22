@@ -66,6 +66,7 @@ type CabinetRow = {
   // Appliance opening
   openingType: string | null;
   doorHeight: string | null;
+  drawerHeight: string | null;
   // Corner cabinet type
   cornerType: string | null;
   // Corner measurement fields
@@ -265,6 +266,7 @@ function EditModal({
       openingWidth: merged.openingWidth != null ? parseFloat(merged.openingWidth) : null,
       openingType: (merged.openingType as "top" | "middle" | "bottom" | null | undefined) ?? null,
       doorHeight: merged.doorHeight != null ? parseFloat(merged.doorHeight) : null,
+      drawerHeight: merged.drawerHeight != null ? parseFloat(merged.drawerHeight) : null,
       cornerType: (merged.cornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape" | null | undefined) ?? null,
       shelfRadius: merged.shelfRadius != null ? parseFloat(merged.shelfRadius) : null,
       shelfCount: merged.shelfCount ?? null,
@@ -540,6 +542,24 @@ function EditModal({
                   </div>
                 )}
 
+                {/* Drawer Height (shown when drawers > 0) */}
+                {(merged.numberOfDrawers ?? 0) > 0 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Drawer Height (inches)</Label>
+                    <Input
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      placeholder="e.g. 6"
+                      value={merged.drawerHeight ?? ""}
+                      onChange={(e) => set("drawerHeight", e.target.value || null)}
+                      disabled={busy}
+                      className="w-full"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Height of each drawer front in inches.</p>
+                  </div>
+                )}
+
                 {/* Door / Drawer Layout Preview — live preview of the door+drawer arrangement */}
                 {(merged.numberOfDoors !== null || merged.numberOfDrawers !== null || merged.openingType) && (
                   <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
@@ -557,6 +577,7 @@ function EditModal({
                           numberOfDrawers: merged.numberOfDrawers,
                           openingType: merged.openingType,
                           doorHeight: merged.doorHeight,
+                          drawerHeight: merged.drawerHeight,
                           doorOrientation: merged.doorOrientation,
                         }}
                         width={160}
