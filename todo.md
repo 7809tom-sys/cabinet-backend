@@ -1497,3 +1497,9 @@
 - [x] 18" wide pantry should show single stacked doors (1 top + 1 bottom), not 2+2 side-by-side
 - [x] ElevationView pantry rendering should respect admin numberOfDoors setting
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Directional nudge buttons (up/down/left/right) for selected cabinet in designer
+- [x] Add arrow button UI (d-pad style) that appears when a cabinet is selected
+- [x] Wire buttons to move the selected cabinet by a small increment (e.g. 1 inch) in the chosen direction
+- [x] Ensure movement respects wall boundaries (uses clampCabinetsToRoom)
+- [x] TypeScript check passes; checkpoint saved

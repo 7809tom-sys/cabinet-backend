@@ -8,7 +8,7 @@ import {
   ChevronUp, ChevronDown, ChevronsDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Move } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6564,6 +6564,53 @@ export default function DesignTool() {
                   moveLocked={cabinetsLocked}
                 />
               </div>
+            </div>
+          )}
+
+          {/* D-pad nudge buttons — appears when a cabinet is selected */}
+          {selectedUid && !cabinetsLocked && !measureMode && (
+            <div className="absolute bottom-20 lg:bottom-4 left-4 z-30 flex flex-col items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => nudgeSelected(0, -1)}
+                className="w-9 h-9 flex items-center justify-center rounded-t-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
+                title="Move up 1 inch"
+              >
+                <ArrowUp className="h-4 w-4 text-[#1a2744]" />
+              </button>
+              <div className="flex gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => nudgeSelected(-1, 0)}
+                  className="w-9 h-9 flex items-center justify-center rounded-l-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
+                  title="Move left 1 inch"
+                >
+                  <ArrowLeft className="h-4 w-4 text-[#1a2744]" />
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  className="w-9 h-9 flex items-center justify-center bg-[#1a2744] border border-[#1a2744] shadow-sm"
+                >
+                  <Move className="h-4 w-4 text-white" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => nudgeSelected(1, 0)}
+                  className="w-9 h-9 flex items-center justify-center rounded-r-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
+                  title="Move right 1 inch"
+                >
+                  <ArrowRight className="h-4 w-4 text-[#1a2744]" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => nudgeSelected(0, 1)}
+                className="w-9 h-9 flex items-center justify-center rounded-b-lg bg-white/90 border border-border shadow-sm hover:bg-white active:scale-95 transition-transform"
+                title="Move down 1 inch"
+              >
+                <ArrowDown className="h-4 w-4 text-[#1a2744]" />
+              </button>
             </div>
           )}
 
