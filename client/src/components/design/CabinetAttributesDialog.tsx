@@ -14,6 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   PlacedCabinet,
@@ -118,6 +121,9 @@ export interface CabinetAttributesDialogProps {
   onSetBlindPull: (uid: string, pull: number) => void;
   // Waterfall countertop edge
   onSetWaterfall: (uid: string, side: "left" | "right", enabled: boolean) => void;
+  // Category / subCategory override — lets the user re-classify a cabinet
+  // (e.g. change Base → Vanity, or update the subCategory label).
+  onSetCategory: (uid: string, category: string, subCategory: string | null) => void;
 }
 
 // Right-click attributes editor for a single placed cabinet (email item 1):
@@ -143,6 +149,7 @@ export function CabinetAttributesDialog({
   glassDoorAvailable,
   onSetBlindPull,
   onSetWaterfall,
+  onSetCategory,
 }: CabinetAttributesDialogProps) {
   const { t } = useLanguage();
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
@@ -219,6 +226,64 @@ export function CabinetAttributesDialog({
                 max={36}
                 onSet={(v) => onSetDepth(uid, v)}
               />
+            </div>
+          </section>
+
+          {/* Category */}
+          <section className="space-y-3 border-t border-border pt-4">
+            <h4 className="text-sm font-semibold">Category</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Category</Label>
+                <Select
+                  value={cabinet.category ?? ""}
+                  onValueChange={(val) => onSetCategory(uid, val, cabinet.subCategory ?? null)}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Base">Base</SelectItem>
+                    <SelectItem value="Wall">Wall</SelectItem>
+                    <SelectItem value="Tall">Tall</SelectItem>
+                    <SelectItem value="Vanity">Vanity</SelectItem>
+                    <SelectItem value="ADA">ADA</SelectItem>
+                    <SelectItem value="Corner">Corner</SelectItem>
+                    <SelectItem value="Accessory">Accessory</SelectItem>
+                    <SelectItem value="Specialty">Specialty</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Sub-Category</Label>
+                <Select
+                  value={cabinet.subCategory ?? "__none__"}
+                  onValueChange={(val) => onSetCategory(uid, cabinet.category ?? "Base", val === "__none__" ? null : val)}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    <SelectItem value="Sink Base">Sink Base</SelectItem>
+                    <SelectItem value="Drawer Base">Drawer Base</SelectItem>
+                    <SelectItem value="Corner Base">Corner Base</SelectItem>
+                    <SelectItem value="Blind Corner">Blind Corner</SelectItem>
+                    <SelectItem value="Lazy Susan">Lazy Susan</SelectItem>
+                    <SelectItem value="Oven Base">Oven Base</SelectItem>
+                    <SelectItem value="Range Base">Range Base</SelectItem>
+                    <SelectItem value="Microwave">Microwave</SelectItem>
+                    <SelectItem value="Refrigerator">Refrigerator</SelectItem>
+                    <SelectItem value="Pantry">Pantry</SelectItem>
+                    <SelectItem value="Utility">Utility</SelectItem>
+                    <SelectItem value="Open Shelf">Open Shelf</SelectItem>
+                    <SelectItem value="Glass Door">Glass Door</SelectItem>
+                    <SelectItem value="Decorative End Panel">Decorative End Panel</SelectItem>
+                    <SelectItem value="Roll-Out Tray">Roll-Out Tray</SelectItem>
+                    <SelectItem value="Trim & Molding">Trim &amp; Molding</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </section>
 
