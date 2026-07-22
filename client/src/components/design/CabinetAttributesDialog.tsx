@@ -27,6 +27,7 @@ import {
   blindPullRange,
 } from "@/lib/design";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
+import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 
 // A single dimension stepper (−/value/+) used inside the dialog.
 function Dim({
@@ -447,6 +448,15 @@ export function CabinetAttributesDialog({
             </section>
           )}
 
+          {/* Door & Drawer Layout diagram */}
+          {!noDoor && (
+            <section className="rounded-xl border border-border bg-muted/30 p-3">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Door &amp; Drawer Layout</div>
+              <div className="flex justify-center">
+                <DoorDrawerDiagram cabinet={cabinet} width={200} />
+              </div>
+            </section>
+          )}
           {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
           <RollOutTrayPicker
             cabinet={cabinet}
