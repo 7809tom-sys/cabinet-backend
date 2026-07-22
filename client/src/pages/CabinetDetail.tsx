@@ -1825,20 +1825,25 @@ function StyleCategoryNav({
   const [activeCategory, setActiveCategory] = useState<string | null>(currentCategory ?? null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showResults, setShowResults] = useState(true);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 50;
 
   const { data, isLoading } = trpc.cabinets.listForStyle.useQuery(
     {
       styleId,
       category: activeCategory ?? undefined,
       search: searchTerm || undefined,
-      limit: 50,
-      offset: 0,
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
     },
     { enabled: showResults }
   );
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const hasNext = page < totalPages - 1;
+  const hasPrev = page > 0;
 
   // Categories to show as pills
   const categories = ["Base", "Wall", "Tall", "Vanity", "Filler", "Molding", "Accessory"];
@@ -1851,6 +1856,7 @@ function StyleCategoryNav({
           onClick={() => {
             setActiveCategory(null);
             setShowResults(true);
+            setPage(0);
           }}
           className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
             activeCategory === null && showResults
@@ -1866,6 +1872,7 @@ function StyleCategoryNav({
             onClick={() => {
               setActiveCategory(cat);
               setShowResults(true);
+              setPage(0);
             }}
             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
               activeCategory === cat && showResults
@@ -1888,6 +1895,7 @@ function StyleCategoryNav({
             onChange={(e) => {
               setSearchTerm(e.target.value);
               setShowResults(true);
+              setPage(0);
             }}
             className="pl-8 pr-3 py-1.5 rounded-full text-xs border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring w-36"
           />
@@ -1941,9 +1949,25 @@ function StyleCategoryNav({
               </Badge>
             </Link>
           ))}
-          {total > 50 && (
-            <div className="px-3 py-2 text-center text-xs text-muted-foreground border-t border-border">
-              Showing 50 of {total} — use search to narrow results
+          {total > PAGE_SIZE && (
+            <div className="px-3 py-2 flex items-center justify-between border-t border-border">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={!hasPrev}
+                className="px-3 py-1 rounded text-xs font-medium border border-border bg-white hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Prev
+              </button>
+              <span className="text-xs text-muted-foreground">
+                {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={!hasNext}
+                className="px-3 py-1 rounded text-xs font-medium border border-border bg-white hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
             </div>
           )}
         </div>
