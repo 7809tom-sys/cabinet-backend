@@ -1107,15 +1107,122 @@ export function PlanCanvas({
                 }}
                 title={`${p.masterCode} — ${p.description}`}
               >
-                <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5">
+                <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
+                  {/* Appliance-specific top-down icons */}
+                  {isAppliance && (() => {
+                    const mc = (p.masterCode || "").toUpperCase();
+                    if (mc.startsWith("RANGE")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          {([{cx:30,cy:30},{cx:70,cy:30},{cx:30,cy:70},{cx:70,cy:70}] as {cx:number;cy:number}[]).map((b,i)=>(
+                            <g key={i}>
+                              <circle cx={b.cx} cy={b.cy} r={14} fill="none" stroke="#666" strokeWidth="3"/>
+                              <circle cx={b.cx} cy={b.cy} r={7} fill="none" stroke="#666" strokeWidth="2"/>
+                              <circle cx={b.cx} cy={b.cy} r={2.5} fill="#555"/>
+                            </g>
+                          ))}
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("FRIDGE")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x={10} y={10} width={80} height={80} rx={4} fill="none" stroke="#666" strokeWidth="3"/>
+                          <rect x={15} y={15} width={70} height={70} rx={2} fill="#ccc" fillOpacity={0.3}/>
+                          <rect x={72} y={30} width={8} height={40} rx={3} fill="#888"/>
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("DW")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x={10} y={10} width={80} height={80} rx={3} fill="none" stroke="#666" strokeWidth="3"/>
+                          <rect x={10} y={10} width={80} height={18} rx={3} fill="#aaa" fillOpacity={0.4}/>
+                          <circle cx={50} cy={55} r={22} fill="none" stroke="#888" strokeWidth="2" strokeDasharray="6 4"/>
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("HOOD")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <polygon points="20,20 80,20 65,80 35,80" fill="#aaa" fillOpacity={0.4} stroke="#666" strokeWidth="3"/>
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("MW")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x={10} y={15} width={80} height={70} rx={4} fill="none" stroke="#666" strokeWidth="3"/>
+                          <rect x={15} y={20} width={55} height={60} rx={2} fill="#ccc" fillOpacity={0.3}/>
+                          <rect x={74} y={20} width={12} height={60} rx={2} fill="#aaa" fillOpacity={0.5}/>
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("WINE")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x={10} y={10} width={80} height={80} rx={3} fill="none" stroke="#666" strokeWidth="3"/>
+                          {([20,40,60,80] as number[]).map(y=>(
+                            <line key={y} x1={10} y1={y} x2={90} y2={y} stroke="#888" strokeWidth="1.5"/>
+                          ))}
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("SINK") || mc.startsWith("FIX-BATHSINK") || mc.startsWith("FIX-LAUNDRYTUB")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x={10} y={10} width={80} height={80} rx={4} fill="none" stroke="#666" strokeWidth="2"/>
+                          <ellipse cx={50} cy={52} rx={32} ry={28} fill="none" stroke="#888" strokeWidth="2"/>
+                          <circle cx={50} cy={52} r={5} fill="#888"/>
+                          <line x1={50} y1={18} x2={50} y2={30} stroke="#888" strokeWidth="3" strokeLinecap="round"/>
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("FIX-TOILET")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x={20} y={10} width={60} height={30} rx={4} fill="none" stroke="#666" strokeWidth="2"/>
+                          <ellipse cx={50} cy={70} rx={30} ry={25} fill="none" stroke="#888" strokeWidth="2"/>
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("FIX-SHOWER")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x={10} y={10} width={80} height={80} rx={4} fill="none" stroke="#666" strokeWidth="2"/>
+                          <circle cx={50} cy={50} r={25} fill="none" stroke="#888" strokeWidth="2" strokeDasharray="5 3"/>
+                          <circle cx={50} cy={50} r={5} fill="#888"/>
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("FIX-TUB")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x={10} y={10} width={80} height={80} rx={8} fill="none" stroke="#666" strokeWidth="2"/>
+                          <ellipse cx={50} cy={55} rx={32} ry={26} fill="none" stroke="#888" strokeWidth="2"/>
+                          <circle cx={50} cy={20} r={5} fill="#888"/>
+                        </svg>
+                      );
+                    }
+                    if (mc.startsWith("FIX-WASHER") || mc.startsWith("FIX-DRYER")) {
+                      return (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x={10} y={10} width={80} height={80} rx={4} fill="none" stroke="#666" strokeWidth="2"/>
+                          <circle cx={50} cy={50} r={30} fill="none" stroke="#888" strokeWidth="2"/>
+                          <circle cx={50} cy={50} r={18} fill="none" stroke="#aaa" strokeWidth="2"/>
+                        </svg>
+                      );
+                    }
+                    return null;
+                  })()}
                   <span
-                    className="text-[9px] font-bold leading-none truncate max-w-full"
+                    className="text-[9px] font-bold leading-none truncate max-w-full relative z-10"
                     style={{ color: lbl.color, textShadow: lbl.shadow }}
                   >
                     {p.masterCode}
                   </span>
                   <span
-                    className="text-[7px] leading-none mt-0.5"
+                    className="text-[7px] leading-none mt-0.5 relative z-10"
                     style={{ color: lbl.color, opacity: 0.8, textShadow: lbl.shadow }}
                   >
                     {Math.round(p.width)}"
