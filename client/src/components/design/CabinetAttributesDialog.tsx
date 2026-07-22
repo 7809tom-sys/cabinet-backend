@@ -29,6 +29,7 @@ import {
   isBlindCorner,
   blindPullRange,
 } from "@/lib/design";
+import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 
@@ -124,6 +125,8 @@ export interface CabinetAttributesDialogProps {
   // Category / subCategory override — lets the user re-classify a cabinet
   // (e.g. change Base → Vanity, or update the subCategory label).
   onSetCategory: (uid: string, category: string, subCategory: string | null) => void;
+  // Oven type: single or double — only shown for oven-tall cabinets
+  onSetOvenType: (uid: string, ovenType: "single" | "double") => void;
 }
 
 // Right-click attributes editor for a single placed cabinet (email item 1):
@@ -150,6 +153,7 @@ export function CabinetAttributesDialog({
   onSetBlindPull,
   onSetWaterfall,
   onSetCategory,
+  onSetOvenType,
 }: CabinetAttributesDialogProps) {
   const { t } = useLanguage();
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
@@ -229,6 +233,46 @@ export function CabinetAttributesDialog({
             </div>
           </section>
 
+          {/* Oven Type — only for oven-tall cabinets */}
+          {cabinetDrawingType(cabinet) === "oven-tall" && (
+            <section className="space-y-3 border-t border-border pt-4">
+              <h4 className="text-sm font-semibold">Oven Type</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-colors",
+                    (cabinet.ovenType ?? "single") === "single"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary"
+                  )}
+                  onClick={() => onSetOvenType(uid, "single")}
+                >
+                  <img
+                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-single-front-U843ihaYrWbB8xwKsMyngZ.webp"
+                    alt="Single oven"
+                    className="w-16 h-20 object-cover rounded-lg"
+                  />
+                  <span className="text-xs font-medium">Single Oven</span>
+                </button>
+                <button
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-colors",
+                    cabinet.ovenType === "double"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary"
+                  )}
+                  onClick={() => onSetOvenType(uid, "double")}
+                >
+                  <img
+                    src="https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/oven-double-front-n2DaWbuTecczH4YKk7fJbo.webp"
+                    alt="Double oven"
+                    className="w-16 h-20 object-cover rounded-lg"
+                  />
+                  <span className="text-xs font-medium">Double Oven</span>
+                </button>
+              </div>
+            </section>
+          )}
           {/* Category */}
           <section className="space-y-3 border-t border-border pt-4">
             <h4 className="text-sm font-semibold">Category</h4>

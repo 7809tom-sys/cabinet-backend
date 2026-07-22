@@ -7448,6 +7448,7 @@ export default function DesignTool() {
         onSetBlindPull={(uid, pull) => setCabAttr(uid, { blindPull: pull })}
         onSetWaterfall={(uid, side, enabled) => setCabAttr(uid, side === "left" ? { waterfallLeft: enabled } : { waterfallRight: enabled })}
         onSetCategory={(uid, category, subCategory) => setCabAttr(uid, { category, subCategory })}
+        onSetOvenType={(uid, ovenType) => setCabAttr(uid, { ovenType })}
       />
 
       {/* Refrigerator Options: opens right after a fridge is dropped */}
@@ -7627,14 +7628,15 @@ export default function DesignTool() {
       {/* Oven Type Dialog: opens when an oven tall cabinet (O-code) is placed */}
       {ovenDialog && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setOvenDialog(null)} />
+          <div className="absolute inset-0 bg-black/50" />
           <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-[340px] max-w-[90vw] flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
             <h2 className="text-lg font-semibold text-foreground">Oven Cabinet Type</h2>
             <p className="text-sm text-muted-foreground">Is this going to be a single oven or a double oven?</p>
             <div className="grid grid-cols-2 gap-3">
               <button
                 className="flex flex-col items-center gap-2 rounded-xl border-2 border-border hover:border-primary p-4 transition-colors"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (ovenDialog) setCabAttr(ovenDialog.cabinetUid, { ovenType: "single" });
                   setOvenDialog(null);
                 }}
@@ -7649,7 +7651,8 @@ export default function DesignTool() {
               </button>
               <button
                 className="flex flex-col items-center gap-2 rounded-xl border-2 border-border hover:border-primary p-4 transition-colors"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (ovenDialog) setCabAttr(ovenDialog.cabinetUid, { ovenType: "double" });
                   setOvenDialog(null);
                 }}
