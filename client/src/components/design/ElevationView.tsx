@@ -1114,23 +1114,23 @@ export function ElevationView({
                 zIndex: 8,
               }}
             >
+              {/* SVG gradient defs — always rendered so both fill IDs resolve */}
+              <defs>
+                <linearGradient id={`ss-grad-${p.uid}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#d8dde6"/>
+                  <stop offset="30%" stopColor="#b8bec9"/>
+                  <stop offset="60%" stopColor="#c4cad4"/>
+                  <stop offset="100%" stopColor="#a8aebb"/>
+                </linearGradient>
+                <linearGradient id={`bg-grad-${p.uid}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#1a1a1a"/>
+                  <stop offset="100%" stopColor="#2a2a2a"/>
+                </linearGradient>
+              </defs>
               {/* Stainless steel / black glass cooktop face panel */}
               <rect x={0} y={0} width={panelW} height={panelH}
-                fill={isSmooth
-                  ? "linear-gradient(180deg,#1a1a1a 0%,#2a2a2a 100%)"
-                  : "url(#ss-grad)"}
+                fill={isSmooth ? `url(#bg-grad-${p.uid})` : `url(#ss-grad-${p.uid})`}
                 rx={0} />
-              {/* Subtle stainless sheen for gas/electric */}
-              {!isSmooth && (
-                <defs>
-                  <linearGradient id="ss-grad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#d8dde6"/>
-                    <stop offset="30%" stopColor="#b8bec9"/>
-                    <stop offset="60%" stopColor="#c4cad4"/>
-                    <stop offset="100%" stopColor="#a8aebb"/>
-                  </linearGradient>
-                </defs>
-              )}
               {/* Thin border */}
               <rect x={0} y={0} width={panelW} height={panelH}
                 fill="none" stroke={isSmooth ? "#444" : "#8a9099"} strokeWidth={1.5} />
