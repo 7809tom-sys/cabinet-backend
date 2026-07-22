@@ -11,6 +11,7 @@ import {
   CATEGORY_GRADIENT,
 } from "@/lib/pelican";
 import { ArrowRight, Waves, PencilRuler, Sparkles } from "lucide-react";
+import { EditableText } from "@/components/admin/EditableText";
 
 export default function Surfaces() {
   useSeo({
@@ -33,12 +34,14 @@ export default function Surfaces() {
             <Waves className="h-3.5 w-3.5 text-[var(--color-gold)]" /> Surfaces & Fixtures
           </div>
           <h1 className="max-w-3xl font-serif text-4xl font-bold leading-tight md:text-5xl">
-            Finish the whole room, not just the cabinets.
+            <EditableText pageKey="surfaces" field="hero_title" defaultValue="Finish the whole room, not just the cabinets.">
+              {(v) => <>{v}</>}
+            </EditableText>
           </h1>
           <p className="mt-4 max-w-2xl text-white/70">
-            Quartz countertops, waterproof flooring, tile, sinks, faucets, showers, tubs and
-            more — sourced through Pelican and priced for the trade. Add them straight into
-            your kitchen design or browse by category below.
+            <EditableText pageKey="surfaces" field="hero_subtitle" defaultValue="Quartz countertops, waterproof flooring, tile, sinks, faucets, showers, tubs and more — sourced through Pelican and priced for the trade. Add them straight into your kitchen design or browse by category below." multiline>
+              {(v) => <>{v}</>}
+            </EditableText>
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/design-surfaces">

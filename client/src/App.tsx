@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TopNav } from "@/components/TopNav";
 import { SiteFooter } from "@/components/SiteFooter";
+import { AdminEditModeBar } from "@/components/admin/AdminEditModeBar";
 import ChatWidget from "@/components/ChatWidget";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/NotFound";
@@ -63,6 +64,7 @@ function PageLoader() {
 function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
+      <AdminEditModeBar />
       <TopNav />
       <main className="flex-1">
         {children}
@@ -90,7 +92,10 @@ export default function App() {
       <ThemeProvider defaultTheme="light">
       <Switch>
         {/* Home has its own footer, no AppLayout wrapper needed */}
-        <Route path="/" component={Home} />
+        <Route path="/">
+          <AdminEditModeBar />
+          <Home />
+        </Route>
 
         {/* Branded affiliate storefront — its own header/footer, no AppLayout */}
         <Route path="/store/:slug">

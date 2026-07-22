@@ -26,6 +26,8 @@ import {
   Upload, Camera, AlertTriangle, Trash2, ImageIcon,
 } from "lucide-react";
 
+import { EditableText } from "@/components/admin/EditableText";
+
 const HERO_IMG = "/manus-storage/plumbers-choice-hero_5d58ea20.jpg";
 
 // The two Pelican categories that make up a plumber's bathroom install kit
@@ -204,12 +206,19 @@ export default function PlumbersChoice() {
               StoneCreek Exclusive
             </Badge>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-white leading-tight">
-              Plumber's Choice
-              <span className="block text-[var(--color-gold)]">Collection</span>
+              <EditableText pageKey="plumbers-choice" field="hero_title" defaultValue="Plumber's Choice">
+                {(v) => <>{v}</>}
+              </EditableText>
+              <span className="block text-[var(--color-gold)]">
+                <EditableText pageKey="plumbers-choice" field="hero_title_accent" defaultValue="Collection">
+                  {(v) => <>{v}</>}
+                </EditableText>
+              </span>
             </h1>
             <p className="mt-4 text-lg md:text-xl text-white/80 leading-relaxed max-w-xl">
-              Everything you need for a complete bathroom install — showers, toilets, bidets, and bath fixtures.
-              Trade pricing, one order, one shipment.
+              <EditableText pageKey="plumbers-choice" field="hero_subtitle" defaultValue="Everything you need for a complete bathroom install — showers, toilets, bidets, and bath fixtures. Trade pricing, one order, one shipment." multiline>
+                {(v) => <>{v}</>}
+              </EditableText>
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button

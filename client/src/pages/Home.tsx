@@ -8,7 +8,7 @@ import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
-
+import { EditableText } from "@/components/admin/EditableText";
 
 const CDN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M";
 
@@ -76,13 +76,21 @@ function Hero() {
             </div>
 
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              Your One-Stop Shop for
+              <EditableText pageKey="home" field="hero_title_line1" defaultValue="Your One-Stop Shop for">
+                {(v) => <>{v}</>}
+              </EditableText>
               <br />
-              <span className="text-[var(--color-gold)]">Kitchen & Bath.</span>
+              <span className="text-[var(--color-gold)]">
+                <EditableText pageKey="home" field="hero_title_line2" defaultValue="Kitchen & Bath.">
+                  {(v) => <>{v}</>}
+                </EditableText>
+              </span>
             </h1>
 
             <p className="text-lg md:text-xl text-white/75 mb-8 leading-relaxed">
-              Cabinets, countertops, tile, flooring, sinks, faucets, showers, and toilets — all at trade pricing. Design kitchens in 2D, browse thousands of products, and submit orders in one membership.
+              <EditableText pageKey="home" field="hero_subtitle" defaultValue="Cabinets, countertops, tile, flooring, sinks, faucets, showers, and toilets — all at trade pricing. Design kitchens in 2D, browse thousands of products, and submit orders in one membership." multiline>
+                {(v) => <>{v}</>}
+              </EditableText>
             </p>
 
             {/* CTAs */}
@@ -196,17 +204,23 @@ function FeaturedStyles() {
   return (
     <section className="py-10 md:py-20">
       <div className="container">
-        <div className="text-center mb-8 md:mb-12">
+          <div className="text-center mb-8 md:mb-12">
           <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
             <span className="h-px w-8 bg-[var(--color-wood)]" />
-            Featured Door Styles
+            <EditableText pageKey="home" field="featured_eyebrow" defaultValue="Featured Door Styles">
+              {(v) => <>{v}</>}
+            </EditableText>
             <span className="h-px w-8 bg-[var(--color-wood)]" />
           </div>
           <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
-            Find Your Perfect Kitchen Style
+            <EditableText pageKey="home" field="featured_title" defaultValue="Find Your Perfect Kitchen Style">
+              {(v) => <>{v}</>}
+            </EditableText>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Browse our most popular door styles — each available in multiple finishes. Shop the full catalog or jump straight into the 2D design tool.
+            <EditableText pageKey="home" field="featured_subtitle" defaultValue="Browse our most popular door styles — each available in multiple finishes. Shop the full catalog or jump straight into the 2D design tool." multiline>
+              {(v) => <>{v}</>}
+            </EditableText>
           </p>
         </div>
 
@@ -342,10 +356,14 @@ function ProductShowcase() {
             <span className="h-px w-8 bg-[var(--color-wood)]" />
           </div>
           <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
-            One Platform, Every Product
+            <EditableText pageKey="home" field="showcase_title" defaultValue="One Platform, Every Product">
+              {(v) => <>{v}</>}
+            </EditableText>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            From countertops to complete bathroom kits — shop everything for your next kitchen or bath project at trade pricing.
+            <EditableText pageKey="home" field="showcase_subtitle" defaultValue="From countertops to complete bathroom kits — shop everything for your next kitchen or bath project at trade pricing." multiline>
+              {(v) => <>{v}</>}
+            </EditableText>
           </p>
         </div>
 
@@ -556,10 +574,14 @@ function AffiliatePromo() {
             Affiliate Program
           </div>
           <h2 className="font-serif text-3xl md:text-5xl font-bold text-foreground mb-4">
-            Become a Cabinet Dealz Affiliate
+            <EditableText pageKey="home" field="affiliate_title" defaultValue="Become a Cabinet Dealz Affiliate">
+              {(v) => <>{v}</>}
+            </EditableText>
           </h2>
           <p className="text-muted-foreground text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
-            Launch your own branded kitchen & bath storefront — backed by the full Cabinet Dealz product catalog, trade pricing, and fulfillment network. Zero inventory. Zero risk. Maximum earning potential.
+            <EditableText pageKey="home" field="affiliate_subtitle" defaultValue="Launch your own branded kitchen & bath storefront — backed by the full Cabinet Dealz product catalog, trade pricing, and fulfillment network. Zero inventory. Zero risk. Maximum earning potential." multiline>
+              {(v) => <>{v}</>}
+            </EditableText>
           </p>
         </div>
 
@@ -583,7 +605,9 @@ function AffiliatePromo() {
             </Button>
           </Link>
           <p className="text-sm text-muted-foreground mt-3">
-            Free to join. No upfront costs. Start earning from day one.
+            <EditableText pageKey="home" field="affiliate_note" defaultValue="Free to join. No upfront costs. Start earning from day one.">
+              {(v) => <>{v}</>}
+            </EditableText>
           </p>
         </div>
       </div>

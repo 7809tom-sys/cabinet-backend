@@ -10,6 +10,7 @@ import { formatPrice } from "@/lib/pelican";
 import { requestSurfaceHandoff } from "@/lib/surfaceSelection";
 import { toast } from "sonner";
 import { Droplets, ShowerHead, ChefHat, ArrowRight, Sparkles, PaintBucket, ShoppingCart } from "lucide-react";
+import { EditableText } from "@/components/admin/EditableText";
 import { useCart } from "@/contexts/CartContext";
 
 const HERO_KITCHEN = "https://d2xsxph8kpxj0f.cloudfront.net/310519663775888316/DQ7pUcbPFvKvFZ8JnyMs4M/stonecreek-kitchen-hero-GNgNkcBRXKeBwSEoXrBMBg.webp";
@@ -154,14 +155,19 @@ export default function StoneCreekCollection() {
               <Sparkles className="mr-1 h-3 w-3" /> Exclusive Collection
             </Badge>
             <h1 className="text-5xl font-bold tracking-tight text-white md:text-6xl">
-              StoneCreek
+              <EditableText pageKey="stonecreek" field="hero_title" defaultValue="StoneCreek">
+                {(v) => <>{v}</>}
+              </EditableText>
             </h1>
             <p className="mt-2 text-lg text-white/80 font-light">
-              Premium Sinks & Faucets
+              <EditableText pageKey="stonecreek" field="hero_tagline" defaultValue="Premium Sinks & Faucets">
+                {(v) => <>{v}</>}
+              </EditableText>
             </p>
             <p className="mt-4 text-base text-white/70 max-w-md leading-relaxed">
-              Solid brass construction. Precision ceramic cartridges. Lead-free and backed by a
-              lifetime warranty. Designed for kitchens and bathrooms that demand more.
+              <EditableText pageKey="stonecreek" field="hero_subtitle" defaultValue="Solid brass construction. Precision ceramic cartridges. Lead-free and backed by a lifetime warranty. Designed for kitchens and bathrooms that demand more." multiline>
+                {(v) => <>{v}</>}
+              </EditableText>
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button

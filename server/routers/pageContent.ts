@@ -6,7 +6,23 @@ import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { TRPCError } from "@trpc/server";
 
 export const pageContentRouter = router({
-  /** Public: get all content for a page */
+  /** Public: get ALL content overrides in one query.
+   *  Used by LanguageContext to apply admin text edits globally.
+   *  Returns { pageKey: { field: value } }
+   */
+  getAll: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return {} as Record<string, Record<string, string>>;
+    const rows = await db.select().from(pageContent);
+    const map: Record<string, Record<string, string>> = {};
+    for (const row of rows) {
+      if (!map[row.pageKey]) map[row.pageKey] = {};
+      map[row.pageKey][row.field] = row.value ?? "";
+    }
+    return map;
+  }),
+
+  /** Public: get all content for a single page */
   getPage: publicProcedure
     .input(z.object({ pageKey: z.string() }))
     .query(async ({ input }) => {
