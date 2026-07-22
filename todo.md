@@ -1399,3 +1399,10 @@
 - [x] Revert isBridgeable exclusion — countertop slab still runs under the cooktop (cooktop at z-22 covers it)
 - [x] Burners arranged in single row of 4 (thin/wide panel) instead of 2x2 grid
 - [x] TypeScript check passes; checkpoint saved
+
+## Improvement: Realistic surface rendering in Elevation View
+- [x] Flooring pattern: staggered plank joints (not straight grid) for hardwood/LVP look
+- [x] Countertop: realistic quartz/stone texture with subtle veining instead of flat color
+- [x] Backsplash: improve tile pattern realism (grout lines, depth, proper subway offset)
+- [x] Sink: realistic basin shape with shadow/depth instead of flat outline
+- [x] Faucet: realistic metallic rendering with highlights instead of simple line art

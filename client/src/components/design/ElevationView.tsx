@@ -6,6 +6,7 @@ import {
   wallCeiling, wallCeilingIsSloped,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint,
+  flooringMaterial,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -77,6 +78,9 @@ interface Props {
   onMoveVertical?: (uid: string, mountBottom: number) => void;
   // When true, cabinets cannot be dragged (locked layout).
   moveLocked?: boolean;
+  // When set, renders the floor strip with the selected flooring material pattern
+  // (staggered planks for hardwood/LVP, tile grid, etc.). null/undefined = default wood.
+  flooringMaterialId?: string | null;
 }
 
 export function ElevationView({
@@ -86,6 +90,7 @@ export function ElevationView({
   hardwareStyleId = null,
   finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor, seamCabinets = [],
   onMove, onMoveVertical, moveLocked = false,
+  flooringMaterialId = null,
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
@@ -584,18 +589,79 @@ export function ElevationView({
           height: wallPxH + PADDING,
         }}
       >
-        {/* Floor plane */}
-        <div
-          className="absolute left-0 right-0 pointer-events-none"
-          style={{
-            bottom: 0,
-            height: PADDING,
-            background:
-              "repeating-linear-gradient(90deg, transparent 0px, transparent 38px, rgba(0,0,0,0.06) 38px, rgba(0,0,0,0.06) 40px), repeating-linear-gradient(0deg, rgba(0,0,0,0.04) 0px, rgba(0,0,0,0.04) 1px, transparent 1px, transparent 8px), linear-gradient(180deg, #c8a96e 0%, #b8955a 30%, #c4a068 60%, #b08c52 100%)",
-            borderTop: "3px solid #7a5c34",
-            boxShadow: "inset 0 8px 14px -6px rgba(0,0,0,0.45)",
-          }}
-        />
+        {/* Floor plane — material-aware with staggered plank joints */}
+        {(() => {
+          const fm = flooringMaterial(flooringMaterialId);
+          // Compute tile/plank dimensions scaled to the elevation PPI.
+          // In elevation the floor is a thin strip (PADDING px tall), so we
+          // scale plank dimensions to look proportional.
+          const plankW = Math.max(12, fm.tileW * ppi * 0.7);
+          const plankH = Math.max(6, Math.min(PADDING / 2.5, fm.tileH * ppi * 0.15));
+
+          let bgImage: string;
+          let bgSize: string | undefined;
+          const g = fm.grout;
+
+          if (fm.pattern === "hardwood" || fm.pattern === "plank") {
+            // Staggered planks: alternate rows offset by 1/3 width (brick-lay).
+            const offset = Math.round(plankW / 3);
+            const h2 = plankH * 2;
+            const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${plankW}' height='${h2}'>`
+              + `<rect x='0' y='0' width='${plankW}' height='${h2}' fill='none'/>`
+              + `<line x1='0' y1='0' x2='${plankW}' y2='0' stroke='${g}' stroke-width='0.7' opacity='0.6'/>`
+              + `<line x1='0' y1='${plankH}' x2='${plankW}' y2='${plankH}' stroke='${g}' stroke-width='0.7' opacity='0.6'/>`
+              + `<line x1='0' y1='0' x2='0' y2='${plankH}' stroke='${g}' stroke-width='0.5' opacity='0.5'/>`
+              + `<line x1='${offset}' y1='${plankH}' x2='${offset}' y2='${h2}' stroke='${g}' stroke-width='0.5' opacity='0.5'/>`
+              + `</svg>`;
+            bgImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+            bgSize = `${plankW}px ${h2}px`;
+          } else if (fm.pattern === "tile-stagger") {
+            const offset = Math.round(plankW / 2);
+            const h2 = plankH * 2;
+            const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${plankW}' height='${h2}'>`
+              + `<rect x='0' y='0' width='${plankW}' height='${h2}' fill='none'/>`
+              + `<line x1='0' y1='0' x2='${plankW}' y2='0' stroke='${g}' stroke-width='0.8'/>`
+              + `<line x1='0' y1='${plankH}' x2='${plankW}' y2='${plankH}' stroke='${g}' stroke-width='0.8'/>`
+              + `<line x1='0' y1='0' x2='0' y2='${plankH}' stroke='${g}' stroke-width='0.6'/>`
+              + `<line x1='${offset}' y1='${plankH}' x2='${offset}' y2='${h2}' stroke='${g}' stroke-width='0.6'/>`
+              + `</svg>`;
+            bgImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+            bgSize = `${plankW}px ${h2}px`;
+          } else if (fm.pattern === "tile-grid" || fm.pattern === "tile-diagonal") {
+            const tw = Math.max(10, plankW * 0.8);
+            const th = Math.max(8, plankH * 1.2);
+            bgImage = `repeating-linear-gradient(0deg, ${g} 0px, ${g} 1px, transparent 1px, transparent ${th}px), repeating-linear-gradient(90deg, ${g} 0px, ${g} 1px, transparent 1px, transparent ${tw}px)`;
+            bgSize = undefined;
+          } else if (fm.pattern === "herringbone" || fm.pattern === "chevron") {
+            const angle = fm.pattern === "chevron" ? 60 : 45;
+            bgImage = `repeating-linear-gradient(${angle}deg, ${g} 0px, ${g} 1px, transparent 1px, transparent ${plankH}px), repeating-linear-gradient(-${angle}deg, ${g} 0px, ${g} 1px, transparent 1px, transparent ${plankH}px)`;
+            bgSize = undefined;
+          } else {
+            // solid / concrete — subtle noise
+            bgImage = "none";
+            bgSize = undefined;
+          }
+
+          // Subtle wood-grain overlay for hardwood/plank (adds realism)
+          const grainOverlay = (fm.pattern === "hardwood" || fm.pattern === "plank")
+            ? ", repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 3px)"
+            : "";
+
+          return (
+            <div
+              className="absolute left-0 right-0 pointer-events-none"
+              style={{
+                bottom: 0,
+                height: PADDING,
+                background: `linear-gradient(180deg, color-mix(in srgb, ${fm.fill} 92%, #ffffff) 0%, ${fm.fill} 35%, color-mix(in srgb, ${fm.fill} 88%, #000000) 100%)`,
+                backgroundImage: bgImage !== "none" ? bgImage + grainOverlay : grainOverlay || undefined,
+                backgroundSize: bgSize,
+                borderTop: `2px solid color-mix(in srgb, ${fm.fill} 50%, #000000)`,
+                boxShadow: "inset 0 6px 12px -4px rgba(0,0,0,0.35)",
+              }}
+            />
+          );
+        })()}
         {/* Soft contact shadow where the wall/cabinets meet the floor. */}
         <div
           className="absolute pointer-events-none"
@@ -724,21 +790,20 @@ export function ElevationView({
                   style={{
                     left: (r.start - OVERHANG_IN) * ppi,
                     width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
-                    // Bottom edge sits flush on top of 34.5" base cabinets.
-                    // The slab extends UP by THICKNESS_IN (1.5") to reach 36".
-                    // Math.ceil ensures the slab never bleeds below the cabinet
-                    // top edge due to sub-pixel rounding at fractional PPI values.
                     bottom: Math.ceil(STD.BASE_HEIGHT * ppi),
                     height: THICKNESS_IN * ppi,
-                    // Polished stone slab: a glossy highlight streak across the
-                    // front nosing plus subtle speckle tint from the material.
+                    // Polished stone slab with subtle veining for realism.
                     background: mat.speckle
                       ? `linear-gradient(180deg, color-mix(in srgb, ${mat.fill} 80%, #ffffff) 0%, ${mat.fill} 45%, color-mix(in srgb, ${mat.fill} 90%, #000000) 100%)`
                       : `linear-gradient(180deg, color-mix(in srgb, ${mat.fill} 82%, #ffffff) 0%, ${mat.fill} 55%, color-mix(in srgb, ${mat.fill} 88%, #000000) 100%)`,
+                    // Subtle diagonal veining for marble/quartz look
+                    backgroundImage: mat.speckle
+                      ? `repeating-linear-gradient(135deg, transparent 0px, transparent 8px, ${mat.speckle}22 9px, transparent 10px, transparent 22px, ${mat.speckle}18 23px, transparent 24px)`
+                      : undefined,
                     borderTop: `1px solid color-mix(in srgb, ${mat.fill} 60%, #ffffff)`,
                     borderBottom: `1px solid ${mat.edge}`,
-                    // Slab thickness shadow underneath + glossy top sheen.
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.55)",
+                    // Slab thickness shadow + glossy top sheen + polished reflection.
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.1)",
                   }}
                   title={t("dt_ev_countertop", { material: mat.name })}
                 />
@@ -848,17 +913,33 @@ export function ElevationView({
           const winOpenings = viewOpenings.filter((o) => o.kind === "window");
           const tileWPx = Math.max(8, (bsMat.pattern === "subway" ? 16 : bsMat.pattern === "mosaic" ? 5 : 12) * ppi / 12);
           const tileHPx = Math.max(6, (bsMat.pattern === "subway" ? 8 : bsMat.pattern === "mosaic" ? 5 : 12) * ppi / 12);
-          const bgImage = bsMat.pattern === "subway"
-            ? `repeating-linear-gradient(0deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px), repeating-linear-gradient(90deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileWPx}px)`
-            : bsMat.pattern === "mosaic"
-            ? `repeating-linear-gradient(0deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px), repeating-linear-gradient(90deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileWPx}px)`
-            : bsMat.pattern === "large-format"
-            ? `repeating-linear-gradient(0deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx * 2}px), repeating-linear-gradient(90deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileWPx * 2}px)`
-            : bsMat.pattern === "herringbone"
-            ? `repeating-linear-gradient(45deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px), repeating-linear-gradient(-45deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px)`
-            : bsMat.pattern === "hexagon"
-            ? `radial-gradient(circle at 50% 50%, ${bsMat.grout} 1px, transparent 1px)`
-            : undefined;
+          // Subway tiles use a staggered brick-lay SVG (offset every other row by
+          // half tile width) for realism instead of a simple grid.
+          let bgImage: string | undefined;
+          let bgSize: string | undefined;
+          if (bsMat.pattern === "subway") {
+            const tw = tileWPx;
+            const th = tileHPx;
+            const offset = Math.round(tw / 2);
+            const h2 = th * 2;
+            const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tw}' height='${h2}'>`
+              + `<rect x='0' y='0' width='${tw}' height='${h2}' fill='none'/>`
+              + `<line x1='0' y1='0' x2='${tw}' y2='0' stroke='${bsMat.grout}' stroke-width='1'/>`
+              + `<line x1='0' y1='${th}' x2='${tw}' y2='${th}' stroke='${bsMat.grout}' stroke-width='1'/>`
+              + `<line x1='0' y1='0' x2='0' y2='${th}' stroke='${bsMat.grout}' stroke-width='1'/>`
+              + `<line x1='${offset}' y1='${th}' x2='${offset}' y2='${h2}' stroke='${bsMat.grout}' stroke-width='1'/>`
+              + `</svg>`;
+            bgImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+            bgSize = `${tw}px ${h2}px`;
+          } else if (bsMat.pattern === "mosaic") {
+            bgImage = `repeating-linear-gradient(0deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px), repeating-linear-gradient(90deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileWPx}px)`;
+          } else if (bsMat.pattern === "large-format") {
+            bgImage = `repeating-linear-gradient(0deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx * 2}px), repeating-linear-gradient(90deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileWPx * 2}px)`;
+          } else if (bsMat.pattern === "herringbone") {
+            bgImage = `repeating-linear-gradient(45deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px), repeating-linear-gradient(-45deg, ${bsMat.grout} 0px, ${bsMat.grout} 1px, transparent 1px, transparent ${tileHPx}px)`;
+          } else if (bsMat.pattern === "hexagon") {
+            bgImage = `radial-gradient(circle at 50% 50%, ${bsMat.grout} 1px, transparent 1px)`;
+          }
 
           // Build segments: standard 18" height across the wall, with taller
           // sections behind the range. Window openings are cut out.
@@ -978,7 +1059,7 @@ export function ElevationView({
                     height: seg.height,
                     background: bsMat.fill,
                     backgroundImage: bgImage,
-                    backgroundSize: bsMat.pattern === "hexagon" ? `${tileWPx}px ${tileHPx}px` : undefined,
+                    backgroundSize: bgSize ?? (bsMat.pattern === "hexagon" ? `${tileWPx}px ${tileHPx}px` : undefined),
                     borderTop: `1px solid ${bsMat.grout}`,
                     borderBottom: `1px solid ${bsMat.grout}`,
                     opacity: 0.85,
@@ -1050,8 +1131,8 @@ export function ElevationView({
           const knobR = Math.max(3, 1.5 * ppi);
           const svgW = spoutW + knobR * 3;
           const svgH = riserH + knobR * 2 + 4;
-          // Always use drawn SVG faucet in elevation view — product photos have white
-          // backgrounds that look like a white box in the drawing.
+          // Realistic brushed-nickel faucet with gooseneck curve, metallic
+          // gradients, and proper proportions.
           return (
             <svg
               key={`faucet-${p.uid}`}
@@ -1065,14 +1146,31 @@ export function ElevationView({
                 zIndex: 26,
               }}
             >
-              {/* Vertical riser */}
-              <rect x={svgW / 2 - riserThick / 2} y={0} width={riserThick} height={riserH} fill="#8a9bb0" rx={1} />
-              {/* Horizontal spout arm (goes left from riser top) */}
-              <rect x={svgW / 2 - spoutW} y={riserH * 0.15} width={spoutW} height={spoutThick} fill="#8a9bb0" rx={1} />
-              {/* Aerator / spout tip */}
-              <circle cx={svgW / 2 - spoutW} cy={riserH * 0.15 + spoutThick / 2} r={Math.max(2, 2 * ppi)} fill="#6b7d90" />
-              {/* Handle knob (right side of riser) */}
-              <circle cx={svgW / 2 + knobR * 1.2} cy={riserH * 0.5} r={knobR} fill="#c0ccd8" stroke="#8a9bb0" strokeWidth={1} />
+              <defs>
+                <linearGradient id={`faucet-metal-${p.uid}`} x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#a8b8c8" />
+                  <stop offset="35%" stopColor="#d0dce6" />
+                  <stop offset="60%" stopColor="#b8c8d4" />
+                  <stop offset="100%" stopColor="#8a9aaa" />
+                </linearGradient>
+              </defs>
+              {/* Base plate / escutcheon */}
+              <ellipse cx={svgW / 2} cy={svgH - 1} rx={riserThick * 1.5} ry={riserThick * 0.5} fill="#7a8a9a" opacity={0.5} />
+              {/* Vertical riser with metallic gradient */}
+              <rect x={svgW / 2 - riserThick / 2} y={svgH - riserH} width={riserThick} height={riserH} fill={`url(#faucet-metal-${p.uid})`} rx={riserThick * 0.3} />
+              {/* Gooseneck curve at top */}
+              <path
+                d={`M ${svgW / 2} ${svgH - riserH} Q ${svgW / 2} ${svgH - riserH - spoutThick * 1.5} ${svgW / 2 - spoutW * 0.4} ${svgH - riserH - spoutThick * 0.8}`}
+                stroke="#a0b0c0" strokeWidth={spoutThick} fill="none" strokeLinecap="round"
+              />
+              {/* Spout arm extending from curve */}
+              <rect x={svgW / 2 - spoutW} y={svgH - riserH - spoutThick * 0.3} width={spoutW * 0.65} height={spoutThick * 0.8} fill={`url(#faucet-metal-${p.uid})`} rx={spoutThick * 0.3} />
+              {/* Aerator tip (darker, tapered) */}
+              <rect x={svgW / 2 - spoutW - 1} y={svgH - riserH - spoutThick * 0.1} width={Math.max(3, spoutThick * 0.6)} height={Math.max(3, spoutThick * 1.2)} fill="#5a6a7a" rx={1} />
+              {/* Handle lever */}
+              <rect x={svgW / 2 + riserThick * 0.3} y={svgH - riserH * 0.55} width={knobR * 2.2} height={spoutThick * 0.6} fill="#b8c8d8" rx={spoutThick * 0.2} stroke="#8a9aaa" strokeWidth={0.5} />
+              {/* Handle pivot */}
+              <circle cx={svgW / 2 + riserThick * 0.3} cy={svgH - riserH * 0.55 + spoutThick * 0.3} r={Math.max(2, spoutThick * 0.35)} fill="#8a9aaa" />
             </svg>
           );
         })}
@@ -1194,18 +1292,29 @@ export function ElevationView({
                 zIndex: 6,
               }}
             >
-              {/* Apron face panel — fireclay white */}
+              {/* Apron face panel — fireclay white with subtle ceramic sheen */}
               <div
                 className="absolute inset-0"
                 style={{
-                  background: "linear-gradient(180deg, #f8f9fb 0%, #eef1f5 35%, #e4e8ee 70%, #d8dce4 100%)",
-                  borderTop: "1.5px solid #c8cdd6",
-                  borderLeft: "1px solid #d0d4dc",
-                  borderRight: "1px solid #d0d4dc",
-                  boxShadow: "inset 0 2px 6px rgba(0,0,0,0.08), inset 0 -1px 3px rgba(0,0,0,0.06)",
+                  background: "linear-gradient(180deg, #fafbfc 0%, #f2f4f7 20%, #eaecf0 50%, #e2e5ea 75%, #dce0e6 100%)",
+                  borderTop: "2px solid #c0c6cf",
+                  borderLeft: "1.5px solid #cdd2da",
+                  borderRight: "1.5px solid #cdd2da",
+                  borderBottom: "1px solid #b8bec8",
+                  borderRadius: "2px 2px 4px 4px",
+                  boxShadow: "inset 0 2px 8px rgba(0,0,0,0.06), inset 0 -2px 4px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.12)",
                 }}
               />
-              {/* Basin cutout impression */}
+              {/* Subtle horizontal bead line (fireclay detail) */}
+              <div
+                className="absolute left-[8%] right-[8%]"
+                style={{
+                  top: "18%",
+                  height: 1,
+                  background: "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.06) 20%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.06) 80%, transparent 100%)",
+                }}
+              />
+              {/* Basin cutout impression — deeper shadow for realism */}
               <div
                 className="absolute"
                 style={{
@@ -1213,24 +1322,24 @@ export function ElevationView({
                   width: basinW,
                   bottom: basinBottom,
                   height: basinH,
-                  background: "linear-gradient(180deg, #c8cdd6 0%, #b8bec9 40%, #a8aebb 100%)",
-                  borderRadius: "3px 3px 6px 6px",
-                  boxShadow: "inset 0 3px 8px rgba(0,0,0,0.22), inset 0 1px 3px rgba(0,0,0,0.15), 0 0 0 1px #9aa0ad",
+                  background: "linear-gradient(180deg, #b8c0cc 0%, #a8b0bc 30%, #98a0ac 60%, #909aaa 100%)",
+                  borderRadius: "3px 3px 8px 8px",
+                  boxShadow: "inset 0 4px 10px rgba(0,0,0,0.28), inset 0 1px 4px rgba(0,0,0,0.18), 0 0 0 1.5px #8a94a4",
                 }}
               >
-                {/* Drain circle */}
+                {/* Drain grate — metallic ring with crosshatch */}
                 <div
                   className="absolute"
                   style={{
                     left: "50%",
                     bottom: "12%",
-                    width: Math.max(4, 2.5 * ppi),
-                    height: Math.max(4, 2.5 * ppi),
-                    marginLeft: -(Math.max(4, 2.5 * ppi) / 2),
+                    width: Math.max(5, 3 * ppi),
+                    height: Math.max(5, 3 * ppi),
+                    marginLeft: -(Math.max(5, 3 * ppi) / 2),
                     borderRadius: "50%",
-                    background: "#7a8090",
-                    border: "1px solid #5a6070",
-                    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.4)",
+                    background: "radial-gradient(circle, #4a5060 0%, #5a6575 40%, #6a7585 70%, #7a8595 100%)",
+                    border: "1.5px solid #3a4555",
+                    boxShadow: "inset 0 2px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(255,255,255,0.15)",
                   }}
                 />
               </div>

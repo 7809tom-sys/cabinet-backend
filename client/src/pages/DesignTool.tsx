@@ -6342,6 +6342,7 @@ export default function DesignTool() {
               onSelectWall={setActiveWall}
               countertopMaterialId={countertop ? countertopMaterialId : null}
               backsplashMaterialId={backsplashMaterialId}
+              flooringMaterialId={flooringMaterialId}
               openings={openings}
               finish={activeFinish}
               crown={crown}
@@ -6503,6 +6504,7 @@ export default function DesignTool() {
                   onSelectWall={setActiveWall}
                   countertopMaterialId={countertop ? countertopMaterialId : null}
                   backsplashMaterialId={backsplashMaterialId}
+                  flooringMaterialId={flooringMaterialId}
                   openings={openings}
                   finish={activeFinish}
                   crown={crown}
