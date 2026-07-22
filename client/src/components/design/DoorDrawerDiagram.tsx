@@ -327,25 +327,30 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       });
     }
 
-  } else if (effectiveDrawers > 0 && effectiveDoors > 0) {
-    // Standard base: drawer band on top, doors below
-    const drawerBandH = Math.round(iH * DRAWER_BAND_PCT);
+    } else if (effectiveDrawers > 0 && effectiveDoors > 0) {
+    // Standard base: drawer rows stacked on top, doors side-by-side below
+    const drawerBandH = Math.min(
+      Math.round(iH * DRAWER_BAND_PCT * effectiveDrawers),
+      Math.round(iH * 0.55) // never take more than 55% of height
+    );
     const doorH = iH - drawerBandH;
     const cols = Math.max(1, effectiveDoors);
     const colW = iW / cols;
-    // Drawer fronts (top band, one per column)
-    for (let i = 0; i < cols; i++) {
-      const drawerLabel = cols === 1 ? "Drawer" : `Drawer ${i + 1}`;
+    const drawerSliceH = drawerBandH / effectiveDrawers;
+    // Drawer fronts: one row per drawer, full width
+    for (let i = 0; i < effectiveDrawers; i++) {
+      const drawerLabel = effectiveDrawers === 1 ? "Drawer" : `Drawer ${i + 1}`;
       zones.push({
-        x: PAD + i * colW, y: PAD,
-        w: colW, h: drawerBandH,
+        x: PAD, y: PAD + i * drawerSliceH,
+        w: iW, h: drawerSliceH,
         fill: CLR.drawer, stroke: CLR.drawerStroke,
         label: drawerLabel,
       });
+      if (i < effectiveDrawers - 1) rails.push({ y: PAD + (i + 1) * drawerSliceH });
     }
-    // Rail
+    // Rail between drawer band and doors
     rails.push({ y: PAD + drawerBandH });
-    // Doors (bottom region)
+    // Doors (bottom region, side by side)
     for (let i = 0; i < cols; i++) {
       const doorLabel =
         cols === 1 ? "Door" :
@@ -358,7 +363,6 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
         label: doorLabel,
       });
     }
-
   } else if (effectiveDrawers > 0 && effectiveDoors === 0) {
     // All-drawer base: stacked drawers
     const sliceH = iH / effectiveDrawers;
