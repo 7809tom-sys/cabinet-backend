@@ -58,6 +58,7 @@ export const designRouter = router({
           catalogImageUrl: cabinets.catalogImageUrl,
           minPull: cabinets.minPull,
           maxPull: cabinets.maxPull,
+          openingType: cabinets.openingType,
         })
         .from(cabinets)
         // showInDesigner=false hides a cabinet from the Kitchen Designer palette

@@ -1465,6 +1465,8 @@ export const cabinetsRouter = router({
         minPull: z.number().positive().nullable().optional(),
         maxPull: z.number().positive().nullable().optional(),
         openingWidth: z.number().positive().nullable().optional(),
+        // Appliance opening (oven cutout) position: null = none, 'top' | 'middle' | 'bottom'
+        openingType: z.enum(["top", "middle", "bottom"]).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1499,6 +1501,7 @@ export const cabinetsRouter = router({
       if (input.minPull !== undefined) patch.minPull = input.minPull != null ? String(input.minPull) : null;
       if (input.maxPull !== undefined) patch.maxPull = input.maxPull != null ? String(input.maxPull) : null;
       if (input.openingWidth !== undefined) patch.openingWidth = input.openingWidth != null ? String(input.openingWidth) : null;
+      if (input.openingType !== undefined) patch.openingType = input.openingType;
       if (Object.keys(patch).length === 0) return { ok: true };
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
       // Aliases are purely informational cross-references.
@@ -2094,6 +2097,8 @@ export const cabinetsRouter = router({
             minPull: cabinets.minPull,
             maxPull: cabinets.maxPull,
             openingWidth: cabinets.openingWidth,
+            // Appliance opening type
+            openingType: cabinets.openingType,
           })
           .from(cabinets)
           .where(where)

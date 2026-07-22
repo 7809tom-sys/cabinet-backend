@@ -76,8 +76,10 @@ function parseDrawers(desc: string): number {
   return 0;
 }
 
-/** Detect oven / tall-oven cabinets by code prefix or description. */
+/** Detect oven / tall-oven cabinets by DB openingType field, code prefix, or description. */
 function isOvenCabinet(cab: CabinetLike): boolean {
+  // DB field takes priority — if admin explicitly set openingType, trust it
+  if (cab.openingType === 'top' || cab.openingType === 'middle' || cab.openingType === 'bottom') return true;
   const code = lc(cab.masterCode);
   const desc = lc(cab.description);
   const sub  = lc(cab.subCategory);
@@ -87,6 +89,15 @@ function isOvenCabinet(cab: CabinetLike): boolean {
   if (/oven(?:\s+cabinet|\s+tower|\s+tall|\s+utility)?/.test(desc) && !/microwave/.test(desc)) return true;
   if (/oven/.test(sub)) return true;
   return false;
+}
+
+/** Get the opening position for a cabinet: 'top' | 'middle' | 'bottom'. Defaults to 'middle'. */
+function getOpeningPosition(cab: CabinetLike): 'top' | 'middle' | 'bottom' {
+  if (cab.openingType === 'top' || cab.openingType === 'middle' || cab.openingType === 'bottom') {
+    return cab.openingType;
+  }
+  // Default: oven opening is in the middle (doors on top, drawers on bottom)
+  return 'middle';
 }
 
 /** Render a single rectangular zone with fill + label centred inside. */
@@ -186,63 +197,102 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     // Open cabinet (noDoor flag or genuinely no doors/drawers) — nothing to draw inside
 
   } else if (isOven) {
-    // ── Oven cabinet layout ────────────────────────────────────────────────
-    // Typical oven tower: 2 small doors on top (~20%), oven opening (~45%), drawers at bottom (~35%)
-    // Proportions are approximate; adjust based on whether there are drawers.
-    const topDoorCount = Math.max(1, effectiveDoors);
+    // ── Appliance opening cabinet layout ───────────────────────────────────────────────────────────────────────────
+    // Layout depends on openingType:
+    //   'top'    — opening on top, doors/drawers below
+    //   'middle' — doors on top, opening in middle, drawers at bottom (default)
+    //   'bottom' — doors on top, drawers in middle, opening at bottom
+    const openingPos = getOpeningPosition(cabinet);
+    const doorCount = Math.max(1, effectiveDoors);
     const hasDrawers = effectiveDrawers > 0;
+    const openingLabel = "Appliance Opening";
+    const openingSubLabel = "cutout";
 
-    // Height proportions
-    const topDoorPct  = 0.20;
-    const drawerPct   = hasDrawers ? Math.max(0.10 * effectiveDrawers, 0.25) : 0;
-    const ovenPct     = Math.max(0.20, 1 - topDoorPct - drawerPct);
+    if (openingPos === 'top') {
+      // Opening at top, doors/drawers below
+      const openingPct = 0.45;
+      const doorPct    = hasDrawers ? 0.30 : (1 - openingPct);
+      const drawerPct  = hasDrawers ? Math.max(0.10 * effectiveDrawers, 1 - openingPct - doorPct) : 0;
+      const openingH = Math.round(iH * openingPct);
+      const doorH    = Math.round(iH * doorPct);
+      const drawerH  = iH - openingH - doorH;
 
-    const topDoorH = Math.round(iH * topDoorPct);
-    const drawerH  = Math.round(iH * drawerPct);
-    const ovenH    = iH - topDoorH - drawerH;
+      // Opening at top
+      zones.push({ x: PAD, y: PAD, w: iW, h: openingH, fill: CLR.oven, stroke: CLR.ovenStroke, label: openingLabel, subLabel: openingSubLabel });
+      rails.push({ y: PAD + openingH });
 
-    // Top doors (side-by-side)
-    const doorColW = iW / topDoorCount;
-    for (let i = 0; i < topDoorCount; i++) {
-      const doorLabel =
-        topDoorCount === 1 ? "Door" :
-        topDoorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") :
-        `Door ${i + 1}`;
-      zones.push({
-        x: PAD + i * doorColW, y: PAD,
-        w: doorColW, h: topDoorH,
-        fill: CLR.door, stroke: CLR.doorStroke,
-        label: doorLabel,
-        subLabel: "upper",
-      });
-    }
+      // Doors below opening
+      const doorColW = iW / doorCount;
+      for (let i = 0; i < doorCount; i++) {
+        const doorLabel = doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") : `Door ${i + 1}`;
+        zones.push({ x: PAD + i * doorColW, y: PAD + openingH, w: doorColW, h: doorH, fill: CLR.door, stroke: CLR.doorStroke, label: doorLabel });
+      }
 
-    // Rail between top doors and oven
-    rails.push({ y: PAD + topDoorH });
+      // Drawers at bottom
+      if (hasDrawers) {
+        rails.push({ y: PAD + openingH + doorH });
+        const sliceH = drawerH / effectiveDrawers;
+        for (let i = 0; i < effectiveDrawers; i++) {
+          zones.push({ x: PAD, y: PAD + openingH + doorH + i * sliceH, w: iW, h: sliceH, fill: CLR.drawer, stroke: CLR.drawerStroke, label: `Drawer ${i + 1}`, subLabel: i === effectiveDrawers - 1 ? "bottom" : undefined });
+        }
+      }
 
-    // Oven opening (gray cutout)
-    zones.push({
-      x: PAD, y: PAD + topDoorH,
-      w: iW, h: ovenH,
-      fill: CLR.oven, stroke: CLR.ovenStroke,
-      label: "Oven Opening",
-      subLabel: "appliance cutout",
-    });
+    } else if (openingPos === 'bottom') {
+      // Doors on top, opening at bottom (no drawers below opening)
+      const doorPct    = 0.30;
+      const drawerPct  = hasDrawers ? Math.max(0.10 * effectiveDrawers, 0.25) : 0;
+      const openingPct = Math.max(0.20, 1 - doorPct - drawerPct);
+      const doorH    = Math.round(iH * doorPct);
+      const drawerH  = Math.round(iH * drawerPct);
+      const openingH = iH - doorH - drawerH;
 
-    // Rail between oven and drawers
-    if (hasDrawers) {
-      rails.push({ y: PAD + topDoorH + ovenH });
+      // Doors at top
+      const doorColW = iW / doorCount;
+      for (let i = 0; i < doorCount; i++) {
+        const doorLabel = doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") : `Door ${i + 1}`;
+        zones.push({ x: PAD + i * doorColW, y: PAD, w: doorColW, h: doorH, fill: CLR.door, stroke: CLR.doorStroke, label: doorLabel, subLabel: "upper" });
+      }
+      rails.push({ y: PAD + doorH });
 
-      // Drawers at bottom (stacked)
-      const sliceH = drawerH / effectiveDrawers;
-      for (let i = 0; i < effectiveDrawers; i++) {
-        zones.push({
-          x: PAD, y: PAD + topDoorH + ovenH + i * sliceH,
-          w: iW, h: sliceH,
-          fill: CLR.drawer, stroke: CLR.drawerStroke,
-          label: `Drawer ${i + 1}`,
-          subLabel: i === effectiveDrawers - 1 ? "bottom" : undefined,
-        });
+      // Drawers in middle (if any)
+      if (hasDrawers) {
+        const sliceH = drawerH / effectiveDrawers;
+        for (let i = 0; i < effectiveDrawers; i++) {
+          zones.push({ x: PAD, y: PAD + doorH + i * sliceH, w: iW, h: sliceH, fill: CLR.drawer, stroke: CLR.drawerStroke, label: `Drawer ${i + 1}` });
+        }
+        rails.push({ y: PAD + doorH + drawerH });
+      }
+
+      // Opening at bottom
+      zones.push({ x: PAD, y: PAD + doorH + drawerH, w: iW, h: openingH, fill: CLR.oven, stroke: CLR.ovenStroke, label: openingLabel, subLabel: openingSubLabel });
+
+    } else {
+      // Default 'middle': doors on top, opening in middle, drawers at bottom
+      const topDoorPct  = 0.20;
+      const drawerPct   = hasDrawers ? Math.max(0.10 * effectiveDrawers, 0.25) : 0;
+      const ovenPct     = Math.max(0.20, 1 - topDoorPct - drawerPct);
+      const topDoorH = Math.round(iH * topDoorPct);
+      const drawerH  = Math.round(iH * drawerPct);
+      const ovenH    = iH - topDoorH - drawerH;
+
+      // Top doors (side-by-side)
+      const doorColW = iW / doorCount;
+      for (let i = 0; i < doorCount; i++) {
+        const doorLabel = doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left Door" : "Right Door") : `Door ${i + 1}`;
+        zones.push({ x: PAD + i * doorColW, y: PAD, w: doorColW, h: topDoorH, fill: CLR.door, stroke: CLR.doorStroke, label: doorLabel, subLabel: "upper" });
+      }
+      rails.push({ y: PAD + topDoorH });
+
+      // Opening in middle
+      zones.push({ x: PAD, y: PAD + topDoorH, w: iW, h: ovenH, fill: CLR.oven, stroke: CLR.ovenStroke, label: openingLabel, subLabel: openingSubLabel });
+
+      // Drawers at bottom
+      if (hasDrawers) {
+        rails.push({ y: PAD + topDoorH + ovenH });
+        const sliceH = drawerH / effectiveDrawers;
+        for (let i = 0; i < effectiveDrawers; i++) {
+          zones.push({ x: PAD, y: PAD + topDoorH + ovenH + i * sliceH, w: iW, h: sliceH, fill: CLR.drawer, stroke: CLR.drawerStroke, label: `Drawer ${i + 1}`, subLabel: i === effectiveDrawers - 1 ? "bottom" : undefined });
+        }
       }
     }
 
@@ -347,7 +397,7 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
   const legendItems: { color: string; label: string }[] = [];
   if (legendDoors > 0) legendItems.push({ color: CLR.door, label: `${legendDoors} Door${legendDoors > 1 ? "s" : ""}` });
   if (legendDrawers > 0) legendItems.push({ color: CLR.drawer, label: `${legendDrawers} Drawer${legendDrawers > 1 ? "s" : ""}` });
-  if (isOven) legendItems.push({ color: CLR.oven, label: "Oven Opening" });
+  if (isOven) legendItems.push({ color: CLR.oven, label: "Appliance Opening" });
   if (legendDoors === 0 && legendDrawers === 0 && !isOven) legendItems.push({ color: "#64748b", label: "Open / No Doors" });
 
   const legendY = svgH + 6;

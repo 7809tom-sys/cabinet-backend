@@ -166,6 +166,9 @@ export const cabinets = mysqlTable("cabinets", {
   placementType: varchar("placementType", { length: 32 }), // base, wall, tall, island
   numberOfDoors: int("numberOfDoors").default(0),
   numberOfDrawers: int("numberOfDrawers").default(0),
+  // Appliance opening inside the cabinet (e.g. oven cutout). Null = no opening.
+  // Values: 'top' | 'middle' | 'bottom' — position of the opening relative to the cabinet height.
+  openingType: varchar("openingType", { length: 16 }),
   numberOfFixedShelves: int("numberOfFixedShelves"),
   numberOfAdjShelves: int("numberOfAdjShelves"),
   isNotCabinet: boolean("isNotCabinet").default(false),

@@ -29,6 +29,8 @@ export interface CabinetLike {
   catalogImageUrl?: string | null;
   /** User-toggled in the design tool: render as open box with no door panels */
   noDoor?: boolean | null;
+  /** Appliance opening position set in admin: 'top' | 'middle' | 'bottom' | null */
+  openingType?: string | null;
 }
 
 function toNum(v: number | string | null | undefined): number | null {

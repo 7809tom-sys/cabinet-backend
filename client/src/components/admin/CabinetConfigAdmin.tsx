@@ -63,6 +63,8 @@ type CabinetRow = {
   minPull: string | null;
   maxPull: string | null;
   openingWidth: string | null;
+  // Appliance opening
+  openingType: string | null;
 };
 
 // ─── Dim Input ────────────────────────────────────────────────────────────────
@@ -245,6 +247,7 @@ function EditModal({
       minPull: merged.minPull != null ? parseFloat(merged.minPull) : null,
       maxPull: merged.maxPull != null ? parseFloat(merged.maxPull) : null,
       openingWidth: merged.openingWidth != null ? parseFloat(merged.openingWidth) : null,
+      openingType: (merged.openingType as "top" | "middle" | "bottom" | null | undefined) ?? null,
     });
   };
 
@@ -367,8 +370,29 @@ function EditModal({
                   </div>
                 </div>
 
+                {/* Appliance Opening */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Appliance Opening</Label>
+                  <Select
+                    value={merged.openingType ?? "__none__"}
+                    onValueChange={(v) => set("openingType", v === "__none__" ? null : v)}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className={cn("w-full", !merged.openingType && "text-muted-foreground")}>
+                      <SelectValue placeholder="— none —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— none —</SelectItem>
+                      <SelectItem value="top">Top (doors above opening)</SelectItem>
+                      <SelectItem value="middle">Middle (doors above, drawers below)</SelectItem>
+                      <SelectItem value="bottom">Bottom (opening above drawers)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">Set for oven, microwave, or appliance cabinets that have a cutout opening.</p>
+                </div>
+
                 {/* Door / Drawer Layout Preview — live preview of the door+drawer arrangement */}
-                {(merged.numberOfDoors !== null || merged.numberOfDrawers !== null) && (
+                {(merged.numberOfDoors !== null || merged.numberOfDrawers !== null || merged.openingType) && (
                   <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
                     <p className="text-xs font-medium text-muted-foreground mb-2">Layout Preview</p>
                     <div className="flex justify-center">
@@ -382,6 +406,7 @@ function EditModal({
                           height: merged.height,
                           numberOfDoors: merged.numberOfDoors,
                           numberOfDrawers: merged.numberOfDrawers,
+                          openingType: merged.openingType,
                         }}
                         width={160}
                       />

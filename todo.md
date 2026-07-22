@@ -1374,3 +1374,14 @@
 - [x] Fall back to description parsing for oven cabinet door/drawer counts when DB has 0/0
 - [x] Update legend to show Doors + Drawers + Oven Opening for oven cabinets
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Appliance Opening Type in Cabinet Config Admin
+- [x] Add openingType column to cabinets table (top/middle/bottom/null)
+- [x] Generate and apply migration SQL for openingType column
+- [x] Add Appliance Opening selector to CabinetConfigAdmin form (None/Top/Middle/Bottom)
+- [x] Wire openingType to tRPC update procedure and adminListCabinetConfig query
+- [x] Update DoorDrawerDiagram to use openingType DB field for layout (top/middle/bottom positions)
+- [x] Rename "Oven Opening" to "Appliance Opening" throughout diagram and legend
+- [x] Add openingType to placeableCabinets query so Design Tool gets the field
+- [x] Add openingType to CabinetLike interface in cabinetGraphics.ts
+- [x] TypeScript check passes; checkpoint saved
