@@ -915,7 +915,7 @@ export function CabinetConfigAdmin() {
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs">Description</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20 hidden sm:table-cell">W×H</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-32 hidden md:table-cell">Config</th>
-                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24 hidden lg:table-cell">Last Saved</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24">Last Saved</th>
                 <th className="text-center px-3 py-2 font-medium text-muted-foreground text-xs w-12">
                   <Pencil className="h-3.5 w-3.5 mx-auto" />
                 </th>
@@ -968,11 +968,14 @@ export function CabinetConfigAdmin() {
                         <span className="text-[10px] text-muted-foreground italic">not configured</span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 hidden lg:table-cell">
+                    <td className="px-3 py-2.5">
                       {row.updatedAt ? (
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                          {new Date(row.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-green-500 text-sm">✅</span>
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden sm:inline">
+                            {new Date(row.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-[10px] text-muted-foreground italic">—</span>
                       )}
