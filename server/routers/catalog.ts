@@ -2100,6 +2100,8 @@ export const cabinetsRouter = router({
             openingWidth: cabinets.openingWidth,
             // Appliance opening type
             openingType: cabinets.openingType,
+            // Timestamps
+            updatedAt: cabinets.updatedAt,
           })
           .from(cabinets)
           .where(where)

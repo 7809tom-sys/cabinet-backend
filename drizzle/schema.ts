@@ -224,6 +224,7 @@ export const cabinets = mysqlTable("cabinets", {
   showInDesigner: boolean("showInDesigner").default(true).notNull(),
   showIn2020: boolean("showIn2020").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type Cabinet = typeof cabinets.$inferSelect;

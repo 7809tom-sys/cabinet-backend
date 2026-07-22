@@ -1385,3 +1385,10 @@
 - [x] Add openingType to placeableCabinets query so Design Tool gets the field
 - [x] Add openingType to CabinetLike interface in cabinetGraphics.ts
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Last Saved Date in Cabinet Config
+- [x] Add updatedAt timestamp field to cabinets table schema (auto-updates on every save)
+- [x] Run migration to add updatedAt column to cabinets table
+- [x] Return updatedAt from adminListCabinetConfig query
+- [x] Add "Last Saved" column to Cabinet Config list table (visible on lg+ screens)
+- [x] Format date as "Jul 22, 2026" style in the list rows
