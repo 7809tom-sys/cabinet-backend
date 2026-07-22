@@ -75,6 +75,11 @@ type CabinetRow = {
   legWidth: string | null;
   // Timestamps
   configuredAt: Date | null;
+  // Verified status
+  configVerified: boolean;
+  configVerifiedAt: Date | null;
+  // Door orientation
+  doorOrientation: string | null;
 };
 
 // ─── Dim Input ────────────────────────────────────────────────────────────────
@@ -266,6 +271,8 @@ function EditModal({
       legWidth: merged.legWidth != null ? parseFloat(merged.legWidth) : null,
       category: merged.category ?? undefined,
       subCategory: merged.subCategory ?? null,
+      configVerified: merged.configVerified ?? undefined,
+      doorOrientation: (merged.doorOrientation as "side-by-side" | "stacked" | null | undefined) ?? null,
     });
   };
 
@@ -447,6 +454,28 @@ function EditModal({
                   </div>
                 </div>
 
+                {/* Door Orientation */}
+                {(merged.numberOfDoors ?? 0) >= 2 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Door Orientation</Label>
+                    <Select
+                      value={merged.doorOrientation ?? "__none__"}
+                      onValueChange={(v) => set("doorOrientation", v === "__none__" ? null : v)}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className={cn("w-full", !merged.doorOrientation && "text-muted-foreground")}>
+                        <SelectValue placeholder="— default (side by side) —" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— default (side by side) —</SelectItem>
+                        <SelectItem value="side-by-side">Side by Side (left/right)</SelectItem>
+                        <SelectItem value="stacked">Stacked (top/bottom)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">For pantries or tall cabinets with 2+ doors arranged vertically, choose "Stacked".</p>
+                  </div>
+                )}
+
                 {/* Corner Type */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium">Corner Cabinet Type</Label>
@@ -620,6 +649,23 @@ function EditModal({
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* ── Config Verified ── */}
+            <div className="flex items-center justify-between rounded-lg border px-4 py-3" style={{ borderColor: merged.configVerified ? 'var(--color-green-300)' : 'var(--color-border)', background: merged.configVerified ? 'oklch(0.95 0.02 145)' : 'transparent' }}>
+              <div>
+                <p className="text-sm font-medium">{merged.configVerified ? "✅ Verified" : "Mark as Verified"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {merged.configVerified && merged.configVerifiedAt
+                    ? `Verified on ${new Date(merged.configVerifiedAt).toLocaleDateString()}`
+                    : "Check this when you've reviewed all fields and everything is correct"}
+                </p>
+              </div>
+              <Switch
+                checked={merged.configVerified === true}
+                onCheckedChange={(v) => set("configVerified", v)}
+                disabled={busy}
+              />
             </div>
 
             {/* Catalog Image */}
@@ -1026,6 +1072,7 @@ export function CabinetConfigAdmin() {
   const [searchInput, setSearchInput] = useState("");
   const [category, setCategory] = useState("");
   const [unconfiguredOnly, setUnconfiguredOnly] = useState(false);
+  const [verifiedFilter, setVerifiedFilter] = useState<"all" | "verified" | "unverified">("all");
   const [page, setPage] = useState(0);
   const [editRow, setEditRow] = useState<CabinetRow | null>(null);
 
@@ -1037,6 +1084,7 @@ export function CabinetConfigAdmin() {
     search: search || undefined,
     category: category || undefined,
     unconfiguredOnly,
+    verifiedFilter,
   });
 
   const categories = ["Base","Wall","Tall","Corner","Drawer","Specialty","Vanity","Pantry","Island","Filler","Molding","Accessory"];
@@ -1105,6 +1153,14 @@ export function CabinetConfigAdmin() {
           />
           <Label htmlFor="unconfigured-only" className="text-sm cursor-pointer">Unconfigured only</Label>
         </div>
+        <Select value={verifiedFilter} onValueChange={(v) => { setVerifiedFilter(v as "all" | "verified" | "unverified"); setPage(0); }}>
+          <SelectTrigger className="h-8 text-sm w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All (verified)</SelectItem>
+            <SelectItem value="verified">✅ Verified only</SelectItem>
+            <SelectItem value="unverified">❌ Unverified only</SelectItem>
+          </SelectContent>
+        </Select>
         <Button size="sm" variant="outline" className="h-8" onClick={() => { setSearch(searchInput); setPage(0); }}>
           Search
         </Button>
@@ -1186,16 +1242,19 @@ export function CabinetConfigAdmin() {
                       )}
                     </td>
                     <td className="px-3 py-2.5">
-                      {row.configuredAt ? (
-                        <div className="flex items-center gap-1">
-                          <span className="text-green-500 text-sm">✅</span>
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden sm:inline">
-                            {new Date(row.configuredAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      <div className="flex items-center gap-1.5">
+                        {row.configVerified ? (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-medium">
+                            <CheckCircle2 className="h-3 w-3" /> Verified
                           </span>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground italic">—</span>
-                      )}
+                        ) : row.configuredAt ? (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-medium">
+                            ✅ Saved
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground italic">—</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-center">
                       <Pencil className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors mx-auto" />

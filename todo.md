@@ -1418,3 +1418,19 @@
 
 ## Feature: Export elevation view as PNG
 - [x] Add an export button that downloads the current elevation rendering as a high-quality PNG image
+
+## Feature: Cabinet config verified checkmark + front-end parity + door orientation
+
+- [x] Add "verified" boolean field to cabinets schema (admin can mark a cabinet as fully reviewed)
+- [x] Show verified checkmark badge on cabinet list/cards in admin so you can see at a glance which are done
+- [x] Add "Mark as Verified" button in both front-end and back-end Edit Cabinet dialogs
+- [x] Front-end Edit Cabinet parity: show all dimension fields (Width, Height, Depth, Physical Width, Weight)
+- [x] Front-end Edit Cabinet parity: add "Not a cabinet" (isAccessory) toggle
+- [x] Front-end Edit Cabinet parity: support up to 4 door configurations (currently only 2 on front-end)
+- [x] Add door orientation field: "side-by-side" (horizontal) vs "stacked" (vertical) for multi-door cabinets
+- [x] Show door orientation in the Edit Cabinet dialog on both front-end and back-end
+
+## Feature: Floating category pills on individual cabinet detail page
+- [x] Add floating category pills (Base, Wall, Tall, Vanity, Accessory, Molding) to the CabinetDetail page that filter within the current door style
+- [x] Add a search input within the category pills to search cabinets within that door style
+- [x] Clicking a category pill shows a scrollable list/grid of cabinets in that category for the same door style

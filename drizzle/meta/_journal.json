@@ -575,6 +575,13 @@
       "when": 1784683827075,
       "tag": "0081_silky_angel",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "5",
+      "when": 1784730640900,
+      "tag": "0082_regular_captain_cross",
+      "breakpoints": true
     }
   ]
 }

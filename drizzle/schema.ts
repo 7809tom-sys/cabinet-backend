@@ -235,6 +235,12 @@ export const cabinets = mysqlTable("cabinets", {
   showIn2020: boolean("showIn2020").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   configuredAt: timestamp("configuredAt"),
+  // Admin review: mark a cabinet as fully verified (all fields checked)
+  configVerified: boolean("configVerified").default(false).notNull(),
+  configVerifiedAt: timestamp("configVerifiedAt"),
+  configVerifiedByName: varchar("configVerifiedByName", { length: 128 }),
+  // Door orientation for multi-door cabinets: side-by-side (horizontal) or stacked (vertical)
+  doorOrientation: varchar("doorOrientation", { length: 16 }), // side-by-side | stacked | null
 });
 
 export type Cabinet = typeof cabinets.$inferSelect;

@@ -3,7 +3,7 @@ import { Link, useSearch } from "wouter";
 import {
   ChevronLeft, Package, Palette, DollarSign,
   ShoppingCart, Info, Check, Lock,
-  Pencil, X, Upload,
+  Pencil, X, Upload, Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -426,6 +426,9 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editNumDrawers, setEditNumDrawers] = useState<string>("0");
   const [editNumFixedShelves, setEditNumFixedShelves] = useState<string>("0");
   const [editNumAdjShelves, setEditNumAdjShelves] = useState<string>("0");
+  const [editIsNotCabinet, setEditIsNotCabinet] = useState(false);
+  const [editDoorOrientation, setEditDoorOrientation] = useState<string>("__none__");
+  const [editConfigVerified, setEditConfigVerified] = useState(false);
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -452,6 +455,9 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditNumDrawers(String(cab.numberOfDrawers ?? 0));
       setEditNumFixedShelves(String(cab.numberOfFixedShelves ?? 0));
       setEditNumAdjShelves(String(cab.numberOfAdjShelves ?? 0));
+      setEditIsNotCabinet(cab.isNotCabinet === true);
+      setEditDoorOrientation(String(cab.doorOrientation ?? "__none__"));
+      setEditConfigVerified(cab.configVerified === true);
     }
   }, [editOpen, cabinet]);
 
@@ -584,6 +590,9 @@ export default function CabinetDetail({ masterCode }: Props) {
       numberOfFixedShelves: parseInt(editNumFixedShelves) || 0,
       numberOfAdjShelves: parseInt(editNumAdjShelves) || 0,
       isActive: editIsActive,
+      isNotCabinet: editIsNotCabinet,
+      doorOrientation: editDoorOrientation === "__none__" ? null : editDoorOrientation as "side-by-side" | "stacked",
+      configVerified: editConfigVerified,
     });
   }
 
@@ -720,6 +729,15 @@ export default function CabinetDetail({ masterCode }: Props) {
           </a>
         )}
       </div>
+
+      {/* ── Category pills + search within door style ────────────────────────── */}
+      {activeStyle != null && (
+        <StyleCategoryNav
+          styleId={activeStyle}
+          currentCategory={cabinet.category}
+          currentMasterCode={masterCode}
+        />
+      )}
 
       {/* ── Hero block: room-scene photo (primary) + door thumbnail strip (secondary) ──
           Layout:
@@ -1472,6 +1490,18 @@ export default function CabinetDetail({ masterCode }: Props) {
                 <p className="text-[11px] text-muted-foreground">Shipping box dimensions. Leave blank to keep current value.</p>
               </div>
 
+              {/* Not a Cabinet toggle */}
+              <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3 bg-muted/30">
+                <div>
+                  <p className="text-sm font-medium">Not a Cabinet</p>
+                  <p className="text-xs text-muted-foreground">Trim, panel, moulding, or accessory</p>
+                </div>
+                <Switch
+                  checked={editIsNotCabinet}
+                  onCheckedChange={setEditIsNotCabinet}
+                />
+              </div>
+
               {/* Doors / Drawers / Shelves */}
               <div className="space-y-2">
                 <Label>Interior Configuration</Label>
@@ -1481,7 +1511,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                     <Select value={editNumDoors} onValueChange={setEditNumDoors}>
                       <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {[0,1,2].map(n => <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>)}
+                        {[0,1,2,3,4].map(n => <SelectItem key={n} value={String(n)}>{n === 0 ? "None" : n}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1514,6 +1544,38 @@ export default function CabinetDetail({ masterCode }: Props) {
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground">Interior configuration for this cabinet. Used in specs and future catalog illustrations.</p>
+              </div>
+
+              {/* Door Orientation */}
+              {parseInt(editNumDoors) >= 2 && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Door Orientation</Label>
+                  <Select value={editDoorOrientation} onValueChange={setEditDoorOrientation}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— default (side by side) —</SelectItem>
+                      <SelectItem value="side-by-side">Side by Side (left/right)</SelectItem>
+                      <SelectItem value="stacked">Stacked (top/bottom)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">For pantries or tall cabinets with 2+ doors arranged vertically, choose "Stacked".</p>
+                </div>
+              )}
+
+              {/* Config Verified */}
+              <div className="flex items-center justify-between rounded-lg border px-4 py-3" style={{ borderColor: editConfigVerified ? '#86efac' : undefined, background: editConfigVerified ? '#f0fdf4' : undefined }}>
+                <div>
+                  <p className="text-sm font-medium">{editConfigVerified ? "✅ Verified" : "Mark as Verified"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {editConfigVerified
+                      ? "You've reviewed all fields and confirmed everything is correct"
+                      : "Check this when you've finished reviewing all fields"}
+                  </p>
+                </div>
+                <Switch
+                  checked={editConfigVerified}
+                  onCheckedChange={setEditConfigVerified}
+                />
               </div>
 
               {/* Catalog image */}
@@ -1747,6 +1809,147 @@ export default function CabinetDetail({ masterCode }: Props) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+    </div>
+  );
+}
+
+// ─── Style-scoped category navigation with search ─────────────────────────────
+
+function StyleCategoryNav({
+  styleId,
+  currentCategory,
+  currentMasterCode,
+}: {
+  styleId: number;
+  currentCategory: string | null | undefined;
+  currentMasterCode: string;
+}) {
+  const [activeCategory, setActiveCategory] = useState<string | null>(currentCategory ?? null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showResults, setShowResults] = useState(false);
+
+  const { data, isLoading } = trpc.cabinets.listForStyle.useQuery(
+    {
+      styleId,
+      category: activeCategory ?? undefined,
+      search: searchTerm || undefined,
+      limit: 20,
+      offset: 0,
+    },
+    { enabled: showResults }
+  );
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+
+  // Categories to show as pills
+  const categories = ["Base", "Wall", "Tall", "Vanity", "Filler", "Molding", "Accessory"];
+
+  return (
+    <div className="mb-4">
+      {/* Category pills row with search */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <button
+          onClick={() => {
+            setActiveCategory(null);
+            setShowResults(true);
+          }}
+          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+            activeCategory === null && showResults
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          All
+        </button>
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => {
+              setActiveCategory(cat);
+              setShowResults(true);
+            }}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              activeCategory === cat && showResults
+                ? "bg-primary text-primary-foreground border-primary"
+                : cat === currentCategory
+                  ? "bg-accent text-accent-foreground border-accent"
+                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+        {/* Search input */}
+        <div className="relative shrink-0 ml-auto">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setShowResults(true);
+            }}
+            className="pl-8 pr-3 py-1.5 rounded-full text-xs border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring w-36"
+          />
+        </div>
+      </div>
+
+      {/* Results dropdown */}
+      {showResults && (
+        <div className="mt-2 rounded-xl border border-border bg-card shadow-lg max-h-64 overflow-y-auto">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+            <span className="text-xs text-muted-foreground">
+              {isLoading ? "Loading..." : `${total} cabinet${total !== 1 ? "s" : ""} in this style`}
+            </span>
+            <button
+              onClick={() => setShowResults(false)}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {!isLoading && items.length === 0 && (
+            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+              No cabinets found
+            </div>
+          )}
+          {items.map((item: any) => (
+            <Link
+              key={item.id}
+              href={`/catalog/${item.masterCode}?style=${styleId}`}
+              className={`flex items-center gap-3 px-3 py-2 hover:bg-muted/50 transition-colors border-b border-border last:border-0 ${
+                item.masterCode === currentMasterCode ? "bg-primary/5 border-l-2 border-l-primary" : ""
+              }`}
+            >
+              <div className="h-10 w-10 rounded border border-border bg-muted/30 flex items-center justify-center shrink-0 overflow-hidden">
+                {item.catalogImageUrl ? (
+                  <img src={item.catalogImageUrl} alt="" className="h-full w-full object-contain" />
+                ) : (
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-foreground truncate">
+                  {item.masterCode}
+                </div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {item.description || item.category}
+                </div>
+              </div>
+              <Badge variant="outline" className="shrink-0 text-[10px]">
+                {item.category}
+              </Badge>
+            </Link>
+          ))}
+          {total > 20 && (
+            <div className="px-3 py-2 text-center text-xs text-muted-foreground border-t border-border">
+              Showing 20 of {total} — use search to narrow results
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

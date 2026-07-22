@@ -1478,6 +1478,10 @@ export const cabinetsRouter = router({
         // Diagonal corner specific
         faceWidth: z.number().positive().nullable().optional(),
         legWidth: z.number().positive().nullable().optional(),
+        // Config verified
+        configVerified: z.boolean().optional(),
+        // Door orientation for multi-door cabinets
+        doorOrientation: z.enum(["side-by-side", "stacked"]).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1519,6 +1523,17 @@ export const cabinetsRouter = router({
       if (input.cabinetSquare !== undefined) patch.cabinetSquare = input.cabinetSquare != null ? String(input.cabinetSquare) : null;
       if (input.faceWidth !== undefined) patch.faceWidth = input.faceWidth != null ? String(input.faceWidth) : null;
       if (input.legWidth !== undefined) patch.legWidth = input.legWidth != null ? String(input.legWidth) : null;
+      if (input.doorOrientation !== undefined) patch.doorOrientation = input.doorOrientation;
+      if (input.configVerified !== undefined) {
+        patch.configVerified = input.configVerified;
+        if (input.configVerified) {
+          patch.configVerifiedAt = new Date();
+          // configVerifiedByName will be set from ctx if we add it later
+        } else {
+          patch.configVerifiedAt = null;
+          patch.configVerifiedByName = null;
+        }
+      }
       if (Object.keys(patch).length === 0) return { ok: true };
       // Always stamp configuredAt so the admin list shows when this cabinet was last saved.
       patch.configuredAt = new Date();
@@ -2063,6 +2078,7 @@ export const cabinetsRouter = router({
         search: z.string().optional(),
         category: z.string().optional(),
         unconfiguredOnly: z.boolean().default(false),
+        verifiedFilter: z.enum(["all", "verified", "unverified"]).default("all"),
       })
     )
     .query(async ({ input }) => {
@@ -2073,6 +2089,11 @@ export const cabinetsRouter = router({
         conditions.push(
           sql`(${cabinets.numberOfDoors} IS NULL AND ${cabinets.numberOfDrawers} IS NULL AND ${cabinets.numberOfFixedShelves} IS NULL AND ${cabinets.numberOfAdjShelves} IS NULL)`
         );
+      }
+      if (input.verifiedFilter === "verified") {
+        conditions.push(eq(cabinets.configVerified, true));
+      } else if (input.verifiedFilter === "unverified") {
+        conditions.push(eq(cabinets.configVerified, false));
       }
       if (input.search) {
         const like = `%${input.search}%`;
@@ -2128,6 +2149,11 @@ export const cabinetsRouter = router({
             legWidth: cabinets.legWidth,
             // Timestamps
             configuredAt: cabinets.configuredAt,
+            // Verified status
+            configVerified: cabinets.configVerified,
+            configVerifiedAt: cabinets.configVerifiedAt,
+            // Door orientation
+            doorOrientation: cabinets.doorOrientation,
           })
           .from(cabinets)
           .where(where)
