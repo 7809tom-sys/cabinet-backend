@@ -6589,10 +6589,11 @@ export default function DesignTool() {
                 </button>
                 <button
                   type="button"
-                  disabled
-                  className="w-9 h-9 flex items-center justify-center bg-[#1a2744] border border-[#1a2744] shadow-sm"
+                  onClick={rotateSelected}
+                  className="w-9 h-9 flex items-center justify-center bg-[#1a2744] border border-[#1a2744] shadow-sm hover:bg-[#1a2744]/80 active:scale-95 transition-transform rounded-sm"
+                  title="Rotate 90°"
                 >
-                  <Move className="h-4 w-4 text-white" />
+                  <RotateCw className="h-4 w-4 text-white" />
                 </button>
                 <button
                   type="button"
