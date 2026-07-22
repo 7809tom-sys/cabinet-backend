@@ -1406,3 +1406,9 @@
 - [x] Backsplash: improve tile pattern realism (grout lines, depth, proper subway offset)
 - [x] Sink: realistic basin shape with shadow/depth instead of flat outline
 - [x] Faucet: realistic metallic rendering with highlights instead of simple line art
+
+## Feature: Toggle between realistic and simplified elevation rendering
+- [x] Add a toggle button in the elevation view toolbar to switch between "Realistic" and "Simplified" rendering modes
+- [x] When simplified: use original flat colors for flooring, countertop, backsplash, faucet, and sink
+- [x] When realistic: use the new staggered planks, veining, metallic faucet, etc.
+- [x] Persist the preference in localStorage so it remembers across sessions

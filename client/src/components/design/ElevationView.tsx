@@ -102,6 +102,20 @@ export function ElevationView({
   const [ppi, setPpi] = useState(4);
   const PADDING = 40;
 
+  // Rendering mode toggle: "realistic" (staggered planks, veining, metallic faucet)
+  // vs "simplified" (flat colors, simple shapes). Persisted in localStorage.
+  const [realistic, setRealistic] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("cd_elevation_render_mode") !== "simplified";
+  });
+  const toggleRenderMode = useCallback(() => {
+    setRealistic((prev) => {
+      const next = !prev;
+      localStorage.setItem("cd_elevation_render_mode", next ? "realistic" : "simplified");
+      return next;
+    });
+  }, []);
+
   // Elevation drag state
   const [dragUid, setDragUid] = useState<string | null>(null);
   const dragOffset = useRef(0); // offset in px along the wall axis
@@ -589,12 +603,24 @@ export function ElevationView({
           height: wallPxH + PADDING,
         }}
       >
-        {/* Floor plane — material-aware with staggered plank joints */}
+        {/* Floor plane */}
         {(() => {
           const fm = flooringMaterial(flooringMaterialId);
-          // Compute tile/plank dimensions scaled to the elevation PPI.
-          // In elevation the floor is a thin strip (PADDING px tall), so we
-          // scale plank dimensions to look proportional.
+          if (!realistic) {
+            // Simplified: flat color strip, no pattern
+            return (
+              <div
+                className="absolute left-0 right-0 pointer-events-none"
+                style={{
+                  bottom: 0,
+                  height: PADDING,
+                  background: fm.fill,
+                  borderTop: `2px solid color-mix(in srgb, ${fm.fill} 50%, #000000)`,
+                }}
+              />
+            );
+          }
+          // Realistic: staggered plank joints
           const plankW = Math.max(12, fm.tileW * ppi * 0.7);
           const plankH = Math.max(6, Math.min(PADDING / 2.5, fm.tileH * ppi * 0.15));
 
@@ -603,7 +629,6 @@ export function ElevationView({
           const g = fm.grout;
 
           if (fm.pattern === "hardwood" || fm.pattern === "plank") {
-            // Staggered planks: alternate rows offset by 1/3 width (brick-lay).
             const offset = Math.round(plankW / 3);
             const h2 = plankH * 2;
             const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${plankW}' height='${h2}'>`
@@ -637,12 +662,10 @@ export function ElevationView({
             bgImage = `repeating-linear-gradient(${angle}deg, ${g} 0px, ${g} 1px, transparent 1px, transparent ${plankH}px), repeating-linear-gradient(-${angle}deg, ${g} 0px, ${g} 1px, transparent 1px, transparent ${plankH}px)`;
             bgSize = undefined;
           } else {
-            // solid / concrete — subtle noise
             bgImage = "none";
             bgSize = undefined;
           }
 
-          // Subtle wood-grain overlay for hardwood/plank (adds realism)
           const grainOverlay = (fm.pattern === "hardwood" || fm.pattern === "plank")
             ? ", repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 3px)"
             : "";
@@ -662,17 +685,19 @@ export function ElevationView({
             />
           );
         })()}
-        {/* Soft contact shadow where the wall/cabinets meet the floor. */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            bottom: PADDING - 2,
-            height: 8,
-            left: 0,
-            width: wallPxW,
-            background: "linear-gradient(180deg, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 100%)",
-          }}
-        />
+        {/* Soft contact shadow where the wall/cabinets meet the floor (realistic only). */}
+        {realistic && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              bottom: PADDING - 2,
+              height: 8,
+              left: 0,
+              width: wallPxW,
+              background: "linear-gradient(180deg, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 100%)",
+            }}
+          />
+        )}
         <div
           ref={wallInnerRef}
           className="absolute"
@@ -792,18 +817,21 @@ export function ElevationView({
                     width: (r.end - r.start + OVERHANG_IN * 2) * ppi,
                     bottom: Math.ceil(STD.BASE_HEIGHT * ppi),
                     height: THICKNESS_IN * ppi,
-                    // Polished stone slab with subtle veining for realism.
-                    background: mat.speckle
-                      ? `linear-gradient(180deg, color-mix(in srgb, ${mat.fill} 80%, #ffffff) 0%, ${mat.fill} 45%, color-mix(in srgb, ${mat.fill} 90%, #000000) 100%)`
-                      : `linear-gradient(180deg, color-mix(in srgb, ${mat.fill} 82%, #ffffff) 0%, ${mat.fill} 55%, color-mix(in srgb, ${mat.fill} 88%, #000000) 100%)`,
-                    // Subtle diagonal veining for marble/quartz look
-                    backgroundImage: mat.speckle
-                      ? `repeating-linear-gradient(135deg, transparent 0px, transparent 8px, ${mat.speckle}22 9px, transparent 10px, transparent 22px, ${mat.speckle}18 23px, transparent 24px)`
-                      : undefined,
-                    borderTop: `1px solid color-mix(in srgb, ${mat.fill} 60%, #ffffff)`,
-                    borderBottom: `1px solid ${mat.edge}`,
-                    // Slab thickness shadow + glossy top sheen + polished reflection.
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.1)",
+                    ...(realistic ? {
+                      background: mat.speckle
+                        ? `linear-gradient(180deg, color-mix(in srgb, ${mat.fill} 80%, #ffffff) 0%, ${mat.fill} 45%, color-mix(in srgb, ${mat.fill} 90%, #000000) 100%)`
+                        : `linear-gradient(180deg, color-mix(in srgb, ${mat.fill} 82%, #ffffff) 0%, ${mat.fill} 55%, color-mix(in srgb, ${mat.fill} 88%, #000000) 100%)`,
+                      backgroundImage: mat.speckle
+                        ? `repeating-linear-gradient(135deg, transparent 0px, transparent 8px, ${mat.speckle}22 9px, transparent 10px, transparent 22px, ${mat.speckle}18 23px, transparent 24px)`
+                        : undefined,
+                      borderTop: `1px solid color-mix(in srgb, ${mat.fill} 60%, #ffffff)`,
+                      borderBottom: `1px solid ${mat.edge}`,
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.1)",
+                    } : {
+                      background: mat.fill,
+                      borderTop: `1px solid ${mat.edge}`,
+                      borderBottom: `1px solid ${mat.edge}`,
+                    }),
                   }}
                   title={t("dt_ev_countertop", { material: mat.name })}
                 />
@@ -1058,8 +1086,8 @@ export function ElevationView({
                     bottom: seg.bottom,
                     height: seg.height,
                     background: bsMat.fill,
-                    backgroundImage: bgImage,
-                    backgroundSize: bgSize ?? (bsMat.pattern === "hexagon" ? `${tileWPx}px ${tileHPx}px` : undefined),
+                    backgroundImage: realistic ? bgImage : undefined,
+                    backgroundSize: realistic ? (bgSize ?? (bsMat.pattern === "hexagon" ? `${tileWPx}px ${tileHPx}px` : undefined)) : undefined,
                     borderTop: `1px solid ${bsMat.grout}`,
                     borderBottom: `1px solid ${bsMat.grout}`,
                     opacity: 0.85,
@@ -1131,8 +1159,6 @@ export function ElevationView({
           const knobR = Math.max(3, 1.5 * ppi);
           const svgW = spoutW + knobR * 3;
           const svgH = riserH + knobR * 2 + 4;
-          // Realistic brushed-nickel faucet with gooseneck curve, metallic
-          // gradients, and proper proportions.
           return (
             <svg
               key={`faucet-${p.uid}`}
@@ -1146,31 +1172,35 @@ export function ElevationView({
                 zIndex: 26,
               }}
             >
-              <defs>
-                <linearGradient id={`faucet-metal-${p.uid}`} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#a8b8c8" />
-                  <stop offset="35%" stopColor="#d0dce6" />
-                  <stop offset="60%" stopColor="#b8c8d4" />
-                  <stop offset="100%" stopColor="#8a9aaa" />
-                </linearGradient>
-              </defs>
-              {/* Base plate / escutcheon */}
-              <ellipse cx={svgW / 2} cy={svgH - 1} rx={riserThick * 1.5} ry={riserThick * 0.5} fill="#7a8a9a" opacity={0.5} />
-              {/* Vertical riser with metallic gradient */}
-              <rect x={svgW / 2 - riserThick / 2} y={svgH - riserH} width={riserThick} height={riserH} fill={`url(#faucet-metal-${p.uid})`} rx={riserThick * 0.3} />
-              {/* Gooseneck curve at top */}
-              <path
-                d={`M ${svgW / 2} ${svgH - riserH} Q ${svgW / 2} ${svgH - riserH - spoutThick * 1.5} ${svgW / 2 - spoutW * 0.4} ${svgH - riserH - spoutThick * 0.8}`}
-                stroke="#a0b0c0" strokeWidth={spoutThick} fill="none" strokeLinecap="round"
-              />
-              {/* Spout arm extending from curve */}
-              <rect x={svgW / 2 - spoutW} y={svgH - riserH - spoutThick * 0.3} width={spoutW * 0.65} height={spoutThick * 0.8} fill={`url(#faucet-metal-${p.uid})`} rx={spoutThick * 0.3} />
-              {/* Aerator tip (darker, tapered) */}
-              <rect x={svgW / 2 - spoutW - 1} y={svgH - riserH - spoutThick * 0.1} width={Math.max(3, spoutThick * 0.6)} height={Math.max(3, spoutThick * 1.2)} fill="#5a6a7a" rx={1} />
-              {/* Handle lever */}
-              <rect x={svgW / 2 + riserThick * 0.3} y={svgH - riserH * 0.55} width={knobR * 2.2} height={spoutThick * 0.6} fill="#b8c8d8" rx={spoutThick * 0.2} stroke="#8a9aaa" strokeWidth={0.5} />
-              {/* Handle pivot */}
-              <circle cx={svgW / 2 + riserThick * 0.3} cy={svgH - riserH * 0.55 + spoutThick * 0.3} r={Math.max(2, spoutThick * 0.35)} fill="#8a9aaa" />
+              {realistic ? (
+                <>
+                  <defs>
+                    <linearGradient id={`faucet-metal-${p.uid}`} x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#a8b8c8" />
+                      <stop offset="35%" stopColor="#d0dce6" />
+                      <stop offset="60%" stopColor="#b8c8d4" />
+                      <stop offset="100%" stopColor="#8a9aaa" />
+                    </linearGradient>
+                  </defs>
+                  <ellipse cx={svgW / 2} cy={svgH - 1} rx={riserThick * 1.5} ry={riserThick * 0.5} fill="#7a8a9a" opacity={0.5} />
+                  <rect x={svgW / 2 - riserThick / 2} y={svgH - riserH} width={riserThick} height={riserH} fill={`url(#faucet-metal-${p.uid})`} rx={riserThick * 0.3} />
+                  <path
+                    d={`M ${svgW / 2} ${svgH - riserH} Q ${svgW / 2} ${svgH - riserH - spoutThick * 1.5} ${svgW / 2 - spoutW * 0.4} ${svgH - riserH - spoutThick * 0.8}`}
+                    stroke="#a0b0c0" strokeWidth={spoutThick} fill="none" strokeLinecap="round"
+                  />
+                  <rect x={svgW / 2 - spoutW} y={svgH - riserH - spoutThick * 0.3} width={spoutW * 0.65} height={spoutThick * 0.8} fill={`url(#faucet-metal-${p.uid})`} rx={spoutThick * 0.3} />
+                  <rect x={svgW / 2 - spoutW - 1} y={svgH - riserH - spoutThick * 0.1} width={Math.max(3, spoutThick * 0.6)} height={Math.max(3, spoutThick * 1.2)} fill="#5a6a7a" rx={1} />
+                  <rect x={svgW / 2 + riserThick * 0.3} y={svgH - riserH * 0.55} width={knobR * 2.2} height={spoutThick * 0.6} fill="#b8c8d8" rx={spoutThick * 0.2} stroke="#8a9aaa" strokeWidth={0.5} />
+                  <circle cx={svgW / 2 + riserThick * 0.3} cy={svgH - riserH * 0.55 + spoutThick * 0.3} r={Math.max(2, spoutThick * 0.35)} fill="#8a9aaa" />
+                </>
+              ) : (
+                <>
+                  {/* Simplified: basic line-art faucet */}
+                  <rect x={svgW / 2 - riserThick / 2} y={svgH - riserH} width={riserThick} height={riserH} fill="#9ca3af" />
+                  <rect x={svgW / 2 - spoutW * 0.6} y={svgH - riserH - spoutThick * 0.5} width={spoutW * 0.6} height={spoutThick} fill="#9ca3af" />
+                  <circle cx={svgW / 2 + riserThick} cy={svgH - riserH * 0.5} r={knobR * 0.7} fill="#d1d5db" stroke="#9ca3af" strokeWidth={1} />
+                </>
+              )}
             </svg>
           );
         })}
@@ -1292,57 +1322,88 @@ export function ElevationView({
                 zIndex: 6,
               }}
             >
-              {/* Apron face panel — fireclay white with subtle ceramic sheen */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: "linear-gradient(180deg, #fafbfc 0%, #f2f4f7 20%, #eaecf0 50%, #e2e5ea 75%, #dce0e6 100%)",
-                  borderTop: "2px solid #c0c6cf",
-                  borderLeft: "1.5px solid #cdd2da",
-                  borderRight: "1.5px solid #cdd2da",
-                  borderBottom: "1px solid #b8bec8",
-                  borderRadius: "2px 2px 4px 4px",
-                  boxShadow: "inset 0 2px 8px rgba(0,0,0,0.06), inset 0 -2px 4px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.12)",
-                }}
-              />
-              {/* Subtle horizontal bead line (fireclay detail) */}
-              <div
-                className="absolute left-[8%] right-[8%]"
-                style={{
-                  top: "18%",
-                  height: 1,
-                  background: "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.06) 20%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.06) 80%, transparent 100%)",
-                }}
-              />
-              {/* Basin cutout impression — deeper shadow for realism */}
-              <div
-                className="absolute"
-                style={{
-                  left: basinLeft,
-                  width: basinW,
-                  bottom: basinBottom,
-                  height: basinH,
-                  background: "linear-gradient(180deg, #b8c0cc 0%, #a8b0bc 30%, #98a0ac 60%, #909aaa 100%)",
-                  borderRadius: "3px 3px 8px 8px",
-                  boxShadow: "inset 0 4px 10px rgba(0,0,0,0.28), inset 0 1px 4px rgba(0,0,0,0.18), 0 0 0 1.5px #8a94a4",
-                }}
-              >
-                {/* Drain grate — metallic ring with crosshatch */}
-                <div
-                  className="absolute"
-                  style={{
-                    left: "50%",
-                    bottom: "12%",
-                    width: Math.max(5, 3 * ppi),
-                    height: Math.max(5, 3 * ppi),
-                    marginLeft: -(Math.max(5, 3 * ppi) / 2),
-                    borderRadius: "50%",
-                    background: "radial-gradient(circle, #4a5060 0%, #5a6575 40%, #6a7585 70%, #7a8595 100%)",
-                    border: "1.5px solid #3a4555",
-                    boxShadow: "inset 0 2px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(255,255,255,0.15)",
-                  }}
-                />
-              </div>
+              {realistic ? (
+                <>
+                  {/* Realistic: fireclay apron with ceramic sheen */}
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: "linear-gradient(180deg, #fafbfc 0%, #f2f4f7 20%, #eaecf0 50%, #e2e5ea 75%, #dce0e6 100%)",
+                      borderTop: "2px solid #c0c6cf",
+                      borderLeft: "1.5px solid #cdd2da",
+                      borderRight: "1.5px solid #cdd2da",
+                      borderBottom: "1px solid #b8bec8",
+                      borderRadius: "2px 2px 4px 4px",
+                      boxShadow: "inset 0 2px 8px rgba(0,0,0,0.06), inset 0 -2px 4px rgba(0,0,0,0.04), 0 2px 6px rgba(0,0,0,0.12)",
+                    }}
+                  />
+                  <div
+                    className="absolute left-[8%] right-[8%]"
+                    style={{
+                      top: "18%",
+                      height: 1,
+                      background: "linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.06) 20%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.06) 80%, transparent 100%)",
+                    }}
+                  />
+                  <div
+                    className="absolute"
+                    style={{
+                      left: basinLeft,
+                      width: basinW,
+                      bottom: basinBottom,
+                      height: basinH,
+                      background: "linear-gradient(180deg, #b8c0cc 0%, #a8b0bc 30%, #98a0ac 60%, #909aaa 100%)",
+                      borderRadius: "3px 3px 8px 8px",
+                      boxShadow: "inset 0 4px 10px rgba(0,0,0,0.28), inset 0 1px 4px rgba(0,0,0,0.18), 0 0 0 1.5px #8a94a4",
+                    }}
+                  >
+                    <div
+                      className="absolute"
+                      style={{
+                        left: "50%",
+                        bottom: "12%",
+                        width: Math.max(5, 3 * ppi),
+                        height: Math.max(5, 3 * ppi),
+                        marginLeft: -(Math.max(5, 3 * ppi) / 2),
+                        borderRadius: "50%",
+                        background: "radial-gradient(circle, #4a5060 0%, #5a6575 40%, #6a7585 70%, #7a8595 100%)",
+                        border: "1.5px solid #3a4555",
+                        boxShadow: "inset 0 2px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(255,255,255,0.15)",
+                      }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Simplified: plain white apron with simple basin */}
+                  <div className="absolute inset-0" style={{ background: "#f0f2f5", border: "1.5px solid #c0c6cf", borderRadius: 2 }} />
+                  <div
+                    className="absolute"
+                    style={{
+                      left: basinLeft,
+                      width: basinW,
+                      bottom: basinBottom,
+                      height: basinH,
+                      background: "#b0b8c4",
+                      borderRadius: 4,
+                      border: "1px solid #8a94a4",
+                    }}
+                  >
+                    <div
+                      className="absolute"
+                      style={{
+                        left: "50%",
+                        bottom: "12%",
+                        width: Math.max(5, 3 * ppi),
+                        height: Math.max(5, 3 * ppi),
+                        marginLeft: -(Math.max(5, 3 * ppi) / 2),
+                        borderRadius: "50%",
+                        background: "#5a6575",
+                      }}
+                    />
+                  </div>
+                </>
+              )}
               {/* Apron label */}
               {apronPxH > 20 && (
                 <div
@@ -1543,6 +1604,17 @@ export function ElevationView({
           {t("dt_ev_wall_elevation", { wall: WALL_LABELS[side] })}
         </div>
       )}
+
+      {/* Realistic / Simplified rendering toggle — top-right corner */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); toggleRenderMode(); }}
+        className="absolute top-3 right-3 flex items-center gap-1 bg-white/85 px-2 py-1 rounded-full shadow-sm text-[11px] font-medium text-[#1a2744] hover:bg-white transition-colors z-10"
+        title={realistic ? t("dt_ev_render_simplified") : t("dt_ev_render_realistic")}
+      >
+        <span className={`w-2 h-2 rounded-full ${realistic ? "bg-emerald-500" : "bg-gray-400"}`} />
+        {realistic ? t("dt_ev_render_realistic") : t("dt_ev_render_simplified")}
+      </button>
 
       {sorted.length === 0 && viewOpenings.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm text-center px-6" style={textFlip}>

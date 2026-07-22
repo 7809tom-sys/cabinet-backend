@@ -861,6 +861,8 @@ export const SITE_STRINGS = {
     dt_rs_uses_default: "Uses room default",
     dt_rs_reset_wall: "Reset",
     dt_ev_countertop: "{material} countertop",
+    dt_ev_render_realistic: "Realistic",
+    dt_ev_render_simplified: "Simplified",
     dt_ev_empty: "Nothing on the {wall} wall yet. Switch the active wall above, or place cabinets on this wall in the plan view.",
     // --- Design Tool: plan canvas ---
     dt_pc_wall_target: "{wall} wall — click to target new items here; drag to resize",
@@ -2171,6 +2173,8 @@ export const SITE_STRINGS = {
     dt_rs_uses_default: "Usa el valor de la sala",
     dt_rs_reset_wall: "Restablecer",
     dt_ev_countertop: "Encimera de {material}",
+    dt_ev_render_realistic: "Realista",
+    dt_ev_render_simplified: "Simplificado",
     dt_ev_empty: "Aún no hay nada en la pared {wall}. Cambia la pared activa arriba, o coloca gabinetes en esta pared en la vista de planta.",
     // --- Herramienta de Diseño: lienzo de planta ---
     dt_pc_wall_target: "Pared {wall} — haz clic para dirigir aquí los nuevos artículos; arrastra para redimensionar",
@@ -3525,6 +3529,8 @@ export const SITE_STRINGS = {
     dt_rs_wall_high: "高端",
     dt_rs_wall_low: "低端",
     dt_ev_countertop: "{material} 台面",
+    dt_ev_render_realistic: "高保真",
+    dt_ev_render_simplified: "简化",
     dt_ev_empty: "{wall} 墙上还没有任何东西。请切换上方活动墙，或在平面图中将橱柜放置在此墙上。",
     dt_pc_wall_target: "{wall} 墙 — 点击此处定位新物品；拖动以调整大小",
     dt_pc_sink_drag: "{name} — 拖动以定位",
