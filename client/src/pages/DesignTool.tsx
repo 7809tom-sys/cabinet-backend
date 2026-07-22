@@ -7706,7 +7706,7 @@ export default function DesignTool() {
                       <button
                         key={type}
                         className="flex items-center gap-4 rounded-xl border-2 border-border hover:border-[#a87f33] p-4 transition-colors text-left group"
-                        onClick={(e) => { e.stopPropagation(); const t2 = type; setPendingRangeTopType(t2); setTimeout(() => setRangeTopStep("range-product"), 0); }}
+                        onClick={(e) => { e.stopPropagation(); setPendingRangeTopType(type); setRangeTopStep(type); }}
                       >
                         <div className={`w-12 h-12 rounded-full ${bg} flex items-center justify-center shrink-0`}>{icon}</div>
                         <div>
@@ -7721,7 +7721,9 @@ export default function DesignTool() {
                 </>
               )}
               {/* Step 2 of Range Top: pick a specific product from Stone Creek */}
-              {rangeTopStep === "range-product" && pendingRangeTopType && (
+              {(rangeTopStep === "range-product" || rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "smooth-top") && (() => {
+                const effectiveType: "gas" | "electric" | "smooth-top" = (rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "smooth-top") ? rangeTopStep : (pendingRangeTopType ?? "gas");
+                return (
                 <>
                   <div className="flex items-center gap-2">
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("range-type")}>
@@ -7729,25 +7731,25 @@ export default function DesignTool() {
                     </button>
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">
-                        {pendingRangeTopType === "gas" ? "Gas" : pendingRangeTopType === "electric" ? "Electric" : "Smooth Top"} Range Tops
+                        {effectiveType === "gas" ? "Gas" : effectiveType === "electric" ? "Electric" : "Smooth Top"} Range Tops
                       </h2>
                       <p className="text-sm text-muted-foreground">Stone Creek Collection</p>
                     </div>
                   </div>
                   {(() => {
                     const typeProducts = filteredRangeTops.filter(p => {
-                      if (pendingRangeTopType === "gas") return p.subCategory === "Gas";
-                      if (pendingRangeTopType === "electric") return p.subCategory === "Electric";
+                      if (effectiveType === "gas") return p.subCategory === "Gas";
+                      if (effectiveType === "electric") return p.subCategory === "Electric";
                       return p.subCategory === "Smooth Top";
                     });
                     return typeProducts.length === 0 ? (
                       <div className="flex flex-col gap-2">
-                        <p className="text-sm text-muted-foreground text-center py-4">No {pendingRangeTopType} range tops in catalog yet.</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">No {effectiveType} range tops in catalog yet.</p>
                         <button
                           className="w-full rounded-lg border border-dashed border-[#a87f33] py-3 text-sm text-[#a87f33] font-medium hover:bg-[#a87f33]/5 transition-colors"
-                          onClick={(e) => { e.stopPropagation(); applyRangeTop(pendingRangeTopType!); }}
+                          onClick={(e) => { e.stopPropagation(); applyRangeTop(effectiveType); }}
                         >
-                          Add {pendingRangeTopType} range top (no product)
+                          Add {effectiveType} range top (no product)
                         </button>
                       </div>
                     ) : (
@@ -7756,12 +7758,12 @@ export default function DesignTool() {
                           <button
                             key={p.id}
                             className="overflow-hidden rounded-xl border-2 border-border hover:border-[#a87f33] text-left transition-colors group"
-                            onClick={(e) => { e.stopPropagation(); applyRangeTop(pendingRangeTopType!, p); }}
+                            onClick={(e) => { e.stopPropagation(); applyRangeTop(effectiveType, p); }}
                           >
                             <div className="aspect-[4/3] w-full bg-muted overflow-hidden">
                               {p.imageUrl
                                 ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200" />
-                                : <div className="flex h-full items-center justify-center">{pendingRangeTopType === "gas" ? <Flame className="h-8 w-8 text-muted-foreground/30" /> : <Zap className="h-8 w-8 text-muted-foreground/30" />}</div>
+                                : <div className="flex h-full items-center justify-center">{effectiveType === "gas" ? <Flame className="h-8 w-8 text-muted-foreground/30" /> : <Zap className="h-8 w-8 text-muted-foreground/30" />}</div>
                               }
                             </div>
                             <div className="p-2">
@@ -7773,16 +7775,9 @@ export default function DesignTool() {
                       </div>
                     );
                   })()}
-                  <button className="text-xs text-muted-foreground underline self-center" onClick={(e) => { e.stopPropagation(); applyRangeTop(pendingRangeTopType!); }}>Skip — add without product</button>
-                </>
-              )}
-              {/* Legacy steps kept for backward compat (should not normally be reached) */}
-              {(rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "smooth-top") && (
-                <>
-                  <p className="text-sm text-muted-foreground">Redirecting…</p>
-                  {(() => { setPendingRangeTopType(rangeTopStep as "gas" | "electric" | "smooth-top"); setRangeTopStep("range-product"); return null; })()}
-                </>
-              )}
+                  <button className="text-xs text-muted-foreground underline self-center" onClick={(e) => { e.stopPropagation(); applyRangeTop(effectiveType); }}>Skip — add without product</button>
+                </>);
+              })()}
               <button
                 className="text-xs text-muted-foreground underline self-center"
                 onClick={() => { setSinkBaseDialog(null); setRangeTopStep("choose"); }}
