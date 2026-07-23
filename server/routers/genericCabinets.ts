@@ -12,7 +12,7 @@ import { and, asc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
-import { cabinets, distributors, distributorSkus } from "../../drizzle/schema";
+import { cabinets, distributors, distributorSkus, distributorCabinetOverrides } from "../../drizzle/schema";
 import { storagePut } from "../storage";
 
 export const genericCabinetsRouter = router({
@@ -422,10 +422,9 @@ export const genericCabinetsRouter = router({
    * OR where codes differ only by a hyphen/space (e.g. B12 vs B-12, OC30 vs OC-30).
    * Each suggestion has a unique key so admins can dismiss it permanently.
    */
-  potentialMerges: adminProcedure.query(async () => {
+    potentialMerges: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-
     // Load all cabinets with their alias fields
     const rows = await db
       .select({
@@ -433,6 +432,10 @@ export const genericCabinetsRouter = router({
         masterCode: cabinets.masterCode,
         description: cabinets.description,
         category: cabinets.category,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        catalogImageUrl: cabinets.catalogImageUrl,
         sku: cabinets.sku,
         vendorSku: cabinets.vendorSku,
         altSku1: cabinets.altSku1,
@@ -465,8 +468,8 @@ export const genericCabinetsRouter = router({
 
     type MergeCandidate = {
       key: string;
-      cabinetA: { id: number; masterCode: string; description: string | null; category: string | null };
-      cabinetB: { id: number; masterCode: string; description: string | null; category: string | null };
+      cabinetA: { id: number; masterCode: string; description: string | null; category: string | null; catalogImageUrl: string | null; width: string | null; height: string | null; depth: string | null };
+      cabinetB: { id: number; masterCode: string; description: string | null; category: string | null; catalogImageUrl: string | null; width: string | null; height: string | null; depth: string | null };
       reason: string;
     };
 
@@ -488,8 +491,8 @@ export const genericCabinetsRouter = router({
       seen.add(key);
       candidates.push({
         key,
-        cabinetA: { id: lo.id, masterCode: lo.masterCode, description: lo.description ?? null, category: lo.category ?? null },
-        cabinetB: { id: hi.id, masterCode: hi.masterCode, description: hi.description ?? null, category: hi.category ?? null },
+        cabinetA: { id: lo.id, masterCode: lo.masterCode, description: lo.description ?? null, category: lo.category ?? null, catalogImageUrl: lo.catalogImageUrl ?? null, width: lo.width ?? null, height: lo.height ?? null, depth: lo.depth ?? null },
+        cabinetB: { id: hi.id, masterCode: hi.masterCode, description: hi.description ?? null, category: hi.category ?? null, catalogImageUrl: hi.catalogImageUrl ?? null, width: hi.width ?? null, height: hi.height ?? null, depth: hi.depth ?? null },
         reason,
       });
     };
@@ -578,22 +581,86 @@ export const genericCabinetsRouter = router({
 
       if (!canonical || !duplicate) throw new Error("Cabinet not found");
 
-      // Find an empty alias slot on the canonical cabinet
+      // 1. Move all distributor SKUs from duplicate to canonical
+      await db
+        .update(distributorSkus)
+        .set({ cabinetId: input.canonicalId })
+        .where(eq(distributorSkus.cabinetId, input.duplicateId));
+
+      // 2. Move overrides (ignore conflicts if canonical already has one for same distributor)
+      try {
+        await db
+          .update(distributorCabinetOverrides)
+          .set({ cabinetId: input.canonicalId })
+          .where(eq(distributorCabinetOverrides.cabinetId, input.duplicateId));
+      } catch {
+        // If duplicate key conflict, just delete the duplicate's overrides
+        await db
+          .delete(distributorCabinetOverrides)
+          .where(eq(distributorCabinetOverrides.cabinetId, input.duplicateId));
+      }
+
+      // 3. Find an empty alias slot on the canonical cabinet
       const aliasUpdate: Record<string, string> = {};
       if (!canonical.altSku1) aliasUpdate.altSku1 = duplicate.masterCode;
       else if (!canonical.altSku2) aliasUpdate.altSku2 = duplicate.masterCode;
       else if (!canonical.altSku3) aliasUpdate.altSku3 = duplicate.masterCode;
-      else throw new Error("All alias slots are full on the canonical cabinet");
+      // If all slots full, skip alias — the merge still proceeds
 
-      await db.update(cabinets).set(aliasUpdate).where(eq(cabinets.id, input.canonicalId));
+      if (Object.keys(aliasUpdate).length > 0) {
+        await db.update(cabinets).set(aliasUpdate).where(eq(cabinets.id, input.canonicalId));
+      }
 
-      // Hide the duplicate
+      // 4. Deactivate and hide the duplicate
       await db
         .update(cabinets)
-        .set({ showInCatalog: false, showInDesigner: false })
+        .set({ isActive: false, showInCatalog: false, showInDesigner: false })
         .where(eq(cabinets.id, input.duplicateId));
 
       return { ok: true };
+    }),
+
+  /** Manual merge: search for a cabinet by code/description to use in merge */
+  searchForMerge: adminProcedure
+    .input(z.object({ search: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const term = `%${input.search}%`;
+      const rows = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          catalogImageUrl: cabinets.catalogImageUrl,
+          isActive: cabinets.isActive,
+        })
+        .from(cabinets)
+        .where(
+          or(
+            like(cabinets.masterCode, term),
+            like(cabinets.description, term),
+            like(cabinets.altSku1, term),
+            like(cabinets.altSku2, term),
+            like(cabinets.altSku3, term)
+          )
+        )
+        .orderBy(asc(cabinets.masterCode))
+        .limit(20);
+      // Get SKU counts
+      const results = [];
+      for (const row of rows) {
+        const [countRow] = await db
+          .select({ cnt: sql<number>`COUNT(*)` })
+          .from(distributorSkus)
+          .where(eq(distributorSkus.cabinetId, row.id));
+        results.push({ ...row, skuCount: Number(countRow?.cnt ?? 0) });
+      }
+      return results;
     }),
 
   /**

@@ -1529,3 +1529,14 @@
 - [x] Fix server-side to convert empty strings to null for decimal columns
 - [x] Fix client-side CabinetConfigAdmin handleSave to convert empty strings to null before sending
 - [x] TypeScript check passes; checkpoint saved
+
+## Merge Cabinets Admin Tool
+
+- [x] Add backend mergeCabinets procedure (moves SKUs, overrides, updates aliases, deactivates loser)
+- [x] Build Merge Cabinets admin UI with search/select two cabinets, side-by-side comparison, and merge button
+- [x] Show catalog images side-by-side in merge comparison
+- [x] Show dimensions side-by-side for comparison
+- [x] Blind corner warning when merging blind corner cabinets
+- [x] Confirmation dialog before executing merge
+- [x] Manual merge tab: search for any two cabinets and merge them
+- [x] Wire route into admin navigation (already existed as Merge Suggestions tab)
