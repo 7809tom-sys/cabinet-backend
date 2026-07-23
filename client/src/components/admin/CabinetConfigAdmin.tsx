@@ -82,8 +82,6 @@ type CabinetRow = {
   configVerifiedAt: Date | null;
   // Door orientation
   doorOrientation: string | null;
-  // Plan-view shape
-  planShape: string | null;
 };
 
 // ─── Dim Input ────────────────────────────────────────────────────────────────
@@ -279,7 +277,6 @@ function EditModal({
       subCategory: merged.subCategory ?? null,
       configVerified: merged.configVerified ?? undefined,
       doorOrientation: (merged.doorOrientation as "side-by-side" | "stacked" | null | undefined) ?? null,
-      planShape: (merged.planShape as "rectangle" | "diagonal-corner" | "blind-corner" | "lazy-susan" | null | undefined) ?? null,
     });
   };
 
@@ -504,28 +501,6 @@ function EditModal({
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground">Controls how this cabinet is rendered in the design tool plan view and elevation.</p>
-                </div>
-
-                {/* Plan View Shape */}
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Plan View Shape</Label>
-                  <Select
-                    value={merged.planShape ?? "__none__"}
-                    onValueChange={(v) => set("planShape", v === "__none__" ? null : v)}
-                    disabled={busy}
-                  >
-                    <SelectTrigger className={cn("w-full", !merged.planShape && "text-muted-foreground")}>
-                      <SelectValue placeholder="— rectangle (default) —" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— rectangle (default) —</SelectItem>
-                      <SelectItem value="rectangle">Rectangle (standard)</SelectItem>
-                      <SelectItem value="diagonal-corner">Diagonal Corner (135° angled front)</SelectItem>
-                      <SelectItem value="blind-corner">Blind Corner</SelectItem>
-                      <SelectItem value="lazy-susan">Lazy Susan (square with arc)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground">Controls the footprint shape in the 2D plan view. Angle cabinets use "Diagonal Corner".</p>
                 </div>
 
                 {/* Appliance Opening */}

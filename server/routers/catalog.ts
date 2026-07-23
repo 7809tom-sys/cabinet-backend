@@ -14,6 +14,7 @@ import {
   doorStyleCorrections,
   distributorCabinetOverrides,
   skuMasterAliases,
+  pantryBundles,
 } from "../../drizzle/schema";
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
@@ -831,10 +832,106 @@ export const doorStylesRouter = router({
           };
         });
 
-      return { style: scrubDoorStyle(style), items };
+            return { style: scrubDoorStyle(style), items };
+    }),
+
+  // Admin: SKU count per door style (how many line items each style carries).
+  skuCountsByStyle: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    const rows = await db
+      .select({
+        styleId: distributorSkus.styleId,
+        skuCount: sql<number>`count(distinct ${distributorSkus.id})`,
+        cabinetCount: sql<number>`count(distinct ${distributorSkus.cabinetId})`,
+      })
+      .from(distributorSkus)
+      .groupBy(distributorSkus.styleId);
+    return rows;
+  }),
+
+  // Admin: permanently delete a door style. Only allowed if no SKUs reference it.
+  deleteDoorStyle: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Safety check: block deletion if SKUs reference this style
+      const [{ cnt: skuCnt }] = await db
+        .select({ cnt: sql<number>`count(*)` })
+        .from(distributorSkus)
+        .where(eq(distributorSkus.styleId, input.id));
+      if (Number(skuCnt) > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Cannot delete: ${skuCnt} SKUs still reference this door style. Remove or reassign them first.`,
+        });
+      }
+      // Also check pantry bundles
+      const [{ cnt: pantryCnt }] = await db
+        .select({ cnt: sql<number>`count(*)` })
+        .from(pantryBundles)
+        .where(eq(pantryBundles.styleId, input.id));
+      if (Number(pantryCnt) > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Cannot delete: ${pantryCnt} pantry bundles still reference this door style.`,
+        });
+      }
+      // Clean up secondary references (corrections, branding) then delete
+      await db.delete(doorStyleCorrections).where(eq(doorStyleCorrections.styleId, input.id));
+      await db.delete(doorStyles).where(eq(doorStyles.id, input.id));
+      return { ok: true };
+    }),
+
+  // Admin: create a new door style from scratch.
+  createDoorStyle: adminProcedure
+    .input(
+      z.object({
+        distributorId: z.number(),
+        styleCode: z.string().min(1).max(32),
+        ourName: z.string().min(1).max(128),
+        distributorName: z.string().max(128).optional(),
+        doorStyle: z.string().max(64).nullable().optional(),
+        color: z.string().max(64).nullable().optional(),
+        finish: z.string().max(128).nullable().optional(),
+        woodSpecies: z.string().max(64).nullable().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Check for duplicate (same distributorId + styleCode)
+      const existing = await db
+        .select({ id: doorStyles.id })
+        .from(doorStyles)
+        .where(
+          and(
+            eq(doorStyles.distributorId, input.distributorId),
+            eq(doorStyles.styleCode, input.styleCode)
+          )
+        )
+        .limit(1);
+      if (existing.length > 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `A door style with code "${input.styleCode}" already exists for this distributor (id=${existing[0].id}).`,
+        });
+      }
+      const [result] = await db.insert(doorStyles).values({
+        distributorId: input.distributorId,
+        styleCode: input.styleCode,
+        ourName: input.ourName,
+        distributorName: input.distributorName ?? input.ourName,
+        doorStyle: input.doorStyle ?? null,
+        color: input.color ?? null,
+        finish: input.finish ?? null,
+        woodSpecies: input.woodSpecies ?? null,
+        isActive: true,
+      });
+      return { id: (result as any).insertId as number, ourName: input.ourName, ok: true };
     }),
 });
-
 // ─── Cabinets ─────────────────────────────────────────────────────────────────
 
 export const cabinetsRouter = router({
@@ -952,7 +1049,6 @@ export const cabinetsRouter = router({
           catalogImageUrl: cabinets.catalogImageUrl,
           placementType: cabinets.placementType,
           isCornerCabinet: cabinets.isCornerCabinet,
-          planShape: cabinets.planShape,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
@@ -1494,8 +1590,6 @@ export const cabinetsRouter = router({
         configVerified: z.boolean().optional(),
         // Door orientation for multi-door cabinets
         doorOrientation: z.enum(["side-by-side", "stacked"]).nullable().optional(),
-        // Plan-view footprint shape
-        planShape: z.enum(["rectangle", "diagonal-corner", "blind-corner", "lazy-susan"]).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1548,7 +1642,6 @@ export const cabinetsRouter = router({
       if (input.faceWidth !== undefined) patch.faceWidth = input.faceWidth != null ? String(input.faceWidth) : null;
       if (input.legWidth !== undefined) patch.legWidth = input.legWidth != null ? String(input.legWidth) : null;
       if (input.doorOrientation !== undefined) patch.doorOrientation = input.doorOrientation;
-      if (input.planShape !== undefined) patch.planShape = input.planShape;
       if (input.configVerified !== undefined) {
         patch.configVerified = input.configVerified;
         if (input.configVerified) {
@@ -2182,8 +2275,6 @@ export const cabinetsRouter = router({
             configVerifiedAt: cabinets.configVerifiedAt,
             // Door orientation
             doorOrientation: cabinets.doorOrientation,
-            // Plan-view shape
-            planShape: cabinets.planShape,
           })
           .from(cabinets)
           .where(where)

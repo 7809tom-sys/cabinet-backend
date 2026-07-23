@@ -1071,8 +1071,8 @@ export function PlanCanvas({
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const isCorner = isCornerCabinet(p.masterCode, p.description);
-            const isDiagonal = (p as any).planShape === "diagonal-corner" || isDiagonalCorner(p.masterCode, p.description);
-            const isBlind = (p as any).planShape === "blind-corner" || isBlindCorner(p.masterCode, p.description);
+            const isDiagonal = isDiagonalCorner(p.masterCode, p.description);
+            const isBlind = isBlindCorner(p.masterCode, p.description);
             const isPicked = measurePicks.includes(p.uid);
             const isAppliance = p.placement === "appliance";
             const cabFinish = finishFor ? finishFor(p) : finish;

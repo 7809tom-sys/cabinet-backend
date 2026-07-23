@@ -1,7 +1,8 @@
-import { useMemo, useState, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
   AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, EyeOff, Eye,
+  Trash2, Plus, Package,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,10 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
@@ -368,7 +373,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
           <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 px-3 py-3 space-y-3">
             <div>
               <span className="text-xs font-semibold text-emerald-800">Frame Profile Measurements</span>
-              <p className="text-xs text-muted-foreground mt-0.5">Enter widths in inches (e.g. <code>0.5</code> = ½", <code>3</code> = 3"). Applies to all door style types — Shaker, Slim Shaker, Double Shaker, Raised Panel, Beaded, Inset, Slab, etc.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Enter widths in inches (e.g. <code>0.5</code> = 1/2", <code>3</code> = 3"). Applies to all door style types — Shaker, Slim Shaker, Double Shaker, Raised Panel, Beaded, Inset, Slab, etc.</p>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
@@ -521,16 +526,210 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   );
 }
 
+// ── Create new door style dialog ─────────────────────────────────────────────
+
+interface CreateDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+  distributorOptions: { id: number; name: string }[];
+}
+
+function CreateDialog({ open, onClose, onCreated, distributorOptions }: CreateDialogProps) {
+  const [distributorId, setDistributorId] = useState<string>("");
+  const [styleCode, setStyleCode] = useState("");
+  const [ourName, setOurName] = useState("");
+  const [distributorName, setDistributorName] = useState("");
+  const [doorStyle, setDoorStyle] = useState("");
+  const [color, setColor] = useState("");
+  const [finish, setFinish] = useState("");
+  const [woodSpecies, setWoodSpecies] = useState("");
+
+  const createMut = trpc.doorStyles.createDoorStyle.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Door style "${data.ourName}" created (ID: ${data.id})`);
+      onCreated();
+      onClose();
+      // Reset form
+      setDistributorId("");
+      setStyleCode("");
+      setOurName("");
+      setDistributorName("");
+      setDoorStyle("");
+      setColor("");
+      setFinish("");
+      setWoodSpecies("");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  function handleCreate() {
+    if (!distributorId) {
+      toast.error("Please select a distributor");
+      return;
+    }
+    if (!styleCode.trim()) {
+      toast.error("Style code is required");
+      return;
+    }
+    if (!ourName.trim()) {
+      toast.error("Internal name is required");
+      return;
+    }
+    createMut.mutate({
+      distributorId: Number(distributorId),
+      styleCode: styleCode.trim(),
+      ourName: ourName.trim(),
+      distributorName: distributorName.trim() || undefined,
+      doorStyle: doorStyle.trim() || null,
+      color: color.trim() || null,
+      finish: finish.trim() || null,
+      woodSpecies: woodSpecies.trim() || null,
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="h-4 w-4 text-emerald-600" />
+            New Door Style
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="cr-dist">Distributor *</Label>
+            <Select value={distributorId} onValueChange={setDistributorId}>
+              <SelectTrigger id="cr-dist" className="h-9">
+                <SelectValue placeholder="Select distributor…" />
+              </SelectTrigger>
+              <SelectContent>
+                {distributorOptions.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="cr-code">Style Code *</Label>
+              <Input
+                id="cr-code"
+                value={styleCode}
+                onChange={(e) => setStyleCode(e.target.value)}
+                placeholder="e.g. SW, ASP"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cr-name">Internal Name *</Label>
+              <Input
+                id="cr-name"
+                value={ourName}
+                onChange={(e) => setOurName(e.target.value)}
+                placeholder="e.g. Slim White"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="cr-distname">Distributor Name</Label>
+            <Input
+              id="cr-distname"
+              value={distributorName}
+              onChange={(e) => setDistributorName(e.target.value)}
+              placeholder="(defaults to internal name)"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="cr-doorstyle">Door Style Type</Label>
+              <Input
+                id="cr-doorstyle"
+                value={doorStyle}
+                onChange={(e) => setDoorStyle(e.target.value)}
+                placeholder="e.g. Shaker"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cr-color">Color</Label>
+              <Input
+                id="cr-color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="e.g. White"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="cr-finish">Finish</Label>
+              <Input
+                id="cr-finish"
+                value={finish}
+                onChange={(e) => setFinish(e.target.value)}
+                placeholder="e.g. Painted"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cr-wood">Wood Species</Label>
+              <Input
+                id="cr-wood"
+                value={woodSpecies}
+                onChange={(e) => setWoodSpecies(e.target.value)}
+                placeholder="e.g. Maple"
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={createMut.isPending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreate}
+            disabled={createMut.isPending || !ourName.trim() || !styleCode.trim() || !distributorId}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {createMut.isPending ? "Creating…" : "Create Style"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function FeaturedStylesAdmin() {
   const [search, setSearch] = useState("");
   const [distributorFilter, setDistributorFilter] = useState<string>("all");
   const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminStyle | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.doorStyles.listForAdmin.useQuery();
+  const { data: skuCounts } = trpc.doorStyles.skuCountsByStyle.useQuery();
 
   const styles = useMemo(() => (data ?? []) as unknown as AdminStyle[], [data]);
+
+  // Build a map of styleId -> { skuCount, cabinetCount }
+  const countMap = useMemo(() => {
+    const map = new Map<number, { skuCount: number; cabinetCount: number }>();
+    if (skuCounts) {
+      for (const row of skuCounts) {
+        map.set(row.styleId, { skuCount: Number(row.skuCount), cabinetCount: Number(row.cabinetCount) });
+      }
+    }
+    return map;
+  }, [skuCounts]);
 
   const featured = useMemo(
     () =>
@@ -616,6 +815,20 @@ export default function FeaturedStylesAdmin() {
     onError: (e) => toast.error(e.message),
   });
 
+  const deleteMut = trpc.doorStyles.deleteDoorStyle.useMutation({
+    onSuccess: () => {
+      utils.doorStyles.listForAdmin.invalidate();
+      utils.doorStyles.featured.invalidate();
+      utils.doorStyles.skuCountsByStyle.invalidate();
+      toast.success("Door style permanently deleted");
+      setDeleteTarget(null);
+    },
+    onError: (e) => {
+      toast.error(e.message);
+      setDeleteTarget(null);
+    },
+  });
+
   const atCap = featured.length >= MAX_FEATURED;
   const unverifiedCount = useMemo(
     () => featured.filter((s) => !s.doorSampleVerified).length,
@@ -643,6 +856,25 @@ export default function FeaturedStylesAdmin() {
   function invalidateAll() {
     utils.doorStyles.listForAdmin.invalidate();
     utils.doorStyles.featured.invalidate();
+    utils.doorStyles.skuCountsByStyle.invalidate();
+  }
+
+  // SKU count badge helper
+  function SkuBadge({ styleId }: { styleId: number }) {
+    const counts = countMap.get(styleId);
+    if (!counts || counts.skuCount === 0) {
+      return (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-300 text-orange-600 bg-orange-50">
+          0 SKUs
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-700 bg-blue-50">
+        <Package className="h-2.5 w-2.5 mr-0.5" />
+        {counts.skuCount} SKUs
+      </Badge>
+    );
   }
 
   if (isLoading) {
@@ -674,6 +906,10 @@ export default function FeaturedStylesAdmin() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+          <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Plus className="h-4 w-4" />
+            New Style
+          </Button>
           {unverifiedCount > 0 && (
             <Badge variant="outline" className="text-sm border-amber-500 text-amber-600 bg-amber-50">
               <AlertTriangle className="h-3.5 w-3.5 mr-1" />
@@ -738,8 +974,9 @@ export default function FeaturedStylesAdmin() {
                       </>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
                     {[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
+                    <SkuBadge styleId={s.id} />
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -861,8 +1098,9 @@ export default function FeaturedStylesAdmin() {
                   title="Edit this door style"
                 >
                   <p className="font-medium text-sm truncate">{s.ourName}</p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
+                    <SkuBadge styleId={s.id} />
                   </p>
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
@@ -938,8 +1176,9 @@ export default function FeaturedStylesAdmin() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate line-through text-muted-foreground">{s.ourName}</p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
+                    <SkuBadge styleId={s.id} />
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -953,6 +1192,16 @@ export default function FeaturedStylesAdmin() {
                     title="Restore to storefront (activate)"
                   >
                     <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setDeleteTarget(s)}
+                    aria-label="Permanently delete style"
+                    title="Permanently delete this door style"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -971,6 +1220,50 @@ export default function FeaturedStylesAdmin() {
           onSaved={invalidateAll}
         />
       )}
+
+      {/* Create new style dialog */}
+      <CreateDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={invalidateAll}
+        distributorOptions={distributorOptions}
+      />
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently Delete Door Style</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete{" "}
+              <strong>{deleteTarget?.ourName}</strong>? This cannot be undone.
+              {(() => {
+                const counts = deleteTarget ? countMap.get(deleteTarget.id) : null;
+                if (counts && counts.skuCount > 0) {
+                  return (
+                    <span className="block mt-2 text-destructive font-medium">
+                      This style has {counts.skuCount} SKUs referencing it. You must remove or reassign them before deleting.
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deleteTarget && deleteMut.mutate({ id: deleteTarget.id })}
+            >
+              {deleteMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete Forever"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
