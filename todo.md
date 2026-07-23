@@ -1571,4 +1571,4 @@
 - [x] Ensure the preview uses the customer's currently selected door style/color
 - [x] Handle loading state while image generates (spinner/skeleton with "Generating your cabinet preview...")
 - [x] Run typecheck and tests
-- [ ] Save checkpoint
+- [x] Save checkpoint

@@ -2066,7 +2066,7 @@ function Cabinet3dPreviewSection({
             className="flex items-center justify-center gap-2 w-full rounded-lg bg-primary text-primary-foreground font-semibold text-sm py-3 px-4 transition-all hover:opacity-90 active:scale-[0.98]"
           >
             <ArrowRight className="h-4 w-4" />
-            Put This in Your Design
+            Put This in the Designer
           </Link>
           <p className="text-[11px] text-muted-foreground text-center">
             Open the kitchen designer with this style pre-loaded
@@ -2107,7 +2107,7 @@ function Cabinet3dPreviewSection({
               className="flex items-center justify-center gap-2 w-full rounded-lg border border-primary text-primary font-medium text-sm py-2.5 px-4 transition-all hover:bg-primary/5 active:scale-[0.98]"
             >
               <ArrowRight className="h-4 w-4" />
-              Design Your Kitchen with This Style
+              Put This in the Designer
             </Link>
           </div>
         </div>
