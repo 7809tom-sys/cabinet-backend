@@ -3,7 +3,7 @@ import { Link, useSearch } from "wouter";
 import {
   ChevronLeft, Package, Palette, DollarSign,
   ShoppingCart, Info, Check, Lock,
-  Pencil, X, Upload, Search,
+  Pencil, X, Upload, Search, Sparkles, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -911,6 +911,16 @@ export default function CabinetDetail({ masterCode }: Props) {
                 {swColorName ? ` · ${swColorName}` : " · true color"}
               </div>
             </div>
+          )}
+
+          {/* ── Photorealistic 3D Preview + Add to Designer CTA ────────────── */}
+          {selectedRow && cabinet && !cabinet.isNotCabinet && (
+            <Cabinet3dPreviewSection
+              cabinetId={cabinet.id}
+              styleId={selectedRow.styleId}
+              styleName={selectedRow.name}
+              masterCode={masterCode}
+            />
           )}
 
           {/* Blind corner details */}
@@ -1970,6 +1980,136 @@ function StyleCategoryNav({
               </button>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ─── Photorealistic 3D Cabinet Preview Section ──────────────────────────────
+// Shows a "See it in 3D" button that generates a photorealistic AI render of
+// the cabinet in the selected door style/color. Cached per cabinet+style combo.
+function Cabinet3dPreviewSection({
+  cabinetId,
+  styleId,
+  styleName,
+  masterCode,
+}: {
+  cabinetId: number;
+  styleId: number;
+  styleName: string;
+  masterCode: string;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Check if a cached preview already exists
+  const { data: cached } = trpc.cabinet3dPreview.get.useQuery(
+    { cabinetId, styleId },
+    { enabled: !!cabinetId && !!styleId }
+  );
+
+  // If cached, show it immediately
+  useEffect(() => {
+    if (cached?.imageUrl) {
+      setPreviewUrl(cached.imageUrl);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [cached]);
+
+  const generateMutation = trpc.cabinet3dPreview.generate.useMutation({
+    onSuccess: (data) => {
+      setPreviewUrl(data.imageUrl);
+      setGenerating(false);
+      setError(null);
+    },
+    onError: (err) => {
+      setError("Could not generate preview. Please try again.");
+      setGenerating(false);
+      console.error("3D preview generation failed:", err);
+    },
+  });
+
+  const handleGenerate = () => {
+    setGenerating(true);
+    setError(null);
+    generateMutation.mutate({ cabinetId, styleId });
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-gradient-to-br from-card to-muted/20 p-5 mb-6">
+      <h3 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-amber-500" />
+        See This Cabinet in Your Style
+      </h3>
+
+      {previewUrl ? (
+        <div className="space-y-3">
+          {/* Generated 3D preview image */}
+          <div className="rounded-lg overflow-hidden border border-border bg-white">
+            <img
+              src={previewUrl}
+              alt={`Photorealistic ${masterCode} cabinet in ${styleName}`}
+              className="w-full h-auto object-contain max-h-80"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground text-center">
+            AI-generated preview — {styleName} finish
+          </p>
+
+          {/* Add to Designer CTA */}
+          <Link
+            href={`/design?style=${styleId}`}
+            className="flex items-center justify-center gap-2 w-full rounded-lg bg-primary text-primary-foreground font-semibold text-sm py-3 px-4 transition-all hover:opacity-90 active:scale-[0.98]"
+          >
+            <ArrowRight className="h-4 w-4" />
+            Put This in Your Design
+          </Link>
+          <p className="text-[11px] text-muted-foreground text-center">
+            Open the kitchen designer with this style pre-loaded
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            See a photorealistic 3D render of this cabinet in <span className="font-medium text-foreground">{styleName}</span> — 
+            exactly how it will look in your kitchen.
+          </p>
+          <Button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="w-full gap-2"
+            size="lg"
+          >
+            {generating ? (
+              <>
+                <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                Generating 3D Preview...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                See It in 3D
+              </>
+            )}
+          </Button>
+          {error && (
+            <p className="text-xs text-destructive text-center">{error}</p>
+          )}
+
+          {/* Always show Add to Designer CTA even without the 3D preview */}
+          <div className="pt-2 border-t border-border">
+            <Link
+              href={`/design?style=${styleId}`}
+              className="flex items-center justify-center gap-2 w-full rounded-lg border border-primary text-primary font-medium text-sm py-2.5 px-4 transition-all hover:bg-primary/5 active:scale-[0.98]"
+            >
+              <ArrowRight className="h-4 w-4" />
+              Design Your Kitchen with This Style
+            </Link>
+          </div>
         </div>
       )}
     </div>

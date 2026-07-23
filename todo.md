@@ -1560,4 +1560,15 @@
 - [x] Add diagonal-corner and l-corner rendering branches to ElevationView.tsx
 - [x] Update cabinetTypeLabel and cabinetAltText for new types
 - [x] Update tests to reflect new type classifications
+- [x] Save checkpoint
+
+## Photorealistic 3D Cabinet Preview on Product Detail Page
+
+- [x] Create backend procedure to generate photorealistic AI image of a specific cabinet in a chosen door style/color
+- [x] Cache generated images (keyed by cabinet masterCode + door style ID) in S3 so same combo doesn't regenerate
+- [x] Add 3D preview section to the product detail page showing the AI-generated image
+- [x] Include prominent "Add to Designer" CTA button below the preview that opens the design tool pre-loaded with that cabinet style
+- [x] Ensure the preview uses the customer's currently selected door style/color
+- [x] Handle loading state while image generates (spinner/skeleton with "Generating your cabinet preview...")
+- [x] Run typecheck and tests
 - [ ] Save checkpoint

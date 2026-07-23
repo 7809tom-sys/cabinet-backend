@@ -1729,3 +1729,19 @@ export const cabinetSubCategories = mysqlTable("cabinet_sub_categories", {
 });
 export type CabinetSubCategory = typeof cabinetSubCategories.$inferSelect;
 export type InsertCabinetSubCategory = typeof cabinetSubCategories.$inferInsert;
+
+
+// ─── AI-generated 3D cabinet previews (cached per cabinet + door style) ──────
+// When a shopper taps a cabinet on the product detail page, we generate a
+// photorealistic 3D render in their chosen door style/color. Results are cached
+// here so the same combination never regenerates.
+export const cabinet3dPreviews = mysqlTable("cabinet_3d_previews", {
+  id: int("id").autoincrement().primaryKey(),
+  cabinetId: int("cabinetId").notNull(),       // FK to cabinets.id
+  styleId: int("styleId").notNull(),           // FK to door_styles.id
+  imageUrl: varchar("imageUrl", { length: 512 }).notNull(), // S3 URL of the generated image
+  prompt: text("prompt"),                       // The prompt used (for debugging/regeneration)
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Cabinet3dPreview = typeof cabinet3dPreviews.$inferSelect;
+export type InsertCabinet3dPreview = typeof cabinet3dPreviews.$inferInsert;
