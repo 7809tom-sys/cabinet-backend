@@ -444,6 +444,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editIsNotCabinet, setEditIsNotCabinet] = useState(false);
   const [editDoorOrientation, setEditDoorOrientation] = useState<string>("__none__");
   const [editCornerType, setEditCornerType] = useState<string>("__none__");
+  const [editPlanShape, setEditPlanShape] = useState<string>("__none__");
   const [editOpeningType, setEditOpeningType] = useState<string>("__none__");
   const [editDoorHeight, setEditDoorHeight] = useState<string>("");
   const [editDrawerHeight, setEditDrawerHeight] = useState<string>("");
@@ -477,6 +478,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditIsNotCabinet(cab.isNotCabinet === true);
       setEditDoorOrientation(String(cab.doorOrientation ?? "__none__"));
       setEditCornerType(String(cab.cornerType ?? "__none__"));
+      setEditPlanShape(String(cab.planShape ?? "__none__"));
       setEditOpeningType(String(cab.openingType ?? "__none__"));
       setEditDoorHeight(cab.doorHeight != null ? String(cab.doorHeight) : "");
       setEditDrawerHeight(cab.drawerHeight != null ? String(cab.drawerHeight) : "");
@@ -616,6 +618,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       isNotCabinet: editIsNotCabinet,
       doorOrientation: editDoorOrientation === "__none__" ? null : editDoorOrientation as "side-by-side" | "stacked",
       cornerType: editCornerType === "__none__" ? null : editCornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape",
+      planShape: editPlanShape === "__none__" ? null : editPlanShape as "rectangle" | "diagonal-corner" | "blind-corner" | "lazy-susan",
       openingType: editOpeningType === "__none__" ? null : editOpeningType as "top" | "middle" | "bottom",
       doorHeight: editDoorHeight ? parseFloat(editDoorHeight) : null,
       drawerHeight: editDrawerHeight ? parseFloat(editDrawerHeight) : null,
@@ -1557,6 +1560,22 @@ export default function CabinetDetail({ masterCode }: Props) {
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground">Controls how this cabinet is rendered in the design tool plan view and elevation.</p>
+              </div>
+
+              {/* Plan View Shape */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">Plan View Shape</Label>
+                <Select value={editPlanShape} onValueChange={setEditPlanShape}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— auto-detect (default) —</SelectItem>
+                    <SelectItem value="rectangle">Rectangle (standard)</SelectItem>
+                    <SelectItem value="diagonal-corner">Diagonal Corner (angle cabinet)</SelectItem>
+                    <SelectItem value="blind-corner">Blind Corner</SelectItem>
+                    <SelectItem value="lazy-susan">Lazy Susan / L-Shape</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">Controls the shape rendered in the plan view. Set to "Diagonal Corner" for base angle cabinets.</p>
               </div>
 
               {/* Config Verified */}
