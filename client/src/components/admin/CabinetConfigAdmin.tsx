@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -82,6 +82,11 @@ type CabinetRow = {
   configVerifiedAt: Date | null;
   // Door orientation
   doorOrientation: string | null;
+  // Drawer layout JSON
+  drawerLayout: string | null;
+  // Panel fields
+  grainDirection: string | null;
+  isDecorativeDoor: boolean | null;
 };
 
 // ─── Dim Input ────────────────────────────────────────────────────────────────
@@ -114,6 +119,136 @@ function DimInput({
           {unit}
         </span>
       </div>
+    </div>
+  );
+}
+
+// ─── Drawer Layout Editor ─────────────────────────────────────────────────────
+interface DrawerRow {
+  count: number;
+  height?: number;
+}
+
+function DrawerLayoutEditor({
+  value,
+  onChange,
+  totalDrawers,
+  disabled,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  totalDrawers: number;
+  disabled?: boolean;
+}) {
+  const rows: DrawerRow[] = useMemo(() => {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+    return [];
+  }, [value]);
+
+  const setRows = (newRows: DrawerRow[]) => {
+    if (newRows.length === 0) {
+      onChange(null);
+    } else {
+      onChange(JSON.stringify(newRows));
+    }
+  };
+
+  const addRow = () => {
+    setRows([...rows, { count: 1 }]);
+  };
+
+  const removeRow = (idx: number) => {
+    setRows(rows.filter((_, i) => i !== idx));
+  };
+
+  const updateRow = (idx: number, field: "count" | "height", val: number | undefined) => {
+    const updated = rows.map((r, i) => {
+      if (i !== idx) return r;
+      if (field === "count") return { ...r, count: val ?? 1 };
+      if (field === "height") {
+        if (val === undefined) {
+          const { height: _, ...rest } = r;
+          return rest;
+        }
+        return { ...r, height: val };
+      }
+      return r;
+    });
+    setRows(updated);
+  };
+
+  const assignedDrawers = rows.reduce((sum, r) => sum + r.count, 0);
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 px-4 py-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium">Drawer Layout (per row)</Label>
+        <button
+          type="button"
+          onClick={addRow}
+          disabled={disabled}
+          className="text-xs text-primary hover:underline disabled:opacity-50"
+        >
+          + Add Row
+        </button>
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground">
+          No custom layout — all {totalDrawers} drawer(s) will be full-width stacked. Click "+ Add Row" to define rows.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((row, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground w-12 shrink-0">Row {idx + 1}</span>
+              <Input
+                type="number"
+                min={1}
+                max={6}
+                value={row.count}
+                onChange={(e) => updateRow(idx, "count", parseInt(e.target.value) || 1)}
+                disabled={disabled}
+                className="w-16 h-8 text-xs"
+                placeholder="#"
+              />
+              <span className="text-[11px] text-muted-foreground">side by side</span>
+              <Input
+                type="number"
+                min={1}
+                max={20}
+                step={0.25}
+                value={row.height ?? ""}
+                onChange={(e) => updateRow(idx, "height", e.target.value ? parseFloat(e.target.value) : undefined)}
+                disabled={disabled}
+                className="w-16 h-8 text-xs"
+                placeholder="auto"
+              />
+              <span className="text-[11px] text-muted-foreground">″ tall</span>
+              <button
+                type="button"
+                onClick={() => removeRow(idx)}
+                disabled={disabled}
+                className="text-xs text-destructive hover:underline disabled:opacity-50 ml-auto"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <p className="text-[11px] text-muted-foreground">
+            {assignedDrawers} of {totalDrawers} drawers assigned to rows.
+            {assignedDrawers !== totalDrawers && (
+              <span className="text-amber-500 ml-1">
+                (mismatch — total should equal {totalDrawers})
+              </span>
+            )}
+            {" "}Heights left blank will split equally.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -308,6 +443,7 @@ function EditModal({
       subCategory: merged.subCategory ?? null,
       configVerified: merged.configVerified ?? undefined,
       doorOrientation: (merged.doorOrientation as "side-by-side" | "stacked" | null | undefined) ?? null,
+      drawerLayout: merged.drawerLayout ?? null,
     });
   };
 
@@ -591,8 +727,48 @@ function EditModal({
                   </div>
                 )}
 
+                {/* Drawer Layout (row-based grid) */}
+                {(merged.numberOfDrawers ?? 0) >= 2 && (
+                  <DrawerLayoutEditor
+                    value={merged.drawerLayout}
+                    onChange={(v) => set("drawerLayout", v)}
+                    totalDrawers={merged.numberOfDrawers ?? 0}
+                    disabled={busy}
+                  />
+                )}
+
+                {/* Panel Config: Grain Direction + Decorative Door */}
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Grain Direction (panels only)</Label>
+                    <select
+                      value={merged.grainDirection ?? ""}
+                      onChange={(e) => set("grainDirection", e.target.value || null)}
+                      disabled={busy}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">None / Not a panel</option>
+                      <option value="vertical">Vertical (up/down)</option>
+                      <option value="horizontal">Horizontal (left/right)</option>
+                    </select>
+                    <p className="text-[11px] text-muted-foreground">Set grain direction for skin/end/plywood panels. Leave blank for cabinets.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isDecorativeDoor"
+                      checked={!!merged.isDecorativeDoor}
+                      onChange={(e) => set("isDecorativeDoor", e.target.checked)}
+                      disabled={busy}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    <Label htmlFor="isDecorativeDoor" className="text-sm">Decorative Door Panel</Label>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Check if this panel uses the door style image (decorative end panels, island backs).</p>
+                </div>
+
                 {/* Door / Drawer Layout Preview — live preview of the door+drawer arrangement */}
-                {(merged.numberOfDoors !== null || merged.numberOfDrawers !== null || merged.openingType) && (
+                {(merged.numberOfDoors !== null || merged.numberOfDrawers !== null || merged.openingType || merged.grainDirection || merged.isDecorativeDoor) && (
                   <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
                     <p className="text-xs font-medium text-muted-foreground mb-2">Layout Preview</p>
                     <div className="flex justify-center">
@@ -610,6 +786,9 @@ function EditModal({
                           doorHeight: merged.doorHeight,
                           drawerHeight: merged.drawerHeight,
                           doorOrientation: merged.doorOrientation,
+                          drawerLayout: merged.drawerLayout,
+                          grainDirection: merged.grainDirection,
+                          isDecorativeDoor: merged.isDecorativeDoor,
                         }}
                         width={160}
                       />

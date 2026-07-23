@@ -1,0 +1,1 @@
+ALTER TABLE `cabinets` ADD `drawerLayout` varchar(16);

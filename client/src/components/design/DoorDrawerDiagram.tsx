@@ -145,6 +145,89 @@ function Zone({
   );
 }
 
+// ─── Drawer Layout Helpers ───────────────────────────────────────────────────
+
+/** Parse the drawerLayout JSON string into an array of row specs. */
+function parseDrawerLayout(
+  json: string | null | undefined,
+  _totalDrawers: number,
+): Array<{ count: number; height?: number }> {
+  if (!json) return [];
+  try {
+    const rows = JSON.parse(json);
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    // Validate each row has at least a count
+    return rows.filter(
+      (r: unknown) => typeof r === "object" && r !== null && typeof (r as any).count === "number" && (r as any).count > 0,
+    ) as Array<{ count: number; height?: number }>;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Push drawer zones and rails for a row-based drawer layout.
+ * Each row splits width equally among `count` drawers.
+ * Heights split equally among rows if not specified.
+ */
+function renderDrawerRows(
+  rows: Array<{ count: number; height?: number }>,
+  zones: Array<{
+    x: number; y: number; w: number; h: number;
+    fill: string; stroke: string;
+    label: string; subLabel?: string;
+  }>,
+  rails: Array<{ y: number }>,
+  padX: number,
+  startY: number,
+  totalW: number,
+  totalH: number,
+): void {
+  // Calculate row heights: specified heights proportionally, unspecified split remaining
+  const specifiedSum = rows.reduce((s, r) => s + (r.height ?? 0), 0);
+  const unspecifiedCount = rows.filter((r) => !r.height).length;
+
+  // Simpler approach: if any heights specified, use them as proportional weights
+  // If none specified, split equally
+  let rowHeights: number[];
+  if (specifiedSum > 0 && unspecifiedCount === 0) {
+    // All heights specified — use as proportions
+    rowHeights = rows.map((r) => (r.height! / specifiedSum) * totalH);
+  } else if (specifiedSum > 0 && unspecifiedCount > 0) {
+    // Mixed: specified heights take their proportion, unspecified split the rest
+    const specPx = (specifiedSum / (specifiedSum + unspecifiedCount * (specifiedSum / rows.length))) * totalH;
+    const unspecPx = totalH - specPx;
+    const autoH = unspecPx / unspecifiedCount;
+    rowHeights = rows.map((r) => (r.height ? (r.height / specifiedSum) * specPx : autoH));
+  } else {
+    // No heights specified — equal split
+    rowHeights = rows.map(() => totalH / rows.length);
+  }
+
+  let drawerIndex = 0;
+  let y = startY;
+  rows.forEach((row, rowIdx) => {
+    const rowH = rowHeights[rowIdx];
+    const colW = totalW / row.count;
+    for (let col = 0; col < row.count; col++) {
+      drawerIndex++;
+      zones.push({
+        x: padX + col * colW,
+        y,
+        w: colW,
+        h: rowH,
+        fill: CLR.drawer,
+        stroke: CLR.drawerStroke,
+        label: `Drawer ${drawerIndex}`,
+      });
+    }
+    if (rowIdx < rows.length - 1) {
+      rails.push({ y: y + rowH });
+    }
+    y += rowH;
+  });
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
   const type = cabinetDrawingType(cabinet);
@@ -191,6 +274,130 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       const w = toNum(cabinet.width);
       effectiveDoors = w !== null && w >= 24 ? 2 : 1;
     }
+  }
+
+  // ── Panel / Decorative Door rendering ─────────────────────────────────────────
+  // Panels render as a simple flat rectangle with measurements and grain/door indicator
+  if (type === "panel" || type === "decorative-door") {
+    const panelW = toNum(cabinet.width) ?? 36;
+    const panelH = toNum(cabinet.height) ?? 96;
+    const grain = (cabinet.grainDirection ?? "").toLowerCase();
+    const isDecorative = type === "decorative-door";
+
+    // Determine label
+    const desc = lc(cabinet.description);
+    let panelLabel = "Flat Panel";
+    if (isDecorative) panelLabel = "Decorative Door";
+    else if (/skin/.test(desc)) panelLabel = "Skin Panel";
+    else if (/end panel/.test(desc)) panelLabel = "End Panel";
+    else if (/refrigerator/.test(desc)) panelLabel = "Fridge Panel";
+
+    // Measurement string
+    const measLabel = `${panelW}" × ${panelH}"`;
+
+    // Colors for panel
+    const panelFill = isDecorative ? "#e0e7ff" : "#f1f5f9"; // light indigo for decorative, light slate for flat
+    const panelStroke = isDecorative ? "#6366f1" : "#64748b";
+    const textColor = isDecorative ? "#4338ca" : "#334155";
+
+    const totalSvgH = svgH + 24; // extra space for label below
+
+    return (
+      <svg
+        viewBox={`0 0 ${width} ${totalSvgH}`}
+        width={width}
+        height={totalSvgH}
+        className={className}
+        aria-label={`${panelLabel} ${measLabel}`}
+        role="img"
+      >
+        {/* Panel rectangle */}
+        <rect
+          x={PAD} y={PAD} width={iW} height={iH}
+          rx={3} ry={3}
+          fill={panelFill} stroke={panelStroke} strokeWidth={2}
+        />
+
+        {/* Grain direction indicator (for flat panels) */}
+        {!isDecorative && (grain === "vertical" || grain === "horizontal" || !grain) && (
+          <g>
+            {/* Grain lines */}
+            {(grain === "horizontal" ? [0.3, 0.5, 0.7] : [0.3, 0.5, 0.7]).map((pct, i) => {
+              if (grain === "horizontal") {
+                const ly = PAD + iH * pct;
+                return <line key={i} x1={PAD + 10} y1={ly} x2={PAD + iW - 10} y2={ly} stroke={panelStroke} strokeWidth={0.5} strokeDasharray="4 3" opacity={0.5} />;
+              } else {
+                const lx = PAD + iW * pct;
+                return <line key={i} x1={lx} y1={PAD + 10} x2={lx} y2={PAD + iH - 10} stroke={panelStroke} strokeWidth={0.5} strokeDasharray="4 3" opacity={0.5} />;
+              }
+            })}
+            {/* Grain direction arrow */}
+            <g transform={`translate(${width / 2}, ${PAD + iH * 0.5})`}>
+              <text
+                x={0} y={-14}
+                textAnchor="middle" dominantBaseline="middle"
+                fill={textColor} fontSize={9} fontFamily="system-ui, sans-serif"
+              >
+                GRAIN
+              </text>
+              {/* Arrow pointing up/down for vertical, left/right for horizontal */}
+              {grain === "horizontal" ? (
+                <>
+                  <line x1={-12} y1={0} x2={12} y2={0} stroke={textColor} strokeWidth={1.5} />
+                  <polygon points="12,0 7,-3 7,3" fill={textColor} />
+                  <polygon points="-12,0 -7,-3 -7,3" fill={textColor} />
+                </>
+              ) : (
+                <>
+                  <line x1={0} y1={-8} x2={0} y2={8} stroke={textColor} strokeWidth={1.5} />
+                  <polygon points="0,-8 -3,-3 3,-3" fill={textColor} />
+                  <polygon points="0,8 -3,3 3,3" fill={textColor} />
+                </>
+              )}
+            </g>
+          </g>
+        )}
+
+        {/* Decorative door checkmark indicator */}
+        {isDecorative && (
+          <g transform={`translate(${width / 2}, ${PAD + iH * 0.45})`}>
+            {/* Checkmark circle */}
+            <circle cx={0} cy={0} r={14} fill="#4f46e5" opacity={0.15} />
+            <path
+              d="M-6,0 L-2,4 L6,-4"
+              stroke="#4f46e5" strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round"
+            />
+            <text
+              x={0} y={22}
+              textAnchor="middle" dominantBaseline="middle"
+              fill={textColor} fontSize={8} fontFamily="system-ui, sans-serif"
+            >
+              DOOR IMAGE
+            </text>
+          </g>
+        )}
+
+        {/* Measurement label (width × height) */}
+        <text
+          x={width / 2} y={PAD + iH - 12}
+          textAnchor="middle" dominantBaseline="middle"
+          fill={textColor} fontSize={11} fontWeight="600"
+          fontFamily="system-ui, sans-serif"
+        >
+          {measLabel}
+        </text>
+
+        {/* Panel type label below */}
+        <text
+          x={width / 2} y={svgH + 12}
+          textAnchor="middle" dominantBaseline="middle"
+          fill="#64748b" fontSize={10} fontWeight="500"
+          fontFamily="system-ui, sans-serif"
+        >
+          {panelLabel}
+        </text>
+      </svg>
+    );
   }
 
   // ── Diagonal/L-corner special rendering ─────────────────────────────────────
@@ -562,6 +769,9 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
 
     } else if (effectiveDrawers > 0 && effectiveDoors > 0) {
     // Standard base: drawer rows stacked on top, doors side-by-side below
+    // Parse drawerLayout JSON for row-based grid rendering
+    const drawerRows = parseDrawerLayout(cabinet.drawerLayout, effectiveDrawers);
+
     const drawerBandH = Math.min(
       Math.round(iH * DRAWER_BAND_PCT * effectiveDrawers),
       Math.round(iH * 0.55) // never take more than 55% of height
@@ -569,17 +779,23 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     const doorH = iH - drawerBandH;
     const cols = Math.max(1, effectiveDoors);
     const colW = iW / cols;
-    const drawerSliceH = drawerBandH / effectiveDrawers;
-    // Drawer fronts: one row per drawer, full width
-    for (let i = 0; i < effectiveDrawers; i++) {
-      const drawerLabel = effectiveDrawers === 1 ? "Drawer" : `Drawer ${i + 1}`;
-      zones.push({
-        x: PAD, y: PAD + i * drawerSliceH,
-        w: iW, h: drawerSliceH,
-        fill: CLR.drawer, stroke: CLR.drawerStroke,
-        label: drawerLabel,
-      });
-      if (i < effectiveDrawers - 1) rails.push({ y: PAD + (i + 1) * drawerSliceH });
+
+    // Render drawers per-row using drawerLayout
+    if (drawerRows.length > 0) {
+      renderDrawerRows(drawerRows, zones, rails, PAD, PAD, iW, drawerBandH);
+    } else {
+      // Fallback: all drawers full-width stacked
+      const drawerSliceH = drawerBandH / effectiveDrawers;
+      for (let i = 0; i < effectiveDrawers; i++) {
+        const drawerLabel = effectiveDrawers === 1 ? "Drawer" : `Drawer ${i + 1}`;
+        zones.push({
+          x: PAD, y: PAD + i * drawerSliceH,
+          w: iW, h: drawerSliceH,
+          fill: CLR.drawer, stroke: CLR.drawerStroke,
+          label: drawerLabel,
+        });
+        if (i < effectiveDrawers - 1) rails.push({ y: PAD + (i + 1) * drawerSliceH });
+      }
     }
     // Rail between drawer band and doors
     rails.push({ y: PAD + drawerBandH });
@@ -597,16 +813,23 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       });
     }
   } else if (effectiveDrawers > 0 && effectiveDoors === 0) {
-    // All-drawer base: stacked drawers
-    const sliceH = iH / effectiveDrawers;
-    for (let i = 0; i < effectiveDrawers; i++) {
-      zones.push({
-        x: PAD, y: PAD + i * sliceH,
-        w: iW, h: sliceH,
-        fill: CLR.drawer, stroke: CLR.drawerStroke,
-        label: `Drawer ${i + 1}`,
-        subLabel: i === 0 ? "top" : i === effectiveDrawers - 1 ? "bottom" : undefined,
-      });
+    // All-drawer base: use drawerLayout rows if available
+    const drawerRows = parseDrawerLayout(cabinet.drawerLayout, effectiveDrawers);
+
+    if (drawerRows.length > 0) {
+      renderDrawerRows(drawerRows, zones, rails, PAD, PAD, iW, iH);
+    } else {
+      // Fallback: all drawers full-width stacked
+      const sliceH = iH / effectiveDrawers;
+      for (let i = 0; i < effectiveDrawers; i++) {
+        zones.push({
+          x: PAD, y: PAD + i * sliceH,
+          w: iW, h: sliceH,
+          fill: CLR.drawer, stroke: CLR.drawerStroke,
+          label: `Drawer ${i + 1}`,
+          subLabel: i === 0 ? "top" : i === effectiveDrawers - 1 ? "bottom" : undefined,
+        });
+      }
     }
 
   } else if (effectiveDoors > 0 && effectiveDrawers === 0) {

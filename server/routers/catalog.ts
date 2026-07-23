@@ -1590,6 +1590,12 @@ export const cabinetsRouter = router({
         configVerified: z.boolean().optional(),
         // Door orientation for multi-door cabinets
         doorOrientation: z.enum(["side-by-side", "stacked"]).nullable().optional(),
+        // Drawer layout JSON: array of rows [{count, height?}]
+        drawerLayout: z.string().nullable().optional(),
+        // Panel grain direction: vertical | horizontal | null
+        grainDirection: z.enum(["vertical", "horizontal"]).nullable().optional(),
+        // Whether this panel uses the door style image (decorative door panel)
+        isDecorativeDoor: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1664,6 +1670,9 @@ export const cabinetsRouter = router({
       if (input.faceWidth !== undefined) patch.faceWidth = input.faceWidth != null ? String(input.faceWidth) : null;
       if (input.legWidth !== undefined) patch.legWidth = input.legWidth != null ? String(input.legWidth) : null;
       if (input.doorOrientation !== undefined) patch.doorOrientation = input.doorOrientation;
+      if (input.drawerLayout !== undefined) patch.drawerLayout = input.drawerLayout;
+      if (input.grainDirection !== undefined) patch.grainDirection = input.grainDirection;
+      if (input.isDecorativeDoor !== undefined) patch.isDecorativeDoor = input.isDecorativeDoor;
       if (input.configVerified !== undefined) {
         patch.configVerified = input.configVerified;
         if (input.configVerified) {
@@ -2297,6 +2306,11 @@ export const cabinetsRouter = router({
             configVerifiedAt: cabinets.configVerifiedAt,
             // Door orientation
             doorOrientation: cabinets.doorOrientation,
+            // Drawer layout JSON
+            drawerLayout: cabinets.drawerLayout,
+            // Panel fields
+            grainDirection: cabinets.grainDirection,
+            isDecorativeDoor: cabinets.isDecorativeDoor,
           })
           .from(cabinets)
           .where(where)

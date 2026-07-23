@@ -12,7 +12,9 @@ export type CabinetDrawingType =
   | "corner-drawer-base" // L-shaped corner with stacked drawers on the main face (CDB-*)
   | "vanity" // vanity door/drawer combo
   | "ada" // ADA-height unit
-  | "accessory-strip" // moldings, fillers, panels, shelves (thin)
+  | "accessory-strip" // moldings, fillers, shelves (thin)
+  | "panel" // flat panels: skin panels, end panels, plywood panels (grain direction)
+  | "decorative-door" // decorative door panels: match door style, go on island backs / cabinet sides
   | "glass-door" // glass-front wall cabinet
   | "pantry" // tall pantry: 4 doors split at 54" (2 bottom, 2 top)
   | "oven-tall"; // tall oven cabinet: 2 upper doors + appliance opening + drawers
@@ -40,8 +42,14 @@ export interface CabinetLike {
   drawerHeight?: number | string | null;
   /** Door orientation: 'side-by-side' | 'stacked' | null */
   doorOrientation?: string | null;
+  /** Drawer layout: 'stacked' (full-width, one above another) | 'side-by-side' (next to each other) | null */
+  drawerLayout?: string | null;
   /** Oven type selected by user: 'single' | 'double' | null */
   ovenType?: "single" | "double" | null;
+  /** Grain direction for panels: 'vertical' | 'horizontal' | null */
+  grainDirection?: string | null;
+  /** Whether this panel uses the door style image (decorative door panel) */
+  isDecorativeDoor?: boolean | null;
 }
 
 function toNum(v: number | string | null | undefined): number | null {
@@ -175,13 +183,26 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // mentions words like "shelf" or "panel" (e.g. "...Base Cabinet with Adjustable Shelf").
   const isRealCabinetFamily = ["base", "wall", "tall", "vanity", "ada"].includes(cat);
 
-  // Accessories: moldings, fillers, end panels, shelves, light/base rail, toe kick.
+  // Panels: skin panels, end panels, plywood panels, refrigerator panels.
+  // Detected by subCategory/description keywords. Must be checked BEFORE accessory-strip.
+  if (
+    !isRealCabinetFamily &&
+    /skin panel|end panel|plywood panel|refrigerator panel|\bpanel\s*\d|\bwsp\b|\brsp\b|\brw\b|\bdep\b|\bbep\b/.test(hay)
+  ) {
+    // Check if it's a decorative door panel (has door style) vs flat plywood panel
+    if (cab.isDecorativeDoor || /decorative|door panel|dec\s*end|dep-|bep-/.test(hay)) {
+      return "decorative-door";
+    }
+    return "panel";
+  }
+
+  // Accessories: moldings, fillers, shelves, light/base rail, toe kick.
   // The keyword heuristic only applies as a fallback for items NOT already in a
   // real cabinet category; explicit category==="accessory" always wins.
   if (
     cat === "accessory" ||
     (!isRealCabinetFamily &&
-      /molding|filler|end panel|\bpanel\b|shelf|light rail|base rail|toe kick|scribe|valance/.test(
+      /molding|filler|shelf|light rail|base rail|toe kick|scribe|valance/.test(
         hay,
       ))
   ) {
@@ -383,6 +404,16 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "appliance-garage") return "Appliance Garage";
   if (type === "glass-door") return doors >= 2 ? `Double Glass Door ${placement}` : `Single Glass Door ${placement}`;
   if (type === "accessory-strip") return sub || "Trim / Accessory";
+  if (type === "panel") {
+    if (/skin/.test(desc)) return "Skin Panel";
+    if (/end panel/.test(desc)) return "End Panel";
+    if (/refrigerator/.test(desc)) return "Refrigerator Panel";
+    return sub || "Flat Panel";
+  }
+  if (type === "decorative-door") {
+    if (/end/.test(desc)) return "Decorative End Panel";
+    return sub || "Decorative Door Panel";
+  }
 
   // Standard door box: name by door count so it matches the drawing.
   if (type === "standard-door") {
@@ -446,6 +477,8 @@ export function cabinetAltText(cab: CabinetLike): string {
     vanity: "vanity cabinet",
     ada: "ADA-compliant cabinet",
     "accessory-strip": "accessory / trim",
+    "panel": "flat panel (skin panel / end panel)",
+    "decorative-door": "decorative door panel",
     "glass-door": "glass-front wall cabinet",
     "pantry": "tall pantry cabinet with 4 doors",
     "oven-tall": "tall oven cabinet with appliance opening",

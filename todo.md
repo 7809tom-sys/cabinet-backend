@@ -1577,4 +1577,25 @@
 
 - [x] Show two thumbnails per row: catalog image (left) + DoorDrawerDiagram rendering (right)
 - [x] Keep the thumbnails small (40px) so they don't bloat the table but give visual identification
+- [x] Save checkpoint
+
+## Drawer Layout Configuration (row-based grid)
+
+- [x] Add a `drawerLayout` JSON field to the cabinets table (stores array of rows: [{count, height?}])
+- [ ] Add Drawer Layout row editor in the admin CabinetConfigAdmin edit modal (Config tab) — add/remove rows, set count per row, optional height
+- [ ] Update DoorDrawerDiagram to render drawers per-row (side-by-side within each row, rows stacked vertically)
+- [ ] Update ElevationView to render drawers per-row when configured
+- [ ] Default behavior: if no drawerLayout JSON, fall back to current behavior (all drawers full-width stacked)
+- [ ] Equal height split when heights not specified; equal width split within each row
+- [x] Save checkpoint
+
+## Flat Panel Rendering in DoorDrawerDiagram
+
+- [x] Add `parseDrawerLayout` and `renderDrawerRows` helper functions to fix compilation error
+- [x] Add `'panel'` type to CabinetDrawingType enum in cabinetGraphics.ts
+- [x] Add panel detection logic (category/subCategory/code patterns for skin panels, end panels, plywood panels)
+- [x] Add `grainDirection` field to CabinetLike interface and cabinets table
+- [x] Implement flat panel rendering branch in DoorDrawerDiagram: simple rectangle with measurements (W×H), label, and grain direction arrow
+- [x] Update cabinetTypeLabel and cabinetAltText for panel type
+- [x] Add grainDirection field to admin CabinetConfigAdmin edit modal
 - [ ] Save checkpoint

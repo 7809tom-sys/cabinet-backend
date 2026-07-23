@@ -1,0 +1,1 @@
+ALTER TABLE `cabinets` MODIFY COLUMN `drawerLayout` text;

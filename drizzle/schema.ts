@@ -244,6 +244,13 @@ export const cabinets = mysqlTable("cabinets", {
   configVerifiedByName: varchar("configVerifiedByName", { length: 128 }),
   // Door orientation for multi-door cabinets: side-by-side (horizontal) or stacked (vertical)
   doorOrientation: varchar("doorOrientation", { length: 16 }), // side-by-side | stacked | null
+  // Drawer layout JSON: array of rows [{count: number, height?: number}]
+  // Each row defines how many drawers are side-by-side; height is optional (equal split if omitted)
+  drawerLayout: text("drawerLayout"), // JSON string, e.g. [{"count":2},{"count":1,"height":8}]
+  // Panel grain direction: vertical (up/down) or horizontal (left/right)
+  grainDirection: varchar("grainDirection", { length: 16 }), // vertical | horizontal | null
+  // Whether this panel uses the door style image (decorative door panel vs flat plywood)
+  isDecorativeDoor: boolean("isDecorativeDoor").default(false),
 });
 
 export type Cabinet = typeof cabinets.$inferSelect;
