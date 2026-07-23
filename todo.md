@@ -1540,3 +1540,12 @@
 - [x] Confirmation dialog before executing merge
 - [x] Manual merge tab: search for any two cabinets and merge them
 - [x] Wire route into admin navigation (already existed as Merge Suggestions tab)
+
+## Image Replacement Confirmation Dialog
+
+- [x] When uploading a new catalog image and one already exists, show confirmation: "Replace for all distributors?"
+- [x] "Yes, replace for all" → updates master cabinet catalogImageUrl (applies globally to all distributors)
+- [x] "No, just this distributor" → saves to distributor_cabinet_overrides.imageUrl for that specific distributor
+- [x] Show the designer rendering (DoorDrawerDiagram) in the confirmation dialog so admin sees what it looks like in the design tool
+- [x] Wire the dialog into the handleFile flow in CabinetConfigAdmin
+- [ ] Save checkpoint

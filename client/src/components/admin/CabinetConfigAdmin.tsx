@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, Sparkles, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, Sparkles, Pencil, Trash2, Plus, AlertTriangle, Globe, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 
@@ -136,8 +136,14 @@ function EditModal({
   const [viewMode, setViewMode] = useState<"3d" | "2d">("3d");
   const [newAliasCode, setNewAliasCode] = useState("");
   const [measurementSource, setMeasurementSource] = useState<string | null>(null);
+  // Image replacement confirmation dialog state
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
+  const [imageConfirmOpen, setImageConfirmOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
+
+  // Fetch distributors that carry this cabinet (via SKUs)
+  const { data: distributorsList } = trpc.distributors.list.useQuery();
 
   const merged: CabinetRow = { ...row, ...draft };
 
@@ -157,11 +163,34 @@ function EditModal({
 
   const uploadMutation = trpc.cabinets.adminUploadCatalogImage.useMutation({
     onSuccess: (data) => {
-      set("catalogImageUrl", data.url);
       setUploading(false);
-      toast.success("Image uploaded");
+      // If there's already an image, show the confirmation dialog
+      if (merged.catalogImageUrl) {
+        setPendingImageUrl(data.url);
+        setImageConfirmOpen(true);
+      } else {
+        // No existing image — just set it globally (first upload)
+        set("catalogImageUrl", data.url);
+        toast.success("Image uploaded");
+      }
     },
     onError: (e) => { setUploading(false); toast.error(`Upload failed: ${e.message}`); },
+  });
+
+  // Mutation to save image at a specific scope (global or per-distributor)
+  const setImageMutation = trpc.cabinetOverrides.setImage.useMutation({
+    onSuccess: (res) => {
+      if (res.scope === "global") {
+        set("catalogImageUrl", pendingImageUrl);
+        toast.success("Image replaced for all distributors");
+      } else {
+        toast.success("Image saved for this distributor only");
+      }
+      setPendingImageUrl(null);
+      setImageConfirmOpen(false);
+      utils.cabinets.adminListCabinetConfig.invalidate();
+    },
+    onError: (e) => toast.error(`Save failed: ${e.message}`),
   });
 
   const generateMutation = trpc.cabinets.adminGenerateCatalogImage.useMutation({
@@ -286,7 +315,7 @@ function EditModal({
   const depthVal = merged.depth ? String(parseFloat(merged.depth)) : "";
   const isStandardDepth = STANDARD_DEPTHS.includes(depthVal);
 
-  return (
+  return (<>
     <Dialog open={open} onOpenChange={(v) => { if (!v && !busy) { setDraft({}); onClose(); } }}>
       <DialogContent className="max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -1108,7 +1137,119 @@ function EditModal({
         <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={handleFile} />
       </DialogContent>
     </Dialog>
-  );
+
+    {/* ── Image Replacement Confirmation Dialog ── */}
+    <Dialog open={imageConfirmOpen} onOpenChange={(v) => { if (!v) { setPendingImageUrl(null); setImageConfirmOpen(false); } }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Replace Cabinet Image</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-muted-foreground">
+            A catalog image already exists for <span className="font-semibold text-foreground">{row.masterCode}</span>. How should the new image be applied?
+          </p>
+
+          {/* Side-by-side: New image + Designer rendering */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* New uploaded image */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground text-center">New Catalog Image</p>
+              <div className="h-32 rounded-lg border border-border bg-muted/20 flex items-center justify-center overflow-hidden">
+                {pendingImageUrl ? (
+                  <img src={pendingImageUrl} alt="new" className="h-full w-full object-contain" />
+                ) : (
+                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+            {/* Designer rendering */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground text-center">Designer Rendering</p>
+              <div className="h-32 rounded-lg border border-border bg-muted/20 flex items-center justify-center overflow-hidden">
+                <DoorDrawerDiagram
+                  cabinet={{
+                    masterCode: merged.masterCode,
+                    description: merged.description,
+                    category: merged.category,
+                    subCategory: merged.subCategory,
+                    width: merged.width,
+                    height: merged.height,
+                    numberOfDoors: merged.numberOfDoors,
+                    numberOfDrawers: merged.numberOfDrawers,
+                    openingType: merged.openingType,
+                    doorHeight: merged.doorHeight,
+                    drawerHeight: merged.drawerHeight,
+                    doorOrientation: merged.doorOrientation,
+                  }}
+                  width={120}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Scope selection buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              className="rounded-lg border-2 border-primary bg-primary/5 p-3 text-left transition-all hover:bg-primary/10"
+              disabled={setImageMutation.isPending}
+              onClick={() => {
+                if (!pendingImageUrl) return;
+                setImageMutation.mutate({
+                  cabinetId: row.id,
+                  distributorId: 210001, // Ashford as default
+                  imageUrl: pendingImageUrl,
+                  scope: "global",
+                });
+              }}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Globe className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">All distributors</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Replace the master image — applies to {distributorsList?.length ?? 3} distributor lines
+              </p>
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border-2 border-border p-3 text-left transition-all hover:border-primary/40 hover:bg-muted/30"
+              disabled={setImageMutation.isPending}
+              onClick={() => {
+                if (!pendingImageUrl) return;
+                // Save as distributor-specific override (Ashford = 210001 source of truth)
+                setImageMutation.mutate({
+                  cabinetId: row.id,
+                  distributorId: 210001,
+                  imageUrl: pendingImageUrl,
+                  scope: "line",
+                });
+              }}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <span className="font-semibold text-sm">This line only</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Save as a distributor-specific override (does not change other lines)
+              </p>
+            </button>
+          </div>
+
+          {setImageMutation.isPending && (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Spinner className="h-4 w-4" /> Saving…
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setPendingImageUrl(null); setImageConfirmOpen(false); }} disabled={setImageMutation.isPending}>
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>);
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
