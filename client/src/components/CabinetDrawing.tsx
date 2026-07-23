@@ -89,6 +89,10 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
       return <ApplianceGarageFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "blind-corner":
       return <BlindCornerFront x={x} y={y} w={w} h={h} fill={fill} />;
+    case "diagonal-corner":
+      return <DiagonalCornerFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
+    case "l-corner":
+      return <LCornerFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "corner-drawer-base":
       return <CornerDrawerBaseFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "accessory-strip":
@@ -298,6 +302,141 @@ function ApplianceGarageFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "c
           strokeWidth={0.9}
         />
       ))}
+    </g>
+  );
+}
+
+// Diagonal corner: pentagon/hexagon shape with 45° angled front face.
+// Shows the cabinet as seen from above (plan-view-like) with the angled front
+// containing door panel(s). Matches catalog drawings like DCW, WDC, DCB.
+function DiagonalCornerFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
+  const doors = Math.max(1, resolveDoorDrawerCounts(cabinet ?? {}).doors || 1);
+  // Pentagon shape: two short sides along walls + angled front face
+  // The angled front cuts across the corner at 45°
+  const legDepth = w * 0.35; // how far it extends along each wall
+  const path = `
+    M ${x} ${y}
+    L ${x + w} ${y}
+    L ${x + w} ${y + legDepth}
+    L ${x + legDepth} ${y + h}
+    L ${x} ${y + h}
+    Z`;
+  // The angled face runs from (x+w, y+legDepth) to (x+legDepth, y+h)
+  // Door panels are drawn on this angled face
+  const faceStartX = x + w;
+  const faceStartY = y + legDepth;
+  const faceEndX = x + legDepth;
+  const faceEndY = y + h;
+  // Door panel inset from the angled face
+  const faceLen = Math.sqrt((faceEndX - faceStartX) ** 2 + (faceEndY - faceStartY) ** 2);
+  const angle = Math.atan2(faceEndY - faceStartY, faceEndX - faceStartX);
+  // Draw door panel(s) as rotated rectangles on the angled face
+  const doorInset = faceLen * 0.08;
+  const doorLen = (faceLen - doorInset * 2 - (doors - 1) * 3) / doors;
+  const doorDepth = Math.min(w * 0.22, h * 0.22);
+  // Normal vector pointing inward (perpendicular to face, toward interior)
+  const nx = Math.cos(angle + Math.PI / 2);
+  const ny = Math.sin(angle + Math.PI / 2);
+  return (
+    <g>
+      <path d={path} fill={fill} stroke={STROKE} strokeWidth={1.6} strokeLinejoin="round" />
+      {/* Door panel(s) on the angled face */}
+      {Array.from({ length: doors }).map((_, i) => {
+        const startOffset = doorInset + i * (doorLen + 3);
+        // Position along the face direction
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        const px = faceStartX + dx * (startOffset + doorLen / 2);
+        const py = faceStartY + dy * (startOffset + doorLen / 2);
+        // Offset inward from face
+        const cx = px + nx * (doorDepth / 2 + 2);
+        const cy = py + ny * (doorDepth / 2 + 2);
+        const angleDeg = (angle * 180) / Math.PI;
+        return (
+          <g key={i} transform={`rotate(${angleDeg} ${cx} ${cy})`}>
+            <rect
+              x={cx - doorLen / 2}
+              y={cy - doorDepth / 2}
+              width={doorLen}
+              height={doorDepth}
+              rx={1.5}
+              fill={PANEL_FILL}
+              stroke={STROKE_LIGHT}
+              strokeWidth={1}
+            />
+            {/* handle */}
+            <circle
+              cx={cx + (i === 0 ? doorLen * 0.35 : -doorLen * 0.35)}
+              cy={cy}
+              r={1.2}
+              fill={STROKE}
+            />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+// L-shaped corner: square footprint with L-notch at interior corner.
+// Shows doors on the exposed face (lazy Susan, easy-reach corner).
+function LCornerFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
+  const doors = Math.max(1, resolveDoorDrawerCounts(cabinet ?? {}).doors || 2);
+  const inset = 4;
+  // L-shape: full width top, full height left, notch cut from bottom-right
+  const legW = w * 0.65; // leg width (how far along each wall)
+  const legH = h * 0.65;
+  const path = `
+    M ${x} ${y}
+    L ${x + w} ${y}
+    L ${x + w} ${y + legH}
+    L ${x + legW} ${y + legH}
+    L ${x + legW} ${y + h}
+    L ${x} ${y + h}
+    Z`;
+  // Door panels on the front face (bottom-left portion)
+  const doorAreaX = x + inset;
+  const doorAreaY = y + inset;
+  const doorAreaW = legW - inset * 2;
+  const doorAreaH = h - inset * 2;
+  const doorW = (doorAreaW - (doors - 1) * 3) / doors;
+  return (
+    <g>
+      <path d={path} fill={fill} stroke={STROKE} strokeWidth={1.6} strokeLinejoin="round" />
+      {/* Door panels on the accessible front face */}
+      {Array.from({ length: doors }).map((_, i) => (
+        <g key={i}>
+          <rect
+            x={doorAreaX + i * (doorW + 3)}
+            y={doorAreaY}
+            width={doorW}
+            height={doorAreaH}
+            rx={1.5}
+            fill={PANEL_FILL}
+            stroke={STROKE_LIGHT}
+            strokeWidth={1}
+          />
+          {/* handle */}
+          <circle
+            cx={doorAreaX + i * (doorW + 3) + (i === doors - 1 ? 4 : doorW - 4)}
+            cy={doorAreaY + doorAreaH / 2}
+            r={1.2}
+            fill={STROKE}
+          />
+        </g>
+      ))}
+      {/* Hatched area indicating the L-notch / hidden portion */}
+      <rect
+        x={x + legW + 2}
+        y={y + legH + 2}
+        width={w - legW - 4}
+        height={h - legH - 4}
+        rx={1}
+        fill="none"
+        stroke={STROKE_LIGHT}
+        strokeWidth={0.8}
+        strokeDasharray="2 2"
+      />
     </g>
   );
 }

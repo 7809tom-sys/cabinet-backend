@@ -60,7 +60,7 @@ describe("cabinetDrawingType", () => {
     expect(cabinetDrawingType(cab)).toBe("glass-door");
   });
 
-  it("classifies a blind/diagonal corner as blind-corner", () => {
+  it("classifies a diagonal corner wall as diagonal-corner", () => {
     const cab: CabinetLike = {
       masterCode: "DCW-24-30",
       description: "Diagonal Corner Wall Cabinet",
@@ -68,7 +68,7 @@ describe("cabinetDrawingType", () => {
       width: "24",
       isCornerCabinet: true,
     };
-    expect(cabinetDrawingType(cab)).toBe("blind-corner");
+    expect(cabinetDrawingType(cab)).toBe("diagonal-corner");
   });
 
   it("classifies an appliance garage before generic wall logic", () => {

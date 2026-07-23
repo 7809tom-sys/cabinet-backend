@@ -6,7 +6,9 @@ export type CabinetDrawingType =
   | "drawer-base" // stacked drawer fronts
   | "sink-base" // false tilt-out top panel + sink cutout indication
   | "appliance-garage" // tambour roll-up slats
-  | "blind-corner" // L-shaped footprint
+  | "blind-corner" // L-shaped footprint (blind corner cabinets)
+  | "diagonal-corner" // 45° angled front face (DCW, WDC, DCB, AW, AG)
+  | "l-corner" // L-shaped corner with doors on angled face (LS, ER, CSB)
   | "corner-drawer-base" // L-shaped corner with stacked drawers on the main face (CDB-*)
   | "vanity" // vanity door/drawer combo
   | "ada" // ADA-height unit
@@ -197,8 +199,20 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   if (/^cdb[-_]?\d/.test(code) || (/corner.*drawer.*base|corner drawer base/.test(hay) && _cdbDrawers > 0 && _cdbDoors === 0)) {
     return "corner-drawer-base";
   }
-  // Blind / corner cabinets render as an L-shape.
-  if (cab.isCornerCabinet || /blind corner|corner|easy reach|lazy susan|diagonal/.test(hay)) {
+
+  // Diagonal corner cabinets: 45° angled front face (DCW, WDC, KWD, DCB, DCFF, AW, AG, CAG)
+  if (/^(dcw|wdc|kwd|dcb|dcff|aw[-\d]|ag[-\d]|cag)/.test(code) || /diagonal|angled (wall|corner)|appliance garage/.test(hay)) {
+    return "diagonal-corner";
+  }
+
+  // L-shaped corner cabinets (lazy Susan, easy-reach) — NOT blind, NOT diagonal
+  const isBlind = /^(bbc|wbc|bbl|bbr|wbl|wbr)/.test(code) || /-blind|blind/.test(code) || /blind\s*corner/.test(hay);
+  if (!isBlind && (cab.isCornerCabinet || /corner|easy reach|lazy susan/.test(hay))) {
+    return "l-corner";
+  }
+
+  // Blind corner cabinets: standard rectangular footprint with hidden portion
+  if (isBlind || /blind corner/.test(hay)) {
     return "blind-corner";
   }
 
@@ -298,6 +312,8 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
   //    end/wine/desk and other non-standard boxes.
   if (
     type === "blind-corner" ||
+    type === "diagonal-corner" ||
+    type === "l-corner" ||
     type === "corner-drawer-base" ||
     type === "appliance-garage" ||
     type === "ada" ||
@@ -360,7 +376,9 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
     return drawers > 0 ? `${drawers}-Drawer ${placement}` : `Drawer ${placement}`;
   }
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
-  if (type === "blind-corner") return /lazy susan|easy reach/.test(desc) ? `Corner ${placement}` : `Blind Corner ${placement}`;
+  if (type === "blind-corner") return `Blind Corner ${placement}`;
+  if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
+  if (type === "l-corner") return /lazy susan/.test(desc) ? `Lazy Susan ${placement}` : `Corner ${placement}`;
   if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;
   if (type === "appliance-garage") return "Appliance Garage";
   if (type === "glass-door") return doors >= 2 ? `Double Glass Door ${placement}` : `Single Glass Door ${placement}`;
@@ -422,6 +440,8 @@ export function cabinetAltText(cab: CabinetLike): string {
     "sink-base": "sink base cabinet with false tilt-out front",
     "appliance-garage": "appliance garage with tambour door",
     "blind-corner": "blind corner cabinet",
+    "diagonal-corner": "diagonal corner cabinet with angled front",
+    "l-corner": "L-shaped corner cabinet",
     "corner-drawer-base": "corner drawer base cabinet",
     vanity: "vanity cabinet",
     ada: "ADA-compliant cabinet",
@@ -435,7 +455,7 @@ export function cabinetAltText(cab: CabinetLike): string {
   // Corner cabinets share one L-shaped drawing, but the accessible label should
   // reflect the actual mechanism (lazy-Susan / easy-reach / corner sink) rather
   // than always saying "blind corner cabinet".
-  if (type === "blind-corner") {
+  if (type === "blind-corner" || type === "l-corner") {
     const hay = `${cab.description ?? ""} ${cab.subCategory ?? ""} ${cab.masterCode ?? ""}`.toLowerCase();
     if (/lazy susan|lazy-susan|\blsb\b/.test(hay)) detail = "lazy-Susan corner base cabinet";
     else if (/easy reach|easy-reach|\berb\b/.test(hay)) detail = "easy-reach corner base cabinet";

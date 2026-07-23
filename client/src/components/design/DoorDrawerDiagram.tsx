@@ -193,6 +193,149 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     }
   }
 
+  // ── Diagonal/L-corner special rendering ─────────────────────────────────────
+  // These types get a completely different SVG shape (not the standard rectangular box)
+  const isDiagonal = type === "diagonal-corner";
+  const isLCorner = type === "l-corner";
+
+  if (isDiagonal || isLCorner) {
+    // Render a custom SVG for diagonal/L-corner cabinets instead of the zone-based approach
+    const cornerLegend: { color: string; label: string }[] = [];
+    if (effectiveDoors > 0) cornerLegend.push({ color: CLR.door, label: `${effectiveDoors} Door${effectiveDoors > 1 ? "s" : ""}` });
+    if (effectiveDrawers > 0) cornerLegend.push({ color: CLR.drawer, label: `${effectiveDrawers} Drawer${effectiveDrawers > 1 ? "s" : ""}` });
+    if (cornerLegend.length === 0) cornerLegend.push({ color: "#64748b", label: isDiagonal ? "Diagonal Corner" : "L-Corner" });
+
+    const cLegendY = svgH + 6;
+    const cTotalSvgH = svgH + 24;
+
+    if (isDiagonal) {
+      // Pentagon shape: two wall-facing backs + 45° angled front face
+      const legFrac = 0.38; // fraction of box used by each wall-facing leg
+      const legW = iW * legFrac;
+      const legH = iH * legFrac;
+      // Pentagon points: top-left corner is the wall corner
+      // Legs go along top and left walls, front face cuts diagonally
+      const pts = [
+        `${PAD},${PAD}`,                    // top-left (wall corner)
+        `${PAD + iW},${PAD}`,               // top-right
+        `${PAD + iW},${PAD + legH}`,        // right leg end
+        `${PAD + legW},${PAD + iH}`,        // bottom leg end
+        `${PAD},${PAD + iH}`,               // bottom-left
+      ].join(" ");
+
+      // Door panels on the angled face (from right-leg-end to bottom-leg-end)
+      const fsx = PAD + iW;
+      const fsy = PAD + legH;
+      const fex = PAD + legW;
+      const fey = PAD + iH;
+      const faceLen = Math.sqrt((fex - fsx) ** 2 + (fey - fsy) ** 2);
+      const faceAngle = Math.atan2(fey - fsy, fex - fsx);
+      const doorInset = faceLen * 0.1;
+      const doorCount = Math.max(1, effectiveDoors);
+      const doorGap = 4;
+      const doorLen = (faceLen - doorInset * 2 - (doorCount - 1) * doorGap) / doorCount;
+      const doorDepth = Math.min(iW * 0.2, iH * 0.2);
+      const ndx = Math.cos(faceAngle + Math.PI / 2);
+      const ndy = Math.sin(faceAngle + Math.PI / 2);
+
+      return (
+        <svg viewBox={`0 0 ${width} ${cTotalSvgH}`} width={width} height={cTotalSvgH} className={className} aria-label="Diagonal corner cabinet diagram" role="img">
+          {/* Pentagon outline */}
+          <polygon points={pts} fill="none" stroke={CLR.box} strokeWidth={2} strokeLinejoin="round" />
+          {/* Door panels on angled face */}
+          {Array.from({ length: doorCount }).map((_, i) => {
+            const offset = doorInset + i * (doorLen + doorGap) + doorLen / 2;
+            const cx = fsx + Math.cos(faceAngle) * offset + ndx * (doorDepth / 2 + 4);
+            const cy = fsy + Math.sin(faceAngle) * offset + ndy * (doorDepth / 2 + 4);
+            const angleDeg = (faceAngle * 180) / Math.PI;
+            return (
+              <g key={i} transform={`rotate(${angleDeg} ${cx} ${cy})`}>
+                <rect
+                  x={cx - doorLen / 2} y={cy - doorDepth / 2}
+                  width={doorLen} height={doorDepth}
+                  rx={3} ry={3}
+                  fill={CLR.door} stroke={CLR.doorStroke} strokeWidth={1.5}
+                />
+                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fill={CLR.label} fontSize={9} fontWeight="600" fontFamily="system-ui, sans-serif">
+                  {doorCount === 1 ? "Door" : `Door ${i + 1}`}
+                </text>
+              </g>
+            );
+          })}
+          {/* Legend */}
+          {cornerLegend.map((item, idx) => (
+            <g key={`leg-${idx}`}>
+              <rect x={PAD + idx * (width / cornerLegend.length)} y={cLegendY} width={10} height={10} rx={2} fill={item.color} />
+              <text x={PAD + idx * (width / cornerLegend.length) + 13} y={cLegendY + 5} dominantBaseline="middle" fill="#64748b" fontSize={9} fontFamily="system-ui, sans-serif">{item.label}</text>
+            </g>
+          ))}
+        </svg>
+      );
+    } else {
+      // L-corner: square box with L-notch cut from interior corner
+      const legFrac = 0.6; // fraction of box occupied by each leg
+      const legW = iW * legFrac;
+      const legH = iH * legFrac;
+      // L-shape: wall corner at top-left, notch cut from bottom-right
+      const pts = [
+        `${PAD},${PAD}`,                     // top-left
+        `${PAD + iW},${PAD}`,                // top-right
+        `${PAD + iW},${PAD + legH}`,         // right side down to leg
+        `${PAD + legW},${PAD + legH}`,       // notch inner corner
+        `${PAD + legW},${PAD + iH}`,         // down to bottom
+        `${PAD},${PAD + iH}`,                // bottom-left
+      ].join(" ");
+
+      // Door panels on the front face (the left/bottom portion)
+      const doorCount = Math.max(1, effectiveDoors);
+      const doorAreaX = PAD + 4;
+      const doorAreaY = PAD + legH + 4;
+      const doorAreaW = legW - 8;
+      const doorAreaH = iH - legH - 8;
+      const doorColW = (doorAreaW - (doorCount - 1) * 4) / doorCount;
+
+      return (
+        <svg viewBox={`0 0 ${width} ${cTotalSvgH}`} width={width} height={cTotalSvgH} className={className} aria-label="L-corner cabinet diagram" role="img">
+          {/* L-shape outline */}
+          <polygon points={pts} fill="none" stroke={CLR.box} strokeWidth={2} strokeLinejoin="round" />
+          {/* Door panels on the accessible face (bottom-left area) */}
+          {Array.from({ length: doorCount }).map((_, i) => {
+            const dx = doorAreaX + i * (doorColW + 4);
+            return (
+              <Zone key={i}
+                x={dx} y={doorAreaY} w={doorColW} h={doorAreaH}
+                fill={CLR.door} stroke={CLR.doorStroke}
+                label={doorCount === 1 ? "Door" : doorCount === 2 ? (i === 0 ? "Left" : "Right") : `Door ${i + 1}`}
+              />
+            );
+          })}
+          {/* Top/right area: second face (side doors or shelves) */}
+          <Zone
+            x={PAD + legW + 4} y={PAD + 4}
+            w={iW - legW - 8} h={legH - 8}
+            fill={CLR.door} stroke={CLR.doorStroke}
+            label={doorCount >= 2 ? "Side" : "Door"}
+            subLabel="return face"
+          />
+          {/* Hatched notch area */}
+          <rect
+            x={PAD + legW + 2} y={PAD + legH + 2}
+            width={iW - legW - 4} height={iH - legH - 4}
+            rx={2}
+            fill="none" stroke={CLR.rail} strokeWidth={1} strokeDasharray="3 3"
+          />
+          {/* Legend */}
+          {cornerLegend.map((item, idx) => (
+            <g key={`leg-${idx}`}>
+              <rect x={PAD + idx * (width / cornerLegend.length)} y={cLegendY} width={10} height={10} rx={2} fill={item.color} />
+              <text x={PAD + idx * (width / cornerLegend.length) + 13} y={cLegendY + 5} dominantBaseline="middle" fill="#64748b" fontSize={9} fontFamily="system-ui, sans-serif">{item.label}</text>
+            </g>
+          ))}
+        </svg>
+      );
+    }
+  }
+
   if (effectiveDoors === 0 && effectiveDrawers === 0 && !isOven) {
     // Open cabinet (noDoor flag or genuinely no doors/drawers) — nothing to draw inside
 

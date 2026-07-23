@@ -2096,6 +2096,107 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
     );
   }
 
+  // ─── SPECIALTY TYPE: DIAGONAL CORNER ──────────────────────────────────
+  // Diagonal corner cabinets (DCW, WDC, DCB): angled front face with door(s).
+  // In elevation view, we show the angled face as a slightly narrower door
+  // with angled side indicators to suggest the 45° geometry.
+  if (cabinetType === "diagonal-corner") {
+    const dCount = Math.max(1, doorCount || 1);
+    const doorSlice = 70 / dCount; // doors occupy ~70% of width (angled face)
+    return withFace(
+      <>
+        {/* Left angled indicator */}
+        <div
+          className="absolute top-0 bottom-0 left-0"
+          style={{ width: "15%" }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(135deg, transparent 50%, color-mix(in srgb, ${face} 85%, #000) 50%)`,
+              opacity: 0.4,
+            }}
+          />
+        </div>
+        {/* Right angled indicator */}
+        <div
+          className="absolute top-0 bottom-0 right-0"
+          style={{ width: "15%" }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `linear-gradient(225deg, transparent 50%, color-mix(in srgb, ${face} 85%, #000) 50%)`,
+              opacity: 0.4,
+            }}
+          />
+        </div>
+        {/* Door panel(s) on the angled face (center area) */}
+        {Array.from({ length: dCount }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute"
+            style={{
+              left: `${15 + i * doorSlice}%`,
+              width: `${doorSlice - 2}%`,
+              top: "3%",
+              bottom: "3%",
+            }}
+          >
+            <div
+              className="absolute inset-[1.5px] rounded-[2px]"
+              style={{
+                background: doorSampleUrl ? `url(${doorSampleUrl}) center/cover` : face,
+                boxShadow: `inset 0 2px 4px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}66`,
+              }}
+            />
+          </div>
+        ))}
+      </>
+    );
+  }
+  // ─── SPECIALTY TYPE: L-CORNER ───────────────────────────────────────
+  // L-corner cabinets (lazy Susan, easy-reach): two visible door faces
+  // meeting at the corner. Shows as two angled door panels.
+  if (cabinetType === "l-corner") {
+    const halfW = 50;
+    return withFace(
+      <>
+        {/* Left face door */}
+        <div
+          className="absolute top-[3%] bottom-[3%]"
+          style={{ left: "2%", width: `${halfW - 4}%` }}
+        >
+          <div
+            className="absolute inset-[1.5px] rounded-[2px]"
+            style={{
+              background: doorSampleUrl ? `url(${doorSampleUrl}) center/cover` : face,
+              boxShadow: `inset 0 2px 4px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}66`,
+            }}
+          />
+        </div>
+        {/* Right face door (return face) */}
+        <div
+          className="absolute top-[3%] bottom-[3%]"
+          style={{ left: `${halfW + 2}%`, width: `${halfW - 4}%` }}
+        >
+          <div
+            className="absolute inset-[1.5px] rounded-[2px]"
+            style={{
+              background: doorSampleUrl ? `url(${doorSampleUrl}) center/cover` : face,
+              boxShadow: `inset 0 2px 4px rgba(0,0,0,0.15), 0 0 0 0.5px ${edge}66`,
+              opacity: 0.85,
+            }}
+          />
+        </div>
+        {/* Center divider (corner line) */}
+        <div
+          className="absolute top-0 bottom-0"
+          style={{ left: `${halfW - 0.5}%`, width: "1%", background: edge, opacity: 0.5 }}
+        />
+      </>
+    );
+  }
   // ─── SPECIALTY TYPE: APPLIANCE GARAGE ──────────────────────────────────
   // Tambour/roll-up slat pattern.
   if (cabinetType === "appliance-garage") {

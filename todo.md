@@ -1548,4 +1548,16 @@
 - [x] "No, just this distributor" → saves to distributor_cabinet_overrides.imageUrl for that specific distributor
 - [x] Show the designer rendering (DoorDrawerDiagram) in the confirmation dialog so admin sees what it looks like in the design tool
 - [x] Wire the dialog into the handleFile flow in CabinetConfigAdmin
+- [x] Save checkpoint
+
+## Diagonal/Angled Cabinet Templates in DoorDrawerDiagram
+
+- [x] Add `diagonal-corner` type to CabinetDrawingType enum and detection logic (DCW, WDC, DCB, AW codes)
+- [x] Add `l-corner` type for lazy Susan / easy-reach cabinets (LS, ER codes)
+- [x] Implement diagonal-corner SVG in DoorDrawerDiagram (pentagon outline with angled front face + door panels)
+- [x] Implement l-corner SVG in DoorDrawerDiagram (L-shape with doors on both faces)
+- [x] Add DiagonalCornerFront and LCornerFront SVG components to CabinetDrawing.tsx
+- [x] Add diagonal-corner and l-corner rendering branches to ElevationView.tsx
+- [x] Update cabinetTypeLabel and cabinetAltText for new types
+- [x] Update tests to reflect new type classifications
 - [ ] Save checkpoint
