@@ -244,6 +244,8 @@ export const cabinets = mysqlTable("cabinets", {
   configVerifiedByName: varchar("configVerifiedByName", { length: 128 }),
   // Door orientation for multi-door cabinets: side-by-side (horizontal) or stacked (vertical)
   doorOrientation: varchar("doorOrientation", { length: 16 }), // side-by-side | stacked | null
+  // Plan-view footprint shape: rectangle (default), diagonal-corner (135° angled front), blind-corner, lazy-susan
+  planShape: varchar("planShape", { length: 32 }),
 });
 
 export type Cabinet = typeof cabinets.$inferSelect;

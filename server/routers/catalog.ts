@@ -952,6 +952,7 @@ export const cabinetsRouter = router({
           catalogImageUrl: cabinets.catalogImageUrl,
           placementType: cabinets.placementType,
           isCornerCabinet: cabinets.isCornerCabinet,
+          planShape: cabinets.planShape,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
@@ -1493,6 +1494,8 @@ export const cabinetsRouter = router({
         configVerified: z.boolean().optional(),
         // Door orientation for multi-door cabinets
         doorOrientation: z.enum(["side-by-side", "stacked"]).nullable().optional(),
+        // Plan-view footprint shape
+        planShape: z.enum(["rectangle", "diagonal-corner", "blind-corner", "lazy-susan"]).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1545,6 +1548,7 @@ export const cabinetsRouter = router({
       if (input.faceWidth !== undefined) patch.faceWidth = input.faceWidth != null ? String(input.faceWidth) : null;
       if (input.legWidth !== undefined) patch.legWidth = input.legWidth != null ? String(input.legWidth) : null;
       if (input.doorOrientation !== undefined) patch.doorOrientation = input.doorOrientation;
+      if (input.planShape !== undefined) patch.planShape = input.planShape;
       if (input.configVerified !== undefined) {
         patch.configVerified = input.configVerified;
         if (input.configVerified) {
@@ -2178,6 +2182,8 @@ export const cabinetsRouter = router({
             configVerifiedAt: cabinets.configVerifiedAt,
             // Door orientation
             doorOrientation: cabinets.doorOrientation,
+            // Plan-view shape
+            planShape: cabinets.planShape,
           })
           .from(cabinets)
           .where(where)

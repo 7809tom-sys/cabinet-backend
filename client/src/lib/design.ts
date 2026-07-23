@@ -173,10 +173,11 @@ export interface DesignCabinet {
   // Manufacturer blind-corner pull range (inches across the corner). Optional;
   // when absent for a blind corner, the design flags a conflict so the admin
   // can enter the spec.
-  pullMin?: number | null;
+    pullMin?: number | null;
   pullMax?: number | null;
+  // Plan-view shape override from admin config
+  planShape?: "rectangle" | "diagonal-corner" | "blind-corner" | "lazy-susan" | null;
 }
-
 // Door hinge side as seen from the front of the cabinet. "none" is used for
 // items without a hinged door (drawer bases, open shelves, panels, appliances).
 export type DoorSwing = "left" | "right" | "double" | "none";
@@ -303,6 +304,9 @@ export interface PlacedCabinet {
   // Range top finish for the elevation face panel: 'stainless' (default) or 'black-glass'.
   // Independent of sinkTopType (gas/electric/smooth-top) — any burner type can have either finish.
   rangeTopFinish?: "stainless" | "black-glass" | null;
+  // Plan-view footprint shape override from admin config.
+  // When set, the plan canvas uses this instead of code-based detection.
+  planShape?: "rectangle" | "diagonal-corner" | "blind-corner" | "lazy-susan" | null;
   /** Polygon room: which custom wall segment this cabinet is placed on.
    *  Only used when the room has customWalls. */
   wallId?: string | null;
@@ -647,7 +651,7 @@ export function footprintDepth(c: DesignCabinet): number {
   // A diagonal corner cabinet occupies the same span on BOTH walls, so its
   // plan footprint is a square bounding box (e.g. 24" wide => 24" deep), not the
   // standard shallow wall/base depth.
-  if (isDiagonalCorner(c.masterCode || "", c.description || undefined)) {
+  if (c.planShape === "diagonal-corner" || isDiagonalCorner(c.masterCode || "", c.description || undefined)) {
     const w = dim(c.width, 24);
     return w > 0 ? w : 24;
   }
@@ -655,7 +659,7 @@ export function footprintDepth(c: DesignCabinet): number {
   // width is the nominal size (e.g. 42") and depth is always the standard
   // base/wall depth (24" for base, 12" for wall). The catalog depth field
   // sometimes stores the pull dimension instead, so we force standard depth.
-  if (isBlindCorner(c.masterCode || "", c.description || undefined)) {
+  if (c.planShape === "blind-corner" || isBlindCorner(c.masterCode || "", c.description || undefined)) {
     if (c.placement === "wall") return STD.WALL_DEPTH;
     return STD.BASE_DEPTH;
   }
@@ -664,7 +668,7 @@ export function footprintDepth(c: DesignCabinet): number {
   // so its plan bounding box is a square = width, with a notch cut at the inner
   // corner. The actual leg depth (how far it projects from each wall) is the
   // cabinet's stored depth (~24") and is handled by cornerLegDepth().
-  if (isLCornerCabinet(c.masterCode || "", c.description || undefined)) {
+  if (c.planShape === "lazy-susan" || isLCornerCabinet(c.masterCode || "", c.description || undefined)) {
     const w = dim(c.width, 24);
     return w > 0 ? w : 24;
   }
@@ -698,14 +702,21 @@ export function lCornerBoxSide(placement: Placement): number {
 }
 
 export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
-  if (isLCornerCabinet(p.masterCode, p.description)) {
+  if (p.planShape === "diagonal-corner" || isDiagonalCorner(p.masterCode, p.description)) {
+    // Diagonal corner: square bounding box = width x width
+    const side = p.width > 0 ? p.width : 24;
+    const rot = ((p.rotation % 360) + 360) % 360;
+    if (rot === 90 || rot === 270) return { w: side, d: side };
+    return { w: side, d: side };
+  }
+  if (p.planShape === "lazy-susan" || isLCornerCabinet(p.masterCode, p.description)) {
     const side = lCornerBoxSide(p.placement);
     return { w: side, d: side };
   }
   // Blind corner cabinets (BBC/WBC) are rectangular boxes. Their stored depth
   // may be stale (old saves stored the pull dimension or got normalized wrong).
   // Force the correct standard depth so the full box always renders.
-  if (isBlindCorner(p.masterCode, p.description)) {
+  if (p.planShape === "blind-corner" || isBlindCorner(p.masterCode, p.description)) {
     const stdDepth = p.placement === "wall" ? 12 : 24;
     const rot = ((p.rotation % 360) + 360) % 360;
     if (rot === 90 || rot === 270) {

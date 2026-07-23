@@ -1516,3 +1516,18 @@
 - [x] Also allow changing sub-category in the same dialog
 - [x] Bulk update category/subCategory for all selected products via bulkMoveCategory procedure
 - [x] TypeScript check passes; checkpoint saved
+
+## Feature: Drag-and-drop subcategories between categories in admin panel
+- [ ] Add moveSub procedure to cabinetCategories router (change categoryId of a subcategory)
+- [ ] Add promoteSub procedure (create new category from a subcategory name, move sub to it)
+- [ ] Add drag-and-drop UI to CategoriesAdmin for subcategories (drag between categories or to "new category" drop zone)
+- [ ] TypeScript check passes; checkpoint saved
+
+## Feature: planShape field for angle/corner cabinets in plan view
+- [x] Add planShape column to cabinets table (varchar: rectangle, diagonal-corner, blind-corner, lazy-susan)
+- [x] Add planShape to backend update mutation
+- [x] Add planShape selector in admin CabinetConfigAdmin or edit dialog
+- [x] Update PlanCanvas to render diagonal-corner polygon instead of rectangle when planShape=diagonal-corner
+- [x] Update footprintDepth and placedFootprint to use planShape for proper bounding box
+- [x] Carry planShape from catalog onto PlacedCabinet when placing from palette
+- [x] TypeScript check passes; checkpoint saved

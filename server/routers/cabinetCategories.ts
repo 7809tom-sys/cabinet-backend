@@ -144,4 +144,53 @@ export const cabinetCategoriesRouter = router({
       }
       return { success: true };
     }),
+
+  // Admin: move a sub-category to a different parent category
+  moveSub: adminProcedure
+    .input(z.object({ subId: z.number(), targetCategoryId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      // Get max sortOrder in target category
+      const existing = await db
+        .select({ sortOrder: cabinetSubCategories.sortOrder })
+        .from(cabinetSubCategories)
+        .where(eq(cabinetSubCategories.categoryId, input.targetCategoryId));
+      const maxSort = existing.length > 0 ? Math.max(...existing.map((e) => e.sortOrder)) : 0;
+      await db
+        .update(cabinetSubCategories)
+        .set({ categoryId: input.targetCategoryId, sortOrder: maxSort + 1 })
+        .where(eq(cabinetSubCategories.id, input.subId));
+      return { success: true };
+    }),
+
+  // Admin: promote a sub-category to its own main category (creates category + moves sub into it)
+  promoteSubToCategory: adminProcedure
+    .input(z.object({ subId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      // Get the sub-category name
+      const [sub] = await db
+        .select()
+        .from(cabinetSubCategories)
+        .where(eq(cabinetSubCategories.id, input.subId));
+      if (!sub) throw new Error("Sub-category not found");
+      // Create a new main category with that name
+      const allCats = await db
+        .select({ sortOrder: cabinetCategories.sortOrder })
+        .from(cabinetCategories)
+        .orderBy(asc(cabinetCategories.sortOrder));
+      const maxSort = allCats.length > 0 ? Math.max(...allCats.map((e) => e.sortOrder)) : 0;
+      const [newCat] = await db.insert(cabinetCategories).values({
+        name: sub.name,
+        sortOrder: maxSort + 1,
+      }).$returningId();
+      // Move the sub-category into the new category
+      await db
+        .update(cabinetSubCategories)
+        .set({ categoryId: newCat.id, sortOrder: 1 })
+        .where(eq(cabinetSubCategories.id, input.subId));
+      return { success: true, newCategoryId: newCat.id };
+    }),
 });
