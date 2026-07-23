@@ -1523,3 +1523,9 @@
 - [x] Add ability to create new door styles from admin
 - [x] Show total line item count (SKUs carried) per door style on admin page
 - [x] TypeScript check passes; checkpoint saved
+
+## Bug: Cabinet edit fails with "Failed query" when dimension fields contain fractions or empty strings
+- [x] Fix server-side adminUpdateCabinet to convert fraction strings (e.g. "7/16") to decimal values before DB write
+- [x] Fix server-side to convert empty strings to null for decimal columns
+- [x] Fix client-side CabinetConfigAdmin handleSave to convert empty strings to null before sending
+- [x] TypeScript check passes; checkpoint saved

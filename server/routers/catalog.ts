@@ -1611,15 +1611,37 @@ export const cabinetsRouter = router({
       if (input.showInCatalog !== undefined) patch.showInCatalog = input.showInCatalog;
       if (input.showInDesigner !== undefined) patch.showInDesigner = input.showInDesigner;
       if (input.showIn2020 !== undefined) patch.showIn2020 = input.showIn2020;
-      if (input.width !== undefined) patch.width = input.width;
-      if (input.height !== undefined) patch.height = input.height;
-      if (input.depth !== undefined) patch.depth = input.depth;
-      if (input.physicalWidth !== undefined) patch.physicalWidth = input.physicalWidth;
-      if (input.weight !== undefined) patch.weight = input.weight;
-      if (input.pkgLength !== undefined) patch.pkgLength = input.pkgLength;
-      if (input.pkgWidth !== undefined) patch.pkgWidth = input.pkgWidth;
-      if (input.pkgHeight !== undefined) patch.pkgHeight = input.pkgHeight;
-      if (input.pkgWeight !== undefined) patch.pkgWeight = input.pkgWeight;
+      // Helper: empty string → null, fraction strings → decimal for decimal columns
+      const decOrNull = (v: string | null | undefined): string | null => {
+        if (!v || !v.trim()) return null;
+        const s = v.trim();
+        // Handle fractions like "7/16" or mixed like "1 7/16"
+        const mixedMatch = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+        if (mixedMatch) {
+          const whole = parseInt(mixedMatch[1]);
+          const num = parseInt(mixedMatch[2]);
+          const den = parseInt(mixedMatch[3]);
+          return den > 0 ? String(+(whole + num / den).toFixed(4)) : null;
+        }
+        const fracMatch = s.match(/^(\d+)\/(\d+)$/);
+        if (fracMatch) {
+          const num = parseInt(fracMatch[1]);
+          const den = parseInt(fracMatch[2]);
+          return den > 0 ? String(+(num / den).toFixed(4)) : null;
+        }
+        // If it's a valid number, return it; otherwise null
+        const n = parseFloat(s);
+        return isNaN(n) ? null : s;
+      };
+      if (input.width !== undefined) patch.width = decOrNull(input.width);
+      if (input.height !== undefined) patch.height = decOrNull(input.height);
+      if (input.depth !== undefined) patch.depth = decOrNull(input.depth);
+      if (input.physicalWidth !== undefined) patch.physicalWidth = decOrNull(input.physicalWidth);
+      if (input.weight !== undefined) patch.weight = decOrNull(input.weight);
+      if (input.pkgLength !== undefined) patch.pkgLength = decOrNull(input.pkgLength);
+      if (input.pkgWidth !== undefined) patch.pkgWidth = decOrNull(input.pkgWidth);
+      if (input.pkgHeight !== undefined) patch.pkgHeight = decOrNull(input.pkgHeight);
+      if (input.pkgWeight !== undefined) patch.pkgWeight = decOrNull(input.pkgWeight);
       if (input.numberOfDoors !== undefined) patch.numberOfDoors = input.numberOfDoors;
       if (input.numberOfDrawers !== undefined) patch.numberOfDrawers = input.numberOfDrawers;
       if (input.numberOfFixedShelves !== undefined) patch.numberOfFixedShelves = input.numberOfFixedShelves;

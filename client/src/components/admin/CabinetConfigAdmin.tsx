@@ -236,18 +236,20 @@ function EditModal({
 
   const handleSave = () => {
     if (Object.keys(draft).length === 0) { onClose(); return; }
+    // Helper: convert empty strings to null for decimal DB columns
+    const strOrNull = (v: string | null | undefined): string | null => (v && v.trim() ? v.trim() : null);
     updateMutation.mutate({
       id: row.id,
       description: merged.description ?? undefined,
-      depth: merged.depth ?? null,
-      width: merged.width ?? null,
-      height: merged.height ?? null,
-      weight: merged.weight ?? null,
-      physicalWidth: merged.physicalWidth ?? null,
-      pkgLength: merged.pkgLength ?? null,
-      pkgWidth: merged.pkgWidth ?? null,
-      pkgHeight: merged.pkgHeight ?? null,
-      pkgWeight: merged.pkgWeight ?? null,
+      depth: strOrNull(merged.depth),
+      width: strOrNull(merged.width),
+      height: strOrNull(merged.height),
+      weight: strOrNull(merged.weight),
+      physicalWidth: strOrNull(merged.physicalWidth),
+      pkgLength: strOrNull(merged.pkgLength),
+      pkgWidth: strOrNull(merged.pkgWidth),
+      pkgHeight: strOrNull(merged.pkgHeight),
+      pkgWeight: strOrNull(merged.pkgWeight),
       numberOfDoors: merged.numberOfDoors ?? null,
       numberOfDrawers: merged.numberOfDrawers ?? null,
       numberOfFixedShelves: merged.numberOfFixedShelves ?? null,
