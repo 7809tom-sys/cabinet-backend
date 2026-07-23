@@ -990,8 +990,8 @@ export default function CabinetDetail({ masterCode }: Props) {
             </dl>
           </div>
 
-          {/* Door / Drawer Location Diagram — shown for real cabinets only */}
-          {!cabinet.isNotCabinet && (() => {
+          {/* Door / Drawer Location Diagram — admin only */}
+          {isOwner && !cabinet.isNotCabinet && (() => {
             const drawingType = cabinetDrawingType(cabinet as Parameters<typeof cabinetDrawingType>[0]);
             const isTrim = drawingType === "accessory-strip";
             if (isTrim) return null;

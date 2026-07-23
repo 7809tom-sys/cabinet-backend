@@ -1599,3 +1599,14 @@
 - [x] Update cabinetTypeLabel and cabinetAltText for panel type
 - [x] Add grainDirection field to admin CabinetConfigAdmin edit modal
 - [ ] Save checkpoint
+
+## Remove AI 3D Preview Feature (unreliable)
+
+- [ ] Remove the "See It in 3D" button and AI generation section from the product detail page
+- [ ] Keep catalog line drawing + door sample image + "Put This in the Designer" button
+- [ ] Clean up unused AI 3D preview code (server mutation, prompt builder, etc.)
+- [ ] Save checkpoint
+
+## Hide Door & Drawer Layout Diagram from Public
+
+- [x] Hide the "Door & Drawer Layout" section on product detail page from public customers (only show in admin mode)
