@@ -1572,3 +1572,9 @@
 - [x] Handle loading state while image generates (spinner/skeleton with "Generating your cabinet preview...")
 - [x] Run typecheck and tests
 - [x] Save checkpoint
+
+## Add DoorDrawerDiagram thumbnail preview to admin cabinet list rows
+
+- [x] Show two thumbnails per row: catalog image (left) + DoorDrawerDiagram rendering (right)
+- [x] Keep the thumbnails small (40px) so they don't bloat the table but give visual identification
+- [ ] Save checkpoint

@@ -1373,6 +1373,7 @@ export function CabinetConfigAdmin() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
+                <th className="text-center px-3 py-2 font-medium text-muted-foreground text-xs w-24">Preview</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-28">Code</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs">Description</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20 hidden sm:table-cell">W×H</th>
@@ -1401,6 +1402,38 @@ export function CabinetConfigAdmin() {
                     )}
                     onClick={() => setEditRow(row as CabinetRow)}
                   >
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-1">
+                        {/* Catalog image thumbnail */}
+                        <div className="w-10 h-10 rounded border border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
+                          {row.catalogImageUrl ? (
+                            <img src={row.catalogImageUrl} alt="" className="w-full h-full object-contain" />
+                          ) : (
+                            <ImageIcon className="h-3.5 w-3.5 text-muted-foreground/40" />
+                          )}
+                        </div>
+                        {/* Designer rendering thumbnail */}
+                        <div className="w-10 h-10 rounded border border-border bg-white flex items-center justify-center overflow-hidden shrink-0">
+                          <DoorDrawerDiagram
+                            cabinet={{
+                              masterCode: row.masterCode,
+                              description: row.description,
+                              category: row.category,
+                              subCategory: row.subCategory,
+                              width: row.width ? parseFloat(row.width) : null,
+                              height: row.height ? parseFloat(row.height) : null,
+                              depth: row.depth ? parseFloat(row.depth) : null,
+                              numberOfDoors: row.numberOfDoors,
+                              numberOfDrawers: row.numberOfDrawers,
+                              openingType: row.openingType,
+                              doorHeight: row.doorHeight ? parseFloat(row.doorHeight) : null,
+                              drawerHeight: row.drawerHeight ? parseFloat(row.drawerHeight) : null,
+                            }}
+                            width={38}
+                          />
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-3 py-2.5">
                       <span className="font-mono text-xs font-semibold text-primary">{row.masterCode}</span>
                     </td>
