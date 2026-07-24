@@ -207,6 +207,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [centerRailWidth, setCenterRailWidth] = useState(style.centerRailWidth != null ? String(style.centerRailWidth) : "");
   const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
   const [profileDescription, setProfileDescription] = useState((style as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
+  const [cornerSwatchImageUrl, setCornerSwatchImageUrl] = useState((style as AdminStyle & { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl ?? "");
 
   // Reset state when dialog opens for a different style
   const resetToStyle = (s: AdminStyle) => {
@@ -226,6 +227,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setCenterRailWidth(s.centerRailWidth != null ? String(s.centerRailWidth) : "");
     setProfileNotes(s.profileNotes ?? "");
     setProfileDescription((s as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
+    setCornerSwatchImageUrl((s as AdminStyle & { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl ?? "");
   };
 
   const update = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
@@ -260,6 +262,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       centerRailWidth: centerRailWidth.trim() ? parseFloat(centerRailWidth) : null,
       profileNotes: profileNotes.trim() || null,
       profileDescription: profileDescription.trim() || null,
+      cornerSwatchImageUrl: cornerSwatchImageUrl.trim() || null,
     });
   }
 
@@ -497,6 +500,20 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
                 value={drawerSampleImageUrl}
                 onChange={setDrawerSampleImageUrl}
                 slot="door-sample"
+              />
+            </div>
+            {/* Corner Swatch */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50/40 px-3 py-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-amber-800">Corner Swatch</span>
+                <span className="text-xs text-muted-foreground">— angled close-up of the door corner</span>
+              </div>
+              <ImageField
+                label="Corner Swatch Photo"
+                hint="Angled close-up showing the door profile, grain, and color at the corner. Shown as an overlay on the Featured Door Styles section and in the designer style picker."
+                value={cornerSwatchImageUrl}
+                onChange={setCornerSwatchImageUrl}
+                slot="thumbnail"
               />
             </div>
             <ImageField

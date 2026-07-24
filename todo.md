@@ -1640,4 +1640,9 @@
 - [x] Add UNIQUE constraint on (distributorId, cabinetId, styleId) to prevent future re-import duplicates
 - [x] Update schema.ts to reflect the new unique constraint
 - [x] Verify clean counts after deduplication
+- [x] Save checkpoint
+
+## Feature: Add Corner Swatch upload field to Edit Door Style dialog
+- [x] Add cornerSwatchImageUrl ImageField to the EditDialog in FeaturedStylesAdmin.tsx
+- [x] Wire it into the handleSave mutation call
 - [ ] Save checkpoint
