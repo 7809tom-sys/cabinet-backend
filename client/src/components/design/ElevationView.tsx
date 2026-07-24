@@ -201,15 +201,16 @@ export function ElevationView({
     // Resolve the drawer sample image URL (used for drawer fronts only).
     // Falls back to the door sample if no separate drawer photo is set.
     const cabDrawerSampleUrl = !isAppliance && drawerSampleUrlFor ? (drawerSampleUrlFor(p) ?? cabDoorSampleUrl) : cabDoorSampleUrl;
-    // Face fill: the CABINET BOX background (face frame). When a door sample
-    // image is available, the image is applied ONLY to individual door/drawer
-    // panels (not the full face). The box itself shows the face frame color.
+    // Face fill: the CABINET BOX background (face frame).
+    // When a door sample photo is available, use it as the full-face background
+    // so the face frame and door panels share the same wood/finish texture —
+    // the whole cabinet reads as one unified material instead of a contrasting frame.
+    // Without a photo, fall back to the finish color gradient.
     const faceFill = isAppliance
       ? "linear-gradient(160deg, #f4f6f9 0%, #dde2ea 18%, #c8cfd9 45%, #d4dae4 72%, #bec6d2 100%)"
-      // Solid face frame color with very subtle top-light shading (5% lighter at
-      // top, 8% darker at bottom) — matches how real painted/stained cabinets look
-      // under overhead room lighting. No washed-out white gradient.
-      : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 97%, #ffffff) 0%, ${cabFinish.face} 20%, ${cabFinish.face} 80%, color-mix(in srgb, ${cabFinish.face} 92%, #000000) 100%)`;
+      : cabDoorSampleUrl
+        ? `url(${cabDoorSampleUrl}) center/cover`
+        : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 97%, #ffffff) 0%, ${cabFinish.face} 20%, ${cabFinish.face} 80%, color-mix(in srgb, ${cabFinish.face} 92%, #000000) 100%)`;
     const edgeColor = isAppliance ? "#6b7280" : cabFinish.edge;
     // Use the richer description-driven door/drawer counts for accurate rendering.
     const resolvedCounts = !isAppliance ? resolveDoorDrawerCounts(p) : { doors: 0, drawers: 0 };
