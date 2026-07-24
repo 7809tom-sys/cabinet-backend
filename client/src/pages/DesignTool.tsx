@@ -4049,7 +4049,10 @@ export default function DesignTool() {
           // A saved design carries the user's explicit trim choices; mark them as
           // overrides so auto-apply doesn't re-enable a trim they turned off.
           if ("crown" in d) trimOverride.current.crown = true;
-          if ("toeKick" in d) trimOverride.current.toeKick = true;
+          // Only lock toeKick override when it was explicitly saved as true.
+          // If saved as false, allow auto-enable to fire so old designs
+          // (saved before toe kick was a feature) get the toe kick added.
+          if (d.toeKick) trimOverride.current.toeKick = true;
           if ("batten" in d) trimOverride.current.batten = true;
           if ("lightRail" in d) trimOverride.current.lightRail = true;
           if ("valance" in d) trimOverride.current.valance = true;
