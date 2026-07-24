@@ -48,6 +48,7 @@ interface AdminStyle {
   centerRailWidth: string | null;
   profileNotes: string | null;
   profileDescription?: string | null;
+  cornerSwatchImageUrl?: string | null;
   isActive: boolean;
 }
 
@@ -207,7 +208,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [centerRailWidth, setCenterRailWidth] = useState(style.centerRailWidth != null ? String(style.centerRailWidth) : "");
   const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
   const [profileDescription, setProfileDescription] = useState((style as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
-  const [cornerSwatchImageUrl, setCornerSwatchImageUrl] = useState((style as AdminStyle & { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl ?? "");
+  const [cornerSwatchImageUrl, setCornerSwatchImageUrl] = useState(style.cornerSwatchImageUrl ?? "");
 
   // Reset state when dialog opens for a different style
   const resetToStyle = (s: AdminStyle) => {
@@ -227,7 +228,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setCenterRailWidth(s.centerRailWidth != null ? String(s.centerRailWidth) : "");
     setProfileNotes(s.profileNotes ?? "");
     setProfileDescription((s as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
-    setCornerSwatchImageUrl((s as AdminStyle & { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl ?? "");
+    setCornerSwatchImageUrl(s.cornerSwatchImageUrl ?? "");
   };
 
   const update = trpc.doorStyles.adminUpdateDoorStyle.useMutation({
@@ -244,6 +245,15 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       toast.error("Internal name is required");
       return;
     }
+    // For image URL fields: only send the field if the user actually changed it
+    // from the original value. This prevents a stale empty string from wiping
+    // an existing image that was set in a previous session.
+    const orig = style;
+    const imgField = (current: string, original: string | null | undefined) => {
+      const cur = current.trim() || null;
+      const was = original?.trim() || null;
+      return cur !== was ? cur : undefined; // undefined = omit from patch (server won't touch it)
+    };
     update.mutate({
       id: style.id,
       featuredLabel: featuredLabel.trim() || null,
@@ -253,16 +263,16 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       color: color.trim() || null,
       finish: finish.trim() || null,
       woodSpecies: woodSpecies.trim() || null,
-      doorSampleImageUrl: doorSampleImageUrl.trim() || null,
-      drawerSampleImageUrl: drawerSampleImageUrl.trim() || null,
-      roomSceneImageUrl: roomSceneImageUrl.trim() || null,
-      thumbnailImageUrl: thumbnailImageUrl.trim() || null,
+      doorSampleImageUrl: imgField(doorSampleImageUrl, orig.doorSampleImageUrl),
+      drawerSampleImageUrl: imgField(drawerSampleImageUrl, orig.drawerSampleImageUrl),
+      roomSceneImageUrl: imgField(roomSceneImageUrl, orig.roomSceneImageUrl),
+      thumbnailImageUrl: imgField(thumbnailImageUrl, orig.thumbnailImageUrl),
+      cornerSwatchImageUrl: imgField(cornerSwatchImageUrl, orig.cornerSwatchImageUrl),
       railWidth: railWidth.trim() ? parseFloat(railWidth) : null,
       stileWidth: stileWidth.trim() ? parseFloat(stileWidth) : null,
       centerRailWidth: centerRailWidth.trim() ? parseFloat(centerRailWidth) : null,
       profileNotes: profileNotes.trim() || null,
       profileDescription: profileDescription.trim() || null,
-      cornerSwatchImageUrl: cornerSwatchImageUrl.trim() || null,
     });
   }
 

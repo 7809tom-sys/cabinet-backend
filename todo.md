@@ -1645,4 +1645,4 @@
 ## Feature: Add Corner Swatch upload field to Edit Door Style dialog
 - [x] Add cornerSwatchImageUrl ImageField to the EditDialog in FeaturedStylesAdmin.tsx
 - [x] Wire it into the handleSave mutation call
-- [ ] Save checkpoint
+- [x] Save checkpoint
