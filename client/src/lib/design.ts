@@ -306,6 +306,11 @@ export interface PlacedCabinet {
   /** Polygon room: which custom wall segment this cabinet is placed on.
    *  Only used when the room has customWalls. */
   wallId?: string | null;
+  // Visual layout spec JSON: {baseType, sections:[{type,count,height}]}
+  // When present, the elevation renderer uses this exact spec instead of the
+  // legacy auto-detect logic. Sections are ordered top-to-bottom in the array
+  // and rendered bottom-up in the elevation view.
+  layoutSpec?: string | null;
 }
 
 // Generic "is this live dimension custom?" check: true when a captured nominal

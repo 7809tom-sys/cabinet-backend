@@ -1599,6 +1599,8 @@ export const cabinetsRouter = router({
         grainDirection: z.enum(["vertical", "horizontal"]).nullable().optional(),
         // Whether this panel uses the door style image (decorative door panel)
         isDecorativeDoor: z.boolean().optional(),
+        // Visual layout spec JSON: {baseType, sections:[{type,count,height}]}
+        layoutSpec: z.string().nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1676,6 +1678,7 @@ export const cabinetsRouter = router({
       if (input.drawerLayout !== undefined) patch.drawerLayout = input.drawerLayout;
       if (input.grainDirection !== undefined) patch.grainDirection = input.grainDirection;
       if (input.isDecorativeDoor !== undefined) patch.isDecorativeDoor = input.isDecorativeDoor;
+      if (input.layoutSpec !== undefined) patch.layoutSpec = input.layoutSpec;
       if (input.configVerified !== undefined) {
         patch.configVerified = input.configVerified;
         if (input.configVerified) {
@@ -2314,6 +2317,8 @@ export const cabinetsRouter = router({
             // Panel fields
             grainDirection: cabinets.grainDirection,
             isDecorativeDoor: cabinets.isDecorativeDoor,
+            // Visual layout spec
+            layoutSpec: cabinets.layoutSpec,
           })
           .from(cabinets)
           .where(where)

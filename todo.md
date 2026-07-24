@@ -1646,3 +1646,25 @@
 - [x] Add cornerSwatchImageUrl ImageField to the EditDialog in FeaturedStylesAdmin.tsx
 - [x] Wire it into the handleSave mutation call
 - [x] Save checkpoint
+
+## Feature: Cabinet Layout Spec (drawer/door arrangement order)
+- [ ] Add layoutSpec column (text/JSON) to cabinets table in schema.ts
+- [ ] Generate and apply migration SQL
+- [ ] Update elevation renderer to read layoutSpec sections top-to-bottom
+- [ ] Auto-detect layout from description/subCategory when layoutSpec is null
+- [ ] Add layoutSpec field to CabinetConfigAdmin edit dialog
+- [ ] Save checkpoint
+
+## Layout Spec Builder: per-section drawer/door/shelf with count-across and height
+
+- [x] Add `layoutSpec` column to PlacedCabinet type in design.ts
+- [x] Add `layoutSpec` to the LayoutSpec/LayoutSection types in CabinetConfigAdmin
+- [x] Build LayoutSpecBuilder UI component with base-type selector, reorderable sections (type/count/height), visual preview bar
+- [x] Auto-initialize spec from existing cabinet config (top drawer always 6", doors fill remaining height)
+- [x] Wire layoutSpec through adminUpdateCabinet backend (zod schema + patch builder)
+- [x] Add layoutSpec to adminListCabinetConfig select projection
+- [x] Add layoutSpec to placeableCabinets select projection in design router
+- [x] Pass layoutSpec through all addCabinet placements in DesignTool
+- [x] Add layoutSpec rendering branch in DoorFront (ElevationView) — renders sections top-to-bottom using flex-col, each row with count-across door/drawer/shelf panels
+- [x] TypeScript check passes (0 errors)
+- [ ] Save checkpoint

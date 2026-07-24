@@ -59,6 +59,10 @@ export const designRouter = router({
           minPull: cabinets.minPull,
           maxPull: cabinets.maxPull,
           openingType: cabinets.openingType,
+          doorHeight: cabinets.doorHeight,
+          drawerHeight: cabinets.drawerHeight,
+          doorOrientation: cabinets.doorOrientation,
+          layoutSpec: cabinets.layoutSpec,
         })
         .from(cabinets)
         // showInDesigner=false hides a cabinet from the Kitchen Designer palette

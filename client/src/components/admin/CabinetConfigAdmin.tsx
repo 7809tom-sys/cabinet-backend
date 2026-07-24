@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Search, ChevronLeft, ChevronRight, Settings2, CheckCircle2, Upload, ImageIcon, Sparkles, Pencil, Trash2, Plus, AlertTriangle, Globe, Building2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings2, CheckCircle2, Upload, ImageIcon, Sparkles, Pencil, Trash2, Plus, AlertTriangle, Globe, Building2, GripVertical, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 
@@ -87,6 +87,21 @@ type CabinetRow = {
   // Panel fields
   grainDirection: string | null;
   isDecorativeDoor: boolean | null;
+  // Visual layout spec (JSON)
+  layoutSpec: string | null;
+};
+
+// ─── Layout Spec Types ────────────────────────────────────────────────────────
+export type LayoutSection = {
+  type: 'drawer' | 'door' | 'shelf';
+  count: number;   // how many side-by-side
+  height: number;  // height of this row in inches
+};
+
+export type LayoutSpec = {
+  baseType: 'toe-kick' | 'pedestal';
+  pedestalHeight?: number; // height of pedestal feet in inches (default 6)
+  sections: LayoutSection[]; // ordered top-to-bottom in array, rendered bottom-up
 };
 
 // ─── Dim Input ────────────────────────────────────────────────────────────────
@@ -248,6 +263,397 @@ function DrawerLayoutEditor({
             {" "}Heights left blank will split equally.
           </p>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Layout Spec Builder ─────────────────────────────────────────────────────
+
+/** Generate a sensible default LayoutSpec from existing cabinet config fields.
+ *
+ * Industry standard rule:
+ *   - Top drawer is ALWAYS 6" (fixed, uniform across all base cabinets)
+ *   - Remaining drawers (if any) split the remaining drawer zone equally
+ *   - Door zone fills whatever height is left below the drawer(s)
+ */
+function defaultLayoutSpec(cab: {
+  category?: string | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+  height?: string | null;
+  drawerHeight?: string | null;
+  doorHeight?: string | null;
+}): LayoutSpec {
+  const category = (cab.category || '').toLowerCase();
+  const isWall = category.includes('wall');
+  const isTall = category.includes('tall') || category.includes('pantry') || category.includes('utility');
+  const doors = cab.numberOfDoors ?? 0;
+  const drawers = cab.numberOfDrawers ?? 0;
+  const totalH = cab.height ? parseFloat(cab.height) : (isWall ? 30 : isTall ? 84 : 34.5);
+  const baseH = isWall || isTall ? 0 : 3.5; // toe kick height
+  const faceH = totalH - baseH;
+
+  // Industry standard: top drawer is always 6" fixed
+  const TOP_DRAWER_HEIGHT = 6;
+
+  const sections: LayoutSection[] = [];
+
+  if (doors === 0 && drawers > 0) {
+    // All-drawer cabinet: top drawer = 6", remaining drawers split rest equally
+    sections.push({ type: 'drawer', count: 1, height: TOP_DRAWER_HEIGHT });
+    if (drawers > 1) {
+      const remainH = faceH - TOP_DRAWER_HEIGHT;
+      const lowerH = Math.round((remainH / (drawers - 1)) * 4) / 4;
+      for (let i = 1; i < drawers; i++) {
+        sections.push({ type: 'drawer', count: 1, height: lowerH });
+      }
+    }
+  } else if (doors > 0 && drawers === 0) {
+    // Door-only cabinet
+    const dh = cab.doorHeight ? parseFloat(cab.doorHeight) : faceH;
+    const count = Math.min(doors, 2);
+    sections.push({ type: 'door', count, height: Math.round(dh * 4) / 4 });
+  } else if (doors > 0 && drawers > 0) {
+    // Mixed: top drawer(s) fixed at 6" each, door zone fills the rest
+    // Top section = all drawers stacked (each 6" per drawer row)
+    const totalDrawerH = TOP_DRAWER_HEIGHT * drawers;
+    const doorH = faceH - totalDrawerH;
+    const doorCount = Math.min(doors, 2);
+    // In the sections array: index 0 = top of cabinet
+    // Each drawer gets its own row at 6"
+    for (let i = 0; i < drawers; i++) {
+      sections.push({ type: 'drawer', count: 1, height: TOP_DRAWER_HEIGHT });
+    }
+    // Door zone below all drawers
+    sections.push({ type: 'door', count: doorCount, height: Math.round(Math.max(doorH, 8) * 4) / 4 });
+  } else {
+    // Fallback: one door section
+    sections.push({ type: 'door', count: 1, height: Math.round(faceH * 4) / 4 });
+  }
+
+  return {
+    baseType: 'toe-kick',
+    sections,
+  };
+}
+
+function LayoutSpecBuilder({
+  value,
+  onChange,
+  disabled,
+  cabinet,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  disabled?: boolean;
+  cabinet: {
+    category?: string | null;
+    numberOfDoors?: number | null;
+    numberOfDrawers?: number | null;
+    height?: string | null;
+    drawerHeight?: string | null;
+    doorHeight?: string | null;
+  };
+}) {
+  const spec: LayoutSpec = useMemo(() => {
+    if (!value) return { baseType: 'toe-kick', sections: [] };
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.sections)) {
+        return parsed as LayoutSpec;
+      }
+    } catch {}
+    return { baseType: 'toe-kick', sections: [] };
+  }, [value]);
+
+  const setSpec = (next: LayoutSpec) => {
+    onChange(JSON.stringify(next));
+  };
+
+  const initFromConfig = () => {
+    setSpec(defaultLayoutSpec(cabinet));
+  };
+
+  const clearSpec = () => {
+    onChange(null);
+  };
+
+  const updateBaseType = (bt: 'toe-kick' | 'pedestal') => {
+    setSpec({ ...spec, baseType: bt });
+  };
+
+  const updatePedestalHeight = (h: number) => {
+    setSpec({ ...spec, pedestalHeight: h });
+  };
+
+  const addSection = (type: LayoutSection['type']) => {
+    const defaultHeights: Record<LayoutSection['type'], number> = {
+      drawer: 6,
+      door: 24,
+      shelf: 12,
+    };
+    const newSection: LayoutSection = { type, count: 1, height: defaultHeights[type] };
+    setSpec({ ...spec, sections: [...spec.sections, newSection] });
+  };
+
+  const removeSection = (idx: number) => {
+    setSpec({ ...spec, sections: spec.sections.filter((_, i) => i !== idx) });
+  };
+
+  const updateSection = (idx: number, field: keyof LayoutSection, val: unknown) => {
+    const updated = spec.sections.map((s, i) =>
+      i !== idx ? s : { ...s, [field]: val }
+    );
+    setSpec({ ...spec, sections: updated });
+  };
+
+  const moveSection = (idx: number, dir: -1 | 1) => {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= spec.sections.length) return;
+    const arr = [...spec.sections];
+    [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+    setSpec({ ...spec, sections: arr });
+  };
+
+  const sectionTypeLabel: Record<LayoutSection['type'], string> = {
+    drawer: 'Drawer Row',
+    door: 'Door Row',
+    shelf: 'Open Shelf',
+  };
+
+  const sectionTypeColor: Record<LayoutSection['type'], string> = {
+    drawer: 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700',
+    door: 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700',
+    shelf: 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-700',
+  };
+
+  const totalHeight = spec.sections.reduce((sum, s) => sum + (s.height || 0), 0);
+  const hasSpec = spec.sections.length > 0;
+
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 dark:bg-primary/10 px-4 py-3 space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Layers className="h-4 w-4 text-primary shrink-0" />
+        <p className="text-sm font-semibold text-primary">Visual Layout Spec</p>
+        {hasSpec && (
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            {totalHeight}" total
+          </span>
+        )}
+      </div>
+
+      {/* Init / Clear buttons when no spec */}
+      {!hasSpec && (
+        <div className="space-y-2">
+          <p className="text-[11px] text-muted-foreground">
+            No layout spec defined. The elevation renderer will use the legacy auto-detect logic.
+            Click below to define an exact spec.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5 text-xs"
+            disabled={disabled}
+            onClick={initFromConfig}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Initialize from current config
+          </Button>
+        </div>
+      )}
+
+      {hasSpec && (
+        <>
+          {/* Base Type */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">Base Type</Label>
+            <div className="flex gap-2">
+              {(['toe-kick', 'pedestal'] as const).map((bt) => (
+                <button
+                  key={bt}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => updateBaseType(bt)}
+                  className={cn(
+                    'flex-1 rounded-md border px-3 py-2 text-xs font-medium transition-colors',
+                    spec.baseType === bt
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background text-muted-foreground hover:border-primary/50'
+                  )}
+                >
+                  {bt === 'toe-kick' ? '▬ Toe Kick (3.5")' : '▲ Pedestal Feet'}
+                </button>
+              ))}
+            </div>
+            {spec.baseType === 'pedestal' && (
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground shrink-0">Feet height:</Label>
+                <Input
+                  type="number"
+                  min={2}
+                  max={12}
+                  step={0.5}
+                  value={spec.pedestalHeight ?? 6}
+                  onChange={(e) => updatePedestalHeight(parseFloat(e.target.value) || 6)}
+                  disabled={disabled}
+                  className="w-20 h-7 text-xs"
+                />
+                <span className="text-xs text-muted-foreground">inches</span>
+              </div>
+            )}
+          </div>
+
+          {/* Sections */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Sections{' '}
+              <span className="text-[10px] font-normal">(list order = top→bottom; cabinet renders bottom→top)</span>
+            </Label>
+
+            {/* Visual preview bar */}
+            <div
+              className="rounded border border-border bg-background overflow-hidden flex flex-col-reverse"
+              style={{ height: Math.max(80, Math.min(totalHeight * 2.5, 200)) + 'px' }}
+            >
+              {spec.sections.map((s, idx) => {
+                const pct = totalHeight > 0 ? (s.height / totalHeight) * 100 : (100 / spec.sections.length);
+                return (
+                  <div
+                    key={idx}
+                    className={cn('border-t border-border/50 flex items-center justify-center overflow-hidden', sectionTypeColor[s.type])}
+                    style={{ height: pct + '%' }}
+                  >
+                    <span className="text-[9px] font-medium opacity-70 px-1 text-center leading-tight">
+                      {s.count > 1 ? `${s.count}× ` : ''}{sectionTypeLabel[s.type]} · {s.height}"
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Section rows */}
+            <div className="space-y-1.5">
+              {spec.sections.map((section, idx) => (
+                <div
+                  key={idx}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md border px-2 py-1.5',
+                    sectionTypeColor[section.type]
+                  )}
+                >
+                  <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                  {/* Type */}
+                  <select
+                    value={section.type}
+                    onChange={(e) => updateSection(idx, 'type', e.target.value as LayoutSection['type'])}
+                    disabled={disabled}
+                    className="h-7 rounded border border-input bg-background px-1.5 text-xs font-medium"
+                  >
+                    <option value="door">Door Row</option>
+                    <option value="drawer">Drawer Row</option>
+                    <option value="shelf">Open Shelf</option>
+                  </select>
+                  {/* Count across */}
+                  <select
+                    value={section.count}
+                    onChange={(e) => updateSection(idx, 'count', parseInt(e.target.value))}
+                    disabled={disabled}
+                    className="h-7 rounded border border-input bg-background px-1.5 text-xs w-20"
+                    title="Count across"
+                  >
+                    {[1, 2, 3, 4].map((n) => (
+                      <option key={n} value={n}>{n} across</option>
+                    ))}
+                  </select>
+                  {/* Height */}
+                  <div className="flex items-center gap-0.5">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={60}
+                      step={0.25}
+                      value={section.height}
+                      onChange={(e) => updateSection(idx, 'height', parseFloat(e.target.value) || 1)}
+                      disabled={disabled}
+                      className="w-16 h-7 text-xs"
+                      placeholder="ht"
+                    />
+                    <span className="text-[10px] text-muted-foreground">"</span>
+                  </div>
+                  {/* Move up/down */}
+                  <div className="flex flex-col ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => moveSection(idx, -1)}
+                      disabled={disabled || idx === 0}
+                      className="h-4 w-5 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      title="Move up (toward top of cabinet)"
+                    >
+                      <ChevronUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveSection(idx, 1)}
+                      disabled={disabled || idx === spec.sections.length - 1}
+                      className="h-4 w-5 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30"
+                      title="Move down (toward bottom of cabinet)"
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {/* Delete */}
+                  <button
+                    type="button"
+                    onClick={() => removeSection(idx)}
+                    disabled={disabled}
+                    className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-30"
+                    title="Remove section"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add section buttons */}
+            <div className="flex gap-1.5 flex-wrap pt-1">
+              <span className="text-[11px] text-muted-foreground self-center">Add:</span>
+              {(['door', 'drawer', 'shelf'] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => addSection(type)}
+                  className={cn(
+                    'flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-medium transition-colors hover:opacity-80',
+                    type === 'door' && 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+                    type === 'drawer' && 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
+                    type === 'shelf' && 'border-green-300 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300',
+                  )}
+                >
+                  <Plus className="h-3 w-3" />
+                  {type === 'door' ? 'Door Row' : type === 'drawer' ? 'Drawer Row' : 'Open Shelf'}
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={clearSpec}
+                className="ml-auto flex items-center gap-1 rounded border border-destructive/30 bg-destructive/5 text-destructive px-2 py-1 text-[11px] font-medium hover:opacity-80"
+              >
+                <Trash2 className="h-3 w-3" />
+                Clear spec
+              </button>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-muted-foreground">
+            First section in list = top of cabinet. Last section = just above the base. Elevation renders bottom→top.
+          </p>
+        </>
       )}
     </div>
   );
@@ -444,6 +850,9 @@ function EditModal({
       configVerified: merged.configVerified ?? undefined,
       doorOrientation: (merged.doorOrientation as "side-by-side" | "stacked" | null | undefined) ?? null,
       drawerLayout: merged.drawerLayout ?? null,
+      grainDirection: (merged.grainDirection as "vertical" | "horizontal" | null | undefined) ?? null,
+      isDecorativeDoor: merged.isDecorativeDoor ?? undefined,
+      layoutSpec: merged.layoutSpec ?? null,
     });
   };
 
@@ -795,6 +1204,21 @@ function EditModal({
                     </div>
                   </div>
                 )}
+                {/* Visual Layout Spec Builder */}
+                <LayoutSpecBuilder
+                  value={merged.layoutSpec ?? null}
+                  onChange={(v) => set('layoutSpec', v)}
+                  disabled={busy}
+                  cabinet={{
+                    category: merged.category,
+                    numberOfDoors: merged.numberOfDoors,
+                    numberOfDrawers: merged.numberOfDrawers,
+                    height: merged.height,
+                    drawerHeight: merged.drawerHeight,
+                    doorHeight: merged.doorHeight,
+                  }}
+                />
+
                 {/* Blind Corner Pull Spec — auto-shown for BBC/WBC/BLIND codes */}
                 {isBlindCornerCode(merged.masterCode, merged.description) && (
                   <div className="rounded-lg border border-amber-500/40 bg-amber-50/10 dark:bg-amber-900/10 px-4 py-3 space-y-3">

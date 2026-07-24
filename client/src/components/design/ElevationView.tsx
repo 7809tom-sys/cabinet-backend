@@ -308,6 +308,7 @@ export function ElevationView({
               doorHeight={p.doorHeight ?? null}
               drawerHeight={p.drawerHeight ?? null}
               doorOrientation={p.doorOrientation ?? null}
+              layoutSpec={p.layoutSpec ?? null}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -1771,7 +1772,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
 // placed cabinet visibly changes appearance when the user switches styles. When
 // `drawers` > 0 it splits the face into a top drawer band (one front per drawer)
 // and a door region below, so drawer bases show their real drawer fronts.
-function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null }) {
+function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, faceFillOverride, ovenType, openingType, doorHeight, drawerHeight, doorOrientation, layoutSpec }: { kind: DoorPanelKind; edge: string; face: string; doors?: number; drawers?: number; isWall?: boolean; doorSampleUrl?: string | null; drawerSampleUrl?: string | null; cabinetType?: CabinetDrawingType | null; blindOnLeft?: boolean; cabinetHeightIn?: number; faceFillOverride?: string; ovenType?: "single" | "double" | null; openingType?: "top" | "middle" | "bottom" | null; doorHeight?: number | null; drawerHeight?: number | null; doorOrientation?: "side-by-side" | "stacked" | null; layoutSpec?: string | null }) {
   const drawerCount = drawers ?? 0;
   const doorCount = doors ?? 0;
   const stroke = `${edge}99`;
@@ -1788,6 +1789,72 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
       {children}
     </div>
   );
+
+  // ─── LAYOUT SPEC: Exact admin-defined section rendering ──────────────
+  // When a layoutSpec is present, render exactly as defined: each section
+  // is a row with a type (door/drawer/shelf), count-across, and height.
+  // Sections are stored top-to-bottom in the array; we render them as
+  // CSS flex-column so the first section is at the top of the cabinet face.
+  if (layoutSpec) {
+    let spec: { baseType?: string; sections?: Array<{ type: string; count: number; height: number }> } | null = null;
+    try { spec = JSON.parse(layoutSpec); } catch { /* ignore */ }
+    if (spec && Array.isArray(spec.sections) && spec.sections.length > 0) {
+      const totalH = spec.sections.reduce((s, r) => s + (r.height || 0), 0);
+      return withFace(
+        <div className="absolute inset-0 flex flex-col">
+          {spec.sections.map((section, idx) => {
+            const pct = totalH > 0 ? (section.height / totalH) * 100 : (100 / spec!.sections!.length);
+            const count = Math.max(1, section.count || 1);
+            const colW = 100 / count;
+            const isDrawer = section.type === 'drawer';
+            const isDoor = section.type === 'door';
+            return (
+              <div
+                key={idx}
+                className="relative overflow-hidden"
+                style={{ height: `${pct}%`, flexShrink: 0 }}
+              >
+                {/* Rail between sections */}
+                {idx > 0 && (
+                  <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke, zIndex: 1 }} />
+                )}
+                {isDrawer ? (
+                  // Drawer row: count-across drawer fronts
+                  <div className="absolute inset-0 flex">
+                    {Array.from({ length: count }).map((_, ci) => (
+                      <div key={ci} className="relative h-full" style={{ width: `${colW}%` }}>
+                        {ci > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                        <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
+                      </div>
+                    ))}
+                  </div>
+                ) : isDoor ? (
+                  // Door row: count-across door panels
+                  <div className="absolute inset-0 flex">
+                    {Array.from({ length: count }).map((_, ci) => (
+                      <div key={ci} className="relative h-full" style={{ width: `${colW}%` }}>
+                        {ci > 0 && <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />}
+                        <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  // Open shelf: empty recessed area
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: `linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.08) 100%)`,
+                      boxShadow: `inset 0 2px 4px rgba(0,0,0,0.25)`,
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+  }
 
   // ─── SPECIALTY TYPE: OVEN TALL ────────────────────────────────────────
   // Oven tall cabinets (O-code): Uses admin-configured openingType, doorHeight,
@@ -2357,23 +2424,24 @@ function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSampleUrl, dr
   if (drawerCount > 0) {
     const hasDoors = doorCount > 0;
     if (hasDoors) {
-      // STANDARD BASE: a short TOP drawer band (one drawer front per door, laid
-      // out SIDE-BY-SIDE so they line up over the doors) above a door region
-      // split into the same number of side-by-side doors below.
-      const drawerBandPct = 26;
+      // STANDARD BASE: full-width drawer band on top (one row per drawer),
+      // then full-width door region split into side-by-side doors below.
+      // Drawers and doors are INDEPENDENT — drawer count never follows door count.
+      const drawerBandPct = Math.min(55, 26 * drawerCount);
+      const drawerSliceH = drawerBandPct / drawerCount;
       const cols = Math.max(1, doorCount);
       const colW = 100 / cols;
       return withFace(
         <>
-          {/* top drawer band: one drawer front per column */}
-          {Array.from({ length: cols }).map((_, i) => (
+          {/* top drawer band: one FULL-WIDTH drawer front per drawer row */}
+          {Array.from({ length: drawerCount }).map((_, i) => (
             <div
               key={`tdrw-${i}`}
-              className="absolute top-0"
-              style={{ left: `${colW * i}%`, width: `${colW}%`, height: `${drawerBandPct}%` }}
+              className="absolute left-0 right-0"
+              style={{ top: `${drawerSliceH * i}%`, height: `${drawerSliceH}%` }}
             >
               {i > 0 && (
-                <div className="absolute top-0 bottom-0 left-0" style={{ width: 2, background: stroke }} />
+                <div className="absolute left-0 right-0 top-0" style={{ height: 2, background: stroke }} />
               )}
               <StylePanel kind={kind} edge={edge} face={face} drawer doorSampleUrl={doorSampleUrl} drawerSampleUrl={drawerSampleUrl} />
             </div>

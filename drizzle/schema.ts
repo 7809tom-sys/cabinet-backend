@@ -254,6 +254,11 @@ export const cabinets = mysqlTable("cabinets", {
   grainDirection: varchar("grainDirection", { length: 16 }), // vertical | horizontal | null
   // Whether this panel uses the door style image (decorative door panel vs flat plywood)
   isDecorativeDoor: boolean("isDecorativeDoor").default(false),
+  // Layout spec JSON: ordered array of sections top-to-bottom
+  // e.g. [{"type":"drawer","count":1},{"type":"door","count":2}]
+  // Supported types: "drawer" | "door" | "shelf"
+  // When null, renderer auto-detects from description/subCategory
+  layoutSpec: text("layoutSpec"),
 });
 
 export type Cabinet = typeof cabinets.$inferSelect;
