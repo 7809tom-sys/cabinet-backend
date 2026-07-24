@@ -1625,3 +1625,19 @@
 - [x] Show corner swatch in the designer's style picker (ColorSlotButton) as a detail overlay on each style card
 - [ ] Use corner swatch as texture fill in the 2D designer elevation rendering for door panels
 - [ ] Save checkpoint
+
+## Cabinet Groups Activate/Deactivate
+
+- [ ] Check if cabinet_groups table has an isActive/isEnabled column
+- [ ] Add isActive column to cabinet_groups schema if missing (migration + SQL)
+- [ ] Add adminToggleCabinetGroup procedure to router
+- [ ] Add activate/deactivate toggle buttons to cabinet groups admin UI
+- [ ] Filter inactive cabinet groups from public catalog and designer
+- [ ] Save checkpoint
+
+## Bug: Duplicate SKU rows in distributor_skus table
+- [x] Delete duplicate distributor_skus rows (keep highest ID per distributorId+cabinetId+styleId)
+- [x] Add UNIQUE constraint on (distributorId, cabinetId, styleId) to prevent future re-import duplicates
+- [x] Update schema.ts to reflect the new unique constraint
+- [x] Verify clean counts after deduplication
+- [ ] Save checkpoint

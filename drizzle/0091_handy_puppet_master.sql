@@ -1,0 +1,1 @@
+ALTER TABLE `distributor_skus` ADD CONSTRAINT `dist_cab_style_uniq` UNIQUE(`distributorId`,`cabinetId`,`styleId`);

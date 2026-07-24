@@ -282,7 +282,11 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   // PO-only fields (internal; never shown to customers)
   supplierCabinetName: varchar("supplierCabinetName", { length: 255 }), // distributor's own cabinet name on the PO
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (t) => ({
+  // Prevent duplicate SKU rows for the same cabinet+distributor+style combo.
+  // Without this, re-importing a price list would create new rows instead of updating.
+  uniqDistCabStyle: unique("dist_cab_style_uniq").on(t.distributorId, t.cabinetId, t.styleId),
+}));
 
 export type DistributorSku = typeof distributorSkus.$inferSelect;
 
