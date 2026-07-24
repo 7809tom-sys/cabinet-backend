@@ -187,8 +187,14 @@ export function ElevationView({
     const fp = placedFootprint(p);
     const sizeAlong = horizontal ? fp.w : fp.d;
     const posAlong = seam ? 0 : (horizontal ? p.x : p.y);
-    const { bottom, height } = elevationBox(p, room);
+    const { bottom: rawBottom, height: rawHeight } = elevationBox(p, room);
     const isWall = p.placement === "wall";
+    // When toe kick is enabled, raise base/tall cabinet faces above the toe kick
+    // strip so the recessed toe kick is visible below the face frame.
+    const isBaseOrTall = p.placement === "base" || p.placement === "tall";
+    const toeOffset = toeKick && isBaseOrTall && rawBottom === 0 ? TOE_KICK_HEIGHT_IN : 0;
+    const bottom = rawBottom + toeOffset;
+    const height = rawHeight - toeOffset;
     // FRIDGE-* and all other appliances render as plain steel/gray appliance boxes.
     // They are NOT cabinet faces — the refrigerator is the appliance itself.
     const isAppliance = p.placement === "appliance" || /^(RANGE|FRIDGE)-/i.test(p.masterCode ?? "");
