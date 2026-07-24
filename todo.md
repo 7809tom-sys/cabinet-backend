@@ -1667,4 +1667,13 @@
 - [x] Pass layoutSpec through all addCabinet placements in DesignTool
 - [x] Add layoutSpec rendering branch in DoorFront (ElevationView) — renders sections top-to-bottom using flex-col, each row with count-across door/drawer/shelf panels
 - [x] TypeScript check passes (0 errors)
+- [x] Save checkpoint
+
+## Door Styles Admin: distributor name + catalog preview modal
+
+- [x] Show distributor name on each door style card/row in the admin door styles list
+- [x] Add clickable item-count badge on each door style that opens a quick catalog preview modal
+- [x] Catalog preview modal shows all SKUs for that style with: master code, description, width×height, cost price, retail price
+- [x] Backend: add a `styleSkuPreview` query returning paginated SKUs for a given styleId with cost + retail prices
+- [x] TypeScript check passes
 - [ ] Save checkpoint

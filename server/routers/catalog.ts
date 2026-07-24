@@ -853,6 +853,63 @@ export const doorStylesRouter = router({
     return rows;
   }),
 
+  // Admin: quick catalog preview for a door style — returns all SKUs with cost/retail prices.
+  // Used by the "N SKUs" clickable badge on the Featured Styles admin page.
+  styleSkuPreview: adminProcedure
+    .input(z.object({
+      styleId: z.number().int(),
+      page: z.number().int().min(1).default(1),
+      pageSize: z.number().int().min(1).max(200).default(100),
+      search: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [], total: 0 };
+      const offset = (input.page - 1) * input.pageSize;
+
+      const baseWhere = eq(distributorSkus.styleId, input.styleId);
+      const searchFilter = input.search?.trim()
+        ? or(
+            like(cabinets.masterCode, `%${input.search.trim()}%`),
+            like(cabinets.description, `%${input.search.trim()}%`),
+          )
+        : undefined;
+      const whereClause = searchFilter ? and(baseWhere, searchFilter) : baseWhere;
+
+      const [{ total }] = await db
+        .select({ total: sql<number>`count(*)` })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(whereClause);
+
+      const rows = await db
+        .select({
+          skuId: distributorSkus.id,
+          platformSku: distributorSkus.platformSku,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          yourCost: distributorSkus.yourCost,
+          listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          contractorPrice: distributorSkus.contractorPrice,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(whereClause)
+        .orderBy(asc(cabinets.masterCode))
+        .limit(input.pageSize)
+        .offset(offset);
+
+      return { rows, total: Number(total) };
+    }),
+
   // Admin: permanently delete a door style. Only allowed if no SKUs reference it.
   deleteDoorStyle: adminProcedure
     .input(z.object({ id: z.number() }))

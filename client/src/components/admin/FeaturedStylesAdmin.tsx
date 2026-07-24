@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
   AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, EyeOff, Eye,
-  Trash2, Plus, Package,
+  Trash2, Plus, Package, Building2, DollarSign,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,10 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import DoorPhotoCorrectButton from "./DoorPhotoCorrectButton";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const MAX_FEATURED = 30;
 
@@ -50,6 +54,141 @@ interface AdminStyle {
   profileDescription?: string | null;
   cornerSwatchImageUrl?: string | null;
   isActive: boolean;
+}
+
+// ── Catalog Preview Modal ─────────────────────────────────────────────────────
+// Shows all SKUs for a door style with cost + retail prices.
+function CatalogPreviewModal({
+  style,
+  open,
+  onClose,
+}: {
+  style: AdminStyle;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 100;
+
+  const { data, isLoading } = trpc.doorStyles.styleSkuPreview.useQuery(
+    { styleId: style.id, page, pageSize: PAGE_SIZE, search: search || undefined },
+    { enabled: open },
+  );
+
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  function fmt(v: string | null | undefined): string {
+    if (v == null) return "—";
+    const n = Number(v);
+    return Number.isFinite(n) ? `$${n.toFixed(2)}` : "—";
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-5xl flex flex-col max-h-[90dvh] p-0">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b border-border shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Package className="h-4 w-4 text-primary" />
+            Catalog Preview — {style.ourName}
+          </DialogTitle>
+          <div className="flex items-center gap-3 mt-2 flex-wrap">
+            {style.distributorName && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" />
+                {style.distributorName}
+              </span>
+            )}
+            <Badge variant="outline" className="text-xs">
+              {total.toLocaleString()} SKUs
+            </Badge>
+            {style.doorStyle && (
+              <Badge variant="secondary" className="text-xs">{style.doorStyle}</Badge>
+            )}
+            {style.color && (
+              <Badge variant="secondary" className="text-xs">{style.color}</Badge>
+            )}
+          </div>
+          <div className="relative mt-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Filter by code or description…"
+              className="pl-8 h-8 text-sm"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-auto min-h-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+              No SKUs found{search ? " matching your search" : ""}.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="text-xs">
+                  <TableHead className="w-28 sticky left-0 bg-background">Code</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="w-20 text-right">Size</TableHead>
+                  <TableHead className="w-24 text-right text-amber-700 font-semibold">Your Cost</TableHead>
+                  <TableHead className="w-24 text-right">List</TableHead>
+                  <TableHead className="w-24 text-right">Wholesale</TableHead>
+                  <TableHead className="w-24 text-right">Contractor</TableHead>
+                  <TableHead className="w-24 text-right">Homeowner</TableHead>
+                  <TableHead className="w-16 text-center">Avail</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.skuId} className="text-xs">
+                    <TableCell className="font-mono font-medium sticky left-0 bg-background">{row.masterCode}</TableCell>
+                    <TableCell className="max-w-[220px] truncate text-muted-foreground" title={row.description}>{row.description}</TableCell>
+                    <TableCell className="text-right text-muted-foreground whitespace-nowrap">
+                      {[row.width, row.height].filter(Boolean).map(Number).filter(Number.isFinite).join('×') || '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-amber-700">{fmt(row.yourCost)}</TableCell>
+                    <TableCell className="text-right">{fmt(row.listPrice)}</TableCell>
+                    <TableCell className="text-right">{fmt(row.wholesalePrice)}</TableCell>
+                    <TableCell className="text-right">{fmt(row.contractorPrice)}</TableCell>
+                    <TableCell className="text-right">{fmt(row.homeownerPrice)}</TableCell>
+                    <TableCell className="text-center">
+                      {row.isAvailable && row.isPublished ? (
+                        <span className="text-emerald-600 font-medium">✓</span>
+                      ) : (
+                        <span className="text-muted-foreground/40">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-border shrink-0 text-xs text-muted-foreground">
+            <span>Page {page} of {totalPages} ({total.toLocaleString()} total)</span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Prev</Button>
+              <Button size="sm" variant="outline" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</Button>
+            </div>
+          </div>
+        )}
+
+        <div className="px-6 py-3 border-t border-border shrink-0 flex justify-end">
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function thumb(s: AdminStyle): string | null {
@@ -741,6 +880,7 @@ export default function FeaturedStylesAdmin() {
   const [editingStyle, setEditingStyle] = useState<AdminStyle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminStyle | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [previewStyle, setPreviewStyle] = useState<AdminStyle | null>(null);
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.doorStyles.listForAdmin.useQuery();
   const { data: skuCounts } = trpc.doorStyles.skuCountsByStyle.useQuery();
@@ -886,9 +1026,9 @@ export default function FeaturedStylesAdmin() {
     utils.doorStyles.skuCountsByStyle.invalidate();
   }
 
-  // SKU count badge helper
-  function SkuBadge({ styleId }: { styleId: number }) {
-    const counts = countMap.get(styleId);
+  // SKU count badge helper — clickable to open the catalog preview modal
+  function SkuBadge({ style: s }: { style: AdminStyle }) {
+    const counts = countMap.get(s.id);
     if (!counts || counts.skuCount === 0) {
       return (
         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-300 text-orange-600 bg-orange-50">
@@ -897,10 +1037,17 @@ export default function FeaturedStylesAdmin() {
       );
     }
     return (
-      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-700 bg-blue-50">
-        <Package className="h-2.5 w-2.5 mr-0.5" />
-        {counts.skuCount} SKUs
-      </Badge>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setPreviewStyle(s); }}
+        title="Click to preview catalog items with pricing"
+        className="inline-flex items-center"
+      >
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors">
+          <Package className="h-2.5 w-2.5 mr-0.5" />
+          {counts.skuCount} SKUs
+        </Badge>
+      </button>
     );
   }
 
@@ -1002,8 +1149,13 @@ export default function FeaturedStylesAdmin() {
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                    {s.distributorName && (
+                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-primary/70 shrink-0">
+                        <Building2 className="h-2.5 w-2.5" />{s.distributorName}
+                      </span>
+                    )}
                     {[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
-                    <SkuBadge styleId={s.id} />
+                    <SkuBadge style={s} />
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -1126,8 +1278,13 @@ export default function FeaturedStylesAdmin() {
                 >
                   <p className="font-medium text-sm truncate">{s.ourName}</p>
                   <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                    {s.distributorName && (
+                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-primary/70 shrink-0">
+                        <Building2 className="h-2.5 w-2.5" />{s.distributorName}
+                      </span>
+                    )}
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
-                    <SkuBadge styleId={s.id} />
+                    <SkuBadge style={s} />
                   </p>
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
@@ -1204,8 +1361,13 @@ export default function FeaturedStylesAdmin() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate line-through text-muted-foreground">{s.ourName}</p>
                   <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                    {s.distributorName && (
+                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-primary/70 shrink-0">
+                        <Building2 className="h-2.5 w-2.5" />{s.distributorName}
+                      </span>
+                    )}
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
-                    <SkuBadge styleId={s.id} />
+                    <SkuBadge style={s} />
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -1235,6 +1397,16 @@ export default function FeaturedStylesAdmin() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Catalog preview modal — opens when clicking the SKU count badge */}
+      {previewStyle && (
+        <CatalogPreviewModal
+          key={previewStyle.id}
+          style={previewStyle}
+          open={!!previewStyle}
+          onClose={() => setPreviewStyle(null)}
+        />
       )}
 
       {/* Quick-edit dialog — key forces full remount when switching styles so local image state resets */}
