@@ -106,18 +106,9 @@ export function ElevationView({
   const PADDING = 40;
 
   // Rendering mode toggle: "realistic" (staggered planks, veining, metallic faucet)
-  // vs "simplified" (flat colors, simple shapes). Persisted in localStorage.
-  const [realistic, setRealistic] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem("cd_elevation_render_mode") !== "simplified";
-  });
-  const toggleRenderMode = useCallback(() => {
-    setRealistic((prev) => {
-      const next = !prev;
-      localStorage.setItem("cd_elevation_render_mode", next ? "realistic" : "simplified");
-      return next;
-    });
-  }, []);
+  // Always realistic — no simplified/cartoon mode.
+  const realistic = true;
+  const toggleRenderMode = useCallback(() => { /* no-op: simplified mode removed */ }, []);
 
   // Elevation drag state
   const [dragUid, setDragUid] = useState<string | null>(null);
@@ -1612,16 +1603,6 @@ export function ElevationView({
         </div>
       )}
 
-      {/* Realistic / Simplified rendering toggle — top-right corner */}
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); toggleRenderMode(); }}
-        className="absolute top-3 right-3 flex items-center gap-1 bg-white/85 px-2 py-1 rounded-full shadow-sm text-[11px] font-medium text-[#1a2744] hover:bg-white transition-colors z-10"
-        title={realistic ? t("dt_ev_render_simplified") : t("dt_ev_render_realistic")}
-      >
-        <span className={`w-2 h-2 rounded-full ${realistic ? "bg-emerald-500" : "bg-gray-400"}`} />
-        {realistic ? t("dt_ev_render_realistic") : t("dt_ev_render_simplified")}
-      </button>
 
       {sorted.length === 0 && viewOpenings.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm text-center px-6" style={textFlip}>
