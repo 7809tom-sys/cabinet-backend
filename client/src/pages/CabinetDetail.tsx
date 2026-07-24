@@ -913,14 +913,45 @@ export default function CabinetDetail({ masterCode }: Props) {
             </div>
           )}
 
-          {/* ── Photorealistic 3D Preview + Add to Designer CTA ────────────── */}
+          {/* ── Room Scene + Add to Designer CTA ────────────── */}
           {selectedRow && cabinet && !cabinet.isNotCabinet && (
-            <Cabinet3dPreviewSection
-              cabinetId={cabinet.id}
-              styleId={selectedRow.styleId}
-              styleName={selectedRow.name}
-              masterCode={masterCode}
-            />
+            <div className="rounded-xl border border-border bg-gradient-to-br from-card to-muted/20 p-5 mb-6">
+              <h3 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-500" />
+                See This Cabinet in Your Style
+              </h3>
+              {selectedRow.roomSceneImageUrl ? (
+                <div className="space-y-3">
+                  <div className="rounded-lg overflow-hidden border border-border bg-white">
+                    <img
+                      src={selectedRow.roomSceneImageUrl}
+                      alt={`Kitchen with ${selectedRow.name} cabinets`}
+                      className="w-full h-auto object-cover max-h-80"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground text-center">
+                    {selectedRow.name} — room scene
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mb-3">
+                  See a photorealistic 3D render of this cabinet in <span className="font-medium text-foreground">{selectedRow.name}</span> —
+                  exactly how it will look in your kitchen.
+                </p>
+              )}
+              <div className={selectedRow.roomSceneImageUrl ? "mt-3" : ""}>
+                <Link
+                  href={`/design?style=${selectedRow.styleId}`}
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-primary text-primary-foreground font-semibold text-sm py-3 px-4 transition-all hover:opacity-90 active:scale-[0.98]"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                  Put This in the Designer
+                </Link>
+                <p className="text-[11px] text-muted-foreground text-center mt-1.5">
+                  Open the kitchen designer with this style pre-loaded
+                </p>
+              </div>
+            </div>
           )}
 
           {/* Blind corner details */}

@@ -1610,3 +1610,9 @@
 ## Hide Door & Drawer Layout Diagram from Public
 
 - [x] Hide the "Door & Drawer Layout" section on product detail page from public customers (only show in admin mode)
+
+## Replace AI 3D Preview with Room Scene Photo
+
+- [x] Replace the AI-generated 3D preview in Cabinet3dPreviewSection with the selected door style's room scene image
+- [x] Show the room scene photo immediately (no loading/generation) when user clicks or views the section
+- [x] Keep the "Put This in the Designer" button below it
