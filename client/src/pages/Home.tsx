@@ -235,6 +235,16 @@ function FeaturedStyles() {
               alt={(first as { ourName?: string | null }).ourName ?? "Featured Style"}
               className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48 md:h-full"
             />
+            {/* Corner Swatch — shows door profile, grain, and color */}
+            {(first as { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl && (
+              <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
+                <img
+                  src={(first as { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl!}
+                  alt={`${(first as { ourName?: string | null }).ourName ?? "Style"} door profile`}
+                  className="w-16 h-16 md:w-20 md:h-20 rounded-lg shadow-lg border-2 border-white/30 object-cover ring-1 ring-black/10"
+                />
+              </div>
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6">
               {(first as { featuredLabel?: string | null }).featuredLabel && (
@@ -274,6 +284,16 @@ function FeaturedStyles() {
                     alt={(style as { ourName?: string | null }).ourName ?? "Style"}
                     className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48"
                   />
+                  {/* Corner Swatch */}
+                  {(style as { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl && (
+                    <div className="absolute top-2 left-2 z-10">
+                      <img
+                        src={(style as { cornerSwatchImageUrl?: string | null }).cornerSwatchImageUrl!}
+                        alt={`${(style as { ourName?: string | null }).ourName ?? "Style"} door profile`}
+                        className="w-12 h-12 rounded-md shadow-md border-2 border-white/30 object-cover ring-1 ring-black/10"
+                      />
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-3">
                     {(style as { featuredLabel?: string | null }).featuredLabel && (

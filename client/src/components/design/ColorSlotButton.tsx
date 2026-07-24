@@ -40,6 +40,7 @@ type StyleOption = {
   stileWidth?: string | number | null;
   centerRailWidth?: string | number | null;
   profileNotes?: string | null;
+  cornerSwatchImageUrl?: string | null;
 };
 
 /** Neutral, customer-safe distributor label (no hidden supplier brand). */
@@ -315,11 +316,19 @@ export function ColorSlotButton({
                   : "border-border bg-white",
               ].join(" ")}
             >
-              <div className="w-full aspect-[10/13] overflow-hidden rounded">
+              <div className="relative w-full aspect-[10/13] overflow-hidden rounded">
                 <DoorStyleSwatch
                   style={s as Parameters<typeof DoorStyleSwatch>[0]["style"]}
                   className="h-full w-full"
                 />
+                {(s as StyleOption).cornerSwatchImageUrl && (
+                  <img
+                    src={(s as StyleOption).cornerSwatchImageUrl!}
+                    alt="Corner swatch"
+                    className="absolute bottom-0 right-0 w-[40%] h-[40%] object-cover rounded-tl border-t border-l border-white/80 shadow-sm"
+                    loading="lazy"
+                  />
+                )}
               </div>
               <span className={`w-full text-[10px] leading-tight ${isSelected ? "font-semibold text-[#1a2744]" : "text-muted-foreground"}`}>
                 <span className="block truncate">{sName}</span>
@@ -517,13 +526,21 @@ export function ColorSlotButton({
         onClick={onSelect}
         className="flex w-full items-center gap-2"
       >
-        <div className="h-10 w-8 shrink-0 overflow-hidden rounded border border-border bg-white">
+        <div className="relative h-10 w-8 shrink-0 overflow-hidden rounded border border-border bg-white">
           {hasStyle ? (
             <DoorStyleSwatch style={style} className="h-full w-full object-contain" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-muted-foreground">
               <Palette className="h-4 w-4" />
             </div>
+          )}
+          {hasStyle && (style as StyleOption)?.cornerSwatchImageUrl && (
+            <img
+              src={(style as StyleOption).cornerSwatchImageUrl!}
+              alt="Corner swatch"
+              className="absolute bottom-0 right-0 w-[50%] h-[50%] object-cover rounded-tl shadow-sm"
+              loading="lazy"
+            />
           )}
         </div>
         <span className="min-w-0 flex-1">

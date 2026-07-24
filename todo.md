@@ -1616,3 +1616,12 @@
 - [x] Replace the AI-generated 3D preview in Cabinet3dPreviewSection with the selected door style's room scene image
 - [x] Show the room scene photo immediately (no loading/generation) when user clicks or views the section
 - [x] Keep the "Put This in the Designer" button below it
+
+## Corner Swatch Feature
+
+- [x] Add `cornerSwatchImageUrl` column to door_styles table (schema + migration + SQL)
+- [x] Add cornerSwatchImageUrl to admin door style edit/create and router
+- [x] Display corner swatch on Featured Door Styles section (homepage)
+- [x] Show corner swatch in the designer's style picker (ColorSlotButton) as a detail overlay on each style card
+- [ ] Use corner swatch as texture fill in the 2D designer elevation rendering for door panels
+- [ ] Save checkpoint
