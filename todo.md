@@ -1769,3 +1769,11 @@
 - [x] Wire save mutation to persist doorsPerRow from inline edit
 - [x] TypeScript check passes
 - [x] Save checkpoint
+
+## Feature: Default door/drawer images in elevation view (no style selected)
+- [x] Upload the user's white shaker door image as the default door fallback
+- [x] Upload the user's white shaker drawer front image as the default drawer fallback
+- [x] Set DEFAULT_DOOR_SAMPLE_URL and DEFAULT_DRAWER_SAMPLE_URL constants in DesignTool
+- [x] Wire fallback URLs into doorSampleForCab and drawerSampleForCab so they return the default when no style is selected
+- [x] TypeScript check passes
+- [ ] Save checkpoint

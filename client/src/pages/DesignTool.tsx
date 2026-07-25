@@ -1509,7 +1509,11 @@ export default function DesignTool() {
     });
     return m;
   }, [doorStyles]);
-  const activeDoorSampleUrl = paletteFinishSwatch; // same source
+  // Default fallback images shown when no door style is selected yet — gives the
+  // elevation view a realistic look even before the user picks a finish.
+  const DEFAULT_DOOR_SAMPLE_URL = "/manus-storage/default-door-sample_9a6c9607.png";
+  const DEFAULT_DRAWER_SAMPLE_URL = "/manus-storage/default-drawer-sample_4fc4653e.jpg";
+  const activeDoorSampleUrl = paletteFinishSwatch ?? DEFAULT_DOOR_SAMPLE_URL;
   const doorSampleForCab = useCallback(
     (cab: PlacedCabinet): string | null => {
       const sid = styleId ? effectiveStyleId(cab, styleId) : null;
@@ -1521,7 +1525,8 @@ export default function DesignTool() {
   const drawerSampleForCab = useCallback(
     (cab: PlacedCabinet): string | null => {
       const sid = styleId ? effectiveStyleId(cab, styleId) : null;
-      return (sid != null && drawerSampleById.get(sid)) || null;
+      // Use the style-specific drawer sample, else fall back to the default drawer image.
+      return (sid != null && drawerSampleById.get(sid)) || DEFAULT_DRAWER_SAMPLE_URL;
     },
     [styleId, drawerSampleById]
   );
