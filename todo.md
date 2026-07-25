@@ -1750,3 +1750,14 @@
 - [x] Fix the routing/branching logic so 2 drawers + 2 doors shows Left Door / Right Door side-by-side
 - [x] TypeScript check passes
 - [ ] Save checkpoint
+
+## Feature: Doors side-by-side dropdown in cabinet config admin
+- [x] Add doorsPerRow (int, nullable) column to cabinet_configs table in DB schema
+- [x] Apply migration SQL via webdev_execute_sql
+- [x] Add doorsPerRow to CabinetLike type in cabinetGraphics.ts
+- [x] Add "Doors side-by-side" dropdown (1, 2, 3, 4) in CabinetConfigAdmin next to the door count field
+- [x] Wire doorsPerRow into DoorDrawerDiagram: use it as the cols value for door zone rendering
+- [x] Wire doorsPerRow into ElevationView/DoorFront: use it as the side-by-side door count
+- [x] Layout Preview reflects the selected doorsPerRow immediately
+- [x] TypeScript check passes
+- [x] Save checkpoint

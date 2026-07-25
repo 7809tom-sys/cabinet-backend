@@ -1693,6 +1693,8 @@ export const cabinetsRouter = router({
         configVerified: z.boolean().optional(),
         // Door orientation for multi-door cabinets
         doorOrientation: z.enum(["side-by-side", "stacked"]).nullable().optional(),
+        // How many doors appear side-by-side in a single row (null = auto-detect)
+        doorsPerRow: z.number().int().min(1).max(4).nullable().optional(),
         // Drawer layout JSON: array of rows [{count, height?}]
         drawerLayout: z.string().nullable().optional(),
         // Panel grain direction: vertical | horizontal | null
@@ -1779,6 +1781,7 @@ export const cabinetsRouter = router({
       if (input.faceWidth !== undefined) patch.faceWidth = input.faceWidth != null ? String(input.faceWidth) : null;
       if (input.legWidth !== undefined) patch.legWidth = input.legWidth != null ? String(input.legWidth) : null;
       if (input.doorOrientation !== undefined) patch.doorOrientation = input.doorOrientation;
+      if (input.doorsPerRow !== undefined) patch.doorsPerRow = input.doorsPerRow;
       if (input.drawerLayout !== undefined) patch.drawerLayout = input.drawerLayout;
       if (input.grainDirection !== undefined) patch.grainDirection = input.grainDirection;
       if (input.isDecorativeDoor !== undefined) patch.isDecorativeDoor = input.isDecorativeDoor;
@@ -2418,6 +2421,8 @@ export const cabinetsRouter = router({
             configVerifiedAt: cabinets.configVerifiedAt,
             // Door orientation
             doorOrientation: cabinets.doorOrientation,
+            // Doors per row (side-by-side count)
+            doorsPerRow: cabinets.doorsPerRow,
             // Drawer layout JSON
             drawerLayout: cabinets.drawerLayout,
             // Panel fields

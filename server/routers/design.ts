@@ -62,6 +62,7 @@ export const designRouter = router({
           doorHeight: cabinets.doorHeight,
           drawerHeight: cabinets.drawerHeight,
           doorOrientation: cabinets.doorOrientation,
+          doorsPerRow: cabinets.doorsPerRow,
           layoutSpec: cabinets.layoutSpec,
         })
         .from(cabinets)

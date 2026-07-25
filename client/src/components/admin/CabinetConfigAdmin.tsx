@@ -123,6 +123,8 @@ type CabinetRow = {
   configVerifiedAt: Date | null;
   // Door orientation
   doorOrientation: string | null;
+  // Doors per row (side-by-side count)
+  doorsPerRow: number | null;
   // Drawer layout JSON
   drawerLayout: string | null;
   // Panel fields
@@ -917,6 +919,7 @@ function EditModal({
       subCategory: merged.subCategory ?? null,
       configVerified: merged.configVerified ?? undefined,
       doorOrientation: (merged.doorOrientation as "side-by-side" | "stacked" | null | undefined) ?? null,
+      doorsPerRow: merged.doorsPerRow ?? null,
       drawerLayout: merged.drawerLayout ?? null,
       grainDirection: (merged.grainDirection as "vertical" | "horizontal" | null | undefined) ?? null,
       isDecorativeDoor: merged.isDecorativeDoor ?? undefined,
@@ -1106,6 +1109,29 @@ function EditModal({
                       </SelectContent>
                     </Select>
                     <p className="text-[11px] text-muted-foreground">For pantries or tall cabinets with 2+ doors arranged vertically, choose "Stacked".</p>
+                  </div>
+                )}
+                {/* Doors Per Row (side-by-side count) */}
+                {(merged.numberOfDoors ?? 0) >= 2 && (merged.doorOrientation !== "stacked") && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Doors Per Row (Side-by-Side)</Label>
+                    <Select
+                      value={merged.doorsPerRow != null ? String(merged.doorsPerRow) : "__auto__"}
+                      onValueChange={(v) => set("doorsPerRow", v === "__auto__" ? null : parseInt(v))}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className={cn("w-full", merged.doorsPerRow == null && "text-muted-foreground")}>
+                        <SelectValue placeholder="— auto (all side by side) —" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__auto__">— auto (all side by side) —</SelectItem>
+                        <SelectItem value="1">1 door per row (stacked rows)</SelectItem>
+                        <SelectItem value="2">2 doors side by side</SelectItem>
+                        <SelectItem value="3">3 doors side by side</SelectItem>
+                        <SelectItem value="4">4 doors side by side</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">Controls how many doors appear side-by-side in each row. Auto = all {merged.numberOfDoors} doors in one row.</p>
                   </div>
                 )}
 

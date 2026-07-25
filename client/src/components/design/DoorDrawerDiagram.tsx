@@ -777,8 +777,11 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       Math.round(iH * 0.55) // never take more than 55% of height
     );
     const doorH = iH - drawerBandH;
-    const cols = Math.max(1, effectiveDoors);
-    const colW = iW / cols;
+    // doorsPerRow: explicit admin override; fallback = all doors side-by-side in one row
+    const doorsPerRow = (cabinet as CabinetLike & { doorsPerRow?: number | null }).doorsPerRow;
+    const colsPerRow = doorsPerRow != null && doorsPerRow >= 1 ? doorsPerRow : effectiveDoors;
+    const numDoorRows = Math.ceil(effectiveDoors / colsPerRow);
+    const doorRowH = doorH / numDoorRows;
 
     // Render drawers per-row using drawerLayout
     if (drawerRows.length > 0) {
@@ -799,18 +802,28 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
     }
     // Rail between drawer band and doors
     rails.push({ y: PAD + drawerBandH });
-    // Doors (bottom region, side by side)
-    for (let i = 0; i < cols; i++) {
-      const doorLabel =
-        cols === 1 ? "Door" :
-        cols === 2 ? (i === 0 ? "Left Door" : "Right Door") :
-        `Door ${i + 1}`;
-      zones.push({
-        x: PAD + i * colW, y: PAD + drawerBandH,
-        w: colW, h: doorH,
-        fill: CLR.door, stroke: CLR.doorStroke,
-        label: doorLabel,
-      });
+    // Doors (bottom region, rendered in rows of colsPerRow)
+    let doorIdx = 0;
+    for (let row = 0; row < numDoorRows; row++) {
+      const doorsInThisRow = Math.min(colsPerRow, effectiveDoors - doorIdx);
+      const colW = iW / doorsInThisRow;
+      const rowY = PAD + drawerBandH + row * doorRowH;
+      if (row > 0) rails.push({ y: rowY });
+      for (let col = 0; col < doorsInThisRow; col++) {
+        const globalIdx = doorIdx + col;
+        const doorLabel =
+          effectiveDoors === 1 ? "Door" :
+          (doorsInThisRow === 2 && col === 0) ? "Left Door" :
+          (doorsInThisRow === 2 && col === 1) ? "Right Door" :
+          `Door ${globalIdx + 1}`;
+        zones.push({
+          x: PAD + col * colW, y: rowY,
+          w: colW, h: doorRowH,
+          fill: CLR.door, stroke: CLR.doorStroke,
+          label: doorLabel,
+        });
+      }
+      doorIdx += doorsInThisRow;
     }
   } else if (effectiveDrawers > 0 && effectiveDoors === 0) {
     // All-drawer base: use drawerLayout rows if available
@@ -834,19 +847,32 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
 
   } else if (effectiveDoors > 0 && effectiveDrawers === 0) {
     // Door-only (wall cabinets, single/double door base with no drawers)
-    const cols = Math.max(1, effectiveDoors);
-    const colW = iW / cols;
-    for (let i = 0; i < cols; i++) {
-      const doorLabel =
-        cols === 1 ? "Door" :
-        cols === 2 ? (i === 0 ? "Left Door" : "Right Door") :
-        `Door ${i + 1}`;
-      zones.push({
-        x: PAD + i * colW, y: PAD,
-        w: colW, h: iH,
-        fill: CLR.door, stroke: CLR.doorStroke,
-        label: doorLabel,
-      });
+    // doorsPerRow: explicit admin override; fallback = all doors side-by-side in one row
+    const doorsPerRowOnly = (cabinet as CabinetLike & { doorsPerRow?: number | null }).doorsPerRow;
+    const colsPerRowOnly = doorsPerRowOnly != null && doorsPerRowOnly >= 1 ? doorsPerRowOnly : effectiveDoors;
+    const numDoorRowsOnly = Math.ceil(effectiveDoors / colsPerRowOnly);
+    const doorRowHOnly = iH / numDoorRowsOnly;
+    let doorIdxOnly = 0;
+    for (let row = 0; row < numDoorRowsOnly; row++) {
+      const doorsInThisRow = Math.min(colsPerRowOnly, effectiveDoors - doorIdxOnly);
+      const colW = iW / doorsInThisRow;
+      const rowY = PAD + row * doorRowHOnly;
+      if (row > 0) rails.push({ y: rowY });
+      for (let col = 0; col < doorsInThisRow; col++) {
+        const globalIdx = doorIdxOnly + col;
+        const doorLabel =
+          effectiveDoors === 1 ? "Door" :
+          (doorsInThisRow === 2 && col === 0) ? "Left Door" :
+          (doorsInThisRow === 2 && col === 1) ? "Right Door" :
+          `Door ${globalIdx + 1}`;
+        zones.push({
+          x: PAD + col * colW, y: rowY,
+          w: colW, h: doorRowHOnly,
+          fill: CLR.door, stroke: CLR.doorStroke,
+          label: doorLabel,
+        });
+      }
+      doorIdxOnly += doorsInThisRow;
     }
   }
 

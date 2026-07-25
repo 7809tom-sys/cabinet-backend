@@ -42,6 +42,8 @@ export interface CabinetLike {
   drawerHeight?: number | string | null;
   /** Door orientation: 'side-by-side' | 'stacked' | null */
   doorOrientation?: string | null;
+  /** Explicit doors-per-row count for side-by-side rendering (null = auto) */
+  doorsPerRow?: number | null;
   /** Drawer layout: 'stacked' (full-width, one above another) | 'side-by-side' (next to each other) | null */
   drawerLayout?: string | null;
   /** Oven type selected by user: 'single' | 'double' | null */
