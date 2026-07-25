@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import DoorPhotoCorrectButton from "./DoorPhotoCorrectButton";
+import { MediaPicker } from "./MediaPicker";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -202,128 +203,30 @@ function thumb(s: AdminStyle): string | null {
   return s.roomSceneImageUrl || s.doorSampleImageUrl || s.thumbnailImageUrl || null;
 }
 
-// ── Reusable image field: paste a URL OR upload from device, with live preview ──
+// ── Reusable image field: uses MediaPicker for library + upload + URL paste ──
 
 function ImageField({
   label,
   hint,
   value,
   onChange,
-  big,
-  slot,
 }: {
   label: string;
   hint?: string;
   value: string;
   onChange: (url: string) => void;
-  /** When true, render a larger preview (used for the room scene). */
   big?: boolean;
   slot?: "thumbnail" | "door-sample" | "room-scene";
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const upload = trpc.cabinets.adminUploadCatalogImage.useMutation();
-
-  async function handleFile(file: File) {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please choose an image file.");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Image too large (max 10MB).");
-      return;
-    }
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    try {
-      const { url } = await upload.mutateAsync({
-        filename: file.name || "door-image.jpg",
-        dataBase64: dataUrl,
-        contentType: file.type || "image/jpeg",
-        slot: slot ?? "thumbnail",
-      });
-      onChange(url);
-      toast.success("Image uploaded");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
-    }
-  }
-
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <div className={`flex ${big ? "flex-col sm:flex-row" : "flex-row"} gap-3`}>
-        {/* Preview */}
-        <div
-          className={`shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 flex items-center justify-center ${
-            big ? "h-36 w-full sm:w-56" : "h-16 w-16"
-          }`}
-        >
-          {value ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={value}
-              alt={label}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />
-          ) : (
-            <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
-          )}
-        </div>
-        {/* Controls */}
-        <div className="flex-1 min-w-0 space-y-1.5">
-          <Input
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="https://… or upload below"
-            className="text-xs"
-          />
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
-                e.currentTarget.value = "";
-              }}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8"
-              disabled={upload.isPending}
-              onClick={() => inputRef.current?.click()}
-            >
-              {upload.isPending ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Upload className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              {upload.isPending ? "Uploading…" : "Upload"}
-            </Button>
-            {value && (
-              <button
-                type="button"
-                onClick={() => onChange("")}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3 w-3" /> Remove
-              </button>
-            )}
-          </div>
-          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-        </div>
-      </div>
+      <MediaPicker
+        label={label}
+        value={value}
+        onChange={onChange}
+        placeholder="https://… or browse library"
+      />
+      {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
     </div>
   );
 }

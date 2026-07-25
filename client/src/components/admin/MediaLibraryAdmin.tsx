@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { FolderOpen, Search, Copy, ExternalLink, Trash2, Upload, ImageIcon, Plus } from "lucide-react";
+import { FolderOpen, Search, Copy, ExternalLink, Trash2, Upload, ImageIcon, Plus, RefreshCw } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -24,6 +24,11 @@ export default function MediaLibraryAdmin({ onPick, selectedUrl }: MediaPickerPr
   const [search, setSearch]               = useState("");
   const [activeFolder, setActiveFolder]   = useState<string | undefined>(undefined);
   const [deleteId, setDeleteId]           = useState<number | null>(null);
+  const [replaceId, setReplaceId]         = useState<number | null>(null);
+  const [replacePreview, setReplacePreview] = useState<string | null>(null);
+  const [replaceData, setReplaceData]     = useState<string | null>(null);
+  const [replaceMime, setReplaceMime]     = useState("image/png");
+  const replaceFileRef                    = useRef<HTMLInputElement>(null);
   const [uploadOpen, setUploadOpen]       = useState(false);
   const [uploadLabel, setUploadLabel]     = useState("");
   const [uploadFolder, setUploadFolder]   = useState("Cabinet Drawings");
@@ -58,6 +63,17 @@ export default function MediaLibraryAdmin({ onPick, selectedUrl }: MediaPickerPr
       utils.mediaLibrary.folders.invalidate();
     },
     onError: (e) => toast.error(`Upload failed: ${e.message}`),
+  });
+
+  const replaceMutation = trpc.mediaLibrary.replace.useMutation({
+    onSuccess: () => {
+      toast.success("Image replaced");
+      setReplaceId(null);
+      setReplacePreview(null);
+      setReplaceData(null);
+      utils.mediaLibrary.list.invalidate();
+    },
+    onError: (e) => toast.error(`Replace failed: ${e.message}`),
   });
 
   const deleteMutation = trpc.mediaLibrary.delete.useMutation({
@@ -96,6 +112,27 @@ export default function MediaLibraryAdmin({ onPick, selectedUrl }: MediaPickerPr
       dataBase64:  uploadData,
       contentType: uploadMime,
     });
+  }
+
+  function handleReplaceFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReplaceMime(file.type || "image/png");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      setReplacePreview(result);
+      setReplaceData(result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleReplaceSubmit() {
+    if (!replaceData || replaceId === null) {
+      toast.error("Please select a replacement file");
+      return;
+    }
+    replaceMutation.mutate({ id: replaceId, dataBase64: replaceData, contentType: replaceMime });
   }
 
   function copyUrl(url: string) {
@@ -227,6 +264,15 @@ export default function MediaLibraryAdmin({ onPick, selectedUrl }: MediaPickerPr
                     </Button>
                     <Button
                       size="icon"
+                      variant="secondary"
+                      className="h-7 w-7"
+                      title="Replace image file"
+                      onClick={() => { setReplaceId(img.id); setReplacePreview(null); setReplaceData(null); }}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
                       variant="destructive"
                       className="h-7 w-7"
                       title="Delete"
@@ -311,6 +357,48 @@ export default function MediaLibraryAdmin({ onPick, selectedUrl }: MediaPickerPr
               disabled={uploadMutation.isPending || !uploadData}
             >
               {uploadMutation.isPending ? "Uploading…" : "Upload"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Replace Dialog */}
+      <Dialog open={replaceId !== null} onOpenChange={(o) => { if (!o) { setReplaceId(null); setReplacePreview(null); setReplaceData(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Replace Image</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Upload a new file to replace this image. The URL stays the same — all cabinets using it will automatically show the new image.</p>
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-amber-400 transition-colors"
+              onClick={() => replaceFileRef.current?.click()}
+            >
+              {replacePreview ? (
+                <img src={replacePreview} alt="preview" className="max-h-40 mx-auto object-contain rounded" />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <RefreshCw className="h-8 w-8 opacity-40" />
+                  <p className="text-sm">Click to select replacement image</p>
+                  <p className="text-xs">PNG, JPG, WebP, SVG</p>
+                </div>
+              )}
+              <input
+                ref={replaceFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleReplaceFileChange}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReplaceId(null)}>Cancel</Button>
+            <Button
+              onClick={handleReplaceSubmit}
+              disabled={replaceMutation.isPending || !replaceData}
+            >
+              {replaceMutation.isPending ? "Replacing…" : "Replace Image"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -138,6 +138,51 @@ export const mediaLibraryRouter = router({
     }),
 
   /**
+   * Replace the file for an existing media library item.
+   * Uploads new bytes to a new S3 key, then updates the DB row's url/fileKey.
+   * All cabinets referencing the OLD url will need to be updated separately;
+   * the new url is returned so the caller can do that if needed.
+   */
+  replace: adminProcedure
+    .input(
+      z.object({
+        id:          z.number().int(),
+        dataBase64:  z.string().min(1),
+        contentType: z.string().default("image/jpeg"),
+        label:       z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      // Get the existing row so we can reuse the label for the new key
+      const [existing] = await db.select().from(mediaImages).where(eq(mediaImages.id, input.id)).limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Media item not found" });
+
+      const raw = input.dataBase64.includes(",")
+        ? input.dataBase64.slice(input.dataBase64.indexOf(",") + 1)
+        : input.dataBase64;
+      const buf = Buffer.from(raw, "base64");
+      const safe = (input.label ?? existing.label).replace(/[^a-zA-Z0-9._-]/g, "_").toLowerCase();
+      const fileKey = `media-library/${Date.now()}_${safe}`;
+
+      const { url } = await storagePut(fileKey, buf, input.contentType);
+
+      await db.update(mediaImages)
+        .set({
+          fileKey,
+          url,
+          mimeType:  input.contentType,
+          sizeBytes: buf.length,
+          ...(input.label ? { label: input.label } : {}),
+        })
+        .where(eq(mediaImages.id, input.id));
+
+      return { id: input.id, url, fileKey };
+    }),
+
+  /**
    * Delete a media library item by id.
    */
   delete: adminProcedure

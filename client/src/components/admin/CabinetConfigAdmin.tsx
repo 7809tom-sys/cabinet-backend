@@ -16,6 +16,7 @@ import { Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Settings2, C
 import { cn } from "@/lib/utils";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
+import { MediaPicker } from "@/components/admin/MediaPicker";
 
 // ─── Spec Drawing Picker ─────────────────────────────────────────────────────
 function SpecDrawingPicker({
@@ -1393,113 +1394,50 @@ function EditModal({
             {/* Catalog Image */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Catalog Image</Label>
-              <div className="flex items-start gap-3">
-                <div
-                  className={cn(
-                    "h-20 w-20 rounded-lg border flex items-center justify-center shrink-0 overflow-hidden",
-                    merged.catalogImageUrl
-                      ? "border-border bg-muted/20"
-                      : "border-dashed border-border bg-muted/20 cursor-pointer hover:bg-muted/40"
-                  )}
-                  onClick={() => !busy && !merged.catalogImageUrl && fileRef.current?.click()}
-                >
-                  {generating ? (
-                    <div className="flex flex-col items-center gap-1">
-                      <Spinner className="h-5 w-5 text-amber-500" />
-                      <span className="text-[9px] text-amber-600 text-center px-1">Generating…</span>
-                    </div>
-                  ) : uploading ? (
-                    <Spinner className="h-5 w-5 text-primary" />
-                  ) : merged.catalogImageUrl ? (
-                    <img src={merged.catalogImageUrl} alt="catalog" className="h-full w-full object-contain" />
-                  ) : (
-                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex flex-col gap-2 flex-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-2 justify-start"
-                    disabled={busy}
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    {merged.catalogImageUrl ? "Replace image" : "Upload image"}
-                  </Button>
-                  <div className="flex gap-2 items-center">
-                    <div className="flex rounded border border-border overflow-hidden">
-                      {(["3d", "2d"] as const).map((m) => (
-                        <button
-                          key={m}
-                          className={cn(
-                            "px-2 py-1 text-xs font-medium transition-colors",
-                            m === "2d" && "border-l border-border",
-                            viewMode === m
-                              ? "bg-amber-500 text-white"
-                              : "bg-background text-muted-foreground hover:bg-muted/50"
-                          )}
-                          onClick={() => setViewMode(m)}
-                          disabled={busy}
-                        >
-                          {m.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 gap-1.5 border-amber-400/60 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
-                      disabled={busy}
-                      onClick={() => { setGenerating(true); generateMutation.mutate({ id: row.id, viewMode }); }}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      AI Generate
-                    </Button>
-                  </div>
-                  {merged.catalogImageUrl && (
+              <MediaPicker
+                value={merged.catalogImageUrl ?? ""}
+                onChange={(url) => set("catalogImageUrl", url || null)}
+                placeholder="/manus-storage/... or https://..."
+              />
+              <div className="flex gap-2 items-center mt-1">
+                <div className="flex rounded border border-border overflow-hidden">
+                  {(["3d", "2d"] as const).map((m) => (
                     <button
-                      className="text-xs text-destructive hover:underline text-left"
+                      key={m}
+                      className={cn(
+                        "px-2 py-1 text-xs font-medium transition-colors",
+                        m === "2d" && "border-l border-border",
+                        viewMode === m
+                          ? "bg-amber-500 text-white"
+                          : "bg-background text-muted-foreground hover:bg-muted/50"
+                      )}
+                      onClick={() => setViewMode(m)}
                       disabled={busy}
-                      onClick={() => set("catalogImageUrl", null)}
                     >
-                      Remove image
+                      {m.toUpperCase()}
                     </button>
-                  )}
+                  ))}
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5 border-amber-400/60 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                  disabled={busy}
+                  onClick={() => { setGenerating(true); generateMutation.mutate({ id: row.id, viewMode }); }}
+                >
+                  {generating ? <Spinner className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  {generating ? "Generating…" : "AI Generate"}
+                </Button>
               </div>
             </div>
             {/* ── Spec Book Drawing & Notes ── */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Spec Book Drawing</Label>
-              <div className="flex items-start gap-3">
-                {merged.specImageUrl ? (
-                  <div className="h-24 w-24 rounded-lg border border-border bg-white flex items-center justify-center shrink-0 overflow-hidden">
-                    <img src={merged.specImageUrl} alt="spec drawing" className="h-full w-full object-contain" />
-                  </div>
-                ) : (
-                  <div className="h-24 w-24 rounded-lg border-dashed border-border bg-muted/20 flex items-center justify-center shrink-0">
-                    <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
-                  </div>
-                )}
-                <div className="flex-1 space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      className="text-xs h-8 flex-1"
-                      placeholder="/manus-storage/spec_drawing.png"
-                      value={merged.specImageUrl ?? ""}
-                      onChange={(e) => set("specImageUrl", e.target.value || null)}
-                      disabled={busy}
-                    />
-                    <SpecDrawingPicker
-                      currentUrl={merged.specImageUrl ?? null}
-                      onPick={(url) => set("specImageUrl", url)}
-                      disabled={busy}
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">Click "Media" to pick from the library, or paste a URL directly.</p>
-                </div>
-              </div>
+              <MediaPicker
+                value={merged.specImageUrl ?? ""}
+                onChange={(url) => set("specImageUrl", url || null)}
+                placeholder="/manus-storage/spec_drawing.png"
+              />
             </div>
 
             {/* ── Spec Notes ── */}
