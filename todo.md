@@ -1744,3 +1744,9 @@
 - [x] Catalog.tsx CategoryLanding: added "Browse by Cabinet Type" section driven by trpc.cabinetCategories.list with tileFor() image/blurb fallback
 - [x] TypeScript check passes
 - [x] Save checkpoint
+
+## Bug: DoorDrawerDiagram side-by-side rule not applied for drawers+doors cabinets
+- [x] Diagnose why the standard-base branch (drawers+doors) is not rendering doors side-by-side
+- [x] Fix the routing/branching logic so 2 drawers + 2 doors shows Left Door / Right Door side-by-side
+- [x] TypeScript check passes
+- [ ] Save checkpoint

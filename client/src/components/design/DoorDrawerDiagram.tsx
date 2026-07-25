@@ -767,7 +767,7 @@ export function DoorDrawerDiagram({ cabinet, width = 180, className }: Props) {
       });
     }
 
-    } else if (effectiveDrawers > 0 && effectiveDoors > 0) {
+  } else if (effectiveDrawers > 0 && effectiveDoors > 0) {
     // Standard base: drawer rows stacked on top, doors side-by-side below
     // Parse drawerLayout JSON for row-based grid rendering
     const drawerRows = parseDrawerLayout(cabinet.drawerLayout, effectiveDrawers);
