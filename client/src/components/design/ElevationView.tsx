@@ -2633,9 +2633,36 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
       );
     case "shaker":
     default:
+      // When a door sample photo is available, use it as the full door face
+      // background so the frame and panel are all part of the same photo.
+      // Overlay a shaker frame groove on top using box-shadow only (no color fill).
+      if (doorSampleUrl) {
+        const samplePos = isWall ? "center 80%" : "center";
+        return (
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${doorSampleUrl})`,
+              backgroundSize: "cover",
+              backgroundPosition: samplePos,
+              // Outer bevel to simulate the face-frame edge
+              boxShadow: `inset 2px 2px 0 rgba(255,255,255,0.22), inset -2px -2px 2px rgba(0,0,0,0.20)`,
+            }}
+          >
+            {/* Shaker panel groove overlay — drawn as a transparent inset div with
+                shadow-only border so the photo shows through uniformly */}
+            <div
+              className="absolute inset-[6px]"
+              style={{
+                boxShadow: `inset 0 2px 5px rgba(0,0,0,0.28), inset 2px 0 4px rgba(0,0,0,0.12), inset 0 -1px 0 rgba(255,255,255,0.22), inset -1.5px 0 2.5px rgba(255,255,255,0.10), 0 0 0 0.5px ${edge}60`,
+              }}
+            />
+          </div>
+        );
+      }
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={6} face={face} edge={edge} doorSampleUrl={doorSampleUrl} isWall={isWall} />
+          <RecessedPanel inset={6} face={face} edge={edge} doorSampleUrl={null} isWall={isWall} />
         </div>
       );
   }

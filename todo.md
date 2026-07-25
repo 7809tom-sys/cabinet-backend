@@ -1784,4 +1784,4 @@
 - [x] Ensure door photo fills only the recessed panel inset area, not the outer rail/stile
 - [x] Outer rail/stile frame (stile/rail) shows the painted finish color (face color)
 - [x] TypeScript check passes
-- [ ] Save checkpoint
+- [x] Save checkpoint
