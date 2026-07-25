@@ -4,6 +4,7 @@ import {
   ChevronLeft, Package, Palette, DollarSign,
   ShoppingCart, Info, Check, Lock,
   Pencil, X, Upload, Search, Sparkles, ArrowRight,
+  AlertTriangle, Plus, Trash2, GripVertical, Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -28,7 +29,7 @@ import {
 } from "@shared/pricingTier";
 import { CabinetImage } from "@/components/CabinetImage";
 import { MediaPicker } from "@/components/admin/MediaPicker";
-import { DrawerLayoutEditor } from "@/components/admin/CabinetConfigAdmin";
+import { DrawerLayoutEditor, LayoutSpecBuilder, defaultLayoutSpec } from "@/components/admin/CabinetConfigAdmin";
 import { cabinetTypeLabel, resolveDoorDrawerCounts, cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { doorFamilyPhoto } from "@/lib/doorFamilyPhotos";
@@ -85,6 +86,13 @@ const TIER_DESCRIPTION: Record<PricingTier, string> = {
   contractor: "For general contractors & remodelers",
   wholesale: "For licensed dealers & high-volume trade accounts",
 };
+
+function isBlindCornerCode(masterCode: string | null, description?: string | null): boolean {
+  const code = (masterCode || "").toUpperCase();
+  if (/^(BBC|WBC|BBL|BBR|WBL|WBR)/.test(code)) return true;
+  if (/-BLIND|BLIND/.test(code)) return true;
+  return /blind\s*corner/.test((description || "").toLowerCase());
+}
 
 function fmt(val: string | null | undefined): string {
   if (!val) return "—";
@@ -453,6 +461,20 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [editDrawerLayout, setEditDrawerLayout] = useState<string | null>(null);
   const [editDoorsPerRow, setEditDoorsPerRow] = useState<string>("__auto__");
   const [editConfigVerified, setEditConfigVerified] = useState(false);
+  // Additional fields matching CabinetConfigAdmin
+  const [editGrainDirection, setEditGrainDirection] = useState<string>("");
+  const [editIsDecorativeDoor, setEditIsDecorativeDoor] = useState(false);
+  const [editMinPull, setEditMinPull] = useState<string>("");
+  const [editMaxPull, setEditMaxPull] = useState<string>("");
+  const [editOpeningWidth, setEditOpeningWidth] = useState<string>("");
+  const [editShelfRadius, setEditShelfRadius] = useState<string>("");
+  const [editShelfCount, setEditShelfCount] = useState<string>("__none__");
+  const [editCabinetSquare, setEditCabinetSquare] = useState<string>("");
+  const [editFaceWidth, setEditFaceWidth] = useState<string>("");
+  const [editLegWidth, setEditLegWidth] = useState<string>("");
+  const [editLayoutSpec, setEditLayoutSpec] = useState<string | null>(null);
+  const [editSpecImageUrl, setEditSpecImageUrl] = useState<string>("");
+  const [editSpecNotes, setEditSpecNotes] = useState<string>("");
 
   // Pre-fill form when dialog opens
   useEffect(() => {
@@ -488,6 +510,19 @@ export default function CabinetDetail({ masterCode }: Props) {
       setEditDrawerLayout(cab.drawerLayout != null ? String(cab.drawerLayout) : null);
       setEditDoorsPerRow(cab.doorsPerRow != null ? String(cab.doorsPerRow) : "__auto__");
       setEditConfigVerified(cab.configVerified === true);
+      setEditGrainDirection(String(cab.grainDirection ?? ""));
+      setEditIsDecorativeDoor(cab.isDecorativeDoor === true);
+      setEditMinPull(cab.minPull != null ? String(cab.minPull) : "");
+      setEditMaxPull(cab.maxPull != null ? String(cab.maxPull) : "");
+      setEditOpeningWidth(cab.openingWidth != null ? String(cab.openingWidth) : "");
+      setEditShelfRadius(cab.shelfRadius != null ? String(cab.shelfRadius) : "");
+      setEditShelfCount(cab.shelfCount != null ? String(cab.shelfCount) : "__none__");
+      setEditCabinetSquare(cab.cabinetSquare != null ? String(cab.cabinetSquare) : "");
+      setEditFaceWidth(cab.faceWidth != null ? String(cab.faceWidth) : "");
+      setEditLegWidth(cab.legWidth != null ? String(cab.legWidth) : "");
+      setEditLayoutSpec(cab.layoutSpec != null ? String(cab.layoutSpec) : null);
+      setEditSpecImageUrl(String(cab.specImageUrl ?? ""));
+      setEditSpecNotes(String(cab.specNotes ?? ""));
     }
   }, [editOpen, cabinet]);
 
@@ -648,6 +683,19 @@ export default function CabinetDetail({ masterCode }: Props) {
       drawerLayout: editDrawerLayout,
       doorsPerRow: editDoorsPerRow === "__auto__" ? null : parseInt(editDoorsPerRow),
       configVerified: editConfigVerified,
+      grainDirection: (editGrainDirection || null) as "vertical" | "horizontal" | null | undefined,
+      isDecorativeDoor: editIsDecorativeDoor,
+      minPull: editMinPull.trim() ? parseFloat(editMinPull) : null,
+      maxPull: editMaxPull.trim() ? parseFloat(editMaxPull) : null,
+      openingWidth: editOpeningWidth.trim() ? parseFloat(editOpeningWidth) : null,
+      shelfRadius: editShelfRadius.trim() ? parseFloat(editShelfRadius) : null,
+      shelfCount: editShelfCount !== "__none__" ? parseInt(editShelfCount) : null,
+      cabinetSquare: editCabinetSquare.trim() ? parseFloat(editCabinetSquare) : null,
+      faceWidth: editFaceWidth.trim() ? parseFloat(editFaceWidth) : null,
+      legWidth: editLegWidth.trim() ? parseFloat(editLegWidth) : null,
+      layoutSpec: editLayoutSpec,
+      specImageUrl: editSpecImageUrl.trim() || null,
+      specNotes: editSpecNotes.trim() || null,
     });
   }
 
@@ -1690,55 +1738,181 @@ export default function CabinetDetail({ masterCode }: Props) {
               {/* Catalog image */}
               <div className="space-y-1.5">
                 <Label>Catalog Image</Label>
-                {editImageUrl && (
-                  <div className="relative w-24 h-24 rounded-lg border border-border overflow-hidden bg-muted/30 mb-2">
-                    <img
-                      src={editImageUrl}
-                      alt="Catalog preview"
-                      className="h-full w-full object-contain"
-                    />
-                    <button
-                      onClick={() => setEditImageUrl("")}
-                      className="absolute top-0.5 right-0.5 rounded-full bg-background/80 p-0.5 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={handleImageFile}
-                      disabled={imageUploading}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 pointer-events-none"
-                      disabled={imageUploading}
-                      asChild
-                    >
-                      <span>
-                        {imageUploading ? (
-                          <span className="inline-block animate-spin h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full" />
-                        ) : (
-                          <Upload className="h-3.5 w-3.5" />
-                        )}
-                        {imageUploading ? "Uploading…" : "Upload image"}
-                      </span>
-                    </Button>
-                  </label>
-                  <span className="text-xs text-muted-foreground">or paste URL below</span>
-                </div>
-                <Input
+                <MediaPicker
                   value={editImageUrl}
-                  onChange={(e) => setEditImageUrl(e.target.value)}
+                  onChange={(url) => setEditImageUrl(url)}
                   placeholder="/manus-storage/... or https://..."
-                  className="text-xs font-mono"
                 />
+              </div>
+
+              {/* Grain Direction + Decorative Door (panel fields) */}
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Grain Direction (panels only)</Label>
+                  <select
+                    value={editGrainDirection}
+                    onChange={(e) => setEditGrainDirection(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">None / Not a panel</option>
+                    <option value="vertical">Vertical (up/down)</option>
+                    <option value="horizontal">Horizontal (left/right)</option>
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">Set grain direction for skin/end/plywood panels. Leave blank for cabinets.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="edit-isDecorativeDoor"
+                    checked={editIsDecorativeDoor}
+                    onChange={(e) => setEditIsDecorativeDoor(e.target.checked)}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  <Label htmlFor="edit-isDecorativeDoor" className="text-sm">Decorative Door Panel</Label>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Check if this panel uses the door style image (decorative end panels, island backs).</p>
+              </div>
+
+              {/* Blind Corner Pull Spec (auto-shown for BBC/WBC codes) */}
+              {(isBlindCornerCode(cabinet?.masterCode ?? null, cabinet?.description)) && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-50/10 dark:bg-amber-900/10 px-4 py-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Blind Corner Pull Spec</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The pull range controls how far this cabinet slides out from the corner. The designer enforces these limits when placing the cabinet.
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Min Pull"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 3" value={editMinPull} onChange={(e) => setEditMinPull(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Max Pull"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 6" value={editMaxPull} onChange={(e) => setEditMaxPull(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Opening Width"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 9" value={editOpeningWidth} onChange={(e) => setEditOpeningWidth(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                  </div>
+                  {(!editMinPull || !editMaxPull) && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      Min and Max Pull are required — the designer defaults to 3–6" until set.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Corner Cabinet Measurements (conditional on cornerType) */}
+              {editCornerType === "lazy-susan" && (
+                <div className="rounded-lg border border-blue-500/40 bg-blue-50/10 dark:bg-blue-900/10 px-4 py-3 space-y-3">
+                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">Lazy Susan Measurements</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Cabinet Square"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 36" value={editCabinetSquare} onChange={(e) => setEditCabinetSquare(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Shelf Radius"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 14" value={editShelfRadius} onChange={(e) => setEditShelfRadius(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Shelf Count</Label>
+                      <Select value={editShelfCount} onValueChange={setEditShelfCount}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— not set —</SelectItem>
+                          {[1,2,3,4].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {editCornerType === "diagonal" && (
+                <div className="rounded-lg border border-purple-500/40 bg-purple-50/10 dark:bg-purple-900/10 px-4 py-3 space-y-3">
+                  <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">Diagonal Corner Measurements</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Cabinet Square"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 36" value={editCabinetSquare} onChange={(e) => setEditCabinetSquare(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Face Width"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 24" value={editFaceWidth} onChange={(e) => setEditFaceWidth(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Leg Width"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 12" value={editLegWidth} onChange={(e) => setEditLegWidth(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {editCornerType === "pie-cut" && (
+                <div className="rounded-lg border border-green-500/40 bg-green-50/10 dark:bg-green-900/10 px-4 py-3 space-y-3">
+                  <p className="text-sm font-semibold text-green-600 dark:text-green-400">Pie-Cut Lazy Susan Measurements</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Cabinet Square"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 36" value={editCabinetSquare} onChange={(e) => setEditCabinetSquare(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Shelf Radius"</Label>
+                      <Input type="number" step="0.25" min="0" placeholder="e.g. 14" value={editShelfRadius} onChange={(e) => setEditShelfRadius(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground">Shelf Count</Label>
+                      <Select value={editShelfCount} onValueChange={setEditShelfCount}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— not set —</SelectItem>
+                          {[1,2,3,4].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Visual Layout Spec Builder */}
+              <LayoutSpecBuilder
+                value={editLayoutSpec}
+                onChange={setEditLayoutSpec}
+                cabinet={{
+                  category: editCategory || cabinet?.category,
+                  numberOfDoors: parseInt(editNumDoors) || 0,
+                  numberOfDrawers: parseInt(editNumDrawers) || 0,
+                  height: editHeight || cabinet?.height,
+                  drawerHeight: editDrawerHeight || cabinet?.drawerHeight,
+                  doorHeight: editDoorHeight || cabinet?.doorHeight,
+                }}
+              />
+
+              {/* Spec Book Drawing */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">Spec Book Drawing</Label>
+                <MediaPicker
+                  value={editSpecImageUrl}
+                  onChange={(url) => setEditSpecImageUrl(url)}
+                  placeholder="/manus-storage/spec_drawing.png"
+                />
+              </div>
+
+              {/* Spec Notes */}
+              <div className="space-y-1.5">
+                <Label className="text-sm">Spec Notes</Label>
+                <Textarea
+                  className="text-xs min-h-[80px] resize-y"
+                  placeholder="Spec notes from the Capital spec book (dimensions, construction details, etc.)"
+                  value={editSpecNotes}
+                  onChange={(e) => setEditSpecNotes(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">Shown on the public cabinet detail page. Edit to customize for this cabinet.</p>
               </div>
             </div>
 

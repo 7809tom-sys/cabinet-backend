@@ -1785,3 +1785,26 @@
 - [x] Outer rail/stile frame (stile/rail) shows the painted finish color (face color)
 - [x] TypeScript check passes
 - [x] Save checkpoint
+
+## Bug: "Upload New" button not working in Replace Cabinet Image dialog
+- [ ] Find the Upload New button handler in the image replace dialog component
+- [ ] Fix the file input trigger / upload flow so clicking Upload New opens file picker and uploads
+- [ ] TypeScript check passes
+
+## Feature: All CabinetConfigAdmin fields on CabinetDetail inline edit panel
+- [ ] Audit all fields in CabinetConfigAdmin EditModal vs CabinetDetail inline edit form
+- [ ] Add all missing fields to CabinetDetail inline edit panel (numberOfDoors, numberOfDrawers, hasSink, hasGlass, isDecorative, specNotes, layoutSpec, etc.)
+- [ ] Ensure all fields are pre-filled from cabinet data and saved correctly
+- [ ] TypeScript check passes
+- [ ] Save checkpoint
+
+## Bug fix + feature: MediaPicker upload + CabinetDetail inline edit parity (Jul 2026)
+- [x] Fix MediaPicker upload buttons (Upload New + Upload & Select) — both now trigger file picker correctly
+- [x] Export LayoutSpecBuilder and defaultLayoutSpec from CabinetConfigAdmin for reuse
+- [x] Add isBlindCornerCode helper to CabinetDetail
+- [x] Add state + pre-fill for: grainDirection, isDecorativeDoor, minPull, maxPull, openingWidth, shelfRadius, shelfCount, cabinetSquare, faceWidth, legWidth, layoutSpec, specImageUrl, specNotes
+- [x] Add UI controls in inline edit dialog: Grain Direction select, Decorative Door checkbox, Blind Corner Pull Spec (BBC/WBC auto-shown), Lazy Susan / Diagonal / Pie-Cut corner measurement blocks, LayoutSpecBuilder, Spec Book Drawing (MediaPicker), Spec Notes textarea
+- [x] Wire all new fields into handleSaveEdit (adminUpdateCabinet mutation)
+- [x] Replace old manual image upload in catalog image section with MediaPicker
+- [x] TypeScript check: 0 errors
+- [x] Save checkpoint

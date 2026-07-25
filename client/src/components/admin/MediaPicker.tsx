@@ -41,7 +41,10 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState(false);
+  // fileRef: hidden input for "Upload New" button (outside dialog)
   const fileRef = useRef<HTMLInputElement>(null);
+  // fileRef2: hidden input for "Upload & Select" button (inside dialog)
+  const fileRef2 = useRef<HTMLInputElement>(null);
 
   const { data, isLoading, refetch } = trpc.mediaLibrary.list.useQuery(
     { page, limit: PAGE_SIZE, search: search || undefined },
@@ -88,6 +91,7 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
+      if (fileRef2.current) fileRef2.current.value = "";
     }
   };
 
@@ -142,29 +146,26 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
               <ImageIcon className="w-3 h-3" />
               Browse Library
             </Button>
-            <label className="cursor-pointer">
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={handleUpload}
-                disabled={uploading}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1.5 pointer-events-none"
-                disabled={uploading}
-                asChild
-              >
-                <span>
-                  {uploading ? <Spinner className="w-3 h-3" /> : <Upload className="w-3 h-3" />}
-                  Upload New
-                </span>
-              </Button>
-            </label>
+            {/* Hidden file input for "Upload New" (outside dialog) */}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={handleUpload}
+              disabled={uploading}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
+            >
+              {uploading ? <Spinner className="w-3 h-3" /> : <Upload className="w-3 h-3" />}
+              Upload New
+            </Button>
           </div>
         </div>
       </div>
@@ -195,28 +196,26 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
                 Search
               </Button>
             </div>
-            <label className="cursor-pointer shrink-0">
-              <input
-                type="file"
-                accept="image/*"
-                className="sr-only"
-                onChange={handleUpload}
-                disabled={uploading}
-              />
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                className="h-8 gap-1.5 pointer-events-none"
-                disabled={uploading}
-                asChild
-              >
-                <span>
-                  {uploading ? <Spinner className="w-3.5 h-3.5" /> : <Upload className="w-3.5 h-3.5" />}
-                  {uploading ? "Uploading…" : "Upload & Select"}
-                </span>
-              </Button>
-            </label>
+            {/* Hidden file input for "Upload & Select" (inside dialog) */}
+            <input
+              ref={fileRef2}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={handleUpload}
+              disabled={uploading}
+            />
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="h-8 gap-1.5 shrink-0"
+              disabled={uploading}
+              onClick={() => fileRef2.current?.click()}
+            >
+              {uploading ? <Spinner className="w-3.5 h-3.5" /> : <Upload className="w-3.5 h-3.5" />}
+              {uploading ? "Uploading…" : "Upload & Select"}
+            </Button>
           </div>
 
           {/* Image grid */}

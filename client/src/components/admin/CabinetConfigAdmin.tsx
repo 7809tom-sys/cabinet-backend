@@ -375,7 +375,7 @@ export function DrawerLayoutEditor({
  *   - Remaining drawers (if any) split the remaining drawer zone equally
  *   - Door zone fills whatever height is left below the drawer(s)
  */
-function defaultLayoutSpec(cab: {
+export function defaultLayoutSpec(cab: {
   category?: string | null;
   numberOfDoors?: number | null;
   numberOfDrawers?: number | null;
@@ -436,7 +436,7 @@ function defaultLayoutSpec(cab: {
   };
 }
 
-function LayoutSpecBuilder({
+export function LayoutSpecBuilder({
   value,
   onChange,
   disabled,
