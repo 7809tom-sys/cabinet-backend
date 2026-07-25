@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 // (useMemo used for featured door-style families)
 import { Link, useSearch, useLocation } from "wouter";
-import { Search, Filter, ChevronRight, ChevronLeft, Package } from "lucide-react";
+import { Search, Filter, ChevronRight, ChevronLeft, Package, Store } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -101,7 +102,7 @@ interface CabinetItem extends CabinetLike {
   depth: string | null;
 }
 
-function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: number | null }) {
+function CabinetCard({ cabinet, styleId, distributorLabel }: { cabinet: CabinetItem; styleId?: number | null; distributorLabel?: string | null }) {
   const { t, lang } = useLanguage();
   const href = styleId
     ? `/catalog/${cabinet.masterCode}?style=${styleId}`
@@ -145,6 +146,12 @@ function CabinetCard({ cabinet, styleId }: { cabinet: CabinetItem; styleId?: num
             </p>
           )}
 
+          {distributorLabel && (
+            <div className="mt-2 flex items-center gap-1">
+              <Store className="h-3 w-3 text-amber-600 shrink-0" />
+              <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded truncate">{distributorLabel}</span>
+            </div>
+          )}
           <div className="mt-3 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{t("cat_view_pricing")}</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -314,7 +321,28 @@ function CategoryView({
   const [styleId, setStyleId] = useState<number | null>(initialStyle);
   const LIMIT = 48;
 
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   const { data: styles } = trpc.doorStyles.list.useQuery();
+  const { data: distributorsList } = trpc.distributors.list.useQuery();
+
+  // Build a map from distributorId → display name (admin only)
+  const distributorMap = useMemo(() => {
+    if (!isAdmin || !distributorsList) return new Map<number, string>();
+    return new Map(distributorsList.map((d) => [d.id, d.name]));
+  }, [isAdmin, distributorsList]);
+
+  // Build a map from styleId → distributorId
+  const styleDistMap = useMemo(() => {
+    type S = { id: number; distributorId?: number | null };
+    const map = new Map<number, number>();
+    for (const s of (styles ?? []) as S[]) {
+      if (s.distributorId) map.set(s.id, s.distributorId);
+    }
+    return map;
+  }, [styles]);
+
   const styleOptions = useMemo(() => {
     type S = { id: number; styleCode: string; ourName: string | null; aliasName?: string | null };
     return ((styles ?? []) as S[])
@@ -323,6 +351,13 @@ function CategoryView({
   }, [styles]);
   const selectedStyleLabel =
     styleOptions.find((s) => s.id === styleId)?.label ?? null;
+
+  // Resolve the distributor label for the currently selected style (admin only)
+  const selectedDistributorLabel = useMemo(() => {
+    if (!isAdmin || !styleId) return null;
+    const distId = styleDistMap.get(styleId);
+    return distId ? (distributorMap.get(distId) ?? null) : null;
+  }, [isAdmin, styleId, styleDistMap, distributorMap]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -471,7 +506,7 @@ function CategoryView({
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {items.map((cabinet) => (
-            <CabinetCard key={cabinet.id} cabinet={cabinet as CabinetItem} styleId={styleId} />
+            <CabinetCard key={cabinet.id} cabinet={cabinet as CabinetItem} styleId={styleId} distributorLabel={selectedDistributorLabel} />
           ))}
         </div>
       )}
