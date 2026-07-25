@@ -89,6 +89,9 @@ type CabinetRow = {
   isDecorativeDoor: boolean | null;
   // Visual layout spec (JSON)
   layoutSpec: string | null;
+  // Spec book line drawing + notes
+  specImageUrl: string | null;
+  specNotes: string | null;
 };
 
 // ─── Layout Spec Types ────────────────────────────────────────────────────────
@@ -853,6 +856,8 @@ function EditModal({
       grainDirection: (merged.grainDirection as "vertical" | "horizontal" | null | undefined) ?? null,
       isDecorativeDoor: merged.isDecorativeDoor ?? undefined,
       layoutSpec: merged.layoutSpec ?? null,
+      specImageUrl: merged.specImageUrl ?? null,
+      specNotes: merged.specNotes ?? null,
     });
   };
 
@@ -1424,6 +1429,45 @@ function EditModal({
                 </div>
               </div>
             </div>
+            {/* ── Spec Book Drawing & Notes ── */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Spec Book Drawing</Label>
+              <div className="flex items-start gap-3">
+                {merged.specImageUrl ? (
+                  <div className="h-24 w-24 rounded-lg border border-border bg-white flex items-center justify-center shrink-0 overflow-hidden">
+                    <img src={merged.specImageUrl} alt="spec drawing" className="h-full w-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="h-24 w-24 rounded-lg border-dashed border-border bg-muted/20 flex items-center justify-center shrink-0">
+                    <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+                  </div>
+                )}
+                <div className="flex-1 space-y-2">
+                  <Input
+                    className="text-xs h-8"
+                    placeholder="/manus-storage/spec_drawing.png"
+                    value={merged.specImageUrl ?? ""}
+                    onChange={(e) => set("specImageUrl", e.target.value || null)}
+                    disabled={busy}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Generic line drawing from the Capital spec book. Auto-populated by cabinet family — edit only if this cabinet needs a different drawing.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Spec Notes ── */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Spec Notes</Label>
+              <Textarea
+                className="text-xs min-h-[80px] resize-y"
+                placeholder="Spec notes from the Capital spec book (dimensions, construction details, etc.)"
+                value={merged.specNotes ?? ""}
+                onChange={(e) => set("specNotes", e.target.value || null)}
+                disabled={busy}
+              />
+              <p className="text-[10px] text-muted-foreground">Shown on the public cabinet detail page. Auto-populated from the spec book — edit to customize for this cabinet.</p>
+            </div>
+
           </TabsContent>
 
           {/* ── Measurements tab ── */}
@@ -1856,6 +1900,59 @@ function EditModal({
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+// ─── Apply Specs to All button ──────────────────────────────────────────────
+function ApplySpecsButton({ onDone }: { onDone: () => void }) {
+  const [force, setForce] = React.useState(false);
+  const applyMutation = trpc.cabinets.adminApplySpecsToAll.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Spec drawings applied to ${data.updated} cabinet${data.updated !== 1 ? 's' : ''}.`);
+      onDone();
+    },
+    onError: (err) => toast.error(`Failed: ${err.message}`),
+  });
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium">Apply Spec Drawings to All Cabinets</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Assigns the generic line drawing and spec notes from the Capital spec book to every cabinet that matches its family pattern.
+          By default, only cabinets without a drawing are updated.
+        </p>
+        <div className="flex items-center gap-2 mt-2">
+          <Switch id="force-overwrite" checked={force} onCheckedChange={setForce} disabled={applyMutation.isPending} />
+          <Label htmlFor="force-overwrite" className="text-xs cursor-pointer">Overwrite existing drawings</Label>
+        </div>
+      </div>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            size="sm"
+            className="shrink-0 gap-1.5"
+            disabled={applyMutation.isPending}
+          >
+            {applyMutation.isPending ? <Spinner className="h-3.5 w-3.5" /> : <Layers className="h-3.5 w-3.5" />}
+            Apply to All
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply Spec Drawings to All Cabinets?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will update spec drawings and notes for all cabinets matching their family pattern
+              {force ? ', overwriting any existing values' : ' (skipping cabinets that already have a drawing)'}.
+              This cannot be undone automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => applyMutation.mutate({ force })}>Apply</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export function CabinetConfigAdmin() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -1915,6 +2012,9 @@ export function CabinetConfigAdmin() {
         These values appear in the public Specifications card and drive catalog illustrations.
         <strong className="text-foreground"> Tap any row to edit.</strong>
       </p>
+
+      {/* Apply Specs to All */}
+      <ApplySpecsButton onDone={() => utils.cabinets.adminListCabinetConfig.invalidate()} />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">

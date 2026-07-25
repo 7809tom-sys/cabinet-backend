@@ -1701,6 +1701,10 @@ export const cabinetsRouter = router({
         isDecorativeDoor: z.boolean().optional(),
         // Visual layout spec JSON: {baseType, sections:[{type,count,height}]}
         layoutSpec: z.string().nullable().optional(),
+        // Generic line-drawing image from spec book
+        specImageUrl: z.string().nullable().optional(),
+        // Spec notes from spec book
+        specNotes: z.string().nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -1779,6 +1783,8 @@ export const cabinetsRouter = router({
       if (input.grainDirection !== undefined) patch.grainDirection = input.grainDirection;
       if (input.isDecorativeDoor !== undefined) patch.isDecorativeDoor = input.isDecorativeDoor;
       if (input.layoutSpec !== undefined) patch.layoutSpec = input.layoutSpec;
+      if (input.specImageUrl !== undefined) patch.specImageUrl = input.specImageUrl;
+      if (input.specNotes !== undefined) patch.specNotes = input.specNotes;
       if (input.configVerified !== undefined) {
         patch.configVerified = input.configVerified;
         if (input.configVerified) {
@@ -2419,6 +2425,9 @@ export const cabinetsRouter = router({
             isDecorativeDoor: cabinets.isDecorativeDoor,
             // Visual layout spec
             layoutSpec: cabinets.layoutSpec,
+            // Spec book line drawing + notes
+            specImageUrl: cabinets.specImageUrl,
+            specNotes: cabinets.specNotes,
           })
           .from(cabinets)
           .where(where)
@@ -2707,6 +2716,62 @@ export const cabinetsRouter = router({
       ]);
 
       return { items, total: Number(tot?.n ?? 0) };
+    }),
+
+  /**
+   * Apply spec book images and notes to all matching cabinets based on SKU pattern rules.
+   * This re-runs the same REGEXP-based population logic from populate_specs.py.
+   * Only updates cabinets where specImageUrl is currently NULL or empty.
+   * Pass force=true to overwrite existing values.
+   */
+  adminApplySpecsToAll: adminProcedure
+    .input(z.object({ force: z.boolean().default(false) })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // Family → image URL + notes
+      const families: Array<{ conditions: string[]; imageUrl: string; notes: string }> = [
+        { conditions: ["masterCode REGEXP '^B[0-9]{1,2}FH$'", "masterCode REGEXP '^BT9'", "masterCode REGEXP '^B[0-9]+FH[0-9]*RS'", "masterCode REGEXP '^B[0-9]+FH[0-9]*TCPO'", "masterCode REGEXP '^B[0-9]+FH[0-9]*TD'"], imageUrl: "/manus-storage/base_full_height_single_ab045451.png", notes: 'Full height single door base. Cabinet dimensions: H 34½", D 24". Door height 29". Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^B[2-9][0-9]FH'"], imageUrl: "/manus-storage/base_full_height_double_f2b59f0c.png", notes: 'Full height double door base. Cabinet dimensions: H 34½", D 24". Door height 29". Two boxes will be received when ordering this cabinet kit flat pack. Soft-close hinges standard.' },
+        { conditions: ["masterCode IN ('B12','B15','B18','B21')", "masterCode REGEXP '^B[0-9]+TD$'", "masterCode REGEXP '^B[0-9]+RS$'", "masterCode REGEXP '^B[0-9]+2RS$'", "masterCode REGEXP '^B[0-9]{2}ADA$'", "masterCode REGEXP '^B[0-9]{2}ADA[0-9]'"], imageUrl: "/manus-storage/base_single_door_drawer_789c695c.png", notes: 'Single door / single drawer base. Cabinet dimensions: H 34½", D 24". Door height 22½", drawer height 6¼". Soft-close hinges and drawer glides standard.' },
+        { conditions: ["masterCode IN ('B24','B27','B30','B33','B36','B39','B42')"], imageUrl: "/manus-storage/base_double_door_drawer_e2ff68eb.png", notes: 'Double door / single drawer base. Cabinet dimensions: H 34½", D 24". Door height 22½", drawer height 6¼". Soft-close hinges and drawer glides standard.' },
+        { conditions: ["masterCode REGEXP '^B[0-9]+2D$'", "masterCode IN ('B36ADA','B33ADA','B30ADA')"], imageUrl: "/manus-storage/base_double_door_2drawer_02f898ee.png", notes: 'Double door / double drawer base. Cabinet dimensions: H 34½", D 24". Door height 22½", drawer height 6¼". Soft-close hinges and full-extension drawer glides standard.' },
+        { conditions: ["masterCode REGEXP '^SB[0-9]+S$'"], imageUrl: "/manus-storage/base_sink_single_44b34ec1.png", notes: 'Sink base — single door with false drawer front. Cabinet dimensions: H 34½", D 24". Door height 22½", false drawer height 6¼". Open interior for plumbing access.' },
+        { conditions: ["masterCode REGEXP '^SB[0-9]+'", "masterCode REGEXP '^DCSF'", "masterCode REGEXP '^SBF'"], imageUrl: "/manus-storage/base_sink_double_85d06f63.png", notes: 'Sink base — double door with false drawer front. Cabinet dimensions: H 34½", D 24". Door height 22½", false drawer height 6¼". Open interior for plumbing access.' },
+        { conditions: ["masterCode REGEXP '^FSB'"], imageUrl: "/manus-storage/base_farm_sink_6f1168b0.png", notes: 'Farm/apron sink base. Cabinet dimensions: H 34½", D 24". Designed to accommodate apron-front farm sinks. Open front frame; no false drawer front.' },
+        { conditions: ["masterCode REGEXP '^2DB'"], imageUrl: "/manus-storage/base_drawer_2_66bf87f5.png", notes: 'Two-drawer base. Cabinet dimensions: H 34½", D 24". Full-extension BLUMOTION soft-close drawer glides (110 lb weight capacity). Dovetail drawer box construction.' },
+        { conditions: ["masterCode REGEXP '^3DB'"], imageUrl: "/manus-storage/base_drawer_3_51f0ed59.png", notes: 'Three-drawer base. Cabinet dimensions: H 34½", D 24". Full-extension BLUMOTION soft-close drawer glides (110 lb weight capacity). Dovetail drawer box construction.' },
+        { conditions: ["masterCode REGEXP '^BER'", "masterCode REGEXP '^LSB'"], imageUrl: "/manus-storage/base_corner_easy_reach_080d052c.png", notes: 'Corner easy-reach base with lazy susan. Cabinet dimensions: H 34½", D 24". Rotating kidney-shaped shelves for full corner access. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^BBC'"], imageUrl: "/manus-storage/base_blind_58ca8f93.png", notes: 'Blind corner base. Cabinet dimensions: H 34½", D 24". Adjustable interior shelf. Minimum pull distance required — see spec sheet for model-specific pull dimensions.' },
+        { conditions: ["masterCode REGEXP '^W(09|12|15|18|21)[0-9]{2}$'", "masterCode REGEXP '^W(09|12|15|18|21)[0-9]{2}[A-Z]'"], imageUrl: "/manus-storage/wall_single_door_30h_1015d79a.png", notes: 'Single door wall cabinet — 30" high. Cabinet dimensions: H 30", D 12". Two adjustable shelves. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^W[2-4][0-9]30'"], imageUrl: "/manus-storage/wall_double_door_30h_ff555b31.png", notes: 'Double door wall cabinet — 30" high. Cabinet dimensions: H 30", D 12". Two adjustable shelves. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^W(09|12|15|18|21)[0-9]{2}36'"], imageUrl: "/manus-storage/wall_single_door_36h_f13c8abb.png", notes: 'Single door wall cabinet — 36" high. Cabinet dimensions: H 36", D 12". Two adjustable shelves. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^W[2-4][0-9]36'"], imageUrl: "/manus-storage/wall_double_door_36h_1c7babde.png", notes: 'Double door wall cabinet — 36" high. Cabinet dimensions: H 36", D 12". Two adjustable shelves. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^W(09|12|15|18|21)[0-9]{2}42'"], imageUrl: "/manus-storage/wall_single_door_42h_23bd15d2.png", notes: 'Single door wall cabinet — 42" high. Cabinet dimensions: H 42", D 12". Three adjustable shelves. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^W[2-4][0-9]42'"], imageUrl: "/manus-storage/wall_double_door_42h_bc6b3aac.png", notes: 'Double door wall cabinet — 42" high. Cabinet dimensions: H 42", D 12". Three adjustable shelves. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^DCW'", "masterCode REGEXP '^WER'", "masterCode REGEXP '^WBC'"], imageUrl: "/manus-storage/wall_corner_diagonal_ae4e62f3.png", notes: 'Diagonal corner wall cabinet. Cabinet dimensions: H 30"/36"/42", D 12". Angled face for corner placement. One adjustable shelf. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^W[0-9]{2}(12|15|18|24)$'", "masterCode REGEXP '^W[0-9]{4}(12|15|18|24)$'"], imageUrl: "/manus-storage/wall_bridge_cfcb5d77.png", notes: 'Bridge wall cabinet (short). Available in 12", 15", 18", and 24" heights. D 12". Designed for use over ranges, refrigerators, and windows.' },
+        { conditions: ["masterCode REGEXP '^W[0-9]{4}24$'"], imageUrl: "/manus-storage/wall_refrigerator_a84893ce.png", notes: 'Refrigerator wall cabinet — 24" deep. Available in 12", 15", 18", and 24" heights. D 24". Designed to sit above standard refrigerators.' },
+        { conditions: ["masterCode REGEXP 'GD$'"], imageUrl: "/manus-storage/wall_glass_door_9b15d5f8.png", notes: 'Glass door wall cabinet — routed for glass with finished interior. Available in 30", 36", and 42" heights. D 12". Glass not included.' },
+        { conditions: ["masterCode REGEXP '^U18'"], imageUrl: "/manus-storage/tall_utility_2door_12857557.png", notes: 'Tall utility cabinet — two doors. Cabinet dimensions: H 84"/90"/96", D 24". Five adjustable shelves. Soft-close hinges standard. Two boxes will be received when ordering this cabinet kit flat pack.' },
+        { conditions: ["masterCode REGEXP '^U(24|30)'"], imageUrl: "/manus-storage/tall_utility_4door_cfc52263.png", notes: 'Tall utility cabinet — four doors (upper and lower). Cabinet dimensions: H 84"/90"/96", D 24". Adjustable shelves in upper and lower sections. Soft-close hinges standard. Three boxes will be received when ordering this cabinet kit flat pack.' },
+        { conditions: ["masterCode REGEXP '^OC'"], imageUrl: "/manus-storage/tall_oven_31fe6884.png", notes: 'Oven/microwave tall cabinet. Cabinet dimensions: H 84"/90"/96", D 24". Designed for built-in oven and microwave combo. Upper and lower door sections. Three boxes will be received when ordering this cabinet kit flat pack.' },
+        { conditions: ["masterCode REGEXP '^VB(12|15|18|21)$'"], imageUrl: "/manus-storage/vanity_sink_base_single_6eca1ab0.png", notes: 'Vanity sink base — single door. Cabinet dimensions: H 34½", D 21". Open interior for plumbing access. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^VB(24|27|30|33|36|42|48)$'", "masterCode REGEXP '^VB[0-9]+ADA'"], imageUrl: "/manus-storage/vanity_sink_base_double_5131bf00.png", notes: 'Vanity sink base — double door. Cabinet dimensions: H 34½", D 21". Open interior for plumbing access. Soft-close hinges standard.' },
+        { conditions: ["masterCode REGEXP '^VDB'"], imageUrl: "/manus-storage/vanity_drawer_04a49ab5.png", notes: 'Vanity drawer base. Cabinet dimensions: H 34½", D 21". Full-extension BLUMOTION soft-close drawer glides. Dovetail drawer box construction.' },
+        { conditions: ["masterCode REGEXP '^VSD'", "masterCode REGEXP '^VDDB'", "masterCode REGEXP '^VKD'"], imageUrl: "/manus-storage/vanity_combo_0cb94a6d.png", notes: 'Vanity combo base — door and drawer combination. Cabinet dimensions: H 34½", D 21". Soft-close hinges and drawer glides standard.' },
+      ];
+      let totalUpdated = 0;
+      for (const family of families) {
+        const whereClause = input.force
+          ? sql.raw(`(${family.conditions.join(" OR ")})`)
+          : sql.raw(`(${family.conditions.join(" OR ")}) AND (specImageUrl IS NULL OR specImageUrl = '')`);
+        const result = await db
+          .update(cabinets)
+          .set({ specImageUrl: family.imageUrl, specNotes: family.notes })
+          .where(whereClause);
+        totalUpdated += (result as unknown as { affectedRows?: number })?.affectedRows ?? 0;
+      }
+      return { ok: true, updated: totalUpdated };
     }),
 
   /** Bulk publish (or unpublish) a set of SKU IDs — admin only. */

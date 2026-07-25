@@ -1008,6 +1008,8 @@ export default function CabinetDetail({ masterCode }: Props) {
                     rows.push({ label: "Fixed Shelves", value: String(fixedShelves) });
                   if (adjShelves != null && Number(adjShelves) > 0)
                     rows.push({ label: "Adj. Shelves", value: String(adjShelves) });
+                  const weight = (cabinet as Record<string, unknown>).weight;
+                  if (weight != null && weight !== '') rows.push({ label: "Weight", value: `${weight} lbs` });
                 }
                 return rows
                   .filter((item) => item.value)
@@ -1020,6 +1022,31 @@ export default function CabinetDetail({ masterCode }: Props) {
               })()}
             </dl>
           </div>
+
+          {/* Spec Book Drawing & Notes */}
+          {(() => {
+            const specImageUrl = (cabinet as Record<string, unknown>).specImageUrl as string | null;
+            const specNotes = (cabinet as Record<string, unknown>).specNotes as string | null;
+            if (!specImageUrl && !specNotes) return null;
+            return (
+              <div className="rounded-xl border border-border p-5">
+                <h3 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
+                  <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="3" x2="8" y2="21"/><line x1="2" y1="9" x2="8" y2="9"/><line x1="2" y1="15" x2="8" y2="15"/></svg>
+                  Spec Drawing
+                </h3>
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  {specImageUrl && (
+                    <div className="shrink-0 rounded-lg border border-border bg-white p-2 flex items-center justify-center" style={{ width: 140, height: 140 }}>
+                      <img src={specImageUrl} alt="spec drawing" className="max-h-full max-w-full object-contain" />
+                    </div>
+                  )}
+                  {specNotes && (
+                    <p className="text-xs text-muted-foreground leading-relaxed flex-1">{specNotes}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Door / Drawer Location Diagram — admin only */}
           {isOwner && !cabinet.isNotCabinet && (() => {

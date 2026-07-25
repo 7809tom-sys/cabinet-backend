@@ -666,6 +666,13 @@
       "when": 1784945213682,
       "tag": "0094_oval_siren",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "5",
+      "when": 1784977190723,
+      "tag": "0095_spooky_kulan_gath",
+      "breakpoints": true
     }
   ]
 }

@@ -259,6 +259,10 @@ export const cabinets = mysqlTable("cabinets", {
   // Supported types: "drawer" | "door" | "shelf"
   // When null, renderer auto-detects from description/subCategory
   layoutSpec: text("layoutSpec"),
+  // Generic line-drawing image from the Capital spec book (family-level, not SKU-specific)
+  specImageUrl: varchar("specImageUrl", { length: 512 }),
+  // Bullet-point notes from the spec book (e.g. rollout shelf weight limit, flat-pack box count)
+  specNotes: text("specNotes"),
 });
 
 export type Cabinet = typeof cabinets.$inferSelect;
