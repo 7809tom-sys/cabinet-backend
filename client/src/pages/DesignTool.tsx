@@ -4669,6 +4669,18 @@ export default function DesignTool() {
           >
             <ScanLine className="h-4 w-4" />
           </button>
+          <button
+            title="Doors & Windows"
+            onClick={() => {
+              setPaletteType("opening");
+              setMobilePanel("catalog");
+            }}
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
+              mobilePanel === "catalog" && paletteType === "opening" ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <DoorOpen className="h-4 w-4" />
+          </button>
           <div className="w-px h-5 bg-border mx-0.5" />
           {/* Style button — icon only */}
           <button
