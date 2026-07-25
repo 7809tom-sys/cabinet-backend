@@ -48,7 +48,7 @@ function SpecDrawingPicker({
           </DialogHeader>
           <MediaLibraryAdmin
             onPick={(url) => { onPick(url); setOpen(false); }}
-            selectedUrl={currentUrl}
+            selectedUrl={currentUrl ?? undefined}
           />
         </DialogContent>
       </Dialog>

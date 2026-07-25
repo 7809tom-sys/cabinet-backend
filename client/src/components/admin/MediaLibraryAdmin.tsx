@@ -1,212 +1,341 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { FolderOpen, Search, Copy, ExternalLink, ImageIcon } from "lucide-react";
+import { FolderOpen, Search, Copy, ExternalLink, Trash2, Upload, ImageIcon, Plus } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
-// ─── Cabinet Drawings manifest ────────────────────────────────────────────────
-// All 29 line drawings extracted from the Capital Spec Book (V8 Digital).
-// Each entry has a human-readable label, the CDN URL, and the cabinet family.
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface MediaImage {
-  key: string;
-  label: string;
-  family: "Base" | "Wall" | "Tall" | "Vanity";
-  url: string;
-}
-
-export const CABINET_DRAWINGS: MediaImage[] = [
-  // ── Base ──
-  { key: "base_full_height_single",     label: "Base – Full Height Single Door",       family: "Base",   url: "/manus-storage/base_full_height_single_e7202551.png" },
-  { key: "base_full_height_double",     label: "Base – Full Height Double Door",       family: "Base",   url: "/manus-storage/base_full_height_double_bfc5df55.png" },
-  { key: "base_single_door_drawer",     label: "Base – Single Door / Single Drawer",   family: "Base",   url: "/manus-storage/base_single_door_drawer_e3c5fd05.png" },
-  { key: "base_double_door_drawer",     label: "Base – Double Door / Single Drawer",   family: "Base",   url: "/manus-storage/base_double_door_drawer_268dc6aa.png" },
-  { key: "base_double_door_2drawer",    label: "Base – Double Door / Double Drawer",   family: "Base",   url: "/manus-storage/base_double_door_2drawer_07ca52f7.png" },
-  { key: "base_drawer_2",               label: "Base – 2-Drawer Bank",                 family: "Base",   url: "/manus-storage/base_drawer_2_b804efb7.png" },
-  { key: "base_drawer_3",               label: "Base – 3-Drawer Bank",                 family: "Base",   url: "/manus-storage/base_drawer_3_3da24e31.png" },
-  { key: "base_sink_single",            label: "Base – Sink Base Single Door",         family: "Base",   url: "/manus-storage/base_sink_single_14b5f051.png" },
-  { key: "base_sink_double",            label: "Base – Sink Base Double Door",         family: "Base",   url: "/manus-storage/base_sink_double_c2fd33c9.png" },
-  { key: "base_farm_sink",              label: "Base – Farm Sink Base",                family: "Base",   url: "/manus-storage/base_farm_sink_7c79b7c9.png" },
-  { key: "base_blind",                  label: "Base – Blind Corner",                  family: "Base",   url: "/manus-storage/base_blind_940ac62d.png" },
-  { key: "base_corner_easy_reach",      label: "Base – Corner Easy Reach",             family: "Base",   url: "/manus-storage/base_corner_easy_reach_f3dba079.png" },
-  // ── Wall ──
-  { key: "wall_single_door_30h",        label: "Wall – Single Door 30\"H",             family: "Wall",   url: "/manus-storage/wall_single_door_30h_004734a6.png" },
-  { key: "wall_single_door_36h",        label: "Wall – Single Door 36\"H",             family: "Wall",   url: "/manus-storage/wall_single_door_36h_179304b7.png" },
-  { key: "wall_single_door_42h",        label: "Wall – Single Door 42\"H",             family: "Wall",   url: "/manus-storage/wall_single_door_42h_7beea2a0.png" },
-  { key: "wall_double_door_30h",        label: "Wall – Double Door 30\"H",             family: "Wall",   url: "/manus-storage/wall_double_door_30h_fc98e833.png" },
-  { key: "wall_double_door_36h",        label: "Wall – Double Door 36\"H",             family: "Wall",   url: "/manus-storage/wall_double_door_36h_d7a434fb.png" },
-  { key: "wall_double_door_42h",        label: "Wall – Double Door 42\"H",             family: "Wall",   url: "/manus-storage/wall_double_door_42h_68df20c4.png" },
-  { key: "wall_glass_door",             label: "Wall – Glass Door",                    family: "Wall",   url: "/manus-storage/wall_glass_door_19a09f31.png" },
-  { key: "wall_bridge",                 label: "Wall – Bridge Cabinet",                family: "Wall",   url: "/manus-storage/wall_bridge_9d83631d.png" },
-  { key: "wall_corner_diagonal",        label: "Wall – Diagonal Corner",               family: "Wall",   url: "/manus-storage/wall_corner_diagonal_348139ee.png" },
-  { key: "wall_refrigerator",           label: "Wall – Refrigerator Cabinet",          family: "Wall",   url: "/manus-storage/wall_refrigerator_7a03a889.png" },
-  // ── Tall ──
-  { key: "tall_utility_2door",          label: "Tall – Utility 2-Door",                family: "Tall",   url: "/manus-storage/tall_utility_2door_b5f37ce2.png" },
-  { key: "tall_utility_4door",          label: "Tall – Utility 4-Door",                family: "Tall",   url: "/manus-storage/tall_utility_4door_a599103f.png" },
-  { key: "tall_oven",                   label: "Tall – Oven Cabinet",                  family: "Tall",   url: "/manus-storage/tall_oven_89d1e438.png" },
-  // ── Vanity ──
-  { key: "vanity_sink_base_single",     label: "Vanity – Sink Base Single Door",       family: "Vanity", url: "/manus-storage/vanity_sink_base_single_d7409d3f.png" },
-  { key: "vanity_sink_base_double",     label: "Vanity – Sink Base Double Door",       family: "Vanity", url: "/manus-storage/vanity_sink_base_double_8cd4a6de.png" },
-  { key: "vanity_drawer",               label: "Vanity – Drawer Base",                 family: "Vanity", url: "/manus-storage/vanity_drawer_7f055e1f.png" },
-  { key: "vanity_combo",                label: "Vanity – Door & Drawer Combo",         family: "Vanity", url: "/manus-storage/vanity_combo_e8fedbf9.png" },
-];
-
-const FAMILY_COLORS: Record<MediaImage["family"], string> = {
-  Base:   "bg-blue-50 text-blue-700 border-blue-200",
-  Wall:   "bg-purple-50 text-purple-700 border-purple-200",
-  Tall:   "bg-green-50 text-green-700 border-green-200",
-  Vanity: "bg-pink-50 text-pink-700 border-pink-200",
-};
-
-// ─── Props for embedding as a picker ─────────────────────────────────────────
-interface MediaLibraryAdminProps {
-  /** When provided, renders as an inline picker; clicking an image calls onPick */
+export interface MediaPickerProps {
+  /** When provided, renders as a picker (shows "Select" button per image). */
   onPick?: (url: string) => void;
-  /** Highlight this URL as currently selected */
-  selectedUrl?: string | null;
+  /** Currently selected URL — highlighted in picker mode. */
+  selectedUrl?: string;
 }
 
-export default function MediaLibraryAdmin({ onPick, selectedUrl }: MediaLibraryAdminProps) {
-  const [search, setSearch] = useState("");
-  const [familyFilter, setFamilyFilter] = useState<MediaImage["family"] | "All">("All");
+// ─── Main Component ───────────────────────────────────────────────────────────
 
-  const families: Array<MediaImage["family"] | "All"> = ["All", "Base", "Wall", "Tall", "Vanity"];
+export default function MediaLibraryAdmin({ onPick, selectedUrl }: MediaPickerProps) {
+  const [search, setSearch]               = useState("");
+  const [activeFolder, setActiveFolder]   = useState<string | undefined>(undefined);
+  const [deleteId, setDeleteId]           = useState<number | null>(null);
+  const [uploadOpen, setUploadOpen]       = useState(false);
+  const [uploadLabel, setUploadLabel]     = useState("");
+  const [uploadFolder, setUploadFolder]   = useState("Cabinet Drawings");
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [uploadData, setUploadData]       = useState<string | null>(null);
+  const [uploadMime, setUploadMime]       = useState("image/png");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = CABINET_DRAWINGS.filter((img) => {
-    const matchesFamily = familyFilter === "All" || img.family === familyFilter;
-    const matchesSearch = !search || img.label.toLowerCase().includes(search.toLowerCase());
-    return matchesFamily && matchesSearch;
+  // ── Queries ──────────────────────────────────────────────────────────────────
+  const utils = trpc.useUtils();
+
+  const { data: foldersData } = trpc.mediaLibrary.folders.useQuery(undefined, {
+    staleTime: 30_000,
+  });
+  const folders = foldersData ?? [];
+
+  const { data, isLoading } = trpc.mediaLibrary.list.useQuery(
+    { search: search || undefined, folder: activeFolder },
+    { staleTime: 10_000 }
+  );
+  const images = data?.items ?? [];
+
+  // ── Mutations ─────────────────────────────────────────────────────────────────
+  const uploadMutation = trpc.mediaLibrary.upload.useMutation({
+    onSuccess: () => {
+      toast.success("Image uploaded successfully");
+      setUploadOpen(false);
+      setUploadLabel("");
+      setUploadPreview(null);
+      setUploadData(null);
+      utils.mediaLibrary.list.invalidate();
+      utils.mediaLibrary.folders.invalidate();
+    },
+    onError: (e) => toast.error(`Upload failed: ${e.message}`),
   });
 
-  function copyUrl(url: string) {
-    navigator.clipboard.writeText(url).then(() => toast.success("URL copied to clipboard"));
+  const deleteMutation = trpc.mediaLibrary.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Image deleted");
+      setDeleteId(null);
+      utils.mediaLibrary.list.invalidate();
+      utils.mediaLibrary.folders.invalidate();
+    },
+    onError: (e) => toast.error(`Delete failed: ${e.message}`),
+  });
+
+  // ── Handlers ──────────────────────────────────────────────────────────────────
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadMime(file.type || "image/png");
+    if (!uploadLabel) setUploadLabel(file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "));
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      setUploadPreview(result);
+      setUploadData(result);
+    };
+    reader.readAsDataURL(file);
   }
 
-  const isPicker = !!onPick;
+  function handleUploadSubmit() {
+    if (!uploadData || !uploadLabel.trim()) {
+      toast.error("Please select a file and enter a label");
+      return;
+    }
+    uploadMutation.mutate({
+      label:       uploadLabel.trim(),
+      folder:      uploadFolder.trim() || "General",
+      dataBase64:  uploadData,
+      contentType: uploadMime,
+    });
+  }
 
+  function copyUrl(url: string) {
+    navigator.clipboard.writeText(url).then(() => toast.success("URL copied"));
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {!isPicker && (
-        <div className="flex items-center gap-3">
-          <FolderOpen className="h-5 w-5 text-amber-600" />
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Media Library</h2>
-            <p className="text-sm text-muted-foreground">
-              Cabinet line drawings extracted from the Capital Spec Book V8. Use these images in cabinet descriptions and spec drawing fields.
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <FolderOpen className="h-5 w-5 text-amber-500" />
+          <h2 className="text-lg font-semibold">Media Library</h2>
+          <Badge variant="secondary">{data?.total ?? 0} images</Badge>
         </div>
-      )}
-
-      {/* Folder breadcrumb */}
-      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-        <FolderOpen className="h-4 w-4 text-amber-500" />
-        <span className="font-medium text-foreground">Cabinet Drawings</span>
-        <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{CABINET_DRAWINGS.length} images</span>
+        <Button size="sm" onClick={() => setUploadOpen(true)} className="gap-1.5">
+          <Upload className="h-4 w-4" />
+          Upload Image
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Search drawings…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 h-8 text-sm"
-          />
-        </div>
-        <div className="flex gap-1">
-          {families.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFamilyFilter(f)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                familyFilter === f
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-muted-foreground border-border hover:border-primary/50"
-              }`}
-            >
-              {f}
-            </button>
+      {/* Folder tabs */}
+      <div className="flex gap-2 flex-wrap">
+        <button
+          onClick={() => setActiveFolder(undefined)}
+          className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+            activeFolder === undefined
+              ? "bg-amber-500 text-white border-amber-500"
+              : "bg-transparent text-muted-foreground border-border hover:border-amber-400"
+          }`}
+        >
+          All
+        </button>
+        {folders.map((f) => (
+          <button
+            key={f}
+            onClick={() => setActiveFolder(f === activeFolder ? undefined : f)}
+            className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+              activeFolder === f
+                ? "bg-amber-500 text-white border-amber-500"
+                : "bg-transparent text-muted-foreground border-border hover:border-amber-400"
+            }`}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search images…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="aspect-square rounded-lg bg-muted animate-pulse" />
           ))}
         </div>
-      </div>
+      ) : images.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+          <ImageIcon className="h-12 w-12 opacity-30" />
+          <p className="text-sm">No images found</p>
+          <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Upload your first image
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {images.map((img) => {
+            const isSelected = img.url === selectedUrl;
+            return (
+              <Card
+                key={img.id}
+                className={`group relative overflow-hidden cursor-default transition-all ${
+                  isSelected ? "ring-2 ring-amber-500" : "hover:ring-1 hover:ring-amber-300"
+                }`}
+              >
+                <div className="aspect-square bg-white flex items-center justify-center p-2">
+                  <img
+                    src={img.url}
+                    alt={img.label}
+                    className="max-h-full max-w-full object-contain"
+                    loading="lazy"
+                  />
+                </div>
+                <CardContent className="p-2 space-y-1">
+                  <p className="text-xs font-medium truncate" title={img.label}>{img.label}</p>
+                  <p className="text-xs text-muted-foreground truncate">{img.folder}</p>
+                </CardContent>
 
-      {/* Image grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        {filtered.map((img) => {
-          const isSelected = selectedUrl === img.url;
-          return (
-            <div
-              key={img.key}
-              className={`group relative rounded-lg border bg-card overflow-hidden transition-all ${
-                isPicker
-                  ? "cursor-pointer hover:border-primary hover:shadow-md"
-                  : "hover:border-border/80"
-              } ${isSelected ? "border-primary ring-2 ring-primary/30" : "border-border"}`}
-              onClick={() => isPicker && onPick(img.url)}
-            >
-              {/* Image */}
-              <div className="h-28 bg-gradient-to-b from-white to-muted/20 flex items-center justify-center p-2 border-b border-border">
-                <img
-                  src={img.url}
-                  alt={img.label}
-                  className="h-full w-auto max-w-full object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                  {onPick ? (
+                    <Button
+                      size="sm"
+                      className={`w-full text-xs ${isSelected ? "bg-amber-500 hover:bg-amber-600" : ""}`}
+                      onClick={() => onPick(img.url)}
+                    >
+                      {isSelected ? "✓ Selected" : "Select"}
+                    </Button>
+                  ) : null}
+                  <div className="flex gap-1.5">
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="h-7 w-7"
+                      title="Copy URL"
+                      onClick={() => copyUrl(img.url)}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="h-7 w-7"
+                      title="Open in new tab"
+                      onClick={() => window.open(img.url, "_blank")}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="h-7 w-7"
+                      title="Delete"
+                      onClick={() => setDeleteId(img.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
                 {isSelected && (
-                  <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
-                    <div className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full font-medium">Selected</div>
+                  <div className="absolute top-1.5 right-1.5 bg-amber-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    ✓
                   </div>
                 )}
-              </div>
-
-              {/* Info */}
-              <div className="p-2 space-y-1">
-                <p className="text-xs font-medium text-foreground leading-tight line-clamp-2">{img.label}</p>
-                <span className={`inline-block text-[10px] font-medium border px-1.5 py-0.5 rounded ${FAMILY_COLORS[img.family]}`}>
-                  {img.family}
-                </span>
-              </div>
-
-              {/* Hover actions (non-picker mode) */}
-              {!isPicker && (
-                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    title="Copy URL"
-                    onClick={(e) => { e.stopPropagation(); copyUrl(img.url); }}
-                    className="p-1 rounded bg-background/90 border border-border hover:bg-muted shadow-sm"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </button>
-                  <a
-                    href={img.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Open full size"
-                    onClick={(e) => e.stopPropagation()}
-                    className="p-1 rounded bg-background/90 border border-border hover:bg-muted shadow-sm"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          <ImageIcon className="h-10 w-10 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No drawings match your search.</p>
+              </Card>
+            );
+          })}
         </div>
       )}
+
+      {/* Upload Dialog */}
+      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload Image</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* File picker */}
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-amber-400 transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadPreview ? (
+                <img src={uploadPreview} alt="preview" className="max-h-40 mx-auto object-contain rounded" />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <Upload className="h-8 w-8 opacity-40" />
+                  <p className="text-sm">Click to select an image</p>
+                  <p className="text-xs">PNG, JPG, WebP, SVG</p>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </div>
+
+            {/* Label */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Label</label>
+              <Input
+                placeholder="e.g. Base – Single Door / Drawer"
+                value={uploadLabel}
+                onChange={(e) => setUploadLabel(e.target.value)}
+              />
+            </div>
+
+            {/* Folder */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Folder</label>
+              <Input
+                placeholder="e.g. Cabinet Drawings"
+                value={uploadFolder}
+                onChange={(e) => setUploadFolder(e.target.value)}
+                list="folder-suggestions"
+              />
+              <datalist id="folder-suggestions">
+                {folders.map((f) => <option key={f} value={f} />)}
+                <option value="Cabinet Drawings" />
+                <option value="General" />
+              </datalist>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUploadOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleUploadSubmit}
+              disabled={uploadMutation.isPending || !uploadData}
+            >
+              {uploadMutation.isPending ? "Uploading…" : "Upload"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Image?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the image from the Media Library. Any cabinets currently using this image URL will lose their spec drawing.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deleteId !== null && deleteMutation.mutate({ id: deleteId })}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -1818,3 +1818,20 @@ export const bundleDeals = mysqlTable("bundle_deals", {
 });
 export type BundleDeal = typeof bundleDeals.$inferSelect;
 export type InsertBundleDeal = typeof bundleDeals.$inferInsert;
+
+// ─── Media Library ─────────────────────────────────────────────────────────────
+// Admin-managed image library. Stores CDN URLs for images uploaded via the
+// Media Library admin page. Supports folders (e.g. "Cabinet Drawings").
+export const mediaImages = mysqlTable("media_images", {
+  id:          int("id").primaryKey().autoincrement(),
+  folder:      varchar("folder", { length: 128 }).notNull().default("General"),
+  label:       varchar("label", { length: 256 }).notNull(),
+  url:         varchar("url", { length: 512 }).notNull(),
+  fileKey:     varchar("fileKey", { length: 512 }),           // S3/storage key
+  mimeType:    varchar("mimeType", { length: 64 }),
+  sizeBytes:   int("sizeBytes"),
+  uploadedBy:  int("uploadedBy"),                             // FK to users.id
+  createdAt:   timestamp("createdAt").defaultNow().notNull(),
+});
+export type MediaImageRow = typeof mediaImages.$inferSelect;
+export type InsertMediaImage = typeof mediaImages.$inferInsert;

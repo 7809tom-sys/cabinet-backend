@@ -73,7 +73,7 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
       reader.onload = async () => {
         const dataBase64 = reader.result as string;
         const { url } = await uploadMut.mutateAsync({
-          filename: file.name,
+          label: file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "),
           dataBase64,
           contentType: file.type || "image/jpeg",
         });
@@ -243,11 +243,11 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
                       className={`relative group rounded-lg overflow-hidden border-2 transition-all aspect-square bg-muted/30 hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary ${
                         isSelected ? "border-primary ring-2 ring-primary" : "border-transparent"
                       }`}
-                      title={item.filename ?? item.url}
+                      title={item.label ?? item.url}
                     >
                       <img
                         src={item.url}
-                        alt={item.filename ?? ""}
+                        alt={item.label ?? ""}
                         className="w-full h-full object-cover"
                         loading="lazy"
                         onError={(e) => {
@@ -262,7 +262,7 @@ export function MediaPicker({ value, onChange, label, placeholder, className }: 
                         </div>
                       )}
                       <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 text-[9px] text-white truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                        {item.filename ?? item.url.split("/").pop()}
+                        {item.label ?? item.url.split("/").pop()}
                       </div>
                     </button>
                   );
