@@ -1676,4 +1676,4 @@
 - [x] Catalog preview modal shows all SKUs for that style with: master code, description, width×height, cost price, retail price
 - [x] Backend: add a `styleSkuPreview` query returning paginated SKUs for a given styleId with cost + retail prices
 - [x] TypeScript check passes
-- [ ] Save checkpoint
+- [x] Save checkpoint

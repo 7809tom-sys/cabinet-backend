@@ -280,11 +280,54 @@ export const doorStylesRouter = router({
   listForAdmin: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
+    // Join distributors so the admin can see the REAL brand name (brandName) alongside
+    // the neutral white-label name. brandName is the actual supplier (e.g. "US Cabinet Depot");
+    // name is the neutral internal label (e.g. "Line A"). Admin always sees the real name.
     const rows = await db
-      .select()
+      .select({
+        id: doorStyles.id,
+        distributorId: doorStyles.distributorId,
+        styleCode: doorStyles.styleCode,
+        ourName: doorStyles.ourName,
+        aliasName: doorStyles.aliasName,
+        featuredLabel: doorStyles.featuredLabel,
+        distributorName: doorStyles.distributorName,
+        doorStyle: doorStyles.doorStyle,
+        woodSpecies: doorStyles.woodSpecies,
+        finish: doorStyles.finish,
+        color: doorStyles.color,
+        boxConstruction: doorStyles.boxConstruction,
+        drawerConstruction: doorStyles.drawerConstruction,
+        hardware: doorStyles.hardware,
+        frameSize: doorStyles.frameSize,
+        overlayType: doorStyles.overlayType,
+        doorPanelType: doorStyles.doorPanelType,
+        warehouseZip: doorStyles.warehouseZip,
+        shippingRate: doorStyles.shippingRate,
+        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+        drawerSampleImageUrl: doorStyles.drawerSampleImageUrl,
+        doorSampleVerified: doorStyles.doorSampleVerified,
+        roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+        thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+        isFeatured: doorStyles.isFeatured,
+        featuredRank: doorStyles.featuredRank,
+        railWidth: doorStyles.railWidth,
+        stileWidth: doorStyles.stileWidth,
+        centerRailWidth: doorStyles.centerRailWidth,
+        profileNotes: doorStyles.profileNotes,
+        profileDescription: doorStyles.profileDescription,
+        cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
+        isBuilderGrade: doorStyles.isBuilderGrade,
+        isActive: doorStyles.isActive,
+        createdAt: doorStyles.createdAt,
+        // Real supplier name — admin-only, never exposed to public
+        supplierBrandName: distributors.brandName,
+        supplierName: distributors.name,
+      })
       .from(doorStyles)
+      .leftJoin(distributors, eq(doorStyles.distributorId, distributors.id))
       .orderBy(asc(doorStyles.ourName));
-    return rows; // admin sees ALL rows (incl. inactive + distributorName) intentionally
+    return rows; // admin sees ALL rows (incl. inactive + real supplier names) intentionally
   }),
 
   // Admin: toggle a style's featured state. Enforces the MAX 30 cap on enable.

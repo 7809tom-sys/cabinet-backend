@@ -46,7 +46,9 @@ interface AdminStyle {
   isFeatured: boolean;
   featuredRank: number;
   distributorId: number;
-  distributorName: string | null;
+  distributorName: string | null;  // distributor's own name for this style (e.g. "Aspen White")
+  supplierBrandName?: string | null; // real supplier brand (e.g. "US Cabinet Depot") — admin only
+  supplierName?: string | null;      // neutral internal label (e.g. "Line A") — admin only
   railWidth: string | null;
   stileWidth: string | null;
   centerRailWidth: string | null;
@@ -95,10 +97,15 @@ function CatalogPreviewModal({
             Catalog Preview — {style.ourName}
           </DialogTitle>
           <div className="flex items-center gap-3 mt-2 flex-wrap">
-            {style.distributorName && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            {(style.supplierBrandName || style.supplierName) && (
+              <span className="flex items-center gap-1 text-xs font-medium text-amber-700">
                 <Building2 className="h-3.5 w-3.5" />
-                {style.distributorName}
+                {style.supplierBrandName || style.supplierName}
+              </span>
+            )}
+            {style.distributorName && (
+              <span className="text-xs text-muted-foreground">
+                ({style.distributorName})
               </span>
             )}
             <Badge variant="outline" className="text-xs">
@@ -1149,9 +1156,9 @@ export default function FeaturedStylesAdmin() {
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                    {s.distributorName && (
-                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-primary/70 shrink-0">
-                        <Building2 className="h-2.5 w-2.5" />{s.distributorName}
+                    {(s.supplierBrandName || s.supplierName) && (
+                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-700 shrink-0">
+                        <Building2 className="h-2.5 w-2.5" />{s.supplierBrandName || s.supplierName}
                       </span>
                     )}
                     {[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}
@@ -1278,9 +1285,9 @@ export default function FeaturedStylesAdmin() {
                 >
                   <p className="font-medium text-sm truncate">{s.ourName}</p>
                   <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                    {s.distributorName && (
-                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-primary/70 shrink-0">
-                        <Building2 className="h-2.5 w-2.5" />{s.distributorName}
+                    {(s.supplierBrandName || s.supplierName) && (
+                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-700 shrink-0">
+                        <Building2 className="h-2.5 w-2.5" />{s.supplierBrandName || s.supplierName}
                       </span>
                     )}
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
@@ -1361,9 +1368,9 @@ export default function FeaturedStylesAdmin() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate line-through text-muted-foreground">{s.ourName}</p>
                   <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                    {s.distributorName && (
-                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-primary/70 shrink-0">
-                        <Building2 className="h-2.5 w-2.5" />{s.distributorName}
+                    {(s.supplierBrandName || s.supplierName) && (
+                      <span className="flex items-center gap-0.5 text-[10px] font-medium text-amber-700 shrink-0">
+                        <Building2 className="h-2.5 w-2.5" />{s.supplierBrandName || s.supplierName}
                       </span>
                     )}
                     {[s.doorStyle, s.color].filter(Boolean).join(" · ")}
