@@ -1924,8 +1924,8 @@ function StyleCategoryNav({
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
 
-  // Categories to show as pills
-  const categories = ["Base", "Wall", "Tall", "Vanity", "Filler", "Molding", "Accessory"];
+  // Categories to show as pills — loaded from DB with fallback
+  const { categoryNames: categories } = useDynamicCategories();
 
   return (
     <div className="mb-4">

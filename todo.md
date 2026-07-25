@@ -1736,3 +1736,11 @@
 - [ ] Register /price-shop-10x10 route in App.tsx
 - [ ] TypeScript check passes
 - [ ] Save checkpoint
+
+## Unify cabinet categories (DB single source of truth)
+- [x] CabinetDetail.tsx StyleCategoryNav filter pills: replaced hardcoded array with useDynamicCategories() hook
+- [x] CabinetConfigAdmin.tsx category dropdown: replaced hardcoded SelectItems with dynamic categoryOptions from trpc.cabinetCategories.list
+- [x] CabinetConfigAdmin.tsx sub-category dropdown: replaced hardcoded SelectItems with dynamic subCategoryOptions (filtered by selected category)
+- [x] Catalog.tsx CategoryLanding: added "Browse by Cabinet Type" section driven by trpc.cabinetCategories.list with tileFor() image/blurb fallback
+- [x] TypeScript check passes
+- [x] Save checkpoint

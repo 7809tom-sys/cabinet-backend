@@ -730,10 +730,34 @@ function EditModal({
   // Fetch distributors that carry this cabinet (via SKUs)
   const { data: distributorsList } = trpc.distributors.list.useQuery();
 
+  // Fetch categories from DB — single source of truth
+  const { data: dbCategories } = trpc.cabinetCategories.list.useQuery();
+  const FALLBACK_CATS = ["Base","Wall","Tall","Vanity","ADA","Corner","Accessory","Specialty","Filler"];
+  const categoryOptions: string[] = dbCategories && dbCategories.length > 0
+    ? dbCategories.map((c) => c.name)
+    : FALLBACK_CATS;
+
   const merged: CabinetRow = { ...row, ...draft };
 
   const set = (field: keyof CabinetRow, value: unknown) =>
     setDraft((d) => ({ ...d, [field]: value }));
+
+  // Sub-category options depend on the currently selected category
+  const subCategoryOptions: string[] = useMemo(() => {
+    const currentCategory = merged.category ?? null;
+    if (!dbCategories || dbCategories.length === 0) {
+      const fallback: Record<string, string[]> = {
+        Base: ["Sink Base","Drawer Base","Corner Base","Blind Corner","Lazy Susan","Oven Base","Range Base"],
+        Wall: ["Microwave","Open Shelf","Glass Door"],
+        Tall: ["Pantry","Utility","Refrigerator"],
+        Filler: ["Filler Panel","Decorative End Panel","Scribe Moulding"],
+        Accessory: ["Roll-Out Tray","Trim & Molding"],
+      };
+      return currentCategory ? (fallback[currentCategory] ?? []) : [];
+    }
+    const cat = dbCategories.find((c) => c.name === currentCategory);
+    return cat ? cat.subCategories.map((s) => s.name) : [];
+  }, [dbCategories, merged.category]);
 
   const updateMutation = trpc.cabinets.adminUpdateCabinet.useMutation({
     onSuccess: () => {
@@ -957,15 +981,9 @@ function EditModal({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— not set —</SelectItem>
-                    <SelectItem value="Base">Base</SelectItem>
-                    <SelectItem value="Wall">Wall</SelectItem>
-                    <SelectItem value="Tall">Tall</SelectItem>
-                    <SelectItem value="Vanity">Vanity</SelectItem>
-                    <SelectItem value="ADA">ADA</SelectItem>
-                    <SelectItem value="Corner">Corner</SelectItem>
-                    <SelectItem value="Accessory">Accessory</SelectItem>
-                    <SelectItem value="Specialty">Specialty</SelectItem>
-                    <SelectItem value="Filler">Filler</SelectItem>
+                    {categoryOptions.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -981,23 +999,12 @@ function EditModal({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">— none —</SelectItem>
-                    <SelectItem value="Sink Base">Sink Base</SelectItem>
-                    <SelectItem value="Drawer Base">Drawer Base</SelectItem>
-                    <SelectItem value="Corner Base">Corner Base</SelectItem>
-                    <SelectItem value="Blind Corner">Blind Corner</SelectItem>
-                    <SelectItem value="Lazy Susan">Lazy Susan</SelectItem>
-                    <SelectItem value="Oven Base">Oven Base</SelectItem>
-                    <SelectItem value="Range Base">Range Base</SelectItem>
-                    <SelectItem value="Microwave">Microwave</SelectItem>
-                    <SelectItem value="Refrigerator">Refrigerator</SelectItem>
-                    <SelectItem value="Pantry">Pantry</SelectItem>
-                    <SelectItem value="Utility">Utility</SelectItem>
-                    <SelectItem value="Open Shelf">Open Shelf</SelectItem>
-                    <SelectItem value="Glass Door">Glass Door</SelectItem>
-                    <SelectItem value="Decorative End Panel">Decorative End Panel</SelectItem>
-                    <SelectItem value="Roll-Out Tray">Roll-Out Tray</SelectItem>
-                    <SelectItem value="Trim &amp; Molding">Trim &amp; Molding</SelectItem>
-                    <SelectItem value="Filler Panel">Filler Panel</SelectItem>
+                    {subCategoryOptions.map((sub) => (
+                      <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                    ))}
+                    {subCategoryOptions.length === 0 && merged.subCategory && (
+                      <SelectItem value={merged.subCategory}>{merged.subCategory}</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

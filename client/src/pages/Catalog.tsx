@@ -166,11 +166,19 @@ function CabinetCard({ cabinet, styleId, distributorLabel }: { cabinet: CabinetI
 
 function CategoryLanding({
   onSearch,
+  onCategory,
 }: {
   onSearch: (term: string) => void;
+  onCategory?: (cat: string) => void;
 }) {
   const { t } = useLanguage();
   const [term, setTerm] = useState("");
+
+  // Pull cabinet categories from DB — single source of truth
+  const { data: dbCategories } = trpc.cabinetCategories.list.useQuery();
+  const categoryNames: string[] = dbCategories && dbCategories.length > 0
+    ? dbCategories.map((c) => c.name)
+    : Object.keys(CATEGORY_TILES);
 
   // Pull real door styles so the "Shop by Door Style" tiles each link into that
   // family's full catalog (/family/:styleCode), not a generic list page.
@@ -289,6 +297,44 @@ function CategoryLanding({
           </Link>
         ))}
       </div>
+
+      {/* Browse by Cabinet Type — driven by DB categories */}
+      {onCategory && categoryNames.length > 0 && (
+        <div className="mt-10">
+          <h2 className="font-serif text-2xl font-bold text-foreground mb-1">
+            Browse by Cabinet Type
+          </h2>
+          <p className="text-muted-foreground text-sm mb-6">
+            Filter the full catalog by cabinet type to find exactly what you need.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {categoryNames.map((cat) => {
+              const tile = tileFor(cat);
+              return (
+                <button
+                  key={cat}
+                  onClick={() => onCategory(cat)}
+                  className="group relative h-36 overflow-hidden rounded-xl border border-border text-left transition-transform duration-200 hover:-translate-y-0.5"
+                >
+                  <img
+                    src={tile.image}
+                    alt={`${cat} cabinets`}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-serif text-base font-bold text-white">{cat}</span>
+                      <ChevronRight className="h-4 w-4 text-white/80 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                    <p className="text-white/75 text-[11px] mt-0.5 line-clamp-1">{tile.blurb}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -598,7 +644,7 @@ export default function Catalog() {
           onSearchChange={setSearch}
         />
       ) : (
-        <CategoryLanding onSearch={goToSearch} />
+        <CategoryLanding onSearch={goToSearch} onCategory={goToCategory} />
       )}
     </div>
   );
