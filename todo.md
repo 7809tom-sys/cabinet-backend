@@ -1823,3 +1823,10 @@
 - [x] Photo is now applied only inside individual door/drawer panel areas (SingleDoorPanel, RecessedPanel) where it belongs
 - [x] TypeScript: 0 errors
 - [x] Save checkpoint
+
+## Feature: Remove white background from door sample photos in elevation view
+- [x] Apply CSS mix-blend-mode: multiply to door sample photo panels so white background disappears
+- [x] Ensure this applies to SingleDoorPanel, RecessedPanel, StylePanel, and shaker photo mode
+- [x] Also applied to IslandElevationView
+- [x] TypeScript check passes
+- [x] Save checkpoint

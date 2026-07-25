@@ -49,7 +49,7 @@ function RecessedPanel({
           ? `0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 ${edge}55, inset 0 1px 2px rgba(0,0,0,0.18)`
           : `inset 0 2px 4px rgba(0,0,0,0.24), 0 0 0 0.5px ${edge}66`,
         ...(doorSampleUrl
-          ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+          ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center", mixBlendMode: "multiply" as const }
           : {}),
       }}
     />
@@ -77,7 +77,7 @@ function DoorFront({
         <div
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
-            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center", mixBlendMode: "multiply" as const } : {}),
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 3px rgba(0,0,0,0.14), 0 0 0 1px ${edge}44`,
           }}
         />
@@ -107,7 +107,7 @@ function DoorFront({
             style={{
               boxShadow: `inset 0 2px 4px rgba(0,0,0,0.24), 0 0 0 0.5px ${edge}66`,
               ...(doorSampleUrl
-                ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+                ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: "center", mixBlendMode: "multiply" as const }
                 : { backgroundImage: `repeating-linear-gradient(90deg, color-mix(in srgb, ${face} 90%, #000) 0px, color-mix(in srgb, ${face} 90%, #000) 2px, color-mix(in srgb, ${face} 78%, #000) 2.5px, color-mix(in srgb, ${face} 90%, #000) 3px, color-mix(in srgb, ${face} 90%, #000) 4px)` }),
             }}
           />

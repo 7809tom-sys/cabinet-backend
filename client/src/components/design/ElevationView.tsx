@@ -1726,7 +1726,7 @@ function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, drawerSam
   if (drawer) {
     // Apply the photo (drawer sample preferred, door sample as fallback) when available.
     const photoStyle: React.CSSProperties = effectiveDoorUrl
-      ? { backgroundImage: `url(${effectiveDoorUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+      ? { backgroundImage: `url(${effectiveDoorUrl})`, backgroundSize: "cover", backgroundPosition: "center", mixBlendMode: "multiply" as const }
       : {};
     if (kind === "slab") {
       return (
@@ -2525,7 +2525,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl, isWal
   // the image so only the door panel portion is visible.
   const samplePos = isWall ? "center 80%" : "center";
   const panelBg = doorSampleUrl
-    ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: samplePos }
+    ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: samplePos, mixBlendMode: "multiply" as const }
     : { background: `linear-gradient(180deg, color-mix(in srgb, ${face} 78%, #000) 0%, color-mix(in srgb, ${face} 88%, #000) 45%, color-mix(in srgb, ${face} 96%, #000) 100%)` };
   return (
     <div
@@ -2549,7 +2549,7 @@ function RecessedPanel({ inset, face, edge, raised = false, doorSampleUrl, isWal
             // darker at bottom. Strong bevel shadow on all 4 edges makes it
             // read as a real raised wood panel.
             background: doorSampleUrl ? undefined : `linear-gradient(180deg, color-mix(in srgb, ${face} 96%, #fff) 0%, color-mix(in srgb, ${face} 98%, #fff) 35%, ${face} 65%, color-mix(in srgb, ${face} 92%, #000) 100%)`,
-            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const } : {}),
+            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover" as const, backgroundPosition: "center" as const, mixBlendMode: "multiply" as const } : {}),
             boxShadow: `0 2px 4px rgba(0,0,0,0.32), inset 1.5px 1.5px 0 rgba(255,255,255,0.40), inset -1.5px -1.5px 2px rgba(0,0,0,0.24)`,
           }}
         />
@@ -2582,7 +2582,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
         <div
           className="absolute inset-[1.5px] rounded-[2px]"
           style={{
-            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: isWall ? "center 80%" : "center" } : {}),
+            ...(doorSampleUrl ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: isWall ? "center 80%" : "center", mixBlendMode: "multiply" as const } : {}),
             boxShadow: `inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 3px rgba(0,0,0,0.14), 0 0 0 1px ${edge}44`,
           }}
         />
@@ -2612,7 +2612,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
             style={{
               boxShadow: `inset 0 2px 4px rgba(0,0,0,0.24), 0 0 0 0.5px ${edge}66`,
               ...(doorSampleUrl
-                ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: isWall ? "center 80%" : "center" }
+                ? { backgroundImage: `url(${doorSampleUrl})`, backgroundSize: "cover", backgroundPosition: isWall ? "center 80%" : "center", mixBlendMode: "multiply" as const }
                 : { backgroundImage: `repeating-linear-gradient(90deg, color-mix(in srgb, ${face} 90%, #000) 0px, color-mix(in srgb, ${face} 90%, #000) 2px, color-mix(in srgb, ${face} 78%, #000) 2.5px, color-mix(in srgb, ${face} 90%, #000) 3px, color-mix(in srgb, ${face} 90%, #000) 4px)` }),
             }}
           />
@@ -2647,6 +2647,7 @@ function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWall }: { 
               backgroundImage: `url(${doorSampleUrl})`,
               backgroundSize: "cover",
               backgroundPosition: samplePos,
+              mixBlendMode: "multiply" as const,
               // Outer bevel to simulate the face-frame edge
               boxShadow: `inset 2px 2px 0 rgba(255,255,255,0.22), inset -2px -2px 2px rgba(0,0,0,0.20)`,
             }}
